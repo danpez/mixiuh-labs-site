@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOITA-CORE // Motor de Autómatas Celulares y Química Emergente [Falling Sand]</title>
+  <style>
+    :root {
+      --bg-void: #05070c;
+      --panel-bg: rgba(9, 13, 22, 0.88);
+      --panel-bg-strong: rgba(6, 9, 16, 0.95);
+      --cyan: #00f0ff;
+      --cyan-border: rgba(0, 240, 255, 0.25);
+      --emerald: #00ff9d;
+      --amber: #ffbe0b;
+      --crimson: #ff2a6d;
+      --violet: #b537f2;
+      --text-main: #eaf4ff;
+      --text-dim: #829ab5;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background-color: var(--bg-void); color: var(--text-main); font-family: var(--font-sans);
+    }
+
+    /* Contenedor del lienzo físico y capa de resplandor térmico (Bloom) */
+    #stage-wrap {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 50%, #0b1120 0%, #04060b 100%);
+      z-index: 1;
+    }
+
+    #sim-viewport {
+      position: relative;
+      box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.3), 0 18px 55px rgba(0, 0, 0, 0.85);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #060911;
+    }
+
+    #sand-canvas, #glow-canvas, #ui-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    #sand-canvas {
+      z-index: 1;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #glow-canvas {
+      z-index: 2;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.82;
+      filter: blur(8px);
+    }
+
+    #ui-canvas {
+      z-index: 3;
+      cursor: none;
+    }
+
+    /* Cabecera Superior */
+    .top-bar {
+      position: fixed; top: 10px; left: 14px; right: 14px; z-index: 10;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none;
+    }
+
+    .hud-banner {
+      pointer-events: auto; background: var(--panel-bg);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-left: 4px solid var(--cyan);
+      border-radius: 6px; padding: 8px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
+    }
+
+    .hud-banner.amber-box {
+      border-left-color: var(--amber); border-color: rgba(255, 190, 11, 0.35);
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .hud-title {
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      letter-spacing: 1.5px; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px; text-transform: uppercase;
+    }
+
+    .led {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); box-shadow: 0 0 10px var(--emerald);
+      animation: pulseLed 1.5s infinite ease-in-out;
+    }
+    @keyframes pulseLed {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.45; }
+    }
+
+    .hud-sub { font-family: var(--font-mono); font-size: 9.8px; color: var(--text-dim); margin-top: 2px; }
+
+    /* Paneles Laterales */
+    .left-dock, .right-dock {
+      position: fixed; top: 70px; z-index: 10;
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: calc(100vh - 116px); overflow-y: auto; scrollbar-width: thin;
+    }
+    .left-dock { left: 14px; width: 310px; }
+    .right-dock { right: 14px; width: 318px; }
+
+    .card {
+      background: var(--panel-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px;
+      padding: 9px 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+    }
+
+    .card-header {
+      font-family: var(--font-mono); font-size: 9.8px; font-weight: 700;
+      letter-spacing: 1.2px; color: var(--cyan); text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+      padding-bottom: 5px; margin-bottom: 7px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .badge {
+      font-size: 8.8px; padding: 2px 6px; border-radius: 3px;
+      background: rgba(0, 240, 255, 0.14); border: 1px solid rgba(0, 240, 255, 0.35); color: #96f9ff;
+    }
+    .badge.emerald { background: rgba(0, 255, 157, 0.14); border-color: rgba(0, 255, 157, 0.4); color: var(--emerald); }
+    .badge.amber { background: rgba(255, 190, 11, 0.15); border-color: rgba(255, 190, 11, 0.45); color: var(--amber); }
+    .badge.crimson { background: rgba(255, 42, 109, 0.16); border-color: rgba(255, 42, 109, 0.45); color: #ff94b8; }
+
+    /* Paleta de Elementos Químicos y Físicos */
+    .elem-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+    }
+
+    .elem-btn {
+      appearance: none; background: rgba(14, 21, 36, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.22); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 10px;
+      padding: 6px 7px; border-radius: 4px; cursor: pointer;
+      transition: all 0.14s ease; display: flex; align-items: center;
+      justify-content: space-between; gap: 5px; text-align: left;
+    }
+    .elem-btn:hover {
+      background: rgba(0, 240, 255, 0.15); border-color: var(--cyan);
+      transform: translateY(-1px);
+    }
+    .elem-btn.active {
+      background: rgba(0, 240, 255, 0.24); border-color: #ffffff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35), inset 0 0 8px rgba(0, 240, 255, 0.25);
+      color: #ffffff; font-weight: 700;
+    }
+
+    .elem-left { display: flex; align-items: center; gap: 6px; }
+    .swatch {
+      width: 11px; height: 11px; border-radius: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.35); flex-shrink: 0;
+    }
+    .elem-cat {
+      font-size: 8px; padding: 1px 4px; border-radius: 2px;
+      background: rgba(255, 255, 255, 0.08); color: var(--text-dim);
+    }
+
+    /* Botones de Herramientas y Simulación */
+    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+
+    .sim-btn {
+      appearance: none; background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.28); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 9.8px; padding: 6.5px 7px;
+      border-radius: 4px; cursor: pointer; transition: all 0.14s ease;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .sim-btn:hover {
+      background: rgba(0, 240, 255, 0.2); border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.22);
+    }
+    .sim-btn.active {
+      background: rgba(0, 240, 255, 0.26); border-color: var(--cyan); color: #fff;
+      box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.3);
+    }
+    .sim-btn.emerald { background: rgba(0, 255, 157, 0.12); border-color: rgba(0, 255, 157, 0.4); color: #a8ffdb; }
+    .sim-btn.emerald:hover, .sim-btn.emerald.active { background: rgba(0, 255, 157, 0.26); border-color: var(--emerald); color: #fff; }
+    .sim-btn.amber { background: rgba(255, 190, 11, 0.12); border-color: rgba(255, 190, 11, 0.42); color: #ffe28a; }
+    .sim-btn.amber:hover, .sim-btn.amber.active { background: rgba(255, 190, 11, 0.28); border-color: var(--amber); color: #fff; }
+    .sim-btn.crimson { background: rgba(255, 42, 109, 0.12); border-color: rgba(255, 42, 109, 0.42); color: #ff9ebb; }
+    .sim-btn.crimson:hover, .sim-btn.crimson.active { background: rgba(255, 42, 109, 0.28); border-color: var(--crimson); color: #fff; }
+
+    /* Sliders */
+    .slider-row { margin-bottom: 6px; }
+    .slider-row:last-child { margin-bottom: 0; }
+    .slider-lbl {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 9.8px; color: var(--text-dim); margin-bottom: 2px;
+    }
+    .slider-lbl strong { color: var(--cyan); }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+      background: rgba(0, 240, 255, 0.16); border-radius: 3px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--cyan); border: 2px solid #020814;
+      box-shadow: 0 0 8px var(--cyan); cursor: pointer;
+    }
+
+    /* Telemetría */
+    .telemetry-grid {
+      display: grid; grid-template-columns: 1fr auto;
+      row-gap: 4px; column-gap: 8px; font-family: var(--font-mono); font-size: 10px;
+    }
+    .t-lbl { color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
+    .t-val { color: var(--text-main); font-weight: 600; text-align: right; }
+    .t-val.cyan { color: var(--cyan); }
+    .t-val.emerald { color: var(--emerald); }
+    .t-val.amber { color: var(--amber); }
+    .t-val.crimson { color: var(--crimson); }
+
+    .mini-dot { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+
+    /* Barra inferior */
+    .bottom-bar {
+      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 10;
+      background: var(--panel-bg-strong); backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px; padding: 6px 14px;
+      font-family: var(--font-mono); font-size: 9.8px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 14px; pointer-events: auto;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.8); white-space: nowrap;
+    }
+    .bottom-bar strong { color: var(--cyan); }
+
+    @media (max-width: 1150px) {
+      .left-dock, .right-dock { width: 255px; }
+      .bottom-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage-wrap">
+    <div id="sim-viewport">
+      <canvas id="sand-canvas"></canvas>
+      <canvas id="glow-canvas"></canvas>
+      <canvas id="ui-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Cabecera Superior -->
+  <header class="top-bar">
+    <div class="hud-banner">
+      <div class="hud-title">
+        <span class="led"></span>
+        <span>NOITA-CORE // MOTOR DE AUTÓMATAS CELULARES Y QUÍMICA EMERGENTE</span>
+      </div>
+      <div class="hud-sub">
+        BUFFER UINT32 DIRECTO • HIDRODINÁMICA POR DENSIDAD (ρ) • BARRIDO ESTOCÁSTICO SIN SESGO • TRAZO BRESENHAM • BLOOM TÉRMICO
+      </div>
+    </div>
+
+    <div class="hud-banner amber-box">
+      <div>
+        <div class="hud-title" style="color: var(--amber); font-size: 11px;">
+          ELEMENTO ACTIVO: <span id="hud-active-element" style="color: #fff;">ARENA (POLVO • ρ = 30)</span>
+        </div>
+        <div class="hud-sub">
+          Clic Izq: Pintar / Aplicar Herramienta • Clic Der: Borrador Rápido • Rueda: Radio del Pincel
+        </div>
+      </div>
+      <button class="sim-btn emerald" id="btn-terrarium" style="padding: 7px 11px; font-weight: 700;">
+        🧪 ESCENARIO NOITA [T]
+      </button>
+    </div>
+  </header>
+
+  <!-- Panel Izquierdo: Paleta de Elementos y Herramientas Físicas -->
+  <aside class="left-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>PALETA DE MATERIA Y ENERGÍA</span>
+        <span class="badge">12 ELEMENTOS</span>
+      </div>
+      <div class="elem-grid" id="element-palette">
+        <button class="elem-btn active" data-elem="SAND" title="Arena Sílice: Sólido granular (ρ=30). Se hunde en agua y aceite formando pirámides.">
+          <span class="elem-left"><span class="swatch" style="background:#ebbf57;"></span>Arena</span>
+          <span class="elem-cat">POLVO</span>
+        </button>
+        <button class="elem-btn" data-elem="WATER" title="Agua Pura: Líquido (ρ=20). Alta dispersión lateral, apaga el fuego y solidifica la lava.">
+          <span class="elem-left"><span class="swatch" style="background:#2498ff;"></span>Agua</span>
+          <span class="elem-cat">LÍQ</span>
+        </button>
+        <button class="elem-btn" data-elem="STONE" title="Piedra Tallada: Sólido estructural inmune a la gravedad (ρ=∞). Resiste el fuego.">
+          <span class="elem-left"><span class="swatch" style="background:#7d8796;"></span>Piedra</span>
+          <span class="elem-cat">SÓLIDO</span>
+        </button>
+        <button class="elem-btn" data-elem="WOOD" title="Madera Seca: Sólido estructural inflamable (ρ=∞). Arde en brasas al contacto ígneo.">
+          <span class="elem-left"><span class="swatch" style="background:#8f5832;"></span>Madera</span>
+          <span class="elem-cat">SÓLIDO</span>
+        </button>
+        <button class="elem-btn" data-elem="OIL" title="Aceite Ligero: Líquido inflamable (ρ=10). Flota siempre sobre el agua y arde con violencia.">
+          <span class="elem-left"><span class="swatch" style="background:#b87d2e;"></span>Aceite</span>
+          <span class="elem-cat">LÍQ</span>
+        </button>
+        <button class="elem-btn" data-elem="FIRE" title="Fuego / Plasma: Energía térmica ascendente. Quema inflamables y evapora el agua.">
+          <span class="elem-left"><span class="swatch" style="background:#ff6a00;"></span>Fuego</span>
+          <span class="elem-cat">ENERGÍA</span>
+        </button>
+        <button class="elem-btn" data-elem="LAVA" title="Lava Volcánica: Magma denso incandescente (ρ=45). Funde materiales y crea obsidiana con agua.">
+          <span class="elem-left"><span class="swatch" style="background:#ff3300;"></span>Lava</span>
+          <span class="elem-cat">MAGMA</span>
+        </button>
+        <button class="elem-btn" data-elem="ACID" title="Ácido Sulfúrico: Líquido reactivo (ρ=18). Corroe piedra, arena y madera emitiendo vapor tóxico.">
+          <span class="elem-left"><span class="swatch" style="background:#26ff4a;"></span>Ácido</span>
+          <span class="elem-cat">ÁCIDO</span>
+        </button>
+        <button class="elem-btn" data-elem="GUNPOWDER" title="Pólvora Negra: Polvo granular explosivo (ρ=32). Detona en cadena al contacto con fuego.">
+          <span class="elem-left"><span class="swatch" style="background:#57515e;"></span>Pólvora</span>
+          <span class="elem-cat">POLVO</span>
+        </button>
+        <button class="elem-btn" data-elem="PLANT" title="Planta / Musgo Vivo: Sólido orgánico que bebe agua adyacente para crecer y es inflamable.">
+          <span class="elem-left"><span class="swatch" style="background:#26d962;"></span>Planta</span>
+          <span class="elem-cat">BIO</span>
+        </button>
+        <button class="elem-btn" data-elem="STEAM" title="Vapor de Agua: Gas ascendente (ρ=-12). Atraviesa líquidos hacia arriba y se condensa en agua.">
+          <span class="elem-left"><span class="swatch" style="background:#bde0fe;"></span>Vapor</span>
+          <span class="elem-cat">GAS</span>
+        </button>
+        <button class="elem-btn" data-elem="SMOKE" title="Humo Denso: Gas turbulento ascendente (ρ=-8) producto de la combustión.">
+          <span class="elem-left"><span class="swatch" style="background:#6c7585;"></span>Humo</span>
+          <span class="elem-cat">GAS</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>HERRAMIENTAS FÍSICAS ESPECIALES</span>
+        <span class="badge amber">INTERACCIÓN</span>
+      </div>
+      <div class="btn-grid-2" style="margin-bottom: 6px;">
+        <button class="sim-btn active" id="tool-brush" title="Pincel con interpolación de línea de Bresenham">
+          🖌️ PINCEL MATERIA
+        </button>
+        <button class="sim-btn" id="tool-eraser" title="Borrador de celdas y emisores (también con Clic Derecho)">
+          🧹 BORRADOR [E]
+        </button>
+        <button class="sim-btn crimson" id="tool-bomb" title="Detonar onda expansiva que lanza píxeles con velocidad balística [B]">
+          💣 BOMBA FÍSICA [B]
+        </button>
+        <button class="sim-btn amber" id="tool-spawner" title="Colocar Grifo / Emisor continuo del elemento seleccionado [F]">
+          🚰 GRIFO EMISOR [F]
+        </button>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Radio del Pincel (Rueda del Mouse)</span>
+          <strong id="lbl-brush-radius">7 px</strong>
+        </div>
+        <input type="range" id="slider-brush-radius" min="1" max="28" step="1" value="7" />
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 6px;">
+        <button class="sim-btn active" id="toggle-spray" title="Alternar rocío disperso (Spray) para polvos/líquidos vs. trazo macizo">
+          ✨ ROCÍO SPRAY: AUTO
+        </button>
+        <button class="sim-btn active" id="toggle-glow" title="Alternar post-procesado de resplandor térmico (Bloom)">
+          🔥 BLOOM TÉRMICO
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>CONTROL DE TIEMPO Y GRAVEDAD</span>
+        <span class="badge emerald" id="badge-sim-state">EN VIVO</span>
+      </div>
+      <div class="btn-grid-3" style="margin-bottom: 5px;">
+        <button class="sim-btn emerald" id="btn-pause" title="Pausar o reanudar la simulación [Espacio]">
+          ⏸️ PAUSA
+        </button>
+        <button class="sim-btn" id="btn-step" title="Avanzar exactamente 1 tick físico [S]">
+          ⏭️ 1 FRAME
+        </button>
+        <button class="sim-btn crimson" id="btn-clear" title="Vaciar todo el lienzo y eliminar grifos [C]">
+          🗑️ LIMPIAR
+        </button>
+      </div>
+      <div class="btn-grid-2">
+        <button class="sim-btn amber" id="btn-gravity" title="Invertir vector gravitacional (g = +1 / g = -1) [G]">
+          ⬇️ GRAVEDAD: NORMAL
+        </button>
+        <button class="sim-btn" id="btn-clear-spawners" title="Eliminar todos los grifos/emisores activos">
+          🚫 BORRAR GRIFOS (0)
+        </button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Panel Derecho: Telemetría Científica y Desglose de Materia -->
+  <aside class="right-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA DE MOTOR CELULAR</span>
+        <span class="badge emerald" id="fps-badge">60 FPS</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-lbl">Resolución Cuadrícula:</span>
+        <span class="t-val cyan" id="val-resolution">340 × 210 (71,400)</span>
+
+        <span class="t-lbl">Tiempo Cómputo Tick Físico:</span>
+        <span class="t-val emerald" id="val-tick-ms">0.00 ms</span>
+
+        <span class="t-lbl">Total Píxeles Activos:</span>
+        <span class="t-val amber" id="val-total-active">0</span>
+
+        <span class="t-lbl">Proyectiles Balísticos Vuelo:</span>
+        <span class="t-val crimson" id="val-projectiles">0</span>
+
+        <span class="t-lbl">Grifos / Emisores Activos:</span>
+        <span class="t-val cyan" id="val-spawners">0</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>CENSO DE MATERIA POR ELEMENTO</span>
+        <span class="badge">TIEMPO REAL</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-lbl"><span class="mini-dot" style="background:#ebbf57;"></span>Arena (ρ = 30):</span>
+        <span class="t-val" id="cnt-sand">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#2498ff;"></span>Agua (ρ = 20):</span>
+        <span class="t-val" id="cnt-water">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#7d8796;"></span>Piedra / Obsidiana (ρ = ∞):</span>
+        <span class="t-val" id="cnt-stone">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#8f5832;"></span>Madera / Planta (Inflam.):</span>
+        <span class="t-val" id="cnt-bio">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#b87d2e;"></span>Aceite (ρ = 10):</span>
+        <span class="t-val" id="cnt-oil">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#ff6a00;"></span>Fuego / Brasas / Pólvora:</span>
+        <span class="t-val" id="cnt-fire">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#ff3300;"></span>Lava Magmática (ρ = 45):</span>
+        <span class="t-val" id="cnt-lava">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#26ff4a;"></span>Ácido Corrosivo (ρ = 18):</span>
+        <span class="t-val" id="cnt-acid">0</span>
+
+        <span class="t-lbl"><span class="mini-dot" style="background:#bde0fe;"></span>Vapor / Humo (ρ &lt; 0):</span>
+        <span class="t-val" id="cnt-gas">0</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>REACCIONES QUÍMICAS EMERGENTES</span>
+        <span class="badge crimson">NOITA LAB</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 9.4px; line-height: 1.48; color: #9fc2e2;">
+        <div>• <strong>Densidad:</strong> Arena (30) &gt; Agua (20) &gt; Ácido (18) &gt; Aceite (10)</div>
+        <div>• <strong>Lava + Agua</strong> → Obsidiana + Vapor térmico ascendente</div>
+        <div>• <strong>Ácido + Piedra/Arena/Madera</strong> → Corrosión + Humo tóxico</div>
+        <div>• <strong>Planta + Agua</strong> → Crecimiento orgánico de biomasa</div>
+        <div>• <strong>Fuego + Aceite/Pólvora</strong> → Deflagración y onda térmica</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Pie de página con atajos -->
+  <footer class="bottom-bar">
+    <span><strong>[CLIC IZQ]</strong> Pintar Bresenham</span>
+    <span><strong>[CLIC DER]</strong> Borrador</span>
+    <span><strong>[RUEDA]</strong> Tamaño Pincel</span>
+    <span><strong>[B]</strong> Bomba</span>
+    <span><strong>[F]</strong> Grifo Emisor</span>
+    <span><strong>[G]</strong> Invertir Gravedad</span>
+    <span><strong>[ESPACIO]</strong> Pausa</span>
+    <span><strong>[S]</strong> 1 Frame</span>
+    <span><strong>[T]</strong> Terrario Noita</span>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR FÍSICO DE AUTÓMATAS CELULARES + QUÍMICA EMERGENTE + BUFFER UINT32
+       ========================================================================= -->
+  <script>
+    (() => {
+      'use strict';
+
+      // =======================================================================
+      // 1. DEFINICIÓN DE MATERIALES, DENSIDADES (ρ) Y PROPIEDADES QUÍMICAS
+      // =======================================================================
+      const MAT = {
+        EMPTY: 0,
+        SAND: 1,
+        WATER: 2,
+        STONE: 3,
+        WOOD: 4,
+        OIL: 5,
+        FIRE: 6,
+        SMOKE: 7,
+        STEAM: 8,
+        ACID: 9,
+        LAVA: 10,
+        OBSIDIAN: 11,
+        PLANT: 12,
+        GUNPOWDER: 13,
+        EMBER: 14
+      };
+
+      const CAT = {
+        VOID: 0,
+        POWDER: 1,
+        LIQUID: 2,
+        SOLID: 3,
+        GAS: 4,
+        ENERGY: 5
+      };
+
+      // Tabla de propiedades físicas indexada por ID de material
+      const MAT_INFO = {
+        [MAT.EMPTY]:     { name: 'VACÍO',     cat: CAT.VOID,   density: 0,    flammable: 0,   corrodible: 0, disp: 0 },
+        [MAT.SAND]:      { name: 'ARENA',     cat: CAT.POWDER, density: 30,   flammable: 0,   corrodible: 1, disp: 0 },
+        [MAT.WATER]:     { name: 'AGUA',      cat: CAT.LIQUID, density: 20,   flammable: 0,   corrodible: 0, disp: 5 },
+        [MAT.STONE]:     { name: 'PIEDRA',    cat: CAT.SOLID,  density: 1000, flammable: 0,   corrodible: 1, disp: 0 },
+        [MAT.WOOD]:      { name: 'MADERA',    cat: CAT.SOLID,  density: 900,  flammable: 0.4, corrodible: 1, disp: 0 },
+        [MAT.OIL]:       { name: 'ACEITE',    cat: CAT.LIQUID, density: 10,   flammable: 0.9, corrodible: 0, disp: 4 },
+        [MAT.FIRE]:      { name: 'FUEGO',     cat: CAT.ENERGY, density: -5,   flammable: 0,   corrodible: 0, disp: 0 },
+        [MAT.SMOKE]:     { name: 'HUMO',      cat: CAT.GAS,    density: -8,   flammable: 0,   corrodible: 0, disp: 2 },
+        [MAT.STEAM]:     { name: 'VAPOR',     cat: CAT.GAS,    density: -12,  flammable: 0,   corrodible: 0, disp: 3 },
+        [MAT.ACID]:      { name: 'ÁCIDO',     cat: CAT.LIQUID, density: 18,   flammable: 0,   corrodible: 0, disp: 4 },
+        [MAT.LAVA]:      { name: 'LAVA',      cat: CAT.LIQUID, density: 45,   flammable: 0,   corrodible: 0, disp: 2 },
+        [MAT.OBSIDIAN]:  { name: 'OBSIDIANA', cat: CAT.SOLID,  density: 1000, flammable: 0,   corrodible: 0, disp: 0 },
+        [MAT.PLANT]:     { name: 'PLANTA',    cat: CAT.SOLID,  density: 850,  flammable: 0.7, corrodible: 1, disp: 0 },
+        [MAT.GUNPOWDER]: { name: 'PÓLVORA',   cat: CAT.POWDER, density: 32,   flammable: 1.0, corrodible: 1, disp: 0 },
+        [MAT.EMBER]:     { name: 'BRASA',     cat: CAT.SOLID,  density: 880,  flammable: 0,   corrodible: 1, disp: 0 }
+      };
+
+      // Empaquetador de color 32-bit ABGR (Little-Endian para Uint32Array sobre ImageData)
+      function packABGR(r, g, b, a = 255) {
+        return ((a & 0xff) << 24) | ((b & 0xff) << 16) | ((g & 0xff) << 8) | (r & 0xff);
+      }
+
+      const BG_COLOR_ABGR = packABGR(6, 9, 17, 255);
+
+      // Generador rápido Xorshift32 para evitar sobrecarga de Math.random() dentro del bucle de 70,000 celdas
+      let rngState = 0x9e3779b9;
+      function fastRand() {
+        rngState ^= rngState << 13;
+        rngState ^= rngState >>> 17;
+        rngState ^= rngState << 5;
+        return (rngState >>> 0) / 4294967296;
+      }
+      function fastRandInt(max) {
+        rngState ^= rngState << 13;
+        rngState ^= rngState >>> 17;
+        rngState ^= rngState << 5;
+        return (rngState >>> 0) % max;
+      }
+      function fastCoin() {
+        rngState ^= rngState << 13;
+        rngState ^= rngState >>> 17;
+        rngState ^= rngState << 5;
+        return (rngState & 1) === 0;
+      }
+
+      // Generación de color con dithering y textura orgánica por píxel
+      function computeMaterialColor(type, x, y) {
+        const n = fastRand();
+        switch (type) {
+          case MAT.SAND: {
+            const v = Math.floor((n - 0.5) * 34);
+            const r = Math.min(255, Math.max(0, 236 + v));
+            const g = Math.min(255, Math.max(0, 192 + v - Math.floor(n * 10)));
+            const b = Math.min(255, Math.max(0, 88 + Math.floor((n - 0.5) * 24)));
+            return packABGR(r, g, b);
+          }
+          case MAT.WATER: {
+            const v = Math.floor((n - 0.5) * 22);
+            return packABGR(26 + v, 142 + v, 248 + Math.floor(v * 0.4));
+          }
+          case MAT.STONE: {
+            // Textura de roca tallada estratificada
+            const strata = ((x * 7 + y * 13) ^ (x >> 1)) & 15;
+            const base = 112 + (strata - 8) * 2 + Math.floor((n - 0.5) * 18);
+            return packABGR(base - 4, base, base + 10);
+          }
+          case MAT.OBSIDIAN: {
+            const glint = ((x * 11 + y * 5) & 7) === 0 ? 22 : 0;
+            const v = Math.floor(n * 14) + glint;
+            return packABGR(38 + v, 28 + v, 58 + v);
+          }
+          case MAT.WOOD: {
+            const grain = Math.sin(y * 0.7 + (x & 3) * 0.4) * 12;
+            const v = Math.floor(grain + (n - 0.5) * 14);
+            return packABGR(138 + v, 84 + Math.floor(v * 0.6), 46 + Math.floor(v * 0.4));
+          }
+          case MAT.OIL: {
+            const v = Math.floor((n - 0.5) * 18);
+            return packABGR(168 + v, 114 + v, 42 + Math.floor(v * 0.5));
+          }
+          case MAT.FIRE: {
+            return packABGR(255, 210, 60);
+          }
+          case MAT.EMBER: {
+            return packABGR(245, 95 + fastRandInt(55), 20);
+          }
+          case MAT.SMOKE: {
+            const v = 90 + fastRandInt(32);
+            return packABGR(v, v + 4, v + 10);
+          }
+          case MAT.STEAM: {
+            const v = 185 + fastRandInt(45);
+            return packABGR(v - 10, v, Math.min(255, v + 18));
+          }
+          case MAT.ACID: {
+            const v = fastRandInt(36);
+            return packABGR(35 + v, 245, 65 + v);
+          }
+          case MAT.LAVA: {
+            const v = fastRandInt(55);
+            return packABGR(255, 75 + v, 10 + (v >> 2));
+          }
+          case MAT.PLANT: {
+            const v = Math.floor((n - 0.5) * 32);
+            return packABGR(32 + Math.max(0, v), 192 + v, 76 + Math.floor(v * 0.5));
+          }
+          case MAT.GUNPOWDER: {
+            const v = 64 + fastRandInt(28);
+            return packABGR(v + 4, v, v + 8);
+          }
+          default:
+            return BG_COLOR_ABGR;
+        }
+      }
+
+      // =======================================================================
+      // 2. INICIALIZACIÓN DE CUADRÍCULA CELULAR Y BUFFERS DE MEMORIA
+      // =======================================================================
+      const GRID_W = 340;
+      const GRID_H = 210;
+      const TOTAL_CELLS = GRID_W * GRID_H;
+
+      const gridType = new Uint8Array(TOTAL_CELLS);
+      const gridColor = new Uint32Array(TOTAL_CELLS);
+      const gridLife = new Uint16Array(TOTAL_CELLS);
+      const gridUpdated = new Uint8Array(TOTAL_CELLS);
+
+      // Lienzos y contextos
+      const viewportEl = document.getElementById('sim-viewport');
+      const sandCanvas = document.getElementById('sand-canvas');
+      const sandCtx = sandCanvas.getContext('2d', { alpha: false });
+
+      const glowCanvas = document.getElementById('glow-canvas');
+      const glowCtx = glowCanvas.getContext('2d');
+
+      const uiCanvas = document.getElementById('ui-canvas');
+      const uiCtx = uiCanvas.getContext('2d');
+
+      sandCanvas.width = GRID_W;
+      sandCanvas.height = GRID_H;
+
+      const imgData = sandCtx.createImageData(GRID_W, GRID_H);
+      const pixelBuffer = new Uint32Array(imgData.data.buffer);
+
+      // Lienzo de baja resolución para el Bloom Térmico
+      const GLOW_W = Math.floor(GRID_W / 2);
+      const GLOW_H = Math.floor(GRID_H / 2);
+      glowCanvas.width = GLOW_W;
+      glowCanvas.height = GLOW_H;
+      const glowImgData = glowCtx.createImageData(GLOW_W, GLOW_H);
+      const glowBuffer = new Uint32Array(glowImgData.data.buffer);
+
+      let displayScale = 3;
+
+      function resizeStage() {
+        const leftW = window.innerWidth > 1150 ? 330 : 270;
+        const rightW = window.innerWidth > 1150 ? 338 : 270;
+        const topH = 68;
+        const botH = 48;
+
+        const availW = Math.max(340, window.innerWidth - leftW - rightW - 24);
+        const availH = Math.max(220, window.innerHeight - topH - botH - 16);
+
+        const scaleX = availW / GRID_W;
+        const scaleY = availH / GRID_H;
+        displayScale = Math.max(1.5, Math.min(scaleX, scaleY));
+
+        const cssW = Math.floor(GRID_W * displayScale);
+        const cssH = Math.floor(GRID_H * displayScale);
+
+        viewportEl.style.width = `${cssW}px`;
+        viewportEl.style.height = `${cssH}px`;
+
+        uiCanvas.width = cssW;
+        uiCanvas.height = cssH;
+      }
+
+      window.addEventListener('resize', resizeStage);
+      resizeStage();
+
+      // =======================================================================
+      // 3. ESTADO DEL SIMULADOR, PROYECTILES BALÍSTICOS Y GRIFOS EMISORES
+      // =======================================================================
+      const state = {
+        selectedMat: MAT.SAND,
+        activeTool: 'brush', // 'brush' | 'eraser' | 'bomb' | 'spawner'
+        brushRadius: 7,
+        sprayMode: true,
+        glowEnabled: true,
+        isPaused: false,
+        gravityDir: 1, // +1 = hacia abajo, -1 = invertida hacia arriba
+        frameCount: 0,
+        spawners: [],  // { x, y, mat, radius }
+        projectiles: [], // Partículas lanzadas por ondas expansivas { x, y, vx, vy, mat, color }
+        shockwaves: []   // Anillos visuales de explosión { x, y, r, maxR }
+      };
+
+      function idx(x, y) {
+        return y * GRID_W + x;
+      }
+
+      function inBounds(x, y) {
+        return x >= 0 && x < GRID_W && y >= 0 && y < GRID_H;
+      }
+
+      function setCell(x, y, type, customLife = 0) {
+        if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return;
+        const i = y * GRID_W + x;
+        gridType[i] = type;
+        gridColor[i] = type === MAT.EMPTY ? BG_COLOR_ABGR : computeMaterialColor(type, x, y);
+
+        if (customLife > 0) {
+          gridLife[i] = customLife;
+        } else if (type === MAT.FIRE) {
+          gridLife[i] = 28 + fastRandInt(38);
+        } else if (type === MAT.SMOKE) {
+          gridLife[i] = 75 + fastRandInt(65);
+        } else if (type === MAT.STEAM) {
+          gridLife[i] = 110 + fastRandInt(90);
+        } else if (type === MAT.EMBER) {
+          gridLife[i] = 90 + fastRandInt(110);
+        } else {
+          gridLife[i] = 0;
+        }
+      }
+
+      function swapCells(i1, i2, clockBit) {
+        const t1 = gridType[i1], c1 = gridColor[i1], l1 = gridLife[i1];
+        gridType[i1] = gridType[i2];
+        gridColor[i1] = gridColor[i2];
+        gridLife[i1] = gridLife[i2];
+
+        gridType[i2] = t1;
+        gridColor[i2] = c1;
+        gridLife[i2] = l1;
+
+        gridUpdated[i1] = clockBit;
+        gridUpdated[i2] = clockBit;
+      }
+
+      // Verificar si un elemento con densidad `myDensity` puede desplazar la celda destino `targetIdx`
+      function canDisplace(myCat, myDensity, targetIdx) {
+        const targetType = gridType[targetIdx];
+        if (targetType === MAT.EMPTY) return true;
+        const targetInfo = MAT_INFO[targetType];
+        if (targetInfo.cat === CAT.SOLID) return false;
+
+        if (myCat === CAT.POWDER) {
+          // Los polvos se hunden en líquidos más ligeros (ej. Arena ρ=30 en Agua ρ=20 o Aceite ρ=10) y atraviesan gases
+          return (targetInfo.cat === CAT.LIQUID || targetInfo.cat === CAT.GAS) && myDensity > targetInfo.density;
+        }
+        if (myCat === CAT.LIQUID) {
+          // Los líquidos densos desplazan líquidos más ligeros (Agua ρ=20 bajo Aceite ρ=10) y gases
+          return (targetInfo.cat === CAT.LIQUID || targetInfo.cat === CAT.GAS) && myDensity > targetInfo.density;
+        }
+        if (myCat === CAT.GAS) {
+          // Los gases ascienden atravesando polvos y líquidos
+          return (targetInfo.cat === CAT.LIQUID || targetInfo.cat === CAT.POWDER || targetInfo.cat === CAT.GAS) &&
+            myDensity < targetInfo.density;
+        }
+        return false;
+      }
+
+      // =======================================================================
+      // 4. EXPLOSIONES FÍSICAS Y PROYECTILES BALÍSTICOS
+      // =======================================================================
+      function detonateExplosion(cx, cy, radius) {
+        state.shockwaves.push({ x: cx, y: cy, r: 2, maxR: radius * 2.1 });
+
+        const rSq = radius * radius;
+        const innerSq = (radius * 0.48) * (radius * 0.48);
+
+        for (let dy = -radius; dy <= radius; dy++) {
+          const y = cy + dy;
+          if (y <= 1 || y >= GRID_H - 1) continue;
+          for (let dx = -radius; dx <= radius; dx++) {
+            const x = cx + dx;
+            if (x <= 1 || x >= GRID_W - 1) continue;
+
+            const dSq = dx * dx + dy * dy;
+            if (dSq > rSq) continue;
+
+            const i = y * GRID_W + x;
+            const t = gridType[i];
+
+            if (dSq <= innerSq) {
+              // Núcleo de deflagración: vaporiza o convierte en fuego/humo
+              if (t !== MAT.OBSIDIAN) {
+                setCell(x, y, fastCoin() ? MAT.FIRE : MAT.SMOKE);
+              }
+            } else if (t !== MAT.EMPTY && t !== MAT.OBSIDIAN) {
+              // Anillo exterior: lanzar píxeles por los aires como proyectiles físicos con velocidad balística
+              const dist = Math.sqrt(dSq) || 1;
+              const speed = (1.0 - dist / (radius + 2)) * 4.5 + 1.5 + fastRand() * 2.0;
+              const nx = dx / dist;
+              const ny = dy / dist;
+
+              if (state.projectiles.length < 2500 && fastRand() < 0.78) {
+                const projMat = (MAT_INFO[t].flammable > 0 && fastCoin()) ? MAT.FIRE : t;
+                state.projectiles.push({
+                  x: x + 0.5,
+                  y: y + 0.5,
+                  vx: nx * speed + (fastRand() - 0.5) * 1.2,
+                  vy: ny * speed - 1.2 * state.gravityDir,
+                  mat: projMat,
+                  color: projMat === MAT.FIRE ? computeMaterialColor(MAT.FIRE, x, y) : gridColor[i]
+                });
+              }
+              setCell(x, y, fastRand() < 0.35 ? MAT.FIRE : MAT.EMPTY);
+            } else if (t === MAT.EMPTY && fastRand() < 0.25) {
+              setCell(x, y, MAT.FIRE);
+            }
+          }
+        }
+      }
+
+      function updateProjectiles() {
+        const g = 0.18 * state.gravityDir;
+        for (let i = state.projectiles.length - 1; i >= 0; i--) {
+          const p = state.projectiles[i];
+          p.vy += g;
+          p.x += p.vx;
+          p.y += p.vy;
+
+          const gx = Math.floor(p.x);
+          const gy = Math.floor(p.y);
+
+          if (gx <= 1 || gx >= GRID_W - 1 || gy <= 1 || gy >= GRID_H - 1) {
+            state.projectiles.splice(i, 1);
+            continue;
+          }
+
+          const cellIdx = gy * GRID_W + gx;
+          if (gridType[cellIdx] !== MAT.EMPTY) {
+            // Re-depositar proyectil en la última celda vacía adyacente
+            const prevX = Math.max(1, Math.min(GRID_W - 2, Math.floor(p.x - p.vx)));
+            const prevY = Math.max(1, Math.min(GRID_H - 2, Math.floor(p.y - p.vy)));
+            const prevIdx = prevY * GRID_W + prevX;
+            if (gridType[prevIdx] === MAT.EMPTY) {
+              gridType[prevIdx] = p.mat;
+              gridColor[prevIdx] = p.color;
+              gridLife[prevIdx] = p.mat === MAT.FIRE ? 35 : 0;
+            }
+            state.projectiles.splice(i, 1);
+          }
+        }
+      }
+
+      // =======================================================================
+      // 5. BUCLE FÍSICO DE AUTÓMATAS CELULARES Y QUÍMICA EMERGENTE (60 FPS)
+      // =======================================================================
+      const neighborOffsets = [
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+        [-1, -1], [1, -1], [-1, 1], [1, 1]
+      ];
+
+      function stepPhysicsSimulation() {
+        state.frameCount++;
+        const clockBit = state.frameCount & 1;
+        const g = state.gravityDir; // +1 abajo, -1 arriba
+
+        // 1. Emitir partículas desde los Grifos / Spawners activos
+        for (let s = 0; s < state.spawners.length; s++) {
+          const sp = state.spawners[s];
+          const rad = sp.radius;
+          for (let dy = -rad; dy <= rad; dy++) {
+            for (let dx = -rad; dx <= rad; dx++) {
+              if (dx * dx + dy * dy <= rad * rad && fastRand() < 0.42) {
+                const tx = sp.x + dx, ty = sp.y + dy;
+                if (inBounds(tx, ty) && gridType[ty * GRID_W + tx] === MAT.EMPTY) {
+                  setCell(tx, ty, sp.mat);
+                }
+              }
+            }
+          }
+        }
+
+        // 2. Actualizar proyectiles balísticos en vuelo
+        updateProjectiles();
+
+        // 3. Recorrer la cuadrícula en sentido opuesto a la gravedad y alternando
+        //    el sentido horizontal en cada fila/fotograma para CERO sesgo direccional
+        const startY = g === 1 ? GRID_H - 2 : 1;
+        const endY = g === 1 ? 0 : GRID_H - 1;
+        const stepY = g === 1 ? -1 : 1;
+
+        for (let y = startY; y !== endY; y += stepY) {
+          // Alternancia estocástica izquierda-derecha vs. derecha-izquierda por fila y fotograma
+          const leftToRight = ((y + state.frameCount) & 1) === 0;
+          const startX = leftToRight ? 1 : GRID_W - 2;
+          const endX = leftToRight ? GRID_W - 1 : 0;
+          const stepX = leftToRight ? 1 : -1;
+
+          for (let x = startX; x !== endX; x += stepX) {
+            const i = y * GRID_W + x;
+            const type = gridType[i];
+            if (type === MAT.EMPTY || type === MAT.STONE || type === MAT.OBSIDIAN) continue;
+            if (gridUpdated[i] === clockBit) continue;
+
+            gridUpdated[i] = clockBit;
+            const info = MAT_INFO[type];
+            const myCat = info.cat;
+            const myDen = info.density;
+
+            // -----------------------------------------------------------------
+            // A. REACCIONES QUÍMICAS Y TÉRMICAS (FUEGO, BRASAS, LAVA, ÁCIDO, PLANTA)
+            // -----------------------------------------------------------------
+            if (type === MAT.FIRE || type === MAT.EMBER) {
+              if (gridLife[i] <= 1) {
+                if (type === MAT.EMBER || fastRand() < 0.22) {
+                  setCell(x, y, MAT.SMOKE);
+                } else {
+                  setCell(x, y, MAT.EMPTY);
+                }
+                continue;
+              }
+              gridLife[i]--;
+
+              // Actualizar rampa térmica de color del fuego según su vida restante
+              if (type === MAT.FIRE) {
+                const life = gridLife[i];
+                if (life > 42) gridColor[i] = packABGR(255, 240, 140);
+                else if (life > 24) gridColor[i] = packABGR(255, 140 + (life << 1), 20);
+                else gridColor[i] = packABGR(215, 45 + life * 2, 12);
+              }
+
+              // Propagar calor a celdas vecinas
+              for (let n = 0; n < 8; n++) {
+                const nx = x + neighborOffsets[n][0];
+                const ny = y + neighborOffsets[n][1];
+                if (nx <= 0 || nx >= GRID_W - 1 || ny <= 0 || ny >= GRID_H - 1) continue;
+                const ni = ny * GRID_W + nx;
+                const nt = gridType[ni];
+
+                if (nt === MAT.WATER) {
+                  // Agua apaga el fuego generando Vapor
+                  setCell(x, y, MAT.STEAM);
+                  break;
+                } else if (nt === MAT.GUNPOWDER) {
+                  detonateExplosion(nx, ny, 14);
+                  break;
+                } else if (nt === MAT.OIL && fastRand() < 0.45) {
+                  setCell(nx, ny, MAT.FIRE, 45 + fastRandInt(30));
+                  if ( ny > 1 && gridType[(ny - g) * GRID_W + nx] === MAT.EMPTY && fastCoin()) {
+                    setCell(nx, ny - g, MAT.FIRE, 35);
+                  }
+                } else if (nt === MAT.PLANT && fastRand() < 0.18) {
+                  setCell(nx, ny, MAT.FIRE, 40 + fastRandInt(25));
+                } else if (nt === MAT.WOOD && fastRand() < 0.025) {
+                  setCell(nx, ny, MAT.EMBER, 130 + fastRandInt(90));
+                }
+              }
+
+              if (gridType[i] !== type) continue;
+
+              // Las brasas son sólidas pero emiten chispas de fuego hacia arriba
+              if (type === MAT.EMBER) {
+                const aboveY = y - g;
+                if (aboveY > 0 && aboveY < GRID_H - 1 && gridType[aboveY * GRID_W + x] === MAT.EMPTY && fastRand() < 0.14) {
+                  setCell(x, aboveY, MAT.FIRE, 24 + fastRandInt(20));
+                }
+                continue;
+              }
+
+              // Movimiento errático ascendente del Fuego
+              const upY = y - g;
+              const driftX = x + (fastRandInt(3) - 1);
+              if (upY > 0 && upY < GRID_H - 1 && driftX > 0 && driftX < GRID_W - 1) {
+                const targetIdx = upY * GRID_W + driftX;
+                if (gridType[targetIdx] === MAT.EMPTY) {
+                  swapCells(i, targetIdx, clockBit);
+                }
+              }
+              continue;
+            }
+
+            if (type === MAT.LAVA) {
+              // Centelleo térmico del magma
+              if (fastRand() < 0.08) gridColor[i] = computeMaterialColor(MAT.LAVA, x, y);
+              if (y - g > 0 && y - g < GRID_H - 1 && gridType[(y - g) * GRID_W + x] === MAT.EMPTY && fastRand() < 0.015) {
+                setCell(x, y - g, MAT.FIRE, 22);
+              }
+
+              // Interacciones térmicas de la Lava con sus vecinos
+              for (let n = 0; n < 4; n++) {
+                const nx = x + neighborOffsets[n][0];
+                const ny = y + neighborOffsets[n][1];
+                if (nx <= 0 || nx >= GRID_W - 1 || ny <= 0 || ny >= GRID_H - 1) continue;
+                const ni = ny * GRID_W + nx;
+                const nt = gridType[ni];
+
+                if (nt === MAT.WATER) {
+                  // Lava + Agua -> Obsidiana sólida + Vapor a presión
+                  setCell(x, y, MAT.OBSIDIAN);
+                  setCell(nx, ny, MAT.STEAM);
+                  break;
+                } else if (nt === MAT.GUNPOWDER) {
+                  detonateExplosion(nx, ny, 15);
+                  break;
+                } else if (nt === MAT.OIL || nt === MAT.PLANT) {
+                  setCell(nx, ny, MAT.FIRE, 50);
+                } else if (nt === MAT.WOOD && fastRand() < 0.08) {
+                  setCell(nx, ny, MAT.EMBER, 140);
+                } else if (nt === MAT.SAND && fastRand() < 0.006) {
+                  setCell(nx, ny, MAT.LAVA);
+                }
+              }
+              if (gridType[i] !== MAT.LAVA) continue;
+            }
+
+            if (type === MAT.ACID) {
+              // Corrosión química del Ácido
+              let dissolved = false;
+              for (let n = 0; n < 4; n++) {
+                const nx = x + neighborOffsets[n][0];
+                const ny = y + neighborOffsets[n][1];
+                if (nx <= 1 || nx >= GRID_W - 2 || ny <= 1 || ny >= GRID_H - 2) continue;
+                const ni = ny * GRID_W + nx;
+                const nt = gridType[ni];
+
+                if (MAT_INFO[nt]?.corrodible && fastRand() < (nt === MAT.STONE ? 0.035 : 0.12)) {
+                  setCell(nx, ny, fastCoin() ? MAT.SMOKE : MAT.EMPTY);
+                  setCell(x, y, fastCoin() ? MAT.SMOKE : MAT.EMPTY);
+                  dissolved = true;
+                  break;
+                }
+              }
+              if (dissolved) continue;
+            }
+
+            if (type === MAT.PLANT) {
+              // La planta absorbe agua vecina para crecer orgánicamente
+              for (let n = 0; n < 8; n++) {
+                const nx = x + neighborOffsets[n][0];
+                const ny = y + neighborOffsets[n][1];
+                if (nx <= 1 || nx >= GRID_W - 2 || ny <= 1 || ny >= GRID_H - 2) continue;
+                const ni = ny * GRID_W + nx;
+                if (gridType[ni] === MAT.WATER) {
+                  setCell(nx, ny, MAT.PLANT);
+                  // Crecer un brote adicional hacia una celda vacía vecina
+                  const rx = x + neighborOffsets[fastRandInt(8)][0];
+                  const ry = y + neighborOffsets[fastRandInt(8)][1];
+                  if (inBounds(rx, ry) && gridType[ry * GRID_W + rx] === MAT.EMPTY) {
+                    setCell(rx, ry, MAT.PLANT);
+                  }
+                  break;
+                }
+              }
+              continue;
+            }
+
+            if (type === MAT.WOOD) continue;
+
+            // -----------------------------------------------------------------
+            // B. CINEMÁTICA DE POLVOS GRANULARES (ARENA, PÓLVORA)
+            // -----------------------------------------------------------------
+            if (myCat === CAT.POWDER) {
+              const ny = y + g;
+              if (ny > 0 && ny < GRID_H - 1) {
+                const belowIdx = ny * GRID_W + x;
+                if (canDisplace(myCat, myDen, belowIdx)) {
+                  swapCells(i, belowIdx, clockBit);
+                  continue;
+                }
+
+                // Deslizamiento diagonal aleatorio sin sesgo
+                const d1 = fastCoin() ? 1 : -1;
+                const d2 = -d1;
+                if (x + d1 > 0 && x + d1 < GRID_W - 1 && canDisplace(myCat, myDen, ny * GRID_W + (x + d1))) {
+                  swapCells(i, ny * GRID_W + (x + d1), clockBit);
+                  continue;
+                }
+                if (x + d2 > 0 && x + d2 < GRID_W - 1 && canDisplace(myCat, myDen, ny * GRID_W + (x + d2))) {
+                  swapCells(i, ny * GRID_W + (x + d2), clockBit);
+                  continue;
+                }
+              }
+              continue;
+            }
+
+            // -----------------------------------------------------------------
+            // C. HIDRODINÁMICA DE LÍQUIDOS (AGUA, ACEITE, ÁCIDO, LAVA)
+            // -----------------------------------------------------------------
+            if (myCat === CAT.LIQUID) {
+              // Centelleo sutil de superficie fluida
+              if (type === MAT.WATER && fastRand() < 0.03) {
+                gridColor[i] = computeMaterialColor(MAT.WATER, x, y);
+              }
+
+              const ny = y + g;
+              if (ny > 0 && ny < GRID_H - 1) {
+                const belowIdx = ny * GRID_W + x;
+                if (canDisplace(myCat, myDen, belowIdx)) {
+                  swapCells(i, belowIdx, clockBit);
+                  continue;
+                }
+
+                const d1 = fastCoin() ? 1 : -1;
+                const d2 = -d1;
+                if (x + d1 > 0 && x + d1 < GRID_W - 1 && canDisplace(myCat, myDen, ny * GRID_W + (x + d1))) {
+                  swapCells(i, ny * GRID_W + (x + d1), clockBit);
+                  continue;
+                }
+                if (x + d2 > 0 && x + d2 < GRID_W - 1 && canDisplace(myCat, myDen, ny * GRID_W + (x + d2))) {
+                  swapCells(i, ny * GRID_W + (x + d2), clockBit);
+                  continue;
+                }
+              }
+
+              // Dispersión horizontal rápida (nivelación de fluidos sin escalones)
+              const disp = info.disp;
+              const hDir = fastCoin() ? 1 : -1;
+              let bestX = x;
+
+              for (let step = 1; step <= disp; step++) {
+                const tx = x + hDir * step;
+                if (tx <= 0 || tx >= GRID_W - 1) break;
+                const tIdx = y * GRID_W + tx;
+                if (canDisplace(myCat, myDen, tIdx)) {
+                  bestX = tx;
+                } else {
+                  break;
+                }
+              }
+
+              if (bestX === x) {
+                for (let step = 1; step <= disp; step++) {
+                  const tx = x - hDir * step;
+                  if (tx <= 0 || tx >= GRID_W - 1) break;
+                  const tIdx = y * GRID_W + tx;
+                  if (canDisplace(myCat, myDen, tIdx)) {
+                    bestX = tx;
+                  } else {
+                    break;
+                  }
+                }
+              }
+
+              if (bestX !== x) {
+                swapCells(i, y * GRID_W + bestX, clockBit);
+              }
+              continue;
+            }
+
+            // -----------------------------------------------------------------
+            // D. DINÁMICA DE GASES (VAPOR, HUMO)
+            // -----------------------------------------------------------------
+            if (myCat === CAT.GAS) {
+              if (gridLife[i] <= 1) {
+                // El vapor al enfriarse tiene probabilidad de condensarse nuevamente en Agua líquida
+                if (type === MAT.STEAM && fastRand() < 0.14) {
+                  setCell(x, y, MAT.WATER);
+                } else {
+                  setCell(x, y, MAT.EMPTY);
+                }
+                continue;
+              }
+              gridLife[i]--;
+
+              const upY = y - g;
+              if (upY > 0 && upY < GRID_H - 1) {
+                const aboveIdx = upY * GRID_W + x;
+                if (canDisplace(myCat, myDen, aboveIdx)) {
+                  swapCells(i, aboveIdx, clockBit);
+                  continue;
+                }
+
+                const d1 = fastCoin() ? 1 : -1;
+                const d2 = -d1;
+                if (x + d1 > 0 && x + d1 < GRID_W - 1 && canDisplace(myCat, myDen, upY * GRID_W + (x + d1))) {
+                  swapCells(i, upY * GRID_W + (x + d1), clockBit);
+                  continue;
+                }
+                if (x + d2 > 0 && x + d2 < GRID_W - 1 && canDisplace(myCat, myDen, upY * GRID_W + (x + d2))) {
+                  swapCells(i, upY * GRID_W + (x + d2), clockBit);
+                  continue;
+                }
+              }
+
+              // Deriva lateral turbulenta del gas
+              const sideX = x + (fastCoin() ? 1 : -1);
+              if (sideX > 0 && sideX < GRID_W - 1 && gridType[y * GRID_W + sideX] === MAT.EMPTY) {
+                swapCells(i, y * GRID_W + sideX, clockBit);
+              }
+            }
+          }
+        }
+      }
+
+      // =======================================================================
+      // 6. TRAZO DE LÍNEA DE BRESENHAM Y PINCEL DE MATERIA
+      // =======================================================================
+      function applyBrushAt(cx, cy, isRightClickErase = false) {
+        const tool = isRightClickErase ? 'eraser' : state.activeTool;
+        const r = state.brushRadius;
+        const rSq = r * r;
+
+        if (tool === 'eraser') {
+          for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+              if (dx * dx + dy * dy <= rSq) {
+                setCell(cx + dx, cy + dy, MAT.EMPTY);
+              }
+            }
+          }
+          // Eliminar también grifos dentro del radio del borrador
+          for (let s = state.spawners.length - 1; s >= 0; s--) {
+            const sp = state.spawners[s];
+            if ((sp.x - cx) ** 2 + (sp.y - cy) ** 2 <= (r + 4) ** 2) {
+              state.spawners.splice(s, 1);
+            }
+          }
+          updateSpawnerButton();
+          return;
+        }
+
+        const mat = state.selectedMat;
+        const cat = MAT_INFO[mat].cat;
+        const isSolid = cat === CAT.SOLID;
+
+        for (let dy = -r; dy <= r; dy++) {
+          const y = cy + dy;
+          if (y <= 1 || y >= GRID_H - 1) continue;
+          for (let dx = -r; dx <= r; dx++) {
+            const x = cx + dx;
+            if (x <= 1 || x >= GRID_W - 1) continue;
+            if (dx * dx + dy * dy > rSq) continue;
+
+            // Si el modo Spray está activo, dispersar polvos, líquidos y energía de forma orgánica
+            if (state.sprayMode && !isSolid && r > 1) {
+              if (fastRand() > 0.32) continue;
+            }
+
+            const cur = gridType[y * GRID_W + x];
+            if (cur === MAT.EMPTY || isSolid || mat === MAT.FIRE) {
+              setCell(x, y, mat);
+            }
+          }
+        }
+      }
+
+      // Interpolación exacta de línea de Bresenham entre (x0, y0) y (x1, y1)
+      function paintBresenhamLine(x0, y0, x1, y1, isRightClickErase = false) {
+        let dx = Math.abs(x1 - x0);
+        let dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+
+        while (true) {
+          applyBrushAt(x0, y0, isRightClickErase);
+          if (x0 === x1 && y0 === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) { err += dy; x0 += sx; }
+          if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+      }
+
+      // =======================================================================
+      // 7. GENERADOR DE ESCENARIO DE PRUEBA / TERRARIO ALQUÍMICO "NOITA"
+      // =======================================================================
+      function clearWorld() {
+        gridType.fill(MAT.EMPTY);
+        gridColor.fill(BG_COLOR_ABGR);
+        gridLife.fill(0);
+        gridUpdated.fill(0);
+        state.projectiles.length = 0;
+        state.shockwaves.length = 0;
+
+        // Muros perimetrales de contención en Obsidiana indestructible
+        for (let x = 0; x < GRID_W; x++) {
+          setCell(x, 0, MAT.OBSIDIAN);
+          setCell(x, GRID_H - 1, MAT.OBSIDIAN);
+        }
+        for (let y = 0; y < GRID_H; y++) {
+          setCell(0, y, MAT.OBSIDIAN);
+          setCell(GRID_W - 1, y, MAT.OBSIDIAN);
+        }
+      }
+
+      function fillRectMat(x0, y0, w, h, mat) {
+        for (let y = y0; y < y0 + h; y++) {
+          for (let x = x0; x < x0 + w; x++) {
+            if (x > 0 && x < GRID_W - 1 && y > 0 && y < GRID_H - 1) {
+              setCell(x, y, mat);
+            }
+          }
+        }
+      }
+
+      function buildNoitaTerrarium() {
+        clearWorld();
+        state.spawners.length = 0;
+
+        // 1. Suelo cavernoso de Piedra con relieve procedural
+        for (let x = 1; x < GRID_W - 1; x++) {
+          const floorH = 14 + Math.floor(Math.sin(x * 0.045) * 6 + Math.cos(x * 0.11) * 3);
+          for (let y = GRID_H - floorH; y < GRID_H - 1; y++) {
+            setCell(x, y, MAT.STONE);
+          }
+        }
+
+        // 2. Tanque Izquierdo: Hidro-Estratificación (Agua + Aceite flotando + Arena cayendo)
+        fillRectMat(22, 45, 6, 95, MAT.STONE);
+        fillRectMat(108, 45, 6, 95, MAT.STONE);
+        fillRectMat(22, 136, 92, 6, MAT.STONE);
+        fillRectMat(28, 92, 80, 44, MAT.WATER);
+        fillRectMat(28, 72, 80, 19, MAT.OIL);
+        // Pirámide de arena suspendida sobre una compuerta de madera
+        fillRectMat(44, 52, 48, 3, MAT.WOOD);
+        fillRectMat(50, 32, 36, 20, MAT.SAND);
+
+        // 3. Cámara Central: Jardín Botánico Subterráneo + Estanque y Puentes de Madera
+        fillRectMat(125, 118, 90, 5, MAT.WOOD);
+        fillRectMat(132, 98, 76, 18, MAT.WATER);
+        for (let x = 138; x < 200; x += 14) {
+          fillRectMat(x, 82, 4, 16, MAT.PLANT);
+        }
+        // Plataforma superior con Pólvora lista para pruebas pirotécnicas
+        fillRectMat(145, 48, 50, 4, MAT.WOOD);
+        fillRectMat(152, 36, 36, 12, MAT.GUNPOWDER);
+
+        // 4. Caldera Derecha: Reactor de Magma (Lava) + Vasija de Ácido Corrosivo
+        fillRectMat(230, 50, 6, 85, MAT.STONE);
+        fillRectMat(312, 50, 6, 85, MAT.STONE);
+        fillRectMat(230, 131, 88, 7, MAT.STONE);
+        fillRectMat(236, 96, 76, 35, MAT.LAVA);
+
+        // Cubeta superior de Ácido sobre roca caliza
+        fillRectMat(246, 44, 56, 5, MAT.STONE);
+        fillRectMat(246, 26, 5, 22, MAT.STONE);
+        fillRectMat(297, 26, 5, 22, MAT.STONE);
+        fillRectMat(251, 30, 46, 14, MAT.ACID);
+
+        // 5. Dos Grifos Emisores activos (Agua y Arena)
+        state.spawners.push({ x: 68, y: 16, mat: MAT.SAND, radius: 2 });
+        state.spawners.push({ x: 170, y: 16, mat: MAT.WATER, radius: 2 });
+        updateSpawnerButton();
+      }
+
+      // =======================================================================
+      // 8. RENDERIZADO DIRECTO POR BUFFER UINT32 + BLOOM TÉRMICO + TELEMETRÍA
+      // =======================================================================
+      const counts = new Int32Array(16);
+
+      function renderBuffers() {
+        counts.fill(0);
+        glowBuffer.fill(0);
+
+        for (let y = 0; y < GRID_H; y++) {
+          const rowOffset = y * GRID_W;
+          const glowY = y >> 1;
+          const glowRowOffset = glowY * GLOW_W;
+
+          for (let x = 0; x < GRID_W; x++) {
+            const i = rowOffset + x;
+            const t = gridType[i];
+            pixelBuffer[i] = gridColor[i];
+
+            if (t !== MAT.EMPTY) {
+              counts[t]++;
+              // Alimentar el buffer de resplandor térmico (Bloom) para elementos luminosos
+              if (state.glowEnabled) {
+                if (t === MAT.FIRE || t === MAT.LAVA || t === MAT.EMBER) {
+                  glowBuffer[glowRowOffset + (x >> 1)] = gridColor[i];
+                } else if (t === MAT.ACID) {
+                  glowBuffer[glowRowOffset + (x >> 1)] = packABGR(20, 210, 50, 180);
+                }
+              }
+            }
+          }
+        }
+
+        // Superponer proyectiles balísticos en vuelo sobre el buffer de píxeles
+        for (let i = 0; i < state.projectiles.length; i++) {
+          const p = state.projectiles[i];
+          const gx = Math.floor(p.x), gy = Math.floor(p.y);
+          if (gx >= 0 && gx < GRID_W && gy >= 0 && gy < GRID_H) {
+            pixelBuffer[gy * GRID_W + gx] = p.color;
+          }
+        }
+
+        sandCtx.putImageData(imgData, 0, 0);
+
+        if (state.glowEnabled) {
+          glowCtx.putImageData(glowImgData, 0, 0);
+        } else {
+          glowCtx.clearRect(0, 0, GLOW_W, GLOW_H);
+        }
+      }
+
+      function renderUIOverlay() {
+        uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+
+        // 1. Dibujar Grifos / Spawners activos
+        for (let i = 0; i < state.spawners.length; i++) {
+          const sp = state.spawners[i];
+          const sx = (sp.x + 0.5) * displayScale;
+          const sy = (sp.y + 0.5) * displayScale;
+          const sr = (sp.radius + 1.5) * displayScale;
+
+          uiCtx.strokeStyle = '#ffbe0b';
+          uiCtx.lineWidth = 1.6;
+          uiCtx.beginPath();
+          uiCtx.arc(sx, sy, sr, 0, Math.PI * 2);
+          uiCtx.stroke();
+
+          uiCtx.fillStyle = 'rgba(255, 190, 11, 0.25)';
+          uiCtx.fill();
+        }
+
+        // 2. Dibujar ondas expansivas de explosión
+        for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+          const sw = state.shockwaves[i];
+          sw.r += 1.8;
+          const alpha = Math.max(0, 1.0 - sw.r / sw.maxR);
+          uiCtx.strokeStyle = `rgba(255, 180, 60, ${alpha})`;
+          uiCtx.lineWidth = 2.5;
+          uiCtx.beginPath();
+          uiCtx.arc(sw.x * displayScale, sw.y * displayScale, sw.r * displayScale, 0, Math.PI * 2);
+          uiCtx.stroke();
+
+          if (sw.r >= sw.maxR) state.shockwaves.splice(i, 1);
+        }
+
+        // 3. Dibujar retícula del pincel en la posición del mouse
+        if (mouse.inside) {
+          const mx = (mouse.gx + 0.5) * displayScale;
+          const my = (mouse.gy + 0.5) * displayScale;
+          const mr = (state.brushRadius + 0.4) * displayScale;
+
+          uiCtx.strokeStyle =
+            state.activeTool === 'bomb'
+              ? '#ff2a6d'
+              : state.activeTool === 'eraser'
+              ? '#ffffff'
+              : state.activeTool === 'spawner'
+              ? '#ffbe0b'
+              : '#00f0ff';
+          uiCtx.lineWidth = 1.4;
+          uiCtx.beginPath();
+          uiCtx.arc(mx, my, mr, 0, Math.PI * 2);
+          uiCtx.stroke();
+        }
+      }
+
+      // =======================================================================
+      // 9. EVENTOS DE MOUSE, RUEDA, BOTONES Y ATAJOS DE TECLADO
+      // =======================================================================
+      const mouse = {
+        down: false,
+        button: 0,
+        gx: Math.floor(GRID_W / 2),
+        gy: Math.floor(GRID_H / 2),
+        prevGx: Math.floor(GRID_W / 2),
+        prevGy: Math.floor(GRID_H / 2),
+        inside: false
+      };
+
+      function updateMouseGridPos(e) {
+        const rect = uiCanvas.getBoundingClientRect();
+        const x = Math.floor(((e.clientX - rect.left) / rect.width) * GRID_W);
+        const y = Math.floor(((e.clientY - rect.top) / rect.height) * GRID_H);
+        mouse.prevGx = mouse.gx;
+        mouse.prevGy = mouse.gy;
+        mouse.gx = Math.max(1, Math.min(GRID_W - 2, x));
+        mouse.gy = Math.max(1, Math.min(GRID_H - 2, y));
+      }
+
+      uiCanvas.addEventListener('pointerenter', (e) => {
+        mouse.inside = true;
+        updateMouseGridPos(e);
+        mouse.prevGx = mouse.gx;
+        mouse.prevGy = mouse.gy;
+      });
+
+      uiCanvas.addEventListener('pointerleave', () => {
+        mouse.inside = false;
+        mouse.down = false;
+      });
+
+      uiCanvas.addEventListener('pointerdown', (e) => {
+        mouse.inside = true;
+        updateMouseGridPos(e);
+        mouse.prevGx = mouse.gx;
+        mouse.prevGy = mouse.gy;
+        mouse.button = e.button;
+
+        if (e.button === 0 && state.activeTool === 'bomb') {
+          detonateExplosion(mouse.gx, mouse.gy, Math.max(10, state.brushRadius * 2));
+          return;
+        }
+        if (e.button === 0 && state.activeTool === 'spawner') {
+          state.spawners.push({
+            x: mouse.gx,
+            y: mouse.gy,
+            mat: state.selectedMat,
+            radius: Math.max(1, Math.min(6, Math.floor(state.brushRadius * 0.5)))
+          });
+          updateSpawnerButton();
+          return;
+        }
+
+        mouse.down = true;
+        paintBresenhamLine(mouse.gx, mouse.gy, mouse.gx, mouse.gy, e.button === 2);
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!mouse.inside) return;
+        updateMouseGridPos(e);
+        if (mouse.down) {
+          paintBresenhamLine(mouse.prevGx, mouse.prevGy, mouse.gx, mouse.gy, mouse.button === 2);
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        mouse.down = false;
+      });
+
+      uiCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // Rueda del mouse para cambiar el radio del pincel dinámicamente
+      uiCanvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        state.brushRadius = Math.max(1, Math.min(28, state.brushRadius + delta));
+        document.getElementById('slider-brush-radius').value = state.brushRadius;
+        document.getElementById('lbl-brush-radius').textContent = `${state.brushRadius} px`;
+      }, { passive: false });
+
+      // Conectar botones de la paleta de elementos
+      function setActiveTool(toolName) {
+        state.activeTool = toolName;
+        document.getElementById('tool-brush').classList.toggle('active', toolName === 'brush');
+        document.getElementById('tool-eraser').classList.toggle('active', toolName === 'eraser');
+        document.getElementById('tool-bomb').classList.toggle('active', toolName === 'bomb');
+        document.getElementById('tool-spawner').classList.toggle('active', toolName === 'spawner');
+      }
+
+      document.querySelectorAll('[data-elem]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const key = btn.dataset.elem;
+          state.selectedMat = MAT[key];
+          if (state.activeTool === 'eraser' || state.activeTool === 'bomb') {
+            setActiveTool('brush');
+          }
+          document.querySelectorAll('[data-elem]').forEach((b) => b.classList.toggle('active', b === btn));
+          const info = MAT_INFO[state.selectedMat];
+          const rhoStr = info.density >= 800 ? '∞' : info.density;
+          document.getElementById('hud-active-element').textContent = `${info.name} (ρ = ${rhoStr})`;
+        });
+      });
+
+      document.getElementById('tool-brush').addEventListener('click', () => setActiveTool('brush'));
+      document.getElementById('tool-eraser').addEventListener('click', () => setActiveTool('eraser'));
+      document.getElementById('tool-bomb').addEventListener('click', () => setActiveTool('bomb'));
+      document.getElementById('tool-spawner').addEventListener('click', () => setActiveTool('spawner'));
+
+      document.getElementById('slider-brush-radius').addEventListener('input', (e) => {
+        state.brushRadius = parseInt(e.target.value, 10);
+        document.getElementById('lbl-brush-radius').textContent = `${state.brushRadius} px`;
+      });
+
+      const sprayBtn = document.getElementById('toggle-spray');
+      sprayBtn.addEventListener('click', () => {
+        state.sprayMode = !state.sprayMode;
+        sprayBtn.classList.toggle('active', state.sprayMode);
+        sprayBtn.textContent = state.sprayMode ? '✨ ROCÍO SPRAY: AUTO' : '🧱 TRAZO MACIZO';
+      });
+
+      const glowBtn = document.getElementById('toggle-glow');
+      glowBtn.addEventListener('click', () => {
+        state.glowEnabled = !state.glowEnabled;
+        glowBtn.classList.toggle('active', state.glowEnabled);
+        glowCanvas.style.display = state.glowEnabled ? 'block' : 'none';
+      });
+
+      const pauseBtn = document.getElementById('btn-pause');
+      function togglePause() {
+        state.isPaused = !state.isPaused;
+        pauseBtn.textContent = state.isPaused ? '▶️ REANUDAR' : '⏸️ PAUSA';
+        pauseBtn.classList.toggle('active', state.isPaused);
+        document.getElementById('badge-sim-state').textContent = state.isPaused ? 'PAUSADO' : 'EN VIVO';
+      }
+      pauseBtn.addEventListener('click', togglePause);
+
+      document.getElementById('btn-step').addEventListener('click', () => {
+        if (!state.isPaused) togglePause();
+        stepPhysicsSimulation();
+        renderBuffers();
+      });
+
+      document.getElementById('btn-clear').addEventListener('click', () => {
+        clearWorld();
+        state.spawners.length = 0;
+        updateSpawnerButton();
+      });
+
+      const gravBtn = document.getElementById('btn-gravity');
+      gravBtn.addEventListener('click', () => {
+        state.gravityDir *= -1;
+        gravBtn.textContent = state.gravityDir === 1 ? '⬇️ GRAVEDAD: NORMAL' : '⬆️ GRAVEDAD: INVERTIDA';
+        gravBtn.classList.toggle('active', state.gravityDir === -1);
+      });
+
+      function updateSpawnerButton() {
+        const n = state.spawners.length;
+        document.getElementById('btn-clear-spawners').textContent = `🚫 BORRAR GRIFOS (${n})`;
+        document.getElementById('val-spawners').textContent = String(n);
+      }
+
+      document.getElementById('btn-clear-spawners').addEventListener('click', () => {
+        state.spawners.length = 0;
+        updateSpawnerButton();
+      });
+
+      document.getElementById('btn-terrarium').addEventListener('click', buildNoitaTerrarium);
+
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+        else if (k === 's') document.getElementById('btn-step').click();
+        else if (k === 'c') document.getElementById('btn-clear').click();
+        else if (k === 'g') gravBtn.click();
+        else if (k === 't') buildNoitaTerrarium();
+        else if (k === 'b') setActiveTool('bomb');
+        else if (k === 'e') setActiveTool('eraser');
+        else if (k === 'f') setActiveTool('spawner');
+      });
+
+      // =======================================================================
+      // 10. BUCLE PRINCIPAL Y ACTUALIZACIÓN DE TELEMETRÍA EN VIVO
+      // =======================================================================
+      let lastTime = performance.now();
+      let frames = 0;
+      let fpsAccum = 0;
+      let lastTickMs = 0;
+
+      function mainLoop(now) {
+        requestAnimationFrame(mainLoop);
+
+        const dt = (now - lastTime) * 0.001;
+        lastTime = now;
+        frames++;
+        fpsAccum += dt;
+
+        // Permitir pintar continuamente mientras se mantiene presionado el botón del mouse
+        if (mouse.down && state.activeTool !== 'bomb' && state.activeTool !== 'spawner') {
+          applyBrushAt(mouse.gx, mouse.gy, mouse.button === 2);
+        }
+
+        const t0 = performance.now();
+        if (!state.isPaused) {
+          stepPhysicsSimulation();
+        }
+        renderBuffers();
+        lastTickMs = performance.now() - t0;
+
+        renderUIOverlay();
+
+        if (fpsAccum >= 0.25) {
+          const fps = Math.round(frames / fpsAccum);
+          frames = 0;
+          fpsAccum = 0;
+
+          document.getElementById('fps-badge').textContent = `${fps} FPS`;
+          document.getElementById('val-tick-ms').textContent = `${lastTickMs.toFixed(2)} ms`;
+          document.getElementById('val-projectiles').textContent = String(state.projectiles.length);
+
+          const cSand = counts[MAT.SAND];
+          const cWater = counts[MAT.WATER];
+          const cStone = counts[MAT.STONE] + counts[MAT.OBSIDIAN];
+          const cBio = counts[MAT.WOOD] + counts[MAT.PLANT];
+          const cOil = counts[MAT.OIL];
+          const cFire = counts[MAT.FIRE] + counts[MAT.EMBER] + counts[MAT.GUNPOWDER];
+          const cLava = counts[MAT.LAVA];
+          const cAcid = counts[MAT.ACID];
+          const cGas = counts[MAT.STEAM] + counts[MAT.SMOKE];
+          const totalActive = cSand + cWater + cStone + cBio + cOil + cFire + cLava + cAcid + cGas;
+
+          document.getElementById('val-total-active').textContent = totalActive.toLocaleString('en-US');
+          document.getElementById('cnt-sand').textContent = cSand.toLocaleString('en-US');
+          document.getElementById('cnt-water').textContent = cWater.toLocaleString('en-US');
+          document.getElementById('cnt-stone').textContent = cStone.toLocaleString('en-US');
+          document.getElementById('cnt-bio').textContent = cBio.toLocaleString('en-US');
+          document.getElementById('cnt-oil').textContent = cOil.toLocaleString('en-US');
+          document.getElementById('cnt-fire').textContent = cFire.toLocaleString('en-US');
+          document.getElementById('cnt-lava').textContent = cLava.toLocaleString('en-US');
+          document.getElementById('cnt-acid').textContent = cAcid.toLocaleString('en-US');
+          document.getElementById('cnt-gas').textContent = cGas.toLocaleString('en-US');
+        }
+      }
+
+      // Inicializar con el Terrario Alquímico Noita preconstruido
+      buildNoitaTerrarium();
+      requestAnimationFrame(mainLoop);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HELIX-9 // Visualizador Cuántico de ADN 3D [Simulación Física de Partículas]</title>
+  <style>
+    :root {
+      --bg-void: #02030a;
+      --panel-bg: rgba(6, 10, 22, 0.78);
+      --panel-bg-strong: rgba(4, 7, 16, 0.92);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.28);
+      --magenta: #ff007f;
+      --magenta-dim: rgba(255, 0, 127, 0.32);
+      --lime: #00ff88;
+      --amber: #ffbe00;
+      --orange: #ff6a00;
+      --violet: #9d4edd;
+      --text-primary: #e8f7ff;
+      --text-secondary: #7698b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      cursor: crosshair;
+    }
+
+    /* Superposición cyberpunk: scanlines digitales + viñeta óptica */
+    .cyber-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 58%, rgba(1, 2, 8, 0.78) 100%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 240, 255, 0.014) 0px,
+          rgba(0, 240, 255, 0.014) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+    }
+
+    /* Marcos esquineros de laboratorio biotecnológico */
+    .hud-corner {
+      position: fixed;
+      width: 28px;
+      height: 28px;
+      pointer-events: none;
+      z-index: 4;
+      border-color: rgba(0, 240, 255, 0.5);
+    }
+    .hc-tl { top: 12px; left: 12px; border-top: 2px solid; border-left: 2px solid; }
+    .hc-tr { top: 12px; right: 12px; border-top: 2px solid; border-right: 2px solid; }
+    .hc-bl { bottom: 12px; left: 12px; border-bottom: 2px solid; border-left: 2px solid; }
+    .hc-br { bottom: 12px; right: 12px; border-bottom: 2px solid; border-right: 2px solid; }
+
+    /* Cabecera Superior */
+    .top-header {
+      position: fixed;
+      top: 16px;
+      left: 24px;
+      right: 24px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      pointer-events: none;
+    }
+
+    .cyber-box {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-dim);
+      border-left: 4px solid var(--cyan);
+      border-radius: 5px;
+      padding: 11px 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 22px rgba(0, 240, 255, 0.08);
+    }
+
+    .cyber-box.magenta {
+      border-color: var(--magenta-dim);
+      border-left: 4px solid var(--magenta);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 22px rgba(255, 0, 127, 0.1);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+
+    .bio-led {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 12px var(--lime);
+      animation: bioPulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes bioPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.45; }
+    }
+
+    .sub-row {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      letter-spacing: 0.6px;
+    }
+
+    /* Cinta de secuencia genética en vivo */
+    .sequence-ribbon {
+      pointer-events: auto;
+      background: rgba(5, 9, 20, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 5px;
+      padding: 8px 16px;
+      font-family: var(--font-mono);
+      text-align: center;
+      min-width: 310px;
+    }
+
+    .seq-label {
+      font-size: 9.5px;
+      letter-spacing: 1.6px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .seq-stream {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .b-A { color: var(--lime); text-shadow: 0 0 8px rgba(0, 255, 136, 0.5); }
+    .b-T { color: var(--amber); text-shadow: 0 0 8px rgba(255, 190, 0, 0.5); }
+    .b-C { color: var(--orange); text-shadow: 0 0 8px rgba(255, 106, 0, 0.5); }
+    .b-G { color: var(--cyan); text-shadow: 0 0 8px rgba(0, 240, 255, 0.5); }
+
+    /* Panel Izquierdo: Telemetría Física & Ley de Hooke */
+    .left-panel {
+      position: fixed;
+      top: 92px;
+      left: 24px;
+      width: 335px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    /* Panel Derecho: Controles Interactivos en Caliente */
+    .right-panel {
+      position: fixed;
+      top: 92px;
+      right: 24px;
+      width: 340px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-dim);
+      border-radius: 6px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6);
+    }
+
+    .card-header {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.18);
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tag {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0, 240, 255, 0.14);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #84fbff;
+    }
+
+    .tag.magenta {
+      background: rgba(255, 0, 127, 0.15);
+      border-color: rgba(255, 0, 127, 0.45);
+      color: #ff85c2;
+    }
+
+    .telemetry-list {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      row-gap: 6px;
+      column-gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .t-lbl { color: var(--text-secondary); }
+    .t-val { color: var(--text-primary); font-weight: 600; text-align: right; }
+    .t-val.cyan { color: var(--cyan); }
+    .t-val.magenta { color: #ff5ca8; }
+    .t-val.lime { color: var(--lime); }
+    .t-val.amber { color: var(--amber); }
+
+    /* Barra de energía cinética del sistema de resortes */
+    .energy-meter-wrap {
+      margin-top: 9px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(0, 240, 255, 0.18);
+    }
+
+    .energy-bar-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(0, 240, 255, 0.12);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+
+    .energy-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--amber));
+      box-shadow: 0 0 12px var(--magenta);
+      transition: width 0.06s linear;
+    }
+
+    /* Leyenda de bases nitrogenadas */
+    .bases-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .base-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: rgba(2, 6, 15, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Controles Sliders y Botones */
+    .ctrl-group {
+      margin-bottom: 9px;
+    }
+    .ctrl-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .ctrl-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .ctrl-header strong {
+      color: var(--cyan);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 240, 255, 0.16);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #020814;
+      box-shadow: 0 0 10px var(--cyan);
+      cursor: pointer;
+    }
+
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .cyber-btn {
+      appearance: none;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 7px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      text-align: center;
+    }
+
+    .cyber-btn:hover {
+      background: rgba(0, 240, 255, 0.22);
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.28);
+      transform: translateY(-1px);
+    }
+
+    .cyber-btn.active {
+      background: rgba(0, 240, 255, 0.26);
+      border-color: var(--cyan);
+      color: #fff;
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.35), 0 0 10px rgba(0, 240, 255, 0.22);
+    }
+
+    .cyber-btn.magenta-btn {
+      background: rgba(255, 0, 127, 0.12);
+      border-color: rgba(255, 0, 127, 0.45);
+      color: #ff9ec9;
+      font-weight: 700;
+    }
+
+    .cyber-btn.magenta-btn:hover {
+      background: rgba(255, 0, 127, 0.28);
+      border-color: var(--magenta);
+      box-shadow: 0 0 16px rgba(255, 0, 127, 0.4);
+      color: #fff;
+    }
+
+    /* Pie de página interactivo */
+    .bottom-status {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: var(--panel-bg-strong);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-dim);
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      pointer-events: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75);
+    }
+
+    .bottom-status span strong {
+      color: var(--cyan);
+    }
+
+    @media (max-width: 1024px) {
+      .left-panel, .right-panel {
+        width: 270px;
+      }
+      .sequence-ribbon {
+        display: none;
+      }
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div class="cyber-overlay"></div>
+
+  <!-- Esquinas de telemetría -->
+  <div class="hud-corner hc-tl"></div>
+  <div class="hud-corner hc-tr"></div>
+  <div class="hud-corner hc-bl"></div>
+  <div class="hud-corner hc-br"></div>
+
+  <!-- Cabecera Superior -->
+  <header class="top-header">
+    <div class="cyber-box">
+      <div class="title-row">
+        <span class="bio-led"></span>
+        <span>HELIX-9 // BIO-SIMULADOR CUÁNTICO DE ADN</span>
+      </div>
+      <div class="sub-row">
+        DOBLE HÉLICE PARAMÉTRICA • FÍSICA DE RESORTES (LEY DE HOOKE) • SHADERS GLSL 100% PROCEDURALES
+      </div>
+    </div>
+
+    <div class="sequence-ribbon">
+      <div class="seq-label">SECUENCIADOR GENÓMICO EN TIEMPO REAL [5' → 3']</div>
+      <div class="seq-stream" id="seq-ticker">
+        <span class="b-A">A</span><span class="b-T">T</span>•<span class="b-C">C</span><span class="b-G">G</span>•<span class="b-G">G</span><span class="b-C">C</span>•<span class="b-T">T</span><span class="b-A">A</span>•<span class="b-A">A</span><span class="b-T">T</span>•<span class="b-G">G</span><span class="b-C">C</span>•<span class="b-C">C</span><span class="b-G">G</span>•<span class="b-A">A</span><span class="b-T">T</span>
+      </div>
+    </div>
+
+    <div class="cyber-box magenta">
+      <div class="title-row" style="color: #ff6bb5; font-size: 12px;">
+        SONDA DE FUERZA: <span id="probe-status" style="color: #fff;">EN ESPERA</span>
+      </div>
+      <div class="sub-row">
+        Pasa el cursor sobre la hélice para dispersar partículas • Rueda para micro-zoom
+      </div>
+    </div>
+  </header>
+
+  <!-- Panel Izquierdo: Telemetría en Tiempo Real -->
+  <aside class="left-panel">
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA DE PARTÍCULAS</span>
+        <span class="tag" id="fps-counter">60 FPS</span>
+      </div>
+      <div class="telemetry-list">
+        <span class="t-lbl">Partículas Totales Activas:</span>
+        <span class="t-val cyan" id="val-total-particles">24,500</span>
+
+        <span class="t-lbl">Partículas de la Hélice ADN:</span>
+        <span class="t-val" id="val-dna-particles">22,000</span>
+
+        <span class="t-lbl">Esporas Bio-Ambientales:</span>
+        <span class="t-val" id="val-env-particles">2,500</span>
+
+        <span class="t-lbl">Partículas Perturbadas:</span>
+        <span class="t-val magenta" id="val-displaced-count">0</span>
+
+        <span class="t-lbl">Fuerza de Repulsión (F_rep):</span>
+        <span class="t-val amber" id="val-rep-force">85.0 pN</span>
+
+        <span class="t-lbl">Constante Elástica (k):</span>
+        <span class="t-val lime" id="val-spring-k">18.0 N/m</span>
+
+        <span class="t-lbl">Amortiguamiento Viscoso (c):</span>
+        <span class="t-val" id="val-damping-c">0.88</span>
+
+        <span class="t-lbl">Velocidad Angular (ω):</span>
+        <span class="t-val cyan" id="val-rot-speed">0.45 rad/s</span>
+      </div>
+
+      <div class="energy-meter-wrap">
+        <div class="ctrl-header" style="margin-bottom: 2px;">
+          <span>ENERGÍA ELÁSTICA ACUMULADA (½k·Δx²)</span>
+          <strong id="val-kinetic-energy">0.0%</strong>
+        </div>
+        <div class="energy-bar-track">
+          <div class="energy-bar-fill" id="energy-bar"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>ARQUITECTURA MOLECULAR</span>
+        <span class="tag magenta">B-DNA</span>
+      </div>
+      <div class="bases-grid">
+        <div class="base-pill">
+          <span class="dot" style="background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
+          <span>Hebra Alfa (5'→3')</span>
+        </div>
+        <div class="base-pill">
+          <span class="dot" style="background: #ff007f; box-shadow: 0 0 8px #ff007f;"></span>
+          <span>Hebra Beta (3'→5')</span>
+        </div>
+        <div class="base-pill">
+          <span class="dot" style="background: #00ff88; box-shadow: 0 0 8px #00ff88;"></span>
+          <span>Adenina (A)</span>
+        </div>
+        <div class="base-pill">
+          <span class="dot" style="background: #ffbe00; box-shadow: 0 0 8px #ffbe00;"></span>
+          <span>Timina (T)</span>
+        </div>
+        <div class="base-pill">
+          <span class="dot" style="background: #ff6a00; box-shadow: 0 0 8px #ff6a00;"></span>
+          <span>Citosina (C)</span>
+        </div>
+        <div class="base-pill">
+          <span class="dot" style="background: #38b6ff; box-shadow: 0 0 8px #38b6ff;"></span>
+          <span>Guanina (G)</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>MODELO MATEMÁTICO ACTIVO</span>
+        <span class="tag">FÍSICA</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 10px; line-height: 1.55; color: #9ec3e6;">
+        <div>• Hélice A: x₁ = r·cos(θ), z₁ = r·sin(θ), y₁ = p·θ</div>
+        <div>• Hélice B: x₂ = r·cos(θ+π), z₂ = r·sin(θ+π), y₂ = p·θ</div>
+        <div>• Repulsión: F_m = -F₀ · (1 - d/R) / (d² + ε)</div>
+        <div>• Retorno Hooke: F_s = -k·(x - x₀) - c·v</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Panel Derecho: Controles en Caliente -->
+  <aside class="right-panel">
+    <section class="card">
+      <div class="card-header">
+        <span>DINÁMICA DE FUERZAS Y RESORTES</span>
+        <span class="tag">TIEMPO REAL</span>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-header">
+          <span>Fuerza de Dispersión (Mouse)</span>
+          <strong id="lbl-force">85</strong>
+        </div>
+        <input type="range" id="slider-force" min="10" max="240" step="1" value="85" />
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-header">
+          <span>Radio del Campo Repulsor</span>
+          <strong id="lbl-radius">11.5 u</strong>
+        </div>
+        <input type="range" id="slider-radius" min="3.0" max="26.0" step="0.5" value="11.5" />
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-header">
+          <span>Elasticidad de Retorno (k - Hooke)</span>
+          <strong id="lbl-spring">18.0</strong>
+        </div>
+        <input type="range" id="slider-spring" min="3.0" max="55.0" step="0.5" value="18.0" />
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-header">
+          <span>Amortiguamiento Fluido (Damping)</span>
+          <strong id="lbl-damping">0.88</strong>
+        </div>
+        <input type="range" id="slider-damping" min="0.72" max="0.97" step="0.01" value="0.88" />
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-header">
+          <span>Velocidad Orbital de la Cadena</span>
+          <strong id="lbl-rot">0.45 rad/s</strong>
+        </div>
+        <input type="range" id="slider-rot" min="0.0" max="2.5" step="0.05" value="0.45" />
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-header">
+          <span>Densidad de Partículas ADN</span>
+          <strong id="lbl-density">22,000</strong>
+        </div>
+        <input type="range" id="slider-density" min="10000" max="40000" step="2000" value="22000" />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>MORFOLOGÍA PROCEDURAL (SHADER)</span>
+        <span class="tag">GLSL</span>
+      </div>
+      <div class="btn-grid-2">
+        <button class="cyber-btn active" data-shape="0">ESFERA 3D</button>
+        <button class="cyber-btn" data-shape="1">HEXÁGONO BIO</button>
+        <button class="cyber-btn" data-shape="2">PLASMA CRUZ</button>
+        <button class="cyber-btn" data-shape="3">ANILLO CUÁNTICO</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>MODOS DE VISUALIZACIÓN Y POST-FX</span>
+        <span class="tag magenta">CYBERPUNK</span>
+      </div>
+      <div class="btn-grid-2">
+        <button class="cyber-btn active" id="btn-toggle-bonds">
+          ALAMBRE BASES [B]
+        </button>
+        <button class="cyber-btn active" id="btn-toggle-trails">
+          RASTRO / TRAIL [T]
+        </button>
+        <button class="cyber-btn active" id="btn-toggle-chroma">
+          ABERRACIÓN RGB [C]
+        </button>
+        <button class="cyber-btn active" id="btn-toggle-grid">
+          REJILLA DIGITAL [G]
+        </button>
+      </div>
+
+      <div class="ctrl-group" style="margin-top: 10px;">
+        <div class="ctrl-header">
+          <span>Intensidad Bioluminiscencia (Bloom)</span>
+          <strong id="lbl-bloom">1.45</strong>
+        </div>
+        <input type="range" id="slider-bloom" min="0.2" max="2.8" step="0.05" value="1.45" />
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 10px;">
+        <button class="cyber-btn magenta-btn" id="btn-shockwave" title="Emitir onda de choque biomagnética [Espacio]">
+          ⚡ ONDA DE CHOQUE
+        </button>
+        <button class="cyber-btn" id="btn-reset-cam" title="Restaurar encuadre de cámara [R]">
+          🎯 CENTRAR CÁMARA
+        </button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Barra de estado inferior -->
+  <footer class="bottom-status">
+    <span><strong>[CURSOR]</strong> Repulsión Magnética 3D</span>
+    <span><strong>[ESPACIO]</strong> Pulso de Explosión</span>
+    <span><strong>[CLIC + ARRASTRAR]</strong> Órbita 3D</span>
+    <span><strong>[RUEDA]</strong> Zoom Micro-Escala</span>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR GRÁFICO THREE.JS + SHADERS GLSL + FÍSICA DE PARTÍCULAS HOOKE
+       ========================================================================= -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    // =========================================================================
+    // 1. PARÁMETROS MATEMÁTICOS Y FÍSICOS DE LA SIMULACIÓN
+    // =========================================================================
+    const PARAMS = {
+      helixRadius: 8.2,           // r: Radio de la doble hélice
+      helixPitch: 2.35,           // p: Paso helicoidal (y = p * theta)
+      helixTurns: 4.6,            // Número de vueltas completas
+      basePairsCount: 54,         // Cantidad de peldaños (pares de bases nitrogenadas)
+      dnaParticleCount: 22000,    // Densidad de partículas de la cadena de ADN
+      ambientParticleCount: 2500, // Partículas de polvo biológico flotando en el fondo
+
+      repulsionForce: 85.0,       // Fuerza de dispersión del mouse
+      repulsionRadius: 11.5,      // Umbral de influencia 3D del cursor
+      springStiffness: 18.0,      // k en Ley de Hooke: F = -k * x - c * v
+      springDamping: 0.88,        // Factor de amortiguamiento viscoso por frame (60Hz equiv)
+      rotationSpeed: 0.45,        // Velocidad de giro autónomo
+      waveAmplitude: 0.55,        // Ondulación orgánica transversal
+
+      particleShape: 0,           // 0: Esfera 3D, 1: Hexágono, 2: Cruz Plasma, 3: Anillo
+      showWireframeBonds: true,
+      enableTrails: true,
+      enableChromaticAberration: true,
+      showCyberGrid: true,
+      bloomStrength: 1.45
+    };
+
+    // Paleta bioluminiscente Cyberpunk
+    const COLORS = {
+      strandA: new THREE.Color(0x00f0ff),   // Cyan eléctrico intenso (Hebra 1)
+      strandA2: new THREE.Color(0x0066ff),  // Azul cobalto profundo
+      strandB: new THREE.Color(0xff007f),   // Magenta neón (Hebra 2)
+      strandB2: new THREE.Color(0x9d00ff),  // Violeta ultravioleta
+      adenine: new THREE.Color(0x00ff88),   // Verde bioluminiscente (A)
+      thymine: new THREE.Color(0xffbe00),   // Amarillo ámbar (T)
+      cytosine: new THREE.Color(0xff5e00),  // Naranja plasma (C)
+      guanine: new THREE.Color(0x38b6ff),   // Azul celeste (G)
+      hBond: new THREE.Color(0xe0ffff)      // Blanco-cyan para puentes de hidrógeno centrales
+    };
+
+    // =========================================================================
+    // 2. ESCENA, CÁMARA, RENDERIZADOR Y PIPELINE DE POST-PROCESADO
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x02030a, 0.0085);
+
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 4, 46);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 2.2; // Permite zoom extremo a micro-escala
+    controls.maxDistance = 140;
+    controls.enablePan = true;
+
+    // Post-procesado: RenderPass -> AfterimagePass (Rastro) -> UnrealBloomPass -> Aberración Cromática RGB
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const afterimagePass = new AfterimagePass(0.76);
+    afterimagePass.enabled = PARAMS.enableTrails;
+    composer.addPass(afterimagePass);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      PARAMS.bloomStrength,
+      0.55,
+      0.18
+    );
+    composer.addPass(bloomPass);
+
+    // ShaderPass personalizado de Aberración Cromática Radial + Pulso Cyberpunk
+    const ChromaticAberrationShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        uIntensity: { value: 0.0028 },
+        uTime: { value: 0.0 }
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tDiffuse;
+        uniform float uIntensity;
+        uniform float uTime;
+        varying vec2 vUv;
+
+        void main() {
+          vec2 centerOffset = vUv - 0.5;
+          float dist = length(centerOffset);
+          vec2 shift = centerOffset * dist * uIntensity * (1.0 + 0.15 * sin(uTime * 3.0));
+
+          float r = texture2D(tDiffuse, vUv + shift).r;
+          float g = texture2D(tDiffuse, vUv).g;
+          float b = texture2D(tDiffuse, vUv - shift).b;
+
+          gl_FragColor = vec4(r, g, b, 1.0);
+        }
+      `
+    };
+
+    const chromaPass = new ShaderPass(ChromaticAberrationShader);
+    chromaPass.enabled = PARAMS.enableChromaticAberration;
+    composer.addPass(chromaPass);
+
+    composer.addPass(new OutputPass());
+
+    // =========================================================================
+    // 3. FONDO CYBERPUNK: REJILLAS DIGITALES HOLOGRÁFICAS + POLVO BIOLUMINISCENTE
+    // =========================================================================
+    const environmentGroup = new THREE.Group();
+    scene.add(environmentGroup);
+
+    function createCyberGrids() {
+      const gridGroup = new THREE.Group();
+
+      const gridShaderMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: { value: 0 }
+        },
+        vertexShader: /* glsl */ `
+          varying vec3 vWorldPos;
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uTime;
+          varying vec3 vWorldPos;
+          varying vec2 vUv;
+
+          void main() {
+            vec2 coord = vWorldPos.xz * 0.25;
+            coord.y -= uTime * 0.35;
+
+            vec2 grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
+            float line = min(grid.x, grid.y);
+            float gridMask = 1.0 - min(line, 1.0);
+
+            // Anillos de escaneo radiales
+            float r = length(vWorldPos.xz);
+            float radialWave = smoothstep(0.92, 1.0, sin(r * 0.35 - uTime * 1.8));
+            float radialFade = exp(-r * 0.028);
+
+            vec3 col = mix(vec3(0.0, 0.55, 0.85), vec3(1.0, 0.0, 0.55), radialWave * 0.5);
+            float alpha = (gridMask * 0.22 + radialWave * 0.08) * radialFade;
+
+            if (alpha < 0.005) discard;
+            gl_FragColor = vec4(col, alpha);
+          }
+        `
+      });
+
+      const bottomPlane = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), gridShaderMat);
+      bottomPlane.rotation.x = -Math.PI / 2;
+      bottomPlane.position.y = -38;
+      gridGroup.add(bottomPlane);
+
+      const topPlane = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), gridShaderMat);
+      topPlane.rotation.x = Math.PI / 2;
+      topPlane.position.y = 38;
+      gridGroup.add(topPlane);
+
+      return { gridGroup, gridShaderMat };
+    }
+
+    const { gridGroup, gridShaderMat } = createCyberGrids();
+    environmentGroup.add(gridGroup);
+
+    // Partículas de ambiente (esporas y polvo cuántico flotando en el espacio oscuro)
+    function createAmbientParticles(count) {
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(count * 3);
+      const col = new Float32Array(count * 3);
+      const size = new Float32Array(count);
+      const phase = new Float32Array(count);
+
+      for (let i = 0; i < count; i++) {
+        pos[i * 3] = (Math.random() - 0.5) * 140;
+        pos[i * 3 + 1] = (Math.random() - 0.5) * 95;
+        pos[i * 3 + 2] = (Math.random() - 0.5) * 120;
+
+        const c = Math.random() < 0.5 ? COLORS.strandA : (Math.random() < 0.5 ? COLORS.strandB : COLORS.adenine);
+        const dim = 0.25 + Math.random() * 0.5;
+        col[i * 3] = c.r * dim;
+        col[i * 3 + 1] = c.g * dim;
+        col[i * 3 + 2] = c.b * dim;
+
+        size[i] = 0.6 + Math.random() * 2.2;
+        phase[i] = Math.random() * Math.PI * 2;
+      }
+
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+      geo.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
+
+      const mat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        vertexColors: true,
+        uniforms: {
+          uTime: { value: 0 },
+          uPixelRatio: { value: renderer.getPixelRatio() }
+        },
+        vertexShader: /* glsl */ `
+          attribute float aSize;
+          attribute float aPhase;
+          uniform float uTime;
+          uniform float uPixelRatio;
+          varying vec3 vColor;
+          varying float vAlpha;
+
+          void main() {
+            vColor = color;
+            vec3 p = position;
+            p.y += sin(uTime * 0.4 + aPhase) * 1.8;
+            p.x += cos(uTime * 0.3 + aPhase * 1.3) * 1.4;
+
+            vAlpha = 0.35 + 0.45 * sin(uTime * 1.5 + aPhase);
+            vec4 mvPos = modelViewMatrix * vec4(p, 1.0);
+            gl_PointSize = aSize * uPixelRatio * (180.0 / -mvPos.z);
+            gl_Position = projectionMatrix * mvPos;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          varying vec3 vColor;
+          varying float vAlpha;
+
+          void main() {
+            vec2 uv = gl_PointCoord - 0.5;
+            float d = length(uv) * 2.0;
+            if (d > 1.0) discard;
+            float glow = exp(-d * d * 4.5);
+            gl_FragColor = vec4(vColor, glow * vAlpha);
+          }
+        `
+      });
+
+      return new THREE.Points(geo, mat);
+    }
+
+    const ambientPoints = createAmbientParticles(PARAMS.ambientParticleCount);
+    environmentGroup.add(ambientPoints);
+
+    // Sonda 3D visual para el puntero láser / campo de repulsión
+    const cursorProbeMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 24, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xff007f,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.14,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    cursorProbeMesh.visible = false;
+    scene.add(cursorProbeMesh);
+
+    // =========================================================================
+    // 4. GENERADOR MATEMÁTICO DE LA DOBLE HÉLICE + MOTOR DE PARTÍCULAS HOOKE
+    // =========================================================================
+    const dnaGroup = new THREE.Group();
+    scene.add(dnaGroup);
+
+    // Buffers de estado físico para las partículas de ADN
+    let dnaGeometry = null;
+    let dnaPointsMesh = null;
+    let bondsWireframeMesh = null;
+
+    let basePositions = null;      // Posición teórica original en la hélice (x0, y0, z0)
+    let currentPositions = null;   // Posición actual en el buffer GPU (x, y, z)
+    let velocities = null;         // Velocidad actual de cada partícula (vx, vy, vz)
+    let particleThetas = null;     // Fase helicoidal theta de cada partícula (para ondulación orgánica)
+    let particleEnergies = null;   // Energía cinética/desplazamiento para modulaciones de brillo en GLSL
+
+    // Metadatos de los pares de bases para el modo alambre dinámico
+    let rungEndpoints = [];        // Índices o coordenadas teóricas de los extremos de cada peldaño
+
+    // Shader GLSL personalizado para las partículas de ADN (Cero texturas externas)
+    const dnaParticleMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      uniforms: {
+        uTime: { value: 0 },
+        uPixelRatio: { value: renderer.getPixelRatio() },
+        uShapeMode: { value: PARAMS.particleShape }
+      },
+      vertexShader: /* glsl */ `
+        attribute float aSize;
+        attribute float aEnergy;
+        uniform float uTime;
+        uniform float uPixelRatio;
+        varying vec3 vColor;
+        varying float vEnergy;
+
+        void main() {
+          vEnergy = aEnergy;
+          // Al desplazarse por una fuerza externa, la partícula incrementa su bioluminiscencia hacia blanco-cyan
+          vec3 excitedColor = mix(color, vec3(0.95, 1.0, 1.0), clamp(aEnergy * 0.65, 0.0, 0.85));
+          vColor = excitedColor * (1.1 + aEnergy * 1.35);
+
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          float dynamicScale = aSize * (1.0 + clamp(aEnergy * 0.55, 0.0, 1.4));
+          gl_PointSize = clamp(dynamicScale * uPixelRatio * (210.0 / -mvPosition.z), 1.5, 64.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform int uShapeMode;
+        varying vec3 vColor;
+        varying float vEnergy;
+
+        void main() {
+          vec2 uv = (gl_PointCoord - 0.5) * 2.0;
+          float r = length(uv);
+          float alpha = 0.0;
+          vec3 finalCol = vColor;
+
+          if (uShapeMode == 0) {
+            // MODO 0: Esfera 3D Bioluminiscente con iluminación especular sintética + halo
+            if (r > 1.0) discard;
+            float z = sqrt(max(0.0, 1.0 - r * r));
+            vec3 normal = normalize(vec3(uv.x, -uv.y, z));
+            vec3 lightDir = normalize(vec3(0.4, 0.6, 0.85));
+            float diff = max(dot(normal, lightDir), 0.0);
+            float spec = pow(max(normal.z, 0.0), 14.0);
+            float coreGlow = exp(-r * r * 3.2);
+            finalCol = vColor * (0.45 + 0.75 * diff) + vec3(0.9, 1.0, 1.0) * spec * 0.45;
+            alpha = coreGlow;
+          } else if (uShapeMode == 1) {
+            // MODO 1: Hexágono Molecular Biotecnológico
+            vec2 q = abs(uv);
+            float hexDist = max(q.x * 0.866025 + q.y * 0.5, q.y);
+            if (hexDist > 0.95) discard;
+            float edge = smoothstep(0.95, 0.72, hexDist);
+            float ring = smoothstep(0.55, 0.75, hexDist) * smoothstep(0.95, 0.78, hexDist);
+            finalCol = vColor + vec3(0.4, 0.8, 1.0) * ring * 0.8;
+            alpha = edge * (0.65 + 0.35 * ring);
+          } else if (uShapeMode == 2) {
+            // MODO 2: Destello de Plasma Cruzado (Starburst)
+            if (r > 1.0) discard;
+            float core = exp(-r * r * 6.5);
+            float rays = max(0.0, 1.0 - abs(uv.x * 7.5)) * max(0.0, 1.0 - abs(uv.y * 1.4))
+                       + max(0.0, 1.0 - abs(uv.y * 7.5)) * max(0.0, 1.0 - abs(uv.x * 1.4));
+            alpha = clamp(core + rays * 0.65, 0.0, 1.0);
+            finalCol = vColor + vec3(0.5) * core;
+          } else {
+            // MODO 3: Anillo de Interferencia Cuántica
+            if (r > 1.0) discard;
+            float ring = exp(-pow((r - 0.62) / 0.16, 2.0));
+            float centerDot = exp(-r * r * 18.0);
+            alpha = clamp(ring * 0.9 + centerDot, 0.0, 1.0);
+            finalCol = vColor + vec3(0.4) * centerDot;
+          }
+
+          gl_FragColor = vec4(finalCol, alpha);
+        }
+      `
+    });
+
+    // Función hash determinista para asignar pares de bases (A-T, T-A, C-G, G-C)
+    function getBasePairType(rungIndex) {
+      const h = Math.sin(rungIndex * 12.9898 + 78.233) * 43758.5453;
+      const frac = h - Math.floor(h);
+      if (frac < 0.25) return { left: COLORS.adenine, right: COLORS.thymine, codeL: 'A', codeR: 'T' };
+      if (frac < 0.50) return { left: COLORS.thymine, right: COLORS.adenine, codeL: 'T', codeR: 'A' };
+      if (frac < 0.75) return { left: COLORS.cytosine, right: COLORS.guanine, codeL: 'C', codeR: 'G' };
+      return { left: COLORS.guanine, right: COLORS.cytosine, codeL: 'G', codeR: 'C' };
+    }
+
+    // Construye o reconstruye la cadena de ADN completa según la densidad deseada
+    function buildDNASystem(totalCount) {
+      if (dnaPointsMesh) {
+        dnaGroup.remove(dnaPointsMesh);
+        dnaGeometry.dispose();
+      }
+      if (bondsWireframeMesh) {
+        dnaGroup.remove(bondsWireframeMesh);
+        bondsWireframeMesh.geometry.dispose();
+      }
+
+      basePositions = new Float32Array(totalCount * 3);
+      currentPositions = new Float32Array(totalCount * 3);
+      velocities = new Float32Array(totalCount * 3);
+      particleThetas = new Float32Array(totalCount);
+      particleEnergies = new Float32Array(totalCount);
+
+      const colors = new Float32Array(totalCount * 3);
+      const sizes = new Float32Array(totalCount);
+
+      const thetaMax = Math.PI * PARAMS.helixTurns;
+      const r = PARAMS.helixRadius;
+      const p = PARAMS.helixPitch;
+
+      // 68% de partículas en las 2 hebras principales (fosfato-desoxirribosa) y 32% en los peldaños de bases
+      const strandParticles = Math.floor(totalCount * 0.68);
+      const rungParticles = totalCount - strandParticles;
+
+      let idx = 0;
+
+      // -----------------------------------------------------------------------
+      // A. GENERACIÓN DE LAS DOS HEBRAS PRINCIPALES (FÓRMULAS PARAMÉTRICAS)
+      // x1 = r * cos(theta),       z1 = r * sin(theta),       y1 = p * theta
+      // x2 = r * cos(theta + pi),  z2 = r * sin(theta + pi),  y2 = p * theta
+      // -----------------------------------------------------------------------
+      for (let i = 0; i < strandParticles; i++) {
+        const isStrandB = (i % 2 === 1);
+        const u = i / strandParticles;
+        const theta = (u * 2.0 - 1.0) * thetaMax;
+        const phaseOffset = isStrandB ? Math.PI : 0.0;
+
+        // Posición paramétrica exacta sobre la hélice
+        const exactX = r * Math.cos(theta + phaseOffset);
+        const exactZ = r * Math.sin(theta + phaseOffset);
+        const exactY = p * theta;
+
+        // Distribución volumétrica tubular alrededor del espinazo de la hebra
+        const tubeAngle = Math.random() * Math.PI * 2;
+        const tubeRadius = Math.pow(Math.random(), 0.7) * 0.92;
+        const radialX = Math.cos(tubeAngle) * tubeRadius;
+        const radialY = Math.sin(tubeAngle) * tubeRadius;
+        const radialZ = (Math.random() - 0.5) * 0.92;
+
+        const px = exactX + radialX;
+        const py = exactY + radialY;
+        const pz = exactZ + radialZ;
+
+        basePositions[idx * 3] = px;
+        basePositions[idx * 3 + 1] = py;
+        basePositions[idx * 3 + 2] = pz;
+
+        currentPositions[idx * 3] = px;
+        currentPositions[idx * 3 + 1] = py;
+        currentPositions[idx * 3 + 2] = pz;
+
+        particleThetas[idx] = theta;
+
+        // Gradiente cromático intenso por hebra
+        const cMix = 0.5 + 0.5 * Math.sin(theta * 1.5);
+        const c = new THREE.Color();
+        if (!isStrandB) {
+          c.lerpColors(COLORS.strandA, COLORS.strandA2, cMix * 0.65);
+        } else {
+          c.lerpColors(COLORS.strandB, COLORS.strandB2, cMix * 0.65);
+        }
+
+        // Destellos internos de alta intensidad en el núcleo de la hebra
+        const coreBoost = tubeRadius < 0.32 ? 1.35 : 0.9;
+        colors[idx * 3] = c.r * coreBoost;
+        colors[idx * 3 + 1] = c.g * coreBoost;
+        colors[idx * 3 + 2] = c.b * coreBoost;
+
+        sizes[idx] = tubeRadius < 0.3 ? (1.8 + Math.random() * 1.4) : (0.85 + Math.random() * 1.15);
+        idx++;
+      }
+
+      // -----------------------------------------------------------------------
+      // B. GENERACIÓN DE LOS PELDAÑOS TRANSVERSALES (PARES DE BASES A-T / C-G)
+      // -----------------------------------------------------------------------
+      rungEndpoints = [];
+      const numRungs = PARAMS.basePairsCount;
+      const particlesPerRung = Math.max(1, Math.floor(rungParticles / numRungs));
+
+      for (let rIdx = 0; rIdx < numRungs; rIdx++) {
+        const v = (rIdx + 0.5) / numRungs;
+        const theta = (v * 2.0 - 1.0) * thetaMax;
+
+        // Extremo en Hebra 1
+        const x1 = r * Math.cos(theta);
+        const z1 = r * Math.sin(theta);
+        const y1 = p * theta;
+
+        // Extremo en Hebra 2 (desfasada pi radianes)
+        const x2 = r * Math.cos(theta + Math.PI);
+        const z2 = r * Math.sin(theta + Math.PI);
+        const y2 = p * theta;
+
+        const pairInfo = getBasePairType(rIdx);
+        rungEndpoints.push({
+          theta,
+          x1, y1, z1,
+          x2, y2, z2,
+          pairInfo
+        });
+
+        const countForThisRung = (rIdx === numRungs - 1)
+          ? (totalCount - idx)
+          : particlesPerRung;
+
+        for (let k = 0; k < countForThisRung && idx < totalCount; k++) {
+          // Parámetro de interpolación transversal s en [0, 1]
+          const s = (k + Math.random() * 0.85) / countForThisRung;
+
+          // Cilindro delgado alrededor del eje transversal del peldaño
+          const jitterR = Math.pow(Math.random(), 0.8) * 0.36;
+          const jitterAng = Math.random() * Math.PI * 2;
+
+          const px = THREE.MathUtils.lerp(x1, x2, s) + Math.cos(jitterAng) * jitterR;
+          const py = THREE.MathUtils.lerp(y1, y2, s) + Math.sin(jitterAng) * jitterR;
+          const pz = THREE.MathUtils.lerp(z1, z2, s) + (Math.random() - 0.5) * 0.32;
+
+          basePositions[idx * 3] = px;
+          basePositions[idx * 3 + 1] = py;
+          basePositions[idx * 3 + 2] = pz;
+
+          currentPositions[idx * 3] = px;
+          currentPositions[idx * 3 + 1] = py;
+          currentPositions[idx * 3 + 2] = pz;
+
+          particleThetas[idx] = theta;
+
+          // Color según nucleótido (Adenina, Timina, Citosina, Guanina) y puente de hidrógeno central
+          let baseCol;
+          if (s > 0.45 && s < 0.55) {
+            baseCol = COLORS.hBond;
+          } else if (s <= 0.45) {
+            baseCol = pairInfo.left;
+          } else {
+            baseCol = pairInfo.right;
+          }
+
+          colors[idx * 3] = baseCol.r;
+          colors[idx * 3 + 1] = baseCol.g;
+          colors[idx * 3 + 2] = baseCol.b;
+
+          sizes[idx] = (s > 0.45 && s < 0.55) ? 2.1 : (1.1 + Math.random() * 1.1);
+          idx++;
+        }
+      }
+
+      dnaGeometry = new THREE.BufferGeometry();
+      dnaGeometry.setAttribute('position', new THREE.BufferAttribute(currentPositions, 3));
+      dnaGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      dnaGeometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+      dnaGeometry.setAttribute('aEnergy', new THREE.BufferAttribute(particleEnergies, 1));
+
+      dnaPointsMesh = new THREE.Points(dnaGeometry, dnaParticleMaterial);
+      dnaGroup.add(dnaPointsMesh);
+
+      // -----------------------------------------------------------------------
+      // C. ESTRUCTURA DE ALAMBRE (MODO WIREFRAME DE UNIONES BASE Y ESPINAZO)
+      // -----------------------------------------------------------------------
+      const wirePositions = [];
+      const wireColors = [];
+      const wireThetas = [];
+
+      for (let i = 0; i < rungEndpoints.length; i++) {
+        const rg = rungEndpoints[i];
+        const midX = (rg.x1 + rg.x2) * 0.5;
+        const midY = (rg.y1 + rg.y2) * 0.5;
+        const midZ = (rg.z1 + rg.z2) * 0.5;
+
+        // Mitad izquierda del peldaño
+        wirePositions.push(rg.x1, rg.y1, rg.z1, midX, midY, midZ);
+        wireColors.push(
+          rg.pairInfo.left.r, rg.pairInfo.left.g, rg.pairInfo.left.b,
+          COLORS.hBond.r, COLORS.hBond.g, COLORS.hBond.b
+        );
+        wireThetas.push(rg.theta, rg.theta);
+
+        // Mitad derecha del peldaño
+        wirePositions.push(midX, midY, midZ, rg.x2, rg.y2, rg.z2);
+        wireColors.push(
+          COLORS.hBond.r, COLORS.hBond.g, COLORS.hBond.b,
+          rg.pairInfo.right.r, rg.pairInfo.right.g, rg.pairInfo.right.b
+        );
+        wireThetas.push(rg.theta, rg.theta);
+
+        // Conexión longitudinal entre peldaños consecutivos sobre ambas hebras
+        if (i < rungEndpoints.length - 1) {
+          const next = rungEndpoints[i + 1];
+          wirePositions.push(rg.x1, rg.y1, rg.z1, next.x1, next.y1, next.z1);
+          wireColors.push(
+            COLORS.strandA.r, COLORS.strandA.g, COLORS.strandA.b,
+            COLORS.strandA.r, COLORS.strandA.g, COLORS.strandA.b
+          );
+          wireThetas.push(rg.theta, next.theta);
+
+          wirePositions.push(rg.x2, rg.y2, rg.z2, next.x2, next.y2, next.z2);
+          wireColors.push(
+            COLORS.strandB.r, COLORS.strandB.g, COLORS.strandB.b,
+            COLORS.strandB.r, COLORS.strandB.g, COLORS.strandB.b
+          );
+          wireThetas.push(rg.theta, next.theta);
+        }
+      }
+
+      const wireGeo = new THREE.BufferGeometry();
+      wireGeo.setAttribute('position', new THREE.Float32BufferAttribute(wirePositions, 3));
+      wireGeo.setAttribute('color', new THREE.Float32BufferAttribute(wireColors, 3));
+      wireGeo.setAttribute('aTheta', new THREE.Float32BufferAttribute(wireThetas, 1));
+
+      const wireMat = new THREE.ShaderMaterial({
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: { value: 0 },
+          uWaveAmp: { value: PARAMS.waveAmplitude }
+        },
+        vertexShader: /* glsl */ `
+          attribute float aTheta;
+          uniform float uTime;
+          uniform float uWaveAmp;
+          varying vec3 vColor;
+          void main() {
+            vColor = color;
+            vec3 p = position;
+            p.x += sin(uTime * 2.1 + aTheta * 0.65) * uWaveAmp;
+            p.z += cos(uTime * 1.8 + aTheta * 0.65) * uWaveAmp;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          varying vec3 vColor;
+          void main() {
+            gl_FragColor = vec4(vColor, 0.28);
+          }
+        `
+      });
+
+      bondsWireframeMesh = new THREE.LineSegments(wireGeo, wireMat);
+      bondsWireframeMesh.visible = PARAMS.showWireframeBonds;
+      dnaGroup.add(bondsWireframeMesh);
+
+      // Actualizar contadores HUD
+      document.getElementById('val-dna-particles').textContent = totalCount.toLocaleString('en-US');
+      document.getElementById('val-total-particles').textContent =
+        (totalCount + PARAMS.ambientParticleCount).toLocaleString('en-US');
+    }
+
+    buildDNASystem(PARAMS.dnaParticleCount);
+
+    // =========================================================================
+    // 5. SISTEMA DE INTERACCIÓN 3D DEL PUNTERO (RAYCASTING + CAMPO DE FUERZAS)
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const mouseNDC = new THREE.Vector2(-999, -999);
+    const prevMouseNDC = new THREE.Vector2(-999, -999);
+    const mouseVel3D = new THREE.Vector3();
+    let isPointerInside = false;
+
+    // Rayo del mouse transformado al espacio local de dnaGroup
+    const localRayOrigin = new THREE.Vector3();
+    const localRayDir = new THREE.Vector3();
+    const invDnaMatrix = new THREE.Matrix4();
+    const probeWorldPos = new THREE.Vector3();
+
+    window.addEventListener('pointermove', (e) => {
+      const nx = (e.clientX / window.innerWidth) * 2 - 1;
+      const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      if (isPointerInside) {
+        mouseVel3D.set((nx - prevMouseNDC.x) * 45.0, (ny - prevMouseNDC.y) * 45.0, 0);
+      }
+      prevMouseNDC.set(nx, ny);
+      mouseNDC.set(nx, ny);
+      isPointerInside = true;
+    });
+
+    window.addEventListener('pointerleave', () => {
+      isPointerInside = false;
+      cursorProbeMesh.visible = false;
+      document.getElementById('probe-status').textContent = 'EN ESPERA';
+      document.getElementById('probe-status').style.color = '#ffffff';
+    });
+
+    // Pulso de onda de choque radial (Shockwave) para probar la elasticidad de Hooke a gran escala
+    function triggerBioShockwave() {
+      const count = PARAMS.dnaParticleCount;
+      for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+        const x = currentPositions[i3];
+        const y = currentPositions[i3 + 1];
+        const z = currentPositions[i3 + 2];
+
+        const radialLen = Math.sqrt(x * x + z * z) + 0.001;
+        const nx = x / radialLen;
+        const nz = z / radialLen;
+
+        const impulse = 32.0 + Math.random() * 26.0;
+        velocities[i3] += nx * impulse + (Math.random() - 0.5) * 12.0;
+        velocities[i3 + 1] += (Math.random() - 0.5) * 24.0;
+        velocities[i3 + 2] += nz * impulse + (Math.random() - 0.5) * 12.0;
+      }
+    }
+
+    // =========================================================================
+    // 6. EVENTOS DE INTERFAZ Y CONTROLES EN CALIENTE
+    // =========================================================================
+    document.getElementById('slider-force').addEventListener('input', (e) => {
+      PARAMS.repulsionForce = parseFloat(e.target.value);
+      document.getElementById('lbl-force').textContent = PARAMS.repulsionForce.toFixed(0);
+      document.getElementById('val-rep-force').textContent = `${PARAMS.repulsionForce.toFixed(1)} pN`;
+    });
+
+    document.getElementById('slider-radius').addEventListener('input', (e) => {
+      PARAMS.repulsionRadius = parseFloat(e.target.value);
+      document.getElementById('lbl-radius').textContent = `${PARAMS.repulsionRadius.toFixed(1)} u`;
+    });
+
+    document.getElementById('slider-spring').addEventListener('input', (e) => {
+      PARAMS.springStiffness = parseFloat(e.target.value);
+      document.getElementById('lbl-spring').textContent = PARAMS.springStiffness.toFixed(1);
+      document.getElementById('val-spring-k').textContent = `${PARAMS.springStiffness.toFixed(1)} N/m`;
+    });
+
+    document.getElementById('slider-damping').addEventListener('input', (e) => {
+      PARAMS.springDamping = parseFloat(e.target.value);
+      document.getElementById('lbl-damping').textContent = PARAMS.springDamping.toFixed(2);
+      document.getElementById('val-damping-c').textContent = PARAMS.springDamping.toFixed(2);
+    });
+
+    document.getElementById('slider-rot').addEventListener('input', (e) => {
+      PARAMS.rotationSpeed = parseFloat(e.target.value);
+      document.getElementById('lbl-rot').textContent = `${PARAMS.rotationSpeed.toFixed(2)} rad/s`;
+      document.getElementById('val-rot-speed').textContent = `${PARAMS.rotationSpeed.toFixed(2)} rad/s`;
+    });
+
+    document.getElementById('slider-density').addEventListener('input', (e) => {
+      PARAMS.dnaParticleCount = parseInt(e.target.value, 10);
+      document.getElementById('lbl-density').textContent = PARAMS.dnaParticleCount.toLocaleString('en-US');
+      buildDNASystem(PARAMS.dnaParticleCount);
+    });
+
+    document.querySelectorAll('[data-shape]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        PARAMS.particleShape = parseInt(btn.dataset.shape, 10);
+        dnaParticleMaterial.uniforms.uShapeMode.value = PARAMS.particleShape;
+        document.querySelectorAll('[data-shape]').forEach((b) => {
+          b.classList.toggle('active', b === btn);
+        });
+      });
+    });
+
+    function bindToggle(btnId, paramKey, callback) {
+      const btn = document.getElementById(btnId);
+      btn.addEventListener('click', () => {
+        PARAMS[paramKey] = !PARAMS[paramKey];
+        btn.classList.toggle('active', PARAMS[paramKey]);
+        callback(PARAMS[paramKey]);
+      });
+    }
+
+    bindToggle('btn-toggle-bonds', 'showWireframeBonds', (v) => {
+      if (bondsWireframeMesh) bondsWireframeMesh.visible = v;
+    });
+    bindToggle('btn-toggle-trails', 'enableTrails', (v) => {
+      afterimagePass.enabled = v;
+    });
+    bindToggle('btn-toggle-chroma', 'enableChromaticAberration', (v) => {
+      chromaPass.enabled = v;
+    });
+    bindToggle('btn-toggle-grid', 'showCyberGrid', (v) => {
+      gridGroup.visible = v;
+    });
+
+    document.getElementById('slider-bloom').addEventListener('input', (e) => {
+      PARAMS.bloomStrength = parseFloat(e.target.value);
+      bloomPass.strength = PARAMS.bloomStrength;
+      document.getElementById('lbl-bloom').textContent = PARAMS.bloomStrength.toFixed(2);
+    });
+
+    document.getElementById('btn-shockwave').addEventListener('click', triggerBioShockwave);
+    document.getElementById('btn-reset-cam').addEventListener('click', () => {
+      camera.position.set(0, 4, 46);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        triggerBioShockwave();
+      } else if (e.key.toLowerCase() === 'b') {
+        document.getElementById('btn-toggle-bonds').click();
+      } else if (e.key.toLowerCase() === 't') {
+        document.getElementById('btn-toggle-trails').click();
+      } else if (e.key.toLowerCase() === 'c') {
+        document.getElementById('btn-toggle-chroma').click();
+      } else if (e.key.toLowerCase() === 'g') {
+        document.getElementById('btn-toggle-grid').click();
+      } else if (e.key.toLowerCase() === 'r') {
+        document.getElementById('btn-reset-cam').click();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      dnaParticleMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+      ambientPoints.material.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+    });
+
+    // =========================================================================
+    // 7. BUCLE PRINCIPAL DE SIMULACIÓN FÍSICA (LEY DE HOOKE + REPULSIÓN 3D)
+    // =========================================================================
+    const clock = new THREE.Clock();
+    let elapsedTime = 0;
+    let frameCount = 0;
+    let fpsTimer = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const dt = Math.min(clock.getDelta(), 0.05);
+      elapsedTime += dt;
+
+      // Telemetría de FPS
+      frameCount++;
+      fpsTimer += dt;
+      if (fpsTimer >= 0.45) {
+        const fps = Math.round(frameCount / fpsTimer);
+        document.getElementById('fps-counter').textContent = `${fps} FPS`;
+        frameCount = 0;
+        fpsTimer = 0;
+      }
+
+      // 1. Rotación autónoma suave y ondulación orgánica de la cadena en 3D
+      dnaGroup.rotation.y += PARAMS.rotationSpeed * dt;
+      dnaGroup.rotation.z = Math.sin(elapsedTime * 0.45) * 0.08;
+      dnaGroup.position.y = Math.sin(elapsedTime * 0.7) * 0.45;
+      dnaGroup.updateMatrixWorld();
+
+      // 2. Actualizar Raycaster 3D y transformar el rayo al espacio local de dnaGroup
+      let hasActiveRay = false;
+      if (isPointerInside) {
+        raycaster.setFromCamera(mouseNDC, camera);
+
+        // Comprobar distancia del rayo al eje central de la cadena
+        const distToAxis = raycaster.ray.distanceSqToPoint(dnaGroup.position);
+        if (distToAxis < 900) {
+          hasActiveRay = true;
+          invDnaMatrix.copy(dnaGroup.matrixWorld).invert();
+          localRayOrigin.copy(raycaster.ray.origin).applyMatrix4(invDnaMatrix);
+          localRayDir.copy(raycaster.ray.direction).transformDirection(invDnaMatrix).normalize();
+
+          // Colocar sonda visual en el punto del rayo más cercano al eje Y de la hélice
+          const tClosest = -raycaster.ray.origin.dot(raycaster.ray.direction);
+          raycaster.ray.at(Math.max(5, tClosest), probeWorldPos);
+          cursorProbeMesh.position.copy(probeWorldPos);
+          cursorProbeMesh.scale.setScalar(PARAMS.repulsionRadius * 0.32);
+          cursorProbeMesh.visible = true;
+        } else {
+          cursorProbeMesh.visible = false;
+        }
+      }
+
+      // 3. Resolver Física de Partículas (Fuerza de Repulsión + Retorno Elástico de Hooke)
+      const count = PARAMS.dnaParticleCount;
+      const kSpring = PARAMS.springStiffness;
+      // Amortiguamiento continuo adaptado a dt (normalizado a 60fps)
+      const dampingFactor = Math.pow(PARAMS.springDamping, dt * 60.0);
+      const repRadius = PARAMS.repulsionRadius;
+      const repRadiusSq = repRadius * repRadius;
+      const repStrength = PARAMS.repulsionForce;
+      const waveAmp = PARAMS.waveAmplitude;
+
+      const posAttr = dnaGeometry.attributes.position;
+      const energyAttr = dnaGeometry.attributes.aEnergy;
+
+      let displacedParticlesCount = 0;
+      let totalElasticEnergy = 0;
+
+      const ox = localRayOrigin.x;
+      const oy = localRayOrigin.y;
+      const oz = localRayOrigin.z;
+      const dx = localRayDir.x;
+      const dy = localRayDir.y;
+      const dz = localRayDir.z;
+
+      for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+        const theta = particleThetas[i];
+
+        // Posición objetivo teórica + ondulación orgánica armónica
+        const waveX = Math.sin(elapsedTime * 2.1 + theta * 0.65) * waveAmp;
+        const waveZ = Math.cos(elapsedTime * 1.8 + theta * 0.65) * waveAmp;
+
+        const targetX = basePositions[i3] + waveX;
+        const targetY = basePositions[i3 + 1];
+        const targetZ = basePositions[i3 + 2] + waveZ;
+
+        let px = currentPositions[i3];
+        let py = currentPositions[i3 + 1];
+        let pz = currentPositions[i3 + 2];
+
+        let vx = velocities[i3];
+        let vy = velocities[i3 + 1];
+        let vz = velocities[i3 + 2];
+
+        // A. Fuerza de Dispersión / Repulsión del Puntero (Distancia punto-rayo en 3D)
+        if (hasActiveRay) {
+          const rx = px - ox;
+          const ry = py - oy;
+          const rz = pz - oz;
+
+          // Proyección sobre el rayo del cursor
+          const proj = rx * dx + ry * dy + rz * dz;
+          // Vector perpendicular desde el rayo hacia la partícula
+          const perpX = rx - proj * dx;
+          const perpY = ry - proj * dy;
+          const perpZ = rz - proj * dz;
+
+          const distSq = perpX * perpX + perpY * perpY + perpZ * perpZ;
+
+          if (distSq < repRadiusSq && distSq > 0.00001) {
+            const dist = Math.sqrt(distSq);
+            const falloff = (1.0 - dist / repRadius);
+            // Ley inversa suavizada F ~ (1 - d/R) / (d/R + eps)
+            const forceMag = repStrength * falloff * falloff / (dist * 0.25 + 0.15);
+
+            // Componente radial de expulsión + remolino tangencial orgánico
+            const invDist = 1.0 / dist;
+            const nx = perpX * invDist;
+            const ny = perpY * invDist;
+            const nz = perpZ * invDist;
+
+            // Producto cruz con la dirección del rayo para inducir un leve giro magnético
+            const swirlX = (dy * nz - dz * ny) * 0.35;
+            const swirlY = (dz * nx - dx * nz) * 0.35;
+            const swirlZ = (dx * ny - dy * nx) * 0.35;
+
+            vx += (nx + swirlX) * forceMag * dt + mouseVel3D.x * falloff * 0.22;
+            vy += (ny + swirlY) * forceMag * dt + mouseVel3D.y * falloff * 0.22;
+            vz += (nz + swirlZ) * forceMag * dt;
+          }
+        }
+
+        // B. Algoritmo de Retorno (Física de Resortes de Hooke: F = -k * desplazamiento)
+        const dispX = px - targetX;
+        const dispY = py - targetY;
+        const dispZ = pz - targetZ;
+
+        vx += (-kSpring * dispX) * dt;
+        vy += (-kSpring * dispY) * dt;
+        vz += (-kSpring * dispZ) * dt;
+
+        // Amortiguamiento viscoso ( -c * v )
+        vx *= dampingFactor;
+        vy *= dampingFactor;
+        vz *= dampingFactor;
+
+        // Integración simpléctica de Euler
+        px += vx * dt;
+        py += vy * dt;
+        pz += vz * dt;
+
+        currentPositions[i3] = px;
+        currentPositions[i3 + 1] = py;
+        currentPositions[i3 + 2] = pz;
+
+        velocities[i3] = vx;
+        velocities[i3 + 1] = vy;
+        velocities[i3 + 2] = vz;
+
+        // Magnitud de excitación para el shader y telemetría
+        const dispSq = dispX * dispX + dispY * dispY + dispZ * dispZ;
+        const speedSq = vx * vx + vy * vy + vz * vz;
+        const energy = Math.min(1.8, Math.sqrt(dispSq) * 0.22 + Math.sqrt(speedSq) * 0.035);
+        particleEnergies[i] = energy;
+
+        if (dispSq > 0.15) {
+          displacedParticlesCount++;
+          totalElasticEnergy += dispSq;
+        }
+      }
+
+      // Decaimiento suave del impulso de velocidad del mouse
+      mouseVel3D.multiplyScalar(0.85);
+
+      posAttr.needsUpdate = true;
+      energyAttr.needsUpdate = true;
+
+      // 4. Actualizar Uniforms y Telemetría Cyberpunk
+      dnaParticleMaterial.uniforms.uTime.value = elapsedTime;
+      if (bondsWireframeMesh) {
+        bondsWireframeMesh.material.uniforms.uTime.value = elapsedTime;
+      }
+      ambientPoints.material.uniforms.uTime.value = elapsedTime;
+      gridShaderMat.uniforms.uTime.value = elapsedTime;
+      chromaPass.uniforms.uTime.value = elapsedTime;
+
+      document.getElementById('val-displaced-count').textContent =
+        displacedParticlesCount.toLocaleString('en-US');
+
+      const probeEl = document.getElementById('probe-status');
+      if (displacedParticlesCount > 25) {
+        probeEl.textContent = `DISPERSANDO [${displacedParticlesCount}]`;
+        probeEl.style.color = '#00ff88';
+      } else if (hasActiveRay) {
+        probeEl.textContent = 'CAMPO ACTIVO';
+        probeEl.style.color = '#00f0ff';
+      }
+
+      const normEnergyPct = Math.min(100, (totalElasticEnergy / (count * 2.5)) * 100);
+      document.getElementById('val-kinetic-energy').textContent = `${normEnergyPct.toFixed(1)}%`;
+      document.getElementById('energy-bar').style.width = `${normEnergyPct}%`;
+
+      controls.update();
+      composer.render();
+    }
+
+    animate();
+  </script>
+</body>
+</html>

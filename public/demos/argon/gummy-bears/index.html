@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gummy Bears — Interactive Soft-Body Gelatin Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page: #f8f8f6;
+      --ink-dark: #141413;
+      --ink-muted: #6e6d68;
+      --ink-subtle: #9e9d96;
+      --card-bg: rgba(255, 255, 255, 0.84);
+      --card-border: rgba(20, 20, 19, 0.08);
+      --font-serif: 'Instrument Serif', 'Playfair Display', Georgia, 'Times New Roman', serif;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-page);
+      color: var(--ink-dark);
+      font-family: var(--font-sans);
+      cursor: none;
+    }
+
+    #webgl-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1;
+    }
+
+    /* Editorial Left Title Overlay */
+    .editorial-header {
+      position: fixed;
+      top: 42px;
+      left: 48px;
+      z-index: 10;
+      pointer-events: none;
+      max-width: 360px;
+    }
+
+    .editorial-kicker {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+      margin-bottom: 10px;
+    }
+
+    .editorial-title {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(68px, 7.6vw, 108px);
+      line-height: 0.86;
+      letter-spacing: -0.02em;
+      color: var(--ink-dark);
+    }
+
+    .editorial-subtitle {
+      margin-top: 18px;
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--ink-muted);
+      font-weight: 400;
+      max-width: 265px;
+    }
+
+    /* Bottom-Left Tactile Hint */
+    .editorial-footer {
+      position: fixed;
+      bottom: 34px;
+      left: 48px;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 9px 15px;
+      border-radius: 999px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
+    }
+
+    .hint-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff2238;
+      box-shadow: 0 0 8px rgba(255, 34, 56, 0.5);
+    }
+
+    /* Minimal Control Card on the Right */
+    .control-card {
+      position: fixed;
+      top: 50%;
+      right: 42px;
+      transform: translateY(-50%);
+      z-index: 10;
+      width: 268px;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow:
+        0 20px 50px rgba(20, 20, 18, 0.06),
+        0 2px 8px rgba(20, 20, 18, 0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .card-section-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+      margin-bottom: 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .flavor-name-live {
+      color: var(--ink-dark);
+      font-weight: 500;
+    }
+
+    /* Swatches */
+    .swatch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      cursor: none;
+      position: relative;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+      box-shadow:
+        0 6px 14px var(--swatch-shadow, rgba(0, 0, 0, 0.18)),
+        inset 0 3px 6px rgba(255, 255, 255, 0.75),
+        inset 0 -4px 8px rgba(0, 0, 0, 0.18);
+    }
+
+    .swatch-btn:hover {
+      transform: scale(1.14) translateY(-2px);
+    }
+
+    .swatch-btn.active {
+      outline: 1.5px solid var(--ink-dark);
+      outline-offset: 3px;
+    }
+
+    /* Wobble Slider */
+    .slider-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(20, 20, 19, 0.09);
+      border-radius: 999px;
+      outline: none;
+      cursor: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--ink-dark);
+      border: 3px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+      cursor: none;
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+
+    /* Live Readouts ("Stretch" and "Bounces") */
+    .readout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding-top: 2px;
+      border-top: 1px solid rgba(20, 20, 19, 0.06);
+    }
+
+    .readout-box {
+      background: rgba(245, 245, 242, 0.85);
+      border: 1px solid rgba(20, 20, 19, 0.05);
+      border-radius: 13px;
+      padding: 10px 12px;
+    }
+
+    .readout-title {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+      margin-bottom: 3px;
+    }
+
+    .readout-value {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 27px;
+      line-height: 1.05;
+      color: var(--ink-dark);
+    }
+
+    /* Pour More Bears Button */
+    .pour-btn {
+      appearance: none;
+      width: 100%;
+      border: none;
+      border-radius: 999px;
+      background: var(--ink-dark);
+      color: #ffffff;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      padding: 13px 18px;
+      cursor: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 10px 24px rgba(20, 20, 19, 0.16);
+    }
+
+    .pour-btn:hover {
+      background: #292927;
+      transform: translateY(-1.5px);
+      box-shadow: 0 14px 28px rgba(20, 20, 19, 0.22);
+    }
+
+    .pour-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Subtle Circular Cursor that Grows While Grabbing */
+    #custom-cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(20, 20, 19, 0.48);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(2px);
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%) scale(1);
+      transition:
+        width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+    }
+
+    #custom-cursor.hovering {
+      width: 38px;
+      height: 38px;
+      border-color: rgba(20, 20, 19, 0.75);
+      background: rgba(255, 255, 255, 0.24);
+    }
+
+    #custom-cursor.grabbing {
+      width: 54px;
+      height: 54px;
+      border-width: 2px;
+      border-color: var(--cursor-tint, rgba(20, 20, 19, 0.9));
+      background: var(--cursor-fill, rgba(255, 255, 255, 0.32));
+    }
+
+    @media (max-width: 780px) {
+      .editorial-header { top: 24px; left: 24px; }
+      .editorial-title { font-size: 56px; }
+      .control-card {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        transform: none;
+        width: auto;
+        padding: 16px;
+      }
+      .editorial-footer { display: none; }
+    }
+  </style>
+
+  <!-- Three.js from CDN (Only Dependency) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- Editorial Typography Header -->
+  <header class="editorial-header">
+    <div class="editorial-kicker">Confectionery Physics / No. 05</div>
+    <h1 class="editorial-title">Gummy<br />Bears.</h1>
+    <p class="editorial-subtitle">
+      Translucent implicit-surface gelatin bears with volume-preserving soft-body physics. Grab, stretch, squash, throw &amp; pour.
+    </p>
+  </header>
+
+  <!-- Bottom Interaction Pill -->
+  <div class="editorial-footer">
+    <span class="hint-dot" id="hint-dot"></span>
+    <span>Pull up to stretch neck &amp; limbs · Push down on head to pancake · Flick to throw</span>
+  </div>
+
+  <!-- Minimal Right Card -->
+  <aside class="control-card">
+    <div>
+      <div class="card-section-label">
+        <span>Flavor Swatches</span>
+        <span class="flavor-name-live" id="flavor-label">Cherry Red</span>
+      </div>
+      <div class="swatch-row" id="swatch-container">
+        <button class="swatch-btn active" data-flavor="0" title="Cherry Red"
+          style="background: radial-gradient(circle at 32% 28%, #ff6b7b, #e30b24 62%, #8a0010); --swatch-shadow: rgba(227, 11, 36, 0.35);"></button>
+        <button class="swatch-btn" data-flavor="1" title="Orange"
+          style="background: radial-gradient(circle at 32% 28%, #ffb26b, #ff5e00 62%, #b03000); --swatch-shadow: rgba(255, 94, 0, 0.35);"></button>
+        <button class="swatch-btn" data-flavor="2" title="Lemon Yellow"
+          style="background: radial-gradient(circle at 32% 28%, #fff394, #ffcc00 62%, #b87f00); --swatch-shadow: rgba(255, 204, 0, 0.38);"></button>
+        <button class="swatch-btn" data-flavor="3" title="Apple Green"
+          style="background: radial-gradient(circle at 32% 28%, #8aff9e, #12b830 62%, #056316); --swatch-shadow: rgba(18, 184, 48, 0.34);"></button>
+        <button class="swatch-btn" data-flavor="4" title="Clear Pineapple"
+          style="background: radial-gradient(circle at 32% 28%, #ffffff, #f5ecc6 62%, #bfb07a); --swatch-shadow: rgba(191, 176, 122, 0.35);"></button>
+      </div>
+    </div>
+
+    <div class="slider-wrap">
+      <div class="card-section-label">
+        <span>Wobble</span>
+        <span class="flavor-name-live" id="wobble-readout">78%</span>
+      </div>
+      <input type="range" id="wobble-slider" min="20" max="100" value="78" />
+    </div>
+
+    <div class="readout-grid">
+      <div class="readout-box">
+        <div class="readout-title">Stretch</div>
+        <div class="readout-value" id="stretch-readout">1.00×</div>
+      </div>
+      <div class="readout-box">
+        <div class="readout-title">Bounces</div>
+        <div class="readout-value" id="bounces-readout">0</div>
+      </div>
+    </div>
+
+    <button class="pour-btn" id="pour-btn">
+      <span>Pour more bears</span>
+      <span style="font-size: 15px; line-height: 1;">+</span>
+    </button>
+  </aside>
+
+  <!-- Subtle Circular Cursor -->
+  <div id="custom-cursor"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // =========================================================================
+    // 1. FLAVOR DEFINITIONS (REAL GUMMY CANDY OPTICS & ABSORPTION COLORS)
+    // =========================================================================
+    const FLAVORS = [
+      {
+        name: 'Cherry Red',
+        color: new THREE.Color('#ff1c32'),
+        attenuation: new THREE.Color('#8f0012'),
+        shadowTint: new THREE.Color('#ff1730'),
+        cursorBorder: 'rgba(227, 11, 36, 0.85)',
+        cursorFill: 'rgba(255, 28, 50, 0.16)',
+        transmission: 0.91,
+        attenuationDist: 0.62
+      },
+      {
+        name: 'Orange',
+        color: new THREE.Color('#ff6a00'),
+        attenuation: new THREE.Color('#b82800'),
+        shadowTint: new THREE.Color('#ff6200'),
+        cursorBorder: 'rgba(255, 98, 0, 0.85)',
+        cursorFill: 'rgba(255, 106, 0, 0.16)',
+        transmission: 0.92,
+        attenuationDist: 0.68
+      },
+      {
+        name: 'Lemon Yellow',
+        color: new THREE.Color('#ffd000'),
+        attenuation: new THREE.Color('#c97a00'),
+        shadowTint: new THREE.Color('#ffc400'),
+        cursorBorder: 'rgba(230, 175, 0, 0.9)',
+        cursorFill: 'rgba(255, 208, 0, 0.18)',
+        transmission: 0.93,
+        attenuationDist: 0.78
+      },
+      {
+        name: 'Apple Green',
+        color: new THREE.Color('#1fd63c'),
+        attenuation: new THREE.Color('#046b18'),
+        shadowTint: new THREE.Color('#18c935'),
+        cursorBorder: 'rgba(24, 201, 53, 0.85)',
+        cursorFill: 'rgba(31, 214, 60, 0.16)',
+        transmission: 0.91,
+        attenuationDist: 0.66
+      },
+      {
+        name: 'Clear Pineapple',
+        color: new THREE.Color('#fff9de'),
+        attenuation: new THREE.Color('#d6be72'),
+        shadowTint: new THREE.Color('#e3cc78'),
+        cursorBorder: 'rgba(185, 165, 95, 0.85)',
+        cursorFill: 'rgba(255, 245, 205, 0.25)',
+        transmission: 0.96,
+        attenuationDist: 1.05
+      }
+    ];
+
+    // =========================================================================
+    // 2. SOFT-BODY ANATOMY NODES & STRETCHY STRAND TOPOLOGY
+    // =========================================================================
+    // 10 anatomical mass points per bear in local rest space (feet rest on y = 0)
+    const REST_NODES = [
+      new THREE.Vector3( 0.00, 0.42,  0.02), // 0: BELLY (lower plump torso)
+      new THREE.Vector3( 0.00, 0.79,  0.00), // 1: CHEST (upper torso)
+      new THREE.Vector3( 0.00, 1.21,  0.02), // 2: HEAD (center of head)
+      new THREE.Vector3(-0.27, 1.49, -0.02), // 3: EAR_L
+      new THREE.Vector3( 0.27, 1.49, -0.02), // 4: EAR_R
+      new THREE.Vector3( 0.00, 1.15,  0.30), // 5: SNOUT
+      new THREE.Vector3(-0.35, 0.68,  0.24), // 6: HAND_L
+      new THREE.Vector3( 0.35, 0.68,  0.24), // 7: HAND_R
+      new THREE.Vector3(-0.25, 0.16,  0.28), // 8: FOOT_L
+      new THREE.Vector3( 0.25, 0.16,  0.28)  // 9: FOOT_R
+    ];
+
+    const NODE_MASSES = [
+      2.3,  // 0: BELLY
+      1.8,  // 1: CHEST
+      1.6,  // 2: HEAD
+      0.42, // 3: EAR_L
+      0.42, // 4: EAR_R
+      0.50, // 5: SNOUT
+      0.65, // 6: HAND_L
+      0.65, // 7: HAND_R
+      0.95, // 8: FOOT_L
+      0.95  // 9: FOOT_R
+    ];
+
+    const NODE_RADII = [
+      0.34, // 0: BELLY
+      0.29, // 1: CHEST
+      0.32, // 2: HEAD
+      0.13, // 3: EAR_L
+      0.13, // 4: EAR_R
+      0.15, // 5: SNOUT
+      0.14, // 6: HAND_L
+      0.14, // 7: HAND_R
+      0.16, // 8: FOOT_L
+      0.16  // 9: FOOT_R
+    ];
+
+    // 9 primary stretchy strands connecting the mass points:
+    // [nodeA, nodeB, baseRadius, falloffSigma, neckingStrength]
+    const STRAND_DEFS = [
+      { a: 0, b: 1, r: 0.30, sigma: 0.24, necking: 0.42 }, // 0: SPINE (Belly -> Chest)
+      { a: 1, b: 2, r: 0.23, sigma: 0.22, necking: 0.65 }, // 1: NECK (Chest -> Head)
+      { a: 2, b: 3, r: 0.13, sigma: 0.15, necking: 0.55 }, // 2: LEFT EAR STRAND
+      { a: 2, b: 4, r: 0.13, sigma: 0.15, necking: 0.55 }, // 3: RIGHT EAR STRAND
+      { a: 2, b: 5, r: 0.15, sigma: 0.16, necking: 0.50 }, // 4: SNOUT STRAND
+      { a: 1, b: 6, r: 0.13, sigma: 0.17, necking: 0.72 }, // 5: LEFT ARM STRAND
+      { a: 1, b: 7, r: 0.13, sigma: 0.17, necking: 0.72 }, // 6: RIGHT ARM STRAND
+      { a: 0, b: 8, r: 0.15, sigma: 0.18, necking: 0.70 }, // 7: LEFT LEG STRAND
+      { a: 0, b: 9, r: 0.15, sigma: 0.18, necking: 0.70 }  // 8: RIGHT LEG STRAND
+    ];
+
+    // Structural & cross-bracing springs for soft-body stability
+    const SPRING_PAIRS = [
+      [0, 1, 1.0], [1, 2, 1.0], [2, 3, 1.0], [2, 4, 1.0], [2, 5, 1.0],
+      [1, 6, 1.0], [1, 7, 1.0], [0, 8, 1.0], [0, 9, 1.0],
+      // Cross stabilizers
+      [0, 2, 0.55], [3, 4, 0.50], [6, 7, 0.42], [8, 9, 0.48],
+      [6, 8, 0.35], [7, 9, 0.35], [2, 6, 0.30], [2, 7, 0.30]
+    ];
+
+    // =========================================================================
+    // 3. IMPLICIT METABALL / SDF FIELD & MARCHING CUBES SURFACE GENERATOR
+    // =========================================================================
+    // Smooth polynomial C2 minimum (melts every anatomical part seamlessly)
+    function smin(a, b, k) {
+      const h = Math.max(k - Math.abs(a - b), 0.0) / k;
+      return Math.min(a, b) - h * h * h * k * (1.0 / 6.0);
+    }
+
+    function smax(a, b, k) {
+      return -smin(-a, -b, k);
+    }
+
+    function sdEllipsoid(px, py, pz, cx, cy, cz, rx, ry, rz) {
+      const dx = (px - cx) / rx;
+      const dy = (py - cy) / ry;
+      const dz = (pz - cz) / rz;
+      const k0 = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (k0 < 1e-6) return -Math.min(rx, ry, rz);
+      const gx = dx / rx;
+      const gy = dy / ry;
+      const gz = dz / rz;
+      const k1 = Math.sqrt(gx * gx + gy * gy + gz * gz);
+      return (k0 * (k0 - 1.0)) / k1;
+    }
+
+    function sdTaperedCapsule(px, py, pz, ax, ay, az, bx, by, bz, rA, rB) {
+      const bax = bx - ax, bay = by - ay, baz = bz - az;
+      const pax = px - ax, pay = py - ay, paz = pz - az;
+      const lenSq = bax * bax + bay * bay + baz * baz;
+      let t = lenSq > 1e-8 ? (pax * bax + pay * bay + paz * baz) / lenSq : 0.0;
+      t = Math.max(0.0, Math.min(1.0, t));
+      const dx = pax - bax * t;
+      const dy = pay - bay * t;
+      const dz = paz - baz * t;
+      const r = rA + (rB - rA) * t;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz) - r;
+    }
+
+    // Evaluates the exact implicit surface SDF of the classic gummy bear
+    function evaluateGummyBearSDF(x, y, z) {
+      const ax = Math.abs(x); // Mirror symmetry for left/right anatomy
+
+      // 1. Plump lower belly & upper chest merged via spine capsule
+      const dBelly = sdEllipsoid(x, y, z, 0.0, 0.42, 0.03, 0.35, 0.33, 0.31);
+      const dChest = sdEllipsoid(x, y, z, 0.0, 0.79, 0.00, 0.30, 0.27, 0.25);
+      const dSpine = sdTaperedCapsule(x, y, z, 0.0, 0.40, 0.02, 0.0, 0.82, 0.0, 0.32, 0.27);
+      let dBody = smin(dBelly, dChest, 0.16);
+      dBody = smin(dBody, dSpine, 0.12);
+
+      // Subtle Haribo-style molded tummy collar & belly contour
+      const dCollar = Math.abs(y - 0.72 + z * 0.12) - 0.018;
+      if (z > 0.12 && y > 0.35 && y < 0.90) {
+        dBody += Math.exp(-dCollar * dCollar * 450.0) * 0.011;
+      }
+
+      // 2. Neck strand & big round bear head
+      const dNeck = sdTaperedCapsule(x, y, z, 0.0, 0.79, 0.00, 0.0, 1.21, 0.02, 0.22, 0.21);
+      const dHead = sdEllipsoid(x, y, z, 0.0, 1.21, 0.02, 0.345, 0.315, 0.30);
+      let d = smin(dBody, dNeck, 0.11);
+      d = smin(d, dHead, 0.11);
+
+      // 3. Two round ears with cupped front dimples
+      const dEarBridge = sdTaperedCapsule(ax, y, z, 0.16, 1.34, 0.00, 0.27, 1.49, -0.02, 0.10, 0.125);
+      const dEarBall = sdEllipsoid(ax, y, z, 0.27, 1.49, -0.02, 0.135, 0.135, 0.095);
+      let dEar = smin(dEarBridge, dEarBall, 0.07);
+      const dEarCup = sdEllipsoid(ax, y, z, 0.27, 1.49, 0.065, 0.072, 0.072, 0.055);
+      dEar = smax(dEar, -dEarCup, 0.035);
+      d = smin(d, dEar, 0.08);
+
+      // 4. Short rounded snout + tiny molded nose button
+      const dSnout = sdEllipsoid(x, y, z, 0.0, 1.15, 0.25, 0.155, 0.122, 0.135);
+      d = smin(d, dSnout, 0.095);
+
+      const dNose = sdEllipsoid(x, y, z, 0.0, 1.195, 0.365, 0.058, 0.042, 0.044);
+      d = smin(d, dNose, 0.035);
+
+      // 5. Tiny molded eyes with subtle socket rim
+      const dEyeSocket = sdEllipsoid(ax, y, z, 0.13, 1.26, 0.265, 0.064, 0.064, 0.045);
+      d = smax(d, -dEyeSocket * 0.45, 0.025);
+      const dEyeBead = sdEllipsoid(ax, y, z, 0.13, 1.26, 0.285, 0.044, 0.044, 0.038);
+      d = smin(d, dEyeBead, 0.022);
+
+      // 6. Stubby arms (tapered capsules from chest shoulders to round paws)
+      const dArm = sdTaperedCapsule(ax, y, z, 0.23, 0.80, 0.02, 0.35, 0.68, 0.24, 0.112, 0.128);
+      const dPaw = sdEllipsoid(ax, y, z, 0.35, 0.68, 0.25, 0.132, 0.122, 0.135);
+      d = smin(d, smin(dArm, dPaw, 0.06), 0.095);
+
+      // 7. Stubby legs & feet (tapered capsules from hips to forward seated/standing pads)
+      const dLeg = sdTaperedCapsule(ax, y, z, 0.20, 0.32, 0.02, 0.25, 0.16, 0.28, 0.128, 0.142);
+      const dFoot = sdEllipsoid(ax, y, z, 0.25, 0.155, 0.30, 0.148, 0.132, 0.155);
+      d = smin(d, smin(dLeg, dFoot, 0.06), 0.095);
+
+      // Gentle flat bottom pad so the resting bear sits naturally on the table (y >= 0)
+      const dFloorPlane = -y;
+      d = smax(d, dFloorPlane, 0.045);
+
+      return d;
+    }
+
+    // Analytical SDF gradient for glass-smooth normals
+    function evaluateSDFNormal(x, y, z) {
+      const eps = 0.0035;
+      const dx = evaluateGummyBearSDF(x + eps, y, z) - evaluateGummyBearSDF(x - eps, y, z);
+      const dy = evaluateGummyBearSDF(x, y + eps, z) - evaluateGummyBearSDF(x, y - eps, z);
+      const dz = evaluateGummyBearSDF(x, y, z + eps) - evaluateGummyBearSDF(x, y, z - eps);
+      const len = Math.hypot(dx, dy, dz) || 1.0;
+      return [dx / len, dy / len, dz / len];
+    }
+
+    // Dual Marching Cubes / Surface Nets Isosurface Polygonizer
+    // Generates a watertight, smooth quad-triangulated implicit surface mesh directly from evaluateGummyBearSDF
+    function buildImplicitBearGeometry() {
+      const nx = 38, ny = 48, nz = 36;
+      const minX = -0.60, maxX = 0.60;
+      const minY = -0.04, maxY = 1.72;
+      const minZ = -0.44, maxZ = 0.54;
+
+      const stepX = (maxX - minX) / (nx - 1);
+      const stepY = (maxY - minY) / (ny - 1);
+      const stepZ = (maxZ - minZ) / (nz - 1);
+
+      // 1. Sample 3D SDF Scalar Field
+      const field = new Float32Array(nx * ny * nz);
+      const idx3 = (ix, iy, iz) => ix + nx * (iy + ny * iz);
+
+      for (let iz = 0; iz < nz; iz++) {
+        const z = minZ + iz * stepZ;
+        for (let iy = 0; iy < ny; iy++) {
+          const y = minY + iy * stepY;
+          for (let ix = 0; ix < nx; ix++) {
+            const x = minX + ix * stepX;
+            field[idx3(ix, iy, iz)] = evaluateGummyBearSDF(x, y, z);
+          }
+        }
+      }
+
+      // 12 cube edges (pairs of corner offsets [dx, dy, dz])
+      const CORNERS = [
+        [0,0,0], [1,0,0], [1,1,0], [0,1,0],
+        [0,0,1], [1,0,1], [1,1,1], [0,1,1]
+      ];
+      const EDGES = [
+        [0,1], [1,2], [2,3], [3,0],
+        [4,5], [5,6], [6,7], [7,4],
+        [0,4], [1,5], [2,6], [3,7]
+      ];
+
+      // 2. For every active Marching Cubes cell (sign change across corners),
+      // compute the exact zero-crossing edge average position (Surface Nets / Dual MC vertex)
+      const cellToVert = new Int32Array((nx - 1) * (ny - 1) * (nz - 1)).fill(-1);
+      const cellIdx = (ix, iy, iz) => ix + (nx - 1) * (iy + (ny - 1) * iz);
+
+      const positions = [];
+      const normals = [];
+
+      for (let iz = 0; iz < nz - 1; iz++) {
+        for (let iy = 0; iy < ny - 1; iy++) {
+          for (let ix = 0; ix < nx - 1; ix++) {
+            let mask = 0;
+            const cornerVals = new Float32Array(8);
+            for (let c = 0; c < 8; c++) {
+              const val = field[idx3(ix + CORNERS[c][0], iy + CORNERS[c][1], iz + CORNERS[c][2])];
+              cornerVals[c] = val;
+              if (val < 0.0) mask |= (1 << c);
+            }
+
+            if (mask === 0 || mask === 255) continue;
+
+            // Interpolate zero-crossings along all active edges of the cube
+            let sumX = 0, sumY = 0, sumZ = 0, crossings = 0;
+            for (let e = 0; e < 12; e++) {
+              const c0 = EDGES[e][0];
+              const c1 = EDGES[e][1];
+              const v0 = cornerVals[c0];
+              const v1 = cornerVals[c1];
+              if ((v0 < 0.0) !== (v1 < 0.0)) {
+                const t = v0 / (v0 - v1);
+                const px = minX + (ix + CORNERS[c0][0] + (CORNERS[c1][0] - CORNERS[c0][0]) * t) * stepX;
+                const py = minY + (iy + CORNERS[c0][1] + (CORNERS[c1][1] - CORNERS[c0][1]) * t) * stepY;
+                const pz = minZ + (iz + CORNERS[c0][2] + (CORNERS[c1][2] - CORNERS[c0][2]) * t) * stepZ;
+                sumX += px;
+                sumY += py;
+                sumZ += pz;
+                crossings++;
+              }
+            }
+
+            let vx = sumX / crossings;
+            let vy = sumY / crossings;
+            let vz = sumZ / crossings;
+
+            // 1 Newton-Raphson projection step onto the exact F(p) = 0 implicit surface
+            const fVal = evaluateGummyBearSDF(vx, vy, vz);
+            const nrm = evaluateSDFNormal(vx, vy, vz);
+            vx -= nrm[0] * fVal * 0.85;
+            vy -= nrm[1] * fVal * 0.85;
+            vz -= nrm[2] * fVal * 0.85;
+            const finalNrm = evaluateSDFNormal(vx, vy, vz);
+
+            const vIndex = positions.length / 3;
+            cellToVert[cellIdx(ix, iy, iz)] = vIndex;
+            positions.push(vx, vy, vz);
+            normals.push(finalNrm[0], finalNrm[1], finalNrm[2]);
+          }
+        }
+      }
+
+      // 3. Emit watertight triangles for each interior grid edge that exhibits a sign change
+      const indices = [];
+      function emitQuad(v0, v1, v2, v3, flip) {
+        if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) return;
+        if (flip) {
+          indices.push(v0, v1, v2, v0, v2, v3);
+        } else {
+          indices.push(v0, v2, v1, v0, v3, v2);
+        }
+      }
+
+      for (let iz = 1; iz < nz - 1; iz++) {
+        for (let iy = 1; iy < ny - 1; iy++) {
+          for (let ix = 1; ix < nx - 1; ix++) {
+            const vCenter = field[idx3(ix, iy, iz)];
+
+            // X-axis edge (ix -> ix + 1)
+            const vRight = field[idx3(ix + 1, iy, iz)];
+            if ((vCenter < 0.0) !== (vRight < 0.0)) {
+              const c0 = cellToVert[cellIdx(ix, iy - 1, iz - 1)];
+              const c1 = cellToVert[cellIdx(ix, iy,     iz - 1)];
+              const c2 = cellToVert[cellIdx(ix, iy,     iz    )];
+              const c3 = cellToVert[cellIdx(ix, iy - 1, iz    )];
+              emitQuad(c0, c1, c2, c3, vCenter < 0.0);
+            }
+
+            // Y-axis edge (iy -> iy + 1)
+            const vUp = field[idx3(ix, iy + 1, iz)];
+            if ((vCenter < 0.0) !== (vUp < 0.0)) {
+              const c0 = cellToVert[cellIdx(ix - 1, iy, iz - 1)];
+              const c1 = cellToVert[cellIdx(ix - 1, iy, iz    )];
+              const c2 = cellToVert[cellIdx(ix,     iy, iz    )];
+              const c3 = cellToVert[cellIdx(ix,     iy, iz - 1)];
+              emitQuad(c0, c1, c2, c3, vCenter < 0.0);
+            }
+
+            // Z-axis edge (iz -> iz + 1)
+            const vFront = field[idx3(ix, iy, iz + 1)];
+            if ((vCenter < 0.0) !== (vFront < 0.0)) {
+              const c0 = cellToVert[cellIdx(ix - 1, iy - 1, iz)];
+              const c1 = cellToVert[cellIdx(ix,     iy - 1, iz)];
+              const c2 = cellToVert[cellIdx(ix,     iy,     iz)];
+              const c3 = cellToVert[cellIdx(ix - 1, iy,     iz)];
+              emitQuad(c0, c1, c2, c3, vCenter < 0.0);
+            }
+          }
+        }
+      }
+
+      const vertexCount = positions.length / 3;
+      const restPos = new Float32Array(positions);
+      const restNrm = new Float32Array(normals);
+
+      // 4. Precompute Strand Skinning Binding (Top 3 Strands per Vertex)
+      // Each vertex stores its projection parameter t along its top 3 strands and its perpendicular radial vector
+      const strandIndices = new Uint8Array(vertexCount * 3);
+      const strandWeights = new Float32Array(vertexCount * 3);
+      const strandT = new Float32Array(vertexCount * 3);
+      const strandRadVec = new Float32Array(vertexCount * 9); // 3 * (rx, ry, rz)
+      const thicknessAttr = new Float32Array(vertexCount);
+
+      const numStrands = STRAND_DEFS.length;
+      const strandRestAxes = STRAND_DEFS.map((sd) => {
+        const a = REST_NODES[sd.a];
+        const b = REST_NODES[sd.b];
+        const dir = new THREE.Vector3().subVectors(b, a);
+        const len = dir.length();
+        return { a, b, dir: dir.clone().divideScalar(len), len, r: sd.r, sigma: sd.sigma };
+      });
+
+      for (let v = 0; v < vertexCount; v++) {
+        const px = restPos[v * 3];
+        const py = restPos[v * 3 + 1];
+        const pz = restPos[v * 3 + 2];
+
+        // Estimate optical thickness (distance deep inside bear core for subsurface absorption)
+        const deepSample = -evaluateGummyBearSDF(
+          px - restNrm[v * 3] * 0.22,
+          py - restNrm[v * 3 + 1] * 0.22,
+          pz - restNrm[v * 3 + 2] * 0.22
+        );
+        thicknessAttr[v] = Math.max(0.15, Math.min(1.0, deepSample * 4.2));
+
+        // Rank strands by proximity weight
+        const candidates = [];
+        for (let s = 0; s < numStrands; s++) {
+          const sr = strandRestAxes[s];
+          const pax = px - sr.a.x;
+          const pay = py - sr.a.y;
+          const paz = pz - sr.a.z;
+          const rawT = (pax * sr.dir.x + pay * sr.dir.y + paz * sr.dir.z) / sr.len;
+          const clampedT = Math.max(0.0, Math.min(1.0, rawT));
+
+          const cx = sr.a.x + sr.dir.x * (sr.len * clampedT);
+          const cy = sr.a.y + sr.dir.y * (sr.len * clampedT);
+          const cz = sr.a.z + sr.dir.z * (sr.len * clampedT);
+
+          const dx = px - cx, dy = py - cy, dz = pz - cz;
+          const dist = Math.max(0.0, Math.hypot(dx, dy, dz) - sr.r * 0.45);
+          const w = Math.exp(-(dist * dist) / (sr.sigma * sr.sigma));
+
+          // Perpendicular radial offset from the Infinite strand line
+          const lineCx = sr.a.x + sr.dir.x * (sr.len * rawT);
+          const lineCy = sr.a.y + sr.dir.y * (sr.len * rawT);
+          const lineCz = sr.a.z + sr.dir.z * (sr.len * rawT);
+
+          candidates.push({
+            s,
+            w,
+            t: rawT,
+            rx: px - lineCx,
+            ry: py - lineCy,
+            rz: pz - lineCz
+          });
+        }
+
+        candidates.sort((a, b) => b.w - a.w);
+        const wSum = (candidates[0].w + candidates[1].w + candidates[2].w) || 1.0;
+
+        for (let k = 0; k < 3; k++) {
+          const c = candidates[k];
+          const slot = v * 3 + k;
+          strandIndices[slot] = c.s;
+          strandWeights[slot] = c.w / wSum;
+          strandT[slot] = c.t;
+          strandRadVec[slot * 3] = c.rx;
+          strandRadVec[slot * 3 + 1] = c.ry;
+          strandRadVec[slot * 3 + 2] = c.rz;
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(restPos.slice(), 3));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(restNrm.slice(), 3));
+      geometry.setAttribute('aThickness', new THREE.BufferAttribute(thicknessAttr, 1));
+      geometry.setIndex(indices);
+
+      return {
+        baseGeometry: geometry,
+        vertexCount,
+        restPos,
+        restNrm,
+        strandIndices,
+        strandWeights,
+        strandT,
+        strandRadVec,
+        strandRestAxes
+      };
+    }
+
+    // =========================================================================
+    // 4. SCENE, CAMERA, STUDIO HDRI ENVIRONMENT & LIGHTING SETUP
+    // =========================================================================
+    const canvas = document.getElementById('webgl-canvas');
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#f8f8f6');
+
+    const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 60);
+    camera.position.set(0.0, 4.4, 8.2);
+    camera.lookAt(0.0, 0.72, 0.0);
+
+    // Procedural Studio Softbox Environment for Glossy Clearcoat & Refraction
+    function createStudioEnvironment(rendererInstance) {
+      const pmrem = new THREE.PMREMGenerator(rendererInstance);
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color('#f2f2ee');
+
+      // Overhead studio softbox (creates sharp wet-candy specular highlights)
+      const topBox = new THREE.Mesh(
+        new THREE.PlaneGeometry(14, 10),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(4.2, 4.2, 4.1), side: THREE.DoubleSide })
+      );
+      topBox.position.set(0, 8, -1);
+      topBox.rotation.x = Math.PI * 0.5;
+      envScene.add(topBox);
+
+      // Left key softbox
+      const keyBox = new THREE.Mesh(
+        new THREE.PlaneGeometry(9, 8),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(3.4, 3.3, 3.1), side: THREE.DoubleSide })
+      );
+      keyBox.position.set(-7, 4, 4);
+      keyBox.lookAt(0, 1, 0);
+      envScene.add(keyBox);
+
+      // Back rim light strip (makes gummy edges glow with translucent transmission)
+      const rimBox = new THREE.Mesh(
+        new THREE.PlaneGeometry(16, 5),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(3.8, 3.9, 4.2), side: THREE.DoubleSide })
+      );
+      rimBox.position.set(0, 3.5, -8);
+      rimBox.lookAt(0, 1, 0);
+      envScene.add(rimBox);
+
+      const envRT = pmrem.fromScene(envScene, 0.03);
+      pmrem.dispose();
+      return envRT.texture;
+    }
+
+    scene.environment = createStudioEnvironment(renderer);
+
+    // Soft Key, Fill & Back Lighting
+    const ambientLight = new THREE.AmbientLight('#ffffff', 0.85);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight('#fffdf8', 2.2);
+    keyLight.position.set(4.5, 9.5, 5.5);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 2.0;
+    keyLight.shadow.camera.far = 22.0;
+    const dCam = 5.5;
+    keyLight.shadow.camera.left = -dCam;
+    keyLight.shadow.camera.right = dCam;
+    keyLight.shadow.camera.top = dCam;
+    keyLight.shadow.camera.bottom = -dCam;
+    keyLight.shadow.bias = -0.0005;
+    keyLight.shadow.radius = 4.5;
+    scene.add(keyLight);
+
+    const backLight = new THREE.DirectionalLight('#eef4ff', 1.65);
+    backLight.position.set(-3.5, 5.0, -6.5);
+    scene.add(backLight);
+
+    // Seamless White Studio Table
+    const tableGeo = new THREE.PlaneGeometry(50, 50);
+    const tableMat = new THREE.MeshStandardMaterial({
+      color: '#f8f8f6',
+      roughness: 0.88,
+      metalness: 0.0
+    });
+    const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+    tableMesh.rotation.x = -Math.PI * 0.5;
+    tableMesh.receiveShadow = true;
+    scene.add(tableMesh);
+
+    // =========================================================================
+    // 5. GUMMY CANDY MATERIAL & COLORED CAUSTIC SHADOW DECAL
+    // =========================================================================
+    const FLAVOR_MATERIALS = FLAVORS.map((flv) => {
+      const mat = new THREE.MeshPhysicalMaterial({
+        color: flv.color,
+        transmission: flv.transmission,
+        ior: 1.485,
+        thickness: 1.65,
+        attenuationColor: flv.attenuation,
+        attenuationDistance: flv.attenuationDist,
+        roughness: 0.12,
+        metalness: 0.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.055,
+        specularIntensity: 1.0,
+        envMapIntensity: 1.35
+      });
+
+      // Inject thickness-based subsurface absorption & backlit gelatin glow
+      mat.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <common>',
+          `#include <common>
+           attribute float aThickness;
+           varying float vGummyThickness;`
+        );
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+           vGummyThickness = aThickness;`
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <common>',
+          `#include <common>
+           varying float vGummyThickness;`
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          `// Deepen internal candy absorption in thick belly/head regions & add rim translucency
+           vec3 viewDir = normalize(vViewPosition);
+           float fresnel = pow(1.0 - abs(dot(normal, viewDir)), 2.4);
+           vec3 deepTint = mix(gl_FragColor.rgb, gl_FragColor.rgb * gl_FragColor.rgb * 0.92, vGummyThickness * 0.48);
+           gl_FragColor.rgb = deepTint + gl_FragColor.rgb * fresnel * 0.22;
+           #include <dithering_fragment>`
+        );
+      };
+
+      return mat;
+    });
+
+    // Shared procedural radial caustic shadow texture for colored shadows under each bear
+    function createCausticShadowTexture() {
+      const sz = 128;
+      const c = document.createElement('canvas');
+      c.width = sz;
+      c.height = sz;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(sz * 0.5, sz * 0.5, sz * 0.04, sz * 0.5, sz * 0.5, sz * 0.48);
+      g.addColorStop(0.0, 'rgba(255, 255, 255, 0.95)');
+      g.addColorStop(0.35, 'rgba(255, 255, 255, 0.65)');
+      g.addColorStop(0.72, 'rgba(255, 255, 255, 0.18)');
+      g.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, sz, sz);
+      const tex = new THREE.CanvasTexture(c);
+      return tex;
+    }
+    const shadowDecalTex = createCausticShadowTexture();
+    const shadowPlaneGeo = new THREE.PlaneGeometry(1.55, 1.55);
+    shadowPlaneGeo.rotateX(-Math.PI * 0.5);
+
+    // Build the canonical Implicit Surface Gummy Bear Template once via Marching Cubes
+    const BEAR_TEMPLATE = buildImplicitBearGeometry();
+
+    // =========================================================================
+    // 6. SOFT-BODY GUMMY BEAR CLASS (VOLUME-PRESERVING SHAPE MATCHING + STRANDS)
+    // =========================================================================
+    const NUM_NODES = REST_NODES.length;
+    const TOTAL_MASS = NODE_MASSES.reduce((a, b) => a + b, 0);
+
+    // Precompute rest center of mass and relative rest vectors q_i
+    const REST_COM = new THREE.Vector3();
+    for (let i = 0; i < NUM_NODES; i++) {
+      REST_COM.addScaledVector(REST_NODES[i], NODE_MASSES[i]);
+    }
+    REST_COM.divideScalar(TOTAL_MASS);
+
+    const REST_Q = REST_NODES.map((p) => p.clone().sub(REST_COM));
+    const REST_HEIGHT = REST_NODES[2].y - REST_NODES[8].y; // Head to Foot vertical span
+
+    let globalBounceCount = 0;
+    const bouncesReadoutEl = document.getElementById('bounces-readout');
+    const stretchReadoutEl = document.getElementById('stretch-readout');
+
+    // Global wobble parameter controlled by UI slider (0.2 -> 1.0)
+    let wobbleFactor = 0.78;
+
+    class SoftGummyBear {
+      constructor(flavorIdx, startPos, initialQuat) {
+        this.flavorIdx = flavorIdx;
+        this.flavor = FLAVORS[flavorIdx];
+
+        // Clone geometry with dedicated dynamic position & normal buffers
+        this.geometry = BEAR_TEMPLATE.baseGeometry.clone();
+        this.posAttr = this.geometry.attributes.position;
+        this.nrmAttr = this.geometry.attributes.normal;
+
+        this.mesh = new THREE.Mesh(this.geometry, FLAVOR_MATERIALS[flavorIdx]);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = false;
+        this.mesh.userData.bear = this;
+        scene.add(this.mesh);
+
+        // Soft colored shadow decal underneath this bear, tinted by the bear's own flavor color
+        this.shadowMat = new THREE.MeshBasicMaterial({
+          map: shadowDecalTex,
+          color: this.flavor.shadowTint,
+          transparent: true,
+          opacity: 0.42,
+          depthWrite: false
+        });
+        this.shadowMesh = new THREE.Mesh(shadowPlaneGeo, this.shadowMat);
+        this.shadowMesh.position.set(startPos.x, 0.003, startPos.z);
+        scene.add(this.shadowMesh);
+
+        // Soft-body mass point state
+        this.nodesPos = [];
+        this.nodesVel = [];
+        this.nodesGoal = [];
+        this.orientation = initialQuat ? initialQuat.clone() : new THREE.Quaternion();
+        this.com = startPos.clone();
+
+        for (let i = 0; i < NUM_NODES; i++) {
+          const worldP = REST_Q[i].clone().applyQuaternion(this.orientation).add(startPos);
+          this.nodesPos.push(worldP);
+          this.nodesVel.push(new THREE.Vector3(
+            (Math.random() - 0.5) * 0.6,
+            0.0,
+            (Math.random() - 0.5) * 0.6
+          ));
+          this.nodesGoal.push(worldP.clone());
+        }
+
+        // Rest lengths for structural springs
+        this.springs = SPRING_PAIRS.map(([a, b, w]) => ({
+          a,
+          b,
+          w,
+          restLen: REST_NODES[a].distanceTo(REST_NODES[b])
+        }));
+
+        // Pancake / squash energy state (when head is pressed down, stores launch energy)
+        this.pancakeCompression = 0.0;
+        this.currentMaxStretch = 1.0;
+        this.wasAirborne = startPos.y > 0.85;
+        this.bounceCooldown = 0.0;
+
+        // Idle hop timer
+        this.idleHopTimer = 2.2 + Math.random() * 5.0;
+        this.grabbedNodeIdx = -1;
+        this.grabTarget = new THREE.Vector3();
+      }
+
+      dispose() {
+        scene.remove(this.mesh);
+        scene.remove(this.shadowMesh);
+        this.geometry.dispose();
+        this.shadowMat.dispose();
+      }
+
+      // Extract optimal 3D rotation quaternion from apolar covariance matrix A_pq (Müller et al.)
+      updateShapeMatchingOrientation() {
+        // Compute current center of mass
+        this.com.set(0, 0, 0);
+        for (let i = 0; i < NUM_NODES; i++) {
+          this.com.addScaledVector(this.nodesPos[i], NODE_MASSES[i]);
+        }
+        this.com.divideScalar(TOTAL_MASS);
+
+        // Iterative Polar Decomposition on quaternionthis.orientation
+        const q = this.orientation;
+        const rotMat = new THREE.Matrix4();
+        const rCol0 = new THREE.Vector3();
+        const rCol1 = new THREE.Vector3();
+        const rCol2 = new THREE.Vector3();
+        const pRel = new THREE.Vector3();
+        const omega = new THREE.Vector3();
+        const crossTmp = new THREE.Vector3();
+
+        for (let iter = 0; iter < 5; iter++) {
+          rotMat.makeRotationFromQuaternion(q);
+          const e = rotMat.elements;
+          rCol0.set(e[0], e[1], e[2]);
+          rCol1.set(e[4], e[5], e[6]);
+          rCol2.set(e[8], e[9], e[10]);
+
+          // Compute ∑ m_i (R q_i) × p_i
+          omega.set(0, 0, 0);
+          for (let i = 0; i < NUM_NODES; i++) {
+            const qi = REST_Q[i];
+            const rqiX = rCol0.x * qi.x + rCol1.x * qi.y + rCol2.x * qi.z;
+            const rqiY = rCol0.y * qi.x + rCol1.y * qi.y + rCol2.y * qi.z;
+            const rqiZ = rCol0.z * qi.x + rCol1.z * qi.y + rCol2.z * qi.z;
+
+            pRel.subVectors(this.nodesPos[i], this.com);
+            crossTmp.set(
+              rqiY * pRel.z - rqiZ * pRel.y,
+              rqiZ * pRel.x - rqiX * pRel.z,
+              rqiX * pRel.y - rqiY * pRel.x
+            );
+            omega.addScaledVector(crossTmp, NODE_MASSES[i]);
+          }
+
+          const angle = omega.length() * 0.45;
+          if (angle < 1e-5) break;
+          omega.normalize();
+          const dq = new THREE.Quaternion().setFromAxisAngle(omega, Math.min(0.35, angle));
+          q.premultiply(dq).normalize();
+        }
+      }
+
+      stepPhysics(dt) {
+        if (this.bounceCooldown > 0) this.bounceCooldown -= dt;
+
+        // 1. Update optimal rigid-body frame via Shape Matching
+        this.updateShapeMatchingOrientation();
+
+        // Local up axis of the bear
+        const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.orientation);
+        // Uprightness tendency so bears naturally settle sitting/standing or on their back smoothly
+        const headToFoot = new THREE.Vector3().subVectors(this.nodesPos[2], this.nodesPos[0]);
+        const verticalSpan = Math.max(0.18, headToFoot.dot(localUp));
+        const bodyStretchY = THREE.MathUtils.clamp(verticalSpan / 0.79, 0.36, 2.6);
+
+        // Volume-preserving lateral scale: when squashed (bodyStretchY < 1), bulge sideways by 1/√λ
+        const lateralBulge = 1.0 / Math.sqrt(bodyStretchY);
+
+        // Track pancake compression when user presses down on the head/body against the table
+        if (this.grabbedNodeIdx !== -1 && this.grabTarget.y < 0.72 && this.com.y < 0.75) {
+          const pressDepth = Math.max(0.0, 0.78 - this.grabTarget.y);
+          this.pancakeCompression = Math.min(1.35, pressDepth * 2.1);
+        }
+
+        const effectiveBulge = lateralBulge * (1.0 + this.pancakeCompression * 0.55);
+        const effectiveSquashY = bodyStretchY / (1.0 + this.pancakeCompression * 0.65);
+
+        // 2. Idle random hops with squash & stretch
+        const onGround = this.com.y < 0.76;
+        if (this.grabbedNodeIdx === -1 && onGround) {
+          this.idleHopTimer -= dt;
+          if (this.idleHopTimer <= 0) {
+            this.idleHopTimer = 3.2 + Math.random() * 5.8;
+            const hopVy = 3.6 + Math.random() * 2.2;
+            const hopVx = (Math.random() - 0.5) * 1.8;
+            const hopVz = (Math.random() - 0.5) * 1.8;
+            for (let i = 0; i < NUM_NODES; i++) {
+              // Head leads the hop slightly for lively stretch
+              const boost = (i === 2 || i === 3 || i === 4) ? 1.28 : 0.92;
+              this.nodesVel[i].x += hopVx;
+              this.nodesVel[i].y += hopVy * boost;
+              this.nodesVel[i].z += hopVz;
+            }
+            this.wasAirborne = true;
+          }
+        }
+
+        // Stiffness & damping modulated by the UI "Wobble" slider
+        // Higher wobble = softer spring stiffness + lower damping = longer, juicier jelly oscillation
+        const shapeStiff = THREE.MathUtils.lerp(58.0, 24.0, wobbleFactor);
+        const velDamping = THREE.MathUtils.lerp(5.5, 1.85, wobbleFactor);
+
+        // 3. Apply Gravity, Volume-Preserving Shape-Matching Goals, and Grab Forces
+        for (let i = 0; i < NUM_NODES; i++) {
+          const qi = REST_Q[i];
+          // Apply volume-preserving squash & bulge in local space before rotating
+          const scaledQ = new THREE.Vector3(
+            qi.x * effectiveBulge,
+            qi.y * effectiveSquashY,
+            qi.z * effectiveBulge
+          ).applyQuaternion(this.orientation);
+
+          const goal = this.nodesGoal[i].copy(this.com).add(scaledQ);
+          const pos = this.nodesPos[i];
+          const vel = this.nodesVel[i];
+
+          // Gravity
+          vel.y -= 15.5 * dt;
+
+          // Shape-matching restoring force toward volume-preserving goal
+          vel.x += (goal.x - pos.x) * shapeStiff * dt;
+          vel.y += (goal.y - pos.y) * shapeStiff * dt;
+          vel.z += (goal.z - pos.z) * shapeStiff * dt;
+
+          // Gentle upright torque on the torso/head when resting on table so bears sit proudly
+          if (onGround && this.grabbedNodeIdx === -1 && i === 2) {
+            vel.y += 4.2 * dt;
+          }
+        }
+
+        // 4. Solve Elastic Distance Springs (Stretchy Strands between nodes)
+        const springStiff = THREE.MathUtils.lerp(95.0, 42.0, wobbleFactor);
+        for (let s = 0; s < this.springs.length; s++) {
+          const sp = this.springs[s];
+          const pA = this.nodesPos[sp.a];
+          const pB = this.nodesPos[sp.b];
+          const vA = this.nodesVel[sp.a];
+          const vB = this.nodesVel[sp.b];
+
+          const dx = pB.x - pA.x;
+          const dy = pB.y - pA.y;
+          const dz = pB.z - pA.z;
+          const dist = Math.hypot(dx, dy, dz) || 1e-5;
+          const diff = dist - sp.restLen;
+
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const nz = dz / dist;
+
+          // Spring force + relative velocity damping along strand
+          const relVel = (vB.x - vA.x) * nx + (vB.y - vA.y) * ny + (vB.z - vA.z) * nz;
+          const force = (diff * springStiff * sp.w) + relVel * velDamping * 0.65;
+
+          const invMA = 1.0 / NODE_MASSES[sp.a];
+          const invMB = 1.0 / NODE_MASSES[sp.b];
+          const wSum = invMA + invMB;
+
+          vA.x += nx * force * (invMA / wSum) * dt;
+          vA.y += ny * force * (invMA / wSum) * dt;
+          vA.z += nz * force * (invMA / wSum) * dt;
+
+          vB.x -= nx * force * (invMB / wSum) * dt;
+          vB.y -= ny * force * (invMB / wSum) * dt;
+          vB.z -= ny * force * (invMB / wSum) * dt;
+        }
+
+        // 5. Grabbed Node Spring Pull (Allows rubbery stretching & head-down pancaking)
+        if (this.grabbedNodeIdx !== -1) {
+          const gIdx = this.grabbedNodeIdx;
+          const gPos = this.nodesPos[gIdx];
+          const gVel = this.nodesVel[gIdx];
+
+          const pullX = this.grabTarget.x - gPos.x;
+          const pullY = this.grabTarget.y - gPos.y;
+          const pullZ = this.grabTarget.z - gPos.z;
+
+          // Strong direct spring on the grabbed part so it tracks the cursor like stretched taffy
+          gVel.x = pullX * 26.0;
+          gVel.y = pullY * 26.0;
+          gVel.z = pullZ * 26.0;
+
+          // If pressing down on the head, also compress the chest & belly downward into a pancake
+          if (this.pancakeCompression > 0.05) {
+            this.nodesVel[1].y -= this.pancakeCompression * 22.0 * dt;
+            this.nodesVel[0].y -= this.pancakeCompression * 18.0 * dt;
+            // Push hands and feet radially outward
+            for (const limbIdx of [6, 7, 8, 9]) {
+              const rx = this.nodesPos[limbIdx].x - this.com.x;
+              const rz = this.nodesPos[limbIdx].z - this.com.z;
+              this.nodesVel[limbIdx].x += rx * this.pancakeCompression * 16.0 * dt;
+              this.nodesVel[limbIdx].z += rz * this.pancakeCompression * 16.0 * dt;
+            }
+          }
+        }
+
+        // 6. Integrate Positions & Handle Table + Boundary Collisions
+        const airDamp = Math.exp(-dt * THREE.MathUtils.lerp(2.2, 0.85, wobbleFactor));
+        let hitFloorThisStep = false;
+
+        for (let i = 0; i < NUM_NODES; i++) {
+          const pos = this.nodesPos[i];
+          const vel = this.nodesVel[i];
+          const rad = NODE_RADII[i];
+
+          vel.multiplyScalar(airDamp);
+          pos.addScaledVector(vel, dt);
+
+          // Table Floor Collision (y = rad * 0.85)
+          const minY = rad * (this.pancakeCompression > 0.05 ? 0.42 : 0.82);
+          if (pos.y < minY) {
+            if (vel.y < -1.35) {
+              hitFloorThisStep = true;
+            }
+            pos.y = minY;
+            if (vel.y < 0) {
+              vel.y = -vel.y * THREE.MathUtils.lerp(0.45, 0.72, wobbleFactor);
+              // Table friction
+              vel.x *= 0.88;
+              vel.z *= 0.88;
+            }
+          }
+
+          // Soft Invisible Stage Boundaries so thrown bears bounce back onto the table
+          const boundX = 4.2, boundZ = 3.2;
+          if (pos.x < -boundX) { pos.x = -boundX; vel.x = Math.abs(vel.x) * 0.65; }
+          if (pos.x >  boundX) { pos.x =  boundX; vel.x = -Math.abs(vel.x) * 0.65; }
+          if (pos.z < -boundZ) { pos.z = -boundZ; vel.z = Math.abs(vel.z) * 0.65; }
+          if (pos.z >  boundZ) { pos.z =  boundZ; vel.z = -Math.abs(vel.z) * 0.65; }
+        }
+
+        if (this.com.y > 0.92) {
+          this.wasAirborne = true;
+        } else if (hitFloorThisStep && this.wasAirborne && this.bounceCooldown <= 0) {
+          this.wasAirborne = false;
+          this.bounceCooldown = 0.18;
+          globalBounceCount++;
+          bouncesReadoutEl.textContent = String(globalBounceCount);
+        }
+      }
+
+      // Release grab: if the bear was pancaked or stretched, convert elastic energy into a lively hop!
+      releaseGrab(throwVelocity) {
+        if (this.grabbedNodeIdx === -1) return;
+
+        // If the user pressed down on the head (pancaked), launch the bear straight back up!
+        if (this.pancakeCompression > 0.12) {
+          const launchSpeed = 4.5 + this.pancakeCompression * 5.8;
+          for (let i = 0; i < NUM_NODES; i++) {
+            const headLead = (i === 2 || i === 3 || i === 4) ? 1.25 : 0.95;
+            this.nodesVel[i].y += launchSpeed * headLead;
+            this.nodesVel[i].x += (Math.random() - 0.5) * 1.2;
+            this.nodesVel[i].z += (Math.random() - 0.5) * 1.2;
+          }
+          this.pancakeCompression = 0.0;
+          this.wasAirborne = true;
+          globalBounceCount++;
+          bouncesReadoutEl.textContent = String(globalBounceCount);
+        } else if (this.currentMaxStretch > 1.32 && throwVelocity.length() < 3.5) {
+          // Pulled head/limb up and released: snap back with a squash-and-hop recoil!
+          for (let i = 0; i < NUM_NODES; i++) {
+            this.nodesVel[i].y += 2.6;
+          }
+          this.wasAirborne = true;
+        } else if (throwVelocity.lengthSq() > 0.25) {
+          // Thrown bear: impart flick velocity across all soft-body nodes
+          const clampedThrow = throwVelocity.clone().clampLength(0, 15.0);
+          for (let i = 0; i < NUM_NODES; i++) {
+            this.nodesVel[i].addScaledVector(clampedThrow, 0.85);
+          }
+          this.wasAirborne = true;
+        }
+
+        this.grabbedNodeIdx = -1;
+        this.pancakeCompression = 0.0;
+      }
+
+      // Deform the Marching Cubes implicit surface mesh using the 9 stretchy strands & volume conservation
+      updateDeformedMesh() {
+        const numStrands = STRAND_DEFS.length;
+        const strandA = new Array(numStrands);
+        const strandVec = new Array(numStrands);
+        const strandQuat = new Array(numStrands);
+        const strandRadialScale = new Float32Array(numStrands);
+
+        let maxStretch = 1.0;
+        const unitRestDir = new THREE.Vector3();
+        const unitCurrDir = new THREE.Vector3();
+
+        // Compute current vertical squash/bulge of the torso
+        const torsoDist = this.nodesPos[0].distanceTo(this.nodesPos[1]);
+        const torsoRest = BEAR_TEMPLATE.strandRestAxes[0].len;
+        const torsoRatio = THREE.MathUtils.clamp(torsoDist / torsoRest, 0.42, 2.4);
+        const globalBulge = (1.0 / Math.sqrt(torsoRatio)) * (1.0 + this.pancakeCompression * 0.48);
+
+        for (let s = 0; s < numStrands; s++) {
+          const sd = STRAND_DEFS[s];
+          const sr = BEAR_TEMPLATE.strandRestAxes[s];
+          const pA = this.nodesPos[sd.a];
+          const pB = this.nodesPos[sd.b];
+
+          const dVec = new THREE.Vector3().subVectors(pB, pA);
+          const currLen = Math.max(0.04, dVec.length());
+          const stretchRatio = currLen / sr.len;
+          if (stretchRatio > maxStretch) maxStretch = stretchRatio;
+
+          // Volume-preserving thinning: as a limb or neck stretches (stretchRatio > 1),
+          // its cross-section gets thinner by 1 / √(stretchRatio)
+          const invSqrtStretch = 1.0 / Math.pow(Math.max(0.38, stretchRatio), sd.necking);
+          strandRadialScale[s] = invSqrtStretch * (s === 0 ? globalBulge : 1.0);
+
+          // Rotation aligning the rest strand direction with the live deformed strand direction
+          unitRestDir.copy(sr.dir).applyQuaternion(this.orientation);
+          unitCurrDir.copy(dVec).divideScalar(currLen);
+          const alignQ = new THREE.Quaternion().setFromUnitVectors(unitRestDir, unitCurrDir);
+          alignQ.multiply(this.orientation);
+
+          strandA[s] = pA;
+          strandVec[s] = dVec;
+          strandQuat[s] = alignQ;
+        }
+
+        this.currentMaxStretch = maxStretch;
+
+        // Skin all Marching Cubes vertices and normals in a single fast pass
+        const vCount = BEAR_TEMPLATE.vertexCount;
+        const sIdx = BEAR_TEMPLATE.strandIndices;
+        const sW = BEAR_TEMPLATE.strandWeights;
+        const sT = BEAR_TEMPLATE.strandT;
+        const sRad = BEAR_TEMPLATE.strandRadVec;
+        const rNrm = BEAR_TEMPLATE.restNrm;
+
+        const outPos = this.posAttr.array;
+        const outNrm = this.nrmAttr.array;
+
+        for (let v = 0; v < vCount; v++) {
+          let vx = 0, vy = 0, vz = 0;
+          let nx = 0, ny = 0, nz = 0;
+
+          const baseNrmX = rNrm[v * 3];
+          const baseNrmY = rNrm[v * 3 + 1];
+          const baseNrmZ = rNrm[v * 3 + 2];
+
+          for (let k = 0; k < 3; k++) {
+            const slot = v * 3 + k;
+            const w = sW[slot];
+            if (w < 0.001) continue;
+
+            const s = sIdx[slot];
+            const t = sT[slot];
+            const pA = strandA[s];
+            const dV = strandVec[s];
+            const q = strandQuat[s];
+
+            // Accentuate thinning in the middle of stretched limbs/neck (t in [0, 1])
+            const midFactor = (t > 0.0 && t < 1.0) ? Math.sin(t * Math.PI) : 0.0;
+            const baseScale = strandRadialScale[s];
+            const radScale = baseScale < 1.0
+              ? 1.0 - (1.0 - baseScale) * (0.65 + 0.55 * midFactor)
+              : baseScale;
+
+            const rx = sRad[slot * 3] * radScale;
+            const ry = sRad[slot * 3 + 1] * radScale;
+            const rz = sRad[slot * 3 + 2] * radScale;
+
+            // Rotate radial offset by quaternion q = (qx, qy, qz, qw)
+            const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+            const ix =  qw * rx + qy * rz - qz * ry;
+            const iy =  qw * ry + qz * rx - qx * rz;
+            const iz =  qw * rz + qx * ry - qy * rx;
+            const iw = -qx * rx - qy * ry - qz * rz;
+
+            const rotRx = ix * qw + iw * -qx + iy * -qz - iz * -qy;
+            const rotRy = iy * qw + iw * -qy + iz * -qx - ix * -qz;
+            const rotRz = iz * qw + iw * -qz + ix * -qy - iy * -qx;
+
+            vx += w * (pA.x + dV.x * t + rotRx);
+            vy += w * (pA.y + dV.y * t + rotRy);
+            vz += w * (pA.z + dV.z * t + rotRz);
+
+            // Rotate normal by q
+            const inx =  qw * baseNrmX + qy * baseNrmZ - qz * baseNrmY;
+            const iny =  qw * baseNrmY + qz * baseNrmX - qx * baseNrmZ;
+            const inz =  qw * baseNrmZ + qx * baseNrmY - qy * baseNrmX;
+            const inw = -qx * baseNrmX - qy * baseNrmY - qz * baseNrmZ;
+
+            nx += w * (inx * qw + inw * -qx + iny * -qz - inz * -qy);
+            ny += w * (iny * qw + inw * -qy + inz * -qx - inx * -qz);
+            nz += w * (inz * qw + inw * -qz + inx * -qy - iny * -qx);
+          }
+
+          // Table contact flattening (squishy flat pad against y = 0.004)
+          if (vy < 0.004) {
+            const squish = (0.004 - vy) * 0.35;
+            vy = 0.004;
+            vx += (vx - this.com.x) * squish;
+            vz += (vz - this.com.z) * squish;
+          }
+
+          outPos[v * 3]     = vx;
+          outPos[v * 3 + 1] = vy;
+          outPos[v * 3 + 2] = vz;
+
+          const nLen = Math.hypot(nx, ny, nz) || 1.0;
+          outNrm[v * 3]     = nx / nLen;
+          outNrm[v * 3 + 1] = ny / nLen;
+          outNrm[v * 3 + 2] = nz / nLen;
+        }
+
+        this.posAttr.needsUpdate = true;
+        this.nrmAttr.needsUpdate = true;
+        this.geometry.computeBoundingSphere();
+
+        // Update soft colored caustic shadow beneath the bear
+        const heightAboveTable = Math.max(0.0, this.com.y - 0.55);
+        const shadowScale = THREE.MathUtils.clamp((1.05 + (globalBulge - 1.0) * 0.55) / (1.0 + heightAboveTable * 0.22), 0.45, 1.65);
+        this.shadowMesh.position.set(this.com.x + 0.12, 0.003, this.com.z + 0.08);
+        this.shadowMesh.scale.set(shadowScale, 1.0, shadowScale);
+        this.shadowMat.opacity = THREE.MathUtils.clamp(0.46 / (1.0 + heightAboveTable * 0.55), 0.08, 0.52);
+      }
+    }
+
+    // =========================================================================
+    // 7. BEAR-TO-BEAR COLLISIONS (NEVER PASS THROUGH ONE ANOTHER)
+    // =========================================================================
+    const bears = [];
+    const COLLISION_NODES = [0, 1, 2, 6, 7, 8, 9]; // Belly, Chest, Head, Hands, Feet
+
+    function resolveBearToBearCollisions() {
+      const count = bears.length;
+      for (let i = 0; i < count; i++) {
+        const bA = bears[i];
+        for (let j = i + 1; j < count; j++) {
+          const bB = bears[j];
+
+          // Broadphase center-of-mass check
+          const comDistSq = bA.com.distanceToSquared(bB.com);
+          if (comDistSq > 4.8) continue;
+
+          // Narrowphase sphere-sphere collisions between anatomical mass points
+          for (let ia = 0; ia < COLLISION_NODES.length; ia++) {
+            const na = COLLISION_NODES[ia];
+            const pA = bA.nodesPos[na];
+            const rA = NODE_RADII[na] * 1.06;
+
+            for (let ib = 0; ib < COLLISION_NODES.length; ib++) {
+              const nb = COLLISION_NODES[ib];
+              const pB = bB.nodesPos[nb];
+              const rB = NODE_RADII[nb] * 1.06;
+
+              const minDist = rA + rB;
+              const dx = pB.x - pA.x;
+              const dy = pB.y - pA.y;
+              const dz = pB.z - pA.z;
+              const distSq = dx * dx + dy * dy + dz * dz;
+
+              if (distSq < minDist * minDist && distSq > 1e-8) {
+                const dist = Math.sqrt(distSq);
+                const overlap = minDist - dist;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const nz = dz / dist;
+
+                // Position separation so bears never pass through one another
+                const sep = overlap * 0.52;
+                pA.x -= nx * sep;
+                pA.y -= ny * sep;
+                pA.z -= nz * sep;
+                pB.x += nx * sep;
+                pB.y += ny * sep;
+                pB.z += nz * sep;
+
+                // Elastic jelly impulse exchange
+                const vA = bA.nodesVel[na];
+                const vB = bB.nodesVel[nb];
+                const relVn = (vB.x - vA.x) * nx + (vB.y - vA.y) * ny + (vB.z - vA.z) * nz;
+                if (relVn < 0) {
+                  const restitution = 0.58;
+                  const jImpulse = -(1.0 + restitution) * relVn * 0.5;
+                  vA.x -= nx * jImpulse;
+                  vA.y -= ny * jImpulse;
+                  vA.z -= nz * jImpulse;
+                  vB.x += nx * jImpulse;
+                  vB.y += ny * jImpulse;
+                  vB.z += nz * jImpulse;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 8. SPAWNING & "POUR MORE BEARS"
+    // =========================================================================
+    let selectedFlavorIdx = 0;
+    const MAX_BEARS = 22;
+
+    function spawnBear(flavorIdx, position, randomTilt = false) {
+      if (bears.length >= MAX_BEARS) {
+        const oldest = bears.find((b) => b.grabbedNodeIdx === -1) || bears[0];
+        const idx = bears.indexOf(oldest);
+        if (idx !== -1) {
+          oldest.dispose();
+          bears.splice(idx, 1);
+        }
+      }
+
+      const quat = new THREE.Quaternion();
+      if (randomTilt) {
+        quat.setFromEuler(new THREE.Euler(
+          (Math.random() - 0.5) * 1.4,
+          (Math.random() - 0.5) * Math.PI * 1.6,
+          (Math.random() - 0.5) * 1.4
+        ));
+      } else {
+        quat.setFromEuler(new THREE.Euler(0, (Math.random() - 0.5) * 0.9, 0));
+      }
+
+      const bear = new SoftGummyBear(flavorIdx, position, quat);
+      bear.updateDeformedMesh();
+      bears.push(bear);
+      return bear;
+    }
+
+    // Initial handful of 7 translucent gummy bears on the white table
+    const initialLayout = [
+      { f: 0, x: -1.35, y: 0.55, z:  0.25 },
+      { f: 1, x: -0.45, y: 0.55, z: -0.45 },
+      { f: 2, x:  0.48, y: 0.55, z:  0.32 },
+      { f: 3, x:  1.42, y: 0.55, z: -0.20 },
+      { f: 4, x:  0.00, y: 1.95, z:  0.05 },
+      { f: 0, x: -0.85, y: 2.35, z:  0.40 },
+      { f: 3, x:  0.88, y: 2.65, z:  0.25 }
+    ];
+
+    initialLayout.forEach((cfg, i) => {
+      spawnBear(cfg.f, new THREE.Vector3(cfg.x, cfg.y, cfg.z), i >= 4);
+    });
+
+    function pourMoreBears() {
+      for (let i = 0; i < 5; i++) {
+        const fIdx = (selectedFlavorIdx + i) % FLAVORS.length;
+        const pos = new THREE.Vector3(
+          (Math.random() - 0.5) * 2.1,
+          3.1 + i * 0.65 + Math.random() * 0.3,
+          (Math.random() - 0.5) * 1.4
+        );
+        spawnBear(fIdx, pos, true);
+      }
+    }
+
+    // =========================================================================
+    // 9. INTERACTIVE GRAB, STRETCH, SQUASH & THROW (RAYCASTER + CURSOR)
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const pointerNDC = new THREE.Vector2();
+    const dragPlane = new THREE.Plane();
+    const dragIntersect = new THREE.Vector3();
+
+    const customCursor = document.getElementById('custom-cursor');
+    const hintDot = document.getElementById('hint-dot');
+
+    let activeBear = null;
+    let lastDragPos = new THREE.Vector3();
+    let pointerVelocity3D = new THREE.Vector3();
+
+    function updatePointerNDC(clientX, clientY) {
+      pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+      pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+      customCursor.style.left = `${clientX}px`;
+      customCursor.style.top = `${clientY}px`;
+    }
+
+    window.addEventListener('pointermove', (e) => {
+      updatePointerNDC(e.clientX, e.clientY);
+
+      if (activeBear) {
+        raycaster.setFromCamera(pointerNDC, camera);
+        if (raycaster.ray.intersectPlane(dragPlane, dragIntersect)) {
+          // Allow pulling high into the air or pressing down to pancake (y >= 0.14)
+          dragIntersect.y = Math.max(0.14, Math.min(4.5, dragIntersect.y));
+          pointerVelocity3D.subVectors(dragIntersect, lastDragPos).multiplyScalar(32.0);
+          lastDragPos.copy(dragIntersect);
+          activeBear.grabTarget.copy(dragIntersect);
+        }
+        return;
+      }
+
+      // Hover detection for custom circular cursor
+      raycaster.setFromCamera(pointerNDC, camera);
+      const meshes = bears.map((b) => b.mesh);
+      const hits = raycaster.intersectObjects(meshes, false);
+      customCursor.classList.toggle('hovering', hits.length > 0);
+    });
+
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.control-card')) return;
+      updatePointerNDC(e.clientX, e.clientY);
+
+      raycaster.setFromCamera(pointerNDC, camera);
+      const meshes = bears.map((b) => b.mesh);
+      const hits = raycaster.intersectObjects(meshes, false);
+
+      if (hits.length > 0) {
+        const hit = hits[0];
+        const bear = hit.object.userData.bear;
+        const hitPoint = hit.point;
+
+        // Find the closest soft-body mass point to the raycast hit point
+        let bestNode = 2; // Default to head
+        let bestDist = Infinity;
+        for (let i = 0; i < NUM_NODES; i++) {
+          const d = bear.nodesPos[i].distanceTo(hitPoint);
+          if (d < bestDist) {
+            bestDist = d;
+            bestNode = i;
+          }
+        }
+
+        activeBear = bear;
+        activeBear.grabbedNodeIdx = bestNode;
+        activeBear.grabTarget.copy(bear.nodesPos[bestNode]);
+        lastDragPos.copy(activeBear.grabTarget);
+        pointerVelocity3D.set(0, 0, 0);
+
+        // Set up a camera-facing vertical-tilted plane so dragging up/down stretches/pancakes in Y
+        // and dragging left/right/forward moves in X/Z
+        const planeNormal = new THREE.Vector3();
+        camera.getWorldDirection(planeNormal).negate();
+        planeNormal.y *= 0.28; // Emphasize vertical Y responsiveness for head stretching & pancaking
+        planeNormal.normalize();
+        dragPlane.setFromNormalAndCoplanarPoint(planeNormal, activeBear.grabTarget);
+
+        // Tint and grow the circular cursor while grabbing
+        customCursor.style.setProperty('--cursor-tint', bear.flavor.cursorBorder);
+        customCursor.style.setProperty('--cursor-fill', bear.flavor.cursorFill);
+        customCursor.classList.add('grabbing');
+      }
+    });
+
+    function endGrab() {
+      if (activeBear) {
+        activeBear.releaseGrab(pointerVelocity3D);
+        activeBear = null;
+      }
+      customCursor.classList.remove('grabbing');
+    }
+
+    window.addEventListener('pointerup', endGrab);
+    window.addEventListener('pointercancel', endGrab);
+
+    // =========================================================================
+    // 10. UI CONTROLS (FLAVOR SWATCHES, WOBBLE SLIDER, POUR BUTTON)
+    // =========================================================================
+    const flavorLabelEl = document.getElementById('flavor-label');
+    const swatchBtns = document.querySelectorAll('.swatch-btn');
+
+    swatchBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.flavor, 10);
+        selectedFlavorIdx = idx;
+        swatchBtns.forEach((b) => b.classList.toggle('active', b === btn));
+        flavorLabelEl.textContent = FLAVORS[idx].name;
+        hintDot.style.background = `#${FLAVORS[idx].color.getHexString()}`;
+
+        // Drop a fresh gummy bear of the chosen flavor onto the table
+        spawnBear(
+          idx,
+          new THREE.Vector3((Math.random() - 0.5) * 1.4, 2.8, (Math.random() - 0.5) * 1.0),
+          true
+        );
+      });
+    });
+
+    const wobbleSlider = document.getElementById('wobble-slider');
+    const wobbleReadout = document.getElementById('wobble-readout');
+    wobbleSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      wobbleFactor = val / 100;
+      wobbleReadout.textContent = `${val}%`;
+    });
+
+    document.getElementById('pour-btn').addEventListener('click', () => {
+      pourMoreBears();
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // =========================================================================
+    // 11. MAIN 60FPS SIMULATION & RENDER LOOP
+    // =========================================================================
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      const frameDt = Math.min(0.033, (now - lastTime) * 0.001);
+      lastTime = now;
+
+      // 4 substeps per frame for stable, high-frequency jelly physics & collision response
+      const subSteps = 4;
+      const subDt = frameDt / subSteps;
+
+      for (let s = 0; s < subSteps; s++) {
+        for (let i = 0; i < bears.length; i++) {
+          bears[i].stepPhysics(subDt);
+        }
+        resolveBearToBearCollisions();
+      }
+
+      // Deform implicit meshes and track peak stretch ratio for live UI readout
+      let peakStretch = 1.0;
+      for (let i = 0; i < bears.length; i++) {
+        bears[i].updateDeformedMesh();
+        if (bears[i].currentMaxStretch > peakStretch) {
+          peakStretch = bears[i].currentMaxStretch;
+        }
+      }
+
+      stretchReadoutEl.textContent = `${peakStretch.toFixed(2)}×`;
+      pointerVelocity3D.multiplyScalar(0.85);
+
+      renderer.render(scene, camera);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

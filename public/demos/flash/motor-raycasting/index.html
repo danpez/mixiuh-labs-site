@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Wolfenstein 3D Style // Pure 2D Canvas Raycasting Engine</title>
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --panel-bg: rgba(14, 18, 27, 0.92);
+      --panel-border: rgba(72, 187, 240, 0.3);
+      --accent: #00f0ff;
+      --accent-glow: rgba(0, 240, 255, 0.4);
+      --danger: #ff3366;
+      --warning: #ffb703;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: #e2e8f0;
+      font-family: var(--font-ui);
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+    }
+
+    /* Primary 3D Viewport */
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    #screen-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Screen Flash (Muzzle blast & damage) */
+    #flash-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.08s ease-out;
+      z-index: 15;
+    }
+
+    /* Crosshair */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    #crosshair::before, #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(0, 240, 255, 0.75);
+      box-shadow: 0 0 4px var(--accent);
+    }
+
+    #crosshair::before {
+      top: 5px; left: 0; width: 12px; height: 2px;
+    }
+
+    #crosshair::after {
+      top: 0; left: 5px; width: 2px; height: 12px;
+    }
+
+    /* Top HUD Telemetry Bar */
+    #top-hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .brand-badge {
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+    }
+
+    .telemetry-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stat-pill .label {
+      color: #94a3b8;
+      font-size: 10px;
+    }
+
+    .stat-pill .val {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .stat-pill .val.cyan {
+      color: var(--accent);
+    }
+
+    /* Minimap HUD (Floating Top-Right) */
+    #minimap-card {
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 40;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    .minimap-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    #minimap-canvas {
+      display: block;
+      width: 180px;
+      height: 180px;
+      background: #04060a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      image-rendering: pixelated;
+    }
+
+    /* Left Control & Tuning Panel */
+    #settings-card {
+      position: absolute;
+      top: 60px;
+      left: 16px;
+      width: 250px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 40;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      font-family: var(--font-mono);
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .range-input {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    .range-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    .toggle-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s ease;
+    }
+
+    .toggle-btn.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    /* Pointer Lock Overlay */
+    #pointer-lock-prompt {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(8, 12, 18, 0.95);
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+      border-radius: 8px;
+      padding: 24px 32px;
+      text-align: center;
+      z-index: 80;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-family: var(--font-mono);
+    }
+
+    #pointer-lock-prompt h2 {
+      font-size: 18px;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    #pointer-lock-prompt p {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .kbd-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: #fff;
+    }
+
+    /* Bottom Info Status Bar */
+    #bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 30px;
+      background: rgba(8, 10, 15, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #64748b;
+      z-index: 50;
+    }
+
+    .controls-hint {
+      display: flex;
+      gap: 14px;
+    }
+
+    .controls-hint kbd {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 3px;
+      padding: 1px 4px;
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <!-- Top HUD Navigation -->
+    <header id="top-hud">
+      <div class="brand-title">
+        <span>CARMACK-ENGINE</span>
+        <span class="brand-badge">WOLF-3D RAYCASTER</span>
+      </div>
+
+      <div class="telemetry-group">
+        <div class="stat-pill">
+          <span class="label">FPS</span>
+          <span class="val cyan" id="fps-val">60.0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">POS</span>
+          <span class="val" id="pos-val">(2.50, 2.50)</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">ÁNGULO</span>
+          <span class="val" id="angle-val">0.0°</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">RAYOS/FRAME</span>
+          <span class="val cyan" id="rays-val">320</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">FRAME TIME</span>
+          <span class="val" id="ms-val">0.00 ms</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Viewport -->
+    <main id="viewport-container">
+      <canvas id="screen-canvas"></canvas>
+      <div id="crosshair"></div>
+      <div id="flash-overlay"></div>
+
+      <!-- Mouse Lock Prompt Modal -->
+      <div id="pointer-lock-prompt">
+        <h2>ENTRAR AL MOTOR 3D</h2>
+        <p>Haz clic para activar el control por ratón (PointerLock)</p>
+        <p style="font-size: 10px; color: #64748b;">
+          Usa <span class="kbd-badge">W</span> <span class="kbd-badge">A</span> <span class="kbd-badge">S</span> <span class="kbd-badge">D</span> para caminar | 
+          <span class="kbd-badge">Shift</span> Correr | 
+          <span class="kbd-badge">E</span> o <span class="kbd-badge">Espacio</span> Puertas | 
+          <span class="kbd-badge">Clic</span> Disparar
+        </p>
+      </div>
+    </main>
+
+    <!-- Floating Minimap 2D (Top-Right) -->
+    <aside id="minimap-card">
+      <div class="minimap-header">
+        <span>MINIMAPA // CONO DDA</span>
+        <span id="door-status-pill" style="color: var(--accent);">PISO ACTIVO</span>
+      </div>
+      <canvas id="minimap-canvas" width="180" height="180"></canvas>
+    </aside>
+
+    <!-- Floating Tuning Panel (Left) -->
+    <aside id="settings-card">
+      <div class="section-title">AJUSTES GRÁFICOS Y ÓPTICOS</div>
+
+      <!-- Fisheye Correction Toggle -->
+      <div class="control-item">
+        <button class="toggle-btn active" id="btn-toggle-fisheye">
+          <span>Corrección Ojo de Pez</span>
+          <span id="fisheye-state">ACTIVA (d⊥)</span>
+        </button>
+      </div>
+
+      <!-- FOV Slider -->
+      <div class="control-item">
+        <div class="control-row">
+          <span>Campo de Visión (FOV)</span>
+          <span id="fov-label">66°</span>
+        </div>
+        <input type="range" id="fov-slider" class="range-input" min="40" max="110" value="66">
+      </div>
+
+      <!-- Resolution Scale -->
+      <div class="control-item">
+        <div class="control-row">
+          <span>Resolución de Rayos</span>
+          <span id="res-label">320x200 (Modo Clásico)</span>
+        </div>
+        <input type="range" id="res-slider" class="range-input" min="0" max="3" value="2" step="1">
+      </div>
+
+      <!-- Depth Fog Distance -->
+      <div class="control-item">
+        <div class="control-row">
+          <span>Distancia de Niebla</span>
+          <span id="fog-label">12.0 u</span>
+        </div>
+        <input type="range" id="fog-slider" class="range-input" min="4" max="25" value="12" step="1">
+      </div>
+
+      <div class="section-title" style="margin-top: 6px;">SONIDO & EXPERIENCIA</div>
+
+      <!-- Audio Mute Toggle -->
+      <div class="control-item">
+        <button class="toggle-btn active" id="btn-toggle-audio">
+          <span>Audio Procedural</span>
+          <span id="audio-state">ON (Sintetizador)</span>
+        </button>
+      </div>
+
+      <!-- Minimap Ray Fan Toggle -->
+      <div class="control-item">
+        <button class="toggle-btn active" id="btn-toggle-rays">
+          <span>Haz de Rayos en Minimapa</span>
+          <span id="rays-state">VISIBLE</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Bottom Status Bar -->
+    <footer id="bottom-bar">
+      <div class="controls-hint">
+        <span><kbd>WASD</kbd> Moverse</span>
+        <span><kbd>Shift</kbd> Correr</span>
+        <span><kbd>E</kbd> / <kbd>Espacio</kbd> Abrir Puertas</span>
+        <span><kbd>Clic</kbd> Disparar / Linterna</span>
+        <span><kbd>Esc</kbd> Liberar Ratón</span>
+      </div>
+      <div>RENDER: PURE 2D CANVAS // DDA DIGITAL DIFFERENTIAL ANALYSIS</div>
+    </footer>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * PURE 2D CANVAS RAYCASTING 3D ENGINE // WOLFENSTEIN 3D ARCHITECTURE
+     * Written in Vanilla JavaScript. Zero 3D libraries (WebGL/OpenGL forbidden).
+     * =========================================================================
+     */
+
+    // --- 1. PROCEDURAL WEB AUDIO SYNTHESIZER ---
+    let audioCtx = null;
+    let audioEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!audioEnabled || !audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      if (type === 'shoot') {
+        // High-tech plasma laser pulse with punch
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+
+        // Sub blast punch
+        const oscSub = audioCtx.createOscillator();
+        const gainSub = audioCtx.createGain();
+        oscSub.type = 'sine';
+        oscSub.frequency.setValueAtTime(150, now);
+        oscSub.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+        gainSub.gain.setValueAtTime(0.5, now);
+        gainSub.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        oscSub.connect(gainSub);
+        gainSub.connect(audioCtx.destination);
+        oscSub.start(now);
+        oscSub.stop(now + 0.2);
+
+      } else if (type === 'door') {
+        // Mechanical pneumatic sliding door hiss and servo hum
+        const bufferSize = audioCtx.sampleRate * 0.35;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1200, now);
+        filter.frequency.exponentialRampToValueAtTime(400, now + 0.35);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(now);
+
+      } else if (type === 'step') {
+        // Subtle soft footstep thump
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(80, now);
+        osc.frequency.exponentialRampToValueAtTime(35, now + 0.08);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+    }
+
+    // --- 2. PROCEDURAL 64x64 TEXTURES GENERATOR ---
+    const TEX_SIZE = 64;
+    const textures = [];
+
+    function packColor(r, g, b, a = 255) {
+      return ((a & 0xff) << 24) | ((b & 0xff) << 16) | ((g & 0xff) << 8) | (r & 0xff);
+    }
+
+    function generateProceduralTextures() {
+      // Texture 0: Empty
+      textures[0] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+
+      // Texture 1: Mossy Ancient Stone Wall (Wolfenstein Dungeon Style)
+      textures[1] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const isBrickEdge = (x % 16 === 0 && (Math.floor(y / 16) % 2 === 0)) ||
+                              ((x + 8) % 16 === 0 && (Math.floor(y / 16) % 2 === 1)) ||
+                              (y % 16 === 0);
+          const noise = (Math.random() - 0.5) * 25;
+          if (isBrickEdge) {
+            textures[1][y * TEX_SIZE + x] = packColor(30 + noise, 32 + noise, 35 + noise);
+          } else {
+            const mossFactor = Math.max(0, (y / TEX_SIZE) * 0.7 + (Math.sin(x * 0.4) * 0.2));
+            const r = Math.max(0, Math.min(255, 95 + noise - mossFactor * 40));
+            const g = Math.max(0, Math.min(255, 100 + noise + mossFactor * 45));
+            const b = Math.max(0, Math.min(255, 95 + noise - mossFactor * 30));
+            textures[1][y * TEX_SIZE + x] = packColor(r, g, b);
+          }
+        }
+      }
+
+      // Texture 2: Blood-Stained Crimson Bricks
+      textures[2] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const isEdge = (y % 8 === 0) ||
+                         (Math.floor(y / 8) % 2 === 0 ? x % 16 === 0 : (x + 8) % 16 === 0);
+          const noise = (Math.random() - 0.5) * 20;
+          if (isEdge) {
+            textures[2][y * TEX_SIZE + x] = packColor(40, 30, 28);
+          } else {
+            const isBlood = (x >= 24 && x <= 36 && y > 15 + Math.sin(x * 2) * 8);
+            if (isBlood) {
+              textures[2][y * TEX_SIZE + x] = packColor(150 + noise, 15, 18);
+            } else {
+              textures[2][y * TEX_SIZE + x] = packColor(160 + noise, 65 + noise * 0.5, 55 + noise * 0.5);
+            }
+          }
+        }
+      }
+
+      // Texture 3: Cyber-Industrial Reinforced Steel Panel
+      textures[3] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const isBorder = (x < 3 || x >= TEX_SIZE - 3 || y < 3 || y >= TEX_SIZE - 3);
+          const isRivet = (x === 6 || x === TEX_SIZE - 7) && (y === 6 || y === TEX_SIZE - 7);
+          const isHazardStripe = (y > TEX_SIZE - 14) && ((x + y) % 12 < 6);
+          const isLedLine = (y === 32 || y === 33) && (x > 10 && x < TEX_SIZE - 10);
+
+          if (isLedLine) {
+            textures[3][y * TEX_SIZE + x] = packColor(0, 240, 255);
+          } else if (isHazardStripe) {
+            textures[3][y * TEX_SIZE + x] = packColor(240, 180, 20);
+          } else if (isRivet) {
+            textures[3][y * TEX_SIZE + x] = packColor(210, 215, 220);
+          } else if (isBorder) {
+            textures[3][y * TEX_SIZE + x] = packColor(45, 50, 60);
+          } else {
+            const metalNoise = (Math.random() - 0.5) * 12;
+            const steel = 110 + metalNoise;
+            textures[3][y * TEX_SIZE + x] = packColor(steel - 10, steel, steel + 10);
+          }
+        }
+      }
+
+      // Texture 4: Sliding Prison / Heavy Air-Lock Door
+      textures[4] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const isDoorBorder = (x < 4 || x >= TEX_SIZE - 4 || y < 4 || y >= TEX_SIZE - 4);
+          const isHandle = (x >= 46 && x <= 52 && y >= 28 && y <= 36);
+          const isWindow = (x >= 20 && x <= 44 && y >= 14 && y <= 26);
+          const isBar = isWindow && (x % 6 === 0);
+
+          if (isHandle) {
+            textures[4][y * TEX_SIZE + x] = packColor(255, 180, 30);
+          } else if (isBar) {
+            textures[4][y * TEX_SIZE + x] = packColor(180, 190, 200);
+          } else if (isWindow) {
+            textures[4][y * TEX_SIZE + x] = packColor(10, 25, 40);
+          } else if (isDoorBorder) {
+            textures[4][y * TEX_SIZE + x] = packColor(35, 38, 45);
+          } else {
+            const diagonalBar = (Math.abs(x - y) < 3) || (Math.abs((TEX_SIZE - x) - y) < 3);
+            if (diagonalBar) {
+              textures[4][y * TEX_SIZE + x] = packColor(75, 80, 95);
+            } else {
+              const base = 90 + ((x + y) % 3) * 5;
+              textures[4][y * TEX_SIZE + x] = packColor(base, base + 4, base + 8);
+            }
+          }
+        }
+      }
+
+      // Texture 5: Arcane Obsidian Rune Wall
+      textures[5] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const noise = (Math.random() - 0.5) * 15;
+          const rune = (Math.abs(x - 32) + Math.abs(y - 32) === 16) ||
+                       (x === 32 && y >= 20 && y <= 44) ||
+                       (y === 32 && x >= 20 && x <= 44);
+          if (rune) {
+            textures[5][y * TEX_SIZE + x] = packColor(80, 220, 255);
+          } else {
+            const base = Math.max(0, 35 + noise);
+            textures[5][y * TEX_SIZE + x] = packColor(base, base + 2, base + 12);
+          }
+        }
+      }
+    }
+
+    // --- 3. SPRITE TEXTURES (64x64 BILLBOARDS WITH TRANSPARENCY) ---
+    const spriteTextures = [];
+
+    function generateProceduralSprites() {
+      // Sprite 0: Wall Torch with Flickering Flame
+      spriteTextures[0] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const cx = x - 32;
+          if (Math.abs(cx) <= 3 && y >= 34 && y <= 58) {
+            spriteTextures[0][y * TEX_SIZE + x] = packColor(80, 75, 70);
+          } else if (Math.abs(cx) <= 7 && y >= 32 && y <= 35) {
+            spriteTextures[0][y * TEX_SIZE + x] = packColor(120, 110, 90);
+          } else if (y >= 14 && y <= 32) {
+            const flameW = (32 - y) * 0.45;
+            if (Math.abs(cx) <= flameW) {
+              const isHotCore = Math.abs(cx) <= flameW * 0.4;
+              if (isHotCore) {
+                spriteTextures[0][y * TEX_SIZE + x] = packColor(255, 255, 200);
+              } else {
+                spriteTextures[0][y * TEX_SIZE + x] = packColor(255, 140, 20);
+              }
+            }
+          }
+        }
+      }
+
+      // Sprite 1: Toxic Waste Barrel
+      spriteTextures[1] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const cx = x - 32;
+          if (Math.abs(cx) <= 16 && y >= 20 && y <= 60) {
+            const isRim = (y === 20 || y === 34 || y === 47 || y === 60);
+            const isHazard = (y >= 36 && y <= 44 && Math.abs(cx) <= 6);
+            if (isHazard) {
+              spriteTextures[1][y * TEX_SIZE + x] = packColor(255, 230, 20);
+            } else if (isRim) {
+              spriteTextures[1][y * TEX_SIZE + x] = packColor(40, 140, 40);
+            } else {
+              const shade = 100 - Math.abs(cx) * 3;
+              spriteTextures[1][y * TEX_SIZE + x] = packColor(20, shade + 30, 20);
+            }
+          }
+        }
+      }
+
+      // Sprite 2: Floating Energy Crystal / Artifact
+      spriteTextures[2] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const cx = Math.abs(x - 32);
+          const cy = Math.abs(y - 32);
+          if (cx * 1.4 + cy <= 20) {
+            const isCore = (cx * 1.4 + cy <= 8);
+            if (isCore) {
+              spriteTextures[2][y * TEX_SIZE + x] = packColor(255, 255, 255);
+            } else {
+              spriteTextures[2][y * TEX_SIZE + x] = packColor(0, 220, 255);
+            }
+          }
+        }
+      }
+
+      // Sprite 3: Gothic Gargoyle Stone Pillar
+      spriteTextures[3] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          const cx = Math.abs(x - 32);
+          if (cx <= 14 && y >= 10 && y <= 62) {
+            const isCap = (y <= 16 || y >= 56);
+            const shade = 90 - cx * 3 + (Math.random() - 0.5) * 10;
+            if (isCap) {
+              spriteTextures[3][y * TEX_SIZE + x] = packColor(shade + 25, shade + 25, shade + 30);
+            } else {
+              spriteTextures[3][y * TEX_SIZE + x] = packColor(shade, shade, shade + 5);
+            }
+          }
+        }
+      }
+    }
+
+    // --- 4. MAP & WORLD DEFINITION ---
+    // 0 = empty space, 1 = mossy stone, 2 = blood brick, 3 = tech metal, 4 = door, 5 = obsidian rune
+    const MAP_WIDTH = 24;
+    const MAP_HEIGHT = 24;
+    const worldMap = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,0,0,0,0,4,0,0,2,2,2,2,0,0,3,3,3,3,3,0,0,0,1],
+      [1,0,0,0,0,0,1,0,0,2,0,0,2,0,0,3,0,0,0,3,0,0,0,1],
+      [1,0,0,0,0,0,1,0,0,2,0,0,2,0,0,3,0,0,0,3,0,0,0,1],
+      [1,0,0,0,0,0,1,0,0,2,2,4,2,0,0,3,3,4,3,3,0,0,0,1],
+      [1,1,4,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,0,0,0,0,0,0,5,5,5,4,5,5,5,0,0,0,1,1,1,0,0,1],
+      [1,0,2,2,4,2,2,0,5,0,0,0,0,0,5,0,0,0,1,0,1,0,0,1],
+      [1,0,2,0,0,0,2,0,5,0,5,0,5,0,5,0,0,0,1,0,1,0,0,1],
+      [1,0,2,0,0,0,2,0,4,0,0,0,0,0,4,0,0,0,1,4,1,0,0,1],
+      [1,0,2,0,0,0,2,0,5,0,5,0,5,0,5,0,0,0,0,0,0,0,0,1],
+      [1,0,2,2,2,2,2,0,5,0,0,0,0,0,5,0,0,0,0,0,0,0,0,1],
+      [1,0,0,0,0,0,0,0,5,5,5,5,5,5,5,0,0,3,3,3,3,3,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,3,0,1],
+      [1,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,3,0,0,0,3,0,1],
+      [1,0,0,0,0,0,0,1,0,0,2,2,2,2,0,0,0,3,0,0,0,3,0,1],
+      [1,0,0,0,0,0,0,1,0,0,2,0,0,2,0,0,0,3,3,4,3,3,0,1],
+      [1,0,1,0,0,1,0,1,0,0,2,0,0,2,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,0,0,1,0,1,0,0,2,2,4,2,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,4,1,1,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1],
+      [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // Interactive Doors registry
+    const doors = [];
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        if (worldMap[y][x] === 4) {
+          doors.push({
+            x: x,
+            y: y,
+            open: 0.0,
+            state: 'closed',
+            timer: 0
+          });
+        }
+      }
+    }
+
+    function getDoorAt(x, y) {
+      return doors.find(d => d.x === x && d.y === y);
+    }
+
+    // World Sprites (Entities placed in 3D space)
+    const sprites = [
+      { x: 1.5, y: 1.5, texture: 0 },
+      { x: 5.5, y: 1.5, texture: 0 },
+      { x: 1.5, y: 5.5, texture: 0 },
+      { x: 4.5, y: 4.5, texture: 1 },
+      { x: 10.5, y: 3.5, texture: 2 },
+      { x: 18.5, y: 3.5, texture: 3 },
+      { x: 18.5, y: 10.5, texture: 3 },
+      { x: 11.5, y: 11.5, texture: 2 },
+      { x: 3.5, y: 10.5, texture: 1 },
+      { x: 10.5, y: 18.5, texture: 0 },
+      { x: 19.5, y: 17.5, texture: 1 }
+    ];
+
+    // --- 5. PLAYER STATE & CAMERA MATRICES ---
+    const player = {
+      x: 2.5,
+      y: 2.5,
+      dirX: 1.0,
+      dirY: 0.0,
+      planeX: 0.0,
+      planeY: 0.66,
+      angle: 0.0,
+      moveSpeed: 3.5,
+      rotSpeed: 2.2,
+      radius: 0.22,
+      headBobTimer: 0.0,
+      headBobY: 0.0,
+      isMoving: false,
+      lastStepDist: 0.0
+    };
+
+    function updateCameraPlane(fovDegrees) {
+      const fovRad = (fovDegrees * Math.PI) / 180;
+      const planeLength = Math.tan(fovRad / 2);
+      player.planeX = -player.dirY * planeLength;
+      player.planeY = player.dirX * planeLength;
+    }
+
+    function setPlayerAngle(angle) {
+      player.angle = angle;
+      player.dirX = Math.cos(angle);
+      player.dirY = Math.sin(angle);
+      const fovVal = parseFloat(document.getElementById('fov-slider').value);
+      updateCameraPlane(fovVal);
+    }
+
+    // --- 6. ENGINE SETTINGS & TOGGLES ---
+    let fisheyeCorrection = true;
+    let fogDistance = 12.0;
+    let showMinimapRays = true;
+    let muzzleFlash = 0.0;
+
+    const RES_PRESETS = [
+      [640, 400],
+      [480, 300],
+      [320, 200],
+      [240, 150]
+    ];
+    let currentResIndex = 2; // Default: 320x200
+
+    const screenCanvas = document.getElementById('screen-canvas');
+    const screenCtx = screenCanvas.getContext('2d', { willReadFrequently: true });
+    screenCtx.imageSmoothingEnabled = false;
+
+    const minimapCanvas = document.getElementById('minimap-canvas');
+    const minimapCtx = minimapCanvas.getContext('2d');
+
+    let zBuffer = new Float32Array(640);
+    let rayHits = [];
+
+    let screenW = 320;
+    let screenH = 200;
+    let screenImg = null;
+    let screenBuf32 = null;
+
+    function resizeScreenBuffer() {
+      const [w, h] = RES_PRESETS[currentResIndex];
+      screenW = w;
+      screenH = h;
+      screenCanvas.width = screenW;
+      screenCanvas.height = screenH;
+
+      screenImg = screenCtx.createImageData(screenW, screenH);
+      screenBuf32 = new Uint32Array(screenImg.data.buffer);
+      zBuffer = new Float32Array(screenW);
+
+      document.getElementById('rays-val').textContent = screenW;
+    }
+    window.addEventListener('resize', resizeScreenBuffer);
+
+    // --- 7. INPUT HANDLING & POINTER LOCK ---
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (e.code === 'KeyE' || e.code === 'Space') {
+        interactDoor();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    const viewportContainer = document.getElementById('viewport-container');
+    const pointerLockPrompt = document.getElementById('pointer-lock-prompt');
+
+    viewportContainer.addEventListener('click', () => {
+      initAudio();
+      viewportContainer.requestPointerLock();
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      const isLocked = document.pointerLockElement === viewportContainer;
+      pointerLockPrompt.style.display = isLocked ? 'none' : 'flex';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (document.pointerLockElement === viewportContainer) {
+        const sensitivity = 0.0024;
+        setPlayerAngle(player.angle + e.movementX * sensitivity);
+      }
+    });
+
+    viewportContainer.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && document.pointerLockElement === viewportContainer) {
+        triggerShoot();
+      }
+    });
+
+    let weaponState = {
+      isShooting: false,
+      recoil: 0,
+      frame: 0
+    };
+
+    function triggerShoot() {
+      if (weaponState.isShooting) return;
+      weaponState.isShooting = true;
+      weaponState.recoil = 1.0;
+      muzzleFlash = 1.0;
+      playSound('shoot');
+
+      const flashOverlay = document.getElementById('flash-overlay');
+      flashOverlay.style.background = 'radial-gradient(circle, rgba(0,240,255,0.4) 0%, rgba(255,255,255,0.1) 60%, transparent 100%)';
+      flashOverlay.style.opacity = '1';
+      setTimeout(() => { flashOverlay.style.opacity = '0'; }, 80);
+    }
+
+    function interactDoor() {
+      const checkX = Math.floor(player.x + player.dirX * 1.5);
+      const checkY = Math.floor(player.y + player.dirY * 1.5);
+      const door = getDoorAt(checkX, checkY);
+
+      if (door) {
+        if (door.state === 'closed' || door.state === 'closing') {
+          door.state = 'opening';
+          playSound('door');
+        } else if (door.state === 'open') {
+          door.state = 'closing';
+          playSound('door');
+        }
+      }
+    }
+
+    // --- 8. MOVEMENT & WALL-SLIDING COLLISION ---
+    function isTileSolid(tx, ty) {
+      if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT) return true;
+      const tile = worldMap[ty][tx];
+      if (tile === 0) return false;
+      if (tile === 4) {
+        const d = getDoorAt(tx, ty);
+        return d ? d.open < 0.75 : true;
+      }
+      return true;
+    }
+
+    function updatePlayerMovement(dt) {
+      let speed = player.moveSpeed * dt;
+      if (keys['ShiftLeft'] || keys['ShiftRight']) speed *= 1.6;
+
+      let moveX = 0;
+      let moveY = 0;
+
+      if (keys['KeyW']) {
+        moveX += player.dirX * speed;
+        moveY += player.dirY * speed;
+      }
+      if (keys['KeyS']) {
+        moveX -= player.dirX * speed;
+        moveY -= player.dirY * speed;
+      }
+
+      if (keys['KeyA']) {
+        moveX -= player.planeX * speed * 1.5;
+        moveY -= player.planeY * speed * 1.5;
+      }
+      if (keys['KeyD']) {
+        moveX += player.planeX * speed * 1.5;
+        moveY += player.planeY * speed * 1.5;
+      }
+
+      if (keys['ArrowLeft']) setPlayerAngle(player.angle - player.rotSpeed * dt);
+      if (keys['ArrowRight']) setPlayerAngle(player.angle + player.rotSpeed * dt);
+
+      // WALL-SLIDING COLLISION
+      const r = player.radius;
+      player.isMoving = (moveX !== 0 || moveY !== 0);
+
+      const newX = player.x + moveX;
+      if (!isTileSolid(Math.floor(newX + Math.sign(moveX) * r), Math.floor(player.y - r)) &&
+          !isTileSolid(Math.floor(newX + Math.sign(moveX) * r), Math.floor(player.y + r))) {
+        player.x = newX;
+      }
+
+      const newY = player.y + moveY;
+      if (!isTileSolid(Math.floor(player.x - r), Math.floor(newY + Math.sign(moveY) * r)) &&
+          !isTileSolid(Math.floor(player.x + r), Math.floor(newY + Math.sign(moveY) * r))) {
+        player.y = newY;
+      }
+
+      if (player.isMoving) {
+        player.headBobTimer += dt * 10.0;
+        player.headBobY = Math.sin(player.headBobTimer) * 4.0;
+        player.lastStepDist += Math.hypot(moveX, moveY);
+        if (player.lastStepDist > 1.2) {
+          player.lastStepDist = 0;
+          playSound('step');
+        }
+      } else {
+        player.headBobY *= 0.8;
+      }
+
+      doors.forEach(d => {
+        if (d.state === 'opening') {
+          d.open += dt * 1.5;
+          if (d.open >= 1.0) {
+            d.open = 1.0;
+            d.state = 'open';
+            d.timer = 4.0;
+          }
+        } else if (d.state === 'open') {
+          d.timer -= dt;
+          if (d.timer <= 0) {
+            const distToPlayer = Math.hypot(player.x - (d.x + 0.5), player.y - (d.y + 0.5));
+            if (distToPlayer > 0.8) {
+              d.state = 'closing';
+              playSound('door');
+            } else {
+              d.timer = 1.5;
+            }
+          }
+        } else if (d.state === 'closing') {
+          d.open -= dt * 1.5;
+          if (d.open <= 0.0) {
+            d.open = 0.0;
+            d.state = 'closed';
+          }
+        }
+      });
+    }
+
+    // --- 9. CORE DDA RAYCASTING ENGINE (THE CARMACK PIPELINE) ---
+    function renderRaycaster() {
+      rayHits.length = 0;
+      const pitchOffset = Math.floor(player.headBobY);
+      const halfH = Math.floor(screenH / 2) + pitchOffset;
+
+      // 1. Draw Ceiling & Floor with Depth Fog Gradients
+      for (let y = 0; y < screenH; y++) {
+        const isFloor = y > halfH;
+        const rowDist = isFloor ? (screenH / (2.0 * y - screenH)) : (screenH / (screenH - 2.0 * y));
+        const fog = Math.max(0, Math.min(1, rowDist / fogDistance));
+
+        let r, g, b;
+        if (isFloor) {
+          r = Math.floor(28 * (1 - fog * 0.7));
+          g = Math.floor(32 * (1 - fog * 0.7));
+          b = Math.floor(40 * (1 - fog * 0.7));
+        } else {
+          r = Math.floor(14 * (1 - fog));
+          g = Math.floor(18 * (1 - fog));
+          b = Math.floor(26 * (1 - fog));
+        }
+        const rowColor = packColor(r, g, b);
+        screenBuf32.fill(rowColor, y * screenW, (y + 1) * screenW);
+      }
+
+      // 2. Cast Rays for Each Vertical Column
+      for (let x = 0; x < screenW; x++) {
+        const cameraX = (2 * x) / screenW - 1;
+
+        const rayDirX = player.dirX + player.planeX * cameraX;
+        const rayDirY = player.dirY + player.planeY * cameraX;
+
+        let mapX = Math.floor(player.x);
+        let mapY = Math.floor(player.y);
+
+        const deltaDistX = Math.abs(rayDirX) < 1e-9 ? 1e30 : Math.abs(1 / rayDirX);
+        const deltaDistY = Math.abs(rayDirY) < 1e-9 ? 1e30 : Math.abs(1 / rayDirY);
+
+        let stepX, stepY;
+        let sideDistX, sideDistY;
+
+        if (rayDirX < 0) {
+          stepX = -1;
+          sideDistX = (player.x - mapX) * deltaDistX;
+        } else {
+          stepX = 1;
+          sideDistX = (mapX + 1.0 - player.x) * deltaDistX;
+        }
+
+        if (rayDirY < 0) {
+          stepY = -1;
+          sideDistY = (player.y - mapY) * deltaDistY;
+        } else {
+          stepY = 1;
+          sideDistY = (mapY + 1.0 - player.y) * deltaDistY;
+        }
+
+        // DIGITAL DIFFERENTIAL ANALYSIS (DDA) STEPPING
+        let hit = 0;
+        let side = 0;
+        let isDoorHit = false;
+        let doorTexOffset = 0;
+        let perpWallDist = 0;
+        let lastDoorX = -1;
+        let lastDoorY = -1;
+
+        while (hit === 0) {
+          if (sideDistX < sideDistY) {
+            sideDistX += deltaDistX;
+            mapX += stepX;
+            side = 0;
+          } else {
+            sideDistY += deltaDistY;
+            mapY += stepY;
+            side = 1;
+          }
+
+          if (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) {
+            hit = 1;
+            break;
+          }
+
+          const tile = worldMap[mapY][mapX];
+          if (tile > 0) {
+            if (tile === 4) {
+              if (mapX !== lastDoorX || mapY !== lastDoorY) {
+                lastDoorX = mapX;
+                lastDoorY = mapY;
+
+                const door = getDoorAt(mapX, mapY);
+                const openAmt = door ? door.open : 0;
+
+                let doorDist;
+                if (side === 0) {
+                  doorDist = (sideDistX - deltaDistX) + deltaDistX * 0.5;
+                } else {
+                  doorDist = (sideDistY - deltaDistY) + deltaDistY * 0.5;
+                }
+
+                let doorWallX;
+                if (side === 0) {
+                  doorWallX = player.y + doorDist * rayDirY;
+                } else {
+                  doorWallX = player.x + doorDist * rayDirX;
+                }
+                doorWallX -= Math.floor(doorWallX);
+
+                if (doorWallX < (1.0 - openAmt)) {
+                  hit = 1;
+                  isDoorHit = true;
+                  doorTexOffset = openAmt;
+                  perpWallDist = doorDist;
+                }
+              }
+            } else {
+              hit = 1;
+              if (side === 0) {
+                perpWallDist = (sideDistX - deltaDistX);
+              } else {
+                perpWallDist = (sideDistY - deltaDistY);
+              }
+            }
+          }
+        }
+
+        if (x % 3 === 0) {
+          rayHits.push({
+            hitX: player.x + rayDirX * perpWallDist,
+            hitY: player.y + rayDirY * perpWallDist
+          });
+        }
+
+        // Toggleable Fisheye Correction Switch
+        if (!fisheyeCorrection) {
+          const euclideanDist = Math.hypot(rayDirX * perpWallDist, rayDirY * perpWallDist);
+          perpWallDist = euclideanDist;
+        }
+
+        perpWallDist = Math.max(0.08, perpWallDist);
+        zBuffer[x] = perpWallDist;
+
+        // Projected wall stripe height
+        const lineHeight = Math.floor(screenH / perpWallDist);
+        const drawStart = Math.max(0, -lineHeight / 2 + halfH);
+        const drawEnd = Math.min(screenH - 1, lineHeight / 2 + halfH);
+
+        let wallX;
+        if (side === 0) {
+          wallX = player.y + perpWallDist * rayDirY;
+        } else {
+          wallX = player.x + perpWallDist * rayDirX;
+        }
+        wallX -= Math.floor(wallX);
+
+        let texX = Math.floor(wallX * TEX_SIZE);
+        if (isDoorHit) {
+          texX = Math.floor((wallX + doorTexOffset) * TEX_SIZE) % TEX_SIZE;
+        } else {
+          if (side === 0 && rayDirX > 0) texX = TEX_SIZE - texX - 1;
+          if (side === 1 && rayDirY < 0) texX = TEX_SIZE - texX - 1;
+        }
+
+        const tileType = isDoorHit ? 4 : (worldMap[mapY] ? worldMap[mapY][mapX] : 1);
+        const texture = textures[tileType] || textures[1];
+
+        // Sombreado Direccional (N-S vs E-W) + Distance Fog + Muzzle Flash
+        const sideShade = side === 1 ? 0.72 : 1.0;
+        let fogFactor = Math.max(0, Math.min(1, 1.0 - (perpWallDist / fogDistance)));
+        if (muzzleFlash > 0.05) {
+          fogFactor = Math.min(1.0, fogFactor + muzzleFlash * 0.4);
+        }
+
+        // Draw vertical wall slice
+        const step = TEX_SIZE / lineHeight;
+        let texPos = (drawStart - halfH + lineHeight / 2) * step;
+
+        for (let y = drawStart; y <= drawEnd; y++) {
+          const texY = Math.floor(texPos) & (TEX_SIZE - 1);
+          texPos += step;
+
+          const rawColor = texture[texY * TEX_SIZE + texX];
+          let r = rawColor & 0xff;
+          let g = (rawColor >> 8) & 0xff;
+          let b = (rawColor >> 16) & 0xff;
+
+          r = Math.floor(r * sideShade * fogFactor);
+          g = Math.floor(g * sideShade * fogFactor);
+          b = Math.floor(b * sideShade * fogFactor);
+
+          screenBuf32[y * screenW + x] = packColor(r, g, b);
+        }
+      }
+
+      // 3. Render 2D Billboarding Sprites with 1D Z-Buffer
+      renderSprites(halfH);
+
+      // Put pixel buffer to canvas
+      screenCtx.putImageData(screenImg, 0, 0);
+
+      // 4. Render Animated First-Person Weapon
+      renderWeapon();
+    }
+
+    // --- 10. BILLBOARDING SPRITES WITH 1D Z-BUFFER TEST ---
+    function renderSprites(halfH) {
+      const sortedSprites = sprites.map(s => {
+        const dx = s.x - player.x;
+        const dy = s.y - player.y;
+        return {
+          ...s,
+          dist: dx * dx + dy * dy
+        };
+      }).sort((a, b) => b.dist - a.dist);
+
+      for (let i = 0; i < sortedSprites.length; i++) {
+        const spr = sortedSprites[i];
+        const spriteX = spr.x - player.x;
+        const spriteY = spr.y - player.y;
+
+        const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
+        const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
+        const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
+
+        if (transformY <= 0.15) continue;
+
+        const spriteScreenX = Math.floor((screenW / 2) * (1 + transformX / transformY));
+
+        const spriteHeight = Math.abs(Math.floor(screenH / transformY));
+        const drawStartY = Math.max(0, -spriteHeight / 2 + halfH);
+        const drawEndY = Math.min(screenH - 1, spriteHeight / 2 + halfH);
+
+        const spriteWidth = Math.abs(Math.floor(screenH / transformY));
+        const drawStartX = Math.max(0, Math.floor(-spriteWidth / 2 + spriteScreenX));
+        const drawEndX = Math.min(screenW - 1, Math.floor(spriteWidth / 2 + spriteScreenX));
+
+        const tex = spriteTextures[spr.texture];
+        const fogFactor = Math.max(0, Math.min(1, 1.0 - (transformY / fogDistance)));
+
+        for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+          const texX = Math.floor((stripe - (-spriteWidth / 2 + spriteScreenX)) * TEX_SIZE / spriteWidth);
+
+          if (transformY < zBuffer[stripe]) {
+            const step = TEX_SIZE / spriteHeight;
+            let texPos = (drawStartY - halfH + spriteHeight / 2) * step;
+
+            for (let y = drawStartY; y <= drawEndY; y++) {
+              const texY = Math.floor(texPos) & (TEX_SIZE - 1);
+              texPos += step;
+
+              const rawColor = tex[texY * TEX_SIZE + texX];
+              const alpha = (rawColor >> 24) & 0xff;
+
+              if (alpha > 20) {
+                let r = (rawColor & 0xff) * fogFactor;
+                let g = ((rawColor >> 8) & 0xff) * fogFactor;
+                let b = ((rawColor >> 16) & 0xff) * fogFactor;
+
+                if (spr.texture === 0 || spr.texture === 2) {
+                  r = rawColor & 0xff;
+                  g = (rawColor >> 8) & 0xff;
+                  b = (rawColor >> 16) & 0xff;
+                }
+
+                screenBuf32[y * screenW + stripe] = packColor(r, g, b);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- 11. ANIMATED FIRST-PERSON WEAPON RENDERER ---
+    function renderWeapon() {
+      const bobX = Math.cos(player.headBobTimer) * 8;
+      const bobY = Math.abs(Math.sin(player.headBobTimer)) * 6;
+
+      if (weaponState.recoil > 0) {
+        weaponState.recoil -= 0.12;
+        if (weaponState.recoil < 0) weaponState.recoil = 0;
+      }
+
+      if (muzzleFlash > 0) {
+        muzzleFlash -= 0.15;
+        if (muzzleFlash < 0) muzzleFlash = 0;
+      }
+
+      const recoilY = weaponState.recoil * 20;
+
+      const cx = screenW / 2 + bobX;
+      const cy = screenH - 10 + bobY + recoilY;
+
+      // Blaster Body
+      screenCtx.fillStyle = '#1e2430';
+      screenCtx.fillRect(cx - 24, cy - 65, 48, 75);
+
+      // Steel Barrel
+      screenCtx.fillStyle = '#3a4454';
+      screenCtx.fillRect(cx - 14, cy - 90, 28, 35);
+
+      // Muzzle Vents
+      screenCtx.fillStyle = '#0f141c';
+      screenCtx.fillRect(cx - 10, cy - 88, 6, 8);
+      screenCtx.fillRect(cx + 4, cy - 88, 6, 8);
+
+      // Glowing Cyan Plasma Energy Cell
+      screenCtx.fillStyle = '#00f0ff';
+      screenCtx.shadowColor = '#00f0ff';
+      screenCtx.shadowBlur = 10;
+      screenCtx.fillRect(cx - 6, cy - 55, 12, 22);
+
+      // Weapon Iron Sights
+      screenCtx.fillStyle = '#64748b';
+      screenCtx.fillRect(cx - 2, cy - 94, 4, 6);
+      screenCtx.shadowBlur = 0;
+
+      // Plasma Muzzle Flash
+      if (muzzleFlash > 0.1) {
+        screenCtx.fillStyle = '#fff';
+        screenCtx.beginPath();
+        screenCtx.arc(cx, cy - 98, 14 * muzzleFlash, 0, Math.PI * 2);
+        screenCtx.fill();
+
+        screenCtx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+        screenCtx.beginPath();
+        screenCtx.arc(cx, cy - 98, 26 * muzzleFlash, 0, Math.PI * 2);
+        screenCtx.fill();
+      }
+
+      if (weaponState.recoil === 0) weaponState.isShooting = false;
+    }
+
+    // --- 12. REAL-TIME 2D MINIMAP WITH CONE / DDA RAY FAN ---
+    function renderMinimap() {
+      const mw = minimapCanvas.width;
+      const mh = minimapCanvas.height;
+      minimapCtx.fillStyle = '#070a10';
+      minimapCtx.fillRect(0, 0, mw, mh);
+
+      const cellW = mw / MAP_WIDTH;
+      const cellH = mh / MAP_HEIGHT;
+
+      // Draw Grid Walls
+      for (let y = 0; y < MAP_HEIGHT; y++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
+          const tile = worldMap[y][x];
+          if (tile > 0) {
+            if (tile === 4) {
+              const d = getDoorAt(x, y);
+              const openPct = d ? d.open : 0;
+              minimapCtx.fillStyle = openPct > 0.7 ? '#00f0ff33' : '#ffb703';
+              minimapCtx.fillRect(x * cellW, y * cellH, cellW * (1 - openPct), cellH);
+            } else if (tile === 1) {
+              minimapCtx.fillStyle = '#4a5568';
+              minimapCtx.fillRect(x * cellW, y * cellH, cellW, cellH);
+            } else if (tile === 2) {
+              minimapCtx.fillStyle = '#742a2a';
+              minimapCtx.fillRect(x * cellW, y * cellH, cellW, cellH);
+            } else if (tile === 3) {
+              minimapCtx.fillStyle = '#2b6cb0';
+              minimapCtx.fillRect(x * cellW, y * cellH, cellW, cellH);
+            } else if (tile === 5) {
+              minimapCtx.fillStyle = '#44337a';
+              minimapCtx.fillRect(x * cellW, y * cellH, cellW, cellH);
+            }
+          }
+        }
+      }
+
+      // Draw Sprites Markers
+      sprites.forEach(s => {
+        minimapCtx.fillStyle = s.texture === 0 ? '#ffb703' : s.texture === 1 ? '#38a169' : '#00f0ff';
+        minimapCtx.beginPath();
+        minimapCtx.arc(s.x * cellW, s.y * cellH, 2.5, 0, Math.PI * 2);
+        minimapCtx.fill();
+      });
+
+      // Draw Ray Fan Cone in Real-Time
+      if (showMinimapRays && rayHits.length > 0) {
+        minimapCtx.strokeStyle = 'rgba(0, 240, 255, 0.18)';
+        minimapCtx.lineWidth = 1;
+        minimapCtx.beginPath();
+        for (let i = 0; i < rayHits.length; i++) {
+          minimapCtx.moveTo(player.x * cellW, player.y * cellH);
+          minimapCtx.lineTo(rayHits[i].hitX * cellW, rayHits[i].hitY * cellH);
+        }
+        minimapCtx.stroke();
+      }
+
+      // Draw Player Position & Direction Line
+      const px = player.x * cellW;
+      const py = player.y * cellH;
+
+      minimapCtx.fillStyle = '#ff0055';
+      minimapCtx.beginPath();
+      minimapCtx.arc(px, py, 3.5, 0, Math.PI * 2);
+      minimapCtx.fill();
+
+      minimapCtx.strokeStyle = '#ffffff';
+      minimapCtx.lineWidth = 1.5;
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(px, py);
+      minimapCtx.lineTo(px + player.dirX * 8, py + player.dirY * 8);
+      minimapCtx.stroke();
+    }
+
+    // --- 13. UI EVENT BINDINGS & HOT-TUNING CONTROLS ---
+    function initUI() {
+      // Fisheye Correction Toggle
+      const btnFisheye = document.getElementById('btn-toggle-fisheye');
+      btnFisheye.addEventListener('click', () => {
+        fisheyeCorrection = !fisheyeCorrection;
+        btnFisheye.classList.toggle('active', fisheyeCorrection);
+        document.getElementById('fisheye-state').textContent = fisheyeCorrection ? 'ACTIVA (d⊥)' : 'OFF (Euclidiana / Curva)';
+        document.getElementById('fisheye-state').style.color = fisheyeCorrection ? 'var(--accent)' : 'var(--danger)';
+      });
+
+      // FOV Slider
+      const fovSlider = document.getElementById('fov-slider');
+      fovSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        document.getElementById('fov-label').textContent = `${val}°`;
+        updateCameraPlane(val);
+      });
+
+      // Resolution Slider
+      const resSlider = document.getElementById('res-slider');
+      resSlider.addEventListener('input', (e) => {
+        currentResIndex = parseInt(e.target.value, 10);
+        const labels = ['640x400 (Hi-Res Carmack)', '480x300 (SVGA)', '320x200 (Modo Clásico)', '240x150 (Ultra-Retro)'];
+        document.getElementById('res-label').textContent = labels[currentResIndex];
+        resizeScreenBuffer();
+      });
+
+      // Fog Distance Slider
+      const fogSlider = document.getElementById('fog-slider');
+      fogSlider.addEventListener('input', (e) => {
+        fogDistance = parseFloat(e.target.value);
+        document.getElementById('fog-label').textContent = `${fogDistance.toFixed(1)} u`;
+      });
+
+      // Audio Toggle
+      const btnAudio = document.getElementById('btn-toggle-audio');
+      btnAudio.addEventListener('click', () => {
+        initAudio();
+        audioEnabled = !audioEnabled;
+        btnAudio.classList.toggle('active', audioEnabled);
+        document.getElementById('audio-state').textContent = audioEnabled ? 'ON (Sintetizador)' : 'OFF (Silenciado)';
+      });
+
+      // Minimap Rays Toggle
+      const btnRays = document.getElementById('btn-toggle-rays');
+      btnRays.addEventListener('click', () => {
+        showMinimapRays = !showMinimapRays;
+        btnRays.classList.toggle('active', showMinimapRays);
+        document.getElementById('rays-state').textContent = showMinimapRays ? 'VISIBLE' : 'OCULTO';
+      });
+    }
+
+    // --- 14. MAIN GAME LOOP & PROFILING ---
+    let lastTime = performance.now();
+    let frameCounter = 0;
+    let fpsTimer = 0;
+
+    function gameLoop(now) {
+      requestAnimationFrame(gameLoop);
+
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      const t0 = performance.now();
+
+      updatePlayerMovement(dt);
+      renderRaycaster();
+      renderMinimap();
+
+      const frameTime = (performance.now() - t0).toFixed(2);
+      document.getElementById('ms-val').textContent = `${frameTime} ms`;
+
+      frameCounter++;
+      fpsTimer += dt;
+      if (fpsTimer >= 0.5) {
+        const fps = ((frameCounter) / fpsTimer).toFixed(1);
+        frameCounter = 0;
+        fpsTimer = 0;
+        document.getElementById('fps-val').textContent = fps;
+      }
+
+      document.getElementById('pos-val').textContent = `(${player.x.toFixed(2)}, ${player.y.toFixed(2)})`;
+      const deg = (((player.angle * 180) / Math.PI) % 360 + 360) % 360;
+      document.getElementById('angle-val').textContent = `${deg.toFixed(1)}°`;
+    }
+
+    // --- 15. BOOTSTRAP ---
+    window.addEventListener('DOMContentLoaded', () => {
+      generateProceduralTextures();
+      generateProceduralSprites();
+      resizeScreenBuffer();
+      initUI();
+      setPlayerAngle(0.0);
+      requestAnimationFrame(gameLoop);
+    });
+  </script>
+</body>
+</html>

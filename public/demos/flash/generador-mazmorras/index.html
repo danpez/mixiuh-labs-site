@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARCHITECT-PCG // Generador y Explorador de Mazmorras Rogue-like</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --neon-gold: #f59e0b;
+      --neon-cyan: #06b6d4;
+      --neon-purple: #a855f7;
+      --neon-red: #ef4444;
+      --neon-green: #10b981;
+      --bg-dark: rgba(9, 12, 22, 0.92);
+      --panel-border: rgba(6, 182, 212, 0.3);
+      --glass-glow: 0 0 25px rgba(6, 182, 212, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #05070e;
+      font-family: 'Rajdhani', sans-serif;
+      color: #e2e8f0;
+    }
+
+    #viewport-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: grab;
+      z-index: 1;
+    }
+
+    #viewport-container.panning {
+      cursor: grabbing;
+    }
+
+    #map-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      transform-origin: 0 0;
+    }
+
+    /* HUD OVERLAY */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 370px 1fr 380px;
+      padding: 16px;
+      gap: 12px;
+      transition: opacity 0.35s ease;
+    }
+
+    #hud-overlay.hud-hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      background: var(--bg-dark);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      box-shadow: var(--glass-glow);
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hud-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-gold), transparent);
+    }
+
+    .hud-corner {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-color: var(--neon-cyan);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .hud-corner.tl { top: 2px; left: 2px; border-width: 2px 0 0 2px; }
+    .hud-corner.tr { top: 2px; right: 2px; border-width: 2px 2px 0 0; }
+    .hud-corner.bl { bottom: 2px; left: 2px; border-width: 0 0 2px 2px; }
+    .hud-corner.br { bottom: 2px; right: 2px; border-width: 0 2px 2px 0; }
+
+    /* CABECERA SUPERIOR */
+    .hud-top {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--neon-gold);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+      font-family: 'Cinzel', serif;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--neon-gold);
+    }
+
+    .brand-text h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+    }
+
+    .brand-text p {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: var(--neon-cyan);
+    }
+
+    .top-stats-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stat-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 4px;
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green);
+      animation: pulseGreen 1.4s infinite alternate;
+    }
+
+    @keyframes pulseGreen {
+      0% { opacity: 0.5; }
+      100% { opacity: 1; box-shadow: 0 0 12px var(--neon-green); }
+    }
+
+    /* PANEL IZQUIERDO: GENERADOR Y PARÁMETROS BSP */
+    .hud-left {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-left::-webkit-scrollbar { display: none; }
+
+    .section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.25);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .seed-input-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .seed-input {
+      flex: 1;
+      background: rgba(3, 7, 18, 0.7);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 4px;
+      color: var(--neon-gold);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 6px 10px;
+      letter-spacing: 1px;
+      outline: none;
+      text-transform: uppercase;
+    }
+
+    .seed-input:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+    }
+
+    .hud-btn {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: #c9e6ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      padding: 7px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .hud-btn:hover {
+      background: rgba(6, 182, 212, 0.3);
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+    }
+
+    .hud-btn.primary {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.35), rgba(168, 85, 247, 0.4));
+      border-color: var(--neon-cyan);
+      font-weight: bold;
+      color: #ffffff;
+    }
+
+    .hud-btn.primary:hover {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.6), rgba(168, 85, 247, 0.6));
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+    }
+
+    .hud-btn.active {
+      background: var(--neon-cyan);
+      color: #040914;
+      font-weight: bold;
+      box-shadow: 0 0 12px var(--neon-cyan);
+    }
+
+    .biome-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .biome-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 6px 4px;
+      text-align: center;
+      cursor: pointer;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      transition: all 0.2s;
+    }
+
+    .biome-card:hover {
+      border-color: var(--neon-cyan);
+      transform: translateY(-1px);
+    }
+
+    .biome-card.active {
+      border-color: var(--neon-gold);
+      background: rgba(245, 158, 11, 0.15);
+      color: #ffffff;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+
+    .slider-group {
+      margin-top: 5px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 3px;
+    }
+
+    .hud-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(6, 182, 212, 0.2);
+      outline: none;
+    }
+
+    .hud-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    /* PANEL DERECHO: CAPAS DE DEBUG Y TELEMETRÍA */
+    .hud-right {
+      grid-column: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-right::-webkit-scrollbar { display: none; }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 3px 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    }
+
+    .telemetry-lbl {
+      color: #94a3b8;
+    }
+
+    .telemetry-val {
+      font-weight: 600;
+      color: #ffffff;
+    }
+    .telemetry-val.gold { color: var(--neon-gold); text-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .telemetry-val.cyan { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(6, 182, 212, 0.4); }
+    .telemetry-val.green { color: var(--neon-green); text-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 17px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider-switch {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .25s;
+      border-radius: 17px;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .slider-switch:before {
+      position: absolute;
+      content: "";
+      height: 11px;
+      width: 11px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      transition: .25s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-switch {
+      background-color: rgba(6, 182, 212, 0.45);
+      border-color: var(--neon-cyan);
+    }
+
+    input:checked + .slider-switch:before {
+      transform: translateX(17px);
+      background-color: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .player-hud-card {
+      background: rgba(16, 24, 40, 0.7);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 4px;
+    }
+
+    /* BARRA INFERIOR / DOCK */
+    .hud-bottom {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 18px;
+    }
+
+    .mode-switch-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mode-pill {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-pill:hover {
+      background: rgba(6, 182, 212, 0.25);
+      color: #ffffff;
+    }
+
+    .mode-pill.active {
+      background: var(--neon-cyan);
+      color: #05070e;
+      font-weight: bold;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .dock-hints {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .dock-hints span {
+      color: var(--neon-gold);
+    }
+
+    .floating-hud-toggle {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 25;
+      background: var(--bg-dark);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: var(--neon-cyan);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s;
+      box-shadow: var(--glass-glow);
+      display: none;
+    }
+
+    .floating-hud-toggle:hover {
+      background: var(--neon-cyan);
+      color: #05070e;
+    }
+
+    /* MENSAJE DE ESTADO PASO A PASO */
+    #step-status-banner {
+      position: absolute;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(6, 182, 212, 0.2);
+      border: 1px solid var(--neon-cyan);
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: #ffffff;
+      text-shadow: 0 0 6px var(--neon-cyan);
+      z-index: 15;
+      display: none;
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- CONTENEDOR DE CÁMARA 2D (PAN / ZOOM) -->
+  <div id="viewport-container">
+    <canvas id="map-canvas"></canvas>
+  </div>
+
+  <!-- BANNER DE CONSTRUCCIÓN PASO A PASO -->
+  <div id="step-status-banner">FASE: PARTICIONANDO ESPACIO CON ÁRBOL BSP...</div>
+
+  <!-- BOTÓN FLOTANTE PARA RESTAURAR HUD -->
+  <div class="floating-hud-toggle" id="floating-hud-btn" title="Mostrar controles">
+    MOSTRAR HUD [H]
+  </div>
+
+  <!-- HUD DE TELEMETRÍA Y CONTROLES -->
+  <div id="hud-overlay">
+    
+    <!-- CABECERA SUPERIOR -->
+    <div class="hud-panel hud-top">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="brand-group">
+        <div class="brand-icon">Ω</div>
+        <div class="brand-text">
+          <h1>ARCHITECT-PCG // ROGUE DUNGEON ENGINE</h1>
+          <p>SISTEMA DE GENERACIÓN PROCEDURAL BSP + ÁRBOL DE EXPANSIÓN MÍNIMA + A* PATHFINDING</p>
+        </div>
+      </div>
+
+      <div class="top-stats-strip">
+        <div class="stat-badge">
+          <div class="status-indicator"></div>
+          <span id="fps-display">60.0 FPS</span>
+        </div>
+        <div class="stat-badge">
+          <span>SEMILLA:</span>
+          <span class="telemetry-val gold" id="top-seed-val">ROGUE-8821</span>
+        </div>
+        <div class="stat-badge">
+          <span>RESOLUBLE:</span>
+          <span class="telemetry-val green" id="top-solvable-status">100% (A* OK)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL IZQUIERDO: CONFIGURACIÓN ALGORÍTMICA -->
+    <div class="hud-panel hud-left">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="section-title">
+        <span>SEMILLA & REGENERACIÓN</span>
+      </div>
+
+      <div class="seed-input-group">
+        <input type="text" class="seed-input" id="input-seed" value="ROGUE-8821" maxlength="16">
+        <button class="hud-btn" id="btn-random-seed">🎲 RANDOM</button>
+      </div>
+
+      <div style="display:flex; gap:6px; margin-bottom: 8px;">
+        <button class="hud-btn primary" id="btn-generate-instant" style="flex:1;">⚡ GENERAR AHORA</button>
+        <button class="hud-btn" id="btn-generate-step" style="flex:1;">🎬 PASO A PASO</button>
+      </div>
+
+      <!-- SELECCIÓN DE BIOMA PROCEDURAL -->
+      <div class="section-title" style="margin-top: 4px;">
+        <span>BIOMA TEMÁTICO</span>
+      </div>
+      <div class="biome-grid">
+        <div class="biome-card active" data-biome="crypt">🏛️ CRIPTA</div>
+        <div class="biome-card" data-biome="volcanic">🌋 VOLCÁN</div>
+        <div class="biome-card" data-biome="arcane">🔮 ARCANO</div>
+      </div>
+
+      <!-- PARÁMETROS GEOMÉTRICOS DEL ÁRBOL BSP -->
+      <div class="section-title" style="margin-top: 4px;">
+        <span>PARÁMETROS TOPOLÓGICOS BSP</span>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>PROFUNDIDAD ÁRBOL BSP:</span>
+          <span id="val-bsp-depth">4 (16 Hojas)</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-depth" min="3" max="5" step="1" value="4">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>TAMAÑO MÍNIMO HABITACIÓN:</span>
+          <span id="val-min-room">7 celdas</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-min-room" min="5" max="10" step="1" value="7">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>TAMAÑO MÁXIMO HABITACIÓN:</span>
+          <span id="val-max-room">15 celdas</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-max-room" min="11" max="22" step="1" value="15">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>CICLOS EXTRA (ATAJOS GRAFO):</span>
+          <span id="val-cycles">25%</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-cycles" min="0" max="60" step="5" value="25">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>VELOCIDAD ANIMACIÓN PASO A PASO:</span>
+          <span id="val-anim-speed">Normal (45ms)</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-speed" min="10" max="150" step="10" value="45">
+      </div>
+
+      <!-- CONTROLES DE NAVEGACIÓN DE CÁMARA -->
+      <div style="display:flex; gap:6px; margin-top: 10px;">
+        <button class="hud-btn" id="btn-zoom-fit" style="flex:1;">🔍 AJUSTAR VISTA</button>
+        <button class="hud-btn" id="btn-reset-cam" style="flex:1;">⌖ CENTRAR</button>
+      </div>
+    </div>
+
+    <!-- PANEL DERECHO: CAPAS DE DEBUG Y TELEMETRÍA -->
+    <div class="hud-panel hud-right">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="section-title">
+        <span>TELEMETRÍA DE GENERACIÓN</span>
+        <span class="telemetry-val cyan" id="stat-runtime">1.8 ms</span>
+      </div>
+
+      <div class="telemetry-row">
+        <span class="telemetry-lbl">DIMENSIONES CUADRÍCULA:</span>
+        <span class="telemetry-val" id="stat-grid-size">72 × 54 Celdas</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-lbl">HABITACIONES TALLADAS:</span>
+        <span class="telemetry-val gold" id="stat-rooms">14 Habitaciones</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-lbl">ÁREA EXCAVADA TOTAL:</span>
+        <span class="telemetry-val" id="stat-area">1,124 (28.9%)</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-lbl">DISTANCIA TOPOLÓGICA DIJKSTRA:</span>
+        <span class="telemetry-val cyan" id="stat-max-dijkstra">68 Pasos</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-lbl">RUTA CRÍTICA (A* ENTRADA→SALIDA):</span>
+        <span class="telemetry-val green" id="stat-path-length">58 Celdas</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-lbl">PUERTAS Y TRANSICIONES:</span>
+        <span class="telemetry-val" id="stat-doors">18 Puertas</span>
+      </div>
+
+      <!-- CAPAS DE VISUALIZACIÓN CIENTÍFICA -->
+      <div class="section-title" style="margin-top: 8px;">
+        <span>CAPAS VISUALES DE DEBUG</span>
+      </div>
+
+      <div class="toggle-row">
+        <span>Particiones del Árbol BSP</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-bsp">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Grafo de Conectividad (Centros)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-graph">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Mapa de Calor Dijkstra (Distancias)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-dijkstra">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Ruta Crítica Óptima A*</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-astar" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Iluminación Dinámica & Antorchas</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-lighting" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <!-- TARJETA DEL MODO EXPLORADOR -->
+      <div class="section-title" style="margin-top: 8px;">
+        <span>AVENTURERO // MODO JUEGO</span>
+      </div>
+      <div class="player-hud-card">
+        <div class="telemetry-row" style="border:none;">
+          <span class="telemetry-lbl">CAMPO DE VISIÓN (FOV):</span>
+          <span class="telemetry-val cyan">RAYCASTING 2D</span>
+        </div>
+        <div class="telemetry-row" style="border:none;">
+          <span class="telemetry-lbl">NIEBLA DE GUERRA (FOG):</span>
+          <span class="telemetry-val gold" id="player-explored-pct">35.2% REVELADO</span>
+        </div>
+        <div class="telemetry-row" style="border:none;">
+          <span class="telemetry-lbl">COORDENADAS JUGADOR:</span>
+          <span class="telemetry-val" id="player-pos-display">(12, 18)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BARRA INFERIOR / DOCK -->
+    <div class="hud-panel hud-bottom">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="mode-switch-group">
+        <div class="mode-pill active" id="mode-architect">📐 VISTA DE ARQUITECTO (MAPA COMPLETO)</div>
+        <div class="mode-pill" id="mode-explorer">⚔️ MODO EXPLORADOR (FOV + FOG OF WAR)</div>
+      </div>
+
+      <div class="dock-hints">
+        MODO ARQUITECTO: <span>Clic en cualquier celda para trazar A*</span> | MODO EXPLORADOR: <span>WASD / Flechas para Mover</span> | ARRASTRAR: <span>Pan</span> | RUEDA: <span>Zoom</span> | TECLA [H]: <span>Ocultar HUD</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MOTOR DE GENERACIÓN PROCEDURAL, PATHFINDING Y RENDERIZADO 2D -->
+  <script>
+    /* ==========================================================================
+       1. GENERADOR DE NÚMEROS PSEUDOALEATORIOS DETERMINÍSTICO (MULBERRY32)
+       ========================================================================== */
+    class PRNG {
+      constructor(seedStr = "ROGUE-8821") {
+        this.seedStr = seedStr;
+        this.s = this.hashString(seedStr);
+      }
+
+      hashString(str) {
+        let h = 1779033703 ^ str.length;
+        for (let i = 0; i < str.length; i++) {
+          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return (h >>> 0);
+      }
+
+      // Generador Mulberry32
+      next() {
+        let t = (this.s += 0x6D2B79F5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+
+      randInt(min, max) {
+        return Math.floor(min + this.next() * (max - min + 1));
+      }
+
+      randFloat(min, max) {
+        return min + this.next() * (max - min);
+      }
+
+      randBool(chance = 0.5) {
+        return this.next() < chance;
+      }
+    }
+
+    /* ==========================================================================
+       2. CONSTANTES DE CELDAS Y PALETAS DE BIOMAS PROCEDURALES
+       ========================================================================== */
+    const TILE = {
+      VOID: 0,
+      WALL: 1,
+      FLOOR: 2,
+      CORRIDOR: 3,
+      DOOR: 4,
+      DOOR_OPEN: 5,
+      STAIRS_UP: 6,
+      STAIRS_DOWN: 7,
+      CHEST: 8,
+      TORCH: 9,
+      TRAP: 10
+    };
+
+    const BIOMES = {
+      crypt: {
+        name: 'Cripta Oscura',
+        wallTop: '#243044',
+        wallFace: '#151d2c',
+        wallBorder: '#0b111c',
+        floorBase: '#0b121e',
+        floorCrack: '#162234',
+        corridorBase: '#0d1522',
+        doorWood: '#64748b',
+        doorIron: '#94a3b8',
+        torchColor: 'rgba(56, 189, 248, ', // Azul cian gélido
+        torchCore: '#e0f2fe',
+        ambientColor: 'rgba(3, 7, 18, 0.95)'
+      },
+      volcanic: {
+        name: 'Caverna Volcánica',
+        wallTop: '#381e18',
+        wallFace: '#22110c',
+        wallBorder: '#140704',
+        floorBase: '#150906',
+        floorCrack: '#ff4500',
+        corridorBase: '#180b08',
+        doorWood: '#78350f',
+        doorIron: '#d97706',
+        torchColor: 'rgba(249, 115, 22, ', // Naranja volcánico
+        torchCore: '#fef08a',
+        ambientColor: 'rgba(8, 2, 2, 0.95)'
+      },
+      arcane: {
+        name: 'Santuario Arcano',
+        wallTop: '#3b2554',
+        wallFace: '#1f1130',
+        wallBorder: '#11071c',
+        floorBase: '#130920',
+        floorCrack: '#c084fc',
+        corridorBase: '#160a26',
+        doorWood: '#581c87',
+        doorIron: '#a855f7',
+        torchColor: 'rgba(192, 132, 252, ', // Púrpura arcano
+        torchCore: '#f5d0fe',
+        ambientColor: 'rgba(7, 2, 14, 0.95)'
+      }
+    };
+
+    /* ==========================================================================
+       3. ESTRUCTURA Y ALGORITMOS DE GENERACIÓN PROCEDURAL (BSP TREE)
+       ========================================================================== */
+    class BSPNode {
+      constructor(x, y, w, h, depth = 0) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.depth = depth;
+        this.left = null;
+        this.right = null;
+        this.room = null;
+        this.splitAxis = null; // 'H' o 'V'
+        this.splitPos = 0;
+      }
+
+      isLeaf() {
+        return !this.left && !this.right;
+      }
+    }
+
+    class DungeonGenerator {
+      constructor(cols = 74, rows = 54, seed = "ROGUE-8821") {
+        this.cols = cols;
+        this.rows = rows;
+        this.seed = seed;
+        this.prng = new PRNG(seed);
+        this.grid = new Uint8Array(cols * rows); // Almacén plano de celdas
+        this.bspRoot = null;
+        this.bspLeaves = [];
+        this.rooms = [];
+        this.connections = []; // Pares de habitaciones conectadas
+        this.doors = [];
+        this.torches = [];
+        this.chests = [];
+        this.entrancePos = { x: 0, y: 0 };
+        this.exitPos = { x: 0, y: 0 };
+        this.dijkstraMap = new Int32Array(cols * rows).fill(-1);
+        this.maxDijkstraDist = 0;
+        this.criticalPath = [];
+
+        // Opciones configurables
+        this.maxDepth = 4;
+        this.minRoomSize = 7;
+        this.maxRoomSize = 15;
+        this.extraCyclesRatio = 0.25;
+      }
+
+      idx(x, y) {
+        return y * this.cols + x;
+      }
+
+      getTile(x, y) {
+        if (x < 0 || x >= this.cols || y < 0 || y >= this.rows) return TILE.VOID;
+        return this.grid[y * this.cols + x];
+      }
+
+      setTile(x, y, tile) {
+        if (x >= 0 && x < this.cols && y >= 0 && y < this.rows) {
+          this.grid[y * this.cols + x] = tile;
+        }
+      }
+
+      // CONSTRUCCIÓN DEL ÁRBOL BSP RECURSIVO
+      buildBSPTree() {
+        this.bspRoot = new BSPNode(1, 1, this.cols - 2, this.rows - 2, 0);
+        this.bspLeaves = [];
+        this.splitNode(this.bspRoot);
+      }
+
+      splitNode(node) {
+        if (node.depth >= this.maxDepth) {
+          this.bspLeaves.push(node);
+          return;
+        }
+
+        // Determinar orientación de división según la proporción de aspecto
+        let splitHoriz = this.prng.randBool(0.5);
+        if (node.w > node.h && (node.w / node.h) >= 1.25) splitHoriz = false;
+        else if (node.h > node.w && (node.h / node.w) >= 1.25) splitHoriz = true;
+
+        const maxSplit = splitHoriz ? node.h : node.w;
+        const minSize = this.minRoomSize + 4; // Margen de seguridad con muros
+
+        if (maxSplit < minSize * 2) {
+          this.bspLeaves.push(node);
+          return;
+        }
+
+        // Punto de corte entre el 40% y el 60% para habitaciones balanceadas
+        const splitPoint = this.prng.randInt(Math.floor(maxSplit * 0.4), Math.floor(maxSplit * 0.6));
+
+        if (splitHoriz) {
+          node.splitAxis = 'H';
+          node.splitPos = node.y + splitPoint;
+          node.left = new BSPNode(node.x, node.y, node.w, splitPoint, node.depth + 1);
+          node.right = new BSPNode(node.x, node.y + splitPoint, node.w, node.h - splitPoint, node.depth + 1);
+        } else {
+          node.splitAxis = 'V';
+          node.splitPos = node.x + splitPoint;
+          node.left = new BSPNode(node.x, node.y, splitPoint, node.h, node.depth + 1);
+          node.right = new BSPNode(node.x + splitPoint, node.y, node.w - splitPoint, node.h, node.depth + 1);
+        }
+
+        this.splitNode(node.left);
+        this.splitNode(node.right);
+      }
+
+      // CREACIÓN DE HABITACIONES DENTRO DE CADA HOJA (CON PADDING DE SEGURIDAD >= 1)
+      carveRooms() {
+        this.rooms = [];
+        for (let i = 0; i < this.bspLeaves.length; i++) {
+          const leaf = this.bspLeaves[i];
+
+          // Padding mínimo estricto de al menos 1 celda de muro entre hojas
+          const padX = 2;
+          const padY = 2;
+          const availW = leaf.w - padX * 2;
+          const availH = leaf.h - padY * 2;
+
+          if (availW < this.minRoomSize || availH < this.minRoomSize) continue;
+
+          const rw = this.prng.randInt(this.minRoomSize, Math.min(this.maxRoomSize, availW));
+          const rh = this.prng.randInt(this.minRoomSize, Math.min(this.maxRoomSize, availH));
+          const rx = leaf.x + padX + this.prng.randInt(0, availW - rw);
+          const ry = leaf.y + padY + this.prng.randInt(0, availH - rh);
+
+          const room = {
+            id: this.rooms.length,
+            x: rx,
+            y: ry,
+            w: rw,
+            h: rh,
+            cx: Math.floor(rx + rw / 2),
+            cy: Math.floor(ry + rh / 2),
+            leaf: leaf
+          };
+
+          leaf.room = room;
+          this.rooms.push(room);
+
+          // Esculpir baldosas de piso
+          for (let y = ry; y < ry + rh; y++) {
+            for (let x = rx; x < rx + rw; x++) {
+              this.setTile(x, y, TILE.FLOOR);
+            }
+          }
+        }
+      }
+
+      // OBTENER UNA HABITACIÓN DE UN SUBÁRBOL BSP
+      getRoomFromNode(node) {
+        if (!node) return null;
+        if (node.room) return node.room;
+        let r = this.getRoomFromNode(node.left);
+        if (r) return r;
+        return this.getRoomFromNode(node.right);
+      }
+
+      // EXCAVACIÓN DE PASILLOS ORTOGONALES DE 1 UNIDAD DE ANCHO
+      connectBSPNode(node) {
+        if (!node || node.isLeaf()) return;
+
+        this.connectBSPNode(node.left);
+        this.connectBSPNode(node.right);
+
+        const r1 = this.getRoomFromNode(node.left);
+        const r2 = this.getRoomFromNode(node.right);
+
+        if (r1 && r2) {
+          this.carveCorridor(r1.cx, r1.cy, r2.cx, r2.cy);
+          this.connections.push({ a: r1, b: r2 });
+        }
+      }
+
+      carveCorridor(x1, y1, x2, y2) {
+        let x = x1;
+        let y = y1;
+
+        // Decidir aleatoriamente si ir horizontal primero o vertical primero
+        const horizFirst = this.prng.randBool(0.5);
+
+        if (horizFirst) {
+          // Segmento Horizontal
+          while (x !== x2) {
+            if (this.getTile(x, y) === TILE.VOID) this.setTile(x, y, TILE.CORRIDOR);
+            x += (x2 > x) ? 1 : -1;
+          }
+          // Segmento Vertical
+          while (y !== y2) {
+            if (this.getTile(x, y) === TILE.VOID) this.setTile(x, y, TILE.CORRIDOR);
+            y += (y2 > y) ? 1 : -1;
+          }
+        } else {
+          // Segmento Vertical
+          while (y !== y2) {
+            if (this.getTile(x, y) === TILE.VOID) this.setTile(x, y, TILE.CORRIDOR);
+            y += (y2 > y) ? 1 : -1;
+          }
+          // Segmento Horizontal
+          while (x !== x2) {
+            if (this.getTile(x, y) === TILE.VOID) this.setTile(x, y, TILE.CORRIDOR);
+            x += (x2 > x) ? 1 : -1;
+          }
+        }
+        if (this.getTile(x2, y2) === TILE.VOID) this.setTile(x2, y2, TILE.CORRIDOR);
+      }
+
+      // AÑADIR CICLOS EXTRA PARA QUE LA MAZMORRA TENGA ATAJOS
+      addExtraCycles() {
+        if (this.rooms.length < 3 || this.extraCyclesRatio <= 0) return;
+        const extraCount = Math.floor(this.rooms.length * this.extraCyclesRatio);
+
+        for (let i = 0; i < extraCount; i++) {
+          const rA = this.rooms[this.prng.randInt(0, this.rooms.length - 1)];
+          // Encontrar habitación cercana no conectada directamente
+          let closest = null;
+          let minDist = Infinity;
+
+          for (let j = 0; j < this.rooms.length; j++) {
+            const rB = this.rooms[j];
+            if (rA === rB) continue;
+            const dist = Math.hypot(rA.cx - rB.cx, rA.cy - rB.cy);
+            if (dist < minDist && dist > 12) {
+              minDist = dist;
+              closest = rB;
+            }
+          }
+
+          if (closest) {
+            this.carveCorridor(rA.cx, rA.cy, closest.cx, closest.cy);
+            this.connections.push({ a: rA, b: closest });
+          }
+        }
+      }
+
+      // COLOCAR MUROS ALREDEDOR DE CELDAS TRANSITABLES
+      buildWalls() {
+        for (let y = 0; y < this.rows; y++) {
+          for (let x = 0; x < this.cols; x++) {
+            if (this.getTile(x, y) !== TILE.VOID) continue;
+
+            // Si tiene algún vecino que sea suelo o pasillo, convertir en MURO
+            let hasFloorNeighbor = false;
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const t = this.getTile(x + dx, y + dy);
+                if (t === TILE.FLOOR || t === TILE.CORRIDOR) {
+                  hasFloorNeighbor = true;
+                  break;
+                }
+              }
+              if (hasFloorNeighbor) break;
+            }
+
+            if (hasFloorNeighbor) {
+              this.setTile(x, y, TILE.WALL);
+            }
+          }
+        }
+      }
+
+      // DETECCIÓN Y COLOCACIÓN EXACTA DE PUERTAS LÓGICAS EN ENTRADAS DE HABITACIONES
+      placeDoors() {
+        this.doors = [];
+        for (let y = 1; y < this.rows - 1; y++) {
+          for (let x = 1; x < this.cols - 1; x++) {
+            if (this.getTile(x, y) !== TILE.CORRIDOR) continue;
+
+            const n = this.getTile(x, y - 1);
+            const s = this.getTile(x, y + 1);
+            const w = this.getTile(x - 1, y);
+            const e = this.getTile(x + 1, y);
+
+            // Puerta vertical: muro al oeste y este, y suelo/pasillo al norte y sur
+            const isVertDoor = (w === TILE.WALL && e === TILE.WALL) &&
+              ((n === TILE.FLOOR && s === TILE.CORRIDOR) || (s === TILE.FLOOR && n === TILE.CORRIDOR));
+
+            // Puerta horizontal: muro al norte y sur, y suelo/pasillo al oeste y este
+            const isHorizDoor = (n === TILE.WALL && s === TILE.WALL) &&
+              ((w === TILE.FLOOR && e === TILE.CORRIDOR) || (e === TILE.FLOOR && w === TILE.CORRIDOR));
+
+            if (isVertDoor || isHorizDoor) {
+              this.setTile(x, y, TILE.DOOR);
+              this.doors.push({ x, y, isOpen: false });
+            }
+          }
+        }
+      }
+
+      // DISTRIBUCIÓN DE ANTORCHAS Y COFRES EN HABITACIONES
+      populateEntities() {
+        this.torches = [];
+        this.chests = [];
+
+        for (let i = 0; i < this.rooms.length; i++) {
+          const r = this.rooms[i];
+
+          // Colocar antorchas en los muros de las habitaciones
+          if (this.getTile(r.x + 2, r.y - 1) === TILE.WALL) this.torches.push({ x: r.x + 2, y: r.y });
+          if (this.getTile(r.x + r.w - 3, r.y - 1) === TILE.WALL) this.torches.push({ x: r.x + r.w - 3, y: r.y });
+
+          // 50% de probabilidad de cofre en una esquina de la habitación
+          if (this.prng.randBool(0.55)) {
+            const cx = r.x + this.prng.randInt(1, r.w - 2);
+            const cy = r.y + this.prng.randInt(1, r.h - 2);
+            if (this.getTile(cx, cy) === TILE.FLOOR) {
+              this.setTile(cx, cy, TILE.CHEST);
+              this.chests.push({ x: cx, y: cy, opened: false });
+            }
+          }
+        }
+      }
+
+      // MAPA DE DISTANCIAS DIJKSTRA (BFS) DESDE LA ENTRADA
+      calculateDijkstra(startX, startY) {
+        this.dijkstraMap.fill(-1);
+        const queue = [{ x: startX, y: startY, dist: 0 }];
+        this.dijkstraMap[this.idx(startX, startY)] = 0;
+        let maxDist = 0;
+        let furthestCell = { x: startX, y: startY };
+
+        while (queue.length > 0) {
+          const { x, y, dist } = queue.shift();
+
+          if (dist > maxDist) {
+            maxDist = dist;
+            furthestCell = { x, y };
+          }
+
+          const neighbors = [
+            { x: x + 1, y }, { x: x - 1, y },
+            { x, y: y + 1 }, { x, y: y - 1 }
+          ];
+
+          for (let i = 0; i < neighbors.length; i++) {
+            const nx = neighbors[i].x;
+            const ny = neighbors[i].y;
+            const t = this.getTile(nx, ny);
+
+            // Es transitable si es suelo, pasillo, puerta, o cofre
+            if (t === TILE.FLOOR || t === TILE.CORRIDOR || t === TILE.DOOR || t === TILE.DOOR_OPEN || t === TILE.CHEST) {
+              const nIdx = this.idx(nx, ny);
+              if (this.dijkstraMap[nIdx] === -1) {
+                this.dijkstraMap[nIdx] = dist + 1;
+                queue.push({ x: nx, y: ny, dist: dist + 1 });
+              }
+            }
+          }
+        }
+
+        this.maxDijkstraDist = maxDist;
+        return { maxDist, furthestCell };
+      }
+
+      // ALGORITMO A* (A-STAR) PARA ENCONTRAR LA RUTA CRÍTICA ÓPTIMA
+      findPathAStar(startX, startY, goalX, goalY) {
+        const heuristic = (x1, y1, x2, y2) => Math.abs(x1 - x2) + Math.abs(y1 - y2);
+
+        const openSet = [{ x: startX, y: startY, f: heuristic(startX, startY, goalX, goalY) }];
+        const cameFrom = new Map();
+
+        const gScore = new Map();
+        const startKey = `${startX},${startY}`;
+        gScore.set(startKey, 0);
+
+        while (openSet.length > 0) {
+          // Extraer nodo con menor fScore
+          openSet.sort((a, b) => a.f - b.f);
+          const current = openSet.shift();
+          const currKey = `${current.x},${current.y}`;
+
+          if (current.x === goalX && current.y === goalY) {
+            // Reconstruir camino
+            const path = [];
+            let curr = currKey;
+            while (cameFrom.has(curr)) {
+              const [px, py] = curr.split(',').map(Number);
+              path.push({ x: px, y: py });
+              curr = cameFrom.get(curr);
+            }
+            path.push({ x: startX, y: startY });
+            return path.reverse();
+          }
+
+          const neighbors = [
+            { x: current.x + 1, y: current.y },
+            { x: current.x - 1, y: current.y },
+            { x: current.x, y: current.y + 1 },
+            { x: current.x, y: current.y - 1 }
+          ];
+
+          for (let i = 0; i < neighbors.length; i++) {
+            const nb = neighbors[i];
+            const t = this.getTile(nb.x, nb.y);
+
+            // Celdas transitables
+            if (t !== TILE.FLOOR && t !== TILE.CORRIDOR && t !== TILE.DOOR && t !== TILE.DOOR_OPEN && t !== TILE.CHEST && t !== TILE.STAIRS_UP && t !== TILE.STAIRS_DOWN) {
+              continue;
+            }
+
+            const nbKey = `${nb.x},${nb.y}`;
+            const tentativeG = gScore.get(currKey) + 1;
+
+            if (!gScore.has(nbKey) || tentativeG < gScore.get(nbKey)) {
+              cameFrom.set(nbKey, currKey);
+              gScore.set(nbKey, tentativeG);
+              const f = tentativeG + heuristic(nb.x, nb.y, goalX, goalY);
+
+              if (!openSet.some(item => item.x === nb.x && item.y === nb.y)) {
+                openSet.push({ x: nb.x, y: nb.y, f });
+              }
+            }
+          }
+        }
+        return []; // Sin ruta
+      }
+
+      // ASIGNAR ENTRADA Y SALIDA BASADO EN MÁXIMA DISTANCIA TOPOLÓGICA
+      designateEntranceAndExit() {
+        if (this.rooms.length === 0) return;
+
+        // Habitación 0 es la Entrada
+        const rStart = this.rooms[0];
+        this.entrancePos = { x: rStart.cx, y: rStart.cy };
+        this.setTile(this.entrancePos.x, this.entrancePos.y, TILE.STAIRS_UP);
+
+        // Calcular Dijkstra desde la entrada
+        const { furthestCell } = this.calculateDijkstra(this.entrancePos.x, this.entrancePos.y);
+        this.exitPos = furthestCell;
+        this.setTile(this.exitPos.x, this.exitPos.y, TILE.STAIRS_DOWN);
+
+        // Trazar ruta crítica A*
+        this.criticalPath = this.findPathAStar(
+          this.entrancePos.x, this.entrancePos.y,
+          this.exitPos.x, this.exitPos.y
+        );
+      }
+
+      // GENERACIÓN INSTANTÁNEA COMPLETA
+      generateAll() {
+        const t0 = performance.now();
+        this.grid.fill(TILE.VOID);
+        this.buildBSPTree();
+        this.carveRooms();
+        this.connectBSPNode(this.bspRoot);
+        this.addExtraCycles();
+        this.buildWalls();
+        this.placeDoors();
+        this.populateEntities();
+        this.designateEntranceAndExit();
+        const t1 = performance.now();
+        return (t1 - t0);
+      }
+    }
+
+    /* ==========================================================================
+       4. SISTEMA DE ILUMINACIÓN DINÁMICA 2D, CAMPO DE VISIÓN (FOV) Y JUGADOR
+       ========================================================================== */
+    class Player {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.keys = 0;
+        this.gold = 0;
+        this.fovRadius = 9.5;
+        this.visibleTiles = new Set();
+        this.exploredTiles = new Set();
+      }
+
+      updateFOV(dungeon) {
+        this.visibleTiles.clear();
+        const rayCount = 180;
+        const maxDist = this.fovRadius;
+
+        for (let i = 0; i < rayCount; i++) {
+          const angle = (i / rayCount) * Math.PI * 2;
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+
+          for (let d = 0; d <= maxDist; d += 0.45) {
+            const tx = Math.round(this.x + cos * d);
+            const ty = Math.round(this.y + sin * d);
+
+            if (tx < 0 || tx >= dungeon.cols || ty < 0 || ty >= dungeon.rows) break;
+
+            const key = `${tx},${ty}`;
+            this.visibleTiles.add(key);
+            this.exploredTiles.add(key);
+
+            const tile = dungeon.getTile(tx, ty);
+            // Bloqueo de luz en muros y puertas cerradas
+            if (tile === TILE.WALL || tile === TILE.DOOR) {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    /* ==========================================================================
+       5. MOTOR DE RENDERIZADO VISUAL EN CANVAS 2D CON AUTOTILING Y SOMBRAS
+       ========================================================================== */
+    class DungeonRenderer {
+      constructor(canvas, dungeon, player) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d', { alpha: false });
+        this.dungeon = dungeon;
+        this.player = player;
+
+        this.tileSize = 28; // Píxeles por celda en escala base 1.0
+        this.camera = { x: 0, y: 0, zoom: 1.0 };
+        this.isPanning = false;
+        this.panStart = { x: 0, y: 0 };
+
+        this.biome = BIOMES.crypt;
+
+        // Opciones de visualización y capas
+        this.mode = 'architect'; // 'architect' | 'explorer'
+        this.showBSP = false;
+        this.showGraph = false;
+        this.showDijkstra = false;
+        this.showAStar = true;
+        this.showLighting = true;
+
+        this.time = 0;
+      }
+
+      resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      }
+
+      zoomToFit() {
+        const margin = 80;
+        const availW = this.canvas.width - margin * 2;
+        const availH = this.canvas.height - margin * 2;
+        const mapPixelW = this.dungeon.cols * this.tileSize;
+        const mapPixelH = this.dungeon.rows * this.tileSize;
+
+        const scaleX = availW / mapPixelW;
+        const scaleY = availH / mapPixelH;
+        this.camera.zoom = Math.min(scaleX, scaleY, 1.4);
+
+        this.camera.x = (this.canvas.width - mapPixelW * this.camera.zoom) * 0.5;
+        this.camera.y = (this.canvas.height - mapPixelH * this.camera.zoom) * 0.5;
+      }
+
+      centerOn(x, y) {
+        this.camera.x = this.canvas.width * 0.5 - (x * this.tileSize + this.tileSize * 0.5) * this.camera.zoom;
+        this.camera.y = this.canvas.height * 0.5 - (y * this.tileSize + this.tileSize * 0.5) * this.camera.zoom;
+      }
+
+      // DIBUJADO DE PROCEDURAL AUTOTILING PARA MUROS
+      drawWall(ctx, x, y, px, py, sz) {
+        const d = this.dungeon;
+        const sTile = d.getTile(x, y + 1);
+        const hasFloorSouth = (sTile === TILE.FLOOR || sTile === TILE.CORRIDOR || sTile === TILE.DOOR || sTile === TILE.DOOR_OPEN);
+
+        // Muro con cara frontal (Pseudo-3D)
+        if (hasFloorSouth) {
+          // Tapa superior del muro
+          ctx.fillStyle = this.biome.wallTop;
+          ctx.fillRect(px, py, sz, sz * 0.45);
+
+          // Cara frontal proyectada
+          ctx.fillStyle = this.biome.wallFace;
+          ctx.fillRect(px, py + sz * 0.45, sz, sz * 0.55);
+
+          // Borde de bisel oscuro
+          ctx.fillStyle = this.biome.wallBorder;
+          ctx.fillRect(px, py + sz * 0.40, sz, 2);
+        } else {
+          // Muro superior sólido
+          ctx.fillStyle = this.biome.wallTop;
+          ctx.fillRect(px, py, sz, sz);
+
+          // Textura de ladrillo sutil procedural
+          ctx.strokeStyle = this.biome.wallBorder;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 0.5, py + 0.5, sz - 1, sz - 1);
+        }
+      }
+
+      // DIBUJADO DEL MAPA COMPLETO
+      render() {
+        this.time += 0.05;
+        const ctx = this.ctx;
+        ctx.fillStyle = '#05070e';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        ctx.save();
+        ctx.translate(this.camera.x, this.camera.y);
+        ctx.scale(this.camera.zoom, this.camera.zoom);
+
+        const sz = this.tileSize;
+        const d = this.dungeon;
+
+        // Si estamos en modo explorador y la cámara sigue al jugador
+        if (this.mode === 'explorer') {
+          this.centerOn(this.player.x, this.player.y);
+        }
+
+        // 1. DIBUJAR PISOS Y MUROS
+        for (let y = 0; y < d.rows; y++) {
+          for (let x = 0; x < d.cols; x++) {
+            const tile = d.getTile(x, y);
+            const px = x * sz;
+            const py = y * sz;
+            const key = `${x},${y}`;
+
+            const isVisible = (this.mode === 'architect') || this.player.visibleTiles.has(key);
+            const isExplored = (this.mode === 'architect') || this.player.exploredTiles.has(key);
+
+            // Niebla de guerra completa (Pitch Black)
+            if (!isExplored) continue;
+
+            if (tile === TILE.WALL) {
+              this.drawWall(ctx, x, y, px, py, sz);
+            } else if (tile === TILE.FLOOR || tile === TILE.CORRIDOR) {
+              // Piso base
+              ctx.fillStyle = (tile === TILE.FLOOR) ? this.biome.floorBase : this.biome.corridorBase;
+              ctx.fillRect(px, py, sz, sz);
+
+              // Cuadrícula sutil de baldosas
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(px, py, sz, sz);
+
+              // Detalle de grieta procedural según coordenadas
+              if (((x * 17 + y * 31) % 7) === 0) {
+                ctx.fillStyle = this.biome.floorCrack;
+                ctx.fillRect(px + 5, py + 8, sz * 0.45, 1.5);
+              }
+            } else if (tile === TILE.DOOR) {
+              // Marco y puerta de madera con herrajes
+              ctx.fillStyle = this.biome.floorBase;
+              ctx.fillRect(px, py, sz, sz);
+
+              ctx.fillStyle = this.biome.doorWood;
+              ctx.fillRect(px + 4, py + 4, sz - 8, sz - 8);
+
+              ctx.fillStyle = this.biome.doorIron;
+              ctx.fillRect(px + sz * 0.5 - 2, py + sz * 0.5 - 2, 4, 4);
+            } else if (tile === TILE.DOOR_OPEN) {
+              ctx.fillStyle = this.biome.floorBase;
+              ctx.fillRect(px, py, sz, sz);
+              ctx.fillStyle = this.biome.doorWood;
+              ctx.fillRect(px + 2, py + 2, 5, sz - 4);
+            } else if (tile === TILE.STAIRS_UP) {
+              // Escaleras hacia arriba (Entrada)
+              ctx.fillStyle = this.biome.floorBase;
+              ctx.fillRect(px, py, sz, sz);
+
+              ctx.fillStyle = '#06b6d4';
+              for (let st = 0; st < 4; st++) {
+                ctx.fillRect(px + 4 + st * 2, py + 4 + st * 4, sz - 8 - st * 4, 3);
+              }
+            } else if (tile === TILE.STAIRS_DOWN) {
+              // Escaleras hacia abajo (Salida / Jefe)
+              ctx.fillStyle = this.biome.floorBase;
+              ctx.fillRect(px, py, sz, sz);
+
+              ctx.fillStyle = '#ef4444';
+              for (let st = 0; st < 4; st++) {
+                ctx.fillRect(px + 4 + st * 3, py + 4 + st * 4, sz - 8 - st * 6, 3);
+              }
+            } else if (tile === TILE.CHEST) {
+              // Cofre del tesoro dorado
+              ctx.fillStyle = this.biome.floorBase;
+              ctx.fillRect(px, py, sz, sz);
+
+              ctx.fillStyle = '#f59e0b';
+              ctx.fillRect(px + 6, py + 8, sz - 12, sz - 14);
+
+              ctx.fillStyle = '#78350f';
+              ctx.fillRect(px + 6, py + 12, sz - 12, 2);
+
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(px + sz * 0.5 - 1.5, py + 11, 3, 4);
+            }
+
+            // Penumbra para celdas exploradas pero no visibles actualmente en FOV
+            if (this.mode === 'explorer' && !isVisible) {
+              ctx.fillStyle = 'rgba(5, 7, 14, 0.72)';
+              ctx.fillRect(px, py, sz, sz);
+            }
+          }
+        }
+
+        // 2. CAPA DEPURACIÓN: PARTICIONES DEL ÁRBOL BSP
+        if (this.showBSP && this.dungeon.bspLeaves) {
+          ctx.save();
+          ctx.lineWidth = 1.5;
+          for (let i = 0; i < this.dungeon.bspLeaves.length; i++) {
+            const leaf = this.dungeon.bspLeaves[i];
+            ctx.strokeStyle = `hsl(${(i * 55) % 360}, 90%, 55%)`;
+            ctx.strokeRect(leaf.x * sz, leaf.y * sz, leaf.w * sz, leaf.h * sz);
+          }
+          ctx.restore();
+        }
+
+        // 3. CAPA DEPURACIÓN: GRAFO DE CONECTIVIDAD ENTRE CENTROS
+        if (this.showGraph && this.dungeon.connections) {
+          ctx.save();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#a855f7';
+          ctx.fillStyle = '#f59e0b';
+
+          for (let i = 0; i < this.dungeon.connections.length; i++) {
+            const conn = this.dungeon.connections[i];
+            ctx.beginPath();
+            ctx.moveTo(conn.a.cx * sz + sz * 0.5, conn.a.cy * sz + sz * 0.5);
+            ctx.lineTo(conn.b.cx * sz + sz * 0.5, conn.b.cy * sz + sz * 0.5);
+            ctx.stroke();
+          }
+
+          for (let i = 0; i < this.dungeon.rooms.length; i++) {
+            const r = this.dungeon.rooms[i];
+            ctx.beginPath();
+            ctx.arc(r.cx * sz + sz * 0.5, r.cy * sz + sz * 0.5, 5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // 4. CAPA DEPURACIÓN: MAPA DE CALOR DIJKSTRA
+        if (this.showDijkstra && this.dungeon.maxDijkstraDist > 0) {
+          ctx.save();
+          const maxD = this.dungeon.maxDijkstraDist;
+          for (let y = 0; y < d.rows; y++) {
+            for (let x = 0; x < d.cols; x++) {
+              const dist = d.dijkstraMap[d.idx(x, y)];
+              if (dist >= 0) {
+                const norm = dist / maxD;
+                // Gradiente cian -> verde -> amarillo -> rojo
+                const hue = (1.0 - norm) * 220;
+                ctx.fillStyle = `hsla(${hue}, 90%, 50%, 0.45)`;
+                ctx.fillRect(x * sz, y * sz, sz, sz);
+              }
+            }
+          }
+          ctx.restore();
+        }
+
+        // 5. CAPA DE RUTA CRÍTICA ÓPTIMA A* (A-STAR)
+        if (this.showAStar && this.dungeon.criticalPath && this.dungeon.criticalPath.length > 0) {
+          ctx.save();
+          const path = this.dungeon.criticalPath;
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = '#06b6d4';
+          ctx.shadowColor = '#06b6d4';
+          ctx.shadowBlur = 10;
+
+          ctx.beginPath();
+          for (let i = 0; i < path.length; i++) {
+            const p = path[i];
+            const cx = p.x * sz + sz * 0.5;
+            const cy = p.y * sz + sz * 0.5;
+            if (i === 0) ctx.moveTo(cx, cy);
+            else ctx.lineTo(cx, cy);
+          }
+          ctx.stroke();
+
+          // Marcador animado de pulsos a lo largo de la ruta
+          const pulseIdx = Math.floor((this.time * 15) % path.length);
+          const pulsePt = path[pulseIdx];
+          if (pulsePt) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(pulsePt.x * sz + sz * 0.5, pulsePt.y * sz + sz * 0.5, 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // 6. ILUMINACIÓN DINÁMICA DE ANTORCHAS Y RESPLANDOR
+        if (this.showLighting && this.dungeon.torches) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          for (let i = 0; i < this.dungeon.torches.length; i++) {
+            const t = this.dungeon.torches[i];
+            const tx = t.x * sz + sz * 0.5;
+            const ty = t.y * sz + sz * 0.5;
+
+            // Parpadeo procedural orgánico
+            const flicker = Math.sin(this.time * 6 + i) * 3 + Math.cos(this.time * 11 + i) * 2;
+            const radius = 65 + flicker;
+
+            const glow = ctx.createRadialGradient(tx, ty, 2, tx, ty, radius);
+            glow.addColorStop(0, this.biome.torchColor + '0.75)');
+            glow.addColorStop(0.4, this.biome.torchColor + '0.25)');
+            glow.addColorStop(1, this.biome.torchColor + '0.0)');
+
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(tx, ty, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Llama de la antorcha
+            ctx.fillStyle = this.biome.torchCore;
+            ctx.beginPath();
+            ctx.arc(tx, ty - 2, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // 7. RENDERIZADO DEL JUGADOR AVENTURERO EN MODO EXPLORADOR
+        if (this.mode === 'explorer') {
+          const px = this.player.x * sz + sz * 0.5;
+          const py = this.player.y * sz + sz * 0.5;
+
+          ctx.save();
+          // Halo de antorcha portátil del jugador
+          ctx.globalCompositeOperation = 'lighter';
+          const pGlow = ctx.createRadialGradient(px, py, 4, px, py, this.player.fovRadius * sz * 0.85);
+          pGlow.addColorStop(0, 'rgba(254, 240, 138, 0.4)');
+          pGlow.addColorStop(0.6, 'rgba(245, 158, 11, 0.15)');
+          pGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = pGlow;
+          ctx.beginPath();
+          ctx.arc(px, py, this.player.fovRadius * sz * 0.85, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Sprite procedural del aventurero
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = '#10b981';
+          ctx.beginPath();
+          ctx.arc(px, py, sz * 0.35, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Ojos / Dirección
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(px - 3, py - 4, 2, 2);
+          ctx.fillRect(px + 1, py - 4, 2, 2);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    /* ==========================================================================
+       6. CONSTRUCTOR DE ANIMACIÓN PASO A PASO (VISUALIZACIÓN ALGORÍTMICA)
+       ========================================================================== */
+    class StepByStepBuilder {
+      constructor(dungeon, renderer, onComplete) {
+        this.dungeon = dungeon;
+        this.renderer = renderer;
+        this.onComplete = onComplete;
+        this.timer = null;
+        this.isRunning = false;
+        this.speed = 45; // ms por paso
+      }
+
+      start() {
+        this.stop();
+        this.isRunning = true;
+        document.getElementById('step-status-banner').style.display = 'block';
+
+        const d = this.dungeon;
+        d.grid.fill(TILE.VOID);
+        d.buildBSPTree();
+
+        let stepIndex = 0;
+        const totalLeaves = d.bspLeaves.length;
+        let carvedRoomsCount = 0;
+        let corridorStep = 0;
+
+        const updateStatus = (text) => {
+          document.getElementById('step-status-banner').innerText = text;
+        };
+
+        const tick = () => {
+          if (!this.isRunning) return;
+
+          // Fase 1: Mostrar particiones del árbol BSP
+          if (stepIndex < 8) {
+            this.renderer.showBSP = true;
+            updateStatus(`FASE 1: SUBDIVISIÓN ESPACIAL BSP (${stepIndex + 1}/8)...`);
+            stepIndex++;
+            this.renderer.render();
+            this.timer = setTimeout(tick, this.speed * 2.5);
+            return;
+          }
+
+          // Fase 2: Tallar habitaciones hoja por hoja
+          if (carvedRoomsCount < totalLeaves) {
+            updateStatus(`FASE 2: TALLANDO HABITACIONES (${carvedRoomsCount + 1}/${totalLeaves})...`);
+            const leaf = d.bspLeaves[carvedRoomsCount];
+            const padX = 2, padY = 2;
+            const availW = leaf.w - padX * 2;
+            const availH = leaf.h - padY * 2;
+
+            if (availW >= d.minRoomSize && availH >= d.minRoomSize) {
+              const rw = d.prng.randInt(d.minRoomSize, Math.min(d.maxRoomSize, availW));
+              const rh = d.prng.randInt(d.minRoomSize, Math.min(d.maxRoomSize, availH));
+              const rx = leaf.x + padX + d.prng.randInt(0, availW - rw);
+              const ry = leaf.y + padY + d.prng.randInt(0, availH - rh);
+
+              const room = { id: d.rooms.length, x: rx, y: ry, w: rw, h: rh, cx: Math.floor(rx + rw / 2), cy: Math.floor(ry + rh / 2), leaf };
+              leaf.room = room;
+              d.rooms.push(room);
+
+              for (let y = ry; y < ry + rh; y++) {
+                for (let x = rx; x < rx + rw; x++) {
+                  d.setTile(x, y, TILE.FLOOR);
+                }
+              }
+            }
+            carvedRoomsCount++;
+            this.renderer.render();
+            this.timer = setTimeout(tick, this.speed * 1.5);
+            return;
+          }
+
+          // Fase 3: Conectar pasillos y ciclos del grafo
+          if (corridorStep === 0) {
+            updateStatus(`FASE 3: CALCULANDO GRAFO DE EXPANSION Y PASILLOS DE 1 CELDA...`);
+            this.renderer.showGraph = true;
+            d.connectBSPNode(d.bspRoot);
+            d.addExtraCycles();
+            corridorStep = 1;
+            this.renderer.render();
+            this.timer = setTimeout(tick, this.speed * 4);
+            return;
+          }
+
+          // Fase 4: Rodear de muros y colocar puertas lógicas
+          if (corridorStep === 1) {
+            updateStatus(`FASE 4: GENERANDO AUTOTILING DE MUROS Y PUERTAS...`);
+            d.buildWalls();
+            d.placeDoors();
+            d.populateEntities();
+            corridorStep = 2;
+            this.renderer.render();
+            this.timer = setTimeout(tick, this.speed * 3);
+            return;
+          }
+
+          // Fase 5: Designar entrada/salida y calcular ruta A*
+          if (corridorStep === 2) {
+            updateStatus(`FASE 5: VERIFICACIÓN CON A* Y DIJKSTRA COMPLETA.`);
+            d.designateEntranceAndExit();
+            this.renderer.showAStar = true;
+            this.renderer.render();
+            setTimeout(() => {
+              document.getElementById('step-status-banner').style.display = 'none';
+              this.isRunning = false;
+              if (this.onComplete) this.onComplete();
+            }, 1200);
+            return;
+          }
+        };
+
+        tick();
+      }
+
+      stop() {
+        this.isRunning = false;
+        if (this.timer) clearTimeout(this.timer);
+        document.getElementById('step-status-banner').style.display = 'none';
+      }
+    }
+
+    /* ==========================================================================
+       7. CONTROLADOR PRINCIPAL Y GESTIÓN DE INTERACCIÓN
+       ========================================================================== */
+    const canvas = document.getElementById('map-canvas');
+    const dungeon = new DungeonGenerator(72, 54, "ROGUE-8821");
+    dungeon.generateAll();
+
+    const player = new Player(dungeon.entrancePos.x, dungeon.entrancePos.y);
+    const renderer = new DungeonRenderer(canvas, dungeon, player);
+    renderer.resize();
+    renderer.zoomToFit();
+    player.updateFOV(dungeon);
+
+    const stepBuilder = new StepByStepBuilder(dungeon, renderer, () => {
+      updateTelemetryUI();
+    });
+
+    // Actualizar Telemetría en la Interfaz
+    function updateTelemetryUI(runtimeMs = 2.1) {
+      document.getElementById('top-seed-val').innerText = dungeon.seed;
+      document.getElementById('input-seed').value = dungeon.seed;
+      document.getElementById('stat-runtime').innerText = `${runtimeMs.toFixed(1)} ms`;
+      document.getElementById('stat-rooms').innerText = `${dungeon.rooms.length} Habitaciones`;
+      document.getElementById('stat-doors').innerText = `${dungeon.doors.length} Puertas`;
+      document.getElementById('stat-max-dijkstra').innerText = `${dungeon.maxDijkstraDist} Pasos`;
+      document.getElementById('stat-path-length').innerText = `${dungeon.criticalPath.length} Celdas`;
+
+      let excavated = 0;
+      for (let i = 0; i < dungeon.grid.length; i++) {
+        if (dungeon.grid[i] !== TILE.VOID && dungeon.grid[i] !== TILE.WALL) excavated++;
+      }
+      const pct = ((excavated / dungeon.grid.length) * 100).toFixed(1);
+      document.getElementById('stat-area').innerText = `${excavated.toLocaleString()} (${pct}%)`;
+
+      document.getElementById('player-pos-display').innerText = `(${player.x}, ${player.y})`;
+      const exploredPct = ((player.exploredTiles.size / excavated) * 100).toFixed(1);
+      document.getElementById('player-explored-pct').innerText = `${exploredPct}% REVELADO`;
+    }
+
+    updateTelemetryUI(1.8);
+
+    // Bucle de Renderizado
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fpsAcc = 0;
+
+    function renderLoop(now) {
+      requestAnimationFrame(renderLoop);
+      const delta = now - lastTime;
+      lastTime = now;
+
+      frameCount++;
+      fpsAcc += delta;
+      if (fpsAcc >= 400) {
+        const fps = ((frameCount / fpsAcc) * 1000).toFixed(1);
+        document.getElementById('fps-display').innerText = `${fps} FPS`;
+        frameCount = 0;
+        fpsAcc = 0;
+      }
+
+      renderer.render();
+    }
+    requestAnimationFrame(renderLoop);
+
+    /* ==========================================================================
+       8. GESTIÓN DE EVENTOS DE USUARIO, RATÓN Y TECLADO
+       ========================================================================== */
+    window.addEventListener('resize', () => {
+      renderer.resize();
+    });
+
+    // Pan y Zoom de la Cámara con el Mouse
+    const vpContainer = document.getElementById('viewport-container');
+
+    vpContainer.addEventListener('pointerdown', (e) => {
+      if (e.button === 0) { // Clic izquierdo
+        renderer.isPanning = true;
+        renderer.panStart.x = e.clientX - renderer.camera.x;
+        renderer.panStart.y = e.clientY - renderer.camera.y;
+        vpContainer.classList.add('panning');
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (renderer.isPanning && renderer.mode === 'architect') {
+        renderer.camera.x = e.clientX - renderer.panStart.x;
+        renderer.camera.y = e.clientY - renderer.panStart.y;
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      renderer.isPanning = false;
+      vpContainer.classList.remove('panning');
+    });
+
+    vpContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      renderer.camera.x = mouseX - (mouseX - renderer.camera.x) * zoomFactor;
+      renderer.camera.y = mouseY - (mouseY - renderer.camera.y) * zoomFactor;
+      renderer.camera.zoom = Math.max(0.25, Math.min(3.5, renderer.camera.zoom * zoomFactor));
+    }, { passive: false });
+
+    // Clic en el Mapa para trazar ruta A* interactiva entre Entrada y Celda Pulsada
+    vpContainer.addEventListener('click', (e) => {
+      if (renderer.mode !== 'architect') return;
+
+      const rect = canvas.getBoundingClientRect();
+      const clickX = (e.clientX - renderer.camera.x) / (renderer.tileSize * renderer.camera.zoom);
+      const clickY = (e.clientY - renderer.camera.y) / (renderer.tileSize * renderer.camera.zoom);
+
+      const cellX = Math.floor(clickX);
+      const cellY = Math.floor(clickY);
+
+      if (cellX >= 0 && cellX < dungeon.cols && cellY >= 0 && cellY < dungeon.rows) {
+        const t = dungeon.getTile(cellX, cellY);
+        if (t !== TILE.WALL && t !== TILE.VOID) {
+          dungeon.criticalPath = dungeon.findPathAStar(
+            dungeon.entrancePos.x, dungeon.entrancePos.y,
+            cellX, cellY
+          );
+          renderer.showAStar = true;
+          document.getElementById('toggle-astar').checked = true;
+          document.getElementById('stat-path-length').innerText = `${dungeon.criticalPath.length} Celdas (A*)`;
+        }
+      }
+    });
+
+    // Control del Jugador Aventurero con Teclado (WASD / Flechas)
+    window.addEventListener('keydown', (e) => {
+      if (renderer.mode !== 'explorer') return;
+
+      let dx = 0, dy = 0;
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') dy = -1;
+      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') dy = 1;
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') dx = -1;
+      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') dx = 1;
+
+      if (dx !== 0 || dy !== 0) {
+        e.preventDefault();
+        const nx = player.x + dx;
+        const ny = player.y + dy;
+        const tile = dungeon.getTile(nx, ny);
+
+        // Muros bloquean
+        if (tile === TILE.WALL || tile === TILE.VOID) return;
+
+        // Abrir puertas al tocarlas
+        if (tile === TILE.DOOR) {
+          dungeon.setTile(nx, ny, TILE.DOOR_OPEN);
+        }
+
+        // Abrir cofres
+        if (tile === TILE.CHEST) {
+          player.gold += 50;
+        }
+
+        player.x = nx;
+        player.y = ny;
+        player.updateFOV(dungeon);
+        updateTelemetryUI();
+      }
+
+      if (e.key === 'h' || e.key === 'H') toggleHUD();
+    });
+
+    function toggleHUD() {
+      const hud = document.getElementById('hud-overlay');
+      const floatBtn = document.getElementById('floating-hud-btn');
+      hud.classList.toggle('hud-hidden');
+      floatBtn.style.display = hud.classList.contains('hud-hidden') ? 'block' : 'none';
+    }
+    document.getElementById('floating-hud-btn').onclick = toggleHUD;
+
+    /* ==========================================================================
+       9. ENLACES DE LA INTERFAZ DE CONTROL (HUD)
+       ========================================================================== */
+    // Botón Generación Instantánea
+    document.getElementById('btn-generate-instant').onclick = () => {
+      stepBuilder.stop();
+      dungeon.seed = document.getElementById('input-seed').value.trim() || `SEED-${Math.floor(Math.random()*99999)}`;
+      dungeon.prng = new PRNG(dungeon.seed);
+      const runtime = dungeon.generateAll();
+      player.x = dungeon.entrancePos.x;
+      player.y = dungeon.entrancePos.y;
+      player.exploredTiles.clear();
+      player.updateFOV(dungeon);
+      updateTelemetryUI(runtime);
+    };
+
+    // Botón Generación Paso a Paso
+    document.getElementById('btn-generate-step').onclick = () => {
+      dungeon.seed = document.getElementById('input-seed').value.trim() || `SEED-${Math.floor(Math.random()*99999)}`;
+      dungeon.prng = new PRNG(dungeon.seed);
+      stepBuilder.start();
+    };
+
+    // Semilla Aleatoria
+    document.getElementById('btn-random-seed').onclick = () => {
+      const randomSeed = `ROGUE-${Math.floor(1000 + Math.random() * 9000)}`;
+      document.getElementById('input-seed').value = randomSeed;
+      document.getElementById('btn-generate-instant').click();
+    };
+
+    // Sliders de Configuración
+    document.getElementById('slider-depth').oninput = (e) => {
+      dungeon.maxDepth = parseInt(e.target.value);
+      document.getElementById('val-bsp-depth').innerText = `${dungeon.maxDepth} (${Math.pow(2, dungeon.maxDepth)} Hojas)`;
+    };
+    document.getElementById('slider-min-room').oninput = (e) => {
+      dungeon.minRoomSize = parseInt(e.target.value);
+      document.getElementById('val-min-room').innerText = `${dungeon.minRoomSize} celdas`;
+    };
+    document.getElementById('slider-max-room').oninput = (e) => {
+      dungeon.maxRoomSize = parseInt(e.target.value);
+      document.getElementById('val-max-room').innerText = `${dungeon.maxRoomSize} celdas`;
+    };
+    document.getElementById('slider-cycles').oninput = (e) => {
+      dungeon.extraCyclesRatio = parseInt(e.target.value) / 100;
+      document.getElementById('val-cycles').innerText = `${e.target.value}%`;
+    };
+    document.getElementById('slider-speed').oninput = (e) => {
+      stepBuilder.speed = parseInt(e.target.value);
+      document.getElementById('val-anim-speed').innerText = `${stepBuilder.speed} ms`;
+    };
+
+    // Selección de Biomas
+    document.querySelectorAll('.biome-card').forEach(card => {
+      card.onclick = () => {
+        document.querySelectorAll('.biome-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        renderer.biome = BIOMES[card.dataset.biome];
+      };
+    });
+
+    // Toggles de Capas de Debug
+    document.getElementById('toggle-bsp').onchange = (e) => { renderer.showBSP = e.target.checked; };
+    document.getElementById('toggle-graph').onchange = (e) => { renderer.showGraph = e.target.checked; };
+    document.getElementById('toggle-dijkstra').onchange = (e) => { renderer.showDijkstra = e.target.checked; };
+    document.getElementById('toggle-astar').onchange = (e) => { renderer.showAStar = e.target.checked; };
+    document.getElementById('toggle-lighting').onchange = (e) => { renderer.showLighting = e.target.checked; };
+
+    // Modos de Vista (Arquitecto vs Explorador)
+    const modeArchitectBtn = document.getElementById('mode-architect');
+    const modeExplorerBtn = document.getElementById('mode-explorer');
+
+    modeArchitectBtn.onclick = () => {
+      renderer.mode = 'architect';
+      modeArchitectBtn.classList.add('active');
+      modeExplorerBtn.classList.remove('active');
+      renderer.zoomToFit();
+    };
+
+    modeExplorerBtn.onclick = () => {
+      renderer.mode = 'explorer';
+      modeExplorerBtn.classList.add('active');
+      modeArchitectBtn.classList.remove('active');
+      renderer.camera.zoom = 1.6;
+      player.updateFOV(dungeon);
+      renderer.centerOn(player.x, player.y);
+    };
+
+    // Botones de Cámara
+    document.getElementById('btn-zoom-fit').onclick = () => renderer.zoomToFit();
+    document.getElementById('btn-reset-cam').onclick = () => {
+      if (renderer.mode === 'explorer') renderer.centerOn(player.x, player.y);
+      else renderer.zoomToFit();
+    };
+  </script>
+</body>
+</html>

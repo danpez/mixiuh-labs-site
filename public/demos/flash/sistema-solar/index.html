@@ -1,0 +1,2285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HELIOS-3 // Simulador Orbital Relativo Sol - Tierra - Luna</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --neon-cyan: #00f0ff;
+      --neon-amber: #ffaa00;
+      --neon-red: #ff3344;
+      --neon-green: #00ff88;
+      --bg-dark: rgba(4, 9, 20, 0.85);
+      --panel-border: rgba(0, 240, 255, 0.3);
+      --glass-glow: 0 0 25px rgba(0, 240, 255, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #020205;
+      font-family: 'Rajdhani', sans-serif;
+      color: #e0f4ff;
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* LOADING SCREEN */
+    #loader {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #07152b 0%, #01040a 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+      display: none !important;
+    }
+
+    .loader-rings {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      margin-bottom: 25px;
+    }
+
+    .loader-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--neon-cyan);
+      animation: spinRing 2s linear infinite;
+    }
+
+    .loader-ring:nth-child(2) {
+      width: 75%;
+      height: 75%;
+      top: 12.5%;
+      left: 12.5%;
+      border-top-color: var(--neon-amber);
+      animation: spinRingRev 1.5s linear infinite;
+    }
+
+    .loader-ring:nth-child(3) {
+      width: 50%;
+      height: 50%;
+      top: 25%;
+      left: 25%;
+      border-top-color: #ffffff;
+      animation: spinRing 1s linear infinite;
+    }
+
+    @keyframes spinRing {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes spinRingRev {
+      0% { transform: rotate(360deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .loader-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      letter-spacing: 6px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+      margin-bottom: 12px;
+    }
+
+    .loader-status {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: #79a6d2;
+      margin-bottom: 20px;
+    }
+
+    .loader-bar-bg {
+      width: 320px;
+      height: 4px;
+      background: rgba(0, 240, 255, 0.15);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .loader-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--neon-cyan), #ffffff);
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: width 0.2s ease-out;
+    }
+
+    /* HUD OVERLAY CONTAINER */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 360px 1fr 370px;
+      padding: 20px;
+      transition: opacity 0.4s ease;
+    }
+
+    #hud-overlay.hud-hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      background: var(--bg-dark);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      box-shadow: var(--glass-glow);
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hud-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+    }
+
+    .hud-corner {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-color: var(--neon-cyan);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .hud-corner.tl { top: 2px; left: 2px; border-width: 2px 0 0 2px; }
+    .hud-corner.tr { top: 2px; right: 2px; border-width: 2px 2px 0 0; }
+    .hud-corner.bl { bottom: 2px; left: 2px; border-width: 0 0 2px 2px; }
+    .hud-corner.br { bottom: 2px; right: 2px; border-width: 0 2px 2px 0; }
+
+    /* TOP BAR (HEADER) */
+    .hud-top {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 12px 24px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--neon-cyan);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .brand-icon::after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background: var(--neon-amber);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--neon-amber);
+    }
+
+    .brand-text h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    .brand-text p {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+    }
+
+    .header-status-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.alert-pulse {
+      background: rgba(255, 51, 68, 0.2);
+      border-color: var(--neon-red);
+      color: var(--neon-red);
+      animation: alertBlink 1.0s infinite alternate;
+    }
+
+    @keyframes alertBlink {
+      0% { box-shadow: 0 0 6px rgba(255, 51, 68, 0.3); }
+      100% { box-shadow: 0 0 22px rgba(255, 51, 68, 0.9); }
+    }
+
+    .status-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green);
+    }
+
+    .status-badge.alert-pulse .status-led {
+      background: var(--neon-red);
+      box-shadow: 0 0 10px var(--neon-red);
+    }
+
+    /* LEFT TELEMETRY PANEL */
+    .hud-left {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-left::-webkit-scrollbar { display: none; }
+
+    .panel-section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+      padding-bottom: 5px;
+    }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 3.5px 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .telemetry-label {
+      color: #8da4be;
+      letter-spacing: 1px;
+    }
+
+    .telemetry-val {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .telemetry-val.highlight-cyan {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    .telemetry-val.highlight-amber {
+      color: var(--neon-amber);
+      text-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+    }
+
+    /* ECLIPSE RADAR WIDGET */
+    .eclipse-widget {
+      background: rgba(0, 18, 38, 0.65);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 4px;
+    }
+
+    .eclipse-gauge-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0 6px 0;
+      position: relative;
+    }
+
+    .eclipse-gauge-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--neon-amber), var(--neon-red));
+      transition: width 0.15s ease-out;
+    }
+
+    /* RIGHT CONTROL PANEL */
+    .hud-right {
+      grid-column: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-right::-webkit-scrollbar { display: none; }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      background: rgba(0, 30, 60, 0.45);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #c9e6ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.35), rgba(0, 100, 200, 0.55));
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.45);
+      font-weight: bold;
+    }
+
+    .hud-btn.full-width {
+      grid-column: 1 / 3;
+    }
+
+    .hud-btn.accent-btn {
+      border-color: var(--neon-amber);
+      color: var(--neon-amber);
+    }
+    .hud-btn.accent-btn:hover {
+      background: rgba(255, 170, 0, 0.2);
+      border-color: var(--neon-amber);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(255, 170, 0, 0.4);
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #b0d4f1;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 18px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 18px;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: rgba(0, 240, 255, 0.45);
+      border-color: var(--neon-cyan);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    /* SLIDER CONTROL */
+    .range-control-group {
+      margin-top: 6px;
+    }
+
+    .range-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: #8da4be;
+      margin-bottom: 4px;
+    }
+
+    .hud-range {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(0, 240, 255, 0.2);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    .hud-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    /* BOTTOM INTERACTIVE DOCK */
+    .hud-bottom {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding: 10px 20px;
+    }
+
+    .time-dock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .time-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: rgba(0, 30, 60, 0.5);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--neon-cyan);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .time-btn:hover {
+      background: var(--neon-cyan);
+      color: #020205;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .speed-presets {
+      display: flex;
+      gap: 6px;
+      margin-left: 10px;
+    }
+
+    .speed-pill {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: #a8d5fc;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .speed-pill.active {
+      background: var(--neon-cyan);
+      color: #001020;
+      font-weight: bold;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .bottom-hint {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: #6482a4;
+    }
+
+    .bottom-hint span {
+      color: var(--neon-cyan);
+    }
+
+    /* CINEMATIC HUD TOGGLE HINT */
+    .hud-floating-trigger {
+      position: absolute;
+      bottom: 25px;
+      right: 25px;
+      z-index: 20;
+      background: var(--bg-dark);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: var(--neon-cyan);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s;
+      box-shadow: var(--glass-glow);
+      display: none;
+    }
+
+    .hud-floating-trigger:hover {
+      background: var(--neon-cyan);
+      color: #040914;
+    }
+  </style>
+
+  <!-- Import maps polyfill for ES module support -->
+  <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D WEBGL CANVAS -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- PROCEDURAL ASSETS LOADER -->
+  <div id="loader">
+    <div class="loader-rings">
+      <div class="loader-ring"></div>
+      <div class="loader-ring"></div>
+      <div class="loader-ring"></div>
+    </div>
+    <div class="loader-title">HELIOS-3 SIMULATOR</div>
+    <div class="loader-status" id="loader-status">SINTETIZANDO PLANETAS Y RELIEVES PROCEDURALES...</div>
+    <div class="loader-bar-bg">
+      <div class="loader-bar-fill" id="loader-progress"></div>
+    </div>
+  </div>
+
+  <!-- FLOATING TRIGGER WHEN HUD IS HIDDEN -->
+  <div class="hud-floating-trigger" id="floating-hud-toggle" title="Restaurar interfaz">
+    MOSTRAR HUD [H]
+  </div>
+
+  <!-- SCI-FI TELEMETRY HUD OVERLAY -->
+  <div id="hud-overlay">
+    
+    <!-- TOP HEADER -->
+    <div class="hud-panel hud-top">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="brand-group">
+        <div class="brand-icon"></div>
+        <div class="brand-text">
+          <h1>HELIOS-3 CELESTIAL OBSERVATORY</h1>
+          <p>SISTEMA SOLAR RELATIVO // DINÁMICA DE CUERPOS CELESTES GLSL</p>
+        </div>
+      </div>
+
+      <div class="header-status-group">
+        <div class="status-badge" id="eclipse-badge">
+          <div class="status-led"></div>
+          <span id="eclipse-text">ALINEACIÓN ORBITAL: REGULAR</span>
+        </div>
+        <div class="status-badge">
+          <div class="status-led"></div>
+          <span id="fps-display">60.0 FPS</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEFT PANEL: TELEMETRY -->
+    <div class="hud-panel hud-left">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="panel-section-title">
+        <span>TELEMETRÍA ORBITAL</span>
+        <span class="telemetry-val highlight-cyan" id="sim-time-sol">SOL: 0.00</span>
+      </div>
+
+      <div class="telemetry-row">
+        <span class="telemetry-label">OBJETO DE ENFOQUE:</span>
+        <span class="telemetry-val highlight-amber" id="target-name">TIERRA (EARTH)</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">TIEMPO TRANSCURRIDO:</span>
+        <span class="telemetry-val" id="time-elapsed-days">0.0 Días / 0.00 Años</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">RADIO ORBITAL TIERRA:</span>
+        <span class="telemetry-val">110.0 U.A. Relativa</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">VELOCIDAD ORBITAL TIERRA:</span>
+        <span class="telemetry-val highlight-cyan">29.78 km/s (Rel)</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">INCLINACIÓN AXIAL TIERRA:</span>
+        <span class="telemetry-val">23.44° (Oblicuidad)</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">DISTANCIA LUNAR:</span>
+        <span class="telemetry-val">14.5 U.A. Relativa</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">VELOCIDAD ORBITAL LUNA:</span>
+        <span class="telemetry-val highlight-cyan">1.022 km/s (Rel)</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">INCLINACIÓN ORBITAL LUNA:</span>
+        <span class="telemetry-val">5.14° (Rel. Eclíptica)</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">ROTACIÓN LUNAR:</span>
+        <span class="telemetry-val highlight-amber">SÍNCRONA (TIDAL LOCK)</span>
+      </div>
+
+      <!-- DETECTOR DE ECLIPSES -->
+      <div class="panel-section-title" style="margin-top: 10px;">
+        <span>SENSOR DE ECLIPSES</span>
+        <span class="telemetry-val" id="eclipse-pct">0.0%</span>
+      </div>
+      <div class="eclipse-widget">
+        <div class="telemetry-row">
+          <span class="telemetry-label">ESTADO DE SOMBRA:</span>
+          <span class="telemetry-val" id="eclipse-state">SIN ECLIPSE</span>
+        </div>
+        <div class="eclipse-gauge-bar">
+          <div class="eclipse-gauge-fill" id="eclipse-bar"></div>
+        </div>
+        <div class="telemetry-row" style="border: none; padding-top: 2px;">
+          <span class="telemetry-label">ÁNGULO DE ALINEACIÓN:</span>
+          <span class="telemetry-val" id="eclipse-angle">0.00°</span>
+        </div>
+      </div>
+
+      <!-- COORDENADAS HELIOCÉNTRICAS -->
+      <div class="panel-section-title" style="margin-top: 10px;">
+        <span>VECTORES HELIOCÉNTRICOS</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">TIERRA [X, Y, Z]:</span>
+        <span class="telemetry-val" id="earth-coords">0.0, 0.0, 0.0</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">LUNA [X, Y, Z]:</span>
+        <span class="telemetry-val" id="moon-coords">0.0, 0.0, 0.0</span>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: CONTROLS & CAMERA -->
+    <div class="hud-panel hud-right">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="panel-section-title">
+        <span>ENFOQUE DE CÁMARA</span>
+        <span style="font-size:10px; color:#688bb0;">[1-5]</span>
+      </div>
+
+      <div class="btn-grid">
+        <button class="hud-btn" id="cam-sun"><span style="color:var(--neon-amber)">●</span> Sol [1]</button>
+        <button class="hud-btn active" id="cam-earth"><span style="color:var(--neon-cyan)">●</span> Tierra [2]</button>
+        <button class="hud-btn" id="cam-moon"><span>●</span> Luna [3]</button>
+        <button class="hud-btn" id="cam-system"><span>⊕</span> Sistema [4]</button>
+        <button class="hud-btn full-width" id="cam-top"><span>⌖</span> Vista Eclíptica Cenital [5]</button>
+      </div>
+
+      <div class="panel-section-title" style="margin-top: 10px;">
+        <span>ACCIONES DE ECLIPSE</span>
+      </div>
+      <div class="btn-grid">
+        <button class="hud-btn accent-btn" id="btn-snap-solar" title="Alinear órbita para Eclipse Solar">✦ Eclipse Solar</button>
+        <button class="hud-btn accent-btn" id="btn-snap-lunar" title="Alinear órbita para Eclipse Lunar">✦ Eclipse Lunar</button>
+      </div>
+
+      <div class="panel-section-title" style="margin-top: 10px;">
+        <span>CAPAS & EFECTOS VISUALES</span>
+      </div>
+
+      <div class="toggle-row">
+        <span>Trazas y Órbitas</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-orbits" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Malla Eclíptica Sci-Fi</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-grid" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Capa de Nubes Atmosféricas</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-clouds" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Luces de Ciudades (Noche)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-citylights" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Atmósfera Rayleigh (Fresnel)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-atmosphere" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Efecto Glow / Bloom Solar</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-bloom" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Eje de Rotación Terrestre</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-axes" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="range-control-group" style="margin-top: 10px;">
+        <div class="range-header">
+          <span>INTENSIDAD SOLAR (LUZ):</span>
+          <span id="light-intensity-val">2.8x</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-light" min="0.5" max="5.0" step="0.1" value="2.8">
+      </div>
+    </div>
+
+    <!-- BOTTOM PANEL: DOCK -->
+    <div class="hud-panel hud-bottom">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="time-dock">
+        <button class="time-btn" id="btn-play-pause" title="Pausar/Reanudar [Espacio]">❚❚</button>
+        <button class="time-btn" id="btn-reverse" title="Invertir Tiempo">↺</button>
+        <div class="speed-presets">
+          <div class="speed-pill" data-speed="0.2">0.2x</div>
+          <div class="speed-pill active" data-speed="1.0">1x</div>
+          <div class="speed-pill" data-speed="5.0">5x</div>
+          <div class="speed-pill" data-speed="20.0">20x</div>
+          <div class="speed-pill" data-speed="60.0">60x</div>
+        </div>
+      </div>
+
+      <div class="bottom-hint">
+        ARRASTRAR: <span>Rotar Órbita</span> | SCROLL: <span>Zoom</span> | CLICK DERECHO: <span>Pan</span> | TECLA [H]: <span>Modo Cinemático</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAIN SIMULATION ENGINE -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    /* ==========================================================================
+       1. MATRICES, CONSTANTES Y ESCALAS RELATIVAS ARMÓNICAS
+       ========================================================================== */
+    const RADIUS_SUN = 16.0;
+    const RADIUS_EARTH = 4.0;
+    const RADIUS_MOON = 1.08;
+
+    const DISTANCE_EARTH = 110.0;
+    const DISTANCE_MOON = 15.0;
+
+    // Inclinaciones astronómicas reales
+    const EARTH_AXIAL_TILT = THREE.MathUtils.degToRad(23.44); // 23.44° Oblicuidad
+    const MOON_ORBITAL_TILT = THREE.MathUtils.degToRad(5.14); // 5.14° Inclinación orbital lunar
+    const SUN_AXIAL_TILT = THREE.MathUtils.degToRad(7.25);
+
+    // Razones de velocidad orbital y rotacional
+    const SECONDS_PER_YEAR = 45.0; // 45 segundos por órbita completa de la Tierra
+    const EARTH_ORBIT_SPEED = (Math.PI * 2) / SECONDS_PER_YEAR; 
+    const MOON_ORBIT_SPEED = EARTH_ORBIT_SPEED * (365.25 / 27.32); // ~13.37 órbitas lunares por año
+    const EARTH_ROTATION_SPEED = EARTH_ORBIT_SPEED * 365.25; // 365.25 rotaciones por año
+    const SUN_ROTATION_SPEED = EARTH_ORBIT_SPEED * (365.25 / 25.4); // Rotación solar ~25.4 días
+
+    let timeScale = 1.0;
+    let isPaused = false;
+    let timeDirection = 1.0;
+    let simTime = 0.0;
+    let bloomEnabled = true;
+
+    /* ==========================================================================
+       2. GENERADOR DE RUIDO PROCEDURAL SIMPLEX / FBM (100% CÓDIGO EN MEMORIA)
+       ========================================================================== */
+    class FastSimplexNoise {
+      constructor(seed = 1337) {
+        this.p = new Uint8Array(256);
+        let s = seed;
+        for (let i = 0; i < 256; i++) {
+          s = (s * 16807 + 11) % 2147483647;
+          this.p[i] = i;
+        }
+        for (let i = 255; i > 0; i--) {
+          s = (s * 16807 + 11) % 2147483647;
+          const r = Math.floor((s / 2147483647) * (i + 1));
+          const t = this.p[i];
+          this.p[i] = this.p[r];
+          this.p[r] = t;
+        }
+        this.perm = new Uint8Array(512);
+        this.permMod12 = new Uint8Array(512);
+        for (let i = 0; i < 512; i++) {
+          this.perm[i] = this.p[i & 255];
+          this.permMod12[i] = (this.perm[i] % 12);
+        }
+      }
+
+      noise3D(xin, yin, zin) {
+        const grad3 = [
+          1,1,0, -1,1,0, 1,-1,0, -1,-1,0,
+          1,0,1, -1,0,1, 1,0,-1, -1,0,-1,
+          0,1,1, 0,-1,1, 0,1,-1, 0,-1,-1
+        ];
+        const F3 = 1.0 / 3.0;
+        const G3 = 1.0 / 6.0;
+
+        let n0, n1, n2, n3;
+        const s = (xin + yin + zin) * F3;
+        const i = Math.floor(xin + s);
+        const j = Math.floor(yin + s);
+        const k = Math.floor(zin + s);
+        const t = (i + j + k) * G3;
+        const X0 = i - t;
+        const Y0 = j - t;
+        const Z0 = k - t;
+        const x0 = xin - X0;
+        const y0 = yin - Y0;
+        const z0 = zin - Z0;
+
+        let i1, j1, k1, i2, j2, k2;
+        if (x0 >= y0) {
+          if (y0 >= z0) { i1=1; j1=0; k1=0; i2=1; j2=1; k2=0; }
+          else if (x0 >= z0) { i1=1; j1=0; k1=0; i2=1; j2=0; k2=1; }
+          else { i1=0; j1=0; k1=1; i2=1; j2=0; k2=1; }
+        } else {
+          if (y0 < z0) { i1=0; j1=0; k1=1; i2=0; j2=1; k2=1; }
+          else if (x0 < z0) { i1=0; j1=1; k1=0; i2=0; j2=1; k2=1; }
+          else { i1=0; j1=1; k1=0; i2=1; j2=1; k2=0; }
+        }
+
+        const x1 = x0 - i1 + G3;
+        const y1 = y0 - j1 + G3;
+        const z1 = z0 - k1 + G3;
+        const x2 = x0 - i2 + 2.0 * G3;
+        const y2 = y0 - j2 + 2.0 * G3;
+        const z2 = z0 - k2 + 2.0 * G3;
+        const x3 = x0 - 1.0 + 3.0 * G3;
+        const y3 = y0 - 1.0 + 3.0 * G3;
+        const z3 = z0 - 1.0 + 3.0 * G3;
+
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+
+        let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+        if (t0 < 0) n0 = 0.0;
+        else {
+          const gi0 = this.permMod12[ii + this.perm[jj + this.perm[kk]]] * 3;
+          t0 *= t0;
+          n0 = t0 * t0 * (grad3[gi0]*x0 + grad3[gi0+1]*y0 + grad3[gi0+2]*z0);
+        }
+
+        let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+        if (t1 < 0) n1 = 0.0;
+        else {
+          const gi1 = this.permMod12[ii + i1 + this.perm[jj + j1 + this.perm[kk + k1]]] * 3;
+          t1 *= t1;
+          n1 = t1 * t1 * (grad3[gi1]*x1 + grad3[gi1+1]*y1 + grad3[gi1+2]*z1);
+        }
+
+        let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+        if (t2 < 0) n2 = 0.0;
+        else {
+          const gi2 = this.permMod12[ii + i2 + this.perm[jj + j2 + this.perm[kk + k2]]] * 3;
+          t2 *= t2;
+          n2 = t2 * t2 * (grad3[gi2]*x2 + grad3[gi2+1]*y2 + grad3[gi2+2]*z2);
+        }
+
+        let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+        if (t3 < 0) n3 = 0.0;
+        else {
+          const gi3 = this.permMod12[ii + 1 + this.perm[jj + 1 + this.perm[kk + 1]]] * 3;
+          t3 *= t3;
+          n3 = t3 * t3 * (grad3[gi3]*x3 + grad3[gi3+1]*y3 + grad3[gi3+2]*z3);
+        }
+
+        return 32.0 * (n0 + n1 + n2 + n3);
+      }
+
+      fbm(x, y, z, octaves = 5, lacunarity = 2.0, gain = 0.5) {
+        let total = 0;
+        let amplitude = 1.0;
+        let frequency = 1.0;
+        let maxValue = 0;
+        for (let i = 0; i < octaves; i++) {
+          total += this.noise3D(x * frequency, y * frequency, z * frequency) * amplitude;
+          maxValue += amplitude;
+          frequency *= lacunarity;
+          amplitude *= gain;
+        }
+        return total / maxValue;
+      }
+    }
+
+    const simplex = new FastSimplexNoise(4242);
+
+    /* ==========================================================================
+       3. GENERACIÓN DE TEXTURAS PROCEDURALES EN MEMORIA (CANVAS 2D)
+       ========================================================================== */
+    function updateLoader(pct, text) {
+      document.getElementById('loader-progress').style.width = `${pct}%`;
+      document.getElementById('loader-status').innerText = text;
+    }
+
+    function generateEarthTextures(width = 2048, height = 1024) {
+      const dayCanvas = document.createElement('canvas');
+      dayCanvas.width = width;
+      dayCanvas.height = height;
+      const dayCtx = dayCanvas.getContext('2d');
+      const dayImgData = dayCtx.createImageData(width, height);
+      const dayData = dayImgData.data;
+
+      const specCanvas = document.createElement('canvas');
+      specCanvas.width = width;
+      specCanvas.height = height;
+      const specCtx = specCanvas.getContext('2d');
+      const specImgData = specCtx.createImageData(width, height);
+      const specData = specImgData.data;
+
+      const nightCanvas = document.createElement('canvas');
+      nightCanvas.width = width;
+      nightCanvas.height = height;
+      const nightCtx = nightCanvas.getContext('2d');
+      const nightImgData = nightCtx.createImageData(width, height);
+      const nightData = nightImgData.data;
+
+      const bumpCanvas = document.createElement('canvas');
+      bumpCanvas.width = width;
+      bumpCanvas.height = height;
+      const bumpCtx = bumpCanvas.getContext('2d');
+      const bumpImgData = bumpCtx.createImageData(width, height);
+      const bumpData = bumpImgData.data;
+
+      // Tablas trigonométricas optimizadas
+      const cosLat = new Float32Array(height);
+      const sinLat = new Float32Array(height);
+      for (let y = 0; y < height; y++) {
+        const lat = (1.0 - (y / height) * 2.0) * (Math.PI * 0.5);
+        cosLat[y] = Math.cos(lat);
+        sinLat[y] = Math.sin(lat);
+      }
+
+      const cosLon = new Float32Array(width);
+      const sinLon = new Float32Array(width);
+      for (let x = 0; x < width; x++) {
+        const lon = ((x / width) * 2.0 - 1.0) * Math.PI;
+        cosLon[x] = Math.cos(lon);
+        sinLon[x] = Math.sin(lon);
+      }
+
+      const SEA_LEVEL = 0.04;
+
+      for (let y = 0; y < height; y++) {
+        const cLat = cosLat[y];
+        const sLat = sinLat[y];
+        const absLat = Math.abs(sLat);
+
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4;
+          const nx = cLat * cosLon[x];
+          const ny = sLat;
+          const nz = cLat * sinLon[x];
+
+          // Ruido continental multiescala 3D (completamente libre de costuras)
+          const continentNoise = simplex.fbm(nx * 1.8, ny * 1.8, nz * 1.8, 6, 2.1, 0.52);
+          const mountainNoise = Math.pow(Math.abs(simplex.noise3D(nx * 6.5, ny * 6.5, nz * 6.5)), 2.0);
+          const elevation = continentNoise + mountainNoise * 0.35;
+
+          // Casquetes polares
+          const polarIce = Math.max(0.0, Math.min(1.0, (absLat - 0.72) * 5.0 + simplex.noise3D(nx * 4, ny * 4, nz * 4) * 0.25));
+
+          if (elevation < SEA_LEVEL && polarIce < 0.6) {
+            // OCÉANO PROFUNDO A COSTAS
+            const oceanDepth = (SEA_LEVEL - elevation) / 0.5;
+            const r = Math.floor(6 + 18 * (1.0 - oceanDepth));
+            const g = Math.floor(28 + 65 * (1.0 - oceanDepth));
+            const b = Math.floor(65 + 65 * (1.0 - oceanDepth));
+
+            dayData[idx] = r;
+            dayData[idx + 1] = g;
+            dayData[idx + 2] = b;
+            dayData[idx + 3] = 255;
+
+            // Specular alto en agua (reflejo solar intenso tipo espejo)
+            specData[idx] = 255;
+            specData[idx + 1] = 255;
+            specData[idx + 2] = 255;
+            specData[idx + 3] = 255;
+
+            // Noche en mar
+            nightData[idx] = 0;
+            nightData[idx + 1] = 0;
+            nightData[idx + 2] = 0;
+            nightData[idx + 3] = 255;
+
+            bumpData[idx] = 128;
+            bumpData[idx + 1] = 128;
+            bumpData[idx + 2] = 128;
+            bumpData[idx + 3] = 255;
+          } else {
+            // TIERRA FIRME O HIELO
+            let r, g, b;
+            let isLandCity = false;
+
+            if (polarIce > 0.4) {
+              r = 235; g = 242; b = 250;
+              specData[idx] = 110;
+              specData[idx + 1] = 110;
+              specData[idx + 2] = 110;
+              specData[idx + 3] = 255;
+            } else {
+              const landHeight = (elevation - SEA_LEVEL) / 0.4;
+              
+              if (landHeight < 0.08) {
+                // Costa arenosa / playas
+                r = 195; g = 180; b = 145;
+                isLandCity = true;
+              } else if (landHeight > 0.45) {
+                if (landHeight > 0.72) {
+                  r = 230; g = 235; b = 240; // Nieve en cumbres
+                } else {
+                  r = 95; g = 85; b = 75; // Rocas montañosas
+                }
+              } else if (absLat < 0.35 && landHeight < 0.25) {
+                // Selva tropical / bosques densos
+                r = 30; g = 92; b = 40;
+                isLandCity = true;
+              } else if (absLat > 0.2 && absLat < 0.55 && elevation < SEA_LEVEL + 0.15) {
+                // Desiertos cálidos
+                r = 175; g = 145; b = 92;
+                isLandCity = true;
+              } else {
+                // Zonas templadas / praderas
+                r = 50; g = 115; b = 52;
+                isLandCity = true;
+              }
+
+              specData[idx] = 25;
+              specData[idx + 1] = 25;
+              specData[idx + 2] = 25;
+              specData[idx + 3] = 255;
+            }
+
+            dayData[idx] = r;
+            dayData[idx + 1] = g;
+            dayData[idx + 2] = b;
+            dayData[idx + 3] = 255;
+
+            // Bump map de elevación
+            const bVal = Math.min(255, Math.floor(128 + elevation * 170));
+            bumpData[idx] = bVal;
+            bumpData[idx + 1] = bVal;
+            bumpData[idx + 2] = bVal;
+            bumpData[idx + 3] = 255;
+
+            // Red de luces metropolitanas nocturnas
+            if (isLandCity && polarIce < 0.3) {
+              const cityNoise = simplex.noise3D(nx * 26.0, ny * 26.0, nz * 26.0);
+              const clusterNoise = simplex.noise3D(nx * 6.5, ny * 6.5, nz * 6.5);
+
+              if (cityNoise > 0.42 && clusterNoise > 0.05) {
+                const intensity = Math.min(1.0, (cityNoise - 0.42) * 4.5);
+                nightData[idx] = Math.floor(255 * intensity);
+                nightData[idx + 1] = Math.floor(195 * intensity);
+                nightData[idx + 2] = Math.floor(110 * intensity);
+                nightData[idx + 3] = 255;
+              } else {
+                nightData[idx] = 0;
+                nightData[idx + 1] = 0;
+                nightData[idx + 2] = 0;
+                nightData[idx + 3] = 255;
+              }
+            } else {
+              nightData[idx] = 0;
+              nightData[idx + 1] = 0;
+              nightData[idx + 2] = 0;
+              nightData[idx + 3] = 255;
+            }
+          }
+        }
+      }
+
+      dayCtx.putImageData(dayImgData, 0, 0);
+      specCtx.putImageData(specImgData, 0, 0);
+      nightCtx.putImageData(nightImgData, 0, 0);
+      bumpCtx.putImageData(bumpImgData, 0, 0);
+
+      const dayTex = new THREE.CanvasTexture(dayCanvas);
+      const specTex = new THREE.CanvasTexture(specCanvas);
+      const nightTex = new THREE.CanvasTexture(nightCanvas);
+      const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+
+      dayTex.colorSpace = THREE.SRGBColorSpace;
+      nightTex.colorSpace = THREE.SRGBColorSpace;
+
+      return { dayTex, specTex, nightTex, bumpTex };
+    }
+
+    function generateCloudTexture(width = 1024, height = 512) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(width, height);
+      const data = imgData.data;
+
+      for (let y = 0; y < height; y++) {
+        const lat = (1.0 - (y / height) * 2.0) * (Math.PI * 0.5);
+        const cLat = Math.cos(lat);
+        const sLat = Math.sin(lat);
+
+        for (let x = 0; x < width; x++) {
+          const lon = ((x / width) * 2.0 - 1.0) * Math.PI;
+          const nx = cLat * Math.cos(lon);
+          const ny = sLat;
+          const nz = cLat * Math.sin(lon);
+
+          // Espirales ciclónicas según latitud
+          const swirl = ny * 0.45;
+          const cloudDensity = simplex.fbm(nx * 2.6 + swirl, ny * 3.6, nz * 2.6 + swirl, 5, 2.0, 0.5);
+
+          const idx = (y * width + x) * 4;
+          if (cloudDensity > 0.04) {
+            const alpha = Math.min(255, Math.floor((cloudDensity - 0.04) * 480));
+            data[idx] = 255;
+            data[idx + 1] = 255;
+            data[idx + 2] = 255;
+            data[idx + 3] = alpha;
+          } else {
+            data[idx] = 0;
+            data[idx + 1] = 0;
+            data[idx + 2] = 0;
+            data[idx + 3] = 0;
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function generateMoonTextures(width = 1024, height = 512) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(width, height);
+      const data = imgData.data;
+
+      const bumpCanvas = document.createElement('canvas');
+      bumpCanvas.width = width;
+      bumpCanvas.height = height;
+      const bumpCtx = bumpCanvas.getContext('2d');
+      const bumpImgData = bumpCtx.createImageData(width, height);
+      const bumpData = bumpImgData.data;
+
+      for (let y = 0; y < height; y++) {
+        const lat = (1.0 - (y / height) * 2.0) * (Math.PI * 0.5);
+        const cLat = Math.cos(lat);
+        const sLat = Math.sin(lat);
+
+        for (let x = 0; x < width; x++) {
+          const lon = ((x / width) * 2.0 - 1.0) * Math.PI;
+          const nx = cLat * Math.cos(lon);
+          const ny = sLat;
+          const nz = cLat * Math.sin(lon);
+
+          // Maria lunares (cuencas oscuras de basalto)
+          const mare = simplex.fbm(nx * 1.5, ny * 1.5, nz * 1.5, 4, 2.0, 0.45);
+          // Cráteres de impacto con bordes elevados
+          const craters = Math.abs(simplex.noise3D(nx * 8.0, ny * 8.0, nz * 8.0));
+          const microCraters = Math.pow(Math.abs(simplex.noise3D(nx * 22.0, ny * 22.0, nz * 22.0)), 1.5);
+
+          let albedo = 138 + mare * 60 - craters * 40 + microCraters * 35;
+          albedo = Math.max(55, Math.min(235, Math.floor(albedo)));
+
+          const idx = (y * width + x) * 4;
+          data[idx] = albedo;
+          data[idx + 1] = albedo;
+          data[idx + 2] = albedo;
+          data[idx + 3] = 255;
+
+          const bumpVal = Math.max(0, Math.min(255, Math.floor(128 + (craters * 65 - microCraters * 45))));
+          bumpData[idx] = bumpVal;
+          bumpData[idx + 1] = bumpVal;
+          bumpData[idx + 2] = bumpVal;
+          bumpData[idx + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      bumpCtx.putImageData(bumpImgData, 0, 0);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      return { tex, bumpTex };
+    }
+
+    /* ==========================================================================
+       4. SHADERS GLSL PERSONALIZADOS: SOL, CORONA Y ATMÓSFERA
+       ========================================================================== */
+    const SunShader = {
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          vUv = uv;
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+
+        vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
+        vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
+
+        float snoise(vec3 v){
+          const vec2  C = vec2(1.0/6.0, 1.0/3.0);
+          const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+          vec3 i  = floor(v + dot(v, C.yyy));
+          vec3 x0 = v - i + dot(i, C.xxx);
+          vec3 g = step(x0.yzx, x0.xyz);
+          vec3 l = 1.0 - g;
+          vec3 i1 = min(g.xyz, l.zxy);
+          vec3 i2 = max(g.xyz, l.zxy);
+          vec3 x1 = x0 - i1 + 1.0 * C.xxx;
+          vec3 x2 = x0 - i2 + 2.0 * C.xxx;
+          vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
+          i = mod(i, 289.0);
+          vec4 p = permute(permute(permute(
+                    i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                  + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                  + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+          float n_ = 0.142857142857;
+          vec3  ns = n_ * D.wyz - D.xzx;
+          vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+          vec4 x_ = floor(j * ns.z);
+          vec4 y_ = floor(j - 7.0 * x_);
+          vec4 x = x_ *ns.x + ns.yyyy;
+          vec4 y = y_ *ns.x + ns.yyyy;
+          vec4 h = 1.0 - abs(x) - abs(y);
+          vec4 b0 = vec4(x.xy, y.xy);
+          vec4 b1 = vec4(x.zw, y.zw);
+          vec4 s0 = floor(b0)*2.0 + 1.0;
+          vec4 s1 = floor(b1)*2.0 + 1.0;
+          vec4 sh = -step(h, vec4(0.0));
+          vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+          vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+          vec3 p0 = vec3(a0.xy, h.x);
+          vec3 p1 = vec3(a0.zw, h.y);
+          vec3 p2 = vec3(a1.xy, h.z);
+          vec3 p3 = vec3(a1.zw, h.w);
+          vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+          p0 *= norm.x;
+          p1 *= norm.y;
+          p2 *= norm.z;
+          p3 *= norm.w;
+          vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+          m = m * m;
+          return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+        }
+
+        void main() {
+          vec3 normPos = normalize(vPosition);
+          
+          float n1 = snoise(normPos * 3.5 + vec3(0.0, uTime * 0.15, uTime * 0.1));
+          float n2 = snoise(normPos * 7.0 - vec3(uTime * 0.2, 0.0, uTime * 0.25));
+          float n3 = snoise(normPos * 14.0 + vec3(uTime * 0.35, uTime * 0.3, 0.0));
+
+          float plasma = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
+
+          // Oscurecimiento de limbo solar físico
+          float viewDot = max(dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0);
+          float limb = pow(viewDot, 0.45);
+
+          vec3 colorCore = vec3(1.0, 1.0, 0.95);    // Núcleo blanco
+          vec3 colorMid  = vec3(1.0, 0.65, 0.1);     // Plasma dorado
+          vec3 colorEdge = vec3(0.9, 0.18, 0.02);    // Llamaradas carmesí
+          vec3 colorSpot = vec3(0.35, 0.03, 0.0);    // Manchas solares
+
+          vec3 finalColor;
+          if (plasma > 0.22) {
+            finalColor = mix(colorMid, colorCore, (plasma - 0.22) * 2.2);
+          } else if (plasma > -0.2) {
+            finalColor = mix(colorEdge, colorMid, (plasma + 0.2) * 2.3);
+          } else {
+            finalColor = mix(colorSpot, colorEdge, (plasma + 0.5) * 3.2);
+          }
+
+          finalColor *= (0.75 + limb * 0.65);
+          gl_FragColor = vec4(finalColor * 2.4, 1.0);
+        }
+      `
+    };
+
+    const SunCoronaShader = {
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vWorldPosition;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec3 vNormal;
+        varying vec3 vWorldPosition;
+
+        void main() {
+          vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+          float fresnel = 1.0 - max(dot(viewDir, vNormal), 0.0);
+          float pulse = sin(uTime * 2.2 + vWorldPosition.x * 0.15) * 0.15 + 0.85;
+
+          float intensity = pow(fresnel, 3.0) * pulse * 2.8;
+          vec3 coronaColor = mix(vec3(1.0, 0.35, 0.05), vec3(1.0, 0.88, 0.35), fresnel);
+
+          gl_FragColor = vec4(coronaColor * intensity, intensity * 0.85);
+        }
+      `
+    };
+
+    const AtmosphereShader = {
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vWorldPosition;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 sunWorldPosition;
+        varying vec3 vNormal;
+        varying vec3 vWorldPosition;
+
+        void main() {
+          vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+          vec3 sunDir = normalize(sunWorldPosition - vWorldPosition);
+          vec3 normal = normalize(vNormal);
+
+          // Fresnel auténtico en FrontSide: transparente en el centro, luminoso en el limbo
+          float rim = 1.0 - max(dot(viewDir, normal), 0.0);
+          rim = pow(rim, 3.8);
+
+          // Dispersión diurna (Rayleigh azul cielo) vs Crepúsculo (ámbar/dorado)
+          float sunDot = dot(normal, sunDir);
+          float dayFactor = clamp(sunDot * 1.6 + 0.2, 0.0, 1.0);
+          float twilight = smoothstep(-0.2, 0.15, sunDot) * (1.0 - smoothstep(0.0, 0.45, sunDot));
+
+          vec3 rayleighBlue = vec3(0.18, 0.62, 1.0);
+          vec3 twilightAmber = vec3(1.0, 0.48, 0.15);
+
+          vec3 atmosphereColor = mix(rayleighBlue, twilightAmber, twilight * 0.9);
+
+          float alpha = rim * dayFactor * 0.95;
+          gl_FragColor = vec4(atmosphereColor, alpha);
+        }
+      `
+    };
+
+    /* ==========================================================================
+       5. INICIALIZACIÓN DE LA ESCENA, RENDERER, CÁMARAS Y POST-PROCESADO
+       ========================================================================== */
+    const canvas = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020208, 0.0003);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.5, 4000);
+    // Posición inicial: Cerca de la Tierra con ángulo para apreciar día, noche y Luna
+    camera.position.set(DISTANCE_EARTH - 6.5, 4.0, 13.5);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    // Sombras dinámicas para eclipses físicos reales
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 2.0;
+    controls.maxDistance = 650.0;
+    controls.target.set(DISTANCE_EARTH, 0, 0);
+
+    // Post-procesado (Unreal Bloom equilibrado)
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.15,  // Intensidad de bloom cinemática calibrada
+      0.55,  // Radio de difusión
+      0.88   // Umbral de luminancia (sólo Sol y reflejos intensos emiten bloom)
+    );
+    composer.addPass(bloomPass);
+
+    const outputPass = new OutputPass();
+    composer.addPass(outputPass);
+
+    /* ==========================================================================
+       6. CONSTRUCCIÓN DE LA JERARQUÍA CELESTE ESTRICTA (GRAFO DE ESCENA)
+       ========================================================================== */
+    // A) NODO SOL (Origen 0,0,0)
+    const sunGroup = new THREE.Group();
+    sunGroup.rotation.z = SUN_AXIAL_TILT;
+    scene.add(sunGroup);
+
+    const sunGeometry = new THREE.SphereGeometry(RADIUS_SUN, 64, 64);
+    const sunMaterial = new THREE.ShaderMaterial({
+      vertexShader: SunShader.vertexShader,
+      fragmentShader: SunShader.fragmentShader,
+      uniforms: {
+        uTime: { value: 0 }
+      }
+    });
+    const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+    sunGroup.add(sunMesh);
+
+    // Corona Solar animada
+    const coronaGeometry = new THREE.SphereGeometry(RADIUS_SUN * 1.25, 64, 64);
+    const coronaMaterial = new THREE.ShaderMaterial({
+      vertexShader: SunCoronaShader.vertexShader,
+      fragmentShader: SunCoronaShader.fragmentShader,
+      uniforms: {
+        uTime: { value: 0 }
+      },
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    const coronaMesh = new THREE.Mesh(coronaGeometry, coronaMaterial);
+    sunGroup.add(coronaMesh);
+
+    // Iluminación solar física
+    const sunPointLight = new THREE.PointLight(0xfff8ea, 1.2, 0, 0);
+    sunGroup.add(sunPointLight);
+
+    // Luz direccional con proyección de sombras para eclipses Tierra-Luna
+    const eclipseShadowLight = new THREE.DirectionalLight(0xfff5e6, 2.2);
+    eclipseShadowLight.castShadow = true;
+    eclipseShadowLight.shadow.mapSize.width = 4096;
+    eclipseShadowLight.shadow.mapSize.height = 4096;
+    eclipseShadowLight.shadow.camera.near = 60;
+    eclipseShadowLight.shadow.camera.far = 165;
+    const shadowD = 25.0;
+    eclipseShadowLight.shadow.camera.left = -shadowD;
+    eclipseShadowLight.shadow.camera.right = shadowD;
+    eclipseShadowLight.shadow.camera.top = shadowD;
+    eclipseShadowLight.shadow.camera.bottom = -shadowD;
+    eclipseShadowLight.shadow.bias = -0.00015;
+    scene.add(eclipseShadowLight);
+    scene.add(eclipseShadowLight.target);
+
+    const ambientLight = new THREE.AmbientLight(0x0a1428, 0.28);
+    scene.add(ambientLight);
+
+    // B) SISTEMA ORBITAL TERRESTRE (Pivote Padre que gira alrededor del Sol)
+    const earthOrbitPivot = new THREE.Group();
+    scene.add(earthOrbitPivot);
+
+    // C) SUBSISTEMA TIERRA-LUNA (Ubicado en el radio orbital dentro del pivote)
+    const earthMoonSystem = new THREE.Group();
+    earthMoonSystem.position.set(DISTANCE_EARTH, 0, 0);
+    earthOrbitPivot.add(earthMoonSystem);
+
+    // D) TIERRA: NODO DE INCLINACIÓN AXIAL (23.44°)
+    // Separa estrictamente el nodo de traslación del nodo de rotación de la Tierra
+    const earthTiltGroup = new THREE.Group();
+    earthTiltGroup.rotation.z = EARTH_AXIAL_TILT;
+    earthMoonSystem.add(earthTiltGroup);
+
+    // E) NODO DE ROTACIÓN DIARIA TERRESTRE (Día / Noche)
+    const earthSpinGroup = new THREE.Group();
+    earthTiltGroup.add(earthSpinGroup);
+
+    /* Generación de Texturas Procedurales */
+    updateLoader(30, "SINTETIZANDO CONTINENTES, RELIEVES Y METRÓPOLIS TERRESTRES...");
+    const earthTexs = generateEarthTextures(2048, 1024);
+    updateLoader(65, "GENERANDO CICLONES ATMOSFÉRICOS Y REGOLITO LUNAR...");
+    const cloudTex = generateCloudTexture(1024, 512);
+    const moonTexs = generateMoonTextures(1024, 512);
+    updateLoader(95, "CONFIGURANDO GRAFO DE ESCENA Y SHADERS GLSL...");
+
+    // Material PBR Terrestre con inyección de terminador de luces nocturnas vía world position
+    const earthMaterial = new THREE.MeshStandardMaterial({
+      map: earthTexs.dayTex,
+      roughnessMap: earthTexs.specTex,
+      bumpMap: earthTexs.bumpTex,
+      bumpScale: 0.08,
+      roughness: 0.72,
+      metalness: 0.1,
+      emissiveMap: earthTexs.nightTex,
+      emissive: new THREE.Color(0xfff0c0),
+      emissiveIntensity: 1.0
+    });
+
+    earthMaterial.onBeforeCompile = (shader) => {
+      shader.vertexShader = `
+        varying vec3 vWorldNormalCustom;
+        varying vec3 vWorldPosCustom;
+        ${shader.vertexShader}
+      `.replace(
+        '#include <worldpos_vertex>',
+        `
+        #include <worldpos_vertex>
+        vWorldPosCustom = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vWorldNormalCustom = normalize(mat3(modelMatrix) * normal);
+        `
+      );
+
+      shader.fragmentShader = `
+        varying vec3 vWorldNormalCustom;
+        varying vec3 vWorldPosCustom;
+        ${shader.fragmentShader}
+      `.replace(
+        '#include <emissivemap_fragment>',
+        `
+        #ifdef USE_EMISSIVEMAP
+          vec4 emissiveColor = texture2D( emissiveMap, vEmissiveMapUv );
+          
+          // Vector hacia el Sol en coordenadas de mundo
+          vec3 sunDirWorld = normalize(-vWorldPosCustom);
+          float sunDot = dot(normalize(vWorldNormalCustom), sunDirWorld);
+          
+          // Suavizado del terminador crepuscular: Sólo encender ciudades de noche
+          float nightFactor = smoothstep(0.08, -0.15, sunDot);
+
+          totalEmissiveRadiance *= emissiveColor.rgb * nightFactor * 2.8;
+        #endif
+        `
+      );
+    };
+
+    const earthGeometry = new THREE.SphereGeometry(RADIUS_EARTH, 64, 64);
+    const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+    earthMesh.castShadow = true;
+    earthMesh.receiveShadow = true;
+    earthSpinGroup.add(earthMesh);
+
+    // Capa de nubes con rotación eólica independiente
+    const cloudGeometry = new THREE.SphereGeometry(RADIUS_EARTH * 1.018, 64, 64);
+    const cloudMaterial = new THREE.MeshStandardMaterial({
+      map: cloudTex,
+      transparent: true,
+      opacity: 0.88,
+      blending: THREE.NormalBlending,
+      roughness: 1.0,
+      metalness: 0.0,
+      depthWrite: false
+    });
+    const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    cloudMesh.castShadow = true;
+    earthSpinGroup.add(cloudMesh);
+
+    // Halo de dispersión atmosférica Rayleigh (Fresnel FrontSide calibrado)
+    const atmosphereGeometry = new THREE.SphereGeometry(RADIUS_EARTH * 1.08, 64, 64);
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      vertexShader: AtmosphereShader.vertexShader,
+      fragmentShader: AtmosphereShader.fragmentShader,
+      uniforms: {
+        sunWorldPosition: { value: new THREE.Vector3(0, 0, 0) }
+      },
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      side: THREE.FrontSide,
+      depthWrite: false
+    });
+    const atmosphereMesh = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    earthTiltGroup.add(atmosphereMesh);
+
+    // Eje visual de rotación terrestre (Polos Norte y Sur)
+    const axisGroup = new THREE.Group();
+    const axisGeo = new THREE.CylinderGeometry(0.03, 0.03, RADIUS_EARTH * 2.8, 16);
+    const axisMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.7 });
+    const axisMesh = new THREE.Mesh(axisGeo, axisMat);
+    axisGroup.add(axisMesh);
+
+    const poleGeo = new THREE.ConeGeometry(0.18, 0.45, 16);
+    const northPoleMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
+    const southPoleMat = new THREE.MeshBasicMaterial({ color: 0xff3344 });
+    const northPole = new THREE.Mesh(poleGeo, northPoleMat);
+    northPole.position.y = RADIUS_EARTH * 1.4;
+    const southPole = new THREE.Mesh(poleGeo, southPoleMat);
+    southPole.position.y = -RADIUS_EARTH * 1.4;
+    southPole.rotation.x = Math.PI;
+    axisGroup.add(northPole);
+    axisGroup.add(southPole);
+    earthTiltGroup.add(axisGroup);
+
+    // F) LUNA: INCLINACIÓN ORBITAL PROPIA (5.14° respectiva a la eclíptica)
+    // Anclada directamente a earthMoonSystem, totalmente desacoplada del giro diario de la Tierra
+    const moonOrbitTiltGroup = new THREE.Group();
+    moonOrbitTiltGroup.rotation.x = MOON_ORBITAL_TILT;
+    earthMoonSystem.add(moonOrbitTiltGroup);
+
+    // G) PIVOTE ORBITAL LUNAR (Gira a velocidad sidérea ~27.32 días)
+    const moonOrbitPivot = new THREE.Group();
+    moonOrbitTiltGroup.add(moonOrbitPivot);
+
+    // H) MALLA LUNAR (Rotación síncrona / tidal locking)
+    const moonGeometry = new THREE.SphereGeometry(RADIUS_MOON, 48, 48);
+    const moonMaterial = new THREE.MeshStandardMaterial({
+      map: moonTexs.tex,
+      bumpMap: moonTexs.bumpTex,
+      bumpScale: 0.06,
+      roughness: 0.95,
+      metalness: 0.05
+    });
+    const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
+    moonMesh.position.set(DISTANCE_MOON, 0, 0);
+    moonMesh.castShadow = true;
+    moonMesh.receiveShadow = true;
+    moonOrbitPivot.add(moonMesh);
+
+    /* ==========================================================================
+       7. ENTORNO CÓSMICO: CAMPO ESTELAR, NEBULOSA Y GUÍAS ORBITALES
+       ========================================================================== */
+    // 10,000 Estrellas con temperaturas espectrales reales
+    const starCount = 10000;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+
+    const spectralColors = [
+      new THREE.Color(0x9bb0ff), // Azul O/B
+      new THREE.Color(0xcad7ff), // Blanco A
+      new THREE.Color(0xfff4e8), // Amarillo G (Solar)
+      new THREE.Color(0xffd2a1), // Naranja K
+      new THREE.Color(0xffaa6b)  // Rojo M
+    ];
+
+    for (let i = 0; i < starCount; i++) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 900 + Math.random() * 300;
+
+      starPos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPos[i * 3 + 2] = r * Math.cos(phi);
+
+      const col = spectralColors[Math.floor(Math.random() * spectralColors.length)];
+      const brightness = 0.5 + Math.random() * 0.5;
+      starColors[i * 3]     = col.r * brightness;
+      starColors[i * 3 + 1] = col.g * brightness;
+      starColors[i * 3 + 2] = col.b * brightness;
+    }
+
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+
+    // Generador en memoria de sprite estelar circular suave (elimina quads cuadrados)
+    function createGlowPointTexture() {
+      const c = document.createElement('canvas');
+      c.width = 32;
+      c.height = 32;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+      g.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+      g.addColorStop(0.25, 'rgba(255, 255, 255, 0.75)');
+      g.addColorStop(0.65, 'rgba(255, 255, 255, 0.15)');
+      g.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 32, 32);
+      const t = new THREE.CanvasTexture(c);
+      return t;
+    }
+
+    const glowParticleTex = createGlowPointTexture();
+
+    const starMat = new THREE.PointsMaterial({
+      size: 2.2,
+      map: glowParticleTex,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+
+    // Polvo Cósmico / Nebulosa Procedural
+    const nebulaCount = 2500;
+    const nebGeo = new THREE.BufferGeometry();
+    const nebPos = new Float32Array(nebulaCount * 3);
+    const nebColors = new Float32Array(nebulaCount * 3);
+    const nebPalette = [
+      new THREE.Color(0x8a2be2),
+      new THREE.Color(0x00f0ff),
+      new THREE.Color(0xff1493),
+      new THREE.Color(0x1e90ff)
+    ];
+
+    for (let i = 0; i < nebulaCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const rad = 250 + Math.random() * 500;
+      const h = (Math.random() - 0.5) * 160;
+
+      nebPos[i * 3]     = Math.cos(theta) * rad;
+      nebPos[i * 3 + 1] = h;
+      nebPos[i * 3 + 2] = Math.sin(theta) * rad;
+
+      const col = nebPalette[Math.floor(Math.random() * nebPalette.length)];
+      nebColors[i * 3]     = col.r * 0.4;
+      nebColors[i * 3 + 1] = col.g * 0.4;
+      nebColors[i * 3 + 2] = col.b * 0.4;
+    }
+    nebGeo.setAttribute('position', new THREE.BufferAttribute(nebPos, 3));
+    nebGeo.setAttribute('color', new THREE.BufferAttribute(nebColors, 3));
+
+    const nebMat = new THREE.PointsMaterial({
+      size: 16.0,
+      map: glowParticleTex,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.22,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const nebulaField = new THREE.Points(nebGeo, nebMat);
+    scene.add(nebulaField);
+
+    // Trazas orbitales estéticas
+    function createOrbitLine(radius, color = 0x00f0ff, opacity = 0.3) {
+      const segments = 180;
+      const points = [];
+      for (let i = 0; i <= segments; i++) {
+        const theta = (i / segments) * Math.PI * 2;
+        points.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const mat = new THREE.LineBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: opacity,
+        depthWrite: false
+      });
+      return new THREE.Line(geo, mat);
+    }
+
+    const earthOrbitLine = createOrbitLine(DISTANCE_EARTH, 0x00f0ff, 0.4);
+    scene.add(earthOrbitLine);
+
+    const moonOrbitLine = createOrbitLine(DISTANCE_MOON, 0xffaa00, 0.45);
+    moonOrbitTiltGroup.add(moonOrbitLine);
+
+    // Malla Eclíptica Holográfica
+    const eclipticGrid = new THREE.GridHelper(DISTANCE_EARTH * 2.5, 40, 0x00f0ff, 0x002244);
+    eclipticGrid.position.y = -0.1;
+    eclipticGrid.material.transparent = true;
+    eclipticGrid.material.opacity = 0.22;
+    scene.add(eclipticGrid);
+
+    // Remover loader tras completar la inicialización
+    setTimeout(() => {
+      updateLoader(100, "¡SISTEMA ORBITAL INICIALIZADO!");
+      const loaderEl = document.getElementById('loader');
+      loaderEl.classList.add('hidden');
+    }, 150);
+
+    /* ==========================================================================
+       8. SISTEMA DE CÁMARA, TELEMETRÍA Y DETECCIÓN DE ECLIPSES
+       ========================================================================== */
+    let currentTarget = 'earth';
+    const targetLookAt = new THREE.Vector3();
+    const prevTargetLookAt = new THREE.Vector3(DISTANCE_EARTH, 0, 0);
+    const tempWorldPosEarth = new THREE.Vector3();
+    const tempWorldPosMoon = new THREE.Vector3();
+
+    function setFocusTarget(target) {
+      currentTarget = target;
+      document.querySelectorAll('.hud-btn').forEach(btn => btn.classList.remove('active'));
+
+      if (target === 'sun') {
+        document.getElementById('cam-sun').classList.add('active');
+        document.getElementById('target-name').innerText = "SOL (THE SUN)";
+        camera.position.set(0, 20, 52);
+        controls.target.set(0, 0, 0);
+        prevTargetLookAt.set(0, 0, 0);
+      } else if (target === 'earth') {
+        document.getElementById('cam-earth').classList.add('active');
+        document.getElementById('target-name').innerText = "TIERRA (EARTH)";
+        earthMesh.getWorldPosition(tempWorldPosEarth);
+        camera.position.copy(tempWorldPosEarth).add(new THREE.Vector3(-8.0, 4.5, 14.0));
+        controls.target.copy(tempWorldPosEarth);
+        prevTargetLookAt.copy(tempWorldPosEarth);
+      } else if (target === 'moon') {
+        document.getElementById('cam-moon').classList.add('active');
+        document.getElementById('target-name').innerText = "LUNA (THE MOON)";
+        moonMesh.getWorldPosition(tempWorldPosMoon);
+        camera.position.copy(tempWorldPosMoon).add(new THREE.Vector3(-2.2, 1.4, 3.8));
+        controls.target.copy(tempWorldPosMoon);
+        prevTargetLookAt.copy(tempWorldPosMoon);
+      } else if (target === 'system') {
+        document.getElementById('cam-system').classList.add('active');
+        document.getElementById('target-name').innerText = "SISTEMA TIERRA-LUNA";
+        earthMesh.getWorldPosition(tempWorldPosEarth);
+        camera.position.copy(tempWorldPosEarth).add(new THREE.Vector3(0, 22, 42));
+        controls.target.copy(tempWorldPosEarth);
+        prevTargetLookAt.copy(tempWorldPosEarth);
+      } else if (target === 'top') {
+        document.getElementById('cam-top').classList.add('active');
+        document.getElementById('target-name').innerText = "VISTA ECLÍPTICA GLOBAL";
+        camera.position.set(0, 240, 50);
+        controls.target.set(0, 0, 0);
+        prevTargetLookAt.set(0, 0, 0);
+      }
+    }
+
+    // Botones de Enfoque de Cámara
+    document.getElementById('cam-sun').onclick = () => setFocusTarget('sun');
+    document.getElementById('cam-earth').onclick = () => setFocusTarget('earth');
+    document.getElementById('cam-moon').onclick = () => setFocusTarget('moon');
+    document.getElementById('cam-system').onclick = () => setFocusTarget('system');
+    document.getElementById('cam-top').onclick = () => setFocusTarget('top');
+
+    // Botones de Alineación Inmediata de Eclipse
+    document.getElementById('btn-snap-solar').onclick = () => {
+      // Para eclipse solar: Luna entre Sol y Tierra (rotación pi en moonOrbitPivot)
+      moonOrbitPivot.rotation.y = Math.PI;
+      setFocusTarget('earth');
+      earthMesh.getWorldPosition(tempWorldPosEarth);
+      // Colocar cámara detrás de la Luna mirando a la Tierra iluminada por el Sol
+      const dirSunToEarth = tempWorldPosEarth.clone().normalize();
+      camera.position.copy(tempWorldPosEarth).sub(dirSunToEarth.clone().multiplyScalar(22.0)).add(new THREE.Vector3(0, 3.5, 0));
+      controls.target.copy(tempWorldPosEarth);
+      prevTargetLookAt.copy(tempWorldPosEarth);
+    };
+
+    document.getElementById('btn-snap-lunar').onclick = () => {
+      // Para eclipse lunar: Tierra entre Sol y Luna (rotación 0 en moonOrbitPivot)
+      moonOrbitPivot.rotation.y = 0;
+      setFocusTarget('moon');
+      moonMesh.getWorldPosition(tempWorldPosMoon);
+      camera.position.copy(tempWorldPosMoon).add(new THREE.Vector3(2.5, 1.8, 4.5));
+      controls.target.copy(tempWorldPosMoon);
+      prevTargetLookAt.copy(tempWorldPosMoon);
+    };
+
+    // Atajos de teclado numéricos [1-5], [H] para modo cinemático y [Espacio] para pausa
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '1') document.getElementById('cam-sun').click();
+      if (e.key === '2') document.getElementById('cam-earth').click();
+      if (e.key === '3') document.getElementById('cam-moon').click();
+      if (e.key === '4') document.getElementById('cam-system').click();
+      if (e.key === '5') document.getElementById('cam-top').click();
+      if (e.key === 'h' || e.key === 'H') toggleCinematicMode();
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      }
+    });
+
+    function toggleCinematicMode() {
+      const hud = document.getElementById('hud-overlay');
+      const floatingBtn = document.getElementById('floating-hud-toggle');
+      hud.classList.toggle('hud-hidden');
+      floatingBtn.style.display = hud.classList.contains('hud-hidden') ? 'block' : 'none';
+    }
+
+    document.getElementById('floating-hud-toggle').onclick = toggleCinematicMode;
+
+    function togglePlayPause() {
+      isPaused = !isPaused;
+      const btn = document.getElementById('btn-play-pause');
+      btn.innerText = isPaused ? '▶' : '❚❚';
+      btn.style.color = isPaused ? 'var(--neon-amber)' : 'var(--neon-cyan)';
+    }
+    document.getElementById('btn-play-pause').onclick = togglePlayPause;
+
+    document.getElementById('btn-reverse').onclick = () => {
+      timeDirection *= -1;
+      document.getElementById('btn-reverse').style.color = timeDirection < 0 ? 'var(--neon-amber)' : 'var(--neon-cyan)';
+    };
+
+    document.querySelectorAll('.speed-pill').forEach(pill => {
+      pill.onclick = () => {
+        document.querySelectorAll('.speed-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        timeScale = parseFloat(pill.dataset.speed);
+      };
+    });
+
+    // Toggles de Capas Visuales
+    document.getElementById('toggle-orbits').onchange = (e) => {
+      earthOrbitLine.visible = e.target.checked;
+      moonOrbitLine.visible = e.target.checked;
+    };
+    document.getElementById('toggle-grid').onchange = (e) => {
+      eclipticGrid.visible = e.target.checked;
+    };
+    document.getElementById('toggle-clouds').onchange = (e) => {
+      cloudMesh.visible = e.target.checked;
+    };
+    document.getElementById('toggle-citylights').onchange = (e) => {
+      earthMaterial.emissiveIntensity = e.target.checked ? 1.0 : 0.0;
+    };
+    document.getElementById('toggle-atmosphere').onchange = (e) => {
+      atmosphereMesh.visible = e.target.checked;
+    };
+    document.getElementById('toggle-bloom').onchange = (e) => {
+      bloomEnabled = e.target.checked;
+    };
+    document.getElementById('toggle-axes').onchange = (e) => {
+      axisGroup.visible = e.target.checked;
+    };
+    document.getElementById('slider-light').oninput = (e) => {
+      const val = parseFloat(e.target.value);
+      sunPointLight.intensity = val * 1.35;
+      eclipseShadowLight.intensity = val * 1.0;
+      document.getElementById('light-intensity-val').innerText = `${val.toFixed(1)}x`;
+    };
+
+    /* ==========================================================================
+       9. BUCLE PRINCIPAL DE ANIMACIÓN Y FÍSICA RELATIVA
+       ========================================================================== */
+    const clock = new THREE.Clock();
+    let frameCounter = 0;
+    let fpsTimer = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+
+      // Cálculo de FPS
+      frameCounter++;
+      fpsTimer += delta;
+      if (fpsTimer >= 0.5) {
+        const currentFPS = (frameCounter / fpsTimer).toFixed(1);
+        document.getElementById('fps-display').innerText = `${currentFPS} FPS`;
+        frameCounter = 0;
+        fpsTimer = 0;
+      }
+
+      const effectiveDelta = isPaused ? 0 : delta * timeScale * timeDirection;
+      simTime += effectiveDelta;
+
+      // 1. ROTACIÓN PROPIA DEL SOL (Eje central)
+      sunMesh.rotation.y += SUN_ROTATION_SPEED * effectiveDelta;
+      sunMaterial.uniforms.uTime.value = clock.getElapsedTime();
+      coronaMaterial.uniforms.uTime.value = clock.getElapsedTime();
+
+      // 2. TRASLACIÓN DEL SUBSISTEMA TIERRA-LUNA (Pivote orbital alrededor del Sol)
+      earthOrbitPivot.rotation.y += EARTH_ORBIT_SPEED * effectiveDelta;
+
+      // 3. ROTACIÓN DIARIA INDEPENDIENTE DE LA TIERRA (365.25 días/año)
+      earthSpinGroup.rotation.y += EARTH_ROTATION_SPEED * effectiveDelta;
+
+      // Nubes rotan a velocidad ligeramente superior para simular vientos atmosféricos
+      cloudMesh.rotation.y += (EARTH_ROTATION_SPEED * 1.12) * effectiveDelta;
+
+      // 4. TRASLACIÓN ORBITAL DE LA LUNA (Mes sidéreo ~27.32 días)
+      // La rotación síncrona (bloqueo de marea) ocurre de forma natural
+      moonOrbitPivot.rotation.y += MOON_ORBIT_SPEED * effectiveDelta;
+
+      // Obtener posiciones mundiales de los astros
+      earthMesh.getWorldPosition(tempWorldPosEarth);
+      moonMesh.getWorldPosition(tempWorldPosMoon);
+
+      // Actualizar luz direccional de sombras para eclipses Tierra-Luna
+      eclipseShadowLight.position.set(0, 0, 0);
+      eclipseShadowLight.target.position.copy(tempWorldPosEarth);
+      eclipseShadowLight.target.updateMatrixWorld();
+
+      // 5. CÁLCULO VECTORIAL Y TELEMETRÍA DE ECLIPSES
+      const vSunToEarth = tempWorldPosEarth.clone().normalize();
+      const vSunToMoon = tempWorldPosMoon.clone().normalize();
+      const vEarthToMoon = tempWorldPosMoon.clone().sub(tempWorldPosEarth);
+      const dirEarthToMoon = vEarthToMoon.clone().normalize();
+
+      const angleSunMoonEarth = vSunToEarth.angleTo(vSunToMoon);
+      const angleDeg = THREE.MathUtils.radToDeg(angleSunMoonEarth);
+
+      const eclipseBadge = document.getElementById('eclipse-badge');
+      const eclipseText = document.getElementById('eclipse-text');
+      const eclipseState = document.getElementById('eclipse-state');
+      const eclipseBar = document.getElementById('eclipse-bar');
+      const eclipsePct = document.getElementById('eclipse-pct');
+      const eclipseAngle = document.getElementById('eclipse-angle');
+
+      eclipseAngle.innerText = `${angleDeg.toFixed(2)}°`;
+
+      let isSolarEclipse = false;
+      let isLunarEclipse = false;
+      let alignmentFactor = 0.0;
+
+      const thresholdAngle = 0.045; // Umbral angular para umbra y penumbra
+
+      if (vSunToMoon.length() < vSunToEarth.length()) {
+        // La Luna está más cerca del Sol -> Posible Eclipse Solar
+        if (angleSunMoonEarth < thresholdAngle) {
+          isSolarEclipse = true;
+          alignmentFactor = Math.max(0, 1.0 - (angleSunMoonEarth / thresholdAngle));
+        }
+      } else {
+        // La Tierra está entre el Sol y la Luna -> Posible Eclipse Lunar
+        const antiSun = vSunToEarth.clone().negate();
+        const angleAntiSun = dirEarthToMoon.angleTo(antiSun);
+        if (angleAntiSun < thresholdAngle * 1.5) {
+          isLunarEclipse = true;
+          alignmentFactor = Math.max(0, 1.0 - (angleAntiSun / (thresholdAngle * 1.5)));
+        }
+      }
+
+      if (isSolarEclipse) {
+        const pct = (alignmentFactor * 100).toFixed(1);
+        eclipseBadge.classList.add('alert-pulse');
+        eclipseText.innerText = "ALERTA: ECLIPSE SOLAR EN PROGRESO";
+        eclipseState.innerText = `ECLIPSE SOLAR TOTAL (${pct}%)`;
+        eclipseState.style.color = "var(--neon-amber)";
+        eclipseBar.style.width = `${pct}%`;
+        eclipsePct.innerText = `${pct}%`;
+      } else if (isLunarEclipse) {
+        const pct = (alignmentFactor * 100).toFixed(1);
+        eclipseBadge.classList.add('alert-pulse');
+        eclipseText.innerText = "ALERTA: ECLIPSE LUNAR EN PROGRESO";
+        eclipseState.innerText = `ECLIPSE LUNAR EN UMBRA (${pct}%)`;
+        eclipseState.style.color = "var(--neon-red)";
+        eclipseBar.style.width = `${pct}%`;
+        eclipsePct.innerText = `${pct}%`;
+      } else {
+        eclipseBadge.classList.remove('alert-pulse');
+        eclipseText.innerText = "ALINEACIÓN ORBITAL: ESTABLE";
+        eclipseState.innerText = "SIN ECLIPSE ACTIVO";
+        eclipseState.style.color = "#ffffff";
+        eclipseBar.style.width = "0%";
+        eclipsePct.innerText = "0.0%";
+      }
+
+      // 6. ACTUALIZACIÓN DE TELEMETRÍA NUMÉRICA HUD
+      const daysElapsed = (simTime / SECONDS_PER_YEAR) * 365.25;
+      const yearsElapsed = simTime / SECONDS_PER_YEAR;
+      document.getElementById('sim-time-sol').innerText = `SOL: ${daysElapsed.toFixed(2)}`;
+      document.getElementById('time-elapsed-days').innerText = `${daysElapsed.toFixed(1)} Días / ${yearsElapsed.toFixed(2)} Años`;
+
+      document.getElementById('earth-coords').innerText = 
+        `${tempWorldPosEarth.x.toFixed(1)}, ${tempWorldPosEarth.y.toFixed(1)}, ${tempWorldPosEarth.z.toFixed(1)}`;
+      document.getElementById('moon-coords').innerText = 
+        `${tempWorldPosMoon.x.toFixed(1)}, ${tempWorldPosMoon.y.toFixed(1)}, ${tempWorldPosMoon.z.toFixed(1)}`;
+
+      // 7. SEGUIMIENTO SUAVE DE CÁMARA (LOCK-ON Y TRASLACIÓN SOLIDARIA)
+      let currentWorldTarget;
+      if (currentTarget === 'earth' || currentTarget === 'system') {
+        currentWorldTarget = tempWorldPosEarth;
+      } else if (currentTarget === 'moon') {
+        currentWorldTarget = tempWorldPosMoon;
+      } else {
+        currentWorldTarget = new THREE.Vector3(0, 0, 0);
+      }
+
+      targetLookAt.copy(currentWorldTarget);
+      const deltaTarget = new THREE.Vector3().subVectors(targetLookAt, prevTargetLookAt);
+      
+      // La cámara viaja solidaria con el cuerpo celeste sin alterar el ángulo del usuario
+      camera.position.add(deltaTarget);
+      controls.target.copy(targetLookAt);
+      prevTargetLookAt.copy(targetLookAt);
+
+      controls.update();
+
+      // 8. RENDERIZADO CON POST-PROCESADO
+      if (bloomEnabled) {
+        composer.render();
+      } else {
+        renderer.render(scene, camera);
+      }
+    }
+
+    // Manejo de redimensionamiento de ventana
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Iniciar bucle de simulación
+    animate();
+  </script>
+</body>
+</html>

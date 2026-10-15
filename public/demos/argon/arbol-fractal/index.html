@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARBOR-KINEMATICS // Simulador de Árboles Fractales, L-Systems y Física de Viento Perlin</title>
+  <style>
+    :root {
+      --bg-void: #050811;
+      --panel-bg: rgba(9, 14, 24, 0.86);
+      --panel-strong: rgba(6, 10, 18, 0.95);
+      --cyan: #00f0ff;
+      --cyan-border: rgba(0, 240, 255, 0.25);
+      --emerald: #00ff9d;
+      --amber: #ffbe0b;
+      --crimson: #ff4d8d;
+      --violet: #b537f2;
+      --text-main: #ecf5ff;
+      --text-dim: #869fb8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background-color: var(--bg-void); color: var(--text-main); font-family: var(--font-sans);
+    }
+
+    #botany-canvas {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      display: block; z-index: 1; cursor: grab;
+    }
+    #botany-canvas:active { cursor: grabbing; }
+
+    /* Cabecera Superior */
+    .top-bar {
+      position: fixed; top: 10px; left: 14px; right: 14px; z-index: 10;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      pointer-events: none;
+    }
+
+    .hud-banner {
+      pointer-events: auto; background: var(--panel-bg);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-left: 4px solid var(--cyan);
+      border-radius: 6px; padding: 8px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.72);
+    }
+
+    .hud-banner.amber-box {
+      border-left-color: var(--amber); border-color: rgba(255, 190, 11, 0.36);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .hud-title {
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      letter-spacing: 1.4px; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px; text-transform: uppercase;
+    }
+
+    .led {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); box-shadow: 0 0 10px var(--emerald);
+      animation: pulseLed 1.6s infinite ease-in-out;
+    }
+    @keyframes pulseLed {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.45; }
+    }
+
+    .hud-sub { font-family: var(--font-mono); font-size: 9.6px; color: var(--text-dim); margin-top: 2px; }
+
+    /* Paneles Laterales */
+    .left-dock, .right-dock {
+      position: fixed; top: 68px; z-index: 10;
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: calc(100vh - 114px); overflow-y: auto; scrollbar-width: thin;
+    }
+    .left-dock { left: 14px; width: 314px; }
+    .right-dock { right: 14px; width: 318px; }
+
+    .card {
+      background: var(--panel-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px;
+      padding: 9px 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+    }
+
+    .card-header {
+      font-family: var(--font-mono); font-size: 9.8px; font-weight: 700;
+      letter-spacing: 1.1px; color: var(--cyan); text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+      padding-bottom: 5px; margin-bottom: 7px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .badge {
+      font-size: 8.6px; padding: 2px 6px; border-radius: 3px;
+      background: rgba(0, 240, 255, 0.14); border: 1px solid rgba(0, 240, 255, 0.35); color: #96f9ff;
+    }
+    .badge.emerald { background: rgba(0, 255, 157, 0.14); border-color: rgba(0, 255, 157, 0.4); color: var(--emerald); }
+    .badge.amber { background: rgba(255, 190, 11, 0.15); border-color: rgba(255, 190, 11, 0.45); color: var(--amber); }
+    .badge.crimson { background: rgba(255, 77, 141, 0.16); border-color: rgba(255, 77, 141, 0.45); color: #ff9ec2; }
+
+    /* Botones de Especies y Herramientas */
+    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+
+    .bot-btn {
+      appearance: none; background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.26); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 9.6px; padding: 6.5px 8px;
+      border-radius: 4px; cursor: pointer; transition: all 0.14s ease;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .bot-btn:hover {
+      background: rgba(0, 240, 255, 0.2); border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.22);
+    }
+    .bot-btn.active {
+      background: rgba(0, 240, 255, 0.26); border-color: #ffffff; color: #fff;
+      font-weight: 700; box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.35);
+    }
+    .bot-btn.emerald { background: rgba(0, 255, 157, 0.12); border-color: rgba(0, 255, 157, 0.4); color: #a8ffdb; }
+    .bot-btn.emerald:hover, .bot-btn.emerald.active { background: rgba(0, 255, 157, 0.28); border-color: var(--emerald); color: #fff; }
+    .bot-btn.amber { background: rgba(255, 190, 11, 0.13); border-color: rgba(255, 190, 11, 0.42); color: #ffe28a; }
+    .bot-btn.amber:hover, .bot-btn.amber.active { background: rgba(255, 190, 11, 0.28); border-color: var(--amber); color: #fff; }
+    .bot-btn.crimson { background: rgba(255, 77, 141, 0.15); border-color: rgba(255, 77, 141, 0.45); color: #ffb3cf; }
+    .bot-btn.crimson:hover, .bot-btn.crimson.active { background: rgba(255, 77, 141, 0.32); border-color: var(--crimson); color: #fff; }
+
+    /* Sliders */
+    .slider-row { margin-bottom: 6px; }
+    .slider-row:last-child { margin-bottom: 0; }
+    .slider-lbl {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 9.5px; color: var(--text-dim); margin-bottom: 2px;
+    }
+    .slider-lbl strong { color: var(--cyan); }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+      background: rgba(0, 240, 255, 0.16); border-radius: 3px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--cyan); border: 2px solid #020814;
+      box-shadow: 0 0 8px var(--cyan); cursor: pointer;
+    }
+
+    /* Telemetría */
+    .telemetry-grid {
+      display: grid; grid-template-columns: 1fr auto;
+      row-gap: 4px; column-gap: 8px; font-family: var(--font-mono); font-size: 9.8px;
+    }
+    .t-lbl { color: var(--text-dim); }
+    .t-val { color: var(--text-main); font-weight: 600; text-align: right; }
+    .t-val.cyan { color: var(--cyan); }
+    .t-val.emerald { color: var(--emerald); }
+    .t-val.amber { color: var(--amber); }
+    .t-val.crimson { color: var(--crimson); }
+
+    .formula-note {
+      font-family: var(--font-mono); font-size: 9px; color: #a4c6e6;
+      background: rgba(3, 7, 15, 0.72); border: 1px solid rgba(0, 240, 255, 0.18);
+      border-radius: 4px; padding: 6px 8px; line-height: 1.45;
+    }
+
+    /* Barra Inferior */
+    .bottom-bar {
+      position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 10;
+      background: var(--panel-strong); backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px; padding: 6px 14px;
+      font-family: var(--font-mono); font-size: 9.6px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 14px; white-space: nowrap;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.82); pointer-events: auto;
+    }
+    .bottom-bar strong { color: var(--cyan); }
+
+    @media (max-width: 1120px) {
+      .left-dock, .right-dock { width: 260px; }
+      .bottom-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="botany-canvas"></canvas>
+
+  <!-- Cabecera Superior -->
+  <header class="top-bar">
+    <div class="hud-banner">
+      <div class="hud-title">
+        <span class="led"></span>
+        <span>ARBOR-KINEMATICS // L-SYSTEMS ESTOCÁSTICOS Y CINEMÁTICA DIRECTA</span>
+      </div>
+      <div class="hud-sub">
+        LEY DE LEONARDO DA VINCI (r_d = r_{d-1}·λ) • RUIDO PERLIN 2D/fBM • RESORTE ELÁSTICO • VÓRTICE DE MOUSE
+      </div>
+    </div>
+
+    <div class="hud-banner amber-box">
+      <div>
+        <div class="hud-title" style="color: var(--amber); font-size: 11px;">
+          ESPECIE ACTIVA: <span id="hud-species-name" style="color: #fff;">CEREZO JAPONÉS (SAKURA)</span>
+        </div>
+        <div class="hud-sub">
+          Mueve o arrastra el cursor sobre la copa para doblar ramas y desprender flores/hojas
+        </div>
+      </div>
+      <button class="bot-btn crimson" id="btn-gust" style="padding: 7px 11px; font-weight: 700;">
+        🌪️ RÁFAGA VENDAVAL [G]
+      </button>
+    </div>
+  </header>
+
+  <!-- Panel Izquierdo: Especies, Morfología Fractal y Semilla -->
+  <aside class="left-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>ESPECIES Y BIOMAS BOTÁNICOS</span>
+        <span class="badge crimson">4 PRESETS</span>
+      </div>
+      <div class="btn-grid-2" id="species-buttons">
+        <button class="bot-btn active" data-species="SAKURA" title="Cerezo Japonés con pétalos rosados cayendo en el viento [1]">
+          🌸 Cerezo Sakura
+        </button>
+        <button class="bot-btn" data-species="WILLOW" title="Sauce Llorón con ramas colgantes gravitacionales [2]">
+          🌿 Sauce Llorón
+        </button>
+        <button class="bot-btn" data-species="OAK" title="Roble / Secuoya Otoñal de alta profundidad fractal [3]">
+          🍁 Roble Otoñal
+        </button>
+        <button class="bot-btn" data-species="AVATAR" title="Árbol de las Almas Bioluminiscente con savia de neón y esporas [4]">
+          ✨ Bioluminiscente
+        </button>
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 6px;">
+        <button class="bot-btn emerald" id="btn-new-seed" title="Generar un nuevo ejemplar botánico con otra semilla aleatoria [R]">
+          🌱 NUEVA SEMILLA [R]
+        </button>
+        <button class="bot-btn amber" id="btn-regrow-leaves" title="Restaurar todas las hojas/pétalos desprendidos en las ramas">
+          🍃 REBROTAR COPA
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>MORFOLOGÍA L-SYSTEM (TOPOLOGÍA)</span>
+        <span class="badge">ESTRUCTURA</span>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Profundidad de Recursión (d_max)</span>
+          <strong id="lbl-depth">10 niveles</strong>
+        </div>
+        <input type="range" id="slider-depth" min="5" max="11" step="1" value="10" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Ángulo de Bifurcación (θ_split)</span>
+          <strong id="lbl-angle">24°</strong>
+        </div>
+        <input type="range" id="slider-angle" min="12" max="44" step="1" value="24" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Asimetría de Ramas (Δθ_asym)</span>
+          <strong id="lbl-asym">+3°</strong>
+        </div>
+        <input type="range" id="slider-asym" min="-18" max="18" step="1" value="3" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Decaimiento de Longitud (λ_len)</span>
+          <strong id="lbl-len-ratio">0.76</strong>
+        </div>
+        <input type="range" id="slider-len-ratio" min="0.64" max="0.84" step="0.01" value="0.76" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Conicidad Leonardo da Vinci (λ_rad)</span>
+          <strong id="lbl-rad-ratio">0.71</strong>
+        </div>
+        <input type="range" id="slider-rad-ratio" min="0.62" max="0.78" step="0.01" value="0.71" />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>METEOROLOGÍA Y CAMPO PERLIN</span>
+        <span class="badge amber">FÍSICA VIENTO</span>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Fuerza Base del Viento</span>
+          <strong id="lbl-wind">28 km/h (Brisa)</strong>
+        </div>
+        <input type="range" id="slider-wind" min="-80" max="110" step="2" value="28" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Turbulencia fBM (Amplitud Ráfagas)</span>
+          <strong id="lbl-turb">42%</strong>
+        </div>
+        <input type="range" id="slider-turb" min="0" max="100" step="2" value="42" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Frecuencia de Onda Perlin (ω)</span>
+          <strong id="lbl-freq">1.25 Hz</strong>
+        </div>
+        <input type="range" id="slider-freq" min="0.3" max="3.0" step="0.05" value="1.25" />
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 7px;">
+        <button class="bot-btn" id="btn-toggle-vectors" title="Visualizar flechas del Campo Vectorial de Viento Perlin en el fondo [V]">
+          🧭 CAMPO VIENTO [V]
+        </button>
+        <button class="bot-btn" id="btn-toggle-skeleton" title="Ver articulaciones y vectores de Cinemática Directa [K]">
+          🦴 ESQUELETO FK [K]
+        </button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Panel Derecho: Telemetría Botánica y Ecuaciones Cinemáticas -->
+  <aside class="right-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA BOTÁNICA Y FÍSICA</span>
+        <span class="badge emerald" id="fps-badge">60 FPS</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-lbl">Semilla Genética Actual:</span>
+        <span class="t-val cyan" id="val-seed">#784920</span>
+
+        <span class="t-lbl">Total Segmentos de Rama:</span>
+        <span class="t-val emerald" id="val-branches">0</span>
+
+        <span class="t-lbl">Racimos Foliares en Copa:</span>
+        <span class="t-val amber" id="val-foliage">0</span>
+
+        <span class="t-lbl">Pétalos / Hojas en Vuelo:</span>
+        <span class="t-val crimson" id="val-particles">0</span>
+
+        <span class="t-lbl">Velocidad Instantánea Viento:</span>
+        <span class="t-val cyan" id="val-wind-live">0.0 km/h</span>
+
+        <span class="t-lbl">Energía Elástica del Dosel:</span>
+        <span class="t-val" id="val-strain">0.00 rad</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>CINEMÁTICA DIRECTA JERÁRQUICA</span>
+        <span class="badge">MODELO FÍSICO</span>
+      </div>
+      <div class="formula-note">
+        <strong>1. Ángulo Acumulado por Rama:</strong><br/>
+        θ(d, t) = θ<sub>padre</sub>(t) + θ<sub>local</sub> + Δθ<sub>Perlin</sub>(x,y,d,t) + ϕ<sub>resorte</sub><br/><br/>
+        <strong>2. Flexibilidad Exponencial:</strong><br/>
+        k<sub>flex</sub>(d) = k<sub>0</sub> · (d + 0.18)<sup>1.65</sup><br/><br/>
+        <strong>3. Articulación Exacta (Cero Desconexión):</strong><br/>
+        P<sub>inicio, hijo</sub>(t) = P<sub>fin, padre</sub>(t)
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>INTERACCIÓN CON EL ECOSISTEMA</span>
+        <span class="badge amber">VÓRTICE MOUSE</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 9.2px; line-height: 1.5; color: #9fc2e2;">
+        <div>• <strong>Pasar el Mouse por la Copa:</strong> Empuja las ramas con amortiguación de resorte elástico.</div>
+        <div>• <strong>Sacudir con Fuerza / Clic:</strong> Desprende flores de cerezo u hojas hacia la corriente de viento.</div>
+        <div>• <strong>Teclas [1 - 4]:</strong> Cambiar especie al instante.</div>
+        <div>• <strong>Tecla [G]:</strong> Desatar vendaval atmosférico.</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Pie de Página -->
+  <footer class="bottom-bar">
+    <span><strong>[MOUSE]</strong> Vórtice Aerodinámico</span>
+    <span><strong>[1-4]</strong> Especies (Sakura / Sauce / Roble / Avatar)</span>
+    <span><strong>[G]</strong> Ráfaga Vendaval</span>
+    <span><strong>[R]</strong> Nueva Semilla</span>
+    <span><strong>[V]</strong> Campo Vectorial Perlin</span>
+    <span><strong>[K]</strong> Esqueleto Cinemático</span>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR DE SIMULACIÓN BOTÁNICA, RUIDO PERLIN 2D/fBM Y CINEMÁTICA DIRECTA
+       ========================================================================= -->
+  <script>
+    (() => {
+      'use strict';
+
+      // =======================================================================
+      // 1. GENERADOR DETERMINISTA (MULBERRY32) Y RUIDO COHERENTE PERLIN 2D + fBM
+      // =======================================================================
+      function createPRNG(seed) {
+        let a = seed >>> 0;
+        return function rand() {
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      // Implementación completa desde cero de Ruido Perlin 2D + fBM
+      const PERM = new Uint8Array(512);
+      const GRAD2 = [
+        [1, 1], [-1, 1], [1, -1], [-1, -1],
+        [1, 0], [-1, 0], [0, 1], [0, -1]
+      ];
+
+      function initPerlinTable(seed = 1337) {
+        const rng = createPRNG(seed);
+        const p = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) p[i] = i;
+        for (let i = 255; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          const tmp = p[i];
+          p[i] = p[j];
+          p[j] = tmp;
+        }
+        for (let i = 0; i < 512; i++) PERM[i] = p[i & 255];
+      }
+      initPerlinTable(948271);
+
+      function fade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+      }
+
+      function lerp(a, b, t) {
+        return a + t * (b - a);
+      }
+
+      function perlin2D(x, y) {
+        const X = Math.floor(x) & 255;
+        const Y = Math.floor(y) & 255;
+        const xf = x - Math.floor(x);
+        const yf = y - Math.floor(y);
+
+        const u = fade(xf);
+        const v = fade(yf);
+
+        const aa = PERM[PERM[X] + Y] & 7;
+        const ab = PERM[PERM[X] + Y + 1] & 7;
+        const ba = PERM[PERM[X + 1] + Y] & 7;
+        const bb = PERM[PERM[X + 1] + Y + 1] & 7;
+
+        const gAA = GRAD2[aa][0] * xf + GRAD2[aa][1] * yf;
+        const gBA = GRAD2[ba][0] * (xf - 1) + GRAD2[ba][1] * yf;
+        const gAB = GRAD2[ab][0] * xf + GRAD2[ab][1] * (yf - 1);
+        const gBB = GRAD2[bb][0] * (xf - 1) + GRAD2[bb][1] * (yf - 1);
+
+        const x1 = lerp(gAA, gBA, u);
+        const x2 = lerp(gAB, gBB, u);
+        return lerp(x1, x2, v); // Valor en [-1, 1]
+      }
+
+      // Movimiento Browniano Fraccional (fBM de 3 octavas) para ráfagas naturales
+      function fbm2D(x, y) {
+        let total = 0;
+        let amp = 0.58;
+        let freq = 1.0;
+        for (let o = 0; o < 3; o++) {
+          total += perlin2D(x * freq, y * freq) * amp;
+          freq *= 2.05;
+          amp *= 0.48;
+        }
+        return total;
+      }
+
+      // =======================================================================
+      // 2. DEFINICIÓN DE ESPECIES BOTÁNICAS (PRESETS MORFOLÓGICOS Y ESTÉTICOS)
+      // =======================================================================
+      const SPECIES_PRESETS = {
+        SAKURA: {
+          name: 'CEREZO JAPONÉS (SAKURA)',
+          maxDepth: 10,
+          splitAngleDeg: 25,
+          asymDeg: 4,
+          lenRatio: 0.76,
+          radRatio: 0.71,
+          trunkLengthFactor: 0.21,
+          trunkRadiusFactor: 0.025,
+          gravityDroop: 0.0,
+          skyTop: '#0b0c1e',
+          skyMid: '#231934',
+          skyBot: '#4a2545',
+          orbColor: 'rgba(255, 210, 230, 0.9)',
+          barkDark: '#231621',
+          barkMid: '#3d2738',
+          barkLight: '#6b475f',
+          sapGlow: null,
+          leafColors: ['#ffb7c5', '#ff8da1', '#ffdde4', '#ff5c8a', '#ffffff'],
+          leafShape: 'PETAL',
+          bioluminescent: false
+        },
+        WILLOW: {
+          name: 'SAUCE LLORÓN (WEEPING WILLOW)',
+          maxDepth: 10,
+          splitAngleDeg: 28,
+          asymDeg: 2,
+          lenRatio: 0.79,
+          radRatio: 0.70,
+          trunkLengthFactor: 0.23,
+          trunkRadiusFactor: 0.027,
+          gravityDroop: 0.42, // Cortinas verdes que caen por gravedad
+          skyTop: '#07131c',
+          skyMid: '#102838',
+          skyBot: '#1d4752',
+          orbColor: 'rgba(210, 245, 230, 0.85)',
+          barkDark: '#1c241e',
+          barkMid: '#334036',
+          barkLight: '#536657',
+          sapGlow: null,
+          leafColors: ['#7ae582', '#4ad66d', '#25a18e', '#b7efc5', '#9fffcb'],
+          leafShape: 'WILLOW_LEAF',
+          bioluminescent: false
+        },
+        OAK: {
+          name: 'ROBLE DORADO / SECUOYA OTOÑAL',
+          maxDepth: 11,
+          splitAngleDeg: 23,
+          asymDeg: -3,
+          lenRatio: 0.75,
+          radRatio: 0.72,
+          trunkLengthFactor: 0.22,
+          trunkRadiusFactor: 0.029,
+          gravityDroop: 0.0,
+          skyTop: '#0d0f1d',
+          skyMid: '#281d2d',
+          skyBot: '#59312e',
+          orbColor: 'rgba(255, 200, 120, 0.88)',
+          barkDark: '#22150f',
+          barkMid: '#42291c',
+          barkLight: '#6e4732',
+          sapGlow: null,
+          leafColors: ['#ff9f1c', '#e71d36', '#ffbf69', '#d62828', '#f77f00'],
+          leafShape: 'OAK_LEAF',
+          bioluminescent: false
+        },
+        AVATAR: {
+          name: 'ÁRBOL DE LAS ALMAS (BIOLUMINISCENTE)',
+          maxDepth: 10,
+          splitAngleDeg: 27,
+          asymDeg: 3,
+          lenRatio: 0.77,
+          radRatio: 0.71,
+          trunkLengthFactor: 0.21,
+          trunkRadiusFactor: 0.026,
+          gravityDroop: 0.24,
+          skyTop: '#02040a',
+          skyMid: '#070d21',
+          skyBot: '#0f1e3d',
+          orbColor: 'rgba(120, 230, 255, 0.9)',
+          barkDark: '#091024',
+          barkMid: '#16254c',
+          barkLight: '#284b8c',
+          sapGlow: '#00f0ff',
+          leafColors: ['#00f0ff', '#ff2a85', '#b537f2', '#72efdd', '#80ffdb'],
+          leafShape: 'SPORE_TENDRIL',
+          bioluminescent: true
+        }
+      };
+
+      // =======================================================================
+      // 3. ESTADO DEL MOTOR Y ESTRUCTURA DE DATOS DEL ESQUELETO (GRAFO EN MEMORIA)
+      // =======================================================================
+      const canvas = document.getElementById('botany-canvas');
+      const ctx = canvas.getContext('2d');
+
+      const state = {
+        speciesKey: 'SAKURA',
+        seed: 784920,
+        maxDepth: 10,
+        splitAngleDeg: 25,
+        asymDeg: 4,
+        lenRatio: 0.76,
+        radRatio: 0.71,
+        windBaseKmh: 28,
+        windTurbPct: 42,
+        windFreqHz: 1.25,
+        gustBoost: 0,
+        showWindVectors: false,
+        showSkeletonFK: false,
+        // Arreglo plano ordenado topológicamente (padres siempre antes que hijos)
+        // para evaluar Cinemática Directa a 60 FPS sin sobrecarga de recursión en cada frame
+        branches: [],
+        detachedLeaves: [],
+        grassBlades: [],
+        ambientSpores: []
+      };
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        initMeadowGrass();
+        buildTreeSkeleton();
+      }
+      window.addEventListener('resize', resizeCanvas);
+
+      // Hierba reactiva en la colina basal del árbol
+      function initMeadowGrass() {
+        const rng = createPRNG(state.seed + 99);
+        state.grassBlades = [];
+        const count = 170;
+        const centerX = canvas.width * 0.5;
+        const spread = Math.min(canvas.width * 0.42, 460);
+
+        for (let i = 0; i < count; i++) {
+          const normX = (rng() - 0.5) * 2;
+          const x = centerX + normX * spread;
+          const distCenter = Math.abs(normX);
+          const hillY = getGroundYAt(x);
+          state.grassBlades.push({
+            x,
+            y: hillY + 2,
+            height: (14 + rng() * 22) * (1 - distCenter * 0.45),
+            baseAngle: (rng() - 0.5) * 0.25,
+            phase: rng() * Math.PI * 2,
+            stiffness: 0.6 + rng() * 0.6
+          });
+        }
+      }
+
+      function getGroundYAt(x) {
+        const W = canvas.width;
+        const H = canvas.height;
+        const baseH = H * 0.87;
+        const dx = (x - W * 0.5) / Math.max(300, W * 0.38);
+        const mound = Math.cos(Math.min(Math.PI * 0.5, Math.abs(dx) * 1.35)) * 28;
+        return baseH - mound;
+      }
+
+      // =======================================================================
+      // 4. GENERACIÓN DEL GRAFO / ESQUELETO DEL ÁRBOL EN MEMORIA (CERO PARPADEO)
+      // =======================================================================
+      function buildTreeSkeleton() {
+        const rng = createPRNG(state.seed);
+        const preset = SPECIES_PRESETS[state.speciesKey];
+        state.branches = [];
+
+        const W = canvas.width;
+        const H = canvas.height;
+        const rootX = W * 0.5;
+        const rootY = getGroundYAt(rootX) + 6;
+
+        const baseTrunkLen = Math.min(W, H) * preset.trunkLengthFactor;
+        const baseTrunkRad = Math.max(10, Math.min(W, H) * preset.trunkRadiusFactor);
+        const maxD = state.maxDepth;
+
+        const splitRad = (state.splitAngleDeg * Math.PI) / 180;
+        const asymRad = (state.asymDeg * Math.PI) / 180;
+
+        // Cola de construcción para garantizar orden topológico (padres antes que hijos)
+        function createBranchNode(parentId, depth, localAngle, length, radiusStart) {
+          const id = state.branches.length;
+          const radiusEnd = Math.max(0.75, radiusStart * state.radRatio);
+
+          // Generar racimos de follaje precalculados para ramas terminales y sub-terminales
+          const foliage = [];
+          if (depth >= maxD - 2) {
+            const clusterCount = depth === maxD ? 5 : depth === maxD - 1 ? 3 : 2;
+            for (let f = 0; f < clusterCount; f++) {
+              const color = preset.leafColors[Math.floor(rng() * preset.leafColors.length)];
+              foliage.push({
+                tAlong: 0.35 + rng() * 0.65,
+                offsetAngle: (rng() - 0.5) * 1.4,
+                dist: 3 + rng() * 11,
+                size: (depth === maxD ? 5.5 : 4.5) + rng() * 4.5,
+                color,
+                attached: true,
+                regrowTimer: 0
+              });
+            }
+          }
+
+          const node = {
+            id,
+            parentId,
+            depth,
+            localAngle,
+            baseLength: length * (0.9 + rng() * 0.22),
+            radiusStart,
+            radiusEnd,
+            phaseOffset: rng() * Math.PI * 2,
+            // Estado elástico de resorte amortiguado para interacción con mouse y ráfagas
+            springAngle: 0,
+            springVel: 0,
+            // Coordenadas cinemáticas calculadas en cada frame por Forward Kinematics
+            startX: rootX,
+            startY: rootY,
+            endX: rootX,
+            endY: rootY - length,
+            worldAngle: -Math.PI * 0.5,
+            foliage
+          };
+
+          state.branches.push(node);
+
+          if (depth < maxD) {
+            // Bifurcación L-System estocástica con variación orgánica fija por semilla
+            const jitterL = (rng() - 0.5) * 0.16;
+            const jitterR = (rng() - 0.5) * 0.16;
+
+            const angleLeft = -splitRad + asymRad + jitterL;
+            const angleRight = splitRad + asymRad + jitterR;
+
+            const nextLenL = length * state.lenRatio * (0.94 + rng() * 0.12);
+            const nextLenR = length * state.lenRatio * (0.94 + rng() * 0.12);
+
+            createBranchNode(id, depth + 1, angleLeft, nextLenL, radiusEnd);
+            createBranchNode(id, depth + 1, angleRight, nextLenR, radiusEnd);
+
+            // En niveles bajos/medios, probabilidad de una tercera rama central de corona
+            if (depth >= 1 && depth <= 4 && rng() < 0.28) {
+              const angleMid = (rng() - 0.5) * splitRad * 0.65 + asymRad;
+              createBranchNode(id, depth + 1, angleMid, length * state.lenRatio * 0.88, radiusEnd * 0.85);
+            }
+          }
+        }
+
+        // Nodo raíz (Tronco principal d = 0)
+        createBranchNode(-1, 0, 0, baseTrunkLen, baseTrunkRad);
+
+        // Actualizar contadores estáticos del HUD
+        document.getElementById('val-seed').textContent = `#${state.seed}`;
+        document.getElementById('val-branches').textContent = state.branches.length.toLocaleString('en-US');
+      }
+
+      // =======================================================================
+      // 5. SOLUCIONADOR DE CINEMÁTICA DIRECTA (FORWARD KINEMATICS) + VIENTO PERLIN
+      // =======================================================================
+      const mouse = {
+        x: -9999,
+        y: -9999,
+        vx: 0,
+        vy: 0,
+        down: false,
+        radius: 135
+      };
+
+      window.addEventListener('pointermove', (e) => {
+        mouse.vx = e.clientX - mouse.x;
+        mouse.vy = e.clientY - mouse.y;
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      window.addEventListener('pointerdown', () => { mouse.down = true; });
+      window.addEventListener('pointerup', () => { mouse.down = false; });
+
+      // Evalúa la fuerza escalar del viento en el punto (x, y) en el instante t
+      function sampleWindFieldAt(x, y, timeSec) {
+        const baseWind = (state.windBaseKmh + state.gustBoost) / 55; // Escala normalizada
+        const turbAmp = (state.windTurbPct / 100) * 1.15;
+        const freq = state.windFreqHz;
+
+        // Coordenadas espaciales normalizadas para el ruido Perlin 2D
+        const nx = x * 0.0022 - timeSec * freq * 0.85;
+        const ny = y * 0.0022 + timeSec * freq * 0.25;
+
+        const noiseVal = fbm2D(nx, ny);
+        return baseWind + noiseVal * turbAmp;
+      }
+
+      function detachLeafParticle(wx, wy, color, leafShape, initialVx = 0, initialVy = 0) {
+        if (state.detachedLeaves.length > 420) return;
+        state.detachedLeaves.push({
+          x: wx,
+          y: wy,
+          vx: initialVx + (Math.random() - 0.5) * 40,
+          vy: initialVy + (Math.random() - 0.5) * 30,
+          angle: Math.random() * Math.PI * 2,
+          spinSpeed: (Math.random() - 0.5) * 6,
+          flipPhase: Math.random() * Math.PI * 2,
+          size: 4.5 + Math.random() * 4.5,
+          color,
+          shape: leafShape,
+          life: 1.0
+        });
+      }
+
+      function updateForwardKinematicsAndPhysics(dt, timeSec) {
+        const preset = SPECIES_PRESETS[state.speciesKey];
+        const W = canvas.width;
+        const rootX = W * 0.5;
+        const rootY = getGroundYAt(rootX) + 6;
+        const maxD = state.maxDepth;
+
+        // Decaimiento suave de la ráfaga de vendaval
+        if (state.gustBoost > 0.1) {
+          state.gustBoost *= Math.pow(0.42, dt);
+        } else {
+          state.gustBoost = 0;
+        }
+
+        const mouseSpeed = Math.hypot(mouse.vx, mouse.vy);
+        let totalStrain = 0;
+        let attachedFoliageCount = 0;
+
+        const branches = state.branches;
+        for (let i = 0; i < branches.length; i++) {
+          const b = branches[i];
+          const d = b.depth;
+
+          // 1. Punto de inicio exacto heredado del extremo final de la rama padre (Cinemática Directa)
+          if (b.parentId === -1) {
+            b.startX = rootX;
+            b.startY = rootY;
+          } else {
+            const parent = branches[b.parentId];
+            b.startX = parent.endX;
+            b.startY = parent.endY;
+          }
+
+          // 2. Rigidez estructural por nivel (k_flex):
+          //    El tronco (d=0) es sumamente rígido; las ramas terminales son muy flexibles
+          const normDepth = d / Math.max(1, maxD);
+          const flexibility = d === 0
+            ? 0.018
+            : 0.035 * Math.pow(normDepth + 0.15, 1.75);
+
+          // 3. Evaluar el Campo de Viento Perlin en la posición espacial de la rama
+          const localWind = sampleWindFieldAt(b.startX, b.startY, timeSec + b.phaseOffset * 0.08);
+          const harmonicSway = Math.sin(timeSec * state.windFreqHz * 2.4 + b.phaseOffset + d * 0.45) * 0.08 * normDepth;
+          const windDeltaAngle = (localWind * flexibility * 0.85) + harmonicSway;
+
+          // 4. Interacción física con el Mouse (Vórtice / Soplador con resorte amortiguado)
+          const dxM = b.endX - mouse.x;
+          const dyM = b.endY - mouse.y;
+          const distMSq = dxM * dxM + dyM * dyM;
+          const rSq = mouse.radius * mouse.radius;
+
+          if (distMSq < rSq && d > 0) {
+            const distM = Math.sqrt(distMSq) || 1;
+            const falloff = (1.0 - distM / mouse.radius);
+            // Torque proporcional a la velocidad del cursor o pulso si mantiene clic presionado
+            const pushForce = mouse.down ? 18 : Math.min(28, mouseSpeed * 0.65);
+            const torque = ((mouse.vx * 0.015) + (dxM / distM) * 0.12) * pushForce * falloff * normDepth;
+            b.springVel += torque * dt * 14;
+
+            // Desprender hojas/pétalos si el cursor sacude las ramas terminales con fuerza
+            if ((mouseSpeed > 14 || mouse.down) && b.foliage.length > 0) {
+              for (let f = 0; f < b.foliage.length; f++) {
+                const fl = b.foliage[f];
+                if (fl.attached && Math.random() < 0.18 * falloff) {
+                  fl.attached = false;
+                  fl.regrowTimer = 6 + Math.random() * 8;
+                  detachLeafParticle(
+                    b.endX,
+                    b.endY,
+                    fl.color,
+                    preset.leafShape,
+                    mouse.vx * 4,
+                    mouse.vy * 4
+                  );
+                }
+              }
+            }
+          }
+
+          // Integración del oscilador armónico amortiguado (Spring-Damper) de la rama
+          const springStiff = 26.0;
+          const springDamp = 4.8;
+          const springAcc = -springStiff * b.springAngle - springDamp * b.springVel;
+          b.springVel += springAcc * dt;
+          b.springAngle += b.springVel * dt;
+          b.springAngle = Math.max(-0.85, Math.min(0.85, b.springAngle));
+
+          totalStrain += Math.abs(windDeltaAngle + b.springAngle);
+
+          // 5. Calcular el ángulo acumulado en el mundo (Forward Kinematics)
+          const parentWorldAngle = b.parentId === -1 ? -Math.PI * 0.5 : branches[b.parentId].worldAngle;
+          let targetAngle = parentWorldAngle + b.localAngle + windDeltaAngle + b.springAngle;
+
+          // Efecto de caída gravitacional para el Sauce Llorón (Weeping Willow) y zarcillos Avatar
+          if (preset.gravityDroop > 0 && d >= 3) {
+            const droopFactor = preset.gravityDroop * Math.pow((d - 2) / (maxD - 2), 1.35);
+            // Inclinarse suavemente hacia abajo (+π/2) manteniendo la oscilación del viento
+            const diffToDown = Math.atan2(Math.sin(Math.PI * 0.5 - targetAngle), Math.cos(Math.PI * 0.5 - targetAngle));
+            targetAngle += diffToDown * Math.min(0.82, droopFactor) + localWind * 0.24 * normDepth;
+          }
+
+          b.worldAngle = targetAngle;
+
+          // 6. Calcular extremo final exacto de este segmento
+          b.endX = b.startX + Math.cos(b.worldAngle) * b.baseLength;
+          b.endY = b.startY + Math.sin(b.worldAngle) * b.baseLength;
+
+          // 7. Desprendimiento autónomo de hojas cuando una ráfaga supera el umbral
+          const windStress = Math.abs(localWind) + Math.abs(b.springVel) * 0.25;
+          for (let f = 0; f < b.foliage.length; f++) {
+            const fl = b.foliage[f];
+            if (fl.attached) {
+              attachedFoliageCount++;
+              const detachProb = windStress > 1.25 ? (windStress - 1.1) * 0.012 : 0.00035;
+              if (Math.random() < detachProb) {
+                fl.attached = false;
+                fl.regrowTimer = 7 + Math.random() * 9;
+                detachLeafParticle(b.endX, b.endY, fl.color, preset.leafShape, localWind * 55, 10);
+              }
+            } else {
+              // Rebrote orgánico gradual de la flor/hoja en la rama
+              fl.regrowTimer -= dt;
+              if (fl.regrowTimer <= 0) {
+                fl.attached = true;
+              }
+            }
+          }
+        }
+
+        // Decaimiento de velocidad instantánea del mouse
+        mouse.vx *= 0.8;
+        mouse.vy *= 0.8;
+
+        // Actualizar partículas de hojas y pétalos desprendidos siguiendo el campo de viento Perlin
+        const groundLimit = canvas.height + 20;
+        for (let i = state.detachedLeaves.length - 1; i >= 0; i--) {
+          const p = state.detachedLeaves[i];
+          const wForce = sampleWindFieldAt(p.x, p.y, timeSec);
+          const verticalTurb = perlin2D(p.x * 0.008 + timeSec, p.y * 0.008) * 38;
+
+          // En el bioma Avatar, las esporas flotan suavemente; en los demás caen con gravedad y planeo
+          const gravity = preset.bioluminescent ? 12 : 48;
+          const targetVx = wForce * 115 + Math.sin(timeSec * 3 + p.flipPhase) * 24;
+          const targetVy = gravity + verticalTurb;
+
+          p.vx += (targetVx - p.vx) * dt * 2.8;
+          p.vy += (targetVy - p.vy) * dt * 2.4;
+
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.angle += (p.spinSpeed + wForce * 1.5) * dt;
+          p.flipPhase += dt * 4.5;
+
+          if (p.y > groundLimit || p.x < -80 || p.x > canvas.width + 80) {
+            state.detachedLeaves.splice(i, 1);
+          }
+        }
+
+        return {
+          avgStrain: totalStrain / Math.max(1, branches.length),
+          attachedFoliageCount
+        };
+      }
+
+      // =======================================================================
+      // 6. RENDERIZADO ATMOSFÉRICO, TRONCO CÓNICO CON SOMBREADO CILÍNDRICO Y HOJAS
+      // =======================================================================
+      function drawAtmosphereAndField(timeSec) {
+        const W = canvas.width;
+        const H = canvas.height;
+        const preset = SPECIES_PRESETS[state.speciesKey];
+
+        // 1. Cielo con gradiente atmosférico
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+        skyGrad.addColorStop(0, preset.skyTop);
+        skyGrad.addColorStop(0.58, preset.skyMid);
+        skyGrad.addColorStop(1, preset.skyBot);
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // 2. Astro celeste / Luna con halo suave
+        const orbX = W * 0.5;
+        const orbY = H * 0.46;
+        const orbR = Math.min(W, H) * 0.24;
+        const orbGrad = ctx.createRadialGradient(orbX, orbY, orbR * 0.1, orbX, orbY, orbR * 1.35);
+        orbGrad.addColorStop(0, preset.orbColor);
+        orbGrad.addColorStop(0.45, preset.bioluminescent ? 'rgba(80, 120, 255, 0.16)' : 'rgba(255, 180, 190, 0.14)');
+        orbGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = orbGrad;
+        ctx.beginPath();
+        ctx.arc(orbX, orbY, orbR * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 3. Visualización opcional del Campo Vectorial de Viento Perlin (Flechas de Flujo)
+        if (state.showWindVectors) {
+          const step = 56;
+          ctx.lineWidth = 1.2;
+          for (let y = 75; y < H - 60; y += step) {
+            for (let x = 340; x < W - 340; x += step) {
+              const wVal = sampleWindFieldAt(x, y, timeSec);
+              const wy = perlin2D(x * 0.004 + timeSec, y * 0.004) * 0.35;
+              const len = Math.min(26, Math.max(6, Math.abs(wVal) * 16));
+              const ang = Math.atan2(wy, wVal);
+
+              const ex = x + Math.cos(ang) * len;
+              const ey = y + Math.sin(ang) * len;
+
+              ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
+              ctx.beginPath();
+              ctx.moveTo(x, y);
+              ctx.lineTo(ex, ey);
+              ctx.stroke();
+
+              // Punta de la flecha vectorial
+              ctx.fillStyle = 'rgba(0, 255, 157, 0.55)';
+              ctx.beginPath();
+              ctx.arc(ex, ey, 2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+
+      // Dibuja cada segmento de rama como un trapecio cónico suave (Ley de Leonardo da Vinci)
+      // con sombreado cilíndrico o venas bioluminiscentes
+      function drawTreeBranches() {
+        const preset = SPECIES_PRESETS[state.speciesKey];
+        const branches = state.branches;
+        const maxD = state.maxDepth;
+
+        for (let i = 0; i < branches.length; i++) {
+          const b = branches[i];
+          const x1 = b.startX, y1 = b.startY;
+          const x2 = b.endX, y2 = b.endY;
+          const r1 = b.radiusStart;
+          const r2 = b.radiusEnd;
+
+          if (state.showSkeletonFK) {
+            ctx.strokeStyle = b.depth === 0 ? '#ffbe0b' : '#00f0ff';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            ctx.fillStyle = '#ff4d8d';
+            ctx.beginPath();
+            ctx.arc(x2, y2, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+            continue;
+          }
+
+          // Vector normal perpendicular al segmento para construir el trapecio cónico
+          const nx = -Math.sin(b.worldAngle);
+          const ny = Math.cos(b.worldAngle);
+
+          ctx.fillStyle = preset.barkMid;
+          ctx.beginPath();
+          ctx.moveTo(x1 + nx * r1, y1 + ny * r1);
+          ctx.lineTo(x2 + nx * r2, y2 + ny * r2);
+          ctx.lineTo(x2 - nx * r2, y2 - ny * r2);
+          ctx.lineTo(x1 - nx * r1, y1 - ny * r1);
+          ctx.closePath();
+          ctx.fill();
+
+          // Articulación circular en la base para sellar cualquier grieta al rotar
+          if (r1 > 1.8) {
+            ctx.beginPath();
+            ctx.arc(x1, y1, r1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Sombreado cilíndrico lateral en ramas gruesas y medias
+          if (r1 > 2.4) {
+            ctx.fillStyle = preset.barkLight;
+            ctx.beginPath();
+            ctx.moveTo(x1 + nx * r1 * 0.85, y1 + ny * r1 * 0.85);
+            ctx.lineTo(x2 + nx * r2 * 0.85, y2 + ny * r2 * 0.85);
+            ctx.lineTo(x2 + nx * r2 * 0.15, y2 + ny * r2 * 0.15);
+            ctx.lineTo(x1 + nx * r1 * 0.15, y1 + ny * r1 * 0.15);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Venas de savia bioluminiscente para el Árbol de las Almas (Avatar)
+          if (preset.sapGlow && b.depth <= maxD - 2) {
+            ctx.strokeStyle = preset.sapGlow;
+            ctx.globalAlpha = 0.35 + (b.depth / maxD) * 0.35;
+            ctx.lineWidth = Math.max(0.8, r2 * 0.32);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+          }
+        }
+      }
+
+      function drawFoliageAndDetachedLeaves(timeSec) {
+        if (state.showSkeletonFK) return;
+        const preset = SPECIES_PRESETS[state.speciesKey];
+        const branches = state.branches;
+
+        if (preset.bioluminescent) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+        }
+
+        // 1. Dibujar hojas/flores sujetas a las ramas terminales
+        for (let i = 0; i < branches.length; i++) {
+          const b = branches[i];
+          if (b.foliage.length === 0) continue;
+
+          for (let f = 0; f < b.foliage.length; f++) {
+            const fl = b.foliage[f];
+            if (!fl.attached) continue;
+
+            const bx = b.startX + (b.endX - b.startX) * fl.tAlong;
+            const by = b.startY + (b.endY - b.startY) * fl.tAlong;
+            const ang = b.worldAngle + fl.offsetAngle;
+            const lx = bx + Math.cos(ang) * fl.dist;
+            const ly = by + Math.sin(ang) * fl.dist;
+
+            ctx.fillStyle = fl.color;
+            ctx.beginPath();
+            if (preset.leafShape === 'WILLOW_LEAF' || preset.leafShape === 'SPORE_TENDRIL') {
+              ctx.ellipse(lx, ly, fl.size * 1.35, fl.size * 0.42, b.worldAngle, 0, Math.PI * 2);
+            } else {
+              ctx.ellipse(lx, ly, fl.size, fl.size * 0.68, ang, 0, Math.PI * 2);
+            }
+            ctx.fill();
+          }
+        }
+
+        // 2. Dibujar hojas, pétalos y esporas desprendidas volando en el viento Perlin
+        for (let i = 0; i < state.detachedLeaves.length; i++) {
+          const p = state.detachedLeaves[i];
+          const perspectiveScaleY = Math.max(0.22, Math.abs(Math.cos(p.flipPhase)));
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.angle);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.size, p.size * 0.65 * perspectiveScaleY, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (preset.bioluminescent) {
+          ctx.restore();
+        }
+      }
+
+      function drawGroundAndReactiveGrass(timeSec) {
+        const W = canvas.width;
+        const H = canvas.height;
+        const preset = SPECIES_PRESETS[state.speciesKey];
+
+        // Colina basal
+        ctx.fillStyle = preset.barkDark;
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (let x = 0; x <= W; x += 24) {
+          ctx.lineTo(x, getGroundYAt(x));
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        ctx.fill();
+
+        // Briznas de hierba reactivas al mismo campo de viento Perlin
+        for (let i = 0; i < state.grassBlades.length; i++) {
+          const g = state.grassBlades[i];
+          const wVal = sampleWindFieldAt(g.x, g.y, timeSec);
+          const bend = g.baseAngle + wVal * 0.55 * g.stiffness;
+
+          const tipX = g.x + Math.sin(bend) * g.height;
+          const tipY = g.y - Math.cos(bend) * g.height;
+          const cpX = g.x + Math.sin(bend * 0.5) * (g.height * 0.55);
+          const cpY = g.y - Math.cos(bend * 0.5) * (g.height * 0.55);
+
+          ctx.strokeStyle = preset.bioluminescent ? '#00f0ff' : state.speciesKey === 'SAKURA' ? '#4a304d' : '#2d5a43';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(g.x, g.y);
+          ctx.quadraticCurveTo(cpX, cpY, tipX, tipY);
+          ctx.stroke();
+        }
+
+        // Indicador sutil del vórtice aerodinámico del cursor
+        if (mouse.x > 0 && mouse.y > 0) {
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(mouse.x, mouse.y, mouse.radius * 0.45, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // =======================================================================
+      // 7. CONTROLES DEL HUD Y EVENTOS INTERACTIVOS
+      // =======================================================================
+      function applySpeciesPreset(key) {
+        state.speciesKey = key;
+        const p = SPECIES_PRESETS[key];
+
+        state.maxDepth = p.maxDepth;
+        state.splitAngleDeg = p.splitAngleDeg;
+        state.asymDeg = p.asymDeg;
+        state.lenRatio = p.lenRatio;
+        state.radRatio = p.radRatio;
+
+        document.getElementById('hud-species-name').textContent = p.name;
+        document.getElementById('slider-depth').value = state.maxDepth;
+        document.getElementById('lbl-depth').textContent = `${state.maxDepth} niveles`;
+
+        document.getElementById('slider-angle').value = state.splitAngleDeg;
+        document.getElementById('lbl-angle').textContent = `${state.splitAngleDeg}°`;
+
+        document.getElementById('slider-asym').value = state.asymDeg;
+        document.getElementById('lbl-asym').textContent = `${state.asymDeg >= 0 ? '+' : ''}${state.asymDeg}°`;
+
+        document.getElementById('slider-len-ratio').value = state.lenRatio;
+        document.getElementById('lbl-len-ratio').textContent = state.lenRatio.toFixed(2);
+
+        document.getElementById('slider-rad-ratio').value = state.radRatio;
+        document.getElementById('lbl-rad-ratio').textContent = state.radRatio.toFixed(2);
+
+        document.querySelectorAll('#species-buttons .bot-btn').forEach((b) =>
+          b.classList.toggle('active', b.dataset.species === key)
+        );
+
+        state.detachedLeaves.length = 0;
+        buildTreeSkeleton();
+      }
+
+      document.querySelectorAll('#species-buttons .bot-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applySpeciesPreset(btn.dataset.species));
+      });
+
+      document.getElementById('btn-new-seed').addEventListener('click', () => {
+        state.seed = Math.floor(100000 + Math.random() * 900000);
+        initPerlinTable(state.seed);
+        initMeadowGrass();
+        buildTreeSkeleton();
+      });
+
+      document.getElementById('btn-regrow-leaves').addEventListener('click', () => {
+        for (let i = 0; i < state.branches.length; i++) {
+          const fol = state.branches[i].foliage;
+          for (let f = 0; f < fol.length; f++) {
+            fol[f].attached = true;
+          }
+        }
+      });
+
+      document.getElementById('btn-gust').addEventListener('click', () => {
+        state.gustBoost = 95;
+      });
+
+      // Sliders morfológicos y meteorológicos
+      document.getElementById('slider-depth').addEventListener('input', (e) => {
+        state.maxDepth = parseInt(e.target.value, 10);
+        document.getElementById('lbl-depth').textContent = `${state.maxDepth} niveles`;
+        buildTreeSkeleton();
+      });
+
+      document.getElementById('slider-angle').addEventListener('input', (e) => {
+        state.splitAngleDeg = parseInt(e.target.value, 10);
+        document.getElementById('lbl-angle').textContent = `${state.splitAngleDeg}°`;
+        buildTreeSkeleton();
+      });
+
+      document.getElementById('slider-asym').addEventListener('input', (e) => {
+        state.asymDeg = parseInt(e.target.value, 10);
+        document.getElementById('lbl-asym').textContent = `${state.asymDeg >= 0 ? '+' : ''}${state.asymDeg}°`;
+        buildTreeSkeleton();
+      });
+
+      document.getElementById('slider-len-ratio').addEventListener('input', (e) => {
+        state.lenRatio = parseFloat(e.target.value);
+        document.getElementById('lbl-len-ratio').textContent = state.lenRatio.toFixed(2);
+        buildTreeSkeleton();
+      });
+
+      document.getElementById('slider-rad-ratio').addEventListener('input', (e) => {
+        state.radRatio = parseFloat(e.target.value);
+        document.getElementById('lbl-rad-ratio').textContent = state.radRatio.toFixed(2);
+        buildTreeSkeleton();
+      });
+
+      document.getElementById('slider-wind').addEventListener('input', (e) => {
+        state.windBaseKmh = parseInt(e.target.value, 10);
+        const absW = Math.abs(state.windBaseKmh);
+        const desc = absW < 15 ? 'Calma' : absW < 45 ? 'Brisa' : absW < 75 ? 'Vendaval' : 'Huracán';
+        document.getElementById('lbl-wind').textContent = `${state.windBaseKmh} km/h (${desc})`;
+      });
+
+      document.getElementById('slider-turb').addEventListener('input', (e) => {
+        state.windTurbPct = parseInt(e.target.value, 10);
+        document.getElementById('lbl-turb').textContent = `${state.windTurbPct}%`;
+      });
+
+      document.getElementById('slider-freq').addEventListener('input', (e) => {
+        state.windFreqHz = parseFloat(e.target.value);
+        document.getElementById('lbl-freq').textContent = `${state.windFreqHz.toFixed(2)} Hz`;
+      });
+
+      const vecBtn = document.getElementById('btn-toggle-vectors');
+      vecBtn.addEventListener('click', () => {
+        state.showWindVectors = !state.showWindVectors;
+        vecBtn.classList.toggle('active', state.showWindVectors);
+      });
+
+      const skelBtn = document.getElementById('btn-toggle-skeleton');
+      skelBtn.addEventListener('click', () => {
+        state.showSkeletonFK = !state.showSkeletonFK;
+        skelBtn.classList.toggle('active', state.showSkeletonFK);
+      });
+
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (k === '1') applySpeciesPreset('SAKURA');
+        else if (k === '2') applySpeciesPreset('WILLOW');
+        else if (k === '3') applySpeciesPreset('OAK');
+        else if (k === '4') applySpeciesPreset('AVATAR');
+        else if (k === 'g') document.getElementById('btn-gust').click();
+        else if (k === 'r') document.getElementById('btn-new-seed').click();
+        else if (k === 'v') vecBtn.click();
+        else if (k === 'k') skelBtn.click();
+      });
+
+      // =======================================================================
+      // 8. BUCLE PRINCIPAL DE ANIMACIÓN Y TELEMETRÍA EN TIEMPO REAL
+      // =======================================================================
+      resizeCanvas();
+
+      let lastTime = performance.now();
+      let frames = 0;
+      let fpsAccum = 0;
+
+      function mainLoop(now) {
+        requestAnimationFrame(mainLoop);
+
+        const dt = Math.min(0.05, (now - lastTime) * 0.001);
+        const timeSec = now * 0.001;
+        lastTime = now;
+        frames++;
+        fpsAccum += dt;
+
+        const telemetry = updateForwardKinematicsAndPhysics(dt, timeSec);
+
+        drawAtmosphereAndField(timeSec);
+        drawTreeBranches();
+        drawFoliageAndDetachedLeaves(timeSec);
+        drawGroundAndReactiveGrass(timeSec);
+
+        if (fpsAccum >= 0.2) {
+          const fps = Math.round(frames / fpsAccum);
+          frames = 0;
+          fpsAccum = 0;
+
+          const liveWind = sampleWindFieldAt(canvas.width * 0.5, canvas.height * 0.4, timeSec) * 48;
+          document.getElementById('fps-badge').textContent = `${fps} FPS`;
+          document.getElementById('val-foliage').textContent = telemetry.attachedFoliageCount.toLocaleString('en-US');
+          document.getElementById('val-particles').textContent = String(state.detachedLeaves.length);
+          document.getElementById('val-wind-live').textContent = `${liveWind.toFixed(1)} km/h`;
+          document.getElementById('val-strain').textContent = `${telemetry.avgStrain.toFixed(3)} rad`;
+        }
+      }
+
+      requestAnimationFrame(mainLoop);
+    })();
+  </script>
+</body>
+</html>

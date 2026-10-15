@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A-LIFE LAB // Motor de Vida Artificial y Boids de Reynolds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --neon-cyan: #00f0ff;
+      --neon-magenta: #ff007f;
+      --neon-purple: #a855f7;
+      --neon-green: #10b981;
+      --neon-amber: #f59e0b;
+      --neon-red: #ef4444;
+      --bg-dark: rgba(3, 7, 18, 0.88);
+      --panel-border: rgba(0, 240, 255, 0.28);
+      --glass-glow: 0 0 25px rgba(0, 240, 255, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030712;
+      font-family: 'Rajdhani', sans-serif;
+      color: #e2e8f0;
+    }
+
+    #sim-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+      cursor: crosshair;
+    }
+
+    /* HUD OVERLAY */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 360px 1fr 380px;
+      padding: 16px;
+      gap: 12px;
+      transition: opacity 0.35s ease;
+    }
+
+    #hud-overlay.hud-hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      background: var(--bg-dark);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      box-shadow: var(--glass-glow);
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hud-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-magenta), transparent);
+    }
+
+    .hud-corner {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-color: var(--neon-cyan);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .hud-corner.tl { top: 2px; left: 2px; border-width: 2px 0 0 2px; }
+    .hud-corner.tr { top: 2px; right: 2px; border-width: 2px 2px 0 0; }
+    .hud-corner.bl { bottom: 2px; left: 2px; border-width: 0 0 2px 2px; }
+    .hud-corner.br { bottom: 2px; right: 2px; border-width: 0 2px 2px 0; }
+
+    /* CABECERA SUPERIOR */
+    .hud-top {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--neon-cyan);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .brand-logo::after {
+      content: '';
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 12px solid var(--neon-magenta);
+      transform: rotate(45deg);
+    }
+
+    .brand-text h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    }
+
+    .brand-text p {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: var(--neon-cyan);
+    }
+
+    .top-telemetry-strip {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green);
+      animation: pulseGreen 1.5s infinite alternate;
+    }
+
+    @keyframes pulseGreen {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; box-shadow: 0 0 12px var(--neon-green); }
+    }
+
+    /* PANEL IZQUIERDO: TELEMETRÍA CIENTÍFICA */
+    .hud-left {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-left::-webkit-scrollbar { display: none; }
+
+    .section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 3px 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    }
+
+    .metric-lbl {
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .metric-val.cyan { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0, 240, 255, 0.4); }
+    .metric-val.magenta { color: var(--neon-magenta); text-shadow: 0 0 8px rgba(255, 0, 127, 0.4); }
+    .metric-val.amber { color: var(--neon-amber); text-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .metric-val.green { color: var(--neon-green); text-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
+    .optimization-card {
+      background: rgba(0, 30, 60, 0.45);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 6px;
+    }
+
+    .progress-bar-bg {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      transition: width 0.15s ease-out;
+    }
+
+    /* PRESETS BOTONES */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .preset-btn {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 4px;
+      color: #cbd5e1;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      padding: 7px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .preset-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .preset-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.3), rgba(168, 85, 247, 0.4));
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      font-weight: bold;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+    }
+
+    /* PANEL DERECHO: CONTROLES DE DIRECCIÓN Y ENTORNOS */
+    .hud-right {
+      grid-column: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-right::-webkit-scrollbar { display: none; }
+
+    .slider-group {
+      margin-top: 5px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 3px;
+    }
+
+    .hud-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(0, 240, 255, 0.2);
+      outline: none;
+    }
+
+    .hud-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 17px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider-switch {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .25s;
+      border-radius: 17px;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .slider-switch:before {
+      position: absolute;
+      content: "";
+      height: 11px;
+      width: 11px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      transition: .25s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-switch {
+      background-color: rgba(0, 240, 255, 0.45);
+      border-color: var(--neon-cyan);
+    }
+
+    input:checked + .slider-switch:before {
+      transform: translateX(17px);
+      background-color: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .action-btn {
+      flex: 1;
+      background: rgba(0, 30, 60, 0.5);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #c9e6ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      padding: 7px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .action-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .action-btn.danger {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .action-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: var(--neon-red);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+    }
+
+    /* BARRA INFERIOR / DOCK */
+    .hud-bottom {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 18px;
+    }
+
+    .mode-pills {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mode-pill {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-pill:hover {
+      background: rgba(0, 240, 255, 0.2);
+      color: #ffffff;
+    }
+
+    .mode-pill.active {
+      background: var(--neon-cyan);
+      color: #030712;
+      font-weight: bold;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .dock-hints {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .dock-hints span {
+      color: var(--neon-cyan);
+    }
+
+    .hud-toggle-btn {
+      position: absolute;
+      bottom: 18px;
+      right: 18px;
+      z-index: 25;
+      background: var(--bg-dark);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: var(--neon-cyan);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s;
+      box-shadow: var(--glass-glow);
+      display: none;
+    }
+
+    .hud-toggle-btn:hover {
+      background: var(--neon-cyan);
+      color: #030712;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LIENZO DE RENDERIZADO RÁPIDO 2D -->
+  <canvas id="sim-canvas"></canvas>
+
+  <!-- BOTÓN FLOTANTE PARA RESTAURAR HUD -->
+  <div class="hud-toggle-btn" id="floating-hud-btn" title="Mostrar controles">
+    MOSTRAR HUD [H]
+  </div>
+
+  <!-- HUD DE TELEMETRÍA Y CONTROLES -->
+  <div id="hud-overlay">
+    
+    <!-- CABECERA SUPERIOR -->
+    <div class="hud-panel hud-top">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="brand-group">
+        <div class="brand-logo"></div>
+        <div class="brand-text">
+          <h1>A-LIFE LAB // EMERGENCE ENGINE</h1>
+          <p>SIMULADOR MASIVO DE BOIDS DE REYNOLDS // QUADTREE O(N log N)</p>
+        </div>
+      </div>
+
+      <div class="top-telemetry-strip">
+        <div class="stat-pill">
+          <div class="status-dot"></div>
+          <span id="fps-display">60.0 FPS (16.6ms)</span>
+        </div>
+        <div class="stat-pill">
+          <span>BOIDS:</span>
+          <span class="metric-val cyan" id="top-boid-count">1,200</span>
+        </div>
+        <div class="stat-pill">
+          <span>DEPREDADOR MOUSE:</span>
+          <span class="metric-val magenta" id="predator-status">ACECHANDO</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL IZQUIERDO: TELEMETRÍA CIENTÍFICA -->
+    <div class="hud-panel hud-left">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="section-title">
+        <span>TELEMETRÍA DE ENJAMBRE</span>
+        <span class="metric-val cyan" id="agent-density">1.0x DENSIDAD</span>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-lbl">AGENTES ACTIVOS:</span>
+        <span class="metric-val cyan" id="metric-boids">1,200</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-lbl">VELOCIDAD MEDIA:</span>
+        <span class="metric-val" id="metric-speed">4.20 px/f</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-lbl">ORDEN POLARIZACIÓN (Φ):</span>
+        <span class="metric-val green" id="metric-polarization">0.86 (ALTO)</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-lbl">ESTADO ADRENALINA / PÁNICO:</span>
+        <span class="metric-val amber" id="metric-panic">4.2% PARVADA</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-lbl">DEPREDADORES IA EN CAZA:</span>
+        <span class="metric-val magenta" id="metric-predators">1 ACTIVO</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-lbl">OBSTÁCULOS EN CAMPO:</span>
+        <span class="metric-val" id="metric-obstacles">0 VIGENTES</span>
+      </div>
+
+      <!-- CARD DE OPTIMIZACIÓN ESPACIAL QUADTREE -->
+      <div class="section-title" style="margin-top: 10px;">
+        <span>PARTICIONAMIENTO ESPACIAL</span>
+      </div>
+      <div class="optimization-card">
+        <div class="metric-row" style="border: none;">
+          <span class="metric-lbl">ESTRUCTURA:</span>
+          <span class="metric-val cyan">QUADTREE RECURSIVO</span>
+        </div>
+        <div class="metric-row" style="border: none;">
+          <span class="metric-lbl">CHEQUEOS VECINDAD:</span>
+          <span class="metric-val green" id="checks-actual">~24,500</span>
+        </div>
+        <div class="metric-row" style="border: none;">
+          <span class="metric-lbl">EN O(N²) FUERZA BRUTA:</span>
+          <span class="metric-val magenta" id="checks-brute">1,440,000</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="efficiency-fill" style="width: 98.3%;"></div>
+        </div>
+        <div class="metric-row" style="border: none; padding-top: 2px;">
+          <span class="metric-lbl">REDUCCIÓN DE CÁLCULO:</span>
+          <span class="metric-val green" id="efficiency-pct">98.3% AHORRO</span>
+        </div>
+      </div>
+
+      <!-- PRESETS DE COMPORTAMIENTO EMERGENTE -->
+      <div class="section-title" style="margin-top: 10px;">
+        <span>PRESETS DE COMPORTAMIENTO</span>
+      </div>
+      <div class="presets-grid">
+        <button class="preset-btn active" id="preset-murmuration">🦅 Estorninos</button>
+        <button class="preset-btn" id="preset-fish">🐟 Cardumen</button>
+        <button class="preset-btn" id="preset-swarm">🦟 Enjambre</button>
+        <button class="preset-btn" id="preset-panic">⚡ Hiper-Pánico</button>
+      </div>
+
+      <!-- ACCIONES RÁPIDAS DE AGENTES -->
+      <div class="btn-row" style="margin-top: 8px;">
+        <button class="action-btn" id="btn-add-boids">+200 BOIDS</button>
+        <button class="action-btn" id="btn-sub-boids">-200 BOIDS</button>
+        <button class="action-btn danger" id="btn-clear-obs">LIMPIAR</button>
+      </div>
+    </div>
+
+    <!-- PANEL DERECHO: CONTROLES DE FUERZAS Y PARÁMETROS -->
+    <div class="hud-panel hud-right">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="section-title">
+        <span>LEYES DE DIRECCIÓN DE REYNOLDS</span>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>SEPARACIÓN (Evitar Vecinos):</span>
+          <span id="val-sep">1.5x</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-sep" min="0.0" max="4.0" step="0.1" value="1.5">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>ALINEACIÓN (Igualar Rumbo):</span>
+          <span id="val-ali">1.2x</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-ali" min="0.0" max="4.0" step="0.1" value="1.2">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>COHESIÓN (Centro de Masa):</span>
+          <span id="val-coh">1.0x</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-coh" min="0.0" max="4.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>RADIO DE PERCEPCIÓN (r_p):</span>
+          <span id="val-radius">65 px</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-radius" min="20" max="150" step="2" value="65">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>VELOCIDAD MÁXIMA (maxSpeed):</span>
+          <span id="val-maxspeed">4.5 px/f</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-maxspeed" min="1.5" max="9.0" step="0.2" value="4.5">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>FUERZA MÁXIMA GIRO (maxForce):</span>
+          <span id="val-maxforce">0.18</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-maxforce" min="0.03" max="0.5" step="0.01" value="0.18">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>PÁNICO DEPREDADOR (Mouse/AI):</span>
+          <span id="val-flee">3.5x</span>
+        </div>
+        <input type="range" class="hud-slider" id="slider-flee" min="1.0" max="8.0" step="0.2" value="3.5">
+      </div>
+
+      <div class="section-title" style="margin-top: 10px;">
+        <span>CAPAS VISUALES & DEPEDRADORES</span>
+      </div>
+
+      <div class="toggle-row">
+        <span>Estructura del Quadtree (Cajas)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-quadtree">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Vectores & Radios de Percepción</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-vectors">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Estelas de Movimiento (Trails)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-trails" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Depredador IA Autónomo</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-ai-predator" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Espacio Toroidal (Wrap infinito)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-torus" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Audio Bio-Acústico Sintético</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-audio" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- BARRA INFERIOR / DOCK -->
+    <div class="hud-panel hud-bottom">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="mode-pills">
+        <span style="font-family:'Share Tech Mono'; font-size:11px; color:#94a3b8; align-self:center;">ACCIÓN CLIC:</span>
+        <div class="mode-pill active" id="mode-shockwave">💥 ONDA EXPANSIVA</div>
+        <div class="mode-pill" id="mode-obstacle">🛡️ CREAR OBSTÁCULO</div>
+        <div class="mode-pill" id="mode-spawn">✨ SEMBRAR BOIDS</div>
+      </div>
+
+      <div class="dock-hints">
+        MOVER MOUSE: <span>Depredador Ápex</span> | CLIC IZQ: <span>Activar Acción</span> | TECLA [ESPACIO]: <span>Shockwave</span> | TECLA [H]: <span>Ocultar HUD</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CÓDIGO FUENTE ÍNTEGRO DEL MOTOR DE SIMULACIÓN -->
+  <script>
+    /* ==========================================================================
+       1. BIBLIOTECA VECTORIAL 2D DE ALTO RENDIMIENTO (ZERO ALLOCATIONS HOT LOOP)
+       ========================================================================== */
+    class Vector2 {
+      constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+      }
+
+      set(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+      }
+
+      copy(v) {
+        this.x = v.x;
+        this.y = v.y;
+        return this;
+      }
+
+      add(v) {
+        this.x += v.x;
+        this.y += v.y;
+        return this;
+      }
+
+      sub(v) {
+        this.x -= v.x;
+        this.y -= v.y;
+        return this;
+      }
+
+      mult(n) {
+        this.x *= n;
+        this.y *= n;
+        return this;
+      }
+
+      div(n) {
+        if (n !== 0) {
+          this.x /= n;
+          this.y /= n;
+        }
+        return this;
+      }
+
+      magSq() {
+        return this.x * this.x + this.y * this.y;
+      }
+
+      mag() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+      }
+
+      heading() {
+        return Math.atan2(this.y, this.x);
+      }
+
+      normalize() {
+        const m = this.mag();
+        if (m > 0.00001) {
+          this.x /= m;
+          this.y /= m;
+        }
+        return this;
+      }
+
+      limit(max) {
+        const mSq = this.magSq();
+        if (mSq > max * max) {
+          this.div(Math.sqrt(mSq)).mult(max);
+        }
+        return this;
+      }
+
+      setMag(len) {
+        return this.normalize().mult(len);
+      }
+
+      distSq(v) {
+        const dx = this.x - v.x;
+        const dy = this.y - v.y;
+        return dx * dx + dy * dy;
+      }
+
+      dist(v) {
+        return Math.sqrt(this.distSq(v));
+      }
+
+      clone() {
+        return new Vector2(this.x, this.y);
+      }
+    }
+
+    // Vectores temporales estáticos pre-asignados para evitar recolección de basura (GC)
+    const _vTemp1 = new Vector2();
+    const _vTemp2 = new Vector2();
+    const _vSteer = new Vector2();
+
+    /* ==========================================================================
+       2. TABLAS DE COLOR BIOLUMINISCENTE CACHEADAS (ZERO STRINGS PER FRAME)
+       ========================================================================== */
+    const COLOR_LUT_NORMAL = new Array(360);
+    const COLOR_LUT_PANIC = new Array(360);
+    for (let i = 0; i < 360; i++) {
+      // HSL vibrante con brillo neón cian/azul/magenta/verde
+      COLOR_LUT_NORMAL[i] = `hsl(${i}, 95%, 62%)`;
+      // HSL de alerta/pánico: rojo carmesí / naranja caliente incandescente
+      COLOR_LUT_PANIC[i] = `hsl(${(i * 0.15 + 345) % 360}, 100%, 65%)`;
+    }
+
+    /* ==========================================================================
+       3. ESTRUCTURA QUADTREE RECURSIVA PARA PARTICIONAMIENTO ESPACIAL
+       ========================================================================== */
+    class AABB {
+      constructor(x, y, w, h) {
+        this.x = x; // Coordenadas del centro
+        this.y = y;
+        this.w = w; // Mitad del ancho
+        this.h = h; // Mitad del alto
+      }
+
+      contains(point) {
+        return (
+          point.pos.x >= this.x - this.w &&
+          point.pos.x <= this.x + this.w &&
+          point.pos.y >= this.y - this.h &&
+          point.pos.y <= this.y + this.h
+        );
+      }
+
+      intersectsCircle(cx, cy, r) {
+        const xDist = Math.abs(cx - this.x);
+        const yDist = Math.abs(cy - this.y);
+
+        if (xDist > (this.w + r)) return false;
+        if (yDist > (this.h + r)) return false;
+
+        if (xDist <= this.w) return true;
+        if (yDist <= this.h) return true;
+
+        const cornerDistSq = (xDist - this.w) * (xDist - this.w) +
+                             (yDist - this.h) * (yDist - this.h);
+        return cornerDistSq <= (r * r);
+      }
+    }
+
+    class Quadtree {
+      constructor(boundary, capacity = 6, depth = 0, maxDepth = 6) {
+        this.boundary = boundary;
+        this.capacity = capacity;
+        this.depth = depth;
+        this.maxDepth = maxDepth;
+        this.points = [];
+        this.divided = false;
+
+        this.nw = null;
+        this.ne = null;
+        this.sw = null;
+        this.se = null;
+      }
+
+      subdivide() {
+        const x = this.boundary.x;
+        const y = this.boundary.y;
+        const w = this.boundary.w * 0.5;
+        const h = this.boundary.h * 0.5;
+
+        this.nw = new Quadtree(new AABB(x - w, y - h, w, h), this.capacity, this.depth + 1, this.maxDepth);
+        this.ne = new Quadtree(new AABB(x + w, y - h, w, h), this.capacity, this.depth + 1, this.maxDepth);
+        this.sw = new Quadtree(new AABB(x - w, y + h, w, h), this.capacity, this.depth + 1, this.maxDepth);
+        this.se = new Quadtree(new AABB(x + w, y + h, w, h), this.capacity, this.depth + 1, this.maxDepth);
+
+        this.divided = true;
+
+        // Redistribuir puntos existentes a los cuadrantes hijos
+        for (let i = 0; i < this.points.length; i++) {
+          const p = this.points[i];
+          if (this.nw.insert(p)) continue;
+          if (this.ne.insert(p)) continue;
+          if (this.sw.insert(p)) continue;
+          if (this.se.insert(p)) continue;
+        }
+        this.points.length = 0;
+      }
+
+      insert(point) {
+        if (!this.boundary.contains(point)) {
+          return false;
+        }
+
+        if (this.points.length < this.capacity && !this.divided) {
+          this.points.push(point);
+          return true;
+        }
+
+        if (!this.divided) {
+          if (this.depth < this.maxDepth) {
+            this.subdivide();
+          } else {
+            this.points.push(point);
+            return true;
+          }
+        }
+
+        if (this.nw.insert(point)) return true;
+        if (this.ne.insert(point)) return true;
+        if (this.sw.insert(point)) return true;
+        if (this.se.insert(point)) return true;
+
+        return false;
+      }
+
+      queryRadius(cx, cy, radius, radiusSq, foundArray, tracker) {
+        if (!this.boundary.intersectsCircle(cx, cy, radius)) {
+          return;
+        }
+
+        if (this.divided) {
+          this.nw.queryRadius(cx, cy, radius, radiusSq, foundArray, tracker);
+          this.ne.queryRadius(cx, cy, radius, radiusSq, foundArray, tracker);
+          this.sw.queryRadius(cx, cy, radius, radiusSq, foundArray, tracker);
+          this.se.queryRadius(cx, cy, radius, radiusSq, foundArray, tracker);
+        } else {
+          for (let i = 0; i < this.points.length; i++) {
+            const p = this.points[i];
+            tracker.count++;
+            const dx = p.pos.x - cx;
+            const dy = p.pos.y - cy;
+            const dSq = dx * dx + dy * dy;
+            if (dSq <= radiusSq) {
+              foundArray.push(p);
+            }
+          }
+        }
+      }
+
+      draw(ctx) {
+        ctx.strokeStyle = `rgba(0, 240, 255, ${0.08 + this.depth * 0.05})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(
+          this.boundary.x - this.boundary.w,
+          this.boundary.y - this.boundary.h,
+          this.boundary.w * 2,
+          this.boundary.h * 2
+        );
+
+        if (this.divided) {
+          this.nw.draw(ctx);
+          this.ne.draw(ctx);
+          this.sw.draw(ctx);
+          this.se.draw(ctx);
+        }
+      }
+    }
+
+    /* ==========================================================================
+       4. BIO-SINTETIZADOR ACÚSTICO PROCEDURAL (WEB AUDIO API - 0 ARCHIVOS)
+       ========================================================================== */
+    class BioSynthesizer {
+      constructor() {
+        this.ctx = null;
+        this.osc = null;
+        this.gain = null;
+        this.filter = null;
+        this.isInit = false;
+      }
+
+      init() {
+        if (this.isInit) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+
+          this.osc = this.ctx.createOscillator();
+          this.osc.type = 'sawtooth';
+          this.osc.frequency.setValueAtTime(65, this.ctx.currentTime);
+
+          this.filter = this.ctx.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.setValueAtTime(250, this.ctx.currentTime);
+
+          this.gain = this.ctx.createGain();
+          this.gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+
+          this.osc.connect(this.filter);
+          this.filter.connect(this.gain);
+          this.gain.connect(this.ctx.destination);
+          this.osc.start();
+
+          this.isInit = true;
+        } catch (e) {
+          console.warn("Audio no soportado:", e);
+        }
+      }
+
+      update(avgSpeed, panicRatio, audioEnabled) {
+        if (!this.isInit || !audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const targetFreq = 55 + avgSpeed * 22 + panicRatio * 180;
+        const targetGain = Math.min(0.09, 0.015 + avgSpeed * 0.008 + panicRatio * 0.05);
+        const targetCutoff = 200 + avgSpeed * 80 + panicRatio * 900;
+
+        this.osc.frequency.setTargetAtTime(targetFreq, now, 0.1);
+        this.filter.frequency.setTargetAtTime(targetCutoff, now, 0.1);
+        this.gain.gain.setTargetAtTime(targetGain, now, 0.1);
+      }
+
+      playPulse(freqStart, freqEnd, duration, vol = 0.25) {
+        if (!this.isInit || !simParams.audioEnabled) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freqStart, now);
+          osc.frequency.exponentialRampToValueAtTime(Math.max(10, freqEnd), now + duration);
+
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        } catch (e) {}
+      }
+    }
+
+    const bioSynth = new BioSynthesizer();
+    window.addEventListener('pointerdown', () => bioSynth.init(), { once: true });
+    window.addEventListener('keydown', () => bioSynth.init(), { once: true });
+
+    /* ==========================================================================
+       5. CLASE BOID: CINEMÁTICA VECTORIAL Y LEYES DE DIRECCIÓN (STEERING)
+       ========================================================================== */
+    class Boid {
+      constructor(x, y) {
+        this.pos = new Vector2(x, y);
+        const angle = Math.random() * Math.PI * 2;
+        const initialSpeed = 2 + Math.random() * 2;
+        this.vel = new Vector2(Math.cos(angle) * initialSpeed, Math.sin(angle) * initialSpeed);
+        this.acc = new Vector2(0, 0);
+
+        this.size = 5.2;
+        this.panic = 0.0; // Factor de adrenalina [0, 1]
+        this.density = 0; // Vecinos cercanos
+        this.colorHue = Math.floor(Math.random() * 360);
+      }
+
+      applyForce(force) {
+        this.acc.add(force);
+      }
+
+      update(width, height, isTorus) {
+        // La adrenalina incrementa la velocidad máxima permitida
+        const currentMaxSpeed = simParams.maxSpeed * (1.0 + this.panic * 0.85);
+
+        this.vel.add(this.acc);
+        this.vel.limit(currentMaxSpeed);
+        this.pos.add(this.vel);
+        this.acc.set(0, 0); // Reset aceleración en cada fotograma
+
+        // Decaimiento suave de la adrenalina
+        if (this.panic > 0.01) {
+          this.panic *= 0.94;
+        } else {
+          this.panic = 0;
+        }
+
+        // Manejo de fronteras: Toroidal (Wrap) vs Borde de Rebote Elástico Suave
+        if (isTorus) {
+          if (this.pos.x < -10) this.pos.x = width + 10;
+          else if (this.pos.x > width + 10) this.pos.x = -10;
+
+          if (this.pos.y < -10) this.pos.y = height + 10;
+          else if (this.pos.y > height + 10) this.pos.y = -10;
+        } else {
+          const margin = 50;
+          const turnForce = simParams.maxForce * 1.5;
+          if (this.pos.x < margin) this.applyForce(_vTemp1.set(turnForce, 0));
+          else if (this.pos.x > width - margin) this.applyForce(_vTemp1.set(-turnForce, 0));
+
+          if (this.pos.y < margin) this.applyForce(_vTemp1.set(0, turnForce));
+          else if (this.pos.y > height - margin) this.applyForce(_vTemp1.set(0, -turnForce));
+        }
+
+        // Coloración cromática dinámica según el ángulo de dirección y velocidad
+        const heading = this.vel.heading();
+        let targetHue = Math.floor(((heading + Math.PI) / (Math.PI * 2)) * 360);
+        this.colorHue = (this.colorHue * 0.85 + targetHue * 0.15);
+      }
+
+      // LAS TRES LEYES CLÁSICAS DE REYNOLDS INTEGRADAS EN UN SOLO PASE DE VECINOS
+      flock(neighbors, sepRadius, sepRadiusSq) {
+        const count = neighbors.length;
+        this.density = count;
+
+        if (count === 0) return;
+
+        let sepX = 0, sepY = 0, sepCount = 0;
+        let alignX = 0, alignY = 0;
+        let cohX = 0, cohY = 0;
+
+        for (let i = 0; i < count; i++) {
+          const other = neighbors[i];
+          if (other === this) continue;
+
+          const dx = this.pos.x - other.pos.x;
+          const dy = this.pos.y - other.pos.y;
+          const dSq = dx * dx + dy * dy;
+
+          // 1. Separación (Repulsión inversamente proporcional a la distancia)
+          if (dSq < sepRadiusSq && dSq > 0.0001) {
+            const dist = Math.sqrt(dSq);
+            // Ponderación 1/d para repulsión natural suave
+            sepX += (dx / dist) / dist;
+            sepY += (dy / dist) / dist;
+            sepCount++;
+          }
+
+          // 2. Alineación (Promedio de velocidades de vecinos)
+          alignX += other.vel.x;
+          alignY += other.vel.y;
+
+          // 3. Cohesión (Centroide de masa de los vecinos)
+          cohX += other.pos.x;
+          cohY += other.pos.y;
+        }
+
+        const validNeighbors = count - 1;
+        if (validNeighbors <= 0) return;
+
+        // APLICACIÓN DE FUERZAS DE DIRECCIÓN (REYNOLDS STEERING FORMULA)
+        // A) Separación
+        if (sepCount > 0) {
+          _vTemp1.set(sepX, sepY);
+          _vTemp1.normalize().mult(simParams.maxSpeed);
+          _vTemp1.sub(this.vel).limit(simParams.maxForce * 1.5);
+          _vTemp1.mult(simParams.weightSep);
+          this.applyForce(_vTemp1);
+        }
+
+        // B) Alineación
+        alignX /= validNeighbors;
+        alignY /= validNeighbors;
+        _vTemp1.set(alignX, alignY);
+        _vTemp1.normalize().mult(simParams.maxSpeed);
+        _vTemp1.sub(this.vel).limit(simParams.maxForce);
+        _vTemp1.mult(simParams.weightAli);
+        this.applyForce(_vTemp1);
+
+        // C) Cohesión (Buscar el centroide)
+        cohX /= validNeighbors;
+        cohY /= validNeighbors;
+        _vTemp1.set(cohX - this.pos.x, cohY - this.pos.y);
+        _vTemp1.normalize().mult(simParams.maxSpeed);
+        _vTemp1.sub(this.vel).limit(simParams.maxForce);
+        _vTemp1.mult(simParams.weightCoh);
+        this.applyForce(_vTemp1);
+      }
+
+      // EVASIÓN AL DEPREDADOR (MOUSE O DEPREDADOR IA)
+      flee(targetPos, panicRadius, panicRadiusSq, multiplier = 1.0) {
+        const dx = this.pos.x - targetPos.x;
+        const dy = this.pos.y - targetPos.y;
+        const dSq = dx * dx + dy * dy;
+
+        if (dSq < panicRadiusSq && dSq > 0.001) {
+          const dist = Math.sqrt(dSq);
+          const urgency = 1.0 - (dist / panicRadius);
+
+          // Activar adrenalina
+          this.panic = Math.max(this.panic, urgency);
+
+          // Vector de huida a toda velocidad
+          _vTemp1.set(dx, dy);
+          _vTemp1.normalize().mult(simParams.maxSpeed * 2.0);
+          _vTemp1.sub(this.vel).limit(simParams.maxForce * 3.5);
+          _vTemp1.mult(simParams.weightFlee * urgency * multiplier);
+          this.applyForce(_vTemp1);
+        }
+      }
+
+      // EVASIÓN DE OBSTÁCULOS FÍSICOS
+      avoidObstacle(obs) {
+        const dx = this.pos.x - obs.x;
+        const dy = this.pos.y - obs.y;
+        const dSq = dx * dx + dy * dy;
+        const minDist = obs.radius + this.size + 30;
+
+        if (dSq < minDist * minDist && dSq > 0.001) {
+          const dist = Math.sqrt(dSq);
+          const push = (minDist - dist) / minDist;
+          _vTemp1.set(dx, dy);
+          _vTemp1.normalize().mult(simParams.maxSpeed * 1.6);
+          _vTemp1.sub(this.vel).limit(simParams.maxForce * 2.5);
+          _vTemp1.mult(push * 3.0);
+          this.applyForce(_vTemp1);
+        }
+      }
+
+      // RENDERIZADO ULTRA-RÁPIDO MEDIANTE ARITMÉTICA TRIGONOMÉTRICA PURA (0 MATRICES)
+      draw(ctx) {
+        const vx = this.vel.x;
+        const vy = this.vel.y;
+        const vMag = Math.sqrt(vx * vx + vy * vy);
+        if (vMag < 0.0001) return;
+
+        // Vectores normalizados de dirección y perpendicular
+        const ux = vx / vMag;
+        const uy = vy / vMag;
+        const nx = -uy;
+        const ny = ux;
+
+        const x = this.pos.x;
+        const y = this.pos.y;
+        const len = this.size * 1.9;
+        const width = this.size * 0.95;
+
+        // Color según estado de pánico
+        let col;
+        if (this.panic > 0.15) {
+          const idx = Math.floor(this.colorHue) % 360;
+          col = COLOR_LUT_PANIC[idx];
+        } else {
+          const idx = Math.floor(this.colorHue) % 360;
+          col = COLOR_LUT_NORMAL[idx];
+        }
+
+        ctx.fillStyle = col;
+
+        // Vértices del dardo / boid
+        const tipX = x + ux * len;
+        const tipY = y + uy * len;
+
+        const leftX = x - ux * (len * 0.6) + nx * width;
+        const leftY = y - uy * (len * 0.6) + ny * width;
+
+        const rightX = x - ux * (len * 0.6) - nx * width;
+        const rightY = y - uy * (len * 0.6) - ny * width;
+
+        const backX = x - ux * (len * 0.3);
+        const backY = y - uy * (len * 0.3);
+
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(leftX, leftY);
+        ctx.lineTo(backX, backY);
+        ctx.lineTo(rightX, rightY);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    /* ==========================================================================
+       6. CLASE DEPREDADOR AUTÓNOMO IA (RAPTOR BIOMECÁNICO)
+       ========================================================================== */
+    class AIPredator {
+      constructor(x, y) {
+        this.pos = new Vector2(x, y);
+        this.vel = new Vector2((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5);
+        this.acc = new Vector2(0, 0);
+        this.maxSpeed = 5.6;
+        this.maxForce = 0.28;
+        this.size = 14.0;
+        this.trail = [];
+        this.lungeTimer = 0;
+      }
+
+      hunt(boids, width, height) {
+        this.lungeTimer--;
+
+        // Encontrar el centroide o boid más cercano
+        let closestDistSq = Infinity;
+        let targetX = width * 0.5;
+        let targetY = height * 0.5;
+        let count = 0;
+
+        // Muestreo rápido de presas
+        for (let i = 0; i < boids.length; i += 4) {
+          const b = boids[i];
+          const dSq = this.pos.distSq(b.pos);
+          if (dSq < closestDistSq) {
+            closestDistSq = dSq;
+            targetX = b.pos.x;
+            targetY = b.pos.y;
+          }
+        }
+
+        // Fuerza de búsqueda (Seek)
+        _vTemp1.set(targetX - this.pos.x, targetY - this.pos.y);
+        const currentSpeed = (closestDistSq < 150 * 150 && this.lungeTimer <= 0) ? this.maxSpeed * 1.4 : this.maxSpeed;
+        _vTemp1.normalize().mult(currentSpeed);
+        _vTemp1.sub(this.vel).limit(this.maxForce);
+        this.acc.add(_vTemp1);
+
+        // Movimiento e inercia
+        this.vel.add(this.acc);
+        this.vel.limit(currentSpeed);
+        this.pos.add(this.vel);
+        this.acc.set(0, 0);
+
+        // Wrap en pantalla
+        if (this.pos.x < -20) this.pos.x = width + 20;
+        else if (this.pos.x > width + 20) this.pos.x = -20;
+        if (this.pos.y < -20) this.pos.y = height + 20;
+        else if (this.pos.y > height + 20) this.pos.y = -20;
+
+        // Guardar estela de depredador
+        this.trail.push({ x: this.pos.x, y: this.pos.y });
+        if (this.trail.length > 12) this.trail.shift();
+      }
+
+      draw(ctx) {
+        // Dibujar estela carmesí
+        if (this.trail.length > 1) {
+          ctx.beginPath();
+          for (let i = 0; i < this.trail.length; i++) {
+            const p = this.trail[i];
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        // Dibujar cazador raptor
+        const heading = this.vel.heading();
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+        ctx.rotate(heading);
+
+        // Halo de amenaza
+        const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, this.size * 2);
+        glow.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
+        glow.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fuselaje del depredador
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.4, 0);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.4, 0);
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.85);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
+    /* ==========================================================================
+       7. GESTIÓN DE ONDAS DE CHOQUE (SHOCKWAVES) Y OBSTÁCULOS
+       ========================================================================== */
+    class Shockwave {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 5;
+        this.maxRadius = 240;
+        this.force = 22.0;
+        this.alpha = 1.0;
+        this.speed = 10.0;
+      }
+
+      update() {
+        this.radius += this.speed;
+        this.alpha = 1.0 - (this.radius / this.maxRadius);
+        return this.radius < this.maxRadius;
+      }
+
+      apply(boids) {
+        const rSq = this.radius * this.radius;
+        const thickness = 40;
+        for (let i = 0; i < boids.length; i++) {
+          const b = boids[i];
+          const dx = b.pos.x - this.x;
+          const dy = b.pos.y - this.y;
+          const distSq = dx * dx + dy * dy;
+          const dist = Math.sqrt(distSq);
+
+          if (Math.abs(dist - this.radius) < thickness) {
+            b.panic = 1.0;
+            _vTemp1.set(dx, dy);
+            _vTemp1.normalize().mult(this.force * (1.0 - dist / this.maxRadius));
+            b.applyForce(_vTemp1);
+          }
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(0, 240, 255, ${this.alpha * 0.85})`;
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class Obstacle {
+      constructor(x, y, radius = 45) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.pulse = 0;
+      }
+
+      draw(ctx) {
+        this.pulse += 0.05;
+        const currentR = this.radius + Math.sin(this.pulse) * 3;
+
+        ctx.save();
+        const radGrad = ctx.createRadialGradient(this.x, this.y, 2, this.x, this.y, currentR);
+        radGrad.addColorStop(0, 'rgba(168, 85, 247, 0.6)');
+        radGrad.addColorStop(0.7, 'rgba(168, 85, 247, 0.25)');
+        radGrad.addColorStop(1, 'rgba(0, 240, 255, 0.8)');
+
+        ctx.fillStyle = radGrad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, currentR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#a855f7';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    /* ==========================================================================
+       8. PARÁMETROS GLOBALES Y ENTORNO DE SIMULACIÓN
+       ========================================================================== */
+    const simParams = {
+      boidCount: 1200,
+      weightSep: 1.5,
+      weightAli: 1.2,
+      weightCoh: 1.0,
+      weightFlee: 3.5,
+      perceptionRadius: 65,
+      sepRadius: 28,
+      maxSpeed: 4.5,
+      maxForce: 0.18,
+      panicRadius: 130,
+      showQuadtree: false,
+      showVectors: false,
+      enableTrails: true,
+      aiPredatorEnabled: true,
+      isTorus: true,
+      audioEnabled: true,
+      clickMode: 'shockwave' // 'shockwave' | 'obstacle' | 'spawn'
+    };
+
+    // Colecciones de la simulación
+    const boids = [];
+    const shockwaves = [];
+    const obstacles = [];
+    const predators = [];
+
+    // Inicializar canvas y dimensiones
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    // Depredador Mouse
+    const mouse = {
+      x: -9999,
+      y: -9999,
+      active: false
+    };
+
+    // Inicializar Boids
+    function initBoids(targetCount) {
+      while (boids.length < targetCount) {
+        boids.push(new Boid(Math.random() * width, Math.random() * height));
+      }
+      while (boids.length > targetCount) {
+        boids.pop();
+      }
+      document.getElementById('top-boid-count').innerText = boids.length.toLocaleString();
+      document.getElementById('metric-boids').innerText = boids.length.toLocaleString();
+    }
+
+    // Inicializar Depredador IA
+    predators.push(new AIPredator(width * 0.75, height * 0.75));
+
+    initBoids(simParams.boidCount);
+
+    /* ==========================================================================
+       9. GESTIÓN DE EVENTOS DE MOUSE, TECLADO Y REDIMENSIONAMIENTO
+       ========================================================================== */
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.active = true;
+    });
+
+    window.addEventListener('pointerleave', () => {
+      mouse.active = false;
+      mouse.x = -9999;
+      mouse.y = -9999;
+    });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (simParams.clickMode === 'shockwave') {
+        triggerShockwave(e.clientX, e.clientY);
+      } else if (simParams.clickMode === 'obstacle') {
+        obstacles.push(new Obstacle(e.clientX, e.clientY, 40 + Math.random() * 20));
+        document.getElementById('metric-obstacles').innerText = `${obstacles.length} VIGENTES`;
+        bioSynth.playPulse(380, 180, 0.35, 0.2);
+      } else if (simParams.clickMode === 'spawn') {
+        for (let i = 0; i < 40; i++) {
+          boids.push(new Boid(e.clientX + (Math.random() - 0.5) * 40, e.clientY + (Math.random() - 0.5) * 40));
+        }
+        document.getElementById('top-boid-count').innerText = boids.length.toLocaleString();
+        document.getElementById('metric-boids').innerText = boids.length.toLocaleString();
+        bioSynth.playPulse(440, 880, 0.2, 0.2);
+      }
+    });
+
+    function triggerShockwave(x, y) {
+      shockwaves.push(new Shockwave(x, y));
+      bioSynth.playPulse(140, 40, 0.6, 0.35);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        triggerShockwave(mouse.active ? mouse.x : width * 0.5, mouse.active ? mouse.y : height * 0.5);
+      }
+      if (e.key === 'h' || e.key === 'H') toggleHUD();
+      if (e.key === '1') document.getElementById('preset-murmuration').click();
+      if (e.key === '2') document.getElementById('preset-fish').click();
+      if (e.key === '3') document.getElementById('preset-swarm').click();
+      if (e.key === '4') document.getElementById('preset-panic').click();
+    });
+
+    function toggleHUD() {
+      const hud = document.getElementById('hud-overlay');
+      const floatingBtn = document.getElementById('floating-hud-btn');
+      hud.classList.toggle('hud-hidden');
+      floatingBtn.style.display = hud.classList.contains('hud-hidden') ? 'block' : 'none';
+    }
+    document.getElementById('floating-hud-btn').onclick = toggleHUD;
+
+    /* ==========================================================================
+       10. ENLACES Y ESCUCHADORES DE LA INTERFAZ DE CONTROL (HUD)
+       ========================================================================== */
+    // Sliders de leyes de Reynolds
+    document.getElementById('slider-sep').oninput = (e) => {
+      simParams.weightSep = parseFloat(e.target.value);
+      document.getElementById('val-sep').innerText = `${simParams.weightSep.toFixed(1)}x`;
+    };
+    document.getElementById('slider-ali').oninput = (e) => {
+      simParams.weightAli = parseFloat(e.target.value);
+      document.getElementById('val-ali').innerText = `${simParams.weightAli.toFixed(1)}x`;
+    };
+    document.getElementById('slider-coh').oninput = (e) => {
+      simParams.weightCoh = parseFloat(e.target.value);
+      document.getElementById('val-coh').innerText = `${simParams.weightCoh.toFixed(1)}x`;
+    };
+    document.getElementById('slider-radius').oninput = (e) => {
+      simParams.perceptionRadius = parseFloat(e.target.value);
+      simParams.sepRadius = simParams.perceptionRadius * 0.42;
+      document.getElementById('val-radius').innerText = `${simParams.perceptionRadius.toFixed(0)} px`;
+    };
+    document.getElementById('slider-maxspeed').oninput = (e) => {
+      simParams.maxSpeed = parseFloat(e.target.value);
+      document.getElementById('val-maxspeed').innerText = `${simParams.maxSpeed.toFixed(1)} px/f`;
+    };
+    document.getElementById('slider-maxforce').oninput = (e) => {
+      simParams.maxForce = parseFloat(e.target.value);
+      document.getElementById('val-maxforce').innerText = `${simParams.maxForce.toFixed(2)}`;
+    };
+    document.getElementById('slider-flee').oninput = (e) => {
+      simParams.weightFlee = parseFloat(e.target.value);
+      document.getElementById('val-flee').innerText = `${simParams.weightFlee.toFixed(1)}x`;
+    };
+
+    // Toggles visuales
+    document.getElementById('toggle-quadtree').onchange = (e) => { simParams.showQuadtree = e.target.checked; };
+    document.getElementById('toggle-vectors').onchange = (e) => { simParams.showVectors = e.target.checked; };
+    document.getElementById('toggle-trails').onchange = (e) => { simParams.enableTrails = e.target.checked; };
+    document.getElementById('toggle-ai-predator').onchange = (e) => {
+      simParams.aiPredatorEnabled = e.target.checked;
+      document.getElementById('metric-predators').innerText = e.target.checked ? '1 ACTIVO' : 'DESACTIVADO';
+    };
+    document.getElementById('toggle-torus').onchange = (e) => { simParams.isTorus = e.target.checked; };
+    document.getElementById('toggle-audio').onchange = (e) => { simParams.audioEnabled = e.target.checked; };
+
+    // Acciones de boids
+    document.getElementById('btn-add-boids').onclick = () => {
+      initBoids(boids.length + 200);
+    };
+    document.getElementById('btn-sub-boids').onclick = () => {
+      initBoids(Math.max(100, boids.length - 200));
+    };
+    document.getElementById('btn-clear-obs').onclick = () => {
+      obstacles.length = 0;
+      document.getElementById('metric-obstacles').innerText = '0 VIGENTES';
+    };
+
+    // Modos de Clic
+    function setClickMode(mode, el) {
+      simParams.clickMode = mode;
+      document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+    }
+    document.getElementById('mode-shockwave').onclick = (e) => setClickMode('shockwave', e.target);
+    document.getElementById('mode-obstacle').onclick = (e) => setClickMode('obstacle', e.target);
+    document.getElementById('mode-spawn').onclick = (e) => setClickMode('spawn', e.target);
+
+    // Presets
+    function resetPresets() {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    }
+    function updateControlsUI() {
+      document.getElementById('slider-sep').value = simParams.weightSep;
+      document.getElementById('val-sep').innerText = `${simParams.weightSep.toFixed(1)}x`;
+      document.getElementById('slider-ali').value = simParams.weightAli;
+      document.getElementById('val-ali').innerText = `${simParams.weightAli.toFixed(1)}x`;
+      document.getElementById('slider-coh').value = simParams.weightCoh;
+      document.getElementById('val-coh').innerText = `${simParams.weightCoh.toFixed(1)}x`;
+      document.getElementById('slider-radius').value = simParams.perceptionRadius;
+      document.getElementById('val-radius').innerText = `${simParams.perceptionRadius.toFixed(0)} px`;
+      document.getElementById('slider-maxspeed').value = simParams.maxSpeed;
+      document.getElementById('val-maxspeed').innerText = `${simParams.maxSpeed.toFixed(1)} px/f`;
+      document.getElementById('slider-maxforce').value = simParams.maxForce;
+      document.getElementById('val-maxforce').innerText = `${simParams.maxForce.toFixed(2)}`;
+      document.getElementById('slider-flee').value = simParams.weightFlee;
+      document.getElementById('val-flee').innerText = `${simParams.weightFlee.toFixed(1)}x`;
+    }
+
+    document.getElementById('preset-murmuration').onclick = () => {
+      resetPresets();
+      document.getElementById('preset-murmuration').classList.add('active');
+      simParams.weightSep = 1.5;
+      simParams.weightAli = 1.2;
+      simParams.weightCoh = 1.0;
+      simParams.perceptionRadius = 65;
+      simParams.sepRadius = 28;
+      simParams.maxSpeed = 4.5;
+      simParams.maxForce = 0.18;
+      simParams.weightFlee = 3.5;
+      updateControlsUI();
+    };
+
+    document.getElementById('preset-fish').onclick = () => {
+      resetPresets();
+      document.getElementById('preset-fish').classList.add('active');
+      simParams.weightSep = 2.2;
+      simParams.weightAli = 1.6;
+      simParams.weightCoh = 1.8;
+      simParams.perceptionRadius = 55;
+      simParams.sepRadius = 22;
+      simParams.maxSpeed = 3.8;
+      simParams.maxForce = 0.22;
+      simParams.weightFlee = 4.0;
+      updateControlsUI();
+    };
+
+    document.getElementById('preset-swarm').onclick = () => {
+      resetPresets();
+      document.getElementById('preset-swarm').classList.add('active');
+      simParams.weightSep = 3.2;
+      simParams.weightAli = 0.4;
+      simParams.weightCoh = 0.3;
+      simParams.perceptionRadius = 40;
+      simParams.sepRadius = 25;
+      simParams.maxSpeed = 6.2;
+      simParams.maxForce = 0.35;
+      simParams.weightFlee = 2.5;
+      updateControlsUI();
+    };
+
+    document.getElementById('preset-panic').onclick = () => {
+      resetPresets();
+      document.getElementById('preset-panic').classList.add('active');
+      simParams.weightSep = 3.8;
+      simParams.weightAli = 0.2;
+      simParams.weightCoh = 0.1;
+      simParams.perceptionRadius = 90;
+      simParams.sepRadius = 45;
+      simParams.maxSpeed = 8.0;
+      simParams.maxForce = 0.45;
+      simParams.weightFlee = 6.0;
+      updateControlsUI();
+    };
+
+    /* ==========================================================================
+       11. BUCLE PRINCIPAL DE ANIMACIÓN Y FÍSICA CINEMÁTICA
+       ========================================================================== */
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fpsAccumulator = 0;
+    const neighborPool = []; // Reusable buffer for quadtree query
+
+    function animate(currentTime) {
+      requestAnimationFrame(animate);
+
+      const deltaMs = currentTime - lastTime;
+      lastTime = currentTime;
+
+      frameCount++;
+      fpsAccumulator += deltaMs;
+      if (fpsAccumulator >= 400) {
+        const fps = ((frameCount / fpsAccumulator) * 1000).toFixed(1);
+        const ms = (fpsAccumulator / frameCount).toFixed(1);
+        document.getElementById('fps-display').innerText = `${fps} FPS (${ms}ms)`;
+        frameCount = 0;
+        fpsAccumulator = 0;
+      }
+
+      // FONDO: Estelas de movimiento (Alpha Blending) o Limpieza nítida
+      if (simParams.enableTrails) {
+        ctx.fillStyle = 'rgba(3, 7, 18, 0.28)';
+        ctx.fillRect(0, 0, width, height);
+      } else {
+        ctx.fillStyle = '#030712';
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      // CONSTRUCCIÓN DEL QUADTREE EN TIEMPO REAL
+      const boundary = new AABB(width * 0.5, height * 0.5, width * 0.5, height * 0.5);
+      const qtree = new Quadtree(boundary, 6, 0, 6);
+
+      for (let i = 0; i < boids.length; i++) {
+        qtree.insert(boids[i]);
+      }
+
+      // RENDERIZADO VISUAL DEL QUADTREE SI ESTÁ ACTIVO
+      if (simParams.showQuadtree) {
+        qtree.draw(ctx);
+      }
+
+      // ACTUALIZAR Y DIBUJAR OBSTÁCULOS
+      for (let i = 0; i < obstacles.length; i++) {
+        obstacles[i].draw(ctx);
+      }
+
+      // ACTUALIZAR Y DIBUJAR ONDAS DE CHOQUE (SHOCKWAVES)
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.apply(boids);
+        sw.draw(ctx);
+        if (!sw.update()) {
+          shockwaves.splice(i, 1);
+        }
+      }
+
+      // ACTUALIZAR Y DIBUJAR DEPREDADORES IA
+      if (simParams.aiPredatorEnabled) {
+        for (let i = 0; i < predators.length; i++) {
+          const pred = predators[i];
+          pred.hunt(boids, width, height);
+          pred.draw(ctx);
+        }
+      }
+
+      // PARÁMETROS PRE-CALCULADOS PARA EL BUCLE CALIENTE
+      const pRad = simParams.perceptionRadius;
+      const pRadSq = pRad * pRad;
+      const sepRad = simParams.sepRadius;
+      const sepRadSq = sepRad * sepRad;
+      const panicRad = simParams.panicRadius;
+      const panicRadSq = panicRad * panicRad;
+
+      const mousePos = _vTemp2.set(mouse.x, mouse.y);
+      const mouseActive = mouse.active;
+
+      const tracker = { count: 0 };
+      let totalSpeed = 0;
+      let totalPanic = 0;
+      let sumUx = 0;
+      let sumUy = 0;
+
+      // BUCLE CALIENTE DE FÍSICA Y DIRECCIÓN DE BOIDS
+      for (let i = 0; i < boids.length; i++) {
+        const b = boids[i];
+
+        // Consulta de vecinos dentro del radio de percepción mediante el Quadtree
+        neighborPool.length = 0;
+        qtree.queryRadius(b.pos.x, b.pos.y, pRad, pRadSq, neighborPool, tracker);
+
+        // 1. Leyes clásicas de Reynolds (Separación, Alineación, Cohesión)
+        b.flock(neighborPool, sepRad, sepRadSq);
+
+        // 2. Fuga del Depredador Ápex (Mouse)
+        if (mouseActive) {
+          b.flee(mousePos, panicRad, panicRadSq, 1.0);
+        }
+
+        // 3. Fuga de los Depredadores IA
+        if (simParams.aiPredatorEnabled) {
+          for (let p = 0; p < predators.length; p++) {
+            b.flee(predators[p].pos, panicRad * 1.25, panicRadSq * 1.56, 1.4);
+          }
+        }
+
+        // 4. Evasión de Obstáculos
+        for (let o = 0; o < obstacles.length; o++) {
+          b.avoidObstacle(obstacles[o]);
+        }
+
+        // 5. Integración de movimiento y actualización de posición
+        b.update(width, height, simParams.isTorus);
+
+        // 6. Dibujado rápido del agente
+        b.draw(ctx);
+
+        // Acumuladores de telemetría estadística
+        const speed = b.vel.mag();
+        totalSpeed += speed;
+        totalPanic += b.panic;
+        if (speed > 0.001) {
+          sumUx += b.vel.x / speed;
+          sumUy += b.vel.y / speed;
+        }
+      }
+
+      // DIBUJAR VECTORES Y RADIOS DE PERCEPCIÓN SOBRE MUESTRA DE AGENTES SI ESTÁ ACTIVO
+      if (simParams.showVectors && boids.length > 0) {
+        ctx.save();
+        const sampleCount = Math.min(25, boids.length);
+        for (let i = 0; i < sampleCount; i++) {
+          const sample = boids[i * Math.floor(boids.length / sampleCount)];
+
+          // Círculo de percepción (Cian tenue)
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(sample.pos.x, sample.pos.y, pRad, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Círculo de separación (Ámbar tenue)
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+          ctx.beginPath();
+          ctx.arc(sample.pos.x, sample.pos.y, sepRad, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Vector de velocidad (Verde)
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(sample.pos.x, sample.pos.y);
+          ctx.lineTo(sample.pos.x + sample.vel.x * 6, sample.pos.y + sample.vel.y * 6);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // DIBUJAR RADAR DEL DEPREDADOR MOUSE SI ESTÁ ACTIVO
+      if (mouseActive) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, panicRad, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ff007f';
+        ctx.setLineDash([]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // TELEMETRÍA Y MÉTRICAS CIENTÍFICAS EN TIEMPO REAL
+      const N = boids.length;
+      if (N > 0) {
+        const avgSpeed = totalSpeed / N;
+        const panicRatio = totalPanic / N;
+        const polarization = Math.sqrt(sumUx * sumUx + sumUy * sumUy) / N;
+
+        document.getElementById('metric-speed').innerText = `${avgSpeed.toFixed(2)} px/f`;
+        document.getElementById('metric-polarization').innerText = `${polarization.toFixed(2)} (${polarization > 0.75 ? 'ALTO' : polarization > 0.4 ? 'MEDIO' : 'CAÓTICO'})`;
+        document.getElementById('metric-panic').innerText = `${(panicRatio * 100).toFixed(1)}% PARVADA`;
+
+        // Métricas de Rendimiento Quadtree vs Brute Force
+        const bruteForceChecks = N * (N - 1);
+        const actualChecks = tracker.count;
+        const savingsPct = Math.max(0, (1 - (actualChecks / bruteForceChecks)) * 100).toFixed(1);
+
+        document.getElementById('checks-actual').innerText = actualChecks.toLocaleString();
+        document.getElementById('checks-brute').innerText = bruteForceChecks.toLocaleString();
+        document.getElementById('efficiency-pct').innerText = `${savingsPct}% AHORRO`;
+        document.getElementById('efficiency-fill').style.width = `${savingsPct}%`;
+
+        // Modulación Bio-Acústica
+        bioSynth.update(avgSpeed, panicRatio, simParams.audioEnabled);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

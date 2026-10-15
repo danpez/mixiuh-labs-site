@@ -1,0 +1,2653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASTRUM // Simulación Relativa Sol - Tierra - Luna [Motor Procedural GLSL]</title>
+  <style>
+    :root {
+      --bg-panel: rgba(6, 12, 24, 0.78);
+      --bg-panel-strong: rgba(4, 9, 18, 0.92);
+      --border-cyan: rgba(0, 229, 255, 0.32);
+      --border-amber: rgba(255, 179, 0, 0.45);
+      --cyan: #00e5ff;
+      --cyan-soft: #6ff9ff;
+      --amber: #ffb300;
+      --crimson: #ff3d5a;
+      --emerald: #00e676;
+      --text-main: #e6f4ff;
+      --text-dim: #7fa3c4;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #010308;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* Sutil viñeta e interfaz holográfica */
+    .hud-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 62%, rgba(1, 4, 12, 0.65) 100%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 229, 255, 0.012) 0px,
+          rgba(0, 229, 255, 0.012) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+    }
+
+    /* Esquinas decorativas de telemetría */
+    .corner-bracket {
+      position: fixed;
+      width: 26px;
+      height: 26px;
+      border-color: rgba(0, 229, 255, 0.45);
+      pointer-events: none;
+      z-index: 3;
+    }
+    .cb-tl { top: 12px; left: 12px; border-top: 2px solid; border-left: 2px solid; }
+    .cb-tr { top: 12px; right: 12px; border-top: 2px solid; border-right: 2px solid; }
+    .cb-bl { bottom: 12px; left: 12px; border-bottom: 2px solid; border-left: 2px solid; }
+    .cb-br { bottom: 12px; right: 12px; border-bottom: 2px solid; border-right: 2px solid; }
+
+    /* Cabecera superior */
+    .top-bar {
+      position: fixed;
+      top: 16px;
+      left: 24px;
+      right: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-panel {
+      pointer-events: auto;
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-cyan);
+      border-left: 4px solid var(--cyan);
+      padding: 12px 18px;
+      border-radius: 6px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 229, 255, 0.08);
+    }
+
+    .brand-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2.2px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulse 1.8s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.55; }
+    }
+
+    .brand-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      letter-spacing: 0.6px;
+    }
+
+    /* Alerta dinámica de Eclipse */
+    .eclipse-banner {
+      pointer-events: auto;
+      background: rgba(24, 8, 14, 0.88);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--crimson);
+      border-left: 4px solid var(--crimson);
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      text-align: center;
+      box-shadow: 0 0 28px rgba(255, 61, 90, 0.32);
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    .eclipse-banner.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .eclipse-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      color: #ff8a9d;
+      text-transform: uppercase;
+    }
+
+    .eclipse-detail {
+      font-size: 11px;
+      color: var(--text-main);
+      margin-top: 3px;
+    }
+
+    /* Panel izquierdo: Telemetría y Grafo de Escena */
+    .left-dock {
+      position: fixed;
+      top: 96px;
+      left: 24px;
+      width: 330px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 10;
+      max-height: calc(100vh - 190px);
+      overflow-y: auto;
+      pointer-events: auto;
+      scrollbar-width: thin;
+    }
+
+    /* Panel derecho: Controles de Cámara, Eclipses y Capas */
+    .right-dock {
+      position: fixed;
+      top: 96px;
+      right: 24px;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 10;
+      max-height: calc(100vh - 190px);
+      overflow-y: auto;
+      pointer-events: auto;
+      scrollbar-width: thin;
+    }
+
+    .hud-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-cyan);
+      border-radius: 6px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+    }
+
+    .hud-card-header {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 229, 255, 0.18);
+      padding-bottom: 7px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-card-header span.badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0, 229, 255, 0.14);
+      color: var(--cyan-soft);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      row-gap: 6px;
+      column-gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+
+    .t-label {
+      color: var(--text-dim);
+    }
+
+    .t-value {
+      color: var(--text-main);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .t-value.highlight-cyan { color: var(--cyan-soft); }
+    .t-value.highlight-amber { color: var(--amber); }
+    .t-value.highlight-emerald { color: var(--emerald); }
+
+    /* Árbol de jerarquía de matrices */
+    .hierarchy-tree {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      line-height: 1.55;
+      color: #b8d4f0;
+      background: rgba(2, 6, 14, 0.65);
+      border: 1px solid rgba(0, 229, 255, 0.16);
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+
+    .tree-node {
+      display: flex;
+      justify-content: space-between;
+      white-space: nowrap;
+    }
+
+    .tree-node .node-name { color: var(--cyan-soft); }
+    .tree-node .node-amber { color: var(--amber); }
+    .tree-node .node-emerald { color: var(--emerald); }
+    .tree-node .node-val { color: var(--text-dim); font-size: 10px; }
+
+    /* Fase lunar widget */
+    .moon-phase-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(0, 229, 255, 0.16);
+    }
+
+    #moon-phase-canvas {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      background: #030710;
+      flex-shrink: 0;
+    }
+
+    .moon-phase-info {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    /* Botones interactivos */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .sci-btn {
+      appearance: none;
+      background: rgba(0, 229, 255, 0.08);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+    }
+
+    .sci-btn:hover {
+      background: rgba(0, 229, 255, 0.2);
+      border-color: var(--cyan);
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .sci-btn.active {
+      background: rgba(0, 229, 255, 0.26);
+      border-color: var(--cyan);
+      color: #ffffff;
+      box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.35), 0 0 12px rgba(0, 229, 255, 0.25);
+    }
+
+    .sci-btn.amber {
+      background: rgba(255, 179, 0, 0.1);
+      border-color: rgba(255, 179, 0, 0.4);
+      color: #ffd57e;
+    }
+
+    .sci-btn.amber:hover {
+      background: rgba(255, 179, 0, 0.24);
+      border-color: var(--amber);
+      box-shadow: 0 0 14px rgba(255, 179, 0, 0.3);
+    }
+
+    .sci-btn .kbd {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: var(--cyan-soft);
+    }
+
+    /* Sliders */
+    .control-row {
+      margin-top: 8px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+    }
+
+    .control-label strong {
+      color: var(--cyan-soft);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 229, 255, 0.18);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #02101f;
+      box-shadow: 0 0 10px var(--cyan);
+      cursor: pointer;
+    }
+
+    /* Barra inferior de control temporal */
+    .bottom-bar {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: var(--bg-panel-strong);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-cyan);
+      border-radius: 8px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 12px 38px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 229, 255, 0.1);
+      pointer-events: auto;
+      min-width: min(760px, 94vw);
+    }
+
+    .time-readout {
+      font-family: var(--font-mono);
+      min-width: 155px;
+      border-right: 1px solid rgba(0, 229, 255, 0.2);
+      padding-right: 14px;
+    }
+
+    .time-readout .t-big {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--cyan-soft);
+    }
+
+    .time-readout .t-small {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .time-slider-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .speed-presets {
+      display: flex;
+      gap: 5px;
+    }
+
+    .preset-btn {
+      background: rgba(0, 229, 255, 0.08);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      color: #fff;
+      border-color: var(--cyan);
+      background: rgba(0, 229, 255, 0.24);
+    }
+
+    /* Etiquetas 3D flotantes */
+    .body-label-3d {
+      position: fixed;
+      pointer-events: auto;
+      cursor: pointer;
+      transform: translate(-50%, -135%);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 3px 7px;
+      border-radius: 3px;
+      background: rgba(3, 10, 22, 0.78);
+      border: 1px solid rgba(0, 229, 255, 0.45);
+      color: var(--cyan-soft);
+      white-space: nowrap;
+      z-index: 5;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .body-label-3d:hover {
+      border-color: var(--amber);
+      color: #fff;
+      transform: translate(-50%, -145%) scale(1.06);
+    }
+
+    .body-label-3d::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      transform: translateX(-50%);
+      border-width: 6px 5px 0 5px;
+      border-style: solid;
+      border-color: rgba(0, 229, 255, 0.45) transparent transparent transparent;
+    }
+
+    @media (max-width: 1024px) {
+      .left-dock, .right-dock {
+        width: 260px;
+      }
+      .bottom-bar {
+        min-width: 92vw;
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+
+  <!-- Import Map oficial para Three.js y Post-procesado -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div class="hud-overlay"></div>
+
+  <!-- Esquinas de telemetría -->
+  <div class="corner-bracket cb-tl"></div>
+  <div class="corner-bracket cb-tr"></div>
+  <div class="corner-bracket cb-bl"></div>
+  <div class="corner-bracket cb-br"></div>
+
+  <!-- Etiquetas proyectadas en 3D -->
+  <div id="label-sun" class="body-label-3d" title="Anclar cámara al Sol [1]">SOL // G2V</div>
+  <div id="label-earth" class="body-label-3d" title="Anclar cámara a la Tierra [2]">TIERRA // TERRA</div>
+  <div id="label-moon" class="body-label-3d" title="Anclar cámara a la Luna [3]">LUNA // SELENE</div>
+
+  <!-- Barra Superior -->
+  <header class="top-bar">
+    <div class="brand-panel">
+      <div class="brand-title">
+        <span class="pulse-dot"></span>
+        <span>ASTRUM // SISTEMA RELATIVO SOL-TIERRA-LUNA</span>
+      </div>
+      <div class="brand-sub">
+        SHADERS GLSL PROCEDURALES 100% EN MEMORIA • GRAFO DE ESCENA DESACOPLADO • SOMBRAS DE ECLIPSE REALES
+      </div>
+    </div>
+
+    <div id="eclipse-banner" class="eclipse-banner">
+      <div id="eclipse-title" class="eclipse-title">ALERTA DE ALINEACIÓN SICIGIA</div>
+      <div id="eclipse-detail" class="eclipse-detail">Ocultación Umbral: 0.0%</div>
+    </div>
+
+    <div class="brand-panel" style="border-left-color: var(--amber);">
+      <div class="brand-title" style="color: var(--amber); font-size: 12px;">
+        OBJETIVO DE CÁMARA: <span id="hud-target-name" style="color: #fff;">TIERRA</span>
+      </div>
+      <div class="brand-sub" id="hud-camera-hint">
+        Arrastra para orbitar • Rueda para zoom • Clic derecho para paneo
+      </div>
+    </div>
+  </header>
+
+  <!-- Panel Izquierdo: Telemetría Física y Grafo de Matrices -->
+  <aside class="left-dock">
+    <section class="hud-card">
+      <div class="hud-card-header">
+        <span>TELEMETRÍA ORBITAL EN VIVO</span>
+        <span class="badge" id="fps-badge">60 FPS</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-label">Traslación Terrestre (θ_orb):</span>
+        <span class="t-value highlight-cyan" id="val-earth-orbit">0.0°</span>
+
+        <span class="t-label">Rotación Diaria (θ_día):</span>
+        <span class="t-value" id="val-earth-spin">0.0°</span>
+
+        <span class="t-label">Oblicuidad Axial (ε):</span>
+        <span class="t-value highlight-amber">23.44°</span>
+
+        <span class="t-label">Estación (Hemisferio N):</span>
+        <span class="t-value highlight-emerald" id="val-season">Equinoccio</span>
+
+        <span class="t-label">Órbita Lunar (φ_luna):</span>
+        <span class="t-value highlight-cyan" id="val-moon-orbit">0.0°</span>
+
+        <span class="t-label">Inclinación Orbital Lunar:</span>
+        <span class="t-value" id="val-moon-inc">5.14°</span>
+
+        <span class="t-label">Bloqueo de Marea (Cara Tierra):</span>
+        <span class="t-value highlight-emerald" id="val-tidal-lock">SÍNCRONO 1:1</span>
+
+        <span class="t-label">Elongación Sol-Tierra-Luna:</span>
+        <span class="t-value" id="val-elongation">0.0°</span>
+      </div>
+
+      <div class="moon-phase-box">
+        <canvas id="moon-phase-canvas" width="88" height="88"></canvas>
+        <div class="moon-phase-info">
+          <div style="color: var(--text-dim); font-size: 10px;">FASE LUNAR SINÓDICA</div>
+          <div id="val-moon-phase" style="color: var(--cyan-soft); font-weight: 700; margin-top: 2px;">Luna Nueva</div>
+          <div id="val-moon-illum" style="color: var(--text-main); font-size: 10px; margin-top: 2px;">Iluminación: 0%</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hud-card">
+      <div class="hud-card-header">
+        <span>GRAFO DE ESCENA (MATRICES)</span>
+        <span class="badge">JERARQUÍA</span>
+      </div>
+      <div class="hierarchy-tree">
+        <div class="tree-node">
+          <span class="node-amber">⊙ sunRoot [0,0,0]</span>
+          <span class="node-val" id="mat-sun">ω_sol</span>
+        </div>
+        <div class="tree-node">
+          <span> └─ <span class="node-name">earthOrbitPivot</span></span>
+          <span class="node-val" id="mat-e-orb">R_y(θ_orb)</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;└─ <span class="node-name">earthSystemNode</span></span>
+          <span class="node-val">[R_orb, 0, 0]</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="node-emerald">earthTiltGroup</span></span>
+          <span class="node-val">R_z(23.4°)</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ &nbsp;├─ <span class="node-emerald">earthSpinPivot</span></span>
+          <span class="node-val" id="mat-e-day">R_y(θ_día)</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ &nbsp;└─ <span class="node-emerald">cloudsMesh</span></span>
+          <span class="node-val">R_y(θ_nubes)</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="node-amber">moonOrbitPlane</span></span>
+          <span class="node-val">Desacoplado</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="node-amber">moonOrbitPivot</span></span>
+          <span class="node-val" id="mat-m-orb">R_y(φ_luna)</span>
+        </div>
+        <div class="tree-node">
+          <span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="node-amber">moonMesh</span></span>
+          <span class="node-val">[R_luna, 0, 0]</span>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Panel Derecho: Anclaje de Cámara, Eclipses y Visualización -->
+  <aside class="right-dock">
+    <section class="hud-card">
+      <div class="hud-card-header">
+        <span>ANCLAJE DE CÁMARA ORBITAL</span>
+        <span class="badge">TECLAS 1-4</span>
+      </div>
+      <div class="btn-grid">
+        <button class="sci-btn" id="cam-sun" data-target="sun">
+          <span class="kbd">1</span> SOL
+        </button>
+        <button class="sci-btn active" id="cam-earth" data-target="earth">
+          <span class="kbd">2</span> TIERRA
+        </button>
+        <button class="sci-btn" id="cam-moon" data-target="moon">
+          <span class="kbd">3</span> LUNA
+        </button>
+        <button class="sci-btn" id="cam-overview" data-target="overview">
+          <span class="kbd">4</span> SISTEMA
+        </button>
+      </div>
+    </section>
+
+    <section class="hud-card">
+      <div class="hud-card-header">
+        <span>LABORATORIO DE ECLIPSES (SICIGIA)</span>
+        <span class="badge">SOMBRAS REALES</span>
+      </div>
+      <div class="btn-grid">
+        <button class="sci-btn amber" id="btn-solar-eclipse" title="Alinear Luna entre el Sol y la Tierra (Eclipse Solar)">
+          ☀️ ECLIPSE SOLAR
+        </button>
+        <button class="sci-btn amber" id="btn-lunar-eclipse" title="Alinear Luna en la umbra terrestre (Luna de Sangre)">
+          🩸 ECLIPSE LUNAR
+        </button>
+      </div>
+      <div class="control-row">
+        <div class="control-label">
+          <span>Inclinación Orbital Lunar</span>
+          <strong id="lbl-moon-inc">5.14°</strong>
+        </div>
+        <input type="range" id="slider-moon-inc" min="0" max="12" step="0.02" value="5.14" />
+      </div>
+    </section>
+
+    <section class="hud-card">
+      <div class="hud-card-header">
+        <span>CAPAS Y TELEMETRÍA VISUAL</span>
+        <span class="badge">SHADERS</span>
+      </div>
+      <div class="btn-grid">
+        <button class="sci-btn active" id="toggle-orbits">
+          ÓRBITAS [O]
+        </button>
+        <button class="sci-btn active" id="toggle-vectors">
+          VECTORES [V]
+        </button>
+        <button class="sci-btn active" id="toggle-clouds">
+          ATMOS + NUBES [C]
+        </button>
+        <button class="sci-btn active" id="toggle-shadows">
+          CONO SOMBRA [S]
+        </button>
+        <button class="sci-btn active" id="toggle-labels">
+          ETIQUETAS [L]
+        </button>
+        <button class="sci-btn active" id="toggle-ecliptic">
+          MALLA ECLÍPTICA [G]
+        </button>
+      </div>
+
+      <div class="control-row" style="margin-top: 12px;">
+        <div class="control-label">
+          <span>Intensidad Corona / Bloom HDR</span>
+          <strong id="lbl-bloom">1.25</strong>
+        </div>
+        <input type="range" id="slider-bloom" min="0" max="2.5" step="0.05" value="1.25" />
+      </div>
+    </section>
+  </aside>
+
+  <!-- Barra Inferior: Control Temporal -->
+  <footer class="bottom-bar">
+    <button class="sci-btn active" id="btn-play-pause" style="min-width: 112px; padding: 10px 14px;">
+      <span id="play-icon">⏸</span> <span id="play-text">PAUSAR</span>
+    </button>
+
+    <div class="time-readout">
+      <div class="t-big" id="val-sim-days">DÍA 000.0</div>
+      <div class="t-small" id="val-sim-years">AÑO SIDERAL: 0.00</div>
+    </div>
+
+    <div class="time-slider-wrap">
+      <div class="control-label" style="margin-bottom: 2px;">
+        <span>ESCALA TEMPORAL (timeScale)</span>
+        <strong id="lbl-timescale">1.00x (15 días/s)</strong>
+      </div>
+      <input type="range" id="slider-timescale" min="0" max="10" step="0.05" value="1.0" />
+    </div>
+
+    <div class="speed-presets">
+      <button class="preset-btn" data-speed="0.05">0.05x</button>
+      <button class="preset-btn" data-speed="0.25">0.25x</button>
+      <button class="preset-btn active" data-speed="1.0">1x</button>
+      <button class="preset-btn" data-speed="3.0">3x</button>
+      <button class="preset-btn" data-speed="8.0">8x</button>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR 3D PROCEDURAL: SHADERS GLSL + GRAFO DE ESCENA + FÍSICA DE ECLIPSES
+       ========================================================================= -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    // =========================================================================
+    // 1. CONSTANTES DEL SISTEMA Y PARÁMETROS ASTRONÓMICOS RELATIVOS
+    // =========================================================================
+    const CONFIG = {
+      SUN_RADIUS: 13.0,
+      EARTH_RADIUS: 4.2,
+      MOON_RADIUS: 1.18,
+      EARTH_ORBIT_RADIUS: 96.0,
+      MOON_ORBIT_RADIUS: 16.8,
+      EARTH_AXIAL_TILT: THREE.MathUtils.degToRad(23.44),
+      MOON_ORBIT_INCLINATION: THREE.MathUtils.degToRad(5.14),
+
+      // Velocidades angulares base (radianes por día simulado)
+      DAYS_PER_SECOND_AT_1X: 15.0,
+      EARTH_ORBIT_OMEGA: (Math.PI * 2) / 365.256,
+      EARTH_SPIN_OMEGA: (Math.PI * 2) * 1.0, // 1 rotación completa por día simulado
+      CLOUDS_SPIN_OMEGA: (Math.PI * 2) * 1.14, // Deriva atmosférica diferencial
+      MOON_ORBIT_OMEGA: (Math.PI * 2) / 27.321, // Periodo sideral lunar
+      SUN_SPIN_OMEGA: (Math.PI * 2) / 25.38, // Rotación ecuatorial solar
+
+      // Radio solar efectivo para cono de umbra/penumbra a escala visual
+      EFFECTIVE_SUN_ECLIPSE_RADIUS: 7.4
+    };
+
+    // Estado reactivo de la simulación
+    const state = {
+      isPlaying: true,
+      timeScale: 1.0,
+      simDays: 78.0, // Iniciamos cerca de un equinoccio con vista estética
+      elapsedTime: 0.0,
+      earthOrbitAngle: 0.9,
+      earthSpinAngle: 0.0,
+      cloudsSpinAngle: 0.0,
+      moonOrbitAngle: 2.35,
+      sunSpinAngle: 0.0,
+      moonInclinationDeg: 5.14,
+
+      cameraTarget: 'earth', // 'sun' | 'earth' | 'moon' | 'overview'
+      showOrbits: true,
+      showVectors: true,
+      showCloudsAndAtmos: true,
+      showShadowCone: true,
+      showLabels: true,
+      showEcliptic: true
+    };
+
+    // =========================================================================
+    // 2. LIBRERÍA GLSL COMPARTIDA: RUIDO SIMPLEX 3D, FBM Y CÁLCULO DE ECLIPSES
+    // =========================================================================
+    const GLSL_NOISE_AND_ECLIPSE = /* glsl */ `
+      // Ashima / Stefan Gustavson 3D Simplex Noise (100% Procedural en GPU)
+      vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+      vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+      float snoise(vec3 v) {
+        const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+        const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+        vec3 i  = floor(v + dot(v, C.yyy));
+        vec3 x0 = v - i + dot(i, C.xxx);
+
+        vec3 g = step(x0.yzx, x0.xyz);
+        vec3 l = 1.0 - g;
+        vec3 i1 = min(g.xyz, l.zxy);
+        vec3 i2 = max(g.xyz, l.zxy);
+
+        vec3 x1 = x0 - i1 + 1.0 * C.xxx;
+        vec3 x2 = x0 - i2 + 2.0 * C.xxx;
+        vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
+
+        i = mod(i, 289.0);
+        vec4 p = permute(permute(permute(
+                  i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+
+        float n_ = 1.0/7.0;
+        vec3 ns = n_ * D.wyz - D.xzx;
+
+        vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+        vec4 x_ = floor(j * ns.z);
+        vec4 y_ = floor(j - 7.0 * x_);
+
+        vec4 x = x_ * ns.x + ns.yyyy;
+        vec4 y = y_ * ns.x + ns.yyyy;
+        vec4 h = 1.0 - abs(x) - abs(y);
+
+        vec4 b0 = vec4(x.xy, y.xy);
+        vec4 b1 = vec4(x.zw, y.zw);
+
+        vec4 s0 = floor(b0)*2.0 + 1.0;
+        vec4 s1 = floor(b1)*2.0 + 1.0;
+        vec4 sh = -step(h, vec4(0.0));
+
+        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+
+        vec3 p0 = vec3(a0.xy, h.x);
+        vec3 p1 = vec3(a0.zw, h.y);
+        vec3 p2 = vec3(a1.xy, h.z);
+        vec3 p3 = vec3(a1.zw, h.w);
+
+        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+        p0 *= norm.x;
+        p1 *= norm.y;
+        p2 *= norm.z;
+        p3 *= norm.w;
+
+        vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+        m = m * m;
+        return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+      }
+
+      // Fractal Brownian Motion (fBM) de 6 octavas
+      float fbm6(vec3 p) {
+        float value = 0.0;
+        float amp = 0.5;
+        float freq = 1.0;
+        for (int i = 0; i < 6; i++) {
+          value += amp * snoise(p * freq);
+          freq *= 2.07;
+          amp *= 0.48;
+        }
+        return value;
+      }
+
+      // Ridged Multifractal para cordilleras y filamentos
+      float ridgedFbm(vec3 p) {
+        float value = 0.0;
+        float amp = 0.5;
+        float freq = 1.0;
+        float weight = 1.0;
+        for (int i = 0; i < 5; i++) {
+          float n = 1.0 - abs(snoise(p * freq));
+          n = n * n * weight;
+          weight = clamp(n * 2.0, 0.0, 1.0);
+          value += n * amp;
+          freq *= 2.15;
+          amp *= 0.5;
+        }
+        return value;
+      }
+
+      // Cálculo físico de ocultación de disco solar (Umbra y Penumbra)
+      // Retorna vec2(ocultaciónTotal [0..1], núcleoUmbra [0..1])
+      vec2 computeEclipseOcclusion(
+        vec3 worldPos,
+        vec3 sunPos,
+        float sunEffRadius,
+        vec3 occluderPos,
+        float occluderRadius
+      ) {
+        vec3 toSun = sunPos - worldPos;
+        vec3 toOcc = occluderPos - worldPos;
+        float dSun = length(toSun);
+        float dOcc = length(toOcc);
+
+        // El cuerpo ocultador debe estar entre el punto superficial y el Sol
+        if (dOcc >= dSun || dOcc <= 0.001) {
+          return vec2(0.0, 0.0);
+        }
+
+        vec3 dirSun = toSun / dSun;
+        vec3 dirOcc = toOcc / dOcc;
+        float cosAngle = clamp(dot(dirSun, dirOcc), -1.0, 1.0);
+        if (cosAngle <= 0.0) {
+          return vec2(0.0, 0.0);
+        }
+
+        // Separación angular aparente entre centros de discos (radianes)
+        float alpha = acos(cosAngle);
+        // Radios angulares aparentes vistos desde worldPos
+        float thetaSun = asin(clamp(sunEffRadius / dSun, 0.0, 0.99));
+        float thetaOcc = asin(clamp(occluderRadius / dOcc, 0.0, 0.99));
+
+        // Fuera de la penumbra
+        if (alpha >= thetaSun + thetaOcc) {
+          return vec2(0.0, 0.0);
+        }
+
+        float umbraLimit = max(thetaOcc - thetaSun, 0.0);
+        float penumbraSpan = max((thetaSun + thetaOcc) - umbraLimit, 0.0001);
+        float occlusion = 1.0 - smoothstep(umbraLimit, thetaSun + thetaOcc, alpha);
+        float umbraCore = 1.0 - smoothstep(0.0, max(umbraLimit * 1.15, 0.008), alpha);
+
+        return vec2(clamp(occlusion, 0.0, 1.0), clamp(umbraCore, 0.0, 1.0));
+      }
+    `;
+
+    // =========================================================================
+    // 3. INICIALIZACIÓN DE ESCENA, CÁMARA, RENDERIZADOR Y POST-PROCESADO
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      4000
+    );
+    camera.position.set(112, 16, 26);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Post-procesado con UnrealBloomPass para corona solar, atmósfera y HUD
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.25, // strength
+      0.55, // radius
+      0.72  // threshold
+    );
+    composer.addPass(bloomPass);
+
+    const outputPass = new OutputPass();
+    composer.addPass(outputPass);
+
+    // Controles orbitales interactivos
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.065;
+    controls.minDistance = 2.6;
+    controls.maxDistance = 650;
+    controls.enablePan = true;
+
+    // =========================================================================
+    // 4. ENTORNO ESPACIAL PROFUNDO: NEBULOSA PROCEDURAL + CAMPO ESTELAR
+    // =========================================================================
+    function createDeepSpaceEnvironment() {
+      const envGroup = new THREE.Group();
+
+      // 4.1 Esfera celeste con nebulosa procedural y banda galáctica en GLSL
+      const nebulaGeo = new THREE.SphereGeometry(1600, 64, 64);
+      const nebulaMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: {
+          uTime: { value: 0 }
+        },
+        vertexShader: /* glsl */ `
+          varying vec3 vDir;
+          void main() {
+            vDir = normalize(position);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          varying vec3 vDir;
+          ${GLSL_NOISE_AND_ECLIPSE}
+
+          void main() {
+            vec3 dir = normalize(vDir);
+
+            // Plano galáctico inclinado
+            vec3 galNormal = normalize(vec3(0.28, 0.92, -0.26));
+            float galLat = abs(dot(dir, galNormal));
+            float milkyWayBand = exp(-galLat * 5.2);
+
+            // Turbulencia interestelar fBM
+            vec3 warp = vec3(
+              fbm6(dir * 2.2 + vec3(1.7, 9.2, 3.4)),
+              fbm6(dir * 2.2 + vec3(8.3, 2.8, 5.1)),
+              fbm6(dir * 2.2 + vec3(4.1, 6.4, 7.9))
+            );
+            float neb1 = fbm6(dir * 3.4 + warp * 0.85);
+            float neb2 = ridgedFbm(dir * 4.5 - warp * 0.6);
+            float dustLane = smoothstep(-0.15, 0.45, fbm6(dir * 6.5 + warp * 1.1));
+
+            vec3 deepVoid = vec3(0.004, 0.008, 0.020);
+            vec3 cosmicCyan = vec3(0.02, 0.16, 0.28) * smoothstep(0.0, 0.75, neb1);
+            vec3 hAlphaMagenta = vec3(0.22, 0.03, 0.14) * pow(clamp(neb2, 0.0, 1.0), 2.4);
+            vec3 galacticCore = vec3(0.09, 0.13, 0.24) * milkyWayBand;
+
+            vec3 col = deepVoid + (cosmicCyan + hAlphaMagenta + galacticCore) * (0.35 + 0.65 * milkyWayBand);
+            // Filamentos oscuros de polvo cósmico
+            col *= mix(1.0, 0.32, dustLane * milkyWayBand * 0.85);
+
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+      });
+      envGroup.add(new THREE.Mesh(nebulaGeo, nebulaMat));
+
+      // 4.2 Miles de estrellas clasificadas espectralmente (O, B, A, F, G, K, M)
+      const starCount = 9500;
+      const positions = new Float32Array(starCount * 3);
+      const colors = new Float32Array(starCount * 3);
+      const sizes = new Float32Array(starCount);
+      const phases = new Float32Array(starCount);
+
+      const spectralPalette = [
+        new THREE.Color(0x9bb0ff), // Tipo O/B azul intenso
+        new THREE.Color(0xcad7ff), // Tipo A blanco azulado
+        new THREE.Color(0xf8f7ff), // Tipo F blanco puro
+        new THREE.Color(0xfff4ea), // Tipo G amarillo solar
+        new THREE.Color(0xffd2a1), // Tipo K naranja cálido
+        new THREE.Color(0xffa66b)  // Tipo M rojo estelar
+      ];
+
+      for (let i = 0; i < starCount; i++) {
+        // Concentración mayor cerca del plano galáctico pero distribuida en 360°
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2.0 * Math.PI;
+        const phi = Math.acos(2.0 * v - 1.0);
+        const r = 750 + Math.random() * 750;
+
+        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.cos(phi);
+        positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+        const c = spectralPalette[Math.floor(Math.pow(Math.random(), 1.3) * spectralPalette.length)];
+        const brightness = 0.45 + 0.55 * Math.random();
+        colors[i * 3] = c.r * brightness;
+        colors[i * 3 + 1] = c.g * brightness;
+        colors[i * 3 + 2] = c.b * brightness;
+
+        sizes[i] = Math.random() < 0.06 ? (2.6 + Math.random() * 2.4) : (0.7 + Math.random() * 1.5);
+        phases[i] = Math.random() * Math.PI * 2;
+      }
+
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      starGeo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+      starGeo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+
+      const starMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        vertexColors: true,
+        uniforms: {
+          uTime: { value: 0 },
+          uPixelRatio: { value: renderer.getPixelRatio() }
+        },
+        vertexShader: /* glsl */ `
+          attribute float aSize;
+          attribute float aPhase;
+          uniform float uTime;
+          uniform float uPixelRatio;
+          varying vec3 vColor;
+          varying float vTwinkle;
+
+          void main() {
+            vColor = color;
+            vTwinkle = 0.78 + 0.22 * sin(uTime * 2.4 + aPhase);
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = aSize * uPixelRatio * vTwinkle * (520.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          varying vec3 vColor;
+          varying float vTwinkle;
+
+          void main() {
+            vec2 uv = gl_PointCoord - 0.5;
+            float d = length(uv) * 2.0;
+            if (d > 1.0) discard;
+            float core = exp(-d * d * 7.5);
+            float spike = max(0.0, 1.0 - abs(uv.x * 16.0)) * max(0.0, 1.0 - abs(uv.y * 2.5))
+                        + max(0.0, 1.0 - abs(uv.y * 16.0)) * max(0.0, 1.0 - abs(uv.x * 2.5));
+            float alpha = clamp(core + spike * 0.28, 0.0, 1.0);
+            gl_FragColor = vec4(vColor * (1.25 * vTwinkle), alpha);
+          }
+        `
+      });
+
+      const starPoints = new THREE.Points(starGeo, starMat);
+      envGroup.add(starPoints);
+
+      return { envGroup, starMat };
+    }
+
+    const { envGroup, starMat } = createDeepSpaceEnvironment();
+    scene.add(envGroup);
+
+    // =========================================================================
+    // 5. GRAFO DE ESCENA (JERARQUÍA DE MATRICES ANIDADAS)
+    // =========================================================================
+    // 5.1 NODO CENTRAL: EL SOL EN EL ORIGEN (0, 0, 0)
+    const sunRootGroup = new THREE.Group();
+    sunRootGroup.name = 'sunRootGroup';
+    scene.add(sunRootGroup);
+
+    // Malla fotosférica solar con turbulencia magnetohidrodinámica fBM
+    const sunGeo = new THREE.SphereGeometry(CONFIG.SUN_RADIUS, 96, 96);
+    const sunMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 }
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vObjPos;
+        varying vec3 vViewDir;
+
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vObjPos = normalize(position);
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vViewDir = normalize(cameraPosition - worldPos.xyz);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        varying vec3 vNormal;
+        varying vec3 vObjPos;
+        varying vec3 vViewDir;
+        ${GLSL_NOISE_AND_ECLIPSE}
+
+        void main() {
+          float t = uTime * 0.18;
+          vec3 p = vObjPos * 3.8;
+
+          // Convección de plasma con domain warping
+          vec3 q = vec3(
+            fbm6(p + vec3(0.0, t, 0.0)),
+            fbm6(p + vec3(5.2, -t * 0.8, 1.3)),
+            fbm6(p + vec3(2.8, t * 0.6, 4.1))
+          );
+
+          float plasma = fbm6(p * 1.4 + q * 1.85 + vec3(t * 0.4));
+          float filaments = ridgedFbm(p * 2.2 - q * 1.2 + vec3(0.0, -t * 0.7, 0.0));
+          float granules = snoise(vObjPos * 28.0 + q * 3.0 + t * 2.0) * 0.5 + 0.5;
+
+          // Manchas solares magnéticas en bandas subtropicales
+          float latBand = smoothstep(0.08, 0.45, abs(vObjPos.y)) * (1.0 - smoothstep(0.5, 0.82, abs(vObjPos.y)));
+          float spotNoise = snoise(vObjPos * 5.2 + q * 0.4 + vec3(t * 0.15));
+          float sunspot = smoothstep(0.60, 0.78, spotNoise) * latBand;
+
+          // Gradiente térmico de cuerpo negro solar
+          vec3 darkUmbra = vec3(0.28, 0.04, 0.0);
+          vec3 deepConvection = vec3(0.95, 0.22, 0.02);
+          vec3 photosphereOrange = vec3(1.45, 0.62, 0.08);
+          vec3 hotFilament = vec3(2.2, 1.75, 0.85);
+
+          float energy = clamp(plasma * 0.55 + 0.5 + filaments * 0.42 + granules * 0.12, 0.0, 1.3);
+          vec3 color = mix(deepConvection, photosphereOrange, smoothstep(0.15, 0.65, energy));
+          color = mix(color, hotFilament, smoothstep(0.62, 1.12, energy + filaments * 0.35));
+          color = mix(color, darkUmbra, sunspot * 0.82);
+
+          // Oscurecimiento de limbo solar + fulgor cromosférico en el borde
+          vec3 viewN = normalize(vNormal);
+          float mu = clamp(dot(viewN, vec3(0.0, 0.0, 1.0)), 0.0, 1.0);
+          float limbDarkening = pow(mu, 0.42);
+          float chromoRim = pow(1.0 - mu, 3.2);
+
+          color = color * (0.45 + 0.65 * limbDarkening) + vec3(1.8, 0.45, 0.08) * chromoRim * 0.9;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `
+    });
+
+    const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+    sunMesh.name = 'sunMesh';
+    sunRootGroup.add(sunMesh);
+
+    // Corona Solar Volumétrica (Capas Fresnel Aditivas + Prominencias)
+    const coronaGeo = new THREE.SphereGeometry(CONFIG.SUN_RADIUS * 1.48, 64, 64);
+    const coronaMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTime: { value: 0 }
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vObjDir;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vObjDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        varying vec3 vNormal;
+        varying vec3 vObjDir;
+        ${GLSL_NOISE_AND_ECLIPSE}
+
+        void main() {
+          float viewDot = clamp(dot(normalize(-vNormal), vec3(0.0, 0.0, 1.0)), 0.0, 1.0);
+          float radialFade = pow(viewDot, 2.4);
+
+          // Rayos y eyecciones coronales animadas
+          float streamer = ridgedFbm(vObjDir * 4.2 + vec3(uTime * 0.16, -uTime * 0.12, uTime * 0.09));
+          float intensity = radialFade * (0.55 + 0.75 * streamer);
+
+          vec3 col = mix(vec3(1.0, 0.25, 0.02), vec3(1.4, 0.82, 0.32), radialFade);
+          gl_FragColor = vec4(col * intensity * 1.35, clamp(intensity, 0.0, 1.0));
+        }
+      `
+    });
+    const sunCoronaMesh = new THREE.Mesh(coronaGeo, coronaMat);
+    sunRootGroup.add(sunCoronaMesh);
+
+    // Fuentes de Luz Física en el Núcleo del Sol (0, 0, 0)
+    const sunPointLight = new THREE.PointLight(0xfff5e4, 2.8, 0, 0);
+    sunPointLight.position.set(0, 0, 0);
+    sunRootGroup.add(sunPointLight);
+
+    // Luz Direccional Solar de Alta Precisión para Shadow Mapping entre Tierra y Luna
+    const sunShadowLight = new THREE.DirectionalLight(0xfff8ee, 2.2);
+    sunShadowLight.position.set(0, 0, 0);
+    sunShadowLight.castShadow = true;
+    sunShadowLight.shadow.mapSize.set(4096, 4096);
+    sunShadowLight.shadow.camera.near = 60;
+    sunShadowLight.shadow.camera.far = 135;
+    sunShadowLight.shadow.camera.left = -24;
+    sunShadowLight.shadow.camera.right = 24;
+    sunShadowLight.shadow.camera.top = 24;
+    sunShadowLight.shadow.camera.bottom = -24;
+    sunShadowLight.shadow.bias = -0.00025;
+    sunRootGroup.add(sunShadowLight);
+    scene.add(sunShadowLight.target);
+
+    // =========================================================================
+    // 5.2 NODO PIVOTE PADRE DEL SISTEMA TERRESTRE (Rotación Orbital alrededor del Sol)
+    // =========================================================================
+    const earthOrbitPivot = new THREE.Group();
+    earthOrbitPivot.name = 'earthOrbitPivot';
+    sunRootGroup.add(earthOrbitPivot);
+
+    // Nodo de traslación del subsistema Tierra-Luna ubicado a distancia orbital
+    // NOTA DE ARQUITECTURA: Este nodo traslada conjuntamente a la Tierra y a la Luna,
+    // pero NO aplica la rotación diaria terrestre, garantizando que el giro diario
+    // de la Tierra jamás arrastre ni acelere la órbita de la Luna.
+    const earthSystemNode = new THREE.Group();
+    earthSystemNode.name = 'earthSystemNode';
+    earthSystemNode.position.set(CONFIG.EARTH_ORBIT_RADIUS, 0, 0);
+    earthOrbitPivot.add(earthSystemNode);
+
+    // =========================================================================
+    // 5.3 NODO TERRESTRE: INCLINACIÓN AXIAL (~23.44°) + ROTACIÓN DIARIA INDEPENDIENTE
+    // =========================================================================
+    const earthTiltGroup = new THREE.Group();
+    earthTiltGroup.name = 'earthTiltGroup';
+    earthTiltGroup.rotation.z = -CONFIG.EARTH_AXIAL_TILT;
+    earthSystemNode.add(earthTiltGroup);
+
+    // Pivote exclusivo para el giro diario de la Tierra sobre su propio eje
+    const earthSpinPivot = new THREE.Group();
+    earthSpinPivot.name = 'earthSpinPivot';
+    earthTiltGroup.add(earthSpinPivot);
+
+    // Uniforms compartidos para iluminación solar y eclipses en tiempo real
+    const sharedCelestialUniforms = {
+      uTime: { value: 0 },
+      uSunWorldPos: { value: new THREE.Vector3(0, 0, 0) },
+      uSunEffRadius: { value: CONFIG.EFFECTIVE_SUN_ECLIPSE_RADIUS },
+      uEarthWorldPos: { value: new THREE.Vector3(CONFIG.EARTH_ORBIT_RADIUS, 0, 0) },
+      uEarthRadius: { value: CONFIG.EARTH_RADIUS },
+      uMoonWorldPos: { value: new THREE.Vector3(CONFIG.EARTH_ORBIT_RADIUS + CONFIG.MOON_ORBIT_RADIUS, 0, 0) },
+      uMoonRadius: { value: CONFIG.MOON_RADIUS },
+      uCloudRotation: { value: 0.0 },
+      uShowClouds: { value: 1.0 }
+    };
+
+    // SHADER PROCEDURAL DE LA TIERRA:
+    // - Océanos profundos y plataformas continentales con reflectividad especular GGX/Blinn
+    // - Masas continentales con topografía fractal (costas, bosques, desiertos, cordilleras y polos nevados)
+    // - Perturbación de normales por gradiente topográfico (bump mapping en GPU)
+    // - Hemisferio nocturno con redes de luces urbanas procedurales en costas y llanuras
+    // - Sombra proyectada por la Luna en tiempo real (Umbra y Penumbra de Eclipse Solar)
+    const earthGeo = new THREE.SphereGeometry(CONFIG.EARTH_RADIUS, 128, 128);
+    const earthMat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...sharedCelestialUniforms
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vObjPos;
+        varying vec3 vObjNormal;
+        varying vec3 vObjT1;
+        varying vec3 vObjT2;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldT1;
+        varying vec3 vWorldT2;
+
+        void main() {
+          vObjPos = position;
+          vec3 nObj = normalize(normal);
+          vObjNormal = nObj;
+
+          vec3 t1 = normalize(cross(nObj, abs(nObj.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+          vec3 t2 = normalize(cross(nObj, t1));
+          vObjT1 = t1;
+          vObjT2 = t2;
+
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          mat3 worldRot = mat3(modelMatrix);
+          vWorldNormal = normalize(worldRot * nObj);
+          vWorldT1 = normalize(worldRot * t1);
+          vWorldT2 = normalize(worldRot * t2);
+
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform vec3 uSunWorldPos;
+        uniform float uSunEffRadius;
+        uniform vec3 uMoonWorldPos;
+        uniform float uMoonRadius;
+        uniform float uCloudRotation;
+        uniform float uShowClouds;
+
+        varying vec3 vObjPos;
+        varying vec3 vObjNormal;
+        varying vec3 vObjT1;
+        varying vec3 vObjT2;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldT1;
+        varying vec3 vWorldT2;
+
+        ${GLSL_NOISE_AND_ECLIPSE}
+
+        // Función de elevación planetaria sobre la esfera unitaria (Cero costuras UV)
+        float sampleEarthElevation(vec3 sphereDir) {
+          vec3 warp = vec3(
+            fbm6(sphereDir * 2.1 + vec3(1.2, 3.4, 5.6)),
+            fbm6(sphereDir * 2.1 + vec3(7.1, 2.3, 8.9)),
+            fbm6(sphereDir * 2.1 + vec3(4.5, 6.7, 1.9))
+          );
+          float continents = fbm6(sphereDir * 2.45 + warp * 0.55);
+          float mountains = ridgedFbm(sphereDir * 5.8 + warp * 0.8);
+          float microDetail = snoise(sphereDir * 22.0) * 0.03;
+
+          // Nivel del mar ajustado para ~70% océanos y ~30% tierras emergidas
+          float height = continents + 0.04;
+          if (height > 0.0) {
+            height += pow(max(0.0, mountains), 1.65) * 0.42 + microDetail;
+          } else {
+            height += microDetail * 0.35;
+          }
+          return height;
+        }
+
+        void main() {
+          vec3 nObj = normalize(vObjNormal);
+          vec3 N = normalize(vWorldNormal);
+          vec3 V = normalize(cameraPosition - vWorldPos);
+          vec3 L = normalize(uSunWorldPos - vWorldPos);
+
+          // 1. Elevación y cálculo de gradiente topográfico (Bump Mapping en espacio tangente)
+          float hCenter = sampleEarthElevation(nObj);
+          float eps = 0.0045;
+          vec3 t1 = normalize(vObjT1);
+          vec3 t2 = normalize(vObjT2);
+
+          float hU = sampleEarthElevation(normalize(nObj + t1 * eps));
+          float hV = sampleEarthElevation(normalize(nObj + t2 * eps));
+
+          float landMask = smoothstep(-0.015, 0.018, hCenter);
+          vec3 worldT1 = normalize(vWorldT1);
+          vec3 worldT2 = normalize(vWorldT2);
+
+          // Relieve fuerte en tierra firme, micro-oleaje sutil en el océano
+          float bumpScale = mix(0.25, 4.8, landMask);
+          vec3 bumpedN = normalize(N - (worldT1 * (hU - hCenter) + worldT2 * (hV - hCenter)) * bumpScale / eps);
+
+          // 2. Biomas y Batimetría
+          float absLat = abs(nObj.y);
+          float humidity = fbm6(nObj * 4.6 + vec3(9.1, 4.2, 2.7)) * 0.5 + 0.5;
+          float polarNoise = snoise(nObj * 7.5) * 0.06;
+          float polarIceMask = smoothstep(0.76 + polarNoise, 0.85 + polarNoise, absLat + max(0.0, hCenter) * 0.25);
+
+          // Colores oceánicos (abisal -> plataforma continental -> turquesa costero)
+          vec3 deepOcean = vec3(0.012, 0.055, 0.145);
+          vec3 midOcean = vec3(0.025, 0.14, 0.29);
+          vec3 shallowCoast = vec3(0.05, 0.36, 0.45);
+          float oceanDepth = clamp(-hCenter * 3.2, 0.0, 1.0);
+          vec3 oceanColor = mix(shallowCoast, midOcean, smoothstep(0.0, 0.25, oceanDepth));
+          oceanColor = mix(oceanColor, deepOcean, smoothstep(0.22, 0.85, oceanDepth));
+
+          // Colores continentales (playa -> selva/bosque -> sabana/desierto -> roca -> nieve)
+          vec3 coastSand = vec3(0.76, 0.68, 0.48);
+          vec3 lushForest = vec3(0.09, 0.29, 0.11);
+          vec3 temperateGreen = vec3(0.21, 0.38, 0.15);
+          vec3 aridDesert = vec3(0.72, 0.56, 0.35);
+          vec3 mountainRock = vec3(0.34, 0.31, 0.29);
+          vec3 peakSnow = vec3(0.95, 0.97, 1.0);
+
+          // Cinturón árido subtropical (~20-32 grados de latitud)
+          float subtropicalBelt = exp(-pow((absLat - 0.36) / 0.18, 2.0));
+          float desertFactor = clamp(subtropicalBelt * (1.15 - humidity), 0.0, 1.0);
+
+          vec3 vegetation = mix(lushForest, temperateGreen, smoothstep(0.15, 0.65, absLat));
+          vec3 lowland = mix(vegetation, aridDesert, desertFactor);
+          vec3 landColor = mix(coastSand, lowland, smoothstep(0.01, 0.065, hCenter));
+          landColor = mix(landColor, mountainRock, smoothstep(0.22, 0.48, hCenter));
+          landColor = mix(landColor, peakSnow, smoothstep(0.45, 0.68, hCenter));
+
+          // Combinación tierra/mar + casquetes polares
+          vec3 surfaceAlbedo = mix(oceanColor, landColor, landMask);
+          surfaceAlbedo = mix(surfaceAlbedo, peakSnow, polarIceMask);
+
+          // 3. Sombra sutil de la capa de nubes proyectada sobre la superficie
+          float cloudShadow = 0.0;
+          if (uShowClouds > 0.5) {
+            float cAngle = uCloudRotation;
+            mat3 rotY = mat3(
+              cos(cAngle), 0.0, sin(cAngle),
+              0.0, 1.0, 0.0,
+              -sin(cAngle), 0.0, cos(cAngle)
+            );
+            vec3 cPos = rotY * normalize(nObj + L * 0.015);
+            vec3 cWarp = vec3(
+              fbm6(cPos * 3.0 + vec3(1.1, 2.2, 3.3)),
+              fbm6(cPos * 3.0 + vec3(4.4, 5.5, 6.6)),
+              fbm6(cPos * 3.0 + vec3(7.7, 8.8, 9.9))
+            );
+            float cDensity = fbm6(cPos * 3.8 + cWarp * 0.75);
+            cloudShadow = smoothstep(0.06, 0.38, cDensity) * 0.42;
+          }
+
+          // 4. Iluminación Solar Difusa, Crepúsculo y Especular Diferencial
+          float NdotL = dot(bumpedN, L);
+          float sphereNdotL = dot(N, L);
+          float dayFactor = smoothstep(-0.06, 0.14, NdotL);
+
+          // Banda cálida crepuscular en el terminador día/noche
+          float twilight = exp(-pow((sphereNdotL - 0.02) / 0.11, 2.0)) * smoothstep(-0.18, 0.05, sphereNdotL);
+          vec3 twilightTint = vec3(1.0, 0.38, 0.12) * twilight * 0.45;
+
+          // Cálculo de Eclipse Solar en tiempo real (Sombra de la Luna sobre la Tierra)
+          vec2 solarEclipse = computeEclipseOcclusion(
+            vWorldPos,
+            uSunWorldPos,
+            uSunEffRadius,
+            uMoonWorldPos,
+            uMoonRadius
+          );
+          float eclipseVisibility = 1.0 - solarEclipse.x * 0.94;
+          // Halo rojizo/coronal sutil en el borde de la umbra total
+          vec3 umbraTint = mix(vec3(1.0), vec3(0.45, 0.28, 0.35), solarEclipse.y);
+
+          // Reflectividad especular alta en océanos y baja en continentes
+          vec3 H = normalize(L + V);
+          float NdotH = max(dot(mix(N, bumpedN, 0.35), H), 0.0);
+          float oceanSpecMask = (1.0 - landMask) * (1.0 - polarIceMask * 0.85);
+          float specOcean = pow(NdotH, 68.0) * 0.95 + pow(NdotH, 16.0) * 0.18;
+          float specLand = pow(NdotH, 18.0) * 0.04;
+          float specular = mix(specLand, specOcean, oceanSpecMask) * dayFactor * (1.0 - cloudShadow);
+
+          vec3 sunRadiance = vec3(1.32, 1.28, 1.20) * eclipseVisibility * umbraTint;
+          vec3 dayColor = (surfaceAlbedo * (max(NdotL, 0.0) * (1.0 - cloudShadow) + 0.03) + twilightTint) * sunRadiance
+                        + vec3(1.0, 0.92, 0.78) * specular * eclipseVisibility;
+
+          // 5. Hemisferio Nocturno: Luces de Ciudades Procedurales
+          float nightMask = smoothstep(0.08, -0.18, sphereNdotL);
+          // También se encienden ligeramente bajo una umbra de eclipse solar total
+          float effectiveNight = max(nightMask, solarEclipse.y * 0.65);
+
+          // Las ciudades se concentran en costas, valles y latitudes templadas/tropicales
+          float habitableMask = landMask
+                              * (1.0 - smoothstep(0.20, 0.38, hCenter))
+                              * (1.0 - polarIceMask)
+                              * (1.0 - desertFactor * 0.78);
+          float coastProximity = smoothstep(0.24, 0.01, hCenter) * landMask;
+
+          float urbanCluster = snoise(nObj * 18.0 + vec3(2.4, 5.1, 8.3));
+          float urbanGrid = ridgedFbm(nObj * 48.0);
+          float citySparkle = snoise(nObj * 140.0);
+
+          float cityIntensity = smoothstep(0.22, 0.66, urbanCluster + coastProximity * 0.38)
+                              * smoothstep(0.35, 0.78, urbanGrid)
+                              * (0.65 + 0.35 * citySparkle)
+                              * habitableMask;
+
+          vec3 cityLights = mix(vec3(1.0, 0.62, 0.22), vec3(1.0, 0.88, 0.65), smoothstep(0.4, 0.9, cityIntensity))
+                          * cityIntensity * 1.65 * effectiveNight * (1.0 - cloudShadow * 0.6);
+
+          // Luz ambiental nocturna azul profundo
+          vec3 nightAmbient = surfaceAlbedo * vec3(0.018, 0.032, 0.065) * (1.0 - dayFactor);
+
+          // 6. Dispersión atmosférica superficial (Rayleigh rim sobre la corteza)
+          float fresnel = pow(1.0 - max(dot(N, V), 0.0), 3.4);
+          vec3 surfaceAtmos = mix(vec3(0.12, 0.45, 0.95), vec3(0.95, 0.38, 0.12), twilight)
+                            * fresnel * smoothstep(-0.25, 0.35, sphereNdotL) * 0.45 * eclipseVisibility;
+
+          vec3 finalColor = dayColor + nightAmbient + cityLights + surfaceAtmos;
+          gl_FragColor = vec4(finalColor, 1.0);
+        }
+      `
+    });
+
+    const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+    earthMesh.name = 'earthMesh';
+    earthMesh.castShadow = true;
+    earthMesh.receiveShadow = true;
+    earthSpinPivot.add(earthMesh);
+
+    // 5.4 SEGUNDA ESFERA TERRESTRE: CAPA DE NUBES CON VELOCIDAD DE ROTACIÓN PROPIA
+    const cloudsGeo = new THREE.SphereGeometry(CONFIG.EARTH_RADIUS * 1.018, 96, 96);
+    const cloudsMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        ...sharedCelestialUniforms
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vObjNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+
+        void main() {
+          vObjNormal = normalize(normal);
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform vec3 uSunWorldPos;
+        uniform float uSunEffRadius;
+        uniform vec3 uMoonWorldPos;
+        uniform float uMoonRadius;
+
+        varying vec3 vObjNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+
+        ${GLSL_NOISE_AND_ECLIPSE}
+
+        void main() {
+          vec3 nObj = normalize(vObjNormal);
+          vec3 N = normalize(vWorldNormal);
+          vec3 L = normalize(uSunWorldPos - vWorldPos);
+
+          // Turbulencia ciclónica con domain warping
+          vec3 warp = vec3(
+            fbm6(nObj * 3.0 + vec3(1.1, 2.2 + uTime * 0.01, 3.3)),
+            fbm6(nObj * 3.0 + vec3(4.4, 5.5, 6.6 - uTime * 0.01)),
+            fbm6(nObj * 3.0 + vec3(7.7, 8.8, 9.9))
+          );
+          float cloudBase = fbm6(nObj * 3.8 + warp * 0.78);
+          float cloudWisps = ridgedFbm(nObj * 8.2 - warp * 0.5);
+
+          float density = smoothstep(0.04, 0.44, cloudBase + cloudWisps * 0.16);
+          if (density < 0.01) discard;
+
+          float NdotL = dot(N, L);
+          float dayLight = smoothstep(-0.14, 0.22, NdotL);
+          float sunsetBand = exp(-pow((NdotL - 0.0) / 0.13, 2.0)) * smoothstep(-0.22, 0.1, NdotL);
+
+          // Sombra de Eclipse Solar sobre la capa de nubes
+          vec2 solarEclipse = computeEclipseOcclusion(
+            vWorldPos,
+            uSunWorldPos,
+            uSunEffRadius,
+            uMoonWorldPos,
+            uMoonRadius
+          );
+          float eclipseFactor = 1.0 - solarEclipse.x * 0.92;
+
+          vec3 cloudDay = vec3(0.98, 0.99, 1.0) * (0.15 + 0.95 * dayLight);
+          vec3 cloudSunset = vec3(1.0, 0.42, 0.16) * sunsetBand * 0.75;
+          vec3 cloudNight = vec3(0.03, 0.05, 0.09);
+
+          vec3 col = mix(cloudNight, (cloudDay + cloudSunset) * eclipseFactor, smoothstep(-0.18, 0.15, NdotL));
+          gl_FragColor = vec4(col, density * 0.86);
+        }
+      `
+    });
+
+    const earthCloudsMesh = new THREE.Mesh(cloudsGeo, cloudsMat);
+    earthCloudsMesh.name = 'earthCloudsMesh';
+    earthTiltGroup.add(earthCloudsMesh);
+
+    // 5.5 TERCERA ESFERA TERRESTRE: HALO DE DISPERSIÓN ATMOSFÉRICA (EFECTO FRESNEL RAYLEIGH/MIE)
+    const atmosGeo = new THREE.SphereGeometry(CONFIG.EARTH_RADIUS * 1.078, 96, 96);
+    const atmosMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        ...sharedCelestialUniforms
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uSunWorldPos;
+        uniform float uSunEffRadius;
+        uniform vec3 uMoonWorldPos;
+        uniform float uMoonRadius;
+
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+
+        ${GLSL_NOISE_AND_ECLIPSE}
+
+        void main() {
+          vec3 N = normalize(vWorldNormal);
+          vec3 V = normalize(cameraPosition - vWorldPos);
+          vec3 L = normalize(uSunWorldPos - vWorldPos);
+
+          // Efecto Fresnel en el limbo atmosférico
+          float viewDot = clamp(dot(-N, V), 0.0, 1.0);
+          float rim = pow(1.0 - viewDot, 2.2) * smoothstep(0.0, 0.42, viewDot);
+
+          float sunAngle = dot(N, L);
+          float daySide = smoothstep(-0.28, 0.35, sunAngle);
+          float twilightSide = exp(-pow((sunAngle + 0.05) / 0.22, 2.0));
+
+          vec2 solarEclipse = computeEclipseOcclusion(
+            vWorldPos,
+            uSunWorldPos,
+            uSunEffRadius,
+            uMoonWorldPos,
+            uMoonRadius
+          );
+          float eclipseAtten = 1.0 - solarEclipse.x * 0.82;
+
+          vec3 rayleighBlue = vec3(0.16, 0.58, 1.15);
+          vec3 mieSunset = vec3(1.15, 0.38, 0.08);
+          vec3 atmosColor = mix(rayleighBlue, mieSunset, twilightSide * 0.72) * daySide * eclipseAtten;
+
+          float alpha = clamp(rim * daySide * 1.15, 0.0, 1.0);
+          gl_FragColor = vec4(atmosColor * rim * 1.45, alpha);
+        }
+      `
+    });
+
+    const earthAtmosphereMesh = new THREE.Mesh(atmosGeo, atmosMat);
+    earthAtmosphereMesh.name = 'earthAtmosphereMesh';
+    earthTiltGroup.add(earthAtmosphereMesh);
+
+    // =========================================================================
+    // 5.6 SISTEMA ORBITAL LUNAR (HERMANO DE earthTiltGroup -> NO ARRASTRADO POR GIRO DIARIO)
+    // =========================================================================
+    const moonOrbitPlaneGroup = new THREE.Group();
+    moonOrbitPlaneGroup.name = 'moonOrbitPlaneGroup';
+    moonOrbitPlaneGroup.rotation.z = CONFIG.MOON_ORBIT_INCLINATION;
+    earthSystemNode.add(moonOrbitPlaneGroup);
+
+    const moonOrbitPivot = new THREE.Group();
+    moonOrbitPivot.name = 'moonOrbitPivot';
+    moonOrbitPlaneGroup.add(moonOrbitPivot);
+
+    const moonNode = new THREE.Group();
+    moonNode.name = 'moonNode';
+    moonNode.position.set(CONFIG.MOON_ORBIT_RADIUS, 0, 0);
+    moonOrbitPivot.add(moonNode);
+
+    // SHADER PROCEDURAL DE LA LUNA:
+    // - Mares lunares basálticos (Mare) y tierras altas (Terrae) en escala de grises
+    // - Función celular 3D de cráteres de impacto multi-escala con anillos elevados y pico central
+    // - Perturbación de normales para relieve dramático bajo luz rasante en el terminador
+    // - Eclipse Lunar real: al entrar en la umbra terrestre se tiñe de rojo cobrizo (Luna de Sangre)
+    const moonGeo = new THREE.SphereGeometry(CONFIG.MOON_RADIUS, 96, 96);
+    const moonMat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...sharedCelestialUniforms
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vObjNormal;
+        varying vec3 vObjT1;
+        varying vec3 vObjT2;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldT1;
+        varying vec3 vWorldT2;
+
+        void main() {
+          vec3 nObj = normalize(normal);
+          vObjNormal = nObj;
+
+          vec3 t1 = normalize(cross(nObj, abs(nObj.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+          vec3 t2 = normalize(cross(nObj, t1));
+          vObjT1 = t1;
+          vObjT2 = t2;
+
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          mat3 worldRot = mat3(modelMatrix);
+          vWorldNormal = normalize(worldRot * nObj);
+          vWorldT1 = normalize(worldRot * t1);
+          vWorldT2 = normalize(worldRot * t2);
+
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uSunWorldPos;
+        uniform float uSunEffRadius;
+        uniform vec3 uEarthWorldPos;
+        uniform float uEarthRadius;
+
+        varying vec3 vObjNormal;
+        varying vec3 vObjT1;
+        varying vec3 vObjT2;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldT1;
+        varying vec3 vWorldT2;
+
+        ${GLSL_NOISE_AND_ECLIPSE}
+
+        // Hash 3D determinista para celdas de cráteres Voronoi sobre la esfera
+        vec3 hash33(vec3 p) {
+          p = vec3(
+            dot(p, vec3(127.1, 311.7, 74.7)),
+            dot(p, vec3(269.5, 183.3, 246.1)),
+            dot(p, vec3(113.5, 271.9, 124.6))
+          );
+          return fract(sin(p) * 43758.5453123);
+        }
+
+        // Perfil radial de cráter de impacto (cuenco cóncavo + muralla circular elevada)
+        float craterLayer(vec3 p, float scale) {
+          vec3 sp = p * scale;
+          vec3 ip = floor(sp);
+          vec3 fp = fract(sp);
+
+          float minDist = 10.0;
+          for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+              for (int z = -1; z <= 1; z++) {
+                vec3 neighbor = vec3(float(x), float(y), float(z));
+                vec3 rnd = hash33(ip + neighbor);
+                vec3 diff = neighbor + rnd - fp;
+                minDist = min(minDist, length(diff));
+              }
+            }
+          }
+
+          float r = minDist / 0.52;
+          if (r >= 1.25) return 0.0;
+
+          // Cavidad interior parabólica + borde elevado (ejecta rim)
+          float bowl = (r * r - 1.0) * smoothstep(1.0, 0.0, r);
+          float rim = exp(-pow((r - 0.92) / 0.16, 2.0)) * 0.36;
+          return bowl * 0.65 + rim;
+        }
+
+        // Mapa de alturas combinado del regolito lunar
+        float sampleLunarHeight(vec3 dir) {
+          float mariaBasin = fbm6(dir * 1.85);
+          float smoothMaria = smoothstep(-0.35, 0.18, mariaBasin);
+
+          float cLarge = craterLayer(dir, 3.6) * 0.55;
+          float cMed = craterLayer(dir + vec3(2.3, 1.1, 4.7), 8.2) * 0.32;
+          float cSmall = craterLayer(dir + vec3(5.4, 8.2, 1.9), 18.5) * 0.16;
+          float regolithRough = fbm6(dir * 26.0) * 0.08;
+
+          // Los mares basálticos tienen menos cráteres gigantes antiguos que las tierras altas
+          float craters = cLarge * (0.35 + 0.65 * smoothMaria) + cMed + cSmall;
+          return mariaBasin * 0.25 + craters + regolithRough;
+        }
+
+        void main() {
+          vec3 nObj = normalize(vObjNormal);
+          vec3 N = normalize(vWorldNormal);
+          vec3 L = normalize(uSunWorldPos - vWorldPos);
+          vec3 V = normalize(cameraPosition - vWorldPos);
+
+          // 1. Perturbación de normales por diferencias finitas para cráteres bajo luz rasante
+          float h0 = sampleLunarHeight(nObj);
+          float eps = 0.0055;
+          vec3 t1 = normalize(vObjT1);
+          vec3 t2 = normalize(vObjT2);
+
+          float h1 = sampleLunarHeight(normalize(nObj + t1 * eps));
+          float h2 = sampleLunarHeight(normalize(nObj + t2 * eps));
+
+          vec3 worldT1 = normalize(vWorldT1);
+          vec3 worldT2 = normalize(vWorldT2);
+
+          float bumpStrength = 6.2;
+          vec3 bumpedN = normalize(N - (worldT1 * (h1 - h0) + worldT2 * (h2 - h0)) * bumpStrength / eps);
+
+          // 2. Albedo en escala de grises: Mares basálticos oscuros vs Tierras Altas anortosíticas
+          float mareField = fbm6(nObj * 2.1 + vec3(0.4, 1.2, 2.8));
+          float mareMask = smoothstep(-0.32, 0.08, mareField);
+          float ejectaRays = ridgedFbm(nObj * 11.5) * 0.14;
+
+          vec3 darkMare = vec3(0.24, 0.25, 0.27);
+          vec3 brightHighlands = vec3(0.66, 0.65, 0.63);
+          vec3 albedo = mix(darkMare, brightHighlands, mareMask) + vec3(ejectaRays + h0 * 0.08);
+
+          // 3. Fotometría lunar (Lommel-Seeliger + Oren-Nayar aproximado para regolito)
+          float NdotL = max(dot(bumpedN, L), 0.0);
+          float NdotV = max(dot(bumpedN, V), 0.05);
+          float lommel = NdotL / (NdotL + NdotV * 0.65 + 0.08);
+          float terminatorContrast = smoothstep(-0.04, 0.12, dot(N, L));
+          float diffuse = mix(NdotL, lommel * 1.35, 0.55) * terminatorContrast;
+
+          // 4. Cálculo de Eclipse Lunar (Sombra de la Tierra sobre la Luna)
+          vec2 lunarEclipse = computeEclipseOcclusion(
+            vWorldPos,
+            uSunWorldPos,
+            uSunEffRadius,
+            uEarthWorldPos,
+            uEarthRadius
+          );
+
+          // En la umbra terrestre, la luz solar directa cae pero la atmósfera terrestre refracta luz roja (Luna de Sangre)
+          float directSunlight = 1.0 - lunarEclipse.x * 0.95;
+          vec3 bloodMoonLight = vec3(0.78, 0.14, 0.03) * lunarEclipse.x * (0.35 + 0.65 * max(dot(N, L), 0.0));
+
+          // Luz cenicienta sutil (Earthshine reflejado por la Tierra hacia la cara nocturna lunar)
+          vec3 toEarth = normalize(uEarthWorldPos - vWorldPos);
+          float earthshine = max(dot(bumpedN, toEarth), 0.0) * 0.025;
+
+          vec3 finalColor = albedo * (diffuse * directSunlight * vec3(1.22, 1.20, 1.16) + bloodMoonLight + earthshine);
+          gl_FragColor = vec4(finalColor, 1.0);
+        }
+      `
+    });
+
+    const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    moonMesh.name = 'moonMesh';
+    moonMesh.castShadow = true;
+    moonMesh.receiveShadow = true;
+    // Bloqueo de marea: al ser hijo de moonNode (que rota con moonOrbitPivot),
+    // fijar la orientación local hace que la misma cara apunte siempre hacia la Tierra.
+    moonMesh.rotation.y = Math.PI;
+    moonNode.add(moonMesh);
+
+    // =========================================================================
+    // 6. TRAYECTORIAS ORBITALES, MALLA ECLÍPTICA, VECTORES Y CONOS DE SOMBRA
+    // =========================================================================
+    const orbitsGroup = new THREE.Group();
+    scene.add(orbitsGroup);
+
+    // 6.1 Anillo Orbital Terrestre (Plano de la Eclíptica)
+    function createOrbitRing(radius, segments, colorHex, opacity = 0.55) {
+      const pts = [];
+      for (let i = 0; i <= segments; i++) {
+        const a = (i / segments) * Math.PI * 2;
+        pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineBasicMaterial({
+        color: colorHex,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending
+      });
+      return new THREE.LineLoop(geo, mat);
+    }
+
+    const earthOrbitRing = createOrbitRing(CONFIG.EARTH_ORBIT_RADIUS, 360, 0x00e5ff, 0.48);
+    orbitsGroup.add(earthOrbitRing);
+
+    // Anillo Orbital Lunar (hijo de moonOrbitPlaneGroup para mostrar la inclinación 3D de 5.14°)
+    const moonOrbitRing = createOrbitRing(CONFIG.MOON_ORBIT_RADIUS, 180, 0xffb300, 0.62);
+    moonOrbitPlaneGroup.add(moonOrbitRing);
+
+    // 6.2 Malla Polar Eclíptica de Telemetría alrededor del Sol
+    const eclipticGridGroup = new THREE.Group();
+    scene.add(eclipticGridGroup);
+
+    [35, 65, CONFIG.EARTH_ORBIT_RADIUS, 130].forEach((r, idx) => {
+      const ring = createOrbitRing(r, 180, idx === 2 ? 0x00e5ff : 0x1a4b6e, idx === 2 ? 0.25 : 0.16);
+      eclipticGridGroup.add(ring);
+    });
+
+    const radialLinesPts = [];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      radialLinesPts.push(
+        new THREE.Vector3(Math.cos(a) * 20, -0.05, Math.sin(a) * 20),
+        new THREE.Vector3(Math.cos(a) * 130, -0.05, Math.sin(a) * 130)
+      );
+    }
+    const radialGeo = new THREE.BufferGeometry().setFromPoints(radialLinesPts);
+    const radialLines = new THREE.LineSegments(
+      radialGeo,
+      new THREE.LineBasicMaterial({ color: 0x164263, transparent: true, opacity: 0.22 })
+    );
+    eclipticGridGroup.add(radialLines);
+
+    // 6.3 Vectores Físicos 3D (Eje Axial Terrestre, Velocidad, Bloqueo de Marea y Rayo Solar)
+    const vectorsGroup = new THREE.Group();
+    scene.add(vectorsGroup);
+
+    // Eje de rotación terrestre (Norte - Sur) anclado a earthTiltGroup
+    const earthAxisPts = [
+      new THREE.Vector3(0, -CONFIG.EARTH_RADIUS * 1.65, 0),
+      new THREE.Vector3(0, CONFIG.EARTH_RADIUS * 1.65, 0)
+    ];
+    const earthAxisLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(earthAxisPts),
+      new THREE.LineBasicMaterial({ color: 0x00e676, transparent: true, opacity: 0.85 })
+    );
+    earthTiltGroup.add(earthAxisLine);
+
+    // Cono indicador del Polo Norte Terrestre
+    const northPoleCone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.28, 0.75, 16),
+      new THREE.MeshBasicMaterial({ color: 0x00e676 })
+    );
+    northPoleCone.position.set(0, CONFIG.EARTH_RADIUS * 1.65, 0);
+    earthTiltGroup.add(northPoleCone);
+
+    // Eje de rotación lunar
+    const moonAxisLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, -CONFIG.MOON_RADIUS * 1.8, 0),
+        new THREE.Vector3(0, CONFIG.MOON_RADIUS * 1.8, 0)
+      ]),
+      new THREE.LineBasicMaterial({ color: 0xffb300, transparent: true, opacity: 0.75 })
+    );
+    moonNode.add(moonAxisLine);
+
+    // Vector de Bloqueo de Marea (Tidal Lock): apunta fijamente desde la Luna hacia el centro de la Tierra
+    const tidalLockLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(-CONFIG.MOON_ORBIT_RADIUS + CONFIG.EARTH_RADIUS * 1.05, 0, 0)
+      ]),
+      new THREE.LineBasicMaterial({ color: 0xff3d5a, transparent: true, opacity: 0.65 })
+    );
+    moonNode.add(tidalLockLine);
+
+    // Flechas dinámicas de velocidad orbital (Tierra y Luna) y vector de incidencia solar
+    const earthVelArrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(),
+      10.5,
+      0x00e5ff,
+      1.6,
+      0.9
+    );
+    const moonVelArrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(),
+      4.5,
+      0xffb300,
+      0.95,
+      0.55
+    );
+    const sunToEarthLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+      new THREE.LineBasicMaterial({ color: 0xffe082, transparent: true, opacity: 0.32 })
+    );
+    vectorsGroup.add(earthVelArrow, moonVelArrow, sunToEarthLine);
+
+    // 6.4 Conos Volumétricos de Umbra Terrestre y Lunar (Visualizador de Sombras de Eclipse)
+    const shadowConesGroup = new THREE.Group();
+    scene.add(shadowConesGroup);
+
+    function createShadowConeMesh(radius, length, colorHex) {
+      const geo = new THREE.CylinderGeometry(radius * 0.15, radius, length, 32, 1, true);
+      // Desplazar para que la base nazca en el cuerpo y se proyecte en dirección -Y
+      geo.translate(0, -length * 0.5, 0);
+      geo.rotateX(Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({
+        color: colorHex,
+        transparent: true,
+        opacity: 0.11,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      return new THREE.Mesh(geo, mat);
+    }
+
+    const earthUmbraCone = createShadowConeMesh(CONFIG.EARTH_RADIUS * 0.98, 28.0, 0xff3d5a);
+    const moonUmbraCone = createShadowConeMesh(CONFIG.MOON_RADIUS * 0.98, 18.5, 0x00e5ff);
+    shadowConesGroup.add(earthUmbraCone, moonUmbraCone);
+
+    // =========================================================================
+    // 7. CONTROL DE CÁMARA CON SEGUIMIENTO RELATIVO EN TIEMPO REAL
+    // =========================================================================
+    const tempSunPos = new THREE.Vector3();
+    const tempEarthPos = new THREE.Vector3();
+    const tempMoonPos = new THREE.Vector3();
+    const prevTargetPos = new THREE.Vector3(CONFIG.EARTH_ORBIT_RADIUS, 0, 0);
+    const currentTargetPos = new THREE.Vector3(CONFIG.EARTH_ORBIT_RADIUS, 0, 0);
+
+    function getAnchorWorldPosition(targetName, outVec) {
+      if (targetName === 'sun') {
+        return sunMesh.getWorldPosition(outVec);
+      } else if (targetName === 'earth') {
+        return earthMesh.getWorldPosition(outVec);
+      } else if (targetName === 'moon') {
+        return moonMesh.getWorldPosition(outVec);
+      }
+      return outVec.set(0, 0, 0);
+    }
+
+    function setCameraAnchor(targetName) {
+      state.cameraTarget = targetName;
+
+      document.querySelectorAll('[data-target]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.target === targetName);
+      });
+
+      const names = {
+        sun: 'SOL (HELIOCÉNTRICO)',
+        earth: 'TIERRA (GEOCÉNTRICO)',
+        moon: 'LUNA (SELENOCÉNTRICO)',
+        overview: 'SISTEMA SOLAR GENERAL'
+      };
+      document.getElementById('hud-target-name').textContent = names[targetName] || 'SISTEMA';
+
+      scene.updateMatrixWorld(true);
+      const targetPos = getAnchorWorldPosition(targetName, new THREE.Vector3());
+      prevTargetPos.copy(targetPos);
+      controls.target.copy(targetPos);
+
+      // Posicionar la cámara a una distancia óptima según el astro seleccionado
+      const dirFromSun = targetPos.lengthSq() > 0.1
+        ? targetPos.clone().normalize()
+        : new THREE.Vector3(0, 0, 1);
+
+      if (targetName === 'sun') {
+        camera.position.set(0, 18, 42);
+      } else if (targetName === 'earth') {
+        const right = new THREE.Vector3(-dirFromSun.z, 0.32, dirFromSun.x).normalize();
+        camera.position.copy(targetPos).addScaledVector(right, 15.5).addScaledVector(dirFromSun, 6.5);
+      } else if (targetName === 'moon') {
+        const right = new THREE.Vector3(-dirFromSun.z, 0.25, dirFromSun.x).normalize();
+        camera.position.copy(targetPos).addScaledVector(right, 5.2).addScaledVector(dirFromSun, 2.2);
+      } else if (targetName === 'overview') {
+        camera.position.set(0, 115, 165);
+      }
+      controls.update();
+    }
+
+    // =========================================================================
+    // 8. LABORATORIO DE ECLIPSES (ALINEACIÓN SICIGIA INSTANTÁNEA)
+    // =========================================================================
+    function triggerSolarEclipse() {
+      // Para un eclipse solar total: la Luna se interpone exactamente entre el Sol y la Tierra
+      // Como earthSystemNode tiene rotation.y = -earthOrbitAngle, la dirección hacia el Sol (0,0,0)
+      // desde earthSystemNode en coordenadas del mundo es (-cos(earthOrbitAngle), 0, sin(earthOrbitAngle)).
+      // Colocamos la inclinación lunar en 0° (nodo orbital) y orientamos moonOrbitAngle hacia el Sol.
+      state.moonInclinationDeg = 0.0;
+      document.getElementById('slider-moon-inc').value = '0';
+      document.getElementById('lbl-moon-inc').textContent = '0.00°';
+      moonOrbitPlaneGroup.rotation.z = 0;
+
+      // En el marco inercial desacoplado de earthSystemNode, el vector de la Tierra al Sol tiene ángulo:
+      state.moonOrbitAngle = state.earthOrbitAngle + Math.PI;
+      state.timeScale = 0.02; // Cámara super-lenta para apreciar el paso de la umbra sobre los continentes
+      document.getElementById('slider-timescale').value = '0.02';
+      updateTimeScaleLabel();
+
+      scene.updateMatrixWorld(true);
+      setCameraAnchor('earth');
+      // Colocar cámara mirando el lado diurno terrestre con la Luna proyectando su sombra
+      earthMesh.getWorldPosition(tempEarthPos);
+      const toSun = tempEarthPos.clone().negate().normalize();
+      const side = new THREE.Vector3(-toSun.z, 0.18, toSun.x).normalize();
+      camera.position.copy(tempEarthPos).addScaledVector(toSun, 14.0).addScaledVector(side, 7.5);
+      controls.target.copy(tempEarthPos);
+      controls.update();
+    }
+
+    function triggerLunarEclipse() {
+      // Para un eclipse lunar total (Luna de Sangre): la Luna se sitúa detrás de la Tierra
+      // opuesta al Sol dentro del cono de umbra terrestre.
+      state.moonInclinationDeg = 0.0;
+      document.getElementById('slider-moon-inc').value = '0';
+      document.getElementById('lbl-moon-inc').textContent = '0.00°';
+      moonOrbitPlaneGroup.rotation.z = 0;
+
+      state.moonOrbitAngle = state.earthOrbitAngle;
+      state.timeScale = 0.02;
+      document.getElementById('slider-timescale').value = '0.02';
+      updateTimeScaleLabel();
+
+      scene.updateMatrixWorld(true);
+      setCameraAnchor('moon');
+      moonMesh.getWorldPosition(tempMoonPos);
+      const toSun = tempMoonPos.clone().negate().normalize();
+      const side = new THREE.Vector3(-toSun.z, 0.16, toSun.x).normalize();
+      camera.position.copy(tempMoonPos).addScaledVector(toSun, 5.2).addScaledVector(side, 3.0);
+      controls.target.copy(tempMoonPos);
+      controls.update();
+    }
+
+    // =========================================================================
+    // 9. WIDGET 2D DE FASE LUNAR Y TELEMETRÍA EN PANTALLA
+    // =========================================================================
+    const phaseCanvas = document.getElementById('moon-phase-canvas');
+    const phaseCtx = phaseCanvas.getContext('2d');
+
+    function drawMoonPhaseWidget(phaseAngleRad, lunarEclipseFactor) {
+      const w = phaseCanvas.width;
+      const h = phaseCanvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const r = w * 0.41;
+
+      phaseCtx.clearRect(0, 0, w, h);
+
+      // Disco base oscuro
+      phaseCtx.beginPath();
+      phaseCtx.arc(cx, cy, r, 0, Math.PI * 2);
+      phaseCtx.fillStyle = '#0c1626';
+      phaseCtx.fill();
+
+      // fase sinódica: 0 = Luna Nueva, PI = Luna Llena, 2PI = Luna Nueva
+      const normPhase = ((phaseAngleRad % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const isWaxing = normPhase < Math.PI;
+      const cosPhase = Math.cos(normPhase);
+
+      const litColor = lunarEclipseFactor > 0.15
+        ? `rgb(${Math.round(215 - lunarEclipseFactor * 40)}, ${Math.round(230 - lunarEclipseFactor * 165)}, ${Math.round(245 - lunarEclipseFactor * 210)})`
+        : '#d9ecff';
+
+      phaseCtx.save();
+      phaseCtx.beginPath();
+      phaseCtx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, !isWaxing);
+      phaseCtx.ellipse(cx, cy, Math.abs(cosPhase) * r, r, 0, Math.PI / 2, -Math.PI / 2, cosPhase > 0 ? isWaxing : !isWaxing);
+      phaseCtx.closePath();
+      phaseCtx.fillStyle = litColor;
+      phaseCtx.fill();
+      phaseCtx.restore();
+
+      // Borde de telemetría
+      phaseCtx.beginPath();
+      phaseCtx.arc(cx, cy, r, 0, Math.PI * 2);
+      phaseCtx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+      phaseCtx.lineWidth = 2;
+      phaseCtx.stroke();
+    }
+
+    function getMoonPhaseName(normPhaseRad, lunarEclipseFactor) {
+      if (lunarEclipseFactor > 0.35) return 'Luna de Sangre (Eclipse)';
+      const deg = THREE.MathUtils.radToDeg(normPhaseRad);
+      if (deg < 22.5 || deg >= 337.5) return 'Luna Nueva';
+      if (deg < 67.5) return 'Luna Creciente';
+      if (deg < 112.5) return 'Cuarto Creciente';
+      if (deg < 157.5) return 'Gibosa Creciente';
+      if (deg < 202.5) return 'Luna Llena';
+      if (deg < 247.5) return 'Gibosa Menguante';
+      if (deg < 292.5) return 'Cuarto Menguante';
+      return 'Luna Menguante';
+    }
+
+    function getNorthernSeasonName(earthPos, northPoleWorldDir) {
+      const toSun = earthPos.clone().negate().normalize();
+      const tiltDot = northPoleWorldDir.dot(toSun);
+      if (tiltDot > 0.22) return 'Verano Boreal (Solsticio)';
+      if (tiltDot < -0.22) return 'Invierno Boreal (Solsticio)';
+      // Determinar si va hacia verano o invierno usando el producto cruz
+      const orbitTangent = new THREE.Vector3(-earthPos.z, 0, earthPos.x).normalize();
+      const trend = northPoleWorldDir.dot(orbitTangent);
+      return trend > 0 ? 'Primavera Boreal' : 'Otoño Boreal';
+    }
+
+    // Proyección de etiquetas 3D a coordenadas de pantalla
+    const labelElements = {
+      sun: document.getElementById('label-sun'),
+      earth: document.getElementById('label-earth'),
+      moon: document.getElementById('label-moon')
+    };
+
+    function updateProjectedLabel(el, worldPos, radiusOffset) {
+      if (!state.showLabels) {
+        el.style.display = 'none';
+        return;
+      }
+      const p = worldPos.clone();
+      p.y += radiusOffset;
+      p.project(camera);
+
+      if (p.z > 1.0 || p.z < -1.0) {
+        el.style.display = 'none';
+        return;
+      }
+
+      const x = (p.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-p.y * 0.5 + 0.5) * window.innerHeight;
+      el.style.display = 'block';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+    }
+
+    // =========================================================================
+    // 10. CONEXIÓN DE EVENTOS UI Y ATAJOS DE TECLADO
+    // =========================================================================
+    function updateTimeScaleLabel() {
+      const daysPerSec = (state.timeScale * CONFIG.DAYS_PER_SECOND_AT_1X).toFixed(1);
+      document.getElementById('lbl-timescale').textContent = `${state.timeScale.toFixed(2)}x (${daysPerSec} días/s)`;
+      document.querySelectorAll('.preset-btn').forEach((b) => {
+        b.classList.toggle('active', Math.abs(parseFloat(b.dataset.speed) - state.timeScale) < 0.01);
+      });
+    }
+
+    document.querySelectorAll('[data-target]').forEach((btn) => {
+      btn.addEventListener('click', () => setCameraAnchor(btn.dataset.target));
+    });
+
+    labelElements.sun.addEventListener('click', () => setCameraAnchor('sun'));
+    labelElements.earth.addEventListener('click', () => setCameraAnchor('earth'));
+    labelElements.moon.addEventListener('click', () => setCameraAnchor('moon'));
+
+    document.getElementById('btn-solar-eclipse').addEventListener('click', triggerSolarEclipse);
+    document.getElementById('btn-lunar-eclipse').addEventListener('click', triggerLunarEclipse);
+
+    document.getElementById('slider-moon-inc').addEventListener('input', (e) => {
+      state.moonInclinationDeg = parseFloat(e.target.value);
+      document.getElementById('lbl-moon-inc').textContent = `${state.moonInclinationDeg.toFixed(2)}°`;
+      moonOrbitPlaneGroup.rotation.z = THREE.MathUtils.degToRad(state.moonInclinationDeg);
+    });
+
+    document.getElementById('slider-bloom').addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      bloomPass.strength = val;
+      document.getElementById('lbl-bloom').textContent = val.toFixed(2);
+    });
+
+    const playPauseBtn = document.getElementById('btn-play-pause');
+    function togglePlayPause() {
+      state.isPlaying = !state.isPlaying;
+      playPauseBtn.classList.toggle('active', state.isPlaying);
+      document.getElementById('play-icon').textContent = state.isPlaying ? '⏸' : '▶';
+      document.getElementById('play-text').textContent = state.isPlaying ? 'PAUSAR' : 'REANUDAR';
+    }
+    playPauseBtn.addEventListener('click', togglePlayPause);
+
+    const timeSlider = document.getElementById('slider-timescale');
+    timeSlider.addEventListener('input', (e) => {
+      state.timeScale = parseFloat(e.target.value);
+      updateTimeScaleLabel();
+    });
+
+    document.querySelectorAll('.preset-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.timeScale = parseFloat(btn.dataset.speed);
+        timeSlider.value = String(state.timeScale);
+        updateTimeScaleLabel();
+      });
+    });
+
+    function setupToggleButton(btnId, stateKey, onChange) {
+      const btn = document.getElementById(btnId);
+      btn.addEventListener('click', () => {
+        state[stateKey] = !state[stateKey];
+        btn.classList.toggle('active', state[stateKey]);
+        onChange(state[stateKey]);
+      });
+    }
+
+    setupToggleButton('toggle-orbits', 'showOrbits', (v) => {
+      orbitsGroup.visible = v;
+      moonOrbitRing.visible = v;
+    });
+    setupToggleButton('toggle-vectors', 'showVectors', (v) => {
+      vectorsGroup.visible = v;
+      earthAxisLine.visible = v;
+      northPoleCone.visible = v;
+      moonAxisLine.visible = v;
+      tidalLockLine.visible = v;
+    });
+    setupToggleButton('toggle-clouds', 'showCloudsAndAtmos', (v) => {
+      earthCloudsMesh.visible = v;
+      earthAtmosphereMesh.visible = v;
+      sharedCelestialUniforms.uShowClouds.value = v ? 1.0 : 0.0;
+    });
+    setupToggleButton('toggle-shadows', 'showShadowCone', (v) => {
+      shadowConesGroup.visible = v;
+    });
+    setupToggleButton('toggle-labels', 'showLabels', () => {});
+    setupToggleButton('toggle-ecliptic', 'showEcliptic', (v) => {
+      eclipticGridGroup.visible = v;
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.key === '1') {
+        setCameraAnchor('sun');
+      } else if (e.key === '2') {
+        setCameraAnchor('earth');
+      } else if (e.key === '3') {
+        setCameraAnchor('moon');
+      } else if (e.key === '4') {
+        setCameraAnchor('overview');
+      } else if (e.key.toLowerCase() === 'o') {
+        document.getElementById('toggle-orbits').click();
+      } else if (e.key.toLowerCase() === 'v') {
+        document.getElementById('toggle-vectors').click();
+      } else if (e.key.toLowerCase() === 'c') {
+        document.getElementById('toggle-clouds').click();
+      } else if (e.key.toLowerCase() === 's') {
+        document.getElementById('toggle-shadows').click();
+      } else if (e.key.toLowerCase() === 'l') {
+        document.getElementById('toggle-labels').click();
+      } else if (e.key.toLowerCase() === 'g') {
+        document.getElementById('toggle-ecliptic').click();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      starMat.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+    });
+
+    // =========================================================================
+    // 11. BUCLE PRINCIPAL DE SIMULACIÓN Y ACTUALIZACIÓN DE MATRICES
+    // =========================================================================
+    const clock = new THREE.Clock();
+    let frameCounter = 0;
+    let fpsAccum = 0;
+
+    // Inicializar vista anclada a la Tierra
+    setCameraAnchor('earth');
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const rawDt = Math.min(clock.getDelta(), 0.1);
+      state.elapsedTime += rawDt;
+
+      // Contador FPS
+      frameCounter++;
+      fpsAccum += rawDt;
+      if (fpsAccum >= 0.5) {
+        const fps = Math.round(frameCounter / fpsAccum);
+        document.getElementById('fps-badge').textContent = `${fps} FPS`;
+        frameCounter = 0;
+        fpsAccum = 0;
+      }
+
+      // Avance físico de ángulos según escala de tiempo
+      if (state.isPlaying) {
+        const deltaDays = rawDt * CONFIG.DAYS_PER_SECOND_AT_1X * state.timeScale;
+        state.simDays += deltaDays;
+
+        state.sunSpinAngle += deltaDays * CONFIG.SUN_SPIN_OMEGA;
+        state.earthOrbitAngle += deltaDays * CONFIG.EARTH_ORBIT_OMEGA;
+        state.earthSpinAngle += deltaDays * CONFIG.EARTH_SPIN_OMEGA;
+        state.cloudsSpinAngle += deltaDays * CONFIG.CLOUDS_SPIN_OMEGA;
+        state.moonOrbitAngle += deltaDays * CONFIG.MOON_ORBIT_OMEGA;
+      }
+
+      // -----------------------------------------------------------------------
+      // ACTUALIZACIÓN DE LA JERARQUÍA DEL GRAFO DE ESCENA
+      // -----------------------------------------------------------------------
+      // 1. El Sol rota sobre su propio eje en el origen (0,0,0)
+      sunMesh.rotation.y = state.sunSpinAngle;
+
+      // 2. Pivote Padre del Sistema Terrestre rota alrededor del Sol
+      earthOrbitPivot.rotation.y = state.earthOrbitAngle;
+
+      // Desacoplamiento de orientación inercial en earthSystemNode:
+      // Contra-rotamos earthSystemNode por -earthOrbitAngle para que el eje axial
+      // de la Tierra apunte a una dirección fija en el espacio (generando las 4 estaciones)
+      // mientras se traslada alrededor del Sol.
+      earthSystemNode.rotation.y = -state.earthOrbitAngle;
+
+      // 3. Giro diario de la Tierra sobre su propio eje inclinado (NO afecta a la Luna)
+      earthSpinPivot.rotation.y = state.earthSpinAngle;
+
+      // Capa de nubes con rotación independiente
+      earthCloudsMesh.rotation.y = state.cloudsSpinAngle;
+
+      // 4. Pivote Orbital Lunar independiente (con rotación síncrona / bloqueo de marea)
+      moonOrbitPivot.rotation.y = state.moonOrbitAngle;
+
+      // Actualizar matrices de mundo antes de extraer posiciones para shaders y cámara
+      scene.updateMatrixWorld(true);
+
+      sunMesh.getWorldPosition(tempSunPos);
+      earthMesh.getWorldPosition(tempEarthPos);
+      moonMesh.getWorldPosition(tempMoonPos);
+
+      // -----------------------------------------------------------------------
+      // SEGUIMIENTO DE CÁMARA RELATIVO AL OBJETIVO ANCLADO
+      // -----------------------------------------------------------------------
+      getAnchorWorldPosition(state.cameraTarget, currentTargetPos);
+      const deltaTarget = currentTargetPos.clone().sub(prevTargetPos);
+      camera.position.add(deltaTarget);
+      controls.target.add(deltaTarget);
+      prevTargetPos.copy(currentTargetPos);
+      controls.update();
+
+      // -----------------------------------------------------------------------
+      // ACTUALIZACIÓN DE SOMBRAS Y UNIFORMS GLSL
+      // -----------------------------------------------------------------------
+      sunShadowLight.target.position.copy(tempEarthPos);
+      sunShadowLight.target.updateMatrixWorld();
+
+      sunMat.uniforms.uTime.value = state.elapsedTime;
+      coronaMat.uniforms.uTime.value = state.elapsedTime;
+      starMat.uniforms.uTime.value = state.elapsedTime;
+
+      sharedCelestialUniforms.uTime.value = state.elapsedTime;
+      sharedCelestialUniforms.uSunWorldPos.value.copy(tempSunPos);
+      sharedCelestialUniforms.uEarthWorldPos.value.copy(tempEarthPos);
+      sharedCelestialUniforms.uMoonWorldPos.value.copy(tempMoonPos);
+      sharedCelestialUniforms.uCloudRotation.value = state.cloudsSpinAngle - state.earthSpinAngle;
+
+      // -----------------------------------------------------------------------
+      // ACTUALIZACIÓN DE VECTORES 3D Y CONOS DE SOMBRA
+      // -----------------------------------------------------------------------
+      // Vector tangente de velocidad orbital terrestre
+      const earthOrbitTangent = new THREE.Vector3(
+        Math.sin(state.earthOrbitAngle),
+        0,
+        Math.cos(state.earthOrbitAngle)
+      ).normalize();
+      earthVelArrow.position.copy(tempEarthPos);
+      earthVelArrow.setDirection(earthOrbitTangent);
+
+      // Vector tangente de velocidad orbital lunar
+      const moonRel = tempMoonPos.clone().sub(tempEarthPos);
+      const moonNormal = new THREE.Vector3(0, 1, 0).applyEuler(moonOrbitPlaneGroup.rotation);
+      const moonTangent = new THREE.Vector3().crossVectors(moonNormal, moonRel).normalize();
+      moonVelArrow.position.copy(tempMoonPos);
+      moonVelArrow.setDirection(moonTangent);
+
+      // Línea Sol -> Tierra
+      const linePosAttr = sunToEarthLine.geometry.attributes.position;
+      linePosAttr.setXYZ(0, 0, 0, 0);
+      linePosAttr.setXYZ(1, tempEarthPos.x, tempEarthPos.y, tempEarthPos.z);
+      linePosAttr.needsUpdate = true;
+
+      // Orientación de los conos de sombra (en dirección opuesta al Sol)
+      earthUmbraCone.position.copy(tempEarthPos);
+      earthUmbraCone.lookAt(tempEarthPos.clone().multiplyScalar(2.0));
+
+      moonUmbraCone.position.copy(tempMoonPos);
+      moonUmbraCone.lookAt(tempMoonPos.clone().multiplyScalar(2.0));
+
+      // -----------------------------------------------------------------------
+      // DETECCIÓN DE ECLIPSES Y TELEMETRÍA EN VIVO
+      // -----------------------------------------------------------------------
+      const sunToEarthDir = tempEarthPos.clone().normalize();
+      const earthToMoonVec = tempMoonPos.clone().sub(tempEarthPos);
+      const earthMoonDist = earthToMoonVec.length();
+      const earthToMoonDir = earthToMoonVec.clone().divideScalar(earthMoonDist);
+
+      // Ángulo de fase sinódica (0 = Luna Nueva entre Sol y Tierra, PI = Luna Llena)
+      const toSunFromEarth = sunToEarthDir.clone().negate();
+      const cosElong = THREE.MathUtils.clamp(toSunFromEarth.dot(earthToMoonDir), -1, 1);
+      const elongationRad = Math.acos(cosElong);
+      const crossY = toSunFromEarth.x * earthToMoonDir.z - toSunFromEarth.z * earthToMoonDir.x;
+      const synodicAngle = crossY >= 0 ? elongationRad : (Math.PI * 2 - elongationRad);
+      const illuminationPct = Math.round(((1 - Math.cos(elongationRad)) * 0.5) * 100);
+
+      // Comprobar alineación de Eclipse Solar o Lunar
+      // Distancia perpendicular de la Luna a la línea Sol-Tierra
+      const projOnSunLine = earthToMoonVec.dot(toSunFromEarth);
+      const perpVec = earthToMoonVec.clone().addScaledVector(toSunFromEarth, -projOnSunLine);
+      const perpDist = perpVec.length();
+
+      let solarEclipseIntensity = 0;
+      let lunarEclipseIntensity = 0;
+
+      if (projOnSunLine > 0) {
+        // Luna entre el Sol y la Tierra -> Posible Eclipse Solar
+        const maxRadius = CONFIG.EARTH_RADIUS + CONFIG.MOON_RADIUS * 1.45;
+        if (perpDist < maxRadius) {
+          solarEclipseIntensity = THREE.MathUtils.clamp(1.0 - perpDist / maxRadius, 0, 1);
+        }
+      } else {
+        // Luna detrás de la Tierra -> Posible Eclipse Lunar
+        const maxRadius = CONFIG.EARTH_RADIUS * 1.25 + CONFIG.MOON_RADIUS;
+        if (perpDist < maxRadius) {
+          lunarEclipseIntensity = THREE.MathUtils.clamp(1.0 - perpDist / maxRadius, 0, 1);
+        }
+      }
+
+      const eclipseBanner = document.getElementById('eclipse-banner');
+      const eclipseTitle = document.getElementById('eclipse-title');
+      const eclipseDetail = document.getElementById('eclipse-detail');
+
+      if (solarEclipseIntensity > 0.05) {
+        eclipseBanner.classList.add('active');
+        eclipseTitle.textContent = solarEclipseIntensity > 0.62
+          ? '☀️ ECLIPSE SOLAR TOTAL EN CURSO'
+          : '☀️ ECLIPSE SOLAR PARCIAL DETECTADO';
+        eclipseDetail.textContent = `Alineación Sicigia Solar: ${(solarEclipseIntensity * 100).toFixed(1)}% • Umbra Lunar sobre la Tierra`;
+      } else if (lunarEclipseIntensity > 0.05) {
+        eclipseBanner.classList.add('active');
+        eclipseTitle.textContent = lunarEclipseIntensity > 0.58
+          ? '🩸 ECLIPSE LUNAR TOTAL (LUNA DE SANGRE)'
+          : '🌑 ECLIPSE LUNAR PENUMBRAL / PARCIAL';
+        eclipseDetail.textContent = `Inmersión en Umbra Terrestre: ${(lunarEclipseIntensity * 100).toFixed(1)}% • Dispersión Rayleigh Activa`;
+      } else {
+        eclipseBanner.classList.remove('active');
+      }
+
+      // Actualizar lecturas de telemetría
+      const normEarthOrbDeg = ((THREE.MathUtils.radToDeg(state.earthOrbitAngle) % 360) + 360) % 360;
+      const normEarthSpinDeg = ((THREE.MathUtils.radToDeg(state.earthSpinAngle) % 360) + 360) % 360;
+      const normMoonOrbDeg = ((THREE.MathUtils.radToDeg(state.moonOrbitAngle) % 360) + 360) % 360;
+
+      document.getElementById('val-earth-orbit').textContent = `${normEarthOrbDeg.toFixed(1)}°`;
+      document.getElementById('val-earth-spin').textContent = `${normEarthSpinDeg.toFixed(0)}°`;
+      document.getElementById('val-moon-orbit').textContent = `${normMoonOrbDeg.toFixed(1)}°`;
+      document.getElementById('val-moon-inc').textContent = `${state.moonInclinationDeg.toFixed(2)}°`;
+      document.getElementById('val-elongation').textContent = `${THREE.MathUtils.radToDeg(elongationRad).toFixed(1)}°`;
+
+      const northPoleDir = new THREE.Vector3(0, 1, 0).applyQuaternion(earthTiltGroup.getWorldQuaternion(new THREE.Quaternion()));
+      document.getElementById('val-season').textContent = getNorthernSeasonName(tempEarthPos, northPoleDir);
+
+      document.getElementById('val-moon-phase').textContent = getMoonPhaseName(synodicAngle, lunarEclipseIntensity);
+      document.getElementById('val-moon-illum').textContent = `Iluminación: ${illuminationPct}%`;
+      drawMoonPhaseWidget(synodicAngle, lunarEclipseIntensity);
+
+      // Actualizar árbol de matrices en vivo
+      document.getElementById('mat-sun').textContent = `R_y(${((THREE.MathUtils.radToDeg(state.sunSpinAngle) % 360)).toFixed(0)}°)`;
+      document.getElementById('mat-e-orb').textContent = `R_y(${normEarthOrbDeg.toFixed(0)}°)`;
+      document.getElementById('mat-e-day').textContent = `R_y(${normEarthSpinDeg.toFixed(0)}°)`;
+      document.getElementById('mat-m-orb').textContent = `R_y(${normMoonOrbDeg.toFixed(0)}°)`;
+
+      document.getElementById('val-sim-days').textContent = `DÍA ${state.simDays.toFixed(1).padStart(5, '0')}`;
+      document.getElementById('val-sim-years').textContent = `AÑO SIDERAL: ${(state.simDays / 365.256).toFixed(2)}`;
+
+      // Proyectar etiquetas 3D
+      updateProjectedLabel(labelElements.sun, tempSunPos, CONFIG.SUN_RADIUS * 1.25);
+      updateProjectedLabel(labelElements.earth, tempEarthPos, CONFIG.EARTH_RADIUS * 1.45);
+      updateProjectedLabel(labelElements.moon, tempMoonPos, CONFIG.MOON_RADIUS * 1.85);
+
+      // Renderizar escena con post-procesado HDR Bloom
+      composer.render();
+    }
+
+    animate();
+  </script>
+</body>
+</html>

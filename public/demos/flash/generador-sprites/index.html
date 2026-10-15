@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>8-BIT VOID FORGE // Hangar y Generador Procedural de Sprites Espaciales</title>
+  <style>
+    :root {
+      --bg-space: #05070e;
+      --panel-bg: rgba(10, 14, 24, 0.94);
+      --panel-border: rgba(56, 189, 248, 0.28);
+      --panel-border-bright: rgba(56, 189, 248, 0.65);
+      --accent: #00f0ff;
+      --accent-glow: rgba(0, 240, 255, 0.45);
+      --accent-warm: #ffaa00;
+      --danger: #ff3366;
+      --success: #10b981;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-space);
+      color: #e2e8f0;
+      font-family: var(--font-ui);
+    }
+
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      overflow: hidden;
+    }
+
+    /* --- TOP NAVBAR --- */
+    #top-bar {
+      position: relative;
+      height: 52px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+      font-family: var(--font-mono);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent-glow);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid var(--accent);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      color: #fff;
+    }
+
+    .seed-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .seed-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .seed-input-wrapper span {
+      position: absolute;
+      left: 8px;
+      font-size: 10px;
+      color: #64748b;
+    }
+
+    #seed-input {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      padding: 5px 8px 5px 44px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      width: 140px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #seed-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .btn-icon {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: #cbd5e1;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-icon:hover {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+    }
+
+    .btn-icon.active {
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .btn-flight {
+      background: linear-gradient(135deg, rgba(255, 51, 102, 0.25), rgba(255, 170, 0, 0.25));
+      border: 1px solid #ffaa00;
+      color: #ffdd80;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .btn-flight:hover {
+      background: linear-gradient(135deg, rgba(255, 51, 102, 0.4), rgba(255, 170, 0, 0.4));
+      border-color: #ffe066;
+      box-shadow: 0 0 12px rgba(255, 170, 0, 0.45);
+      color: #fff;
+    }
+
+    .btn-flight.in-flight {
+      background: #ff3366;
+      border-color: #ff6699;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(255, 51, 102, 0.6);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+
+    /* --- MAIN WORKSPACE LAYOUT --- */
+    #main-content {
+      position: relative;
+      flex: 1;
+      display: flex;
+      width: 100%;
+      height: calc(100vh - 52px - 90px);
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Parameters & Layer Inspector */
+    #left-panel {
+      width: 320px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+      z-index: 30;
+      overflow-y: auto;
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .section-header {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 4px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 7px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #cbd5e1;
+    }
+
+    .control-label span.val {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    select, input[type="range"] {
+      width: 100%;
+      outline: none;
+    }
+
+    select {
+      background: #090d16;
+      border: 1px solid var(--panel-border);
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    input[type="range"] {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    /* Algorithm Layers Tab Strips */
+    .layers-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    }
+
+    .layer-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 5px 2px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .layer-card:hover {
+      border-color: var(--accent);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .layer-card.active {
+      border-color: var(--accent);
+      background: rgba(0, 240, 255, 0.18);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+    }
+
+    .layer-card canvas {
+      width: 44px;
+      height: 44px;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #020408;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .layer-card span {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .layer-card.active span {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Center Viewport: Hangar & Test Flight */
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: default;
+    }
+
+    #space-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 10;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Hangar Reticle & Docking Grid */
+    #hangar-hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .crosshair-corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--accent);
+      opacity: 0.45;
+      transition: all 0.3s ease;
+    }
+
+    .corner-tl { top: calc(50% - 170px); left: calc(50% - 170px); border-right: none; border-bottom: none; }
+    .corner-tr { top: calc(50% - 170px); right: calc(50% - 170px); border-left: none; border-bottom: none; }
+    .corner-bl { bottom: calc(50% - 170px); left: calc(50% - 170px); border-right: none; border-top: none; }
+    .corner-br { bottom: calc(50% - 170px); right: calc(50% - 170px); border-left: none; border-top: none; }
+
+    .hangar-grid-overlay {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border: 1px dashed rgba(0, 240, 255, 0.18);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hangar-ring-inner {
+      width: 340px;
+      height: 340px;
+      border: 1px solid rgba(0, 240, 255, 0.12);
+      border-radius: 50%;
+      animation: rotateRing 30s linear infinite;
+    }
+
+    @keyframes rotateRing {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Flight Mode HUD */
+    #flight-hud {
+      position: absolute;
+      top: 14px;
+      left: 18px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 25;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      pointer-events: none;
+    }
+
+    .flight-pill {
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      color: #fff;
+    }
+
+    .flight-pill span.num {
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    /* Flight Controls Banner in Test Flight */
+    #flight-instructions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(8, 12, 20, 0.88);
+      border: 1px solid var(--accent);
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: none;
+      align-items: center;
+      gap: 16px;
+      z-index: 25;
+      pointer-events: none;
+    }
+
+    #flight-instructions kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: var(--accent);
+    }
+
+    /* Right Sidebar: RPG Specs & Hologram Analysis */
+    #right-panel {
+      width: 320px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+      z-index: 30;
+      overflow-y: auto;
+    }
+
+    .ship-name-card {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.08), rgba(0, 0, 0, 0.6));
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ship-name-card .ship-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 1px;
+      font-family: var(--font-mono);
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .ship-name-card .ship-faction {
+      font-size: 10px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .ship-name-card .ship-archetype {
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    /* RPG Stats Bars */
+    .stat-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .stat-row .stat-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    .stat-row .stat-label span.stat-num {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .stat-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease-out;
+    }
+
+    .fill-firepower { background: linear-gradient(90deg, #ff3366, #ff7700); }
+    .fill-shield { background: linear-gradient(90deg, #00f0ff, #3b82f6); }
+    .fill-speed { background: linear-gradient(90deg, #10b981, #84cc16); }
+    .fill-maneuver { background: linear-gradient(90deg, #a855f7, #ec4899); }
+    .fill-reactor { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    /* Detected Pixel Anatomy */
+    .anatomy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .anatomy-pill {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 6px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .anatomy-pill span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .anatomy-pill span.count {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* Export Buttons */
+    .export-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    /* --- BOTTOM FLEET GALLERY --- */
+    #bottom-fleet {
+      position: relative;
+      height: 90px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      z-index: 40;
+      overflow-x: auto;
+    }
+
+    .fleet-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      white-space: nowrap;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .fleet-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      overflow-x: auto;
+      padding: 4px 0;
+    }
+
+    .fleet-item {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .fleet-item:hover {
+      border-color: var(--accent);
+      background: rgba(0, 240, 255, 0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 240, 255, 0.2);
+    }
+
+    .fleet-item.active {
+      border-color: var(--accent);
+      border-width: 2px;
+      background: rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .fleet-item canvas {
+      width: 48px;
+      height: 48px;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .fleet-item span.seed-badge {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Top Bar Navigation & Controls -->
+    <header id="top-bar">
+      <div class="brand-section">
+        <div class="brand-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 22 12 18 22 22 12 2"></polygon>
+          </svg>
+          <span>8-BIT VOID FORGE</span>
+        </div>
+        <span class="brand-badge">PROCEDURAL HANGAR</span>
+      </div>
+
+      <!-- Seed Input & Quick Actions -->
+      <div class="seed-controls">
+        <div class="seed-input-wrapper">
+          <span>SEED</span>
+          <input type="text" id="seed-input" spellcheck="false" value="ALPHA-9">
+        </div>
+        <button class="btn-icon" id="btn-random-seed" title="Generar Semilla Aleatoria">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>MUTAR</span>
+        </button>
+        <button class="btn-icon" id="btn-copy-seed" title="Copiar enlace o semilla">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>COPIAR</span>
+        </button>
+      </div>
+
+      <!-- Test Flight Toggle & Audio -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="btn-icon btn-flight" id="btn-toggle-flight">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span id="flight-btn-label">VUELO DE PRUEBA [T]</span>
+        </button>
+
+        <button class="btn-icon active" id="btn-toggle-audio" title="Audio 8-Bit Procedural">
+          <span id="audio-icon">🔊</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main id="main-content">
+      <!-- Left Sidebar: Generation Engineering & Algorithm Layers -->
+      <aside id="left-panel">
+        <div class="panel-section">
+          <div class="section-header">
+            <span>MATRIZ & ARQUETIPO</span>
+          </div>
+
+          <!-- Ship Class Selector -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Clase de Nave</span>
+            </div>
+            <select id="select-ship-class">
+              <option value="interceptor">Interceptor Ligero (Alta Velocidad)</option>
+              <option value="fighter" selected>Caza de Asalto (Equilibrado)</option>
+              <option value="bomber">Bombardero Pesado (Blindado)</option>
+              <option value="cruiser">Crucero de Batalla (Prow Dagger)</option>
+              <option value="dreadnought">Dreadnought Titán (Monolito)</option>
+            </select>
+          </div>
+
+          <!-- Matrix Resolution -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Resolución de Matriz</span>
+              <span class="val" id="res-label">20x20</span>
+            </div>
+            <select id="select-resolution">
+              <option value="16">16x16 (Micro Arcade)</option>
+              <option value="20" selected>20x20 (Shmup Estándar)</option>
+              <option value="24">24x24 (Alta Definición)</option>
+              <option value="32">32x32 (Dreadnought Épico)</option>
+            </select>
+          </div>
+
+          <!-- Palette Selection -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Paleta Cromática (Hue Shifting)</span>
+            </div>
+            <select id="select-palette">
+              <option value="solar" selected>Imperio Solar (Carmesí & Dorado)</option>
+              <option value="neon">Cyberpunk Neón (Magenta & Cian)</option>
+              <option value="xeno">Enjambre Bio-Xeno (Ácido & Púrpura)</option>
+              <option value="industrial">Sector Militar (Titanio & Alerta)</option>
+              <option value="arctic">Consorcio Ártico (Grafito & Hielo)</option>
+              <option value="gameboy">GameBoy Retro (4 Tonos DMG)</option>
+              <option value="synthwave">Sunset Synthwave (Pastel & Índigo)</option>
+            </select>
+          </div>
+
+          <!-- Outline Style -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Contorno Exterior (Pixel Outline)</span>
+            </div>
+            <select id="select-outline">
+              <option value="orthogonal" selected>Arcade Estándar (4 Vecinos)</option>
+              <option value="diagonal">Grueso Envolvente (8 Vecinos)</option>
+              <option value="none">Sin Contorno</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-header">
+            <span>PARÁMETROS MORFOLÓGICOS</span>
+          </div>
+
+          <!-- Fuselage Density Slider -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Densidad del Fuselaje</span>
+              <span class="val" id="val-density">65%</span>
+            </div>
+            <input type="range" id="slider-density" min="30" max="95" value="65">
+          </div>
+
+          <!-- Wing Span Slider -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Envergadura Alar</span>
+              <span class="val" id="val-wingspan">70%</span>
+            </div>
+            <input type="range" id="slider-wingspan" min="20" max="100" value="70">
+          </div>
+
+          <!-- Component Detail Slider -->
+          <div class="control-row">
+            <div class="control-label">
+              <span>Blindaje Secundario</span>
+              <span class="val" id="val-greebles">50%</span>
+            </div>
+            <input type="range" id="slider-greebles" min="10" max="90" value="50">
+          </div>
+        </div>
+
+        <!-- Algorithm Pipeline Inspector Tabs -->
+        <div class="panel-section">
+          <div class="section-header">
+            <span>VISOR DE CAPAS DEL ALGORITMO</span>
+          </div>
+          <div class="layers-grid">
+            <div class="layer-card active" data-layer="final" title="Ver Sprite Final con Shading">
+              <canvas id="layer-canvas-final" width="48" height="48"></canvas>
+              <span>FINAL</span>
+            </div>
+            <div class="layer-card" data-layer="mask" title="Ver Máscara de Probabilidad Anatómica">
+              <canvas id="layer-canvas-mask" width="48" height="48"></canvas>
+              <span>MÁSCARA</span>
+            </div>
+            <div class="layer-card" data-layer="binary" title="Ver Matriz Binaria Reflejada">
+              <canvas id="layer-canvas-binary" width="48" height="48"></canvas>
+              <span>BINARIA</span>
+            </div>
+            <div class="layer-card" data-layer="regions" title="Ver Segmentación de Componentes">
+              <canvas id="layer-canvas-regions" width="48" height="48"></canvas>
+              <span>PARTES</span>
+            </div>
+            <div class="layer-card" data-layer="shading" title="Ver Sombreado Volumétrico 3D">
+              <canvas id="layer-canvas-shading" width="48" height="48"></canvas>
+              <span>VOLUMEN</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Viewport -->
+      <section id="viewport-container">
+        <canvas id="space-canvas"></canvas>
+
+        <!-- Hangar Reticle / Diagnostics HUD -->
+        <div id="hangar-hud">
+          <div class="crosshair-corner corner-tl"></div>
+          <div class="crosshair-corner corner-tr"></div>
+          <div class="crosshair-corner corner-bl"></div>
+          <div class="crosshair-corner corner-br"></div>
+          <div class="hangar-grid-overlay">
+            <div class="hangar-ring-inner"></div>
+          </div>
+        </div>
+
+        <!-- Flight Telemetry HUD (Active in Test Flight) -->
+        <div id="flight-hud">
+          <div class="flight-pill">VELOCIDAD: <span class="num" id="tele-speed">0.0 km/s</span></div>
+          <div class="flight-pill">ESCUDO: <span class="num" id="tele-shield">100%</span></div>
+          <div class="flight-pill">BLANCOS DESTRUIDOS: <span class="num" id="tele-score">0</span></div>
+        </div>
+
+        <!-- Flight Controls Hint -->
+        <div id="flight-instructions">
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o <kbd>Flechas</kbd> Moverse</span>
+          <span><kbd>Espacio</kbd> o <kbd>Clic</kbd> Disparar Láser</span>
+          <span><kbd>T</kbd> o <kbd>Esc</kbd> Volver al Hangar</span>
+        </div>
+      </section>
+
+      <!-- Right Sidebar: Procedural RPG Technical Specs -->
+      <aside id="right-panel">
+        <div class="panel-section">
+          <div class="section-header">
+            <span>FICHA TÉCNICA DEL PROTOTIPO</span>
+          </div>
+
+          <div class="ship-name-card">
+            <div class="ship-title" id="spec-name">NX-901 VALKYRIE</div>
+            <div class="ship-faction" id="spec-faction">IMPERIO SOLAR // VANGUARDIA</div>
+            <div class="ship-archetype" id="spec-class">Caza de Asalto Multirrol</div>
+          </div>
+        </div>
+
+        <!-- RPG Attributes Bars -->
+        <div class="panel-section">
+          <div class="section-header">
+            <span>RENDIMIENTO DE COMBATE</span>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label">
+              <span>Potencia de Fuego (DPS)</span>
+              <span class="stat-num" id="stat-firepower-val">840 MW</span>
+            </div>
+            <div class="stat-bar-bg"><div class="stat-bar-fill fill-firepower" id="bar-firepower" style="width: 70%;"></div></div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label">
+              <span>Blindaje Deflectivo</span>
+              <span class="stat-num" id="stat-shield-val">620 GJ</span>
+            </div>
+            <div class="stat-bar-bg"><div class="stat-bar-fill fill-shield" id="bar-shield" style="width: 60%;"></div></div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label">
+              <span>Propulsión Sub-Luz</span>
+              <span class="stat-num" id="stat-speed-val">4.8 G</span>
+            </div>
+            <div class="stat-bar-bg"><div class="stat-bar-fill fill-speed" id="bar-speed" style="width: 80%;"></div></div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label">
+              <span>Maniobrabilidad Vectorial</span>
+              <span class="stat-num" id="stat-maneuver-val">88 rad/s</span>
+            </div>
+            <div class="stat-bar-bg"><div class="stat-bar-fill fill-maneuver" id="bar-maneuver" style="width: 75%;"></div></div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label">
+              <span>Salida de Reactor</span>
+              <span class="stat-num" id="stat-reactor-val">1.21 GW</span>
+            </div>
+            <div class="stat-bar-bg"><div class="stat-bar-fill fill-reactor" id="bar-reactor" style="width: 65%;"></div></div>
+          </div>
+        </div>
+
+        <!-- Cellular Composition Breakdown -->
+        <div class="panel-section">
+          <div class="section-header">
+            <span>ANATOMÍA DE PÍXELES</span>
+          </div>
+
+          <div class="anatomy-grid">
+            <div class="anatomy-pill">
+              <div><span class="dot" style="background: #94a3b8;"></span>Casco Base</div>
+              <span class="count" id="count-hull">0</span>
+            </div>
+            <div class="anatomy-pill">
+              <div><span class="dot" style="background: #38bdf8;"></span>Blindaje</div>
+              <span class="count" id="count-armor">0</span>
+            </div>
+            <div class="anatomy-pill">
+              <div><span class="dot" style="background: #facc15;"></span>Cabina</div>
+              <span class="count" id="count-cockpit">0</span>
+            </div>
+            <div class="anatomy-pill">
+              <div><span class="dot" style="background: #ff3366;"></span>Cañones</div>
+              <span class="count" id="count-weapons">0</span>
+            </div>
+            <div class="anatomy-pill">
+              <div><span class="dot" style="background: #00f0ff;"></span>Toberas</div>
+              <span class="count" id="count-thrusters">0</span>
+            </div>
+            <div class="anatomy-pill">
+              <div><span class="dot" style="background: #ffffff;"></span>Estrobos</div>
+              <span class="count" id="count-strobes">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exportation Actions -->
+        <div class="panel-section" style="margin-top: auto;">
+          <div class="section-header">
+            <span>EXPORTACIÓN PÍXEL-PERFECT</span>
+          </div>
+
+          <div class="export-grid">
+            <button class="btn-icon" id="btn-export-png" style="justify-content: center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>PNG (512px)</span>
+            </button>
+            <button class="btn-icon" id="btn-export-sheet" style="justify-content: center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              <span>SPRITESHEET</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Bottom Fleet Gallery -->
+    <footer id="bottom-fleet">
+      <div class="fleet-label">
+        <span>ESCUADRÓN</span>
+        <span style="font-size: 8px; color: var(--accent);">VARIANTES DE FLOTA</span>
+      </div>
+      <div class="fleet-strip" id="fleet-strip">
+        <!-- Dynamically injected fleet thumbnail cards -->
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * 8-BIT PROCEDURAL SPACESMITH // PURE 2D CANVAS RETRO ARCADE PIPELINE
+     * Fully self-contained. Zero external dependencies.
+     * =========================================================================
+     */
+
+    // --- 1. DETERMINISTIC PSEUDO-RANDOM NUMBER GENERATOR (Mulberry32) ---
+    function createPRNG(seedInput) {
+      let h = 0x811c9dc5;
+      const str = String(seedInput);
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      let s = h >>> 0;
+      return function() {
+        s = (s + 0x6D2B79F5) >>> 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // --- 2. HSL TO RGB WITH HUE SHIFTING ---
+    function hslToRgb(h, s, l) {
+      h = (h % 360 + 360) % 360;
+      s = Math.max(0, Math.min(1, s));
+      l = Math.max(0, Math.min(1, l));
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+
+      if (h < 60) { r = c; g = x; b = 0; }
+      else if (h < 120) { r = x; g = c; b = 0; }
+      else if (h < 180) { r = 0; g = c; b = x; }
+      else if (h < 240) { r = 0; g = x; b = c; }
+      else if (h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+
+      return [
+        Math.round((r + m) * 255),
+        Math.round((g + m) * 255),
+        Math.round((b + m) * 255)
+      ];
+    }
+
+    function rgbToString(r, g, b, a = 1.0) {
+      return a === 1.0 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${a})`;
+    }
+
+    // --- 3. HARMONIC COLOR PALETTES DEFINITIONS ---
+    const PALETTES = {
+      solar: {
+        name: 'Imperio Solar',
+        faction: 'IMPERIO SOLAR // VANGUARDIA',
+        baseHue: 350,   // Crimson
+        armorHue: 42,   // Gold / Brass
+        cockpitHue: 195,// Cyan Crystal
+        thrusterHue: 200,
+        outline: [18, 12, 16],
+        hueShift: 16
+      },
+      neon: {
+        name: 'Cyberpunk Neón',
+        faction: 'SINDICATO NEÓN // SYNTH',
+        baseHue: 275,   // Dark Purple/Obsidian
+        armorHue: 325,  // Hot Magenta
+        cockpitHue: 60, // Electric Yellow
+        thrusterHue: 180,
+        outline: [12, 8, 22],
+        hueShift: 24
+      },
+      xeno: {
+        name: 'Enjambre Bio-Xeno',
+        faction: 'COLMENA KRAKEN // BIO-SWARM',
+        baseHue: 135,   // Acid Green
+        armorHue: 280,  // Chitin Violet
+        cockpitHue: 35, // Amber Sensory Node
+        thrusterHue: 110,
+        outline: [14, 20, 14],
+        hueShift: 20
+      },
+      industrial: {
+        name: 'Sector Militar',
+        faction: 'CONGLOMERADO INDUSTRIAL',
+        baseHue: 215,   // Steel Navy / Battleship
+        armorHue: 48,   // Hazard Yellow
+        cockpitHue: 150,// Emerald Sensor
+        thrusterHue: 25,
+        outline: [15, 18, 24],
+        hueShift: 14
+      },
+      arctic: {
+        name: 'Consorcio Ártico',
+        faction: 'EXPEDICIÓN FANTASMA // HELIOS',
+        baseHue: 205,   // Polar White / Graphite
+        armorHue: 185,  // Cyan Ice
+        cockpitHue: 235,// Deep Cobalt
+        thrusterHue: 190,
+        outline: [16, 20, 26],
+        hueShift: 18
+      },
+      gameboy: {
+        name: 'GameBoy Retro DMG',
+        faction: 'SISTEMA RETRO 4-SHADES',
+        isMonochrome: true,
+        shades: [
+          [15, 56, 15],   // Darkest
+          [48, 98, 48],   // Shadow
+          [139, 172, 15], // Midtone
+          [155, 188, 15]  // Highlight
+        ],
+        thrusterHue: 90,
+        outline: [10, 35, 10],
+        hueShift: 0
+      },
+      synthwave: {
+        name: 'Sunset Synthwave',
+        faction: 'HORIZONTE CIBERNÉTICO 84',
+        baseHue: 335,   // Coral Pink
+        armorHue: 180,  // Turquoise
+        cockpitHue: 45, // Sunset Yellow
+        thrusterHue: 300,
+        outline: [25, 12, 30],
+        hueShift: 22
+      }
+    };
+
+    // --- 4. CELL COMPONENT ENUMERATION ---
+    const CELL = {
+      EMPTY: 0,
+      HULL: 1,      // Primary Fuselage
+      ARMOR: 2,     // Secondary Plating / Wings
+      COCKPIT: 3,   // Glowing Canopy / Visor
+      WEAPONS: 4,   // Gun Barrels / Wingtip Cannons
+      THRUSTER: 5,  // Engines / Nozzles
+      STROBE: 6     // Blinking Navigation Lights
+    };
+
+    // --- 5. PROCEDURAL GENERATION PIPELINE ---
+    class SpaceshipGenerator {
+      constructor() {
+        this.cache = new Map();
+      }
+
+      generate(seed, options = {}) {
+        const prng = createPRNG(seed);
+        const W = parseInt(options.resolution || 20, 10);
+        const H = W;
+        const halfW = Math.ceil(W / 2);
+        const shipClass = options.shipClass || 'fighter';
+        const densityMultiplier = (options.density !== undefined ? options.density : 65) / 100;
+        const wingspanMultiplier = (options.wingspan !== undefined ? options.wingspan : 70) / 100;
+        const greeblesFactor = (options.greebles !== undefined ? options.greebles : 50) / 100;
+        const paletteKey = options.palette || 'solar';
+        const palette = PALETTES[paletteKey] || PALETTES.solar;
+        const outlineStyle = options.outline || 'orthogonal';
+
+        // 1. ANATOMICAL PROBABILITY MASK
+        // x goes from 0 (outer left wingtip) to halfW - 1 (center spine).
+        // nx = (halfW - 1 - x) / (halfW - 1): nx = 0 is center spine, nx = 1 is outer wingtip!
+        const probMask = [];
+        for (let y = 0; y < H; y++) {
+          probMask[y] = [];
+          const ny = y / (H - 1); // 0 = nose, 1 = stern
+          for (let x = 0; x < halfW; x++) {
+            const nx = (halfW - 1 - x) / Math.max(1, halfW - 1);
+            let p = 0;
+
+            if (shipClass === 'interceptor') {
+              // Sleek, sharp needle nose, swept-back narrow delta wings
+              if (ny < 0.25) p = nx <= 0.15 ? 0.98 : (nx <= 0.3 ? 0.6 : 0.0);
+              else if (ny < 0.55) p = Math.max(0, 0.95 - nx * 1.5);
+              else {
+                const wingFlare = Math.sin((ny - 0.45) / 0.55 * Math.PI) * wingspanMultiplier;
+                p = (nx <= wingFlare + 0.18) ? (0.8 - nx * 0.35) : 0.02;
+              }
+            } else if (shipClass === 'fighter') {
+              // Balanced chassis, forward canards and sturdy angular wings
+              if (ny < 0.18) p = nx <= 0.25 ? 0.92 : 0.0;
+              else if (ny < 0.45) p = Math.max(0, 0.96 - nx * 1.1);
+              else if (ny < 0.8) {
+                const wingEdge = 0.35 + Math.sin((ny - 0.35) / 0.45 * Math.PI * 0.8) * wingspanMultiplier * 0.65;
+                p = (nx <= wingEdge) ? (0.85 - nx * 0.25) : 0.05;
+              } else {
+                p = nx <= 0.45 ? 0.88 : 0.05;
+              }
+            } else if (shipClass === 'bomber') {
+              // Bulky, armored prow, wide shoulders and thick hull
+              if (ny < 0.22) p = nx <= 0.45 ? 0.95 : 0.05;
+              else if (ny < 0.75) {
+                const width = 0.55 + wingspanMultiplier * 0.4;
+                p = (nx <= width) ? (0.92 - nx * 0.2) : 0.05;
+              } else {
+                p = nx <= 0.65 ? 0.88 : 0.05;
+              }
+            } else if (shipClass === 'cruiser') {
+              // Elongated stepped prow, outrigger battery pods
+              if (ny < 0.45) p = (nx <= 0.32) ? 0.94 : 0.02;
+              else if (ny < 0.75) {
+                const pod = 0.4 + Math.sin((ny - 0.45) * Math.PI * 2) * wingspanMultiplier * 0.5;
+                p = (nx <= pod) ? 0.88 : 0.06;
+              } else {
+                p = nx <= 0.6 ? 0.9 : 0.05;
+              }
+            } else { // dreadnought
+              // Monolithic massive silhouette spanning broad wings
+              if (ny < 0.2) p = nx <= 0.6 ? 0.9 : 0.1;
+              else if (ny < 0.8) p = nx <= (0.68 + wingspanMultiplier * 0.28) ? 0.95 : 0.12;
+              else p = nx <= 0.75 ? 0.88 : 0.05;
+            }
+
+            probMask[y][x] = Math.max(0, Math.min(1, p * densityMultiplier * 1.3));
+          }
+        }
+
+        // 2. SAMPLING & BILATERAL SYMMETRY (Reflected across central axis)
+        const rawGrid = [];
+        for (let y = 0; y < H; y++) {
+          rawGrid[y] = new Uint8Array(W);
+          for (let x = 0; x < halfW; x++) {
+            const threshold = probMask[y][x];
+            const isSolid = prng() < threshold ? 1 : 0;
+            rawGrid[y][x] = isSolid;
+            rawGrid[y][W - 1 - x] = isSolid; // Perfect bilateral reflection
+          }
+        }
+
+        // 3. CELLULAR CONSOLIDATION PASS (Eliminate isolated pixels, connect hull)
+        const solidGrid = [];
+        for (let y = 0; y < H; y++) {
+          solidGrid[y] = new Uint8Array(W);
+          for (let x = 0; x < W; x++) {
+            let n = 0;
+            if (y > 0 && rawGrid[y - 1][x]) n++;
+            if (y < H - 1 && rawGrid[y + 1][x]) n++;
+            if (x > 0 && rawGrid[y][x - 1]) n++;
+            if (x < W - 1 && rawGrid[y][x + 1]) n++;
+
+            if (rawGrid[y][x] === 1) {
+              // Keep if it has at least 1 neighbor or is on the central symmetry line
+              solidGrid[y][x] = (n >= 1 || x === halfW - 1 || x === halfW) ? 1 : 0;
+            } else {
+              // Fill hollow 1-pixel holes inside dense areas
+              solidGrid[y][x] = (n >= 4) ? 1 : 0;
+            }
+          }
+        }
+
+        // 4. COMPONENT REGION SEGMENTATION (Hull, Armor, Cockpit, Thrusters, Weapons, Strobes)
+        const componentGrid = [];
+        const weaponPylons = [];
+        const thrusterPylons = [];
+        let hullCount = 0, armorCount = 0, cockpitCount = 0, weaponsCount = 0, thrusterCount = 0, strobeCount = 0;
+
+        for (let y = 0; y < H; y++) {
+          componentGrid[y] = new Uint8Array(W);
+        }
+
+        for (let y = 0; y < H; y++) {
+          const ny = y / (H - 1);
+          for (let x = 0; x < halfW; x++) {
+            if (solidGrid[y][x] === 0) continue;
+
+            const nx = (halfW - 1 - x) / Math.max(1, halfW - 1);
+            let comp = CELL.HULL;
+
+            // Cockpit: Upper central core
+            const isCockpitZone = (nx <= 0.22 && ny >= 0.2 && ny <= 0.46);
+            if (isCockpitZone) {
+              comp = CELL.COCKPIT;
+            } else {
+              // Thrusters: Lowest solid row for this column
+              let isLowestSolid = true;
+              for (let downY = y + 1; downY < H; downY++) {
+                if (solidGrid[downY][x] === 1) {
+                  isLowestSolid = false;
+                  break;
+                }
+              }
+
+              if (isLowestSolid && ny >= 0.68 && nx <= 0.48) {
+                comp = CELL.THRUSTER;
+              } else {
+                // Weapons: Outermost wingtip solid pixels (leftmost in left half)
+                let isOutermost = true;
+                for (let leftX = x - 1; leftX >= 0; leftX--) {
+                  if (solidGrid[y][leftX] === 1) {
+                    isOutermost = false;
+                    break;
+                  }
+                }
+
+                if (isOutermost && nx >= 0.65 && ny >= 0.35 && ny <= 0.85) {
+                  comp = CELL.WEAPONS;
+                } else if (nx > 0.32 && prng() < greeblesFactor) {
+                  comp = CELL.ARMOR;
+                } else {
+                  comp = CELL.HULL;
+                }
+              }
+            }
+
+            // Assign left half and mirror to right half
+            componentGrid[y][x] = comp;
+            componentGrid[y][W - 1 - x] = comp;
+          }
+        }
+
+        // Add Navigation Strobes on extreme wingtips
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < halfW; x++) {
+            if (componentGrid[y][x] === CELL.WEAPONS && prng() < 0.35) {
+              componentGrid[y][x] = CELL.STROBE;
+              componentGrid[y][W - 1 - x] = CELL.STROBE;
+            }
+          }
+        }
+
+        // Collect weapon & thruster coordinates for animation & flight
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const c = componentGrid[y][x];
+            if (c === CELL.HULL) hullCount++;
+            else if (c === CELL.ARMOR) armorCount++;
+            else if (c === CELL.COCKPIT) cockpitCount++;
+            else if (c === CELL.WEAPONS) {
+              weaponsCount++;
+              weaponPylons.push({ x, y });
+            } else if (c === CELL.THRUSTER) {
+              thrusterCount++;
+              thrusterPylons.push({ x, y });
+            } else if (c === CELL.STROBE) strobeCount++;
+          }
+        }
+
+        // If no thruster was generated, force symmetrical ones at the bottom center
+        if (thrusterPylons.length === 0) {
+          const midY = H - 2;
+          componentGrid[midY][halfW - 1] = CELL.THRUSTER;
+          componentGrid[midY][halfW] = CELL.THRUSTER;
+          thrusterPylons.push({ x: halfW - 1, y: midY }, { x: halfW, y: midY });
+          thrusterCount += 2;
+        }
+
+        // 5. SHADING NORMALS & 3D VOLUMETRIC ILLUMINATION MAP
+        // 0: empty, 1: highlight (+25% L, warm shift), 2: midtone, 3: shadow (-25% L, cool shift)
+        const shadingGrid = [];
+        for (let y = 0; y < H; y++) {
+          shadingGrid[y] = new Uint8Array(W);
+          for (let x = 0; x < W; x++) {
+            if (componentGrid[y][x] === CELL.EMPTY) continue;
+
+            const isTopEmpty = (y === 0 || componentGrid[y - 1][x] === CELL.EMPTY);
+            const isBottomEmpty = (y === H - 1 || componentGrid[y + 1][x] === CELL.EMPTY);
+            const isLeftEmpty = (x === 0 || componentGrid[y][x - 1] === CELL.EMPTY);
+
+            if (isTopEmpty) {
+              shadingGrid[y][x] = 1; // Top specular highlight
+            } else if (isBottomEmpty) {
+              shadingGrid[y][x] = 3; // Bottom overhang shadow
+            } else if (isLeftEmpty) {
+              shadingGrid[y][x] = 2; // Midtone rim
+            } else {
+              shadingGrid[y][x] = (x % 2 === y % 2) ? 2 : 1; // Subtle interior dither
+            }
+
+            // Cockpit special gem gleam
+            if (componentGrid[y][x] === CELL.COCKPIT) {
+              if (y > 0 && componentGrid[y - 1][x] === CELL.EMPTY) {
+                shadingGrid[y][x] = 1;
+              } else if (y === H - 1 || componentGrid[y + 1][x] !== CELL.COCKPIT) {
+                shadingGrid[y][x] = 3;
+              }
+            }
+          }
+        }
+
+        // 6. OUTLINE DETECTION MAP
+        const outlineGrid = [];
+        for (let y = 0; y < H; y++) {
+          outlineGrid[y] = new Uint8Array(W);
+          if (outlineStyle === 'none') continue;
+
+          for (let x = 0; x < W; x++) {
+            if (componentGrid[y][x] !== CELL.EMPTY) continue;
+
+            let touches = false;
+            // Orthogonal neighbors
+            if (y > 0 && componentGrid[y - 1][x] !== CELL.EMPTY) touches = true;
+            if (y < H - 1 && componentGrid[y + 1][x] !== CELL.EMPTY) touches = true;
+            if (x > 0 && componentGrid[y][x - 1] !== CELL.EMPTY) touches = true;
+            if (x < W - 1 && componentGrid[y][x + 1] !== CELL.EMPTY) touches = true;
+
+            // Diagonal neighbors for thick outline
+            if (outlineStyle === 'diagonal' && !touches) {
+              if (y > 0 && x > 0 && componentGrid[y - 1][x - 1] !== CELL.EMPTY) touches = true;
+              if (y > 0 && x < W - 1 && componentGrid[y - 1][x + 1] !== CELL.EMPTY) touches = true;
+              if (y < H - 1 && x > 0 && componentGrid[y + 1][x - 1] !== CELL.EMPTY) touches = true;
+              if (y < H - 1 && x < W - 1 && componentGrid[y + 1][x + 1] !== CELL.EMPTY) touches = true;
+            }
+
+            if (touches) outlineGrid[y][x] = 1;
+          }
+        }
+
+        // 7. RPG STATS & SCI-FI PROCEDURAL LORE GENERATION
+        const totalSolid = hullCount + armorCount + cockpitCount + weaponsCount + thrusterCount + strobeCount;
+        const firepower = Math.round(350 + weaponsCount * 110 + prng() * 120);
+        const shield = Math.round(280 + (hullCount + armorCount) * 12 + prng() * 100);
+        const speed = Math.round(3.0 + (thrusterCount / Math.max(1, totalSolid)) * 35 + prng() * 1.5);
+        const maneuver = Math.round(45 + (1 - totalSolid / (W * H)) * 75 + prng() * 20);
+        const reactor = ((firepower * 0.8 + shield * 0.6) / 750).toFixed(2);
+
+        const prefixes = ['Aegis', 'Valkyrie', 'Nova', 'Void', 'Phantom', 'Titan', 'Specter', 'Kronos', 'Onyx', 'Eclipse', 'Chimera', 'Apex'];
+        const roots = ['Stalker', 'Corsair', 'Avenger', 'Interceptor', 'Scythe', 'Lancer', 'Reaper', 'Vanguard', 'Nemesis', 'Crusader'];
+        const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+        const nameIdx1 = Math.floor(prng() * prefixes.length);
+        const nameIdx2 = Math.floor(prng() * roots.length);
+        const nameIdx3 = Math.floor(prng() * roman.length);
+        const shipName = `${prefixes[nameIdx1]}-${roots[nameIdx2]} Mk.${roman[nameIdx3]}`;
+
+        return {
+          seed,
+          W,
+          H,
+          halfW,
+          shipClass,
+          palette,
+          probMask,
+          rawGrid,
+          solidGrid,
+          componentGrid,
+          shadingGrid,
+          outlineGrid,
+          weaponPylons,
+          thrusterPylons,
+          counts: {
+            hull: hullCount,
+            armor: armorCount,
+            cockpit: cockpitCount,
+            weapons: weaponsCount,
+            thrusters: thrusterCount,
+            strobes: strobeCount,
+            total: totalSolid
+          },
+          specs: {
+            name: shipName,
+            faction: palette.faction,
+            className: options.shipClass || 'fighter',
+            firepower,
+            shield,
+            speed,
+            maneuver,
+            reactor
+          }
+        };
+      }
+
+      // Render the sprite directly to a given HTML canvas
+      renderToCanvas(shipData, targetCanvas, options = {}) {
+        const { W, H, halfW, componentGrid, shadingGrid, outlineGrid, probMask, rawGrid, palette } = shipData;
+        const ctx = targetCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.mozImageSmoothingEnabled = false;
+
+        const targetW = targetCanvas.width;
+        const targetH = targetCanvas.height;
+        ctx.clearRect(0, 0, targetW, targetH);
+
+        const pixelSize = Math.floor(Math.min(targetW / W, targetH / H));
+        const offsetX = Math.floor((targetW - W * pixelSize) / 2);
+        const offsetY = Math.floor((targetH - H * pixelSize) / 2);
+
+        const strobeOn = options.strobeOn !== undefined ? options.strobeOn : true;
+        const renderMode = options.mode || 'final'; // 'final', 'mask', 'binary', 'regions', 'shading'
+
+        if (renderMode === 'mask') {
+          // Heatmap of anatomical density
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < halfW; x++) {
+              const p = probMask[y][x];
+              const val = Math.floor(p * 255);
+              ctx.fillStyle = `rgb(${val}, ${Math.floor(val * 0.25)}, ${Math.floor(val * 0.75)})`;
+              ctx.fillRect(offsetX + x * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+              ctx.fillRect(offsetX + (W - 1 - x) * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+            }
+          }
+          return { pixelSize, offsetX, offsetY };
+        }
+
+        if (renderMode === 'binary') {
+          // Boolean silhouette
+          ctx.fillStyle = '#ffffff';
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              if (rawGrid[y][x] === 1) {
+                ctx.fillRect(offsetX + x * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+              }
+            }
+          }
+          return { pixelSize, offsetX, offsetY };
+        }
+
+        if (renderMode === 'regions') {
+          // Component segmentation colors
+          const compColors = {
+            [CELL.HULL]: '#64748b',
+            [CELL.ARMOR]: '#38bdf8',
+            [CELL.COCKPIT]: '#facc15',
+            [CELL.WEAPONS]: '#ff3366',
+            [CELL.THRUSTER]: '#00f0ff',
+            [CELL.STROBE]: '#ffffff'
+          };
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const c = componentGrid[y][x];
+              if (c !== CELL.EMPTY) {
+                ctx.fillStyle = compColors[c] || '#fff';
+                ctx.fillRect(offsetX + x * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+              }
+            }
+          }
+          return { pixelSize, offsetX, offsetY };
+        }
+
+        if (renderMode === 'shading') {
+          // Volumetric normal illumination
+          const shadeGreys = { 1: '#ffffff', 2: '#888888', 3: '#222222' };
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const s = shadingGrid[y][x];
+              if (s > 0) {
+                ctx.fillStyle = shadeGreys[s] || '#888';
+                ctx.fillRect(offsetX + x * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+              }
+            }
+          }
+          return { pixelSize, offsetX, offsetY };
+        }
+
+        // --- FINAL RENDERING MODE ---
+        // 1. Draw Outlines
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            if (outlineGrid[y][x] === 1) {
+              ctx.fillStyle = rgbToString(...palette.outline);
+              ctx.fillRect(offsetX + x * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+            }
+          }
+        }
+
+        // 2. Draw Solid Component Pixels with Volume Shading
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const comp = componentGrid[y][x];
+            if (comp === CELL.EMPTY) continue;
+
+            const shadeLevel = shadingGrid[y][x]; // 1: high, 2: mid, 3: shadow
+            let r, g, b;
+
+            if (palette.isMonochrome) {
+              // GameBoy 4-color mode
+              const shadeIdx = comp === CELL.COCKPIT ? 3 : (shadeLevel === 1 ? 2 : (shadeLevel === 3 ? 0 : 1));
+              [r, g, b] = palette.shades[shadeIdx];
+            } else {
+              let targetHue = palette.baseHue;
+              let s = 0.65;
+              let l = 0.48;
+
+              if (comp === CELL.HULL) {
+                targetHue = palette.baseHue;
+                s = 0.6;
+                l = 0.44;
+              } else if (comp === CELL.ARMOR) {
+                targetHue = palette.armorHue;
+                s = 0.8;
+                l = 0.52;
+              } else if (comp === CELL.COCKPIT) {
+                targetHue = palette.cockpitHue;
+                s = 0.9;
+                l = 0.65;
+              } else if (comp === CELL.WEAPONS) {
+                targetHue = (palette.baseHue + 30) % 360;
+                s = 0.3;
+                l = 0.35;
+              } else if (comp === CELL.THRUSTER) {
+                targetHue = 210;
+                s = 0.2;
+                l = 0.25;
+              } else if (comp === CELL.STROBE) {
+                if (strobeOn) {
+                  r = 255; g = 255; b = 255;
+                } else {
+                  targetHue = 0;
+                  s = 0.8;
+                  l = 0.2;
+                  [r, g, b] = hslToRgb(targetHue, s, l);
+                }
+              }
+
+              if (comp !== CELL.STROBE || !strobeOn) {
+                // Apply Hue Shifting and Lightness modulation
+                if (shadeLevel === 1) { // Highlight (warm shift, brighter)
+                  targetHue = targetHue - palette.hueShift;
+                  l = Math.min(0.9, l + 0.22);
+                  s = Math.max(0.2, s - 0.08);
+                } else if (shadeLevel === 3) { // Shadow (cool shift, darker)
+                  targetHue = targetHue + palette.hueShift;
+                  l = Math.max(0.12, l - 0.22);
+                  s = Math.min(1.0, s + 0.12);
+                }
+                [r, g, b] = hslToRgb(targetHue, s, l);
+              }
+            }
+
+            ctx.fillStyle = rgbToString(r, g, b);
+            ctx.fillRect(offsetX + x * pixelSize, offsetY + y * pixelSize, pixelSize, pixelSize);
+          }
+        }
+
+        return { pixelSize, offsetX, offsetY };
+      }
+    }
+
+    // --- 6. PROCEDURAL 8-BIT AUDIO SYNTHESIZER ---
+    class RetroAudioSynth {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playLaser() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      }
+
+      playExplosion() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const bufferSize = this.ctx.sampleRate * 0.25;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, now);
+        filter.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start(now);
+      }
+
+      playClick() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(880, now + 0.02);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      }
+    }
+
+    // --- 7. PARALLAX STARFIELD & TEST FLIGHT ENGINE ---
+    class StarfieldEngine {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.ctx.imageSmoothingEnabled = false;
+
+        this.stars = [];
+        this.numStars = 180;
+        this.particles = [];
+        this.lasers = [];
+        this.targets = [];
+        this.score = 0;
+
+        this.isFlightMode = false;
+        this.player = {
+          x: 0,
+          y: 0,
+          vx: 0,
+          vy: 0,
+          tilt: 0,
+          speed: 0
+        };
+
+        this.keys = {};
+        this.initStars();
+        this.bindEvents();
+      }
+
+      initStars() {
+        this.stars.length = 0;
+        const w = this.canvas.width || 800;
+        const h = this.canvas.height || 600;
+        for (let i = 0; i < this.numStars; i++) {
+          this.stars.push({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            z: Math.random() * 3 + 1, // Layer depth
+            size: Math.random() < 0.2 ? 2 : 1,
+            color: Math.random() < 0.3 ? '#38bdf8' : (Math.random() < 0.1 ? '#f43f5e' : '#ffffff')
+          });
+        }
+      }
+
+      bindEvents() {
+        window.addEventListener('keydown', (e) => {
+          this.keys[e.code] = true;
+          if (e.code === 'KeyT') {
+            toggleTestFlight();
+          }
+          if (e.code === 'Space' && this.isFlightMode) {
+            e.preventDefault();
+            this.firePlayerLaser();
+          }
+          if (e.code === 'Escape' && this.isFlightMode) {
+            toggleTestFlight();
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          this.keys[e.code] = false;
+        });
+
+        this.canvas.addEventListener('mousedown', (e) => {
+          if (this.isFlightMode && e.button === 0) {
+            this.firePlayerLaser();
+          }
+        });
+      }
+
+      resize() {
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        this.canvas.width = Math.floor(rect.width);
+        this.canvas.height = Math.floor(rect.height);
+        if (!this.isFlightMode) {
+          this.player.x = Math.floor(this.canvas.width / 2);
+          this.player.y = Math.floor(this.canvas.height / 2);
+        }
+      }
+
+      spawnTargetDrone() {
+        if (this.targets.length >= 8) return;
+        this.targets.push({
+          x: Math.random() * (this.canvas.width - 80) + 40,
+          y: -40,
+          vx: (Math.random() - 0.5) * 60,
+          vy: Math.random() * 50 + 60,
+          size: 20,
+          hp: 2,
+          maxHp: 2,
+          rot: 0
+        });
+      }
+
+      firePlayerLaser() {
+        if (!currentShipData) return;
+        audioSynth.playLaser();
+
+        const { W, H, weaponPylons } = currentShipData;
+        const scale = 4;
+        const shipHalfW = (W * scale) / 2;
+        const shipHalfH = (H * scale) / 2;
+
+        if (weaponPylons.length > 0) {
+          // Fire from each detected weapon hardpoint
+          weaponPylons.forEach(wp => {
+            const lx = (this.player.x - shipHalfW) + wp.x * scale + scale / 2;
+            const ly = (this.player.y - shipHalfH) + wp.y * scale;
+            this.lasers.push({
+              x: lx,
+              y: ly,
+              vy: -750,
+              color: '#00f0ff'
+            });
+          });
+        } else {
+          // Fallback center blaster
+          this.lasers.push({
+            x: this.player.x,
+            y: this.player.y - shipHalfH,
+            vy: -750,
+            color: '#00f0ff'
+          });
+        }
+
+        // Slight muzzle recoil
+        this.player.vy += 25;
+      }
+
+      addExplosion(x, y, color = '#ffaa00') {
+        audioSynth.playExplosion();
+        for (let i = 0; i < 24; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 160 + 40;
+          this.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 1.0,
+            decay: Math.random() * 2.0 + 1.5,
+            size: Math.random() < 0.5 ? 3 : 2,
+            color
+          });
+        }
+      }
+
+      update(dt) {
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        // 1. STARFIELD SPEED CONTROL
+        const warpSpeed = this.isFlightMode ? 3.5 : 1.0;
+        for (let i = 0; i < this.stars.length; i++) {
+          const s = this.stars[i];
+          s.y += s.z * 40 * warpSpeed * dt;
+          if (s.y > h) {
+            s.y = 0;
+            s.x = Math.random() * w;
+          }
+        }
+
+        // 2. PLAYER SHIP FLIGHT PHYSICS
+        if (this.isFlightMode) {
+          const accel = 600;
+          const friction = 0.92;
+
+          if (this.keys['KeyW'] || this.keys['ArrowUp']) this.player.vy -= accel * dt;
+          if (this.keys['KeyS'] || this.keys['ArrowDown']) this.player.vy += accel * dt;
+          if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
+            this.player.vx -= accel * dt;
+            this.player.tilt = Math.max(-0.4, this.player.tilt - dt * 4);
+          } else if (this.keys['KeyD'] || this.keys['ArrowRight']) {
+            this.player.vx += accel * dt;
+            this.player.tilt = Math.min(0.4, this.player.tilt + dt * 4);
+          } else {
+            this.player.tilt *= 0.85;
+          }
+
+          this.player.vx *= friction;
+          this.player.vy *= friction;
+
+          this.player.x += this.player.vx * dt;
+          this.player.y += this.player.vy * dt;
+
+          // Screen bounds clamping
+          this.player.x = Math.max(40, Math.min(w - 40, this.player.x));
+          this.player.y = Math.max(60, Math.min(h - 60, this.player.y));
+
+          this.player.speed = Math.hypot(this.player.vx, this.player.vy);
+          document.getElementById('tele-speed').textContent = `${(this.player.speed / 10).toFixed(1)} km/s`;
+
+          // Spawn Target Drones
+          if (Math.random() < dt * 1.5) {
+            this.spawnTargetDrone();
+          }
+
+        } else {
+          // Hangar idle hover animation
+          const t = performance.now() / 1000;
+          this.player.x = Math.floor(w / 2);
+          this.player.y = Math.floor(h / 2 + Math.sin(t * 2.2) * 6);
+          this.player.tilt = Math.cos(t * 1.5) * 0.04;
+        }
+
+        // 3. THRUSTER PLASMA PARTICLES
+        if (currentShipData && currentShipData.thrusterPylons.length > 0) {
+          const scale = this.isFlightMode ? 4 : 14;
+          const shipHalfW = (currentShipData.W * scale) / 2;
+          const shipHalfH = (currentShipData.H * scale) / 2;
+
+          currentShipData.thrusterPylons.forEach(tp => {
+            const px = (this.player.x - shipHalfW) + tp.x * scale + scale / 2;
+            const py = (this.player.y - shipHalfH) + (tp.y + 1) * scale;
+
+            const count = this.isFlightMode ? 2 : 1;
+            for (let c = 0; c < count; c++) {
+              this.particles.push({
+                x: px + (Math.random() - 0.5) * (scale * 0.6),
+                y: py,
+                vx: (Math.random() - 0.5) * 20,
+                vy: Math.random() * 120 + 80 + (this.isFlightMode ? this.player.speed * 0.4 : 0),
+                life: 1.0,
+                decay: Math.random() * 4.0 + 3.0,
+                size: Math.random() * (scale * 0.35) + 2,
+                color: Math.random() < 0.6 ? '#00f0ff' : (Math.random() < 0.85 ? '#38bdf8' : '#ffffff')
+              });
+            }
+          });
+        }
+
+        // 4. PARTICLES UPDATE
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= p.decay * dt;
+          if (p.life <= 0) {
+            this.particles.splice(i, 1);
+          }
+        }
+
+        // 5. LASERS & TARGETS COLLISION UPDATE
+        for (let i = this.lasers.length - 1; i >= 0; i--) {
+          const l = this.lasers[i];
+          l.y += l.vy * dt;
+          if (l.y < -30) {
+            this.lasers.splice(i, 1);
+            continue;
+          }
+
+          // Laser vs Target Drone Collision
+          for (let t = this.targets.length - 1; t >= 0; t--) {
+            const trg = this.targets[t];
+            const dist = Math.hypot(l.x - trg.x, l.y - trg.y);
+            if (dist < trg.size + 6) {
+              trg.hp--;
+              this.lasers.splice(i, 1);
+              if (trg.hp <= 0) {
+                this.addExplosion(trg.x, trg.y, '#ff3366');
+                this.targets.splice(t, 1);
+                this.score++;
+                document.getElementById('tele-score').textContent = this.score;
+              } else {
+                this.addExplosion(l.x, l.y, '#00f0ff');
+              }
+              break;
+            }
+          }
+        }
+
+        // 6. TARGET DRONES UPDATE
+        for (let t = this.targets.length - 1; t >= 0; t--) {
+          const trg = this.targets[t];
+          trg.x += trg.vx * dt;
+          trg.y += trg.vy * dt;
+          trg.rot += dt * 2.0;
+
+          if (trg.x < 30 || trg.x > w - 30) trg.vx *= -1;
+          if (trg.y > h + 50) {
+            this.targets.splice(t, 1);
+          }
+        }
+      }
+
+      render() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        ctx.imageSmoothingEnabled = false;
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.mozImageSmoothingEnabled = false;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // 1. DEEP SPACE NEBULA RADIAL GLOW
+        const grad = ctx.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, Math.max(w, h) * 0.7);
+        grad.addColorStop(0, 'rgba(14, 25, 48, 0.45)');
+        grad.addColorStop(0.5, 'rgba(8, 14, 28, 0.25)');
+        grad.addColorStop(1, 'rgba(2, 4, 8, 0.9)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        // 2. PARALLAX STARS
+        for (let i = 0; i < this.stars.length; i++) {
+          const s = this.stars[i];
+          ctx.fillStyle = s.color;
+          ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.size, s.size);
+        }
+
+        // 3. TARGET DRONES
+        if (this.isFlightMode) {
+          for (let i = 0; i < this.targets.length; i++) {
+            const trg = this.targets[i];
+            ctx.save();
+            ctx.translate(trg.x, trg.y);
+            ctx.rotate(trg.rot);
+
+            ctx.fillStyle = '#ff3366';
+            ctx.beginPath();
+            ctx.arc(0, 0, trg.size, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffaa00';
+            ctx.fillRect(-4, -4, 8, 8);
+            ctx.restore();
+          }
+        }
+
+        // 4. LASER PROJECTILES
+        ctx.lineWidth = 3;
+        for (let i = 0; i < this.lasers.length; i++) {
+          const l = this.lasers[i];
+          ctx.strokeStyle = '#fff';
+          ctx.beginPath();
+          ctx.moveTo(l.x, l.y);
+          ctx.lineTo(l.x, l.y + 16);
+          ctx.stroke();
+
+          ctx.strokeStyle = l.color;
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(l.x, l.y + 2);
+          ctx.lineTo(l.x, l.y + 14);
+          ctx.stroke();
+          ctx.lineWidth = 3;
+        }
+
+        // 5. THRUSTER AND EXPLOSION PARTICLES
+        for (let i = 0; i < this.particles.length; i++) {
+          const p = this.particles[i];
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.round(p.size), Math.round(p.size));
+        }
+        ctx.globalAlpha = 1.0;
+
+        // 6. RENDER PLAYER'S CURRENT PROCEDURAL SPACESHIP
+        if (currentShipData && shipOffscreenCanvas) {
+          ctx.save();
+          ctx.translate(Math.round(this.player.x), Math.round(this.player.y));
+          ctx.rotate(this.player.tilt);
+
+          const scale = this.isFlightMode ? 4 : 14;
+          const dw = currentShipData.W * scale;
+          const dh = currentShipData.H * scale;
+
+          ctx.drawImage(
+            shipOffscreenCanvas,
+            -Math.round(dw / 2),
+            -Math.round(dh / 2),
+            dw,
+            dh
+          );
+          ctx.restore();
+        }
+      }
+    }
+
+    // --- 8. APPLICATION STATE & ORCHESTRATION ---
+    const generator = new SpaceshipGenerator();
+    const audioSynth = new RetroAudioSynth();
+    let starfield = null;
+
+    let currentSeed = 'ALPHA-9';
+    let currentShipData = null;
+    let currentActiveLayer = 'final';
+    let shipOffscreenCanvas = document.createElement('canvas');
+
+    function getGenerationOptions() {
+      return {
+        shipClass: document.getElementById('select-ship-class').value,
+        resolution: parseInt(document.getElementById('select-resolution').value, 10),
+        palette: document.getElementById('select-palette').value,
+        outline: document.getElementById('select-outline').value,
+        density: parseInt(document.getElementById('slider-density').value, 10),
+        wingspan: parseInt(document.getElementById('slider-wingspan').value, 10),
+        greebles: parseInt(document.getElementById('slider-greebles').value, 10)
+      };
+    }
+
+    function generateShip(seed, updateGallery = true) {
+      currentSeed = seed;
+      document.getElementById('seed-input').value = seed;
+
+      const opts = getGenerationOptions();
+      currentShipData = generator.generate(seed, opts);
+
+      // Re-render main canvas buffer
+      updateMainShipBuffer();
+
+      // Update UI Specs and Anatomy Counts
+      updateSpecsUI(currentShipData);
+
+      // Render Algorithm Diagnostics Layers
+      renderAlgorithmLayers(currentShipData);
+
+      // Refresh Fleet Gallery if requested
+      if (updateGallery) {
+        refreshFleetGallery(seed);
+      }
+    }
+
+    function updateMainShipBuffer() {
+      if (!currentShipData) return;
+      shipOffscreenCanvas.width = currentShipData.W;
+      shipOffscreenCanvas.height = currentShipData.H;
+      generator.renderToCanvas(currentShipData, shipOffscreenCanvas, { mode: currentActiveLayer });
+    }
+
+    function updateSpecsUI(ship) {
+      document.getElementById('spec-name').textContent = ship.specs.name;
+      document.getElementById('spec-faction').textContent = ship.specs.faction;
+
+      const classLabels = {
+        interceptor: 'Interceptor Ligero (Alta Velocidad)',
+        fighter: 'Caza de Asalto Multirrol',
+        bomber: 'Bombardero Pesado de Asedio',
+        cruiser: 'Crucero de Batalla Escolta',
+        dreadnought: 'Dreadnought Monolítico Titán'
+      };
+      document.getElementById('spec-class').textContent = classLabels[ship.shipClass] || ship.shipClass;
+
+      // Stats numbers
+      document.getElementById('stat-firepower-val').textContent = `${ship.specs.firepower} MW`;
+      document.getElementById('stat-shield-val').textContent = `${ship.specs.shield} GJ`;
+      document.getElementById('stat-speed-val').textContent = `${ship.specs.speed} G`;
+      document.getElementById('stat-maneuver-val').textContent = `${ship.specs.maneuver} rad/s`;
+      document.getElementById('stat-reactor-val').textContent = `${ship.specs.reactor} GW`;
+
+      // Stat bars percentages
+      document.getElementById('bar-firepower').style.width = `${Math.min(100, (ship.specs.firepower / 1200) * 100)}%`;
+      document.getElementById('bar-shield').style.width = `${Math.min(100, (ship.specs.shield / 1000) * 100)}%`;
+      document.getElementById('bar-speed').style.width = `${Math.min(100, (ship.specs.speed / 10) * 100)}%`;
+      document.getElementById('bar-maneuver').style.width = `${Math.min(100, (ship.specs.maneuver / 120) * 100)}%`;
+      document.getElementById('bar-reactor').style.width = `${Math.min(100, (parseFloat(ship.specs.reactor) / 2.0) * 100)}%`;
+
+      // Anatomy pixel counts
+      document.getElementById('count-hull').textContent = ship.counts.hull;
+      document.getElementById('count-armor').textContent = ship.counts.armor;
+      document.getElementById('count-cockpit').textContent = ship.counts.cockpit;
+      document.getElementById('count-weapons').textContent = ship.counts.weapons;
+      document.getElementById('count-thrusters').textContent = ship.counts.thrusters;
+      document.getElementById('count-strobes').textContent = ship.counts.strobes;
+    }
+
+    // Render the 5 layers in the Algorithm Inspector
+    function renderAlgorithmLayers(ship) {
+      const { W, H } = ship;
+
+      // 1. Layer Final
+      const cvFinal = document.getElementById('layer-canvas-final');
+      cvFinal.width = W; cvFinal.height = H;
+      generator.renderToCanvas(ship, cvFinal, { mode: 'final' });
+
+      // 2. Layer Mask (Heatmap)
+      const cvMask = document.getElementById('layer-canvas-mask');
+      cvMask.width = W; cvMask.height = H;
+      generator.renderToCanvas(ship, cvMask, { mode: 'mask' });
+
+      // 3. Layer Binary (Solid Boolean)
+      const cvBin = document.getElementById('layer-canvas-binary');
+      cvBin.width = W; cvBin.height = H;
+      generator.renderToCanvas(ship, cvBin, { mode: 'binary' });
+
+      // 4. Layer Regions / Components
+      const cvReg = document.getElementById('layer-canvas-regions');
+      cvReg.width = W; cvReg.height = H;
+      generator.renderToCanvas(ship, cvReg, { mode: 'regions' });
+
+      // 5. Layer Shading (Volume Normals)
+      const cvShd = document.getElementById('layer-canvas-shading');
+      cvShd.width = W; cvShd.height = H;
+      generator.renderToCanvas(ship, cvShd, { mode: 'shading' });
+    }
+
+    // Refresh Fleet Gallery with 8 variants derived from the seed
+    function refreshFleetGallery(baseSeed) {
+      const fleetStrip = document.getElementById('fleet-strip');
+      fleetStrip.innerHTML = '';
+      const opts = getGenerationOptions();
+
+      for (let i = 0; i < 8; i++) {
+        const fleetSeed = `${baseSeed}-${i + 1}`;
+        const item = document.createElement('div');
+        item.className = 'fleet-item' + (i === 0 ? ' active' : '');
+
+        const cv = document.createElement('canvas');
+        cv.width = 48;
+        cv.height = 48;
+
+        const variantData = generator.generate(fleetSeed, opts);
+        generator.renderToCanvas(variantData, cv, { mode: 'final' });
+
+        const badge = document.createElement('span');
+        badge.className = 'seed-badge';
+        badge.textContent = `#${i + 1}`;
+
+        item.appendChild(cv);
+        item.appendChild(badge);
+
+        item.addEventListener('click', () => {
+          audioSynth.playClick();
+          document.querySelectorAll('.fleet-item').forEach(el => el.classList.remove('active'));
+          item.classList.add('active');
+          generateShip(fleetSeed, false);
+        });
+
+        fleetStrip.appendChild(item);
+      }
+    }
+
+    // --- 9. INTERACTIVE TEST FLIGHT TOGGLE ---
+    function toggleTestFlight() {
+      audioSynth.init();
+      starfield.isFlightMode = !starfield.isFlightMode;
+
+      const btnFlight = document.getElementById('btn-toggle-flight');
+      const label = document.getElementById('flight-btn-label');
+      const flightHud = document.getElementById('flight-hud');
+      const flightHint = document.getElementById('flight-instructions');
+      const hangarHud = document.getElementById('hangar-hud');
+
+      if (starfield.isFlightMode) {
+        btnFlight.classList.add('in-flight');
+        label.textContent = 'HANGAR [ESC]';
+        flightHud.style.display = 'flex';
+        flightHint.style.display = 'flex';
+        hangarHud.style.display = 'none';
+        starfield.player.vx = 0;
+        starfield.player.vy = 0;
+      } else {
+        btnFlight.classList.remove('in-flight');
+        label.textContent = 'VUELO DE PRUEBA [T]';
+        flightHud.style.display = 'none';
+        flightHint.style.display = 'none';
+        hangarHud.style.display = 'flex';
+      }
+    }
+
+    // --- 10. EXPORT PNG & SPRITESHEET (PIXEL-PERFECT) ---
+    function exportSpritePng(scale = 16) {
+      if (!currentShipData) return;
+      audioSynth.playClick();
+
+      const { W, H } = currentShipData;
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = W * scale;
+      exportCanvas.height = H * scale;
+
+      generator.renderToCanvas(currentShipData, exportCanvas, { mode: 'final' });
+
+      const link = document.createElement('a');
+      link.download = `${currentShipData.specs.name.replace(/\s+/g, '_')}_${W}x${H}.png`;
+      link.href = exportCanvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function exportSpriteSheet() {
+      if (!currentShipData) return;
+      audioSynth.playClick();
+
+      const { W, H } = currentShipData;
+      const scale = 8;
+      const frames = 4; // Idle, Bank Left, Bank Right, Thruster Boost
+      const sheetCanvas = document.createElement('canvas');
+      sheetCanvas.width = W * scale * frames;
+      sheetCanvas.height = H * scale;
+      const ctx = sheetCanvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+
+      // Draw 4 animation frames side by side
+      for (let f = 0; f < frames; f++) {
+        const frameCv = document.createElement('canvas');
+        frameCv.width = W * scale;
+        frameCv.height = H * scale;
+
+        // Alternate strobe state for frames 2 and 3
+        const strobeState = (f % 2 === 0);
+        generator.renderToCanvas(currentShipData, frameCv, { strobeOn: strobeState, mode: 'final' });
+
+        ctx.drawImage(frameCv, f * W * scale, 0);
+      }
+
+      const link = document.createElement('a');
+      link.download = `${currentShipData.specs.name.replace(/\s+/g, '_')}_spritesheet.png`;
+      link.href = sheetCanvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // --- 11. UI EVENT LISTENERS SETUP ---
+    function initUIEvents() {
+      // Seed Input
+      const seedInput = document.getElementById('seed-input');
+      seedInput.addEventListener('change', () => {
+        audioSynth.init();
+        audioSynth.playClick();
+        generateShip(seedInput.value.trim().toUpperCase());
+      });
+
+      // Random Seed Button
+      document.getElementById('btn-random-seed').addEventListener('click', () => {
+        audioSynth.init();
+        audioSynth.playClick();
+        const randSeed = 'VOID-' + Math.floor(Math.random() * 8999 + 1000);
+        generateShip(randSeed);
+      });
+
+      // Copy Seed Link Button
+      document.getElementById('btn-copy-seed').addEventListener('click', () => {
+        audioSynth.init();
+        audioSynth.playClick();
+        navigator.clipboard.writeText(currentSeed);
+        const btn = document.getElementById('btn-copy-seed');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>¡COPIADO!</span>';
+        setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+      });
+
+      // Flight Mode Button
+      document.getElementById('btn-toggle-flight').addEventListener('click', () => {
+        toggleTestFlight();
+      });
+
+      // Audio Toggle Button
+      const btnAudio = document.getElementById('btn-toggle-audio');
+      btnAudio.addEventListener('click', () => {
+        audioSynth.init();
+        audioSynth.enabled = !audioSynth.enabled;
+        btnAudio.classList.toggle('active', audioSynth.enabled);
+        document.getElementById('audio-icon').textContent = audioSynth.enabled ? '🔊' : '🔇';
+      });
+
+      // Selectors & Sliders
+      ['select-ship-class', 'select-resolution', 'select-palette', 'select-outline'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+          audioSynth.init();
+          audioSynth.playClick();
+          generateShip(currentSeed);
+        });
+      });
+
+      document.getElementById('slider-density').addEventListener('input', (e) => {
+        document.getElementById('val-density').textContent = `${e.target.value}%`;
+        generateShip(currentSeed, false);
+      });
+
+      document.getElementById('slider-wingspan').addEventListener('input', (e) => {
+        document.getElementById('val-wingspan').textContent = `${e.target.value}%`;
+        generateShip(currentSeed, false);
+      });
+
+      document.getElementById('slider-greebles').addEventListener('input', (e) => {
+        document.getElementById('val-greebles').textContent = `${e.target.value}%`;
+        generateShip(currentSeed, false);
+      });
+
+      // Layer Cards Clicking
+      document.querySelectorAll('.layer-card').forEach(card => {
+        card.addEventListener('click', () => {
+          audioSynth.playClick();
+          document.querySelectorAll('.layer-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          currentActiveLayer = card.dataset.layer;
+          updateMainShipBuffer();
+        });
+      });
+
+      // Export Buttons
+      document.getElementById('btn-export-png').addEventListener('click', () => exportSpritePng(16));
+      document.getElementById('btn-export-sheet').addEventListener('click', () => exportSpriteSheet());
+    }
+
+    // --- 12. MAIN ANIMATION LOOP ---
+    let lastTime = performance.now();
+
+    function mainLoop(now) {
+      requestAnimationFrame(mainLoop);
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (starfield) {
+        starfield.update(dt);
+        starfield.render();
+      }
+    }
+
+    // --- 13. BOOTSTRAP ---
+    window.addEventListener('DOMContentLoaded', () => {
+      const spaceCanvas = document.getElementById('space-canvas');
+      starfield = new StarfieldEngine(spaceCanvas);
+      starfield.resize();
+      window.addEventListener('resize', () => starfield.resize());
+
+      initUIEvents();
+      generateShip('ALPHA-9');
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

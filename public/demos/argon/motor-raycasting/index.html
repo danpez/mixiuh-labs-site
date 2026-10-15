@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WOLF-DDA // Motor 3D de Raycasting Trigonómetrico Puro [Sin WebGL]</title>
+  <style>
+    :root {
+      --bg-void: #05070b;
+      --panel-bg: rgba(9, 13, 21, 0.88);
+      --panel-strong: rgba(6, 9, 15, 0.95);
+      --cyan: #00f0ff;
+      --cyan-border: rgba(0, 240, 255, 0.26);
+      --emerald: #00ff9d;
+      --amber: #ffbe0b;
+      --crimson: #ff2a6d;
+      --text-main: #ebf4ff;
+      --text-dim: #869fb8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg-void); color: var(--text-main); font-family: var(--font-sans);
+    }
+
+    /* Contenedor Principal de Vistas (3D + Dual-View Conmutable) */
+    #engine-stage {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      padding: 66px 320px 48px 18px;
+      background: radial-gradient(circle at 45% 50%, #0d1526 0%, #04060a 100%);
+    }
+
+    #engine-stage.split-mode {
+      justify-content: space-evenly;
+    }
+
+    .viewport-frame {
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.85), 0 0 22px rgba(0, 240, 255, 0.08);
+      background: #04060b;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #view3d-wrap {
+      width: 100%; height: 100%;
+      max-width: 1080px; max-height: 675px;
+      aspect-ratio: 16 / 10;
+      cursor: crosshair;
+    }
+
+    #engine-stage.split-mode #view3d-wrap {
+      width: 56%;
+      max-width: 720px;
+    }
+
+    #screen-canvas {
+      width: 100%; height: 100%;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Minimapa 2D Técnico: Esquina o Vista Dividida */
+    #minimap-wrap {
+      position: absolute;
+      top: 14px; left: 14px;
+      width: 248px; height: 248px;
+      z-index: 6;
+      background: rgba(5, 9, 16, 0.92);
+      border: 1px solid rgba(0, 240, 255, 0.45);
+      border-radius: 6px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      transition: width 0.2s ease, height 0.2s ease;
+    }
+
+    #engine-stage.split-mode #minimap-wrap {
+      position: relative;
+      top: auto; left: auto;
+      width: 42%;
+      max-width: 520px;
+      height: auto;
+      aspect-ratio: 1 / 1;
+    }
+
+    #minimap-canvas {
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    .minimap-label {
+      position: absolute; bottom: 6px; left: 8px; right: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--font-mono); font-size: 9px; color: var(--cyan);
+      background: rgba(4, 8, 15, 0.82); padding: 3px 6px; border-radius: 3px;
+      border: 1px solid rgba(0, 240, 255, 0.2); pointer-events: none;
+    }
+
+    /* Banner de PointerLock e Interacción */
+    #lock-prompt {
+      position: absolute; top: 14px; right: 14px; z-index: 6;
+      background: rgba(6, 10, 18, 0.86);
+      border: 1px solid rgba(255, 190, 11, 0.45);
+      border-left: 3px solid var(--amber);
+      border-radius: 4px; padding: 6px 10px;
+      font-family: var(--font-mono); font-size: 10px; color: #ffe28a;
+      pointer-events: none;
+    }
+
+    #door-prompt {
+      position: absolute; bottom: 22%; left: 50%; transform: translateX(-50%);
+      z-index: 6; background: rgba(6, 12, 22, 0.9);
+      border: 1px solid var(--emerald); color: var(--emerald);
+      font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+      padding: 6px 14px; border-radius: 4px; letter-spacing: 1px;
+      box-shadow: 0 0 16px rgba(0, 255, 157, 0.3);
+      display: none; pointer-events: none;
+    }
+
+    /* Cabecera Superior */
+    .top-bar {
+      position: fixed; top: 10px; left: 16px; right: 16px; z-index: 10;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      pointer-events: none;
+    }
+
+    .hud-banner {
+      pointer-events: auto; background: var(--panel-bg);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-left: 4px solid var(--cyan);
+      border-radius: 6px; padding: 8px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
+    }
+
+    .hud-banner.amber-box {
+      border-left-color: var(--amber); border-color: rgba(255, 190, 11, 0.35);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .hud-title {
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      letter-spacing: 1.4px; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px; text-transform: uppercase;
+    }
+
+    .led {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); box-shadow: 0 0 10px var(--emerald);
+      animation: pulseLed 1.5s infinite ease-in-out;
+    }
+    @keyframes pulseLed {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.45; }
+    }
+
+    .hud-sub { font-family: var(--font-mono); font-size: 9.8px; color: var(--text-dim); margin-top: 2px; }
+
+    /* Panel Lateral Derecho: Telemetría y Ajustes en Caliente */
+    .right-dock {
+      position: fixed; top: 68px; right: 16px; width: 296px; z-index: 10;
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: calc(100vh - 114px); overflow-y: auto; scrollbar-width: thin;
+    }
+
+    .card {
+      background: var(--panel-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px;
+      padding: 9px 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+    }
+
+    .card-header {
+      font-family: var(--font-mono); font-size: 9.8px; font-weight: 700;
+      letter-spacing: 1.1px; color: var(--cyan); text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+      padding-bottom: 5px; margin-bottom: 7px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .badge {
+      font-size: 8.8px; padding: 2px 6px; border-radius: 3px;
+      background: rgba(0, 240, 255, 0.14); border: 1px solid rgba(0, 240, 255, 0.35); color: #96f9ff;
+    }
+    .badge.emerald { background: rgba(0, 255, 157, 0.14); border-color: rgba(0, 255, 157, 0.4); color: var(--emerald); }
+    .badge.amber { background: rgba(255, 190, 11, 0.15); border-color: rgba(255, 190, 11, 0.45); color: var(--amber); }
+    .badge.crimson { background: rgba(255, 42, 109, 0.16); border-color: rgba(255, 42, 109, 0.45); color: #ff94b8; }
+
+    /* Sliders y Botones */
+    .slider-row { margin-bottom: 7px; }
+    .slider-row:last-child { margin-bottom: 0; }
+    .slider-lbl {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 9.6px; color: var(--text-dim); margin-bottom: 3px;
+    }
+    .slider-lbl strong { color: var(--cyan); }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+      background: rgba(0, 240, 255, 0.16); border-radius: 3px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--cyan); border: 2px solid #020814;
+      box-shadow: 0 0 8px var(--cyan); cursor: pointer;
+    }
+
+    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+
+    .eng-btn {
+      appearance: none; background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.28); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 9.6px; padding: 6.5px 7px;
+      border-radius: 4px; cursor: pointer; transition: all 0.14s ease;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .eng-btn:hover {
+      background: rgba(0, 240, 255, 0.2); border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.22);
+    }
+    .eng-btn.active {
+      background: rgba(0, 240, 255, 0.26); border-color: #ffffff; color: #fff;
+      font-weight: 700; box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.35);
+    }
+    .eng-btn.emerald { background: rgba(0, 255, 157, 0.12); border-color: rgba(0, 255, 157, 0.42); color: #a8ffdb; }
+    .eng-btn.emerald.active { background: rgba(0, 255, 157, 0.28); border-color: var(--emerald); color: #fff; }
+    .eng-btn.crimson { background: rgba(255, 42, 109, 0.16); border-color: rgba(255, 42, 109, 0.5); color: #ff9ebb; }
+    .eng-btn.crimson.active { background: rgba(255, 42, 109, 0.34); border-color: var(--crimson); color: #fff; }
+    .eng-btn.amber { background: rgba(255, 190, 11, 0.14); border-color: rgba(255, 190, 11, 0.45); color: #ffe28a; }
+    .eng-btn.amber.active { background: rgba(255, 190, 11, 0.3); border-color: var(--amber); color: #fff; }
+
+    /* Telemetría */
+    .telemetry-grid {
+      display: grid; grid-template-columns: 1fr auto;
+      row-gap: 4px; column-gap: 8px; font-family: var(--font-mono); font-size: 9.8px;
+    }
+    .t-lbl { color: var(--text-dim); }
+    .t-val { color: var(--text-main); font-weight: 600; text-align: right; }
+    .t-val.cyan { color: var(--cyan); }
+    .t-val.emerald { color: var(--emerald); }
+    .t-val.amber { color: var(--amber); }
+    .t-val.crimson { color: var(--crimson); }
+
+    .formula-box {
+      font-family: var(--font-mono); font-size: 9.2px; color: #a6c9e8;
+      background: rgba(3, 7, 14, 0.72); border: 1px solid rgba(0, 240, 255, 0.18);
+      border-radius: 4px; padding: 6px 8px; margin-top: 6px; line-height: 1.45;
+    }
+
+    /* Pie de Página */
+    .bottom-bar {
+      position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 10;
+      background: var(--panel-strong); backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px; padding: 6px 14px;
+      font-family: var(--font-mono); font-size: 9.6px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 14px; white-space: nowrap;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.8);
+    }
+    .bottom-bar strong { color: var(--cyan); }
+
+    @media (max-width: 1100px) {
+      #engine-stage { padding: 66px 14px 48px 14px; }
+      .right-dock { width: 250px; }
+      .bottom-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Cabecera Superior -->
+  <header class="top-bar">
+    <div class="hud-banner">
+      <div class="hud-title">
+        <span class="led"></span>
+        <span>WOLF-DDA // MOTOR 3D DE RAYCASTING TRIGONOMÉTRICO PURO [CERO WEBGL]</span>
+      </div>
+      <div class="hud-sub">
+        ALGORITMO DDA • CORRECCIÓN OJO DE PEZ (d⊥ = d·cos Δθ) • TEXTURAS PROCEDURALES 64×64 • Z-BUFFER 1D + SPRITES
+      </div>
+    </div>
+
+    <div class="hud-banner amber-box">
+      <div>
+        <div class="hud-title" style="color: var(--amber); font-size: 11px;">
+          MODO CÁMARA: <span id="hud-fisheye-status" style="color: var(--emerald);">PLANO PERPENDICULAR (SIN OJO DE PEZ)</span>
+        </div>
+        <div class="hud-sub">
+          WASD: Caminar/Strafe • Mouse/Flechas: Girar • E/Espacio: Puertas • Clic/F: Cañón de Plasma
+        </div>
+      </div>
+      <button class="eng-btn amber" id="btn-dual-view" style="padding: 7px 11px; font-weight: 700;">
+        📐 VISTA DIVIDIDA 2D/3D [TAB]
+      </button>
+    </div>
+  </header>
+
+  <!-- Escenario Central: Viewport 3D + Minimapa Técnico 2D -->
+  <main id="engine-stage">
+    <div class="viewport-frame" id="view3d-wrap">
+      <canvas id="screen-canvas" width="640" height="400"></canvas>
+
+      <div id="minimap-wrap">
+        <canvas id="minimap-canvas" width="280" height="280"></canvas>
+        <div class="minimap-label">
+          <span>CONO DDA EN TIEMPO REAL</span>
+          <span id="minimap-rays-lbl">320 RAYOS</span>
+        </div>
+      </div>
+
+      <div id="lock-prompt">
+        🎯 CLIC EN EL VISOR 3D: Capturar Ratón (ESC para liberar)
+      </div>
+
+      <div id="door-prompt">
+        [E] / [ESPACIO] ACCIONAR PUERTA MECÁNICA
+      </div>
+    </div>
+  </main>
+
+  <!-- Panel Derecho: Telemetría y Controles Matemáticos en Caliente -->
+  <aside class="right-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA DE RENDERIZADO 2D</span>
+        <span class="badge emerald" id="fps-badge">60 FPS</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-lbl">Tiempo de Frame (CPU):</span>
+        <span class="t-val emerald" id="val-frame-ms">0.00 ms</span>
+
+        <span class="t-lbl">Posición Jugador (X, Y):</span>
+        <span class="t-val cyan" id="val-pos">3.50, 3.50</span>
+
+        <span class="t-lbl">Ángulo Visión (θ):</span>
+        <span class="t-val amber" id="val-angle">0.0°</span>
+
+        <span class="t-lbl">Rayos DDA Trazados / Frame:</span>
+        <span class="t-val cyan" id="val-rays">320</span>
+
+        <span class="t-lbl">Distancia Muro Central (d⊥):</span>
+        <span class="t-val" id="val-center-dist">0.00 u</span>
+
+        <span class="t-lbl">Orbes / Drones Restantes:</span>
+        <span class="t-val crimson" id="val-objectives">0 / 0</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>CORRECCIÓN DE OJO DE PEZ</span>
+        <span class="badge amber">MATEMÁTICA</span>
+      </div>
+      <button class="eng-btn emerald active" id="btn-toggle-fisheye" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+        ✅ CORRECCIÓN OJO DE PEZ: ACTIVA [P]
+      </button>
+      <div class="formula-box" id="formula-display">
+        <strong>ACTIVO:</strong> d<sub>⊥</sub> = d<sub>real</sub> · cos(θ<sub>rayo</sub> − θ<sub>jug</sub>)<br/>
+        Altura tira: h = H<sub>pantalla</sub> / d<sub>⊥</sub> (Muros rectos)
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>ÓPTICA, RESOLUCIÓN Y NIEBLA</span>
+        <span class="badge">EN CALIENTE</span>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Campo de Visión (FOV)</span>
+          <strong id="lbl-fov">66°</strong>
+        </div>
+        <input type="range" id="slider-fov" min="40" max="110" step="1" value="66" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Resolución de Rayos (Columnas)</span>
+          <strong id="lbl-res">320 Rayos (VGA 2x)</strong>
+        </div>
+        <div class="btn-grid-3" id="res-buttons" style="margin-top: 4px;">
+          <button class="eng-btn" data-res="160">160 (4x)</button>
+          <button class="eng-btn active" data-res="320">320 (2x)</button>
+          <button class="eng-btn" data-res="640">640 (1x)</button>
+        </div>
+      </div>
+
+      <div class="slider-row" style="margin-top: 8px;">
+        <div class="slider-lbl">
+          <span>Alcance de Antorcha / Niebla</span>
+          <strong id="lbl-fog">Media (k = 0.045)</strong>
+        </div>
+        <input type="range" id="slider-fog" min="5" max="140" step="5" value="45" />
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 8px;">
+        <button class="eng-btn active" id="btn-floor-tex" title="Alternar mapeo de suelo/techo texturizado por scanlines">
+          🧱 SUELO TEXTURIZADO
+        </button>
+        <button class="eng-btn" id="btn-reset-map" title="Reiniciar posición, barriles, orbes y drones">
+          🔄 REINICIAR NIVEL
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>LEYENDA DEL LABERINTO 2D</span>
+        <span class="badge">16×16 CELDAS</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 9.2px; line-height: 1.5; color: #9fc2e2;">
+        <div>• <strong style="color:#52b788;">Piedra Musgosa (1):</strong> Muro perimetral húmedo</div>
+        <div>• <strong style="color:#e63946;">Ladrillo Sangriento (2):</strong> Cripta interior</div>
+        <div>• <strong style="color:#4895ef;">Acero UAC Tech (3):</strong> Búnker cibernético</div>
+        <div>• <strong style="color:#ffbe0b;">Puerta Corrediza (4):</strong> Pulsa <strong>[E]</strong> o <strong>[Espacio]</strong></div>
+        <div>• <strong style="color:#b537f2;">Altar Rúnico (5):</strong> Santuario de obsidiana</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Pie de Página con Controles -->
+  <footer class="bottom-bar">
+    <span><strong>[WASD]</strong> Mover / Strafe</span>
+    <span><strong>[MOUSE / ←→]</strong> Girar Vista</span>
+    <span><strong>[SHIFT]</strong> Correr</span>
+    <span><strong>[E / ESPACIO]</strong> Abrir Puerta</span>
+    <span><strong>[CLIC / F]</strong> Disparar Plasma</span>
+    <span><strong>[P]</strong> Ojo de Pez ON/OFF</span>
+    <span><strong>[TAB]</strong> Vista Dividida 2D/3D</span>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR DE RAYCASTING 3D EN PRIMERA PERSONA (100% VANILLA JS + CANVAS 2D)
+       ========================================================================= -->
+  <script>
+    (() => {
+      'use strict';
+
+      // =======================================================================
+      // 1. CONFIGURACIÓN DEL LIENZO Y BUFFERS DE PÍXELES (UINT32)
+      // =======================================================================
+      const SCREEN_W = 640;
+      const SCREEN_H = 400;
+      const TEX_SIZE = 64;
+      const TEX_MASK = TEX_SIZE - 1;
+
+      const screenCanvas = document.getElementById('screen-canvas');
+      const screenCtx = screenCanvas.getContext('2d', { alpha: false });
+      const screenImgData = screenCtx.createImageData(SCREEN_W, SCREEN_H);
+      const frameBuffer = new Uint32Array(screenImgData.data.buffer);
+
+      const minimapCanvas = document.getElementById('minimap-canvas');
+      const minimapCtx = minimapCanvas.getContext('2d');
+      const engineStage = document.getElementById('engine-stage');
+      const view3dWrap = document.getElementById('view3d-wrap');
+
+      // Z-Buffer 1D por columna de pantalla y registro de impactos de rayos para el minimapa
+      const zBuffer = new Float64Array(SCREEN_W);
+      const rayHitsX = new Float64Array(SCREEN_W);
+      const rayHitsY = new Float64Array(SCREEN_W);
+
+      // Función auxiliar para empaquetar RGB en 32 bits Little-Endian (ABGR)
+      function packABGR(r, g, b) {
+        return (255 << 24) | ((b & 0xff) << 16) | ((g & 0xff) << 8) | (r & 0xff);
+      }
+
+      // Aplica factor de iluminación I in [0, 1.5] y niebla de distancia a un color empaquetado ABGR
+      const FOG_R = 6, FOG_G = 10, FOG_B = 18;
+      function shadeColorABGR(abgr, lightFactor, fogMix) {
+        let r = abgr & 0xff;
+        let g = (abgr >>> 8) & 0xff;
+        let b = (abgr >>> 16) & 0xff;
+
+        r = Math.min(255, (r * lightFactor) | 0);
+        g = Math.min(255, (g * lightFactor) | 0);
+        b = Math.min(255, (b * lightFactor) | 0);
+
+        if (fogMix > 0) {
+          const inv = 1.0 - fogMix;
+          r = (r * inv + FOG_R * fogMix) | 0;
+          g = (g * inv + FOG_G * fogMix) | 0;
+          b = (b * inv + FOG_B * fogMix) | 0;
+        }
+        return (255 << 24) | (b << 16) | (g << 8) | r;
+      }
+
+      // =======================================================================
+      // 2. GENERADOR PROCEDURAL DE TEXTURAS 64×64 Y SPRITES EN MEMORIA
+      // =======================================================================
+      // Texturas de Muro:
+      // 1 = Piedra Musgosa, 2 = Ladrillos Sangrientos, 3 = Panel Metálico UAC,
+      // 4 = Puerta Corrediza Mecánica, 5 = Muro Rúnico de Obsidiana, 6 = Marco de Puerta
+      const wallTextures = {};
+      const floorTexture = new Uint32Array(TEX_SIZE * TEX_SIZE);
+      const ceilingTexture = new Uint32Array(TEX_SIZE * TEX_SIZE);
+
+      // Ruido determinista rápido para texturizado procedural
+      function hash2D(x, y, seed = 1) {
+        let n = (x * 374761393 + y * 668265263 + seed * 1442695041) | 0;
+        n = (n ^ (n >>> 13)) * 1274126177;
+        return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+      }
+
+      function generateProceduralTextures() {
+        for (let id = 1; id <= 6; id++) {
+          wallTextures[id] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+        }
+
+        for (let y = 0; y < TEX_SIZE; y++) {
+          for (let x = 0; x < TEX_SIZE; x++) {
+            const idx = y * TEX_SIZE + x;
+            const n = hash2D(x, y, 10);
+            const n2 = hash2D(x >> 1, y >> 1, 22);
+
+            // -----------------------------------------------------------------
+            // TEXTURA 1: Piedra Musgosa de Mazmorra (Bloques biselados + musgo)
+            // -----------------------------------------------------------------
+            {
+              const row = (y >> 4);
+              const offset = (row & 1) ? 16 : 0;
+              const bx = (x + offset) & 31;
+              const by = y & 15;
+              const isMortar = bx === 0 || by === 0 || bx === 31 || by === 15;
+
+              let r = 74, g = 84, b = 92;
+              if (isMortar) {
+                r = 32; g = 38; b = 42;
+              } else {
+                const bevel = (by === 1 || bx === 1) ? 16 : (by === 14 || bx === 30) ? -14 : 0;
+                const grain = Math.floor((n - 0.5) * 26 + (n2 - 0.5) * 18) + bevel;
+                r = Math.max(25, Math.min(220, r + grain));
+                g = Math.max(30, Math.min(220, g + grain));
+                b = Math.max(35, Math.min(225, b + grain));
+
+                // Vetas orgánicas de musgo bioluminiscente
+                const mossWave = Math.sin(x * 0.22 + y * 0.14) * 0.5 + 0.5;
+                if ((y > 38 && n2 > 0.38) || (mossWave * n2 > 0.48)) {
+                  r = Math.floor(r * 0.45 + 18);
+                  g = Math.min(210, Math.floor(g * 0.75 + 68 + n * 25));
+                  b = Math.floor(b * 0.5 + 24);
+                }
+              }
+              wallTextures[1][idx] = packABGR(r, g, b);
+            }
+
+            // -----------------------------------------------------------------
+            // TEXTURA 2: Ladrillos Sangrientos de Fortaleza
+            // -----------------------------------------------------------------
+            {
+              const brickRow = (y >> 3);
+              const shift = (brickRow & 1) ? 8 : 0;
+              const bx = (x + shift) & 15;
+              const by = y & 7;
+              const mortar = by === 0 || bx === 0;
+
+              let r = 135, g = 42, b = 38;
+              if (mortar) {
+                r = 52; g = 44; b = 44;
+              } else {
+                const shade = Math.floor((n - 0.5) * 32 + ((brickRow * 7 + ((x + shift) >> 4)) & 3) * 5);
+                r = Math.min(210, Math.max(50, r + shade));
+                g = Math.min(110, Math.max(18, g + Math.floor(shade * 0.45)));
+                b = Math.min(100, Math.max(16, b + Math.floor(shade * 0.4)));
+              }
+
+              // Manchas de sangre / humedad carmesí
+              const dripCenter = Math.sin(x * 0.31) * 14 + 28;
+              if (y > 14 && y < dripCenter + 18 && ((x * 13 + y) & 7) < 3 && n2 > 0.45) {
+                r = Math.min(230, r + 40);
+                g = Math.floor(g * 0.25);
+                b = Math.floor(b * 0.25);
+              }
+              wallTextures[2][idx] = packABGR(r, g, b);
+            }
+
+            // -----------------------------------------------------------------
+            // TEXTURA 3: Paneles Metálicos UAC Cyber-Tech (Remaches + LEDs + Franjas)
+            // -----------------------------------------------------------------
+            {
+              let r = 64, g = 78, b = 98;
+              const border = x < 2 || x > 61 || y < 2 || y > 61 || x === 31 || x === 32;
+              const noise = Math.floor((n - 0.5) * 14);
+              r += noise; g += noise; b += noise;
+
+              if (border) {
+                r = 34; g = 42; b = 54;
+              }
+
+              // Franja de advertencia industrial inferior (amarillo y negro)
+              if (y >= 52 && y <= 59 && x > 3 && x < 60) {
+                const stripe = ((x + y) >> 2) & 1;
+                if (stripe) {
+                  r = 225; g = 168; b = 18;
+                } else {
+                  r = 24; g = 26; b = 30;
+                }
+              }
+
+              // Visor / conducto luminoso central cian
+              if (y >= 26 && y <= 34 && x >= 8 && x <= 55 && x !== 31 && x !== 32) {
+                const glow = Math.floor(Math.sin((x / 64) * Math.PI) * 55);
+                r = 12;
+                g = Math.min(255, 175 + glow);
+                b = Math.min(255, 215 + glow);
+              }
+
+              // Remaches en las esquinas
+              if ((x === 5 || x === 28 || x === 35 || x === 58) && (y === 5 || y === 48)) {
+                r = 150; g = 165; b = 185;
+              }
+              wallTextures[3][idx] = packABGR(r, g, b);
+            }
+
+            // -----------------------------------------------------------------
+            // TEXTURA 4: Puerta Mecánica Corrediza (Acero pesado + sensor ámbar)
+            // -----------------------------------------------------------------
+            {
+              let r = 52, g = 88, b = 96;
+              const seam = Math.abs(x - 32) <= 1;
+              const frame = x < 4 || x > 59 || y < 4 || y > 59;
+              const rib = (y & 7) === 0 && x >= 6 && x <= 57;
+
+              const v = Math.floor((n - 0.5) * 14);
+              r += v; g += v; b += v;
+
+              if (frame || seam) {
+                r = 24; g = 36; b = 42;
+              } else if (rib) {
+                r = 36; g = 64; b = 72;
+              }
+
+              // Emblema / cerradura energética central
+              const dx = x - 32, dy = y - 32;
+              const distSq = dx * dx + dy * dy;
+              if (distSq <= 64 && distSq >= 20) {
+                r = 240; g = 175; b = 25;
+              } else if (distSq < 20) {
+                r = 40; g = 245; b = 180;
+              }
+              wallTextures[4][idx] = packABGR(r, g, b);
+            }
+
+            // -----------------------------------------------------------------
+            // TEXTURA 5: Muro de Obsidiana Rúnica (Santuario Arcano)
+            // -----------------------------------------------------------------
+            {
+              let r = 42, g = 30, b = 62;
+              const v = Math.floor((n - 0.5) * 18);
+              r += v; g += v; b += v;
+
+              const pillar = x < 6 || x > 57 || y < 6 || y > 57;
+              if (pillar) {
+                r = 28; g = 20; b = 42;
+              }
+
+              // Glifo geométrico brillante en el centro
+              const cx = Math.abs(x - 32), cy = Math.abs(y - 32);
+              if ((Math.abs(cx + cy - 18) <= 1) || (cx <= 1 && cy <= 14) || (cy <= 1 && cx <= 14)) {
+                r = 215; g = 90; b = 255;
+              }
+              wallTextures[5][idx] = packABGR(r, g, b);
+            }
+
+            // -----------------------------------------------------------------
+            // TEXTURA 6: Jamba / Marco Metálico de Puerta
+            // -----------------------------------------------------------------
+            {
+              const stripe = ((y >> 2) & 1) === 0;
+              const r = stripe ? 185 : 40;
+              const g = stripe ? 135 : 45;
+              const b = stripe ? 20 : 52;
+              wallTextures[6][idx] = packABGR(r, g, b);
+            }
+
+            // -----------------------------------------------------------------
+            // TEXTURA DE SUELO Y TECHO (Baldosas hexagonales / losas oscuras)
+            // -----------------------------------------------------------------
+            {
+              const tileBorder = (x & 15) === 0 || (y & 15) === 0;
+              const fn = Math.floor((n - 0.5) * 14);
+              if (tileBorder) {
+                floorTexture[idx] = packABGR(22, 28, 38);
+              } else {
+                const checker = (((x >> 4) + (y >> 4)) & 1) ? 8 : 0;
+                floorTexture[idx] = packABGR(36 + checker + fn, 44 + checker + fn, 58 + checker + fn);
+              }
+
+              const ceilGrid = (x & 31) === 0 || (y & 31) === 0;
+              ceilingTexture[idx] = ceilGrid
+                ? packABGR(14, 18, 28)
+                : packABGR(22 + (fn >> 1), 27 + (fn >> 1), 38 + (fn >> 1));
+            }
+          }
+        }
+      }
+
+      // Generación de Sprites 64×64 con canal transparente (0 = transparente)
+      const spriteTextures = {};
+      const SPR_TYPE = {
+        BARREL: 1,
+        PILLAR: 2,
+        TORCH: 3,
+        ORB: 4,
+        SENTINEL: 5
+      };
+
+      function generateProceduralSprites() {
+        for (let id = 1; id <= 5; id++) {
+          spriteTextures[id] = new Uint32Array(TEX_SIZE * TEX_SIZE);
+        }
+
+        for (let y = 0; y < TEX_SIZE; y++) {
+          for (let x = 0; x < TEX_SIZE; x++) {
+            const idx = y * TEX_SIZE + x;
+            const dx = x - 32;
+            const dy = y - 32;
+
+            // 1. BARRIL RADIACTIVO (Cilindro verde acero con ácido brillante arriba)
+            if (y >= 16 && y <= 61) {
+              const halfW = 16 - Math.floor(Math.abs(y - 38) * 0.08);
+              if (Math.abs(dx) <= halfW) {
+                const cylShade = Math.cos((dx / halfW) * 1.3);
+                const isBand = y === 24 || y === 25 || y === 48 || y === 49;
+                if (y <= 19) {
+                  // Tapa con residuo radiactivo verde neón
+                  spriteTextures[SPR_TYPE.BARREL][idx] = packABGR(50, 245, 85);
+                } else if (isBand) {
+                  const s = Math.floor(180 * cylShade);
+                  spriteTextures[SPR_TYPE.BARREL][idx] = packABGR(s, Math.floor(s * 0.85), 30);
+                } else {
+                  const r = Math.floor(42 * cylShade);
+                  const g = Math.floor(135 * cylShade);
+                  const b = Math.floor(58 * cylShade);
+                  spriteTextures[SPR_TYPE.BARREL][idx] = packABGR(r, g, b);
+                }
+              }
+            }
+
+            // 2. PILAR ARQUITECTÓNICO DE PIEDRA (Columna estriada de techo a suelo)
+            {
+              const isCap = y < 10 || y > 54;
+              const colHalfW = isCap ? 18 : 13;
+              if (Math.abs(dx) <= colHalfW) {
+                const flute = Math.sin(dx * 0.65) * 12;
+                const cyl = Math.cos((dx / colHalfW) * 1.25);
+                const base = Math.floor((135 + flute) * cyl);
+                spriteTextures[SPR_TYPE.PILLAR][idx] = packABGR(base, base + 6, base + 14);
+              }
+            }
+
+            // 3. ANTORCHA / BRASERO DE PLASMA
+            if (y >= 28 && y <= 62 && Math.abs(dx) <= 5) {
+              // Pedestal metálico
+              const s = Math.floor(110 * Math.cos((dx / 6) * 1.2));
+              spriteTextures[SPR_TYPE.TORCH][idx] = packABGR(s, s, s + 15);
+            } else if (y >= 10 && y < 30) {
+              const flameW = Math.max(1, (y - 8) * 0.55);
+              if (Math.abs(dx) <= flameW) {
+                const core = 1.0 - Math.abs(dx) / (flameW + 1);
+                const r = 255;
+                const g = Math.min(255, Math.floor(110 + core * 140));
+                const b = Math.min(255, Math.floor(core * 95));
+                spriteTextures[SPR_TYPE.TORCH][idx] = packABGR(r, g, b);
+              }
+            }
+
+            // 4. ORBE ARCANO DE ENERGÍA (Esfera flotante cian/violeta)
+            {
+              const dist = Math.sqrt(dx * dx + (y - 30) * (y - 30));
+              if (dist <= 14) {
+                const norm = 1.0 - dist / 14;
+                const r = Math.min(255, Math.floor(40 + norm * 160));
+                const g = Math.min(255, Math.floor(190 + norm * 65));
+                const b = 255;
+                spriteTextures[SPR_TYPE.ORB][idx] = packABGR(r, g, b);
+              }
+            }
+
+            // 5. DRON CENTINELA CYBER-GUARD (Enemigo retro con visor láser rojo)
+            {
+              const bodyDist = Math.sqrt((dx * 0.9) ** 2 + ((y - 30) * 0.75) ** 2);
+              if (bodyDist <= 16) {
+                const shade = Math.max(0.25, 1.0 - bodyDist / 18);
+                let r = Math.floor(90 * shade);
+                let g = Math.floor(105 * shade);
+                let b = Math.floor(130 * shade);
+
+                // Visor cíclope carmesí brillante
+                if (y >= 24 && y <= 30 && Math.abs(dx) <= 10) {
+                  r = 255; g = 35; b = 75;
+                }
+                // Núcleo inferior ámbar
+                if (y >= 38 && y <= 43 && Math.abs(dx) <= 5) {
+                  r = 255; g = 185; b = 20;
+                }
+                spriteTextures[SPR_TYPE.SENTINEL][idx] = packABGR(r, g, b);
+              }
+            }
+          }
+        }
+      }
+
+      generateProceduralTextures();
+      generateProceduralSprites();
+
+      // =======================================================================
+      // 3. MAPA 2D DEL NIVEL (16×16), PUERTAS CORREDIZAS Y ENTIDADES
+      // =======================================================================
+      const MAP_W = 16;
+      const MAP_H = 16;
+
+      // 0 = Vacío, 1 = Piedra Musgosa, 2 = Ladrillo Sangriento, 3 = Metal UAC, 4 = Puerta Corrediza, 5 = Obsidiana Rúnica
+      const INITIAL_MAP = [
+        [1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3],
+        [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+        [1, 0, 0, 0, 0, 0, 4, 0, 0, 3, 3, 0, 3, 3, 0, 3],
+        [1, 0, 0, 1, 0, 0, 1, 0, 0, 3, 0, 0, 0, 3, 0, 3],
+        [1, 0, 0, 1, 0, 0, 1, 3, 4, 3, 0, 0, 0, 4, 0, 3],
+        [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 3, 0, 3],
+        [1, 1, 4, 1, 1, 1, 1, 0, 0, 3, 3, 4, 3, 3, 0, 3],
+        [2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+        [2, 0, 2, 2, 0, 0, 4, 0, 0, 5, 5, 4, 5, 5, 3, 3],
+        [2, 0, 2, 0, 0, 0, 2, 0, 0, 5, 0, 0, 0, 5, 0, 5],
+        [2, 0, 0, 0, 2, 0, 2, 2, 4, 5, 0, 0, 0, 4, 0, 5],
+        [2, 0, 2, 0, 2, 0, 0, 0, 0, 5, 0, 0, 0, 5, 0, 5],
+        [2, 0, 2, 0, 2, 2, 2, 0, 0, 5, 5, 4, 5, 5, 0, 5],
+        [2, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+        [2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+        [2, 2, 2, 2, 2, 2, 2, 2, 5, 5, 5, 5, 5, 5, 5, 5]
+      ];
+
+      const worldMap = new Uint8Array(MAP_W * MAP_H);
+      // Estado de cada puerta corrediza: offset in [0 (cerrada), 1 (abierta)], state: 0=cerrada, 1=abriendo, 2=abierta, 3=cerrando
+      const doorOffset = new Float32Array(MAP_W * MAP_H);
+      const doorState = new Uint8Array(MAP_W * MAP_H);
+      const doorTimer = new Float32Array(MAP_W * MAP_H);
+
+      function cellIdx(mx, my) {
+        return my * MAP_W + mx;
+      }
+
+      function getMap(mx, my) {
+        if (mx < 0 || mx >= MAP_W || my < 0 || my >= MAP_H) return 1;
+        return worldMap[my * MAP_W + mx];
+      }
+
+      // Jugador y configuración óptica
+      const player = {
+        x: 2.5,
+        y: 2.5,
+        angle: 0.15,        // Radianes
+        radius: 0.28,       // Radio de colisión con deslizamiento (Wall Sliding)
+        moveSpeed: 3.4,
+        rotSpeed: 2.3,
+        bobPhase: 0,
+        bobAmount: 0,
+        weaponRecoil: 0,
+        muzzleFlash: 0,
+        hitMarkerTimer: 0
+      };
+
+      const settings = {
+        fovDeg: 66,
+        rayCount: 320,       // 160, 320 o 640 columnas
+        fisheyeCorrection: true,
+        fogK: 0.045,         // Factor de atenuación cuadrática I = 1 / (1 + k * d^2)
+        texturedFloor: true,
+        splitView: false
+      };
+
+      let sprites = [];
+
+      function initLevel() {
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) {
+            const i = cellIdx(x, y);
+            worldMap[i] = INITIAL_MAP[y][x];
+            doorOffset[i] = 0;
+            doorState[i] = 0;
+            doorTimer[i] = 0;
+          }
+        }
+
+        player.x = 2.5;
+        player.y = 2.5;
+        player.angle = 0.2;
+        player.bobPhase = 0;
+        player.weaponRecoil = 0;
+        player.muzzleFlash = 0;
+
+        sprites = [
+          // Sala Inicial (Piedra Musgosa)
+          { x: 4.5, y: 1.8, type: SPR_TYPE.TORCH, solid: false, active: true, hp: 1 },
+          { x: 5.2, y: 4.8, type: SPR_TYPE.BARREL, solid: true, active: true, hp: 1 },
+          { x: 2.5, y: 5.2, type: SPR_TYPE.ORB, solid: false, active: true, hp: 1 },
+
+          // Sector Noreste (Búnker UAC)
+          { x: 8.5, y: 1.5, type: SPR_TYPE.TORCH, solid: false, active: true, hp: 1 },
+          { x: 11.5, y: 3.5, type: SPR_TYPE.SENTINEL, solid: true, active: true, hp: 2, baseX: 11.5, baseY: 3.5, phase: 0 },
+          { x: 11.5, y: 1.5, type: SPR_TYPE.ORB, solid: false, active: true, hp: 1 },
+          { x: 14.5, y: 2.5, type: SPR_TYPE.BARREL, solid: true, active: true, hp: 1 },
+          { x: 14.5, y: 6.5, type: SPR_TYPE.SENTINEL, solid: true, active: true, hp: 2, baseX: 14.5, baseY: 6.5, phase: 1.7 },
+
+          // Sector Suroeste (Cripta de Ladrillo Sangriento)
+          { x: 1.5, y: 8.5, type: SPR_TYPE.TORCH, solid: false, active: true, hp: 1 },
+          { x: 5.5, y: 7.5, type: SPR_TYPE.PILLAR, solid: true, active: true, hp: 999 },
+          { x: 3.5, y: 11.5, type: SPR_TYPE.SENTINEL, solid: true, active: true, hp: 2, baseX: 3.5, baseY: 11.5, phase: 3.1 },
+          { x: 1.5, y: 14.2, type: SPR_TYPE.ORB, solid: false, active: true, hp: 1 },
+          { x: 5.2, y: 14.2, type: SPR_TYPE.BARREL, solid: true, active: true, hp: 1 },
+
+          // Sector Sureste (Santuario Rúnico de Obsidiana)
+          { x: 11.5, y: 10.5, type: SPR_TYPE.ORB, solid: false, active: true, hp: 1 },
+          { x: 10.3, y: 9.7, type: SPR_TYPE.TORCH, solid: false, active: true, hp: 1 },
+          { x: 12.7, y: 9.7, type: SPR_TYPE.TORCH, solid: false, active: true, hp: 1 },
+          { x: 11.5, y: 14.2, type: SPR_TYPE.SENTINEL, solid: true, active: true, hp: 2, baseX: 11.5, baseY: 14.2, phase: 4.5 },
+          { x: 14.5, y: 14.5, type: SPR_TYPE.ORB, solid: false, active: true, hp: 1 }
+        ];
+      }
+
+      initLevel();
+
+      // =======================================================================
+      // 4. COLISIONES CON DESLIZAMIENTO (WALL SLIDING) Y PUERTAS CORREDIZAS
+      // =======================================================================
+      function isCellPassable(mx, my) {
+        if (mx < 0 || mx >= MAP_W || my < 0 || my >= MAP_H) return false;
+        const cell = worldMap[cellIdx(mx, my)];
+        if (cell === 0) return true;
+        if (cell === 4) {
+          // Puerta mecánica transitable cuando se ha deslizado más del 75%
+          return doorOffset[cellIdx(mx, my)] > 0.75;
+        }
+        return false;
+      }
+
+      function canOccupyPosition(nx, ny, radius) {
+        // Verificar las 4 esquinas de la caja delimitadora circular del jugador
+        const minX = Math.floor(nx - radius);
+        const maxX = Math.floor(nx + radius);
+        const minY = Math.floor(ny - radius);
+        const maxY = Math.floor(ny + radius);
+
+        for (let my = minY; my <= maxY; my++) {
+          for (let mx = minX; mx <= maxX; mx++) {
+            if (!isCellPassable(mx, my)) return false;
+          }
+        }
+
+        // Verificar colisión contra sprites sólidos activos (Pilares, Barriles, Centinelas)
+        for (let i = 0; i < sprites.length; i++) {
+          const sp = sprites[i];
+          if (!sp.active || !sp.solid) continue;
+          const dx = nx - sp.x;
+          const dy = ny - sp.y;
+          if (dx * dx + dy * dy < (radius + 0.25) ** 2) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      // Movimiento con validación independiente en eje X y eje Y para deslizamiento suave
+      function movePlayerWithSliding(dx, dy) {
+        if (canOccupyPosition(player.x + dx, player.y, player.radius)) {
+          player.x += dx;
+        }
+        if (canOccupyPosition(player.x, player.y + dy, player.radius)) {
+          player.y += dy;
+        }
+      }
+
+      // Detectar puerta frente al jugador para abrir/cerrar
+      function getFacingDoorCell() {
+        const checkDist = 1.35;
+        const tx = Math.floor(player.x + Math.cos(player.angle) * checkDist);
+        const ty = Math.floor(player.y + Math.sin(player.angle) * checkDist);
+        if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) {
+          if (worldMap[cellIdx(tx, ty)] === 4) {
+            return { mx: tx, my: ty, idx: cellIdx(tx, ty) };
+          }
+        }
+        return null;
+      }
+
+      function interactWithDoor() {
+        const door = getFacingDoorCell();
+        if (!door) return;
+        const st = doorState[door.idx];
+        if (st === 0 || st === 3) {
+          doorState[door.idx] = 1; // Abriendo
+        } else if (st === 2 || st === 1) {
+          // Solo cerrar si el jugador no está parado dentro del marco de la puerta
+          if (Math.floor(player.x) !== door.mx || Math.floor(player.y) !== door.my) {
+            doorState[door.idx] = 3; // Cerrando
+          }
+        }
+      }
+
+      function updateDoorsAndEntities(dt, timeSec) {
+        // Actualizar animación de puertas mecánicas
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) {
+            const i = cellIdx(x, y);
+            if (worldMap[i] !== 4) continue;
+
+            if (doorState[i] === 1) {
+              doorOffset[i] += dt * 1.45;
+              if (doorOffset[i] >= 1.0) {
+                doorOffset[i] = 1.0;
+                doorState[i] = 2;
+                doorTimer[i] = 4.5; // Se cierra automáticamente tras 4.5 s
+              }
+            } else if (doorState[i] === 2) {
+              doorTimer[i] -= dt;
+              if (doorTimer[i] <= 0) {
+                // No cerrar sobre la cabeza del jugador
+                if (Math.floor(player.x) !== x || Math.floor(player.y) !== y) {
+                  doorState[i] = 3;
+                } else {
+                  doorTimer[i] = 1.5;
+                }
+              }
+            } else if (doorState[i] === 3) {
+              doorOffset[i] -= dt * 1.35;
+              if (doorOffset[i] <= 0.0) {
+                doorOffset[i] = 0.0;
+                doorState[i] = 0;
+              }
+            }
+          }
+        }
+
+        // Actualizar patrulla de Drones Centinela y recolección de Orbes
+        for (let i = 0; i < sprites.length; i++) {
+          const sp = sprites[i];
+          if (!sp.active) continue;
+
+          if (sp.type === SPR_TYPE.ORB) {
+            const distSq = (player.x - sp.x) ** 2 + (player.y - sp.y) ** 2;
+            if (distSq < 0.45 * 0.45) {
+              sp.active = false;
+              player.muzzleFlash = 0.65;
+            }
+          } else if (sp.type === SPR_TYPE.SENTINEL) {
+            const nx = sp.baseX + Math.cos(timeSec * 1.3 + sp.phase) * 0.75;
+            const ny = sp.baseY + Math.sin(timeSec * 1.3 + sp.phase) * 0.55;
+            if (isCellPassable(Math.floor(nx), Math.floor(ny))) {
+              sp.x = nx;
+              sp.y = ny;
+            }
+          }
+        }
+      }
+
+      // Disparo de arma de plasma (Hitscan central + retroceso + destello de iluminación)
+      function firePlasmaWeapon() {
+        if (player.weaponRecoil > 0.25) return;
+        player.weaponRecoil = 1.0;
+        player.muzzleFlash = 1.0;
+
+        // Verificar si algún Barril o Dron Centinela está alineado con la mira central
+        const dirX = Math.cos(player.angle);
+        const dirY = Math.sin(player.angle);
+        const centerWallDist = zBuffer[ SCREEN_W >> 1 ];
+
+        let bestSprite = null;
+        let bestDist = centerWallDist;
+
+        for (let i = 0; i < sprites.length; i++) {
+          const sp = sprites[i];
+          if (!sp.active) continue;
+          if (sp.type !== SPR_TYPE.BARREL && sp.type !== SPR_TYPE.SENTINEL) continue;
+
+          const vx = sp.x - player.x;
+          const vy = sp.y - player.y;
+          const forwardDist = vx * dirX + vy * dirY;
+          if (forwardDist <= 0.2 || forwardDist >= bestDist) continue;
+
+          const perpOffset = Math.abs(vx * (-dirY) + vy * dirX);
+          if (perpOffset < 0.34) {
+            bestDist = forwardDist;
+            bestSprite = sp;
+          }
+        }
+
+        if (bestSprite) {
+          bestSprite.hp--;
+          player.hitMarkerTimer = 0.22;
+          if (bestSprite.hp <= 0) {
+            bestSprite.active = false;
+          }
+        }
+      }
+
+      // =======================================================================
+      // 5. NÚCLEO MATEMÁTICO: ALGORITMO DDA + PROYECCIÓN + Z-BUFFER 1D
+      // =======================================================================
+      let centerPerpDist = 0;
+
+      function render3DScene(timeSec) {
+        const fovRad = (settings.fovDeg * Math.PI) / 180;
+        const halfFovTan = Math.tan(fovRad * 0.5);
+
+        // Vector de dirección de la mirada del jugador (d) y vector del plano de cámara (p)
+        const dirX = Math.cos(player.angle);
+        const dirY = Math.sin(player.angle);
+        const planeX = -dirY * halfFovTan;
+        const planeY = dirX * halfFovTan;
+
+        // Desplazamiento vertical de la línea del horizonte por Head-Bobbing
+        const bobOffset = Math.round(Math.sin(player.bobPhase) * 6 * player.bobAmount);
+        const horizon = (SCREEN_H >> 1) + bobOffset;
+
+        // Factor dinámico de luz por el destello del arma o linterna
+        const flashBoost = 1.0 + player.muzzleFlash * 0.85;
+        const fogK = settings.fogK / flashBoost;
+
+        // ---------------------------------------------------------------------
+        // PASO A: RENDERIZADO DE SUELO Y TECHO (Texturizado por Scanlines o Gradiente)
+        // ---------------------------------------------------------------------
+        if (settings.texturedFloor) {
+          const rayDirX0 = dirX - planeX;
+          const rayDirY0 = dirY - planeY;
+          const rayDirX1 = dirX + planeX;
+          const rayDirY1 = dirY + planeY;
+          const posZ = 0.5 * SCREEN_H;
+
+          for (let y = 0; y < SCREEN_H; y++) {
+            const isFloor = y >= horizon;
+            const p = isFloor ? (y - horizon) : (horizon - y);
+            const safeP = p === 0 ? 1 : p;
+            const rowDistance = posZ / safeP;
+
+            // Atenuación por distancia para la fila horizontal
+            const atten = Math.min(1.15, flashBoost / (1.0 + fogK * rowDistance * rowDistance));
+            const fogMix = Math.min(1.0, (rowDistance * fogK * 1.4));
+
+            const floorStepX = (rowDistance * (rayDirX1 - rayDirX0)) / SCREEN_W;
+            const floorStepY = (rowDistance * (rayDirY1 - rayDirY0)) / SCREEN_W;
+
+            let floorX = player.x + rowDistance * rayDirX0;
+            let floorY = player.y + rowDistance * rayDirY0;
+
+            const rowStart = y * SCREEN_W;
+            const srcTex = isFloor ? floorTexture : ceilingTexture;
+
+            // Muestreo rápido cada 2 píxeles horizontales para máxima fluidez a 60 FPS
+            for (let x = 0; x < SCREEN_W; x += 2) {
+              const tx = ((floorX * TEX_SIZE) | 0) & TEX_MASK;
+              const ty = ((floorY * TEX_SIZE) | 0) & TEX_MASK;
+              const rawColor = srcTex[(ty << 6) + tx];
+              const shaded = shadeColorABGR(rawColor, atten, fogMix);
+
+              frameBuffer[rowStart + x] = shaded;
+              frameBuffer[rowStart + x + 1] = shaded;
+
+              floorX += floorStepX * 2;
+              floorY += floorStepY * 2;
+            }
+          }
+        } else {
+          // Modo gradiente clásico con atenuación de profundidad hacia el horizonte
+          for (let y = 0; y < SCREEN_H; y++) {
+            const isFloor = y >= horizon;
+            const distFromHorizon = Math.abs(y - horizon) / (SCREEN_H * 0.5);
+            const brightness = Math.min(1.0, distFromHorizon * 0.95);
+            const color = isFloor
+              ? packABGR((24 * brightness) | 0, (32 * brightness) | 0, (46 * brightness) | 0)
+              : packABGR((10 * brightness) | 0, (14 * brightness) | 0, (24 * brightness) | 0);
+            frameBuffer.fill(color, y * SCREEN_W, (y + 1) * SCREEN_W);
+          }
+        }
+
+        // ---------------------------------------------------------------------
+        // PASO B: TRAZADO DE COLUMNAS VERTICALES MEDIANTE ALGORITMO DDA
+        // ---------------------------------------------------------------------
+        const rayCount = settings.rayCount;
+        const colStep = Math.max(1, Math.floor(SCREEN_W / rayCount));
+
+        for (let col = 0; col < SCREEN_W; col += colStep) {
+          // Coordenada en el espacio de cámara [-1, +1]
+          const cameraX = (2 * (col + colStep * 0.5)) / SCREEN_W - 1;
+          const rayDirX = dirX + planeX * cameraX;
+          const rayDirY = dirY + planeY * cameraX;
+
+          // Ángulo exacto de este rayo para demostración trigonométrica de Ojo de Pez
+          const rayAngle = Math.atan2(rayDirY, rayDirX);
+          const normRayDirX = Math.cos(rayAngle);
+          const normRayDirY = Math.sin(rayAngle);
+
+          // Casilla actual del mapa (enteros)
+          let mapX = Math.floor(player.x);
+          let mapY = Math.floor(player.y);
+
+          // Longitud del rayo desde una cara X o Y hasta la siguiente cara X o Y
+          const deltaDistX = normRayDirX === 0 ? 1e30 : Math.abs(1.0 / normRayDirX);
+          const deltaDistY = normRayDirY === 0 ? 1e30 : Math.abs(1.0 / normRayDirY);
+
+          let stepX, stepY;
+          let sideDistX, sideDistY;
+
+          if (normRayDirX < 0) {
+            stepX = -1;
+            sideDistX = (player.x - mapX) * deltaDistX;
+          } else {
+            stepX = 1;
+            sideDistX = (mapX + 1.0 - player.x) * deltaDistX;
+          }
+
+          if (normRayDirY < 0) {
+            stepY = -1;
+            sideDistY = (player.y - mapY) * deltaDistY;
+          } else {
+            stepY = 1;
+            sideDistY = (mapY + 1.0 - player.y) * deltaDistY;
+          }
+
+          // Bucle principal DDA (Digital Differential Analysis)
+          let hit = 0;
+          let side = 0; // 0 = impacto vertical (Este/Oeste), 1 = impacto horizontal (Norte/Sur)
+          let texId = 1;
+          let euclidDist = 0.1;
+          let wallX = 0;
+          let prevMapX = mapX;
+          let prevMapY = mapY;
+
+          let safetySteps = 0;
+          while (hit === 0 && safetySteps++ < 64) {
+            prevMapX = mapX;
+            prevMapY = mapY;
+
+            if (sideDistX < sideDistY) {
+              sideDistX += deltaDistX;
+              mapX += stepX;
+              side = 0;
+            } else {
+              sideDistY += deltaDistY;
+              mapY += stepY;
+              side = 1;
+            }
+
+            if (mapX < 0 || mapX >= MAP_W || mapY < 0 || mapY >= MAP_H) {
+              hit = 1;
+              texId = 1;
+              euclidDist = side === 0 ? (sideDistX - deltaDistX) : (sideDistY - deltaDistY);
+              break;
+            }
+
+            const cell = worldMap[cellIdx(mapX, mapY)];
+            if (cell === 4) {
+              // PUERTA MECÁNICA REMETIDA A MITAD DE CELDA (Estilo Wolfenstein 3D original)
+              const halfStepDist = side === 0
+                ? (sideDistX - deltaDistX * 0.5)
+                : (sideDistY - deltaDistY * 0.5);
+
+              const hitX = player.x + normRayDirX * halfStepDist;
+              const hitY = player.y + normRayDirY * halfStepDist;
+
+              // Verificar que el rayo sigue dentro de la celda de la puerta al llegar al plano medio
+              if (Math.floor(hitX) === mapX && Math.floor(hitY) === mapY) {
+                const frac = side === 0 ? (hitY - mapY) : (hitX - mapX);
+                const openAmount = doorOffset[cellIdx(mapX, mapY)];
+                if (frac >= openAmount) {
+                  hit = 1;
+                  texId = 4;
+                  euclidDist = halfStepDist;
+                  wallX = frac - openAmount;
+                }
+              }
+            } else if (cell > 0) {
+              hit = 1;
+              texId = cell;
+              // Si el rayo golpea la pared lateral de una puerta corrediza, usar textura de jamba (6)
+              if (worldMap[cellIdx(prevMapX, prevMapY)] === 4) {
+                texId = 6;
+              }
+              euclidDist = side === 0 ? (sideDistX - deltaDistX) : (sideDistY - deltaDistY);
+              const hitX = player.x + normRayDirX * euclidDist;
+              const hitY = player.y + normRayDirY * euclidDist;
+              wallX = side === 0 ? (hitY - Math.floor(hitY)) : (hitX - Math.floor(hitX));
+            }
+          }
+
+          euclidDist = Math.max(0.05, euclidDist);
+
+          // Guardar coordenadas exactas de impacto en el mundo 2D para el Minimapa Técnico
+          const exactHitX = player.x + normRayDirX * euclidDist;
+          const exactHitY = player.y + normRayDirY * euclidDist;
+
+          // ===================================================================
+          // CORRECCIÓN MATEMÁTICA DE OJO DE PEZ (FISHEYE CORRECTION)
+          // d_perp = d_real * cos(theta_rayo - theta_jugador)
+          // ===================================================================
+          const cosDelta = Math.cos(rayAngle - player.angle);
+          const perpWallDist = Math.max(0.05, euclidDist * cosDelta);
+
+          // Si el usuario desactiva la corrección en el HUD, usamos la distancia euclidiana directa
+          // para demostrar visualmente la deformación de pecera en tiempo real:
+          const effectiveDist = settings.fisheyeCorrection ? perpWallDist : euclidDist;
+
+          if (col <= (SCREEN_W >> 1) && col + colStep > (SCREEN_W >> 1)) {
+            centerPerpDist = effectiveDist;
+          }
+
+          // Altura proyectada de la tira vertical en pantalla: h = H / (d_perp * tan(FOV/2) / tan(33°))
+          const fovScale = 0.6494 / halfFovTan;
+          const lineHeight = Math.floor((SCREEN_H / effectiveDist) * fovScale);
+
+          const rawStart = - (lineHeight >> 1) + horizon;
+          const rawEnd = (lineHeight >> 1) + horizon;
+          const drawStart = Math.max(0, rawStart);
+          const drawEnd = Math.min(SCREEN_H - 1, rawEnd);
+
+          // Coordenada horizontal de textura texX in [0, 63]
+          let texX = Math.floor(wallX * TEX_SIZE) & TEX_MASK;
+          if ((side === 0 && normRayDirX > 0) || (side === 1 && normRayDirY < 0)) {
+            texX = TEX_SIZE - texX - 1;
+          }
+
+          // Sombreado diferencial por orientación (Norte-Sur vs. Este-Oeste) + Atenuación por distancia
+          const orientShade = side === 1 ? 0.68 : 1.0;
+          const distAtten = flashBoost / (1.0 + fogK * effectiveDist * effectiveDist);
+          const lightFactor = Math.min(1.35, orientShade * distAtten);
+          const fogMix = Math.min(1.0, effectiveDist * fogK * 1.25);
+
+          const texData = wallTextures[texId] || wallTextures[1];
+          const texStep = TEX_SIZE / Math.max(1, lineHeight);
+          let texPos = (drawStart - rawStart) * texStep;
+
+          // Rellenar Z-Buffer 1D y coordenadas de impacto para cada píxel del bloque de columna
+          for (let subX = col; subX < col + colStep && subX < SCREEN_W; subX++) {
+            zBuffer[subX] = perpWallDist;
+            rayHitsX[subX] = exactHitX;
+            rayHitsY[subX] = exactHitY;
+          }
+
+          // Dibujar la columna vertical texturizada en el buffer de píxeles
+          for (let y = drawStart; y <= drawEnd; y++) {
+            const texY = (texPos | 0) & TEX_MASK;
+            texPos += texStep;
+            const rawTexel = texData[(texY << 6) + texX];
+            const shadedTexel = shadeColorABGR(rawTexel, lightFactor, fogMix);
+
+            const rowIdx = y * SCREEN_W + col;
+            for (let s = 0; s < colStep && col + s < SCREEN_W; s++) {
+              frameBuffer[rowIdx + s] = shadedTexel;
+            }
+          }
+        }
+
+        // ---------------------------------------------------------------------
+        // PASO C: PROYECCIÓN DE SPRITES 2D (BILLBOARDING) CON OCLUSIÓN Z-BUFFER
+        // ---------------------------------------------------------------------
+        const activeSprites = [];
+        for (let i = 0; i < sprites.length; i++) {
+          const sp = sprites[i];
+          if (!sp.active) continue;
+          const dx = sp.x - player.x;
+          const dy = sp.y - player.y;
+          sp.distSq = dx * dx + dy * dy;
+          activeSprites.push(sp);
+        }
+
+        // Ordenar sprites de más lejano a más cercano (Painter's Algorithm + Z-Buffer)
+        activeSprites.sort((a, b) => b.distSq - a.distSq);
+
+        // Determinante inverso de la matriz 2x2 de cámara [planeX dirX; planeY dirY]
+        const invDet = 1.0 / (planeX * dirY - dirX * planeY);
+
+        for (let i = 0; i < activeSprites.length; i++) {
+          const sp = activeSprites[i];
+          const spriteX = sp.x - player.x;
+          const spriteY = sp.y - player.y;
+
+          const transformX = invDet * (dirY * spriteX - dirX * spriteY);
+          const transformY = invDet * (-planeY * spriteX + planeX * spriteY);
+
+          // Si el sprite está detrás del plano de cámara, ignorarlo
+          if (transformY <= 0.12) continue;
+
+          const spriteScreenX = Math.floor((SCREEN_W * 0.5) * (1.0 + transformX / transformY));
+
+          // Animación de levitación para Orbes y parpadeo para Antorchas
+          let vMoveScreen = 0;
+          if (sp.type === SPR_TYPE.ORB) {
+            vMoveScreen = Math.floor((Math.sin(timeSec * 3.5 + sp.x) * 18) / transformY);
+          }
+
+          const fovScale = 0.6494 / halfFovTan;
+          const spriteHeight = Math.abs(Math.floor((SCREEN_H / transformY) * fovScale));
+          const spriteWidth = spriteHeight;
+
+          const rawStartY = -(spriteHeight >> 1) + horizon + vMoveScreen;
+          const rawEndY = (spriteHeight >> 1) + horizon + vMoveScreen;
+          const drawStartY = Math.max(0, rawStartY);
+          const drawEndY = Math.min(SCREEN_H - 1, rawEndY);
+
+          const rawStartX = -(spriteWidth >> 1) + spriteScreenX;
+          const rawEndX = (spriteWidth >> 1) + spriteScreenX;
+          const drawStartX = Math.max(0, rawStartX);
+          const drawEndX = Math.min(SCREEN_W - 1, rawEndX);
+
+          const spTex = spriteTextures[sp.type];
+          const isEmissive = sp.type === SPR_TYPE.TORCH || sp.type === SPR_TYPE.ORB;
+          const spLight = isEmissive
+            ? 1.25
+            : Math.min(1.25, flashBoost / (1.0 + fogK * transformY * transformY));
+          const spFog = isEmissive ? 0.0 : Math.min(1.0, transformY * fogK * 1.2);
+
+          for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+            // Verificación estricta contra el Z-Buffer 1D de muros
+            if (transformY >= zBuffer[stripe]) continue;
+
+            const texX = Math.floor(((stripe - rawStartX) * TEX_SIZE) / spriteWidth) & TEX_MASK;
+
+            for (let y = drawStartY; y <= drawEndY; y++) {
+              const texY = Math.floor(((y - rawStartY) * TEX_SIZE) / spriteHeight) & TEX_MASK;
+              const color = spTex[(texY << 6) + texX];
+              if (color === 0) continue; // Píxel transparente
+
+              frameBuffer[y * SCREEN_W + stripe] = shadeColorABGR(color, spLight, spFog);
+            }
+          }
+        }
+
+        // Volcar el buffer de píxeles 32-bit completo al lienzo 2D
+        screenCtx.putImageData(screenImgData, 0, 0);
+
+        // Superponer el arma en primera persona y la mira táctica
+        drawFirstPersonWeaponAndHUD(timeSec);
+      }
+
+      // =======================================================================
+      // 6. ARMA EN PRIMERA PERSONA CON HEAD-BOBBING Y DESTELLO DE PLASMA
+      // =======================================================================
+      function drawFirstPersonWeaponAndHUD(timeSec) {
+        const ctx = screenCtx;
+
+        // Mira telescópica central (Crosshair)
+        const cx = SCREEN_W >> 1;
+        const cy = SCREEN_H >> 1;
+        ctx.strokeStyle = player.hitMarkerTimer > 0 ? '#ff2a6d' : 'rgba(0, 240, 255, 0.78)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 9, cy); ctx.lineTo(cx - 3, cy);
+        ctx.moveTo(cx + 3, cy); ctx.lineTo(cx + 9, cy);
+        ctx.moveTo(cx, cy - 9); ctx.lineTo(cx, cy - 3);
+        ctx.moveTo(cx, cy + 3); ctx.lineTo(cx, cy + 9);
+        ctx.stroke();
+
+        // Balanceo sinusoidal del arma (Head-Bobbing en X e Y + retroceso de disparo)
+        const swayX = Math.cos(player.bobPhase * 0.5) * 12 * player.bobAmount;
+        const swayY = Math.abs(Math.sin(player.bobPhase)) * 10 * player.bobAmount;
+        const recoilY = player.weaponRecoil * 26;
+
+        const wx = cx + swayX;
+        const wy = SCREEN_H + swayY + recoilY;
+
+        ctx.save();
+        ctx.translate(wx, wy);
+
+        // Destello de boca de cañón (Muzzle Flash) y rayo de plasma al disparar
+        if (player.muzzleFlash > 0.15) {
+          const r = 38 * player.muzzleFlash;
+          const grad = ctx.createRadialGradient(0, -108, 2, 0, -108, r * 2.2);
+          grad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+          grad.addColorStop(0.35, 'rgba(0, 240, 255, 0.85)');
+          grad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(0, -108, r * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Cañón superior del rifle de plasma id-Tech
+        ctx.fillStyle = '#1b2638';
+        ctx.strokeStyle = '#405878';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-22, -105);
+        ctx.lineTo(22, -105);
+        ctx.lineTo(34, -45);
+        ctx.lineTo(-34, -45);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Bobinas electromagnéticas brillantes
+        const pulse = 0.75 + Math.sin(timeSec * 8) * 0.25;
+        ctx.fillStyle = `rgba(0, 240, 255, ${pulse})`;
+        for (let i = 0; i < 3; i++) {
+          const ry = -95 + i * 14;
+          ctx.fillRect(-14 - i * 2, ry, 28 + i * 4, 6);
+        }
+
+        // Chasis pesado inferior del arma
+        ctx.fillStyle = '#111824';
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-42, -48);
+        ctx.lineTo(42, -48);
+        ctx.lineTo(62, 10);
+        ctx.lineTo(-62, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Indicador LED de carga en el chasis
+        ctx.fillStyle = player.weaponRecoil > 0.1 ? '#ffbe0b' : '#00ff9d';
+        ctx.fillRect(-10, -32, 20, 8);
+
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // 7. MINIMAPA TÉCNICO 2D EN TIEMPO REAL CON ABANICO DE RAYOS DDA
+      // =======================================================================
+      function renderMinimap() {
+        const w = minimapCanvas.width;
+        const h = minimapCanvas.height;
+        const cellW = w / MAP_W;
+        const cellH = h / MAP_H;
+
+        minimapCtx.fillStyle = '#050811';
+        minimapCtx.fillRect(0, 0, w, h);
+
+        // 1. Dibujar celdas de muros y puertas corredizas
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) {
+            const c = worldMap[cellIdx(x, y)];
+            const px = x * cellW;
+            const py = y * cellH;
+
+            if (c > 0) {
+              if (c === 1) minimapCtx.fillStyle = '#2d6a4f';
+              else if (c === 2) minimapCtx.fillStyle = '#9d2235';
+              else if (c === 3) minimapCtx.fillStyle = '#27598f';
+              else if (c === 4) {
+                const open = doorOffset[cellIdx(x, y)];
+                minimapCtx.fillStyle = open > 0.75 ? 'rgba(255, 190, 11, 0.25)' : '#ffbe0b';
+              } else if (c === 5) minimapCtx.fillStyle = '#5a287d';
+
+              minimapCtx.fillRect(px, py, cellW, cellH);
+            }
+
+            minimapCtx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+            minimapCtx.lineWidth = 0.6;
+            minimapCtx.strokeRect(px, py, cellW, cellH);
+          }
+        }
+
+        // 2. Dibujar el Abanico Completo de Rayos DDA chocando exactamente contra las paredes
+        const playerPx = player.x * cellW;
+        const playerPy = player.y * cellH;
+
+        minimapCtx.fillStyle = 'rgba(0, 240, 255, 0.16)';
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(playerPx, playerPy);
+        for (let x = 0; x < SCREEN_W; x += 4) {
+          minimapCtx.lineTo(rayHitsX[x] * cellW, rayHitsY[x] * cellH);
+        }
+        minimapCtx.closePath();
+        minimapCtx.fill();
+
+        // Trazar rayos individuales para mostrar el barrido trigonométrico
+        minimapCtx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+        minimapCtx.lineWidth = 0.75;
+        for (let x = 0; x < SCREEN_W; x += 16) {
+          minimapCtx.beginPath();
+          minimapCtx.moveTo(playerPx, playerPy);
+          minimapCtx.lineTo(rayHitsX[x] * cellW, rayHitsY[x] * cellH);
+          minimapCtx.stroke();
+        }
+
+        // 3. Dibujar Sprites (Barriles, Pilares, Antorchas, Orbes, Centinelas)
+        for (let i = 0; i < sprites.length; i++) {
+          const sp = sprites[i];
+          if (!sp.active) continue;
+          minimapCtx.fillStyle =
+            sp.type === SPR_TYPE.SENTINEL ? '#ff2a6d' :
+            sp.type === SPR_TYPE.ORB ? '#00f0ff' :
+            sp.type === SPR_TYPE.BARREL ? '#00ff9d' : '#ffbe0b';
+          minimapCtx.beginPath();
+          minimapCtx.arc(sp.x * cellW, sp.y * cellH, 3.2, 0, Math.PI * 2);
+          minimapCtx.fill();
+        }
+
+        // 4. Dibujar Jugador y Vector Dirección
+        minimapCtx.fillStyle = '#ffffff';
+        minimapCtx.beginPath();
+        minimapCtx.arc(playerPx, playerPy, 4.2, 0, Math.PI * 2);
+        minimapCtx.fill();
+
+        minimapCtx.strokeStyle = '#ffbe0b';
+        minimapCtx.lineWidth = 2;
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(playerPx, playerPy);
+        minimapCtx.lineTo(
+          playerPx + Math.cos(player.angle) * 14,
+          playerPy + Math.sin(player.angle) * 14
+        );
+        minimapCtx.stroke();
+      }
+
+      // =======================================================================
+      // 8. CONTROLES (WASD + STRAFE + POINTER LOCK MOUSE + AJUSTES EN CALIENTE)
+      // =======================================================================
+      const keys = {};
+
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        keys[k] = true;
+        keys[e.code] = true;
+
+        if (k === 'e' || e.code === 'Space') {
+          e.preventDefault();
+          interactWithDoor();
+        } else if (k === 'f') {
+          firePlasmaWeapon();
+        } else if (k === 'p') {
+          document.getElementById('btn-toggle-fisheye').click();
+        } else if (e.code === 'Tab') {
+          e.preventDefault();
+          document.getElementById('btn-dual-view').click();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        keys[e.key.toLowerCase()] = false;
+        keys[e.code] = false;
+      });
+
+      // Captura de Ratón (PointerLockAPI) y disparo con Clic Izquierdo
+      view3dWrap.addEventListener('mousedown', (e) => {
+        if (e.button === 0) {
+          if (document.pointerLockElement !== view3dWrap && view3dWrap.requestPointerLock) {
+            view3dWrap.requestPointerLock();
+          } else {
+            firePlasmaWeapon();
+          }
+        }
+      });
+
+      document.addEventListener('pointerlockchange', () => {
+        const locked = document.pointerLockElement === view3dWrap;
+        const promptEl = document.getElementById('lock-prompt');
+        promptEl.textContent = locked
+          ? '🟢 RATÓN CAPTURADO: Clic Izq = Disparar • ESC = Liberar Cursor'
+          : '🎯 CLIC EN EL VISOR 3D: Capturar Ratón (ESC para liberar)';
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (document.pointerLockElement === view3dWrap) {
+          player.angle += e.movementX * 0.0026;
+        }
+      });
+
+      // Controles del HUD en Caliente
+      const fisheyeBtn = document.getElementById('btn-toggle-fisheye');
+      fisheyeBtn.addEventListener('click', () => {
+        settings.fisheyeCorrection = !settings.fisheyeCorrection;
+        const on = settings.fisheyeCorrection;
+        fisheyeBtn.className = on ? 'eng-btn emerald active' : 'eng-btn crimson active';
+        fisheyeBtn.textContent = on
+          ? '✅ CORRECCIÓN OJO DE PEZ: ACTIVA [P]'
+          : '⚠️ CORRECCIÓN OJO DE PEZ: DESACTIVADA [P]';
+
+        const statusEl = document.getElementById('hud-fisheye-status');
+        statusEl.textContent = on
+          ? 'PLANO PERPENDICULAR (SIN OJO DE PEZ)'
+          : 'DISTANCIA EUCLIDIANA (EFECTO PECERA)';
+        statusEl.style.color = on ? 'var(--emerald)' : 'var(--crimson)';
+
+        document.getElementById('formula-display').innerHTML = on
+          ? '<strong>ACTIVO:</strong> d<sub>⊥</sub> = d<sub>real</sub> · cos(θ<sub>rayo</sub> − θ<sub>jug</sub>)<br/>Altura tira: h = H<sub>pantalla</sub> / d<sub>⊥</sub> (Muros rectos)'
+          : '<strong>DESACTIVADO:</strong> Usando d<sub>real</sub> euclidiana directa.<br/>Observa cómo los muros rectos se curvan como una pecera.';
+      });
+
+      document.getElementById('slider-fov').addEventListener('input', (e) => {
+        settings.fovDeg = parseInt(e.target.value, 10);
+        document.getElementById('lbl-fov').textContent = `${settings.fovDeg}°`;
+      });
+
+      document.querySelectorAll('#res-buttons .eng-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          settings.rayCount = parseInt(btn.dataset.res, 10);
+          document.querySelectorAll('#res-buttons .eng-btn').forEach((b) => b.classList.toggle('active', b === btn));
+          const modeName = settings.rayCount === 160 ? 'Retro 4x' : settings.rayCount === 320 ? 'VGA 2x' : 'Nativo 1x';
+          document.getElementById('lbl-res').textContent = `${settings.rayCount} Rayos (${modeName})`;
+          document.getElementById('val-rays').textContent = String(settings.rayCount);
+          document.getElementById('minimap-rays-lbl').textContent = `${settings.rayCount} RAYOS`;
+        });
+      });
+
+      document.getElementById('slider-fog').addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        settings.fogK = val / 1000;
+        document.getElementById('lbl-fog').textContent = `k = ${settings.fogK.toFixed(3)}`;
+      });
+
+      const floorTexBtn = document.getElementById('btn-floor-tex');
+      floorTexBtn.addEventListener('click', () => {
+        settings.texturedFloor = !settings.texturedFloor;
+        floorTexBtn.classList.toggle('active', settings.texturedFloor);
+        floorTexBtn.textContent = settings.texturedFloor ? '🧱 SUELO TEXTURIZADO' : '🌑 SUELO GRADIENTE';
+      });
+
+      document.getElementById('btn-reset-map').addEventListener('click', initLevel);
+
+      const dualViewBtn = document.getElementById('btn-dual-view');
+      dualViewBtn.addEventListener('click', () => {
+        settings.splitView = !settings.splitView;
+        engineStage.classList.toggle('split-mode', settings.splitView);
+        dualViewBtn.classList.toggle('active', settings.splitView);
+
+        // Si el contenedor es un único elemento, mover el minimapa dentro o al lado
+        const minimapWrap = document.getElementById('minimap-wrap');
+        if (settings.splitView) {
+          engineStage.appendChild(minimapWrap);
+          minimapCanvas.width = 440;
+          minimapCanvas.height = 440;
+        } else {
+          view3dWrap.appendChild(minimapWrap);
+          minimapCanvas.width = 280;
+          minimapCanvas.height = 280;
+        }
+      });
+
+      // =======================================================================
+      // 9. BUCLE PRINCIPAL DE SIMULACIÓN Y TELEMETRÍA EN VIVO (60 FPS)
+      // =======================================================================
+      let lastTime = performance.now();
+      let frames = 0;
+      let fpsAccum = 0;
+
+      function mainLoop(now) {
+        requestAnimationFrame(mainLoop);
+
+        const dt = Math.min(0.05, (now - lastTime) * 0.001);
+        const timeSec = now * 0.001;
+        lastTime = now;
+        frames++;
+        fpsAccum += dt;
+
+        // 1. Procesar movimiento en primera persona (WASD + Strafe + Flechas)
+        const sprint = (keys['shift'] || keys['ShiftLeft'] || keys['ShiftRight']) ? 1.55 : 1.0;
+        const speed = player.moveSpeed * sprint * dt;
+        const rot = player.rotSpeed * dt;
+
+        if (keys['arrowleft'] || keys['q']) player.angle -= rot;
+        if (keys['arrowright']) player.angle += rot;
+
+        const forwardX = Math.cos(player.angle);
+        const forwardY = Math.sin(player.angle);
+        const rightX = -forwardY;
+        const rightY = forwardX;
+
+        let moveX = 0;
+        let moveY = 0;
+
+        if (keys['w'] || keys['arrowup']) { moveX += forwardX; moveY += forwardY; }
+        if (keys['s'] || keys['arrowdown']) { moveX -= forwardX; moveY -= forwardY; }
+        if (keys['d']) { moveX += rightX; moveY += rightY; }
+        if (keys['a']) { moveX -= rightX; moveY -= rightY; }
+
+        const moveLen = Math.hypot(moveX, moveY);
+        if (moveLen > 0.001) {
+          const stepX = (moveX / moveLen) * speed;
+          const stepY = (moveY / moveLen) * speed;
+          movePlayerWithSliding(stepX, stepY);
+
+          player.bobPhase += dt * (sprint > 1 ? 14 : 9.5);
+          player.bobAmount = Math.min(1.0, player.bobAmount + dt * 6);
+        } else {
+          player.bobAmount = Math.max(0.0, player.bobAmount - dt * 6);
+        }
+
+        // Normalizar ángulo en [0, 2π)
+        player.angle = ((player.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+        // Decaimiento de retroceso del arma y destello de luz
+        player.weaponRecoil = Math.max(0, player.weaponRecoil - dt * 3.8);
+        player.muzzleFlash = Math.max(0, player.muzzleFlash - dt * 5.2);
+        player.hitMarkerTimer = Math.max(0, player.hitMarkerTimer - dt);
+
+        // 2. Actualizar Puertas Corredizas y Entidades
+        updateDoorsAndEntities(dt, timeSec);
+
+        // Mostrar aviso contextual si el jugador está frente a una puerta mecánica
+        const doorPromptEl = document.getElementById('door-prompt');
+        doorPromptEl.style.display = getFacingDoorCell() ? 'block' : 'none';
+
+        // 3. Renderizar Escena 3D por Raycasting DDA y Minimapa 2D
+        const t0 = performance.now();
+        render3DScene(timeSec);
+        renderMinimap();
+        const frameMs = performance.now() - t0;
+
+        // 4. Actualizar Telemetría cada 200 ms
+        if (fpsAccum >= 0.2) {
+          const fps = Math.round(frames / fpsAccum);
+          frames = 0;
+          fpsAccum = 0;
+
+          document.getElementById('fps-badge').textContent = `${fps} FPS`;
+          document.getElementById('val-frame-ms').textContent = `${frameMs.toFixed(2)} ms`;
+          document.getElementById('val-pos').textContent = `${player.x.toFixed(2)}, ${player.y.toFixed(2)}`;
+          document.getElementById('val-angle').textContent = `${((player.angle * 180) / Math.PI).toFixed(1)}°`;
+          document.getElementById('val-center-dist').textContent = `${centerPerpDist.toFixed(2)} u`;
+
+          let orbsLeft = 0, sentinelsLeft = 0;
+          for (let i = 0; i < sprites.length; i++) {
+            if (!sprites[i].active) continue;
+            if (sprites[i].type === SPR_TYPE.ORB) orbsLeft++;
+            if (sprites[i].type === SPR_TYPE.SENTINEL) sentinelsLeft++;
+          }
+          document.getElementById('val-objectives').textContent = `${orbsLeft} Orbes / ${sentinelsLeft} Drones`;
+        }
+      }
+
+      requestAnimationFrame(mainLoop);
+    })();
+  </script>
+</body>
+</html>

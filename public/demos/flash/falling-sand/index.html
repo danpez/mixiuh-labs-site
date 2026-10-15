@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Cellular Automata Physics Engine // Noita-Style Falling Sand</title>
+  <style>
+    :root {
+      --bg-color: #0b0c10;
+      --panel-bg: rgba(18, 22, 31, 0.88);
+      --panel-border: rgba(69, 162, 158, 0.35);
+      --accent: #66fcf1;
+      --accent-glow: rgba(102, 252, 241, 0.4);
+      --danger: #ff4d4d;
+      --warning: #ffb703;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-color);
+      color: #e0e6ed;
+      font-family: var(--font-ui);
+    }
+
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 50% 50%, #101522 0%, #07090e 100%);
+    }
+
+    /* Canvas Viewport */
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      overflow: hidden;
+    }
+
+    #sim-canvas {
+      display: block;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), 0 0 20px rgba(102, 252, 241, 0.1);
+      border: 1px solid rgba(102, 252, 241, 0.2);
+    }
+
+    /* Screen shake class */
+    .screen-shake {
+      animation: shake 0.25s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 1px, 0); }
+      20%, 80% { transform: translate3d(3px, -2px, 0); }
+      30%, 50%, 70% { transform: translate3d(-5px, 3px, 0); }
+      40%, 60% { transform: translate3d(5px, -3px, 0); }
+    }
+
+    /* Top HUD Navigation Bar */
+    #top-hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .brand-title .badge {
+      background: rgba(102, 252, 241, 0.15);
+      border: 1px solid var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .telemetry-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .stat-pill .label {
+      color: #8892b0;
+      font-size: 10px;
+    }
+
+    .stat-pill .val {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .stat-pill .val.highlight {
+      color: var(--accent);
+    }
+
+    .quick-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(102, 252, 241, 0.15);
+      border-color: var(--accent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .hud-btn.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .hud-btn.danger:hover {
+      background: rgba(255, 77, 77, 0.2);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    /* Floating Left Tool Palette */
+    #tool-palette {
+      position: absolute;
+      top: 60px;
+      left: 16px;
+      width: 250px;
+      max-height: calc(100vh - 80px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 40;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    #tool-palette::-webkit-scrollbar {
+      width: 4px;
+    }
+    #tool-palette::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 4px;
+    }
+
+    .panel-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #8892b0;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .elements-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .element-card {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 6px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .element-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateX(2px);
+    }
+
+    .element-card.active {
+      border-color: var(--accent);
+      background: rgba(102, 252, 241, 0.12);
+      box-shadow: 0 0 12px rgba(102, 252, 241, 0.25);
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .elem-meta {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .elem-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .elem-sub {
+      font-size: 9px;
+      color: #8892b0;
+      font-family: var(--font-mono);
+    }
+
+    /* Slider and Tool Configs */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .range-slider {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    /* Right Telemetry / Scenario Panel */
+    #scenario-palette {
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      width: 250px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 40;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    .scenario-btn {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e2e8f0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      transition: all 0.15s ease;
+    }
+
+    .scenario-btn:hover {
+      background: rgba(102, 252, 241, 0.12);
+      border-color: var(--accent);
+      transform: translateX(-2px);
+    }
+
+    .scenario-btn .sc-title {
+      font-weight: 700;
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+
+    .scenario-btn .sc-desc {
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    /* Density breakdown meter */
+    .breakdown-bar {
+      display: flex;
+      height: 10px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: #111;
+      margin-top: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .breakdown-segment {
+      height: 100%;
+      transition: width 0.2s ease;
+    }
+
+    /* Inspector Tooltip on Hover */
+    #cell-inspector {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(10, 15, 24, 0.95);
+      border: 1px solid var(--accent);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #fff;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    }
+
+    #brush-cursor-indicator {
+      position: absolute;
+      pointer-events: none;
+      border: 1px dashed var(--accent);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 30;
+      display: none;
+      box-shadow: 0 0 10px rgba(102, 252, 241, 0.2);
+    }
+
+    /* Bottom Status Bar */
+    #bottom-status {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      background: rgba(11, 12, 16, 0.92);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #64748b;
+      z-index: 50;
+    }
+
+    .shortcut-hints {
+      display: flex;
+      gap: 12px;
+    }
+
+    .shortcut-hints kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      padding: 1px 4px;
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Top HUD Navigation -->
+    <header id="top-hud">
+      <div class="brand-title">
+        <span>NOITA-LAB</span>
+        <span class="badge">PHYSICS ENGINE</span>
+      </div>
+
+      <div class="telemetry-row">
+        <div class="stat-pill">
+          <span class="label">FPS</span>
+          <span class="val highlight" id="fps-display">60.0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">TICK</span>
+          <span class="val" id="tick-time-display">0.00 ms</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">PARTÍCULAS</span>
+          <span class="val highlight" id="particle-count-display">0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">GRAVEDAD</span>
+          <span class="val" id="gravity-display">▼ +1.0G</span>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="hud-btn" id="btn-pause" title="Pausar / Reanudar (Espacio)">
+          <span id="pause-icon">⏸</span> Pausar
+        </button>
+        <button class="hud-btn" id="btn-step" title="Avanzar 1 fotograma (F)">
+          <span>⏭</span> Paso
+        </button>
+        <button class="hud-btn" id="btn-gravity" title="Invertir Gravedad (G)">
+          <span>🔄</span> Gravedad
+        </button>
+        <button class="hud-btn" id="btn-bloom" title="Alternar Resplandor Térmico / Bloom">
+          <span>✨</span> Bloom: ON
+        </button>
+        <button class="hud-btn" id="btn-audio" title="Alternar Audio Procedural (M)">
+          <span id="audio-icon">🔊</span> Sonido: ON
+        </button>
+        <button class="hud-btn danger" id="btn-clear" title="Limpiar Lienzo (C)">
+          <span>🗑</span> Limpiar
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport -->
+    <main id="viewport-container">
+      <canvas id="sim-canvas"></canvas>
+      <div id="brush-cursor-indicator"></div>
+      <div id="cell-inspector"></div>
+    </main>
+
+    <!-- Floating Tool Palette (Left) -->
+    <aside id="tool-palette">
+      <div class="panel-section-title">
+        <span>HERRAMIENTAS DE DIBUJO</span>
+      </div>
+      <div class="control-group">
+        <div class="control-row">
+          <span>Radio Pincel</span>
+          <span id="brush-size-label">6 px</span>
+        </div>
+        <input type="range" id="brush-slider" class="range-slider" min="1" max="30" value="6">
+      </div>
+
+      <div class="control-group">
+        <div class="control-row">
+          <span>Modo Dispersión</span>
+          <span id="spray-mode-label">SÓLIDO</span>
+        </div>
+        <button class="hud-btn" id="btn-toggle-spray" style="width: 100%; justify-content: center;">
+          Alternar Spray / Spray Fino
+        </button>
+      </div>
+
+      <div class="panel-section-title">
+        <span>ELEMENTOS FÍSICOS</span>
+      </div>
+      <div class="elements-grid" id="elements-selector">
+        <!-- Elements injected by JS -->
+      </div>
+
+      <div class="panel-section-title">
+        <span>HERRAMIENTAS ESPECIALES</span>
+      </div>
+      <div class="elements-grid">
+        <div class="element-card" data-tool="void">
+          <div class="swatch" style="background: #000; border-color: #666;"></div>
+          <div class="elem-meta">
+            <span class="elem-name">Borrador</span>
+            <span class="elem-sub">Vacío</span>
+          </div>
+        </div>
+        <div class="element-card" data-tool="bomb">
+          <div class="swatch" style="background: #ff0055; box-shadow: 0 0 5px #ff0055;"></div>
+          <div class="elem-meta">
+            <span class="elem-name">Bomba</span>
+            <span class="elem-sub">Onda Choque</span>
+          </div>
+        </div>
+        <div class="element-card" data-tool="spawner">
+          <div class="swatch" style="background: #00f0ff; border-color: #fff;"></div>
+          <div class="elem-meta">
+            <span class="elem-name">Grifo Emitter</span>
+            <span class="elem-sub">Flujo Contínuo</span>
+          </div>
+        </div>
+        <div class="element-card" data-tool="heat">
+          <div class="swatch" style="background: #ff7700; box-shadow: 0 0 5px #ff7700;"></div>
+          <div class="elem-meta">
+            <span class="elem-name">Rayo Térmico</span>
+            <span class="elem-sub">Encender / Fundir</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Floating Scenario & Breakdown Palette (Right) -->
+    <aside id="scenario-palette">
+      <div class="panel-section-title">
+        <span>TERRARIOS PRECARGADOS</span>
+      </div>
+      <button class="scenario-btn" data-scenario="alchemy">
+        <span class="sc-title">01 // Terrario de Alquimia</span>
+        <span class="sc-desc">Laboratorio con tanques de agua, petróleo, ácido y cascadas.</span>
+      </button>
+      <button class="scenario-btn" data-scenario="volcano">
+        <span class="sc-title">02 // Presa & Volcán</span>
+        <span class="sc-desc">Embalse de agua retenido por presa de madera sobre magma activo.</span>
+      </button>
+      <button class="scenario-btn" data-scenario="chain">
+        <span class="sc-title">03 // Pólvora & Reacción</span>
+        <span class="sc-desc">Complejo pirotécnico con pólvora negra y mechas combustibles.</span>
+      </button>
+      <button class="scenario-btn" data-scenario="density">
+        <span class="sc-title">04 // Columna de Densidad</span>
+        <span class="sc-desc">Prueba de flotabilidad: Arena, Agua, Aceite y Gas estratificados.</span>
+      </button>
+
+      <div class="panel-section-title" style="margin-top: 8px;">
+        <span>ESTRATIFICACIÓN DE MATERIA</span>
+      </div>
+      <div class="breakdown-bar" id="breakdown-meter">
+        <!-- Segments updated dynamically -->
+      </div>
+      <div id="breakdown-legend" style="font-family: var(--font-mono); font-size: 9px; color: #94a3b8; display: flex; flex-direction: column; gap: 3px; margin-top: 6px;">
+        <!-- Injected by JS -->
+      </div>
+    </aside>
+
+    <!-- Bottom Status Bar -->
+    <footer id="bottom-status">
+      <div class="shortcut-hints">
+        <span><kbd>Espacio</kbd> Pausar</span>
+        <span><kbd>F</kbd> Avanzar Paso</span>
+        <span><kbd>G</kbd> Gravedad</span>
+        <span><kbd>C</kbd> Limpiar</span>
+        <span><kbd>B</kbd> Spray</span>
+        <span><kbd>M</kbd> Mute</span>
+        <span><kbd>Rueda</kbd> Radio Pincel</span>
+      </div>
+      <div id="grid-dimensions-display">RESOLUCIÓN SIM: 400 x 250 (100,000 celdas)</div>
+    </footer>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * CELLULAR AUTOMATA FALLING SAND ENGINE // HIGH-DENSITY PHYSICAL GRID
+     * =========================================================================
+     */
+
+    // --- 1. SIMULATION CONSTANTS & DIMENSIONS ---
+    const SIM_WIDTH = 400;
+    const SIM_HEIGHT = 250;
+    const TOTAL_CELLS = SIM_WIDTH * SIM_HEIGHT;
+
+    // --- 2. ELEMENT DEFINITIONS & DENSITY SPECS ---
+    const TYPE = {
+      EMPTY: 0,
+      SAND: 1,
+      WATER: 2,
+      STONE: 3,
+      WOOD: 4,
+      OIL: 5,
+      ACID: 6,
+      FIRE: 7,
+      LAVA: 8,
+      SMOKE: 9,
+      STEAM: 10,
+      SPARK: 11,
+      GUNPOWDER: 12,
+      OBSIDIAN: 13,
+      ICE: 14
+    };
+
+    // Properties for each element
+    const ELEMENT_DEFS = {
+      [TYPE.EMPTY]: {
+        name: 'Vacío / Aire',
+        symbol: 'AIR',
+        category: 'special',
+        density: 0,
+        colorHex: '#0b0c10',
+        flammable: false,
+        desc: 'Espacio vacío sin resistencia.'
+      },
+      [TYPE.SAND]: {
+        name: 'Arena',
+        symbol: 'SND',
+        category: 'granular',
+        density: 35,
+        colorHex: '#e5b65a',
+        flammable: false,
+        desc: 'Sólido granular. Se desliza en pirámides y se hunde en agua y aceite.'
+      },
+      [TYPE.WATER]: {
+        name: 'Agua',
+        symbol: 'H2O',
+        category: 'liquid',
+        density: 20,
+        colorHex: '#1982c4',
+        flammable: false,
+        desc: 'Fluido denso y nivelador. Apaga fuego y enfría lava en obsidiana.'
+      },
+      [TYPE.STONE]: {
+        name: 'Piedra',
+        symbol: 'STN',
+        category: 'solid',
+        density: 255,
+        colorHex: '#6c757d',
+        flammable: false,
+        desc: 'Sólido indestructible por gravedad. Puede ser disuelto por ácido.'
+      },
+      [TYPE.WOOD]: {
+        name: 'Madera',
+        symbol: 'WOD',
+        category: 'solid',
+        density: 150,
+        colorHex: '#8b5a2b',
+        flammable: true,
+        desc: 'Sólido orgánico estructural. Arde lentamente con fuego o lava.'
+      },
+      [TYPE.OIL]: {
+        name: 'Aceite / Crudo',
+        symbol: 'OIL',
+        category: 'liquid',
+        density: 10,
+        colorHex: '#4a3818',
+        flammable: true,
+        desc: 'Líquido viscoso ligero. Flota sobre el agua y arde violentamente.'
+      },
+      [TYPE.ACID]: {
+        name: 'Ácido Tóxico',
+        symbol: 'ACD',
+        category: 'liquid',
+        density: 26,
+        colorHex: '#39ff14',
+        flammable: false,
+        desc: 'Líquido corrosivo. Disuelve piedra, madera y arena con efervescencia.'
+      },
+      [TYPE.FIRE]: {
+        name: 'Fuego / Llama',
+        symbol: 'FIR',
+        category: 'gas',
+        density: -5,
+        colorHex: '#ff4500',
+        flammable: false,
+        desc: 'Plasma térmico ascendente. Enciende madera, aceite y pólvora.'
+      },
+      [TYPE.LAVA]: {
+        name: 'Lava Magmática',
+        symbol: 'LAV',
+        category: 'liquid',
+        density: 50,
+        colorHex: '#ff3700',
+        flammable: false,
+        desc: 'Roca fundida supercaliente. Quema todo y genera vapor y obsidiana con agua.'
+      },
+      [TYPE.SMOKE]: {
+        name: 'Humo',
+        symbol: 'SMK',
+        category: 'gas',
+        density: -10,
+        colorHex: '#495057',
+        flammable: false,
+        desc: 'Subproducto de combustión. Asciende con turbulencia y se disipa.'
+      },
+      [TYPE.STEAM]: {
+        name: 'Vapor',
+        symbol: 'STM',
+        category: 'gas',
+        density: -15,
+        colorHex: '#b2ebf2',
+        flammable: false,
+        desc: 'Vapor de agua condensado tras apagar calor. Se eleva y desaparece.'
+      },
+      [TYPE.SPARK]: {
+        name: 'Chispa Ígnea',
+        symbol: 'SPK',
+        category: 'special',
+        density: -2,
+        colorHex: '#ffeb3b',
+        flammable: false,
+        desc: 'Partícula incandescente de alta velocidad. Detonador activo.'
+      },
+      [TYPE.GUNPOWDER]: {
+        name: 'Pólvora Negra',
+        symbol: 'POW',
+        category: 'granular',
+        density: 32,
+        colorHex: '#343a40',
+        flammable: true,
+        desc: 'Granular pirotécnico altamente deflagrante al contacto con calor.'
+      },
+      [TYPE.OBSIDIAN]: {
+        name: 'Obsidiana',
+        symbol: 'OBS',
+        category: 'solid',
+        density: 255,
+        colorHex: '#1e1b2e',
+        flammable: false,
+        desc: 'Cristal volcánico ultra-duro originado al apagar lava con agua.'
+      },
+      [TYPE.ICE]: {
+        name: 'Hielo',
+        symbol: 'ICE',
+        category: 'solid',
+        density: 120,
+        colorHex: '#90e0ef',
+        flammable: false,
+        desc: 'Agua congelada sólida. Se funde en agua líquida cerca de fuentes de calor.'
+      }
+    };
+
+    // Helper: Pack RGBA into 32-bit integer (little endian ABGR)
+    function packRGBA(r, g, b, a = 255) {
+      return ((a & 0xff) << 24) | ((b & 0xff) << 16) | ((g & 0xff) << 8) | (r & 0xff);
+    }
+
+    // Procedural color generator with grain noise & dithering
+    function generateParticleColor(type, x, y) {
+      let r = 0, g = 0, b = 0, a = 255;
+      const noise = (Math.random() - 0.5);
+
+      switch (type) {
+        case TYPE.EMPTY:
+          return 0x00000000;
+
+        case TYPE.SAND: {
+          // Rich golden dunes variation
+          const baseH = 40 + noise * 6;
+          const baseS = 70 + noise * 15;
+          const baseL = 58 + noise * 18;
+          return hslToABGR(baseH, baseS, baseL);
+        }
+
+        case TYPE.WATER: {
+          // Bioluminescent azure shimmer
+          const baseH = 200 + noise * 12;
+          const baseS = 85 + noise * 15;
+          const baseL = 48 + noise * 16;
+          return hslToABGR(baseH, baseS, baseL, 235);
+        }
+
+        case TYPE.STONE: {
+          // Granite speckled texture
+          const lum = Math.floor(80 + noise * 45);
+          return packRGBA(lum, lum, lum + 5);
+        }
+
+        case TYPE.WOOD: {
+          // Bark annular grain pattern based on y and noise
+          const ring = Math.sin((x * 0.1) + (y * 0.4)) * 12;
+          const rBase = Math.min(255, Math.max(0, 130 + ring + noise * 25));
+          const gBase = Math.min(255, Math.max(0, 80 + ring * 0.7 + noise * 20));
+          const bBase = Math.min(255, Math.max(0, 40 + ring * 0.4 + noise * 15));
+          return packRGBA(rBase, gBase, bBase);
+        }
+
+        case TYPE.OIL: {
+          // Petroleum iridescent dark sheen
+          const tint = (x + y) % 18;
+          const rVal = 55 + tint + noise * 15;
+          const gVal = 44 + tint * 0.8 + noise * 12;
+          const bVal = 24 + noise * 10;
+          return packRGBA(rVal, gVal, bVal, 240);
+        }
+
+        case TYPE.ACID: {
+          // Radioactive fluorescent lime with neon bubbles
+          const lum = 50 + noise * 20;
+          return hslToABGR(110 + noise * 15, 100, lum);
+        }
+
+        case TYPE.FIRE: {
+          // Blazing gradient: White -> Yellow -> Orange -> Deep Red
+          const t = Math.random();
+          if (t > 0.8) return packRGBA(255, 255, 220); // white-hot
+          if (t > 0.5) return packRGBA(255, 200 + noise * 30, 20); // yellow
+          if (t > 0.2) return packRGBA(255, 100 + noise * 25, 0); // orange
+          return packRGBA(210 + noise * 30, 30, 10); // crimson
+        }
+
+        case TYPE.LAVA: {
+          // Superheated magma
+          const t = Math.random();
+          if (t > 0.85) return packRGBA(255, 240, 100); // molten yellow
+          if (t > 0.4) return packRGBA(255, 110 + noise * 30, 0); // bright orange
+          return packRGBA(200 + noise * 40, 30, 0); // deep magma
+        }
+
+        case TYPE.SMOKE: {
+          // Soot gray with varying alpha
+          const val = Math.floor(60 + noise * 35);
+          return packRGBA(val, val, val, Math.floor(180 + noise * 50));
+        }
+
+        case TYPE.STEAM: {
+          // Ethereal condensing cloud
+          const val = Math.floor(210 + noise * 30);
+          return packRGBA(val, val + 10, val + 20, Math.floor(140 + noise * 40));
+        }
+
+        case TYPE.SPARK: {
+          return packRGBA(255, 255, 150 + Math.floor(noise * 80));
+        }
+
+        case TYPE.GUNPOWDER: {
+          // Charcoal powder with sulfur specks
+          const isSulfur = Math.random() < 0.05;
+          if (isSulfur) return packRGBA(180, 160, 40);
+          const val = Math.floor(50 + noise * 25);
+          return packRGBA(val, val, val);
+        }
+
+        case TYPE.OBSIDIAN: {
+          // Deep volcanic violet-black
+          const lum = Math.floor(28 + noise * 16);
+          return packRGBA(lum + 4, lum + 2, lum + 10);
+        }
+
+        case TYPE.ICE: {
+          // Glacial crystal cyan
+          const lum = Math.floor(190 + noise * 30);
+          return packRGBA(lum - 30, lum, lum + 20, 230);
+        }
+
+        default:
+          return 0xFFFFFFFF;
+      }
+    }
+
+    // Helper: HSL to Little-Endian ABGR
+    function hslToABGR(h, s, l, alpha = 255) {
+      s /= 100;
+      l /= 100;
+      const k = n => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      const r = Math.round(f(0) * 255);
+      const g = Math.round(f(8) * 255);
+      const b = Math.round(f(4) * 255);
+      return packRGBA(r, g, b, alpha);
+    }
+
+    // --- 3. PHYSICAL GRID DATA STRUCTURES ---
+    const gridType = new Uint8Array(TOTAL_CELLS);
+    const gridColor = new Uint32Array(TOTAL_CELLS);
+    const gridLife = new Uint8Array(TOTAL_CELLS);
+    const gridClock = new Uint8Array(TOTAL_CELLS);
+
+    let currentClock = 1;
+    let gravityDirection = 1; // 1 = down, -1 = up
+    let isPaused = false;
+    let bloomEnabled = true;
+    let audioEnabled = true;
+
+    // Continuous Emitter Spawners
+    const activeSpawners = [];
+
+    // Web Audio Synthesizer
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playSound(type) {
+      if (!audioEnabled || !audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const now = audioCtx.currentTime;
+      if (type === 'explosion') {
+        // Deep boom
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.4);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      } else if (type === 'steam') {
+        // Sizzle / hiss
+        const bufferSize = audioCtx.sampleRate * 0.12;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 3200;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(now);
+      }
+    }
+
+    // --- 4. RENDERER BUFFERS & CANVASES ---
+    const canvas = document.getElementById('sim-canvas');
+    canvas.width = SIM_WIDTH;
+    canvas.height = SIM_HEIGHT;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false;
+
+    // Offscreen Image Buffer for direct memory writes
+    const imgData = ctx.createImageData(SIM_WIDTH, SIM_HEIGHT);
+    const buf32 = new Uint32Array(imgData.data.buffer);
+
+    // Responsive Display Scaler
+    function resizeDisplay() {
+      const container = document.getElementById('viewport-container');
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const aspect = SIM_WIDTH / SIM_HEIGHT;
+
+      let w = cw;
+      let h = cw / aspect;
+      if (h > ch) {
+        h = ch;
+        w = ch * aspect;
+      }
+      canvas.style.width = `${Math.floor(w)}px`;
+      canvas.style.height = `${Math.floor(h)}px`;
+    }
+    window.addEventListener('resize', resizeDisplay);
+
+    // --- 5. GRID MANAGEMENT HELPERS ---
+    function setCell(x, y, type, customColor = null, life = 0) {
+      if (x < 0 || x >= SIM_WIDTH || y < 0 || y >= SIM_HEIGHT) return;
+      const idx = y * SIM_WIDTH + x;
+      gridType[idx] = type;
+      gridColor[idx] = customColor !== null ? customColor : generateParticleColor(type, x, y);
+      gridLife[idx] = life > 0 ? life : (type === TYPE.FIRE ? 20 + Math.floor(Math.random() * 25) : 
+                                        type === TYPE.SMOKE ? 70 + Math.floor(Math.random() * 50) : 
+                                        type === TYPE.STEAM ? 50 + Math.floor(Math.random() * 40) : 
+                                        type === TYPE.SPARK ? 10 + Math.floor(Math.random() * 15) : 0);
+      gridClock[idx] = currentClock;
+    }
+
+    function clearGrid() {
+      gridType.fill(TYPE.EMPTY);
+      gridColor.fill(0);
+      gridLife.fill(0);
+      gridClock.fill(0);
+      activeSpawners.length = 0;
+    }
+
+    function swapCells(i1, i2) {
+      const t1 = gridType[i1], c1 = gridColor[i1], l1 = gridLife[i1];
+      gridType[i1] = gridType[i2];
+      gridColor[i1] = gridColor[i2];
+      gridLife[i1] = gridLife[i2];
+
+      gridType[i2] = t1;
+      gridColor[i2] = c1;
+      gridLife[i2] = l1;
+      gridClock[i2] = currentClock;
+    }
+
+    // --- 6. PHYSICAL SIMULATION STEP (THE CORE ENGINE) ---
+    function updatePhysics() {
+      currentClock = (currentClock + 1) & 0xFF;
+      const g = gravityDirection;
+
+      // Handle continuous spawners
+      for (let s = 0; s < activeSpawners.length; s++) {
+        const sp = activeSpawners[s];
+        for (let ox = -1; ox <= 1; ox++) {
+          for (let oy = -1; oy <= 1; oy++) {
+            if (Math.random() < 0.6) {
+              setCell(sp.x + ox, sp.y + oy, sp.type);
+            }
+          }
+        }
+      }
+
+      // Directional sweep: Bottom-to-Top when gravity > 0, Top-to-Bottom when gravity < 0
+      const startY = g > 0 ? SIM_HEIGHT - 1 : 0;
+      const endY = g > 0 ? -1 : SIM_HEIGHT;
+      const stepY = g > 0 ? -1 : 1;
+
+      // Alternate horizontal sweep per frame to eliminate left-to-right directional bias
+      const leftToRight = (currentClock % 2 === 0);
+
+      for (let y = startY; y !== endY; y += stepY) {
+        const rowOffset = y * SIM_WIDTH;
+        const startX = leftToRight ? 0 : SIM_WIDTH - 1;
+        const endX = leftToRight ? SIM_WIDTH : -1;
+        const stepX = leftToRight ? 1 : -1;
+
+        for (let x = startX; x !== endX; x += stepX) {
+          const idx = rowOffset + x;
+          const type = gridType[idx];
+
+          if (type === TYPE.EMPTY) continue;
+          if (gridClock[idx] === currentClock) continue; // Already updated this tick!
+
+          // --- REACTION LOGIC (NEIGHBOR CHECKS) ---
+          if (type === TYPE.FIRE || type === TYPE.LAVA || type === TYPE.ACID || type === TYPE.SPARK) {
+            handleReactions(x, y, idx, type);
+          }
+
+          // --- MOVEMENT BEHAVIORS BY ELEMENT TYPE ---
+          switch (type) {
+            case TYPE.SAND:
+            case TYPE.GUNPOWDER:
+              updateGranular(x, y, idx, type, g);
+              break;
+
+            case TYPE.WATER:
+              updateFluid(x, y, idx, type, g, 5, 20); // spread rate 5
+              break;
+
+            case TYPE.OIL:
+              updateFluid(x, y, idx, type, g, 3, 10); // spread rate 3, density 10
+              break;
+
+            case TYPE.ACID:
+              updateFluid(x, y, idx, type, g, 4, 26);
+              break;
+
+            case TYPE.LAVA:
+              updateFluid(x, y, idx, type, g, 1, 50); // slow viscous magma
+              break;
+
+            case TYPE.FIRE:
+              updateFire(x, y, idx, g);
+              break;
+
+            case TYPE.SMOKE:
+            case TYPE.STEAM:
+              updateGas(x, y, idx, type, g);
+              break;
+
+            case TYPE.SPARK:
+              updateSpark(x, y, idx, g);
+              break;
+
+            case TYPE.ICE:
+              // Ice slowly melts near heat
+              break;
+          }
+        }
+      }
+    }
+
+    // --- REACTION MATRIX HANDLER ---
+    function handleReactions(x, y, idx, type) {
+      // 4-neighborhood offsets (shuffled order for isotropic diffusion)
+      const offsets = [
+        [0, -1], [0, 1], [-1, 0], [1, 0],
+        [-1, -1], [1, -1], [-1, 1], [1, 1]
+      ];
+
+      for (let i = 0; i < offsets.length; i++) {
+        const nx = x + offsets[i][0];
+        const ny = y + offsets[i][1];
+        if (nx < 0 || nx >= SIM_WIDTH || ny < 0 || ny >= SIM_HEIGHT) continue;
+        const nIdx = ny * SIM_WIDTH + nx;
+        const nType = gridType[nIdx];
+
+        if (type === TYPE.FIRE || type === TYPE.SPARK) {
+          if (nType === TYPE.WATER) {
+            // Extinguished! Water boils into steam
+            setCell(x, y, TYPE.STEAM);
+            if (Math.random() < 0.3) playSound('steam');
+            return;
+          }
+          if (nType === TYPE.OIL) {
+            // Violent ignition
+            setCell(nIdx, ny, TYPE.FIRE);
+            if (Math.random() < 0.4) setCell(nx, ny - 1, TYPE.FIRE);
+          } else if (nType === TYPE.GUNPOWDER) {
+            // Detonate explosive
+            triggerExplosion(nx, ny, 16);
+            return;
+          } else if (nType === TYPE.WOOD && Math.random() < 0.08) {
+            // Wood catches fire
+            setCell(nIdx, ny, TYPE.FIRE);
+          } else if (nType === TYPE.ICE && Math.random() < 0.15) {
+            setCell(nIdx, ny, TYPE.WATER);
+          }
+        } else if (type === TYPE.LAVA) {
+          if (nType === TYPE.WATER) {
+            // Instant obsidian quench reaction!
+            setCell(x, y, TYPE.OBSIDIAN);
+            setCell(nIdx, ny, TYPE.STEAM);
+            playSound('steam');
+            return;
+          }
+          if (nType === TYPE.WOOD || nType === TYPE.OIL) {
+            setCell(nIdx, ny, TYPE.FIRE);
+          } else if (nType === TYPE.GUNPOWDER) {
+            triggerExplosion(nx, ny, 22);
+            return;
+          } else if (nType === TYPE.ICE) {
+            setCell(nIdx, ny, TYPE.STEAM);
+            setCell(x, y, TYPE.STONE);
+          }
+        } else if (type === TYPE.ACID) {
+          if (nType === TYPE.STONE || nType === TYPE.WOOD || nType === TYPE.SAND || nType === TYPE.OBSIDIAN) {
+            if (Math.random() < 0.15) {
+              // Corrode both cells, release acid vapor!
+              setCell(nIdx, ny, TYPE.EMPTY);
+              setCell(x, y, Math.random() < 0.4 ? TYPE.SMOKE : TYPE.EMPTY);
+              return;
+            }
+          } else if (nType === TYPE.OIL && Math.random() < 0.2) {
+            setCell(nIdx, ny, TYPE.EMPTY);
+          }
+        }
+      }
+    }
+
+    // --- GRANULAR MOVEMENT (SAND / GUNPOWDER) ---
+    function updateGranular(x, y, idx, type, g) {
+      const myDensity = ELEMENT_DEFS[type].density;
+      const targetY = y + g;
+
+      if (targetY < 0 || targetY >= SIM_HEIGHT) return;
+
+      // 1. Straight Down
+      const downIdx = targetY * SIM_WIDTH + x;
+      const downType = gridType[downIdx];
+      const downDensity = ELEMENT_DEFS[downType].density;
+
+      // Sinks through liquids or empty air
+      if (downDensity < myDensity && downDensity < 200) {
+        swapCells(idx, downIdx);
+        return;
+      }
+
+      // 2. Diagonals (Randomized parity to avoid directional drift)
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const d1x = x + dir;
+      const d2x = x - dir;
+
+      if (d1x >= 0 && d1x < SIM_WIDTH) {
+        const diag1Idx = targetY * SIM_WIDTH + d1x;
+        const d1Type = gridType[diag1Idx];
+        if (ELEMENT_DEFS[d1Type].density < myDensity && ELEMENT_DEFS[d1Type].density < 200) {
+          swapCells(idx, diag1Idx);
+          return;
+        }
+      }
+
+      if (d2x >= 0 && d2x < SIM_WIDTH) {
+        const diag2Idx = targetY * SIM_WIDTH + d2x;
+        const d2Type = gridType[diag2Idx];
+        if (ELEMENT_DEFS[d2Type].density < myDensity && ELEMENT_DEFS[d2Type].density < 200) {
+          swapCells(idx, diag2Idx);
+          return;
+        }
+      }
+    }
+
+    // --- FLUID MOVEMENT (WATER / OIL / ACID / LAVA) ---
+    function updateFluid(x, y, idx, type, g, spreadRate, myDensity) {
+      const targetY = y + g;
+
+      // 1. Straight Down
+      if (targetY >= 0 && targetY < SIM_HEIGHT) {
+        const downIdx = targetY * SIM_WIDTH + x;
+        const downType = gridType[downIdx];
+        const downDensity = ELEMENT_DEFS[downType].density;
+
+        if (downDensity < myDensity && downDensity < 100) {
+          swapCells(idx, downIdx);
+          return;
+        }
+
+        // 2. Downward Diagonals
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        const d1x = x + dir;
+        const d2x = x - dir;
+
+        if (d1x >= 0 && d1x < SIM_WIDTH) {
+          const diag1Idx = targetY * SIM_WIDTH + d1x;
+          if (ELEMENT_DEFS[gridType[diag1Idx]].density < myDensity && ELEMENT_DEFS[gridType[diag1Idx]].density < 100) {
+            swapCells(idx, diag1Idx);
+            return;
+          }
+        }
+
+        if (d2x >= 0 && d2x < SIM_WIDTH) {
+          const diag2Idx = targetY * SIM_WIDTH + d2x;
+          if (ELEMENT_DEFS[gridType[diag2Idx]].density < myDensity && ELEMENT_DEFS[gridType[diag2Idx]].density < 100) {
+            swapCells(idx, diag2Idx);
+            return;
+          }
+        }
+      }
+
+      // 3. Horizontal Liquid Dispersion (Equalizing pressure)
+      const hDir = Math.random() < 0.5 ? 1 : -1;
+      for (let s = 1; s <= spreadRate; s++) {
+        const nx = x + hDir * s;
+        if (nx < 0 || nx >= SIM_WIDTH) break;
+        const nIdx = y * SIM_WIDTH + nx;
+        const nType = gridType[nIdx];
+        if (ELEMENT_DEFS[nType].density < myDensity && ELEMENT_DEFS[nType].density < 100) {
+          swapCells(idx, nIdx);
+          return;
+        }
+        if (ELEMENT_DEFS[nType].density >= myDensity) break;
+      }
+    }
+
+    // --- FIRE & EMBER SIMULATION ---
+    function updateFire(x, y, idx, g) {
+      gridLife[idx]--;
+      if (gridLife[idx] <= 0) {
+        // Turn into smoke or disappear
+        if (Math.random() < 0.45) {
+          setCell(x, y, TYPE.SMOKE);
+        } else {
+          setCell(x, y, TYPE.EMPTY);
+        }
+        return;
+      }
+
+      // Modulate flame color dynamically for flickering effect
+      gridColor[idx] = generateParticleColor(TYPE.FIRE, x, y);
+
+      // Fire rises opposite to gravity
+      const targetY = y - g;
+      if (targetY < 0 || targetY >= SIM_HEIGHT) {
+        setCell(x, y, TYPE.EMPTY);
+        return;
+      }
+
+      // Rise with turbulent Brownian drift
+      const hDrift = (Math.random() < 0.3) ? (Math.random() < 0.5 ? 1 : -1) : 0;
+      const nx = x + hDrift;
+      if (nx >= 0 && nx < SIM_WIDTH) {
+        const destIdx = targetY * SIM_WIDTH + nx;
+        if (gridType[destIdx] === TYPE.EMPTY) {
+          swapCells(idx, destIdx);
+        }
+      }
+    }
+
+    // --- GAS SIMULATION (SMOKE / STEAM) ---
+    function updateGas(x, y, idx, type, g) {
+      gridLife[idx]--;
+      if (gridLife[idx] <= 0) {
+        // Steam has a small chance to condense back to water
+        if (type === TYPE.STEAM && Math.random() < 0.08) {
+          setCell(x, y, TYPE.WATER);
+        } else {
+          setCell(x, y, TYPE.EMPTY);
+        }
+        return;
+      }
+
+      // Gases rise opposite to gravity
+      const targetY = y - g;
+      if (targetY < 0 || targetY >= SIM_HEIGHT) {
+        setCell(x, y, TYPE.EMPTY);
+        return;
+      }
+
+      // High Brownian drift
+      const hDrift = Math.random() < 0.6 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+      const nx = x + hDrift;
+      if (nx >= 0 && nx < SIM_WIDTH) {
+        const destIdx = targetY * SIM_WIDTH + nx;
+        if (gridType[destIdx] === TYPE.EMPTY) {
+          swapCells(idx, destIdx);
+        } else {
+          // Sideways diffusion if path above is blocked
+          const sideIdx = y * SIM_WIDTH + nx;
+          if (gridType[sideIdx] === TYPE.EMPTY) {
+            swapCells(idx, sideIdx);
+          }
+        }
+      }
+    }
+
+    // --- SPARK DYNAMICS ---
+    function updateSpark(x, y, idx, g) {
+      gridLife[idx]--;
+      if (gridLife[idx] <= 0) {
+        setCell(x, y, TYPE.EMPTY);
+        return;
+      }
+
+      const dx = (Math.random() - 0.5) * 3;
+      const dy = (Math.random() - 0.5) * 3 + (g * 0.5);
+      const nx = Math.floor(x + dx);
+      const ny = Math.floor(y + dy);
+
+      if (nx >= 0 && nx < SIM_WIDTH && ny >= 0 && ny < SIM_HEIGHT) {
+        const nIdx = ny * SIM_WIDTH + nx;
+        if (gridType[nIdx] === TYPE.EMPTY) {
+          swapCells(idx, nIdx);
+        }
+      }
+    }
+
+    // --- SHOCKWAVE / BOMB EXPLOSION ---
+    function triggerExplosion(cx, cy, radius = 24) {
+      playSound('explosion');
+
+      // Trigger visual screen shake
+      const vp = document.getElementById('viewport-container');
+      vp.classList.remove('screen-shake');
+      void vp.offsetWidth; // Force reflow
+      vp.classList.add('screen-shake');
+
+      const r2 = radius * radius;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = cy + dy;
+        if (ny < 0 || ny >= SIM_HEIGHT) continue;
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = cx + dx;
+          if (nx < 0 || nx >= SIM_WIDTH) continue;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 <= r2) {
+            const dist = Math.sqrt(dist2);
+            const idx = ny * SIM_WIDTH + nx;
+
+            if (dist < radius * 0.4) {
+              // Core vaporized into fire & plasma
+              setCell(nx, ny, Math.random() < 0.6 ? TYPE.FIRE : TYPE.SPARK);
+            } else {
+              // Outer blast wave: flings particles, creates smoke & fires
+              if (gridType[idx] === TYPE.STONE && Math.random() < 0.35) {
+                setCell(nx, ny, TYPE.SAND); // Stone pulverizes to sand!
+              } else if (gridType[idx] === TYPE.WOOD) {
+                setCell(nx, ny, TYPE.FIRE);
+              } else if (gridType[idx] === TYPE.GUNPOWDER) {
+                setCell(nx, ny, TYPE.FIRE);
+              } else if (Math.random() < 0.45) {
+                setCell(nx, ny, TYPE.SMOKE);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- 7. RENDERING PIPELINE WITH INCANDESCENT BLOOM ---
+    function render() {
+      let activeCount = 0;
+      const counts = {};
+
+      for (let i = 0; i < TOTAL_CELLS; i++) {
+        const type = gridType[i];
+        if (type !== TYPE.EMPTY) {
+          activeCount++;
+          counts[type] = (counts[type] || 0) + 1;
+          buf32[i] = gridColor[i];
+        } else {
+          // Dark space background
+          buf32[i] = 0xFF100C0B;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      // Update HUD telemetry
+      document.getElementById('particle-count-display').textContent = activeCount.toLocaleString();
+      updateBreakdownMeter(counts, activeCount);
+    }
+
+    // --- 8. UI TELEMETRY & BREAKDOWN METER ---
+    function updateBreakdownMeter(counts, total) {
+      const meter = document.getElementById('breakdown-meter');
+      const legend = document.getElementById('breakdown-legend');
+      if (!total) {
+        meter.innerHTML = '';
+        legend.innerHTML = '<span>Lienzo despejado</span>';
+        return;
+      }
+
+      let barHtml = '';
+      let legHtml = '';
+      const keys = Object.keys(counts);
+
+      keys.forEach(k => {
+        const type = parseInt(k, 10);
+        const def = ELEMENT_DEFS[type];
+        if (!def) return;
+        const pct = ((counts[type] / total) * 100).toFixed(1);
+        if (pct > 1.5) {
+          barHtml += `<div class="breakdown-segment" style="width: ${pct}%; background: ${def.colorHex};" title="${def.name}: ${pct}%"></div>`;
+          legHtml += `<div style="display:flex; justify-content:space-between;">
+                        <span><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${def.colorHex}; margin-right:4px;"></span>${def.name}</span>
+                        <span>${counts[type]} (${pct}%)</span>
+                      </div>`;
+        }
+      });
+
+      meter.innerHTML = barHtml;
+      legend.innerHTML = legHtml;
+    }
+
+    // --- 9. INTERACTIVE TOOLS & BRUSH ENGINE ---
+    let currentTool = TYPE.SAND;
+    let brushRadius = 6;
+    let isSprayMode = false;
+    let isMouseDown = false;
+    let lastMouseX = -1;
+    let lastMouseY = -1;
+
+    // Bresenham line drawer for smooth gaps-free strokes
+    function drawLine(x0, y0, x1, y1) {
+      const dx = Math.abs(x1 - x0);
+      const dy = Math.abs(y1 - y0);
+      const sx = x0 < x1 ? 1 : -1;
+      const sy = y0 < y1 ? 1 : -1;
+      let err = dx - dy;
+
+      while (true) {
+        applyBrushAt(x0, y0);
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) {
+          err -= dy;
+          x0 += sx;
+        }
+        if (e2 < dx) {
+          err += dx;
+          y0 += sy;
+        }
+      }
+    }
+
+    function applyBrushAt(cx, cy) {
+      if (currentTool === 'bomb') {
+        triggerExplosion(cx, cy, Math.max(16, brushRadius * 3));
+        return;
+      }
+
+      if (currentTool === 'spawner') {
+        activeSpawners.push({ x: cx, y: cy, type: TYPE.WATER });
+        return;
+      }
+
+      const r2 = brushRadius * brushRadius;
+      for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+        const ny = cy + dy;
+        if (ny < 0 || ny >= SIM_HEIGHT) continue;
+        for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+          const nx = cx + dx;
+          if (nx < 0 || nx >= SIM_WIDTH) continue;
+          if (dx * dx + dy * dy <= r2) {
+            if (isSprayMode && Math.random() > 0.25) continue;
+
+            if (currentTool === 'void') {
+              setCell(nx, ny, TYPE.EMPTY);
+            } else if (currentTool === 'heat') {
+              const t = gridType[ny * SIM_WIDTH + nx];
+              if (t === TYPE.WOOD || t === TYPE.OIL || t === TYPE.GUNPOWDER) {
+                setCell(nx, ny, TYPE.FIRE);
+              } else if (t === TYPE.ICE) {
+                setCell(nx, ny, TYPE.WATER);
+              } else if (t === TYPE.STONE && Math.random() < 0.2) {
+                setCell(nx, ny, TYPE.LAVA);
+              }
+            } else {
+              setCell(nx, ny, currentTool);
+            }
+          }
+        }
+      }
+    }
+
+    // Screen to simulation coordinates conversion
+    function getSimCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = Math.floor(((clientX - rect.left) / rect.width) * SIM_WIDTH);
+      const y = Math.floor(((clientY - rect.top) / rect.height) * SIM_HEIGHT);
+      return { x, y, clientX, clientY };
+    }
+
+    // Pointer Events Binding
+    const vpContainer = document.getElementById('viewport-container');
+    const brushCursor = document.getElementById('brush-cursor-indicator');
+    const cellInspector = document.getElementById('cell-inspector');
+
+    function updateCursorIndicator(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / SIM_WIDTH;
+      const sizeOnScreen = brushRadius * 2 * scaleX;
+      brushCursor.style.width = `${sizeOnScreen}px`;
+      brushCursor.style.height = `${sizeOnScreen}px`;
+      brushCursor.style.left = `${e.clientX}px`;
+      brushCursor.style.top = `${e.clientY}px`;
+      brushCursor.style.display = 'block';
+
+      // Cell Inspector Data
+      const { x, y } = getSimCoords(e);
+      if (x >= 0 && x < SIM_WIDTH && y >= 0 && y < SIM_HEIGHT) {
+        const type = gridType[y * SIM_WIDTH + x];
+        const def = ELEMENT_DEFS[type];
+        cellInspector.style.display = 'block';
+        cellInspector.style.left = `${e.clientX + 16}px`;
+        cellInspector.style.top = `${e.clientY + 16}px`;
+        cellInspector.innerHTML = `
+          <div style="font-weight:700; color:var(--accent);">${def.name}</div>
+          <div>Densidad (ρ): ${def.density}</div>
+          <div>Coords: (${x}, ${y})</div>
+          <div style="font-size:8px; color:#8892b0; margin-top:2px;">${def.desc}</div>
+        `;
+      } else {
+        cellInspector.style.display = 'none';
+      }
+    }
+
+    vpContainer.addEventListener('mousedown', (e) => {
+      initAudio();
+      isMouseDown = true;
+      const { x, y } = getSimCoords(e);
+      lastMouseX = x;
+      lastMouseY = y;
+      applyBrushAt(x, y);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isMouseDown = false;
+      lastMouseX = -1;
+      lastMouseY = -1;
+    });
+
+    vpContainer.addEventListener('mousemove', (e) => {
+      updateCursorIndicator(e);
+      if (!isMouseDown) return;
+      const { x, y } = getSimCoords(e);
+      if (lastMouseX !== -1) {
+        drawLine(lastMouseX, lastMouseY, x, y);
+      } else {
+        applyBrushAt(x, y);
+      }
+      lastMouseX = x;
+      lastMouseY = y;
+    });
+
+    vpContainer.addEventListener('mouseleave', () => {
+      brushCursor.style.display = 'none';
+      cellInspector.style.display = 'none';
+    });
+
+    // Touch support for tablets / touchscreens
+    vpContainer.addEventListener('touchstart', (e) => {
+      initAudio();
+      isMouseDown = true;
+      const { x, y } = getSimCoords(e);
+      lastMouseX = x;
+      lastMouseY = y;
+      applyBrushAt(x, y);
+      e.preventDefault();
+    }, { passive: false });
+
+    vpContainer.addEventListener('touchmove', (e) => {
+      if (!isMouseDown) return;
+      const { x, y } = getSimCoords(e);
+      drawLine(lastMouseX, lastMouseY, x, y);
+      lastMouseX = x;
+      lastMouseY = y;
+      e.preventDefault();
+    }, { passive: false });
+
+    vpContainer.addEventListener('touchend', () => {
+      isMouseDown = false;
+    });
+
+    // Mouse wheel adjustments for brush radius
+    vpContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        brushRadius = Math.min(30, brushRadius + 1);
+      } else {
+        brushRadius = Math.max(1, brushRadius - 1);
+      }
+      document.getElementById('brush-slider').value = brushRadius;
+      document.getElementById('brush-size-label').textContent = `${brushRadius} px`;
+      updateCursorIndicator(e);
+    }, { passive: false });
+
+    // --- 10. PREBUILT TERRARIUM SCENARIOS ---
+    function loadScenario(scenarioId) {
+      clearGrid();
+
+      if (scenarioId === 'alchemy') {
+        // Multi-tier laboratory terrarium with containers and liquids
+        // Outer containment box
+        for (let x = 20; x < SIM_WIDTH - 20; x++) {
+          setCell(x, SIM_HEIGHT - 15, TYPE.STONE);
+          setCell(x, 20, TYPE.STONE);
+        }
+        for (let y = 20; y < SIM_HEIGHT - 15; y++) {
+          setCell(20, y, TYPE.STONE);
+          setCell(SIM_WIDTH - 21, y, TYPE.STONE);
+        }
+
+        // Funnels & Chambers
+        for (let x = 60; x <= 160; x++) {
+          setCell(x, 100, TYPE.STONE);
+        }
+        for (let y = 70; y <= 100; y++) {
+          setCell(60, y, TYPE.STONE);
+          setCell(160, y, TYPE.STONE);
+        }
+        // Fill Left chamber with Water
+        for (let x = 62; x < 160; x++) {
+          for (let y = 72; y < 100; y++) {
+            setCell(x, y, TYPE.WATER);
+          }
+        }
+
+        // Right Upper chamber with Oil
+        for (let x = 240; x <= 340; x++) {
+          setCell(x, 100, TYPE.STONE);
+        }
+        for (let y = 70; y <= 100; y++) {
+          setCell(240, y, TYPE.STONE);
+          setCell(340, y, TYPE.STONE);
+        }
+        for (let x = 242; x < 340; x++) {
+          for (let y = 72; y < 100; y++) {
+            setCell(x, y, TYPE.OIL);
+          }
+        }
+
+        // Middle Wooden Platform supporting Acid
+        for (let x = 160; x <= 240; x++) {
+          setCell(x, 140, TYPE.WOOD);
+        }
+        for (let x = 170; x < 230; x++) {
+          for (let y = 125; y < 140; y++) {
+            setCell(x, y, TYPE.ACID);
+          }
+        }
+
+        // Bottom reservoir: Sand dunes and Lava dropper above
+        for (let x = 100; x < 300; x++) {
+          for (let y = SIM_HEIGHT - 35; y < SIM_HEIGHT - 15; y++) {
+            setCell(x, y, TYPE.SAND);
+          }
+        }
+
+        // Suspended Magma Crucible
+        for (let x = 180; x <= 220; x++) {
+          setCell(x, 60, TYPE.OBSIDIAN);
+        }
+        for (let x = 185; x < 215; x++) {
+          for (let y = 45; y < 60; y++) {
+            setCell(x, y, TYPE.LAVA);
+          }
+        }
+
+      } else if (scenarioId === 'volcano') {
+        // High mountain volcano on left, water dam on right
+        // Volcano cone
+        for (let y = 80; y < SIM_HEIGHT - 10; y++) {
+          const w = (y - 80) * 1.2;
+          for (let x = 100 - w; x <= 100 + w; x++) {
+            if (x > 20 && x < 200) {
+              setCell(Math.floor(x), y, TYPE.STONE);
+            }
+          }
+        }
+        // Hollow out crater
+        for (let y = 80; y < SIM_HEIGHT - 20; y++) {
+          const w = (y - 80) * 0.4;
+          for (let x = 100 - w; x <= 100 + w; x++) {
+            setCell(Math.floor(x), y, TYPE.LAVA);
+          }
+        }
+
+        // Right side reservoir with wooden floodgate
+        for (let x = 240; x < SIM_WIDTH - 20; x++) {
+          setCell(x, SIM_HEIGHT - 15, TYPE.STONE);
+        }
+        for (let y = 90; y < SIM_HEIGHT - 15; y++) {
+          setCell(SIM_WIDTH - 21, y, TYPE.STONE);
+          setCell(240, y, TYPE.WOOD); // Fragile dam
+        }
+        for (let x = 242; x < SIM_WIDTH - 21; x++) {
+          for (let y = 100; y < SIM_HEIGHT - 15; y++) {
+            setCell(x, y, TYPE.WATER);
+          }
+        }
+
+      } else if (scenarioId === 'chain') {
+        // Pyrotechnic explosive testing field
+        for (let x = 20; x < SIM_WIDTH - 20; x++) {
+          setCell(x, SIM_HEIGHT - 15, TYPE.STONE);
+        }
+        // Gunpowder barrels
+        for (let b = 0; b < 5; b++) {
+          const bx = 60 + b * 60;
+          for (let x = bx; x < bx + 35; x++) {
+            for (let y = SIM_HEIGHT - 45; y < SIM_HEIGHT - 15; y++) {
+              setCell(x, y, TYPE.GUNPOWDER);
+            }
+          }
+          // Wood casing
+          for (let x = bx; x < bx + 35; x++) {
+            setCell(x, SIM_HEIGHT - 46, TYPE.WOOD);
+          }
+        }
+
+        // Oil connecting canals
+        for (let x = 40; x < SIM_WIDTH - 40; x++) {
+          setCell(x, SIM_HEIGHT - 16, TYPE.OIL);
+        }
+
+        // Ignition spark near left barrel
+        setCell(45, SIM_HEIGHT - 25, TYPE.SPARK);
+
+      } else if (scenarioId === 'density') {
+        // Stratification tube demonstration
+        const cx = Math.floor(SIM_WIDTH / 2);
+        for (let y = 30; y < SIM_HEIGHT - 20; y++) {
+          setCell(cx - 50, y, TYPE.STONE);
+          setCell(cx + 50, y, TYPE.STONE);
+        }
+        for (let x = cx - 50; x <= cx + 50; x++) {
+          setCell(x, SIM_HEIGHT - 20, TYPE.STONE);
+        }
+
+        // Layer 1: Sand (bottom)
+        for (let y = SIM_HEIGHT - 60; y < SIM_HEIGHT - 20; y++) {
+          for (let x = cx - 48; x < cx + 49; x++) {
+            setCell(x, y, TYPE.SAND);
+          }
+        }
+        // Layer 2: Water (middle)
+        for (let y = SIM_HEIGHT - 110; y < SIM_HEIGHT - 60; y++) {
+          for (let x = cx - 48; x < cx + 49; x++) {
+            setCell(x, y, TYPE.WATER);
+          }
+        }
+        // Layer 3: Oil (floats on water)
+        for (let y = SIM_HEIGHT - 150; y < SIM_HEIGHT - 110; y++) {
+          for (let x = cx - 48; x < cx + 49; x++) {
+            setCell(x, y, TYPE.OIL);
+          }
+        }
+      }
+    }
+
+    // --- 11. UI ELEMENT INITIALIZATION & EVENT BINDINGS ---
+    function initUI() {
+      // Build Element Palette Cards
+      const container = document.getElementById('elements-selector');
+      container.innerHTML = '';
+
+      const selectableTypes = [
+        TYPE.SAND, TYPE.WATER, TYPE.STONE, TYPE.WOOD,
+        TYPE.OIL, TYPE.ACID, TYPE.FIRE, TYPE.LAVA,
+        TYPE.GUNPOWDER, TYPE.OBSIDIAN, TYPE.ICE, TYPE.SMOKE
+      ];
+
+      selectableTypes.forEach(t => {
+        const def = ELEMENT_DEFS[t];
+        const card = document.createElement('div');
+        card.className = `element-card ${currentTool === t ? 'active' : ''}`;
+        card.dataset.type = t;
+        card.innerHTML = `
+          <div class="swatch" style="background: ${def.colorHex};"></div>
+          <div class="elem-meta">
+            <span class="elem-name">${def.name}</span>
+            <span class="elem-sub">ρ = ${def.density}</span>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.element-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          currentTool = t;
+        });
+        container.appendChild(card);
+      });
+
+      // Special Tool Cards
+      document.querySelectorAll('[data-tool]').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.element-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          currentTool = card.dataset.tool;
+        });
+      });
+
+      // Brush Slider
+      const slider = document.getElementById('brush-slider');
+      slider.addEventListener('input', (e) => {
+        brushRadius = parseInt(e.target.value, 10);
+        document.getElementById('brush-size-label').textContent = `${brushRadius} px`;
+      });
+
+      // Toggle Spray Mode
+      const btnSpray = document.getElementById('btn-toggle-spray');
+      btnSpray.addEventListener('click', () => {
+        isSprayMode = !isSprayMode;
+        document.getElementById('spray-mode-label').textContent = isSprayMode ? 'SPRAY FINO' : 'SÓLIDO';
+        btnSpray.classList.toggle('active', isSprayMode);
+      });
+
+      // Quick Actions
+      const btnPause = document.getElementById('btn-pause');
+      btnPause.addEventListener('click', () => {
+        isPaused = !isPaused;
+        btnPause.classList.toggle('active', isPaused);
+        document.getElementById('pause-icon').textContent = isPaused ? '▶' : '⏸';
+        btnPause.querySelector('span:last-child').textContent = isPaused ? ' Reanudar' : ' Pausar';
+      });
+
+      document.getElementById('btn-step').addEventListener('click', () => {
+        updatePhysics();
+        render();
+      });
+
+      const btnGravity = document.getElementById('btn-gravity');
+      btnGravity.addEventListener('click', () => {
+        gravityDirection *= -1;
+        document.getElementById('gravity-display').textContent = gravityDirection > 0 ? '▼ +1.0G' : '▲ -1.0G';
+        btnGravity.classList.toggle('active', gravityDirection < 0);
+      });
+
+      const btnBloom = document.getElementById('btn-bloom');
+      btnBloom.addEventListener('click', () => {
+        bloomEnabled = !bloomEnabled;
+        btnBloom.textContent = `✨ Bloom: ${bloomEnabled ? 'ON' : 'OFF'}`;
+        canvas.style.filter = bloomEnabled ? 'drop-shadow(0 0 12px rgba(255, 100, 0, 0.45))' : 'none';
+      });
+
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.addEventListener('click', () => {
+        initAudio();
+        audioEnabled = !audioEnabled;
+        btnAudio.textContent = `🔊 Sonido: ${audioEnabled ? 'ON' : 'OFF'}`;
+      });
+
+      document.getElementById('btn-clear').addEventListener('click', clearGrid);
+
+      // Scenario Presets
+      document.querySelectorAll('[data-scenario]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          loadScenario(btn.dataset.scenario);
+        });
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          btnPause.click();
+        } else if (e.code === 'KeyF') {
+          document.getElementById('btn-step').click();
+        } else if (e.code === 'KeyG') {
+          btnGravity.click();
+        } else if (e.code === 'KeyC') {
+          clearGrid();
+        } else if (e.code === 'KeyB') {
+          btnSpray.click();
+        } else if (e.code === 'KeyM') {
+          btnAudio.click();
+        } else if (e.key >= '1' && e.key <= '9') {
+          const idx = parseInt(e.key, 10) - 1;
+          const cards = document.querySelectorAll('#elements-selector .element-card');
+          if (cards[idx]) cards[idx].click();
+        }
+      });
+    }
+
+    // --- 12. ANIMATION LOOP & TELEMETRY PROFILER ---
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
+    let fps = 60.0;
+
+    function mainLoop(now) {
+      requestAnimationFrame(mainLoop);
+
+      const t0 = performance.now();
+      if (!isPaused) {
+        updatePhysics();
+      }
+      const tickDuration = (performance.now() - t0).toFixed(2);
+      document.getElementById('tick-time-display').textContent = `${tickDuration} ms`;
+
+      render();
+
+      frameCount++;
+      if (now - lastFpsUpdate >= 500) {
+        fps = ((frameCount * 1000) / (now - lastFpsUpdate)).toFixed(1);
+        frameCount = 0;
+        lastFpsUpdate = now;
+        const fpsElem = document.getElementById('fps-display');
+        fpsElem.textContent = fps;
+        fpsElem.style.color = fps >= 55 ? '#66fcf1' : fps >= 30 ? '#ffb703' : '#ff4d4d';
+      }
+    }
+
+    // --- 13. BOOTSTRAP ---
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeDisplay();
+      initUI();
+      loadScenario('alchemy'); // Load default stunning alchemy terrarium
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

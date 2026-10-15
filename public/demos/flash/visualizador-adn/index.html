@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GENOM-X // Visualizador 3D de ADN Cyberpunk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --neon-cyan: #00f0ff;
+      --neon-magenta: #ff007f;
+      --neon-purple: #9d00ff;
+      --neon-green: #00ff88;
+      --neon-amber: #ffaa00;
+      --bg-dark: rgba(3, 6, 16, 0.88);
+      --panel-border: rgba(0, 240, 255, 0.35);
+      --glass-glow: 0 0 25px rgba(0, 240, 255, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #020308;
+      font-family: 'Rajdhani', sans-serif;
+      color: #d8f0ff;
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* PANTALLA DE CARGA SCI-FI */
+    #loader {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0b152d 0%, #010309 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+      display: none !important;
+    }
+
+    .loader-helix-rings {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      margin-bottom: 25px;
+    }
+
+    .loader-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--neon-cyan);
+      border-bottom-color: var(--neon-magenta);
+      animation: spinRing 1.8s linear infinite;
+    }
+
+    .loader-ring:nth-child(2) {
+      width: 70%;
+      height: 70%;
+      top: 15%;
+      left: 15%;
+      border-top-color: var(--neon-green);
+      border-bottom-color: var(--neon-amber);
+      animation: spinRingRev 1.2s linear infinite;
+    }
+
+    @keyframes spinRing {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes spinRingRev {
+      0% { transform: rotate(360deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .loader-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.7);
+      margin-bottom: 10px;
+    }
+
+    .loader-status {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: #79a6d2;
+      margin-bottom: 22px;
+    }
+
+    .loader-bar-bg {
+      width: 320px;
+      height: 4px;
+      background: rgba(0, 240, 255, 0.15);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .loader-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: width 0.2s ease-out;
+    }
+
+    /* HUD CYBERPUNK OVERLAY */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 370px 1fr 390px;
+      padding: 20px;
+      transition: opacity 0.4s ease;
+    }
+
+    #hud-overlay.hud-hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      background: var(--bg-dark);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      box-shadow: var(--glass-glow);
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hud-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-magenta), transparent);
+    }
+
+    .hud-corner {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-color: var(--neon-cyan);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .hud-corner.tl { top: 2px; left: 2px; border-width: 2px 0 0 2px; }
+    .hud-corner.tr { top: 2px; right: 2px; border-width: 2px 2px 0 0; }
+    .hud-corner.bl { bottom: 2px; left: 2px; border-width: 0 0 2px 2px; }
+    .hud-corner.br { bottom: 2px; right: 2px; border-width: 0 2px 2px 0; }
+
+    /* CABECERA SUPERIOR */
+    .hud-top {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 12px 24px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--neon-cyan);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px var(--neon-cyan);
+      position: relative;
+    }
+
+    .brand-icon::after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background: var(--neon-magenta);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--neon-magenta);
+    }
+
+    .brand-text h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    }
+
+    .brand-text p {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+    }
+
+    /* TICKER DE SECUENCIA NUCLEÓTIDA */
+    .sequence-ticker {
+      display: flex;
+      gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      background: rgba(0, 20, 45, 0.6);
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 240, 255, 0.25);
+    }
+
+    .pair-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+    .pair-at { color: var(--neon-green); background: rgba(0, 255, 136, 0.12); border: 1px solid rgba(0, 255, 136, 0.3); }
+    .pair-ta { color: var(--neon-amber); background: rgba(255, 170, 0, 0.12); border: 1px solid rgba(255, 170, 0, 0.3); }
+    .pair-cg { color: var(--neon-cyan); background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.3); }
+    .pair-gc { color: var(--neon-magenta); background: rgba(255, 0, 127, 0.12); border: 1px solid rgba(255, 0, 127, 0.3); }
+
+    .header-status-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .status-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green);
+      animation: pulseLed 1.5s infinite alternate;
+    }
+
+    @keyframes pulseLed {
+      0% { opacity: 0.6; }
+      100% { opacity: 1.0; box-shadow: 0 0 12px var(--neon-green); }
+    }
+
+    /* PANEL IZQUIERDO: TELEMETRÍA Y CINEMÁTICA */
+    .hud-left {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-left::-webkit-scrollbar { display: none; }
+
+    .panel-section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+      padding-bottom: 5px;
+    }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 3.5px 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    }
+
+    .telemetry-label {
+      color: #8da4be;
+      letter-spacing: 1px;
+    }
+
+    .telemetry-val {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .telemetry-val.highlight-cyan {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    .telemetry-val.highlight-magenta {
+      color: var(--neon-magenta);
+      text-shadow: 0 0 8px rgba(255, 0, 127, 0.4);
+    }
+
+    .telemetry-val.highlight-amber {
+      color: var(--neon-amber);
+      text-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+    }
+
+    .energy-gauge-widget {
+      background: rgba(0, 18, 38, 0.65);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 4px;
+    }
+
+    .energy-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0 6px 0;
+      position: relative;
+    }
+
+    .energy-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      transition: width 0.1s linear;
+    }
+
+    /* LEYENDA GENÉTICA */
+    .base-legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(0, 20, 40, 0.4);
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    /* PANEL DERECHO: CONTROLES DE FÍSICA Y VISUALIZACIÓN */
+    .hud-right {
+      grid-column: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-self: start;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .hud-right::-webkit-scrollbar { display: none; }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      background: rgba(0, 30, 60, 0.45);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #c9e6ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.35), rgba(157, 0, 255, 0.5));
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.45);
+      font-weight: bold;
+    }
+
+    .hud-btn.full-width {
+      grid-column: 1 / 3;
+    }
+
+    .hud-btn.blast-btn {
+      background: linear-gradient(90deg, rgba(255, 0, 127, 0.3), rgba(157, 0, 255, 0.4));
+      border-color: var(--neon-magenta);
+      color: #ffffff;
+      font-size: 12px;
+      padding: 10px;
+      box-shadow: 0 0 14px rgba(255, 0, 127, 0.3);
+    }
+
+    .hud-btn.blast-btn:hover {
+      background: linear-gradient(90deg, rgba(255, 0, 127, 0.6), rgba(157, 0, 255, 0.7));
+      box-shadow: 0 0 22px rgba(255, 0, 127, 0.7);
+      transform: scale(1.02);
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #b0d4f1;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 18px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 18px;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: rgba(0, 240, 255, 0.45);
+      border-color: var(--neon-cyan);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .range-control-group {
+      margin-top: 6px;
+    }
+
+    .range-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: #8da4be;
+      margin-bottom: 4px;
+    }
+
+    .hud-range {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(0, 240, 255, 0.2);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    .hud-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    /* BARRA INFERIOR / DOCK */
+    .hud-bottom {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding: 10px 20px;
+    }
+
+    .cam-presets {
+      display: flex;
+      gap: 8px;
+    }
+
+    .cam-pill {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: #a8d5fc;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cam-pill:hover {
+      background: rgba(0, 240, 255, 0.25);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .cam-pill.active {
+      background: var(--neon-cyan);
+      color: #001020;
+      font-weight: bold;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .bottom-hint {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: #6482a4;
+    }
+
+    .bottom-hint span {
+      color: var(--neon-cyan);
+    }
+
+    .hud-floating-trigger {
+      position: absolute;
+      bottom: 25px;
+      right: 25px;
+      z-index: 20;
+      background: var(--bg-dark);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: var(--neon-cyan);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s;
+      box-shadow: var(--glass-glow);
+      display: none;
+    }
+
+    .hud-floating-trigger:hover {
+      background: var(--neon-cyan);
+      color: #040914;
+    }
+  </style>
+
+  <!-- Import maps polyfill for ES module support -->
+  <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D WEBGL CANVAS -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- LOADER SCI-FI -->
+  <div id="loader">
+    <div class="loader-helix-rings">
+      <div class="loader-ring"></div>
+      <div class="loader-ring"></div>
+    </div>
+    <div class="loader-title">GENOM-X BIOTECH</div>
+    <div class="loader-status" id="loader-status">SINTETIZANDO CADENA NUCLEÓTIDA DE ALTA DENSIDAD...</div>
+    <div class="loader-bar-bg">
+      <div class="loader-bar-fill" id="loader-progress"></div>
+    </div>
+  </div>
+
+  <!-- FLOATING TRIGGER WHEN HUD IS HIDDEN -->
+  <div class="hud-floating-trigger" id="floating-hud-toggle" title="Restaurar interfaz">
+    MOSTRAR HUD [H]
+  </div>
+
+  <!-- HUD OVERLAY CONTAINER -->
+  <div id="hud-overlay">
+    
+    <!-- TOP HEADER -->
+    <div class="hud-panel hud-top">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="brand-group">
+        <div class="brand-icon"></div>
+        <div class="brand-text">
+          <h1>GENOM-X // QUANTUM DNA SYSTEM</h1>
+          <p>SIMULADOR FÍSICO DE PARTÍCULAS // ESTÉTICA CYBERPUNK BIOMOLECULAR</p>
+        </div>
+      </div>
+
+      <!-- TICKER DE SECUENCIA NUCLEÓTIDA -->
+      <div class="sequence-ticker" id="sequence-ticker">
+        <span class="pair-badge pair-at">A-T</span>
+        <span class="pair-badge pair-cg">C-G</span>
+        <span class="pair-badge pair-ta">T-A</span>
+        <span class="pair-badge pair-gc">G-C</span>
+        <span class="pair-badge pair-at">A-T</span>
+        <span class="pair-badge pair-cg">C-G</span>
+      </div>
+
+      <div class="header-status-group">
+        <div class="status-badge">
+          <div class="status-led"></div>
+          <span id="particle-status">ESTADO: RESONANCIA MAGNÉTICA</span>
+        </div>
+        <div class="status-badge">
+          <div class="status-led"></div>
+          <span id="fps-display">60.0 FPS</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEFT PANEL: TELEMETRÍA Y CINEMÁTICA -->
+    <div class="hud-panel hud-left">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="panel-section-title">
+        <span>TELEMETRÍA MOLECULAR</span>
+        <span class="telemetry-val highlight-cyan" id="live-particles-val">18,480 PTS</span>
+      </div>
+
+      <div class="telemetry-row">
+        <span class="telemetry-label">PARTÍCULAS ACTIVAS:</span>
+        <span class="telemetry-val highlight-cyan" id="part-count">18,480</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">RADIO DE HÉLICE (R):</span>
+        <span class="telemetry-val">12.0 Ångströms</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">LONGITUD TOTAL:</span>
+        <span class="telemetry-val">100.0 Ångströms</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">VUELTAS HELICOIDALES:</span>
+        <span class="telemetry-val">4.5 Revoluciones</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">PARES DE BASES:</span>
+        <span class="telemetry-val highlight-amber">120 Peldaños H-Bond</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">SURCO MAYOR / MENOR:</span>
+        <span class="telemetry-val">22.0 Å / 12.0 Å</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-label">LEYES DINÁMICAS:</span>
+        <span class="telemetry-val highlight-magenta">HOOKE + AMORTIGUACIÓN</span>
+      </div>
+
+      <!-- MEDIDOR DE ENERGÍA CINÉTICA -->
+      <div class="panel-section-title" style="margin-top: 10px;">
+        <span>CINÉTICA DE DISPERSIÓN</span>
+        <span class="telemetry-val" id="energy-pct">0.0%</span>
+      </div>
+      <div class="energy-gauge-widget">
+        <div class="telemetry-row">
+          <span class="telemetry-label">PERTURBACIÓN DEL CURSOR:</span>
+          <span class="telemetry-val highlight-cyan" id="cursor-state">EN REPOSO</span>
+        </div>
+        <div class="energy-bar">
+          <div class="energy-bar-fill" id="energy-fill"></div>
+        </div>
+        <div class="telemetry-row" style="border: none; padding-top: 2px;">
+          <span class="telemetry-label">VELOCIDAD MÁXIMA PTS:</span>
+          <span class="telemetry-val" id="max-vel-val">0.00 Å/s</span>
+        </div>
+      </div>
+
+      <!-- LEYENDA BIOMOLECULAR -->
+      <div class="panel-section-title" style="margin-top: 10px;">
+        <span>CÓDIGO DE BASES NITROGENADAS</span>
+      </div>
+      <div class="base-legend-grid">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#00ff88; color:#00ff88;"></div>
+          <span>[A] Adenina</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#ffaa00; color:#ffaa00;"></div>
+          <span>[T] Timina</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#ff007f; color:#ff007f;"></div>
+          <span>[C] Citosina</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#00f0ff; color:#00f0ff;"></div>
+          <span>[G] Guanina</span>
+        </div>
+        <div class="legend-item" style="grid-column: 1 / 3;">
+          <div class="legend-dot" style="background:#9d00ff; color:#9d00ff;"></div>
+          <span>Hebra Esqueleto Azúcar-Fosfato (A/B)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: CONTROLES DE FÍSICA Y VISUALIZACIÓN -->
+    <div class="hud-panel hud-right">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="panel-section-title">
+        <span>FÍSICA DE RESORTES & FUERZAS</span>
+      </div>
+
+      <button class="hud-btn blast-btn full-width" id="btn-shockwave">
+        💥 DISPERSIÓN CUÁNTICA (SHOCKWAVE)
+      </button>
+
+      <div class="range-control-group" style="margin-top: 10px;">
+        <div class="range-header">
+          <span>FUERZA DE DISPERSIÓN CURSOR:</span>
+          <span id="force-val">180 N</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-force" min="20" max="450" step="5" value="180">
+      </div>
+
+      <div class="range-control-group">
+        <div class="range-header">
+          <span>RADIO DE INFLUENCIA:</span>
+          <span id="radius-val">14.0 Å</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-radius" min="4" max="35" step="1" value="14">
+      </div>
+
+      <div class="range-control-group">
+        <div class="range-header">
+          <span>ELASTICIDAD DE RETORNO (Hooke k):</span>
+          <span id="spring-val">14.0</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-spring" min="2" max="35" step="0.5" value="14">
+      </div>
+
+      <div class="range-control-group">
+        <div class="range-header">
+          <span>AMORTIGUACIÓN CINÉTICA (Damping c):</span>
+          <span id="damping-val">0.88</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-damping" min="0.70" max="0.98" step="0.01" value="0.88">
+      </div>
+
+      <div class="range-control-group">
+        <div class="range-header">
+          <span>VELOCIDAD DE ROTACIÓN AXIAL:</span>
+          <span id="rot-speed-val">1.0x</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-rot" min="-3.0" max="3.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="range-control-group">
+        <div class="range-header">
+          <span>ONDULACIÓN ORGÁNICA (Vibración):</span>
+          <span id="wave-val">0.6x</span>
+        </div>
+        <input type="range" class="hud-range" id="slider-wave" min="0.0" max="2.0" step="0.1" value="0.6">
+      </div>
+
+      <div class="panel-section-title" style="margin-top: 12px;">
+        <span>EFECTOS VISUALES & CAPAS</span>
+      </div>
+
+      <div class="toggle-row">
+        <span>Resplandor Bioluminiscente (Bloom)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-bloom" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Aberración Cromática Cyberpunk</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-aberration" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Enlaces Moleculares (Puentes H)</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-lines" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Polvo de Fondo & Partículas Nano</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-ambient" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Rejilla Holográfica 3D</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-grid" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Audio Sintetizado Interactivo</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-audio" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- BOTTOM DOCK: CÁMARAS Y ATAJOS -->
+    <div class="hud-panel hud-bottom">
+      <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+      <div class="cam-presets">
+        <div class="cam-pill active" id="cam-full">⌖ VISTA COMPLETA</div>
+        <div class="cam-pill" id="cam-macro">🔍 MACRO NUCLEÓTIDOS</div>
+        <div class="cam-pill" id="cam-top">⏏ CENITAL HELICOIDAL</div>
+        <div class="cam-pill" id="cam-free">✦ RESTAURAR PARTÍCULAS</div>
+      </div>
+
+      <div class="bottom-hint">
+        PASAR CURSOR: <span>Dispersar Hélice</span> | CLICK IZQ + ARRASTRAR: <span>Rotar Órbita</span> | SCROLL: <span>Zoom Micro/Macro</span> | TECLA [H]: <span>Ocultar HUD</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SCRIPT PRINCIPAL DE LA SIMULACIÓN -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    /* ==========================================================================
+       1. PARÁMETROS MATEMÁTICOS DE LA DOBLE HÉLICE Y FÍSICA
+       ========================================================================== */
+    const HELIX_RADIUS = 12.0;       // Radio exterior del esqueleto de azúcar-fosfato
+    const HELIX_HEIGHT = 105.0;      // Longitud a lo largo del eje Y
+    const HELIX_TURNS = 4.5;         // Revoluciones totales de 360°
+    const BASE_PAIRS_COUNT = 120;    // Peldaños de pares de bases nitrogenadas
+    const PARTICLES_PER_RUNG = 42;   // Densidad de partículas por puente de enlace base
+    const STRAND_PARTICLES = 4800;   // Partículas por cada una de las dos hebras principales
+    const AMBIENT_PARTICLES = 3200;  // Partículas de polvo cósmico flotante
+
+    // Número total de partículas dinámicas: ~18,000+
+    const TOTAL_DNA_PARTICLES = (STRAND_PARTICLES * 2) + (BASE_PAIRS_COUNT * PARTICLES_PER_RUNG);
+
+    // Parámetros de física interactiva
+    const physicsParams = {
+      mouseForce: 180.0,
+      mouseRadius: 14.0,
+      springK: 14.0,
+      damping: 0.88,
+      rotSpeed: 0.8,
+      waveAmp: 0.6,
+      waveFreq: 2.2,
+      bloomEnabled: true,
+      aberrationEnabled: true,
+      linesEnabled: true,
+      ambientEnabled: true,
+      gridEnabled: true,
+      audioEnabled: true
+    };
+
+    /* ==========================================================================
+       2. MOTOR DE AUDIO SINTETIZADO INTERACTIVO (WEB AUDIO API - 0 ARCHIVOS)
+       ========================================================================== */
+    class BioSynthesizer {
+      constructor() {
+        this.ctx = null;
+        this.osc = null;
+        this.gain = null;
+        this.filter = null;
+        this.isInit = false;
+      }
+
+      init() {
+        if (this.isInit) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          
+          this.osc = this.ctx.createOscillator();
+          this.osc.type = 'sine';
+          this.osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+
+          this.filter = this.ctx.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+
+          this.gain = this.ctx.createGain();
+          this.gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+
+          this.osc.connect(this.filter);
+          this.filter.connect(this.gain);
+          this.gain.connect(this.ctx.destination);
+          this.osc.start();
+
+          this.isInit = true;
+        } catch (e) {
+          console.warn("Web Audio no disponible:", e);
+        }
+      }
+
+      updateKineticSound(energyNorm) {
+        if (!this.isInit || !physicsParams.audioEnabled) return;
+        const targetFreq = 110 + energyNorm * 440;
+        const targetGain = Math.min(0.18, energyNorm * 0.25);
+        this.osc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.05);
+        this.gain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.08);
+      }
+
+      triggerShockwavePulse() {
+        if (!this.isInit || !physicsParams.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const blastOsc = this.ctx.createOscillator();
+        const blastGain = this.ctx.createGain();
+
+        blastOsc.type = 'sawtooth';
+        blastOsc.frequency.setValueAtTime(320, now);
+        blastOsc.frequency.exponentialRampToValueAtTime(40, now + 0.8);
+
+        blastGain.gain.setValueAtTime(0.3, now);
+        blastGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+        blastOsc.connect(blastGain);
+        blastGain.connect(this.ctx.destination);
+
+        blastOsc.start(now);
+        blastOsc.stop(now + 0.85);
+      }
+    }
+
+    const bioSynth = new BioSynthesizer();
+    window.addEventListener('pointerdown', () => bioSynth.init(), { once: true });
+    window.addEventListener('pointermove', () => bioSynth.init(), { once: true });
+
+    /* ==========================================================================
+       3. SHADERS GLSL PERSONALIZADOS: PARTÍCULAS BIOLUMINISCENTES & POST-FX
+       ========================================================================== */
+    // Shader GLSL de Partículas con Núcleo Incandescente y Halo Bioluminiscente Nítido
+    const DnaParticleShader = {
+      vertexShader: `
+        attribute float aSize;
+        attribute vec3 aColor;
+        attribute float aType;
+
+        uniform float uTime;
+        uniform float uPixelRatio;
+
+        varying vec3 vColor;
+        varying float vType;
+        varying float vDepth;
+
+        void main() {
+          vColor = aColor;
+          vType = aType;
+
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vDepth = -mvPosition.z;
+
+          // Escalado en perspectiva calibrado para alta definición molecular
+          gl_PointSize = aSize * uPixelRatio * (160.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.2, 32.0);
+
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec3 vColor;
+        varying float vType;
+        varying float vDepth;
+
+        void main() {
+          vec2 coord = gl_PointCoord - vec2(0.5);
+          float dist = length(coord);
+          if (dist > 0.5) discard;
+
+          // Perfil nítido: núcleo definido + sutil halo exterior
+          float core = smoothstep(0.48, 0.08, dist);
+          float halo = pow(1.0 - dist * 2.0, 3.0);
+
+          // Centro brillante controlado para evitar saturación aditiva
+          vec3 hotCenter = vec3(1.0, 1.0, 1.0) * pow(core, 5.0) * 0.7;
+          vec3 emission = vColor * (core * 0.85 + halo * 0.45) + hotCenter;
+
+          // Scanline sutil holográfico
+          float scan = sin(gl_FragCoord.y * 0.75 + uTime * 3.5) * 0.06 + 0.94;
+
+          gl_FragColor = vec4(emission * scan, (core * 0.8 + halo * 0.35));
+        }
+      `
+    };
+
+    // Shader de Aberración Cromática y Viñeta Cyberpunk
+    const CyberpunkPostShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        uAberrationOffset: { value: 0.0035 },
+        uTime: { value: 0.0 },
+        uEnabled: { value: 1.0 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uAberrationOffset;
+        uniform float uTime;
+        uniform float uEnabled;
+        varying vec2 vUv;
+
+        void main() {
+          if (uEnabled < 0.5) {
+            gl_FragColor = texture2D(tDiffuse, vUv);
+            return;
+          }
+
+          vec2 distFromCenter = vUv - 0.5;
+          float dist = length(distFromCenter);
+
+          // Aberración cromática radial creciente hacia los bordes
+          vec2 rOffset = distFromCenter * (uAberrationOffset * dist * 2.2);
+          vec2 bOffset = -rOffset;
+
+          float r = texture2D(tDiffuse, vUv + rOffset).r;
+          float g = texture2D(tDiffuse, vUv).g;
+          float b = texture2D(tDiffuse, vUv + bOffset).b;
+
+          // Viñeta oscura suave en las esquinas
+          float vignette = 1.0 - smoothstep(0.4, 0.85, dist);
+
+          vec3 color = vec3(r, g, b) * vignette;
+
+          // Grano sutil digital
+          float noise = fract(sin(dot(vUv * (uTime + 1.0), vec2(12.9898, 78.233))) * 43758.5453);
+          color += (noise - 0.5) * 0.018;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `
+    };
+
+    /* ==========================================================================
+       4. INICIALIZACIÓN DE LA ESCENA, CÁMARA, RENDERER Y POST-PROCESADO
+       ========================================================================== */
+    const canvas = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020309, 0.0035);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.5, 1000);
+    camera.position.set(0, 0, 75);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 5.0;
+    controls.maxDistance = 220.0;
+    controls.target.set(0, 0, 0);
+
+    // Cadena de Post-procesado (Bloom + Aberración Cromática)
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.82,  // Fuerza de Bloom nítida y controlada
+      0.45,  // Radio de dispersión
+      0.85   // Umbral de luminancia
+    );
+    composer.addPass(bloomPass);
+
+    const cyberpunkPass = new ShaderPass(CyberpunkPostShader);
+    composer.addPass(cyberpunkPass);
+
+    const outputPass = new OutputPass();
+    composer.addPass(outputPass);
+
+    /* ==========================================================================
+       5. ARQUITECTURA DE BUFFERS Y SÍNTESIS MATEMÁTICA DEL ADN
+       ========================================================================== */
+    const dnaGroup = new THREE.Group();
+    scene.add(dnaGroup);
+
+    // Buffers planos de alto rendimiento con TypedArrays
+    const positions = new Float32Array(TOTAL_DNA_PARTICLES * 3);
+    const origPositions = new Float32Array(TOTAL_DNA_PARTICLES * 3);
+    const velocities = new Float32Array(TOTAL_DNA_PARTICLES * 3);
+    const colors = new Float32Array(TOTAL_DNA_PARTICLES * 3);
+    const sizes = new Float32Array(TOTAL_DNA_PARTICLES);
+    const types = new Float32Array(TOTAL_DNA_PARTICLES);
+
+    // Paleta cromática biomolecular
+    const colStrandA = new THREE.Color(0xb537f2); // Púrpura eléctrico
+    const colStrandB = new THREE.Color(0x00f0ff); // Cian vibrante
+    const colAdenine = new THREE.Color(0x00ff88); // Verde esmeralda (A)
+    const colThymine = new THREE.Color(0xffaa00); // Ámbar dorado (T)
+    const colCytosine = new THREE.Color(0xff007f); // Magenta carmesí (C)
+    const colGuanine = new THREE.Color(0x00d4ff); // Azul cian puro (G)
+    const colBondCore = new THREE.Color(0xffffff); // Núcleo puente H
+
+    let ptr = 0; // Puntero de partículas
+
+    // A) GENERACIÓN DE LAS DOS HEBRAS ESQUELETO (STRAND A & B)
+    const maxTheta = HELIX_TURNS * Math.PI * 2;
+    const majorGrooveOffset = THREE.MathUtils.degToRad(145.0); // Surco menor y mayor
+
+    for (let s = 0; s < 2; s++) {
+      const isStrandA = (s === 0);
+      const angleOffset = isStrandA ? 0 : majorGrooveOffset;
+      const strandColor = isStrandA ? colStrandA : colStrandB;
+
+      for (let i = 0; i < STRAND_PARTICLES; i++) {
+        const tNorm = i / STRAND_PARTICLES;
+        const theta = tNorm * maxTheta;
+        const y = (tNorm - 0.5) * HELIX_HEIGHT;
+
+        const rJitter = HELIX_RADIUS + (Math.random() - 0.5) * 1.5;
+        const yJitter = y + (Math.random() - 0.5) * 0.7;
+        const thetaJitter = theta + angleOffset + (Math.random() - 0.5) * 0.06;
+
+        const x = rJitter * Math.cos(thetaJitter);
+        const z = rJitter * Math.sin(thetaJitter);
+
+        const idx3 = ptr * 3;
+        positions[idx3] = x;
+        positions[idx3 + 1] = yJitter;
+        positions[idx3 + 2] = z;
+
+        origPositions[idx3] = x;
+        origPositions[idx3 + 1] = yJitter;
+        origPositions[idx3 + 2] = z;
+
+        velocities[idx3] = 0;
+        velocities[idx3 + 1] = 0;
+        velocities[idx3 + 2] = 0;
+
+        colors[idx3] = strandColor.r;
+        colors[idx3 + 1] = strandColor.g;
+        colors[idx3 + 2] = strandColor.b;
+
+        sizes[ptr] = 1.2 + Math.random() * 0.8;
+        types[ptr] = isStrandA ? 1.0 : 2.0;
+
+        ptr++;
+      }
+    }
+
+    // B) GENERACIÓN DE LOS PUENTES / PELDAÑOS DE PARES DE BASES (A-T, C-G)
+    const basePairsData = [];
+
+    for (let r = 0; r < BASE_PAIRS_COUNT; r++) {
+      const tNorm = r / BASE_PAIRS_COUNT;
+      const theta = tNorm * maxTheta;
+      const y = (tNorm - 0.5) * HELIX_HEIGHT;
+
+      const xA = HELIX_RADIUS * Math.cos(theta);
+      const zA = HELIX_RADIUS * Math.sin(theta);
+
+      const xB = HELIX_RADIUS * Math.cos(theta + majorGrooveOffset);
+      const zB = HELIX_RADIUS * Math.sin(theta + majorGrooveOffset);
+
+      const pairType = r % 4;
+      let colLeft, colRight;
+      if (pairType === 0) { colLeft = colAdenine; colRight = colThymine; }
+      else if (pairType === 1) { colLeft = colThymine; colRight = colAdenine; }
+      else if (pairType === 2) { colLeft = colCytosine; colRight = colGuanine; }
+      else { colLeft = colGuanine; colRight = colCytosine; }
+
+      basePairsData.push({ xA, yA: y, zA, xB, yB: y, zB });
+
+      for (let p = 0; p < PARTICLES_PER_RUNG; p++) {
+        const u = p / (PARTICLES_PER_RUNG - 1);
+
+        const px = THREE.MathUtils.lerp(xA, xB, u) + (Math.random() - 0.5) * 0.3;
+        const py = y + (Math.random() - 0.5) * 0.3;
+        const pz = THREE.MathUtils.lerp(zA, zB, u) + (Math.random() - 0.5) * 0.3;
+
+        const idx3 = ptr * 3;
+        positions[idx3] = px;
+        positions[idx3 + 1] = py;
+        positions[idx3 + 2] = pz;
+
+        origPositions[idx3] = px;
+        origPositions[idx3 + 1] = py;
+        origPositions[idx3 + 2] = pz;
+
+        velocities[idx3] = 0;
+        velocities[idx3 + 1] = 0;
+        velocities[idx3 + 2] = 0;
+
+        let particleCol;
+        if (Math.abs(u - 0.5) < 0.05) {
+          particleCol = colBondCore;
+        } else if (u < 0.5) {
+          particleCol = colLeft;
+        } else {
+          particleCol = colRight;
+        }
+
+        colors[idx3] = particleCol.r;
+        colors[idx3 + 1] = particleCol.g;
+        colors[idx3 + 2] = particleCol.b;
+
+        sizes[ptr] = (Math.abs(u - 0.5) < 0.05) ? 1.7 : (0.95 + Math.random() * 0.65);
+        types[ptr] = 3.0;
+
+        ptr++;
+      }
+    }
+
+    // Creación de la geometría de partículas de ADN
+    const dnaGeometry = new THREE.BufferGeometry();
+    dnaGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    dnaGeometry.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+    dnaGeometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    dnaGeometry.setAttribute('aType', new THREE.BufferAttribute(types, 1));
+
+    const dnaMaterial = new THREE.ShaderMaterial({
+      vertexShader: DnaParticleShader.vertexShader,
+      fragmentShader: DnaParticleShader.fragmentShader,
+      uniforms: {
+        uTime: { value: 0.0 },
+        uPixelRatio: { value: renderer.getPixelRatio() }
+      },
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const dnaPointsMesh = new THREE.Points(dnaGeometry, dnaMaterial);
+    dnaGroup.add(dnaPointsMesh);
+
+    // C) LÍNEAS ESTRUCTURALES DE UNIÓN (ENLACES BASE TRANSVERSALES)
+    const linePositions = new Float32Array(BASE_PAIRS_COUNT * 2 * 3);
+    const lineColors = new Float32Array(BASE_PAIRS_COUNT * 2 * 3);
+
+    for (let i = 0; i < BASE_PAIRS_COUNT; i++) {
+      const bp = basePairsData[i];
+      const i6 = i * 6;
+
+      linePositions[i6] = bp.xA;
+      linePositions[i6 + 1] = bp.yA;
+      linePositions[i6 + 2] = bp.zA;
+
+      linePositions[i6 + 3] = bp.xB;
+      linePositions[i6 + 4] = bp.yB;
+      linePositions[i6 + 5] = bp.zB;
+
+      // Color degradado en la línea
+      lineColors[i6] = colStrandA.r * 0.7;
+      lineColors[i6 + 1] = colStrandA.g * 0.7;
+      lineColors[i6 + 2] = colStrandA.b * 0.7;
+
+      lineColors[i6 + 3] = colStrandB.r * 0.7;
+      lineColors[i6 + 4] = colStrandB.g * 0.7;
+      lineColors[i6 + 5] = colStrandB.b * 0.7;
+    }
+
+    const lineGeometry = new THREE.BufferGeometry();
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+    lineGeometry.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const rungLinesMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
+    dnaGroup.add(rungLinesMesh);
+
+    // D) CAMPO DE PARTÍCULAS AMBIENTALES FLOTANTES (POLVO NANO-BIOLÓGICO)
+    const ambientGeo = new THREE.BufferGeometry();
+    const ambPos = new Float32Array(AMBIENT_PARTICLES * 3);
+    const ambColors = new Float32Array(AMBIENT_PARTICLES * 3);
+    const ambSizes = new Float32Array(AMBIENT_PARTICLES);
+
+    for (let i = 0; i < AMBIENT_PARTICLES; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const rad = 25.0 + Math.random() * 65.0;
+      const h = (Math.random() - 0.5) * 130.0;
+
+      ambPos[i * 3]     = Math.cos(theta) * rad;
+      ambPos[i * 3 + 1] = h;
+      ambPos[i * 3 + 2] = Math.sin(theta) * rad;
+
+      // Azul marino bioluminiscente tenue
+      ambColors[i * 3]     = 0.0 + Math.random() * 0.2;
+      ambColors[i * 3 + 1] = 0.5 + Math.random() * 0.4;
+      ambColors[i * 3 + 2] = 0.8 + Math.random() * 0.2;
+
+      ambSizes[i] = 1.0 + Math.random() * 2.2;
+    }
+
+    ambientGeo.setAttribute('position', new THREE.BufferAttribute(ambPos, 3));
+    ambientGeo.setAttribute('aColor', new THREE.BufferAttribute(ambColors, 3));
+    ambientGeo.setAttribute('aSize', new THREE.BufferAttribute(ambSizes, 1));
+    ambientGeo.setAttribute('aType', new THREE.BufferAttribute(new Float32Array(AMBIENT_PARTICLES), 1));
+
+    const ambientPointsMesh = new THREE.Points(ambientGeo, dnaMaterial);
+    scene.add(ambientPointsMesh);
+
+    // E) REJILLA DIGITAL CYBERPUNK DE FONDO
+    const gridHelper = new THREE.GridHelper(140, 35, 0x00f0ff, 0x071e3d);
+    gridHelper.position.y = -HELIX_HEIGHT * 0.55;
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.25;
+    scene.add(gridHelper);
+
+    // Ocultar pantalla de carga
+    setTimeout(() => {
+      document.getElementById('loader-progress').style.width = '100%';
+      document.getElementById('loader-status').innerText = '¡SÍNTESIS MOLECULAR COMPLETADA!';
+      setTimeout(() => {
+        document.getElementById('loader').classList.add('hidden');
+      }, 250);
+    }, 150);
+
+    /* ==========================================================================
+       6. INTERACCIÓN DE PUNTERO: RAYCASTING EN ESPACIO LOCAL DE LA HÉLICE
+       ========================================================================== */
+    const mouse = new THREE.Vector2(-9999, -9999);
+    const raycaster = new THREE.Raycaster();
+    let isMouseActive = false;
+    let shockwaveActive = false;
+    let shockwaveTime = 0.0;
+    let shockwaveStrength = 0.0;
+
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      isMouseActive = true;
+    });
+
+    window.addEventListener('pointerleave', () => {
+      isMouseActive = false;
+      mouse.set(-9999, -9999);
+    });
+
+    // Pulso de onda expansiva al hacer click o pulsar el botón
+    function triggerShockwave() {
+      shockwaveActive = true;
+      shockwaveTime = 0.0;
+      shockwaveStrength = 420.0;
+      bioSynth.triggerShockwavePulse();
+    }
+
+    document.getElementById('btn-shockwave').onclick = triggerShockwave;
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        triggerShockwave();
+      }
+      if (e.key === 'h' || e.key === 'H') toggleCinematicHUD();
+      if (e.key === '1') document.getElementById('cam-full').click();
+      if (e.key === '2') document.getElementById('cam-macro').click();
+      if (e.key === '3') document.getElementById('cam-top').click();
+      if (e.key === '4') document.getElementById('cam-free').click();
+    });
+
+    function toggleCinematicHUD() {
+      const hud = document.getElementById('hud-overlay');
+      const floatingBtn = document.getElementById('floating-hud-toggle');
+      hud.classList.toggle('hud-hidden');
+      floatingBtn.style.display = hud.classList.contains('hud-hidden') ? 'block' : 'none';
+    }
+    document.getElementById('floating-hud-toggle').onclick = toggleCinematicHUD;
+
+    /* ==========================================================================
+       7. ENLACES Y ESCUCHADORES DE LA INTERFAZ DE CONTROL (HUD)
+       ========================================================================== */
+    document.getElementById('slider-force').oninput = (e) => {
+      physicsParams.mouseForce = parseFloat(e.target.value);
+      document.getElementById('force-val').innerText = `${physicsParams.mouseForce.toFixed(0)} N`;
+    };
+    document.getElementById('slider-radius').oninput = (e) => {
+      physicsParams.mouseRadius = parseFloat(e.target.value);
+      document.getElementById('radius-val').innerText = `${physicsParams.mouseRadius.toFixed(1)} Å`;
+    };
+    document.getElementById('slider-spring').oninput = (e) => {
+      physicsParams.springK = parseFloat(e.target.value);
+      document.getElementById('spring-val').innerText = `${physicsParams.springK.toFixed(1)}`;
+    };
+    document.getElementById('slider-damping').oninput = (e) => {
+      physicsParams.damping = parseFloat(e.target.value);
+      document.getElementById('damping-val').innerText = `${physicsParams.damping.toFixed(2)}`;
+    };
+    document.getElementById('slider-rot').oninput = (e) => {
+      physicsParams.rotSpeed = parseFloat(e.target.value);
+      document.getElementById('rot-speed-val').innerText = `${physicsParams.rotSpeed.toFixed(1)}x`;
+    };
+    document.getElementById('slider-wave').oninput = (e) => {
+      physicsParams.waveAmp = parseFloat(e.target.value);
+      document.getElementById('wave-val').innerText = `${physicsParams.waveAmp.toFixed(1)}x`;
+    };
+
+    // Toggles visuales
+    document.getElementById('toggle-bloom').onchange = (e) => {
+      physicsParams.bloomEnabled = e.target.checked;
+      bloomPass.enabled = e.target.checked;
+    };
+    document.getElementById('toggle-aberration').onchange = (e) => {
+      physicsParams.aberrationEnabled = e.target.checked;
+      cyberpunkPass.uniforms.uEnabled.value = e.target.checked ? 1.0 : 0.0;
+    };
+    document.getElementById('toggle-lines').onchange = (e) => {
+      rungLinesMesh.visible = e.target.checked;
+    };
+    document.getElementById('toggle-ambient').onchange = (e) => {
+      ambientPointsMesh.visible = e.target.checked;
+    };
+    document.getElementById('toggle-grid').onchange = (e) => {
+      gridHelper.visible = e.target.checked;
+    };
+    document.getElementById('toggle-audio').onchange = (e) => {
+      physicsParams.audioEnabled = e.target.checked;
+    };
+
+    // Ajustes de Cámara
+    function resetCamButtons() {
+      document.querySelectorAll('.cam-pill').forEach(b => b.classList.remove('active'));
+    }
+
+    document.getElementById('cam-full').onclick = () => {
+      resetCamButtons();
+      document.getElementById('cam-full').classList.add('active');
+      controls.target.set(0, 0, 0);
+      camera.position.set(0, 0, 75);
+    };
+
+    document.getElementById('cam-macro').onclick = () => {
+      resetCamButtons();
+      document.getElementById('cam-macro').classList.add('active');
+      controls.target.set(0, 5, 0);
+      camera.position.set(0, 6, 22);
+    };
+
+    document.getElementById('cam-top').onclick = () => {
+      resetCamButtons();
+      document.getElementById('cam-top').classList.add('active');
+      controls.target.set(0, 0, 0);
+      camera.position.set(0, 85, 8);
+    };
+
+    document.getElementById('cam-free').onclick = () => {
+      // Restauración instantánea de posiciones y velocidades a cero
+      for (let i = 0; i < TOTAL_DNA_PARTICLES * 3; i++) {
+        positions[i] = origPositions[i];
+        velocities[i] = 0;
+      }
+      dnaGeometry.attributes.position.needsUpdate = true;
+      triggerShockwave();
+    };
+
+    /* ==========================================================================
+       8. BUCLE PRINCIPAL DE FÍSICA Y RENDERIZADO (HOOKE'S LAW + RAY REPULSION)
+       ========================================================================== */
+    const clock = new THREE.Clock();
+    let frameCount = 0;
+    let fpsAccumulator = 0;
+
+    // Rayo temporal en espacio local
+    const localRay = new THREE.Ray();
+    const inverseMatrix = new THREE.Matrix4();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = Math.min(clock.getDelta(), 0.05); // Limitar delta para estabilidad física
+      const elapsedTime = clock.getElapsedTime();
+
+      // Métricas de Rendimiento (FPS)
+      frameCount++;
+      fpsAccumulator += delta;
+      if (fpsAccumulator >= 0.4) {
+        const currentFps = (frameCount / fpsAccumulator).toFixed(1);
+        document.getElementById('fps-display').innerText = `${currentFps} FPS`;
+        frameCount = 0;
+        fpsAccumulator = 0;
+      }
+
+      // Rotación autónoma de la hélice en 3D
+      dnaGroup.rotation.y += physicsParams.rotSpeed * 0.45 * delta;
+
+      // Invertir matriz mundial de dnaGroup para proyectar el rayo del cursor en espacio local
+      dnaGroup.updateMatrixWorld();
+      inverseMatrix.copy(dnaGroup.matrixWorld).invert();
+
+      raycaster.setFromCamera(mouse, camera);
+      localRay.copy(raycaster.ray).applyMatrix4(inverseMatrix);
+      const rayOrigin = localRay.origin;
+      const rayDir = localRay.direction.normalize();
+
+      // Parámetros cacheados para máxima velocidad en el bucle caliente
+      const mouseRad = physicsParams.mouseRadius;
+      const mouseRadSq = mouseRad * mouseRad;
+      const mouseF = physicsParams.mouseForce;
+      const springK = physicsParams.springK;
+      const damping = physicsParams.damping;
+      const waveAmp = physicsParams.waveAmp;
+      const waveFreq = physicsParams.waveFreq;
+      const dt = delta * 60.0; // Normalizado a 60 FPS
+
+      // Manejo de la onda expansiva (Shockwave)
+      if (shockwaveActive) {
+        shockwaveTime += delta;
+        shockwaveStrength = Math.max(0, 420.0 * (1.0 - shockwaveTime / 0.65));
+        if (shockwaveTime > 0.65) shockwaveActive = false;
+      }
+
+      let totalKineticEnergy = 0.0;
+      let maxVelocityFound = 0.0;
+
+      // BUCLE FÍSICO ULTRA-RÁPIDO SOBRE LAS ~18,000+ PARTÍCULAS
+      for (let i = 0; i < TOTAL_DNA_PARTICLES; i++) {
+        const i3 = i * 3;
+        let px = positions[i3];
+        let py = positions[i3 + 1];
+        let pz = positions[i3 + 2];
+
+        let ox = origPositions[i3];
+        let oy = origPositions[i3 + 1];
+        let oz = origPositions[i3 + 2];
+
+        // Ondulación orgánica viva (vibración sinusoidal biomolecular)
+        if (waveAmp > 0.01) {
+          const w = Math.sin(elapsedTime * waveFreq + oy * 0.12) * waveAmp;
+          ox += w;
+          oz += w * 0.7;
+        }
+
+        // Fuerza de Restauración Elástica de Hooke: F = -k * (x - x_orig)
+        const fx_spring = -springK * (px - ox) * 0.012;
+        const fy_spring = -springK * (py - oy) * 0.012;
+        const fz_spring = -springK * (pz - oz) * 0.012;
+
+        let fx_mouse = 0.0;
+        let fy_mouse = 0.0;
+        let fz_mouse = 0.0;
+
+        // Repulsión Volumétrica 3D del Cursor (Distancia hacia el rayo de proyección)
+        if (isMouseActive) {
+          const vx = px - rayOrigin.x;
+          const vy = py - rayOrigin.y;
+          const vz = pz - rayOrigin.z;
+
+          // Proyección t a lo largo del rayo
+          const t = vx * rayDir.x + vy * rayDir.y + vz * rayDir.z;
+          if (t > 0.0) {
+            const qx = rayOrigin.x + rayDir.x * t;
+            const qy = rayOrigin.y + rayDir.y * t;
+            const qz = rayOrigin.z + rayDir.z * t;
+
+            const dx = px - qx;
+            const dy = py - qy;
+            const dz = pz - qz;
+            const distSq = dx * dx + dy * dy + dz * dz;
+
+            if (distSq < mouseRadSq && distSq > 0.01) {
+              const dist = Math.sqrt(distSq);
+              const factor = (1.0 - dist / mouseRad);
+              const forceMag = (mouseF * factor * factor) / (dist + 0.1) * 0.015;
+              fx_mouse = dx * forceMag;
+              fy_mouse = dy * forceMag;
+              fz_mouse = dz * forceMag;
+            }
+          }
+        }
+
+        // Aplicación del pulso de onda expansiva
+        if (shockwaveActive) {
+          const swDist = Math.sqrt(px * px + pz * pz) + 0.1;
+          const swMag = (shockwaveStrength / (swDist + 2.0)) * 0.02;
+          fx_mouse += (px / swDist) * swMag;
+          fz_mouse += (pz / swDist) * swMag;
+          fy_mouse += (Math.random() - 0.5) * swMag * 0.4;
+        }
+
+        // Integración de velocidad con amortiguación cinética (F = m*a)
+        let vx = (velocities[i3] + (fx_spring + fx_mouse) * dt) * damping;
+        let vy = (velocities[i3 + 1] + (fy_spring + fy_mouse) * dt) * damping;
+        let vz = (velocities[i3 + 2] + (fz_spring + fz_mouse) * dt) * damping;
+
+        px += vx * dt;
+        py += vy * dt;
+        pz += vz * dt;
+
+        positions[i3] = px;
+        positions[i3 + 1] = py;
+        positions[i3 + 2] = pz;
+
+        velocities[i3] = vx;
+        velocities[i3 + 1] = vy;
+        velocities[i3 + 2] = vz;
+
+        const speedSq = vx * vx + vy * vy + vz * vz;
+        totalKineticEnergy += speedSq;
+        if (speedSq > maxVelocityFound) maxVelocityFound = speedSq;
+      }
+
+      // Marcar buffers de partículas actualizados en la GPU
+      dnaGeometry.attributes.position.needsUpdate = true;
+
+      // Telemetría en tiempo real del HUD
+      const kineticNorm = Math.min(1.0, totalKineticEnergy / 450.0);
+      const energyPct = (kineticNorm * 100).toFixed(1);
+      document.getElementById('energy-fill').style.width = `${energyPct}%`;
+      document.getElementById('energy-pct').innerText = `${energyPct}%`;
+      document.getElementById('max-vel-val').innerText = `${Math.sqrt(maxVelocityFound).toFixed(2)} Å/s`;
+
+      const cursorStateEl = document.getElementById('cursor-state');
+      if (kineticNorm > 0.08) {
+        cursorStateEl.innerText = "DISPERSIÓN ACTIVA";
+        cursorStateEl.style.color = "var(--neon-magenta)";
+      } else {
+        cursorStateEl.innerText = "EN REPOSO / RESTAURACIÓN";
+        cursorStateEl.style.color = "var(--neon-cyan)";
+      }
+
+      // Sintetizador acústico biomolecular
+      bioSynth.updateKineticSound(kineticNorm);
+
+      // Rotación suave del polvo cósmico ambiental
+      ambientPointsMesh.rotation.y += 0.0008;
+
+      // Actualizar uniforms de shaders
+      dnaMaterial.uniforms.uTime.value = elapsedTime;
+      cyberpunkPass.uniforms.uTime.value = elapsedTime;
+
+      controls.update();
+      composer.render();
+    }
+
+    // Redimensionamiento responsive
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      dnaMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+    });
+
+    animate();
+  </script>
+</body>
+</html>

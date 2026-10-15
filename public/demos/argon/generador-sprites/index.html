@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STAR-FORGE 8-BIT // Forja y Hangar de Sprites Espaciales Procedurales</title>
+  <style>
+    :root {
+      --bg-void: #04060c;
+      --panel-bg: rgba(9, 13, 24, 0.88);
+      --panel-strong: rgba(6, 9, 17, 0.96);
+      --cyan: #00f0ff;
+      --cyan-border: rgba(0, 240, 255, 0.26);
+      --emerald: #00ff9d;
+      --amber: #ffbe0b;
+      --crimson: #ff2a6d;
+      --violet: #b537f2;
+      --text-main: #ecf5ff;
+      --text-dim: #849db8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background-color: var(--bg-void); color: var(--text-main); font-family: var(--font-sans);
+    }
+
+    /* Lienzo Principal (Hangar + Campo de Estrellas + Vuelo de Prueba Shmup) */
+    #hangar-canvas {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      display: block; z-index: 1;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Cabecera Superior */
+    .top-bar {
+      position: fixed; top: 10px; left: 14px; right: 14px; z-index: 10;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      pointer-events: none;
+    }
+
+    .hud-banner {
+      pointer-events: auto; background: var(--panel-bg);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-left: 4px solid var(--cyan);
+      border-radius: 6px; padding: 8px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+    }
+
+    .hud-banner.amber-box {
+      border-left-color: var(--amber); border-color: rgba(255, 190, 11, 0.38);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .hud-title {
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      letter-spacing: 1.4px; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px; text-transform: uppercase;
+    }
+
+    .led {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); box-shadow: 0 0 10px var(--emerald);
+      animation: pulseLed 1.5s infinite ease-in-out;
+    }
+    @keyframes pulseLed {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.45; }
+    }
+
+    .hud-sub { font-family: var(--font-mono); font-size: 9.6px; color: var(--text-dim); margin-top: 2px; }
+
+    /* Paneles Laterales */
+    .left-dock, .right-dock {
+      position: fixed; top: 68px; z-index: 10;
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: calc(100vh - 180px); overflow-y: auto; scrollbar-width: thin;
+    }
+    .left-dock { left: 14px; width: 312px; }
+    .right-dock { right: 14px; width: 316px; }
+
+    .card {
+      background: var(--panel-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px;
+      padding: 9px 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.68);
+    }
+
+    .card-header {
+      font-family: var(--font-mono); font-size: 9.8px; font-weight: 700;
+      letter-spacing: 1.1px; color: var(--cyan); text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+      padding-bottom: 5px; margin-bottom: 7px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .badge {
+      font-size: 8.6px; padding: 2px 6px; border-radius: 3px;
+      background: rgba(0, 240, 255, 0.14); border: 1px solid rgba(0, 240, 255, 0.35); color: #96f9ff;
+    }
+    .badge.emerald { background: rgba(0, 255, 157, 0.14); border-color: rgba(0, 255, 157, 0.4); color: var(--emerald); }
+    .badge.amber { background: rgba(255, 190, 11, 0.15); border-color: rgba(255, 190, 11, 0.45); color: var(--amber); }
+    .badge.crimson { background: rgba(255, 42, 109, 0.16); border-color: rgba(255, 42, 109, 0.45); color: #ff94b8; }
+
+    /* Controles de Semilla, Selectores y Botones */
+    .seed-row {
+      display: flex; gap: 5px; margin-bottom: 7px;
+    }
+
+    .seed-input {
+      flex: 1; background: rgba(4, 8, 16, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.35); color: var(--cyan);
+      font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+      padding: 6px 8px; border-radius: 4px; outline: none;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .seed-input:focus { border-color: #fff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.3); }
+
+    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .btn-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+
+    .forge-btn {
+      appearance: none; background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.28); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 9.5px; padding: 6px 7px;
+      border-radius: 4px; cursor: pointer; transition: all 0.14s ease;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .forge-btn:hover {
+      background: rgba(0, 240, 255, 0.2); border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.22);
+    }
+    .forge-btn.active {
+      background: rgba(0, 240, 255, 0.28); border-color: #ffffff; color: #fff;
+      font-weight: 700; box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.35);
+    }
+    .forge-btn.emerald { background: rgba(0, 255, 157, 0.13); border-color: rgba(0, 255, 157, 0.42); color: #a8ffdb; }
+    .forge-btn.emerald:hover, .forge-btn.emerald.active { background: rgba(0, 255, 157, 0.28); border-color: var(--emerald); color: #fff; }
+    .forge-btn.amber { background: rgba(255, 190, 11, 0.14); border-color: rgba(255, 190, 11, 0.45); color: #ffe28a; }
+    .forge-btn.amber:hover, .forge-btn.amber.active { background: rgba(255, 190, 11, 0.3); border-color: var(--amber); color: #fff; }
+    .forge-btn.crimson { background: rgba(255, 42, 109, 0.15); border-color: rgba(255, 42, 109, 0.48); color: #ff9ebb; }
+    .forge-btn.crimson:hover, .forge-btn.crimson.active { background: rgba(255, 42, 109, 0.32); border-color: var(--crimson); color: #fff; }
+
+    .ctrl-label {
+      font-family: var(--font-mono); font-size: 9.2px; color: var(--text-dim);
+      margin: 6px 0 3px 0; display: flex; justify-content: space-between;
+    }
+    .ctrl-label strong { color: var(--cyan); }
+
+    select.forge-select {
+      width: 100%; background: rgba(6, 11, 22, 0.92);
+      border: 1px solid rgba(0, 240, 255, 0.32); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 9.8px;
+      padding: 6px 8px; border-radius: 4px; outline: none; cursor: pointer;
+    }
+
+    /* Estadísticas RPG y Telemetría de la Nave */
+    .ship-name-banner {
+      background: rgba(3, 7, 15, 0.78);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 4px; padding: 6px 8px; margin-bottom: 7px;
+    }
+    .ship-name-title {
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      color: var(--amber); letter-spacing: 1px;
+    }
+    .ship-faction-sub {
+      font-family: var(--font-mono); font-size: 9.2px; color: var(--cyan); margin-top: 2px;
+    }
+
+    .stat-bar-wrap { margin-bottom: 6px; }
+    .stat-bar-head {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 9.2px; color: var(--text-dim); margin-bottom: 2px;
+    }
+    .stat-bar-head strong { color: var(--text-main); }
+    .stat-track {
+      width: 100%; height: 6px; background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px; overflow: hidden;
+    }
+    .stat-fill {
+      height: 100%; border-radius: 3px; transition: width 0.25s ease;
+    }
+
+    /* Rampa de color activa */
+    .palette-strip {
+      display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin-top: 5px;
+    }
+    .pal-swatch {
+      height: 14px; border-radius: 2px; border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    /* Galería Inferior de Escuadrón (8 Naves en Cuadrícula) */
+    .fleet-dock {
+      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+      z-index: 10; background: var(--panel-strong);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border); border-radius: 6px;
+      padding: 7px 12px; box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
+      display: flex; flex-direction: column; gap: 5px;
+    }
+
+    .fleet-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--font-mono); font-size: 9.2px; color: var(--text-dim);
+    }
+    .fleet-header strong { color: var(--cyan); }
+
+    .fleet-grid {
+      display: flex; gap: 8px; align-items: center;
+    }
+
+    .fleet-slot {
+      width: 66px; height: 66px;
+      background: rgba(8, 14, 26, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.22);
+      border-radius: 4px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 3px; transition: all 0.14s ease; position: relative;
+    }
+    .fleet-slot:hover {
+      border-color: var(--cyan); transform: translateY(-2px);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    }
+    .fleet-slot.active {
+      border-color: var(--amber);
+      box-shadow: 0 0 14px rgba(255, 190, 11, 0.4), inset 0 0 8px rgba(255, 190, 11, 0.2);
+    }
+    .fleet-slot canvas {
+      width: 44px; height: 44px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .fleet-slot span {
+      font-family: var(--font-mono); font-size: 7.8px; color: var(--text-dim);
+      margin-top: 2px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    @media (max-width: 1180px) {
+      .left-dock, .right-dock { width: 265px; }
+      .fleet-slot { width: 54px; height: 54px; }
+      .fleet-slot canvas { width: 36px; height: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="hangar-canvas"></canvas>
+
+  <!-- Cabecera Superior -->
+  <header class="top-bar">
+    <div class="hud-banner">
+      <div class="hud-title">
+        <span class="led"></span>
+        <span>STAR-FORGE 8-BIT // SÍNTESIS PROCEDURAL DE SPRITES ESPACIALES</span>
+      </div>
+      <div class="hud-sub">
+        SIMETRÍA BILATERAL • MÁSCARA ANATÓMICA • AUTÓMATA DE CONECTIVIDAD • SOMBREADO VOLUMÉTRICO + HUE SHIFTING
+      </div>
+    </div>
+
+    <div class="hud-banner amber-box">
+      <div>
+        <div class="hud-title" style="color: var(--amber); font-size: 11px;">
+          ESTADO: <span id="hud-mode-status" style="color: var(--emerald);">HANGAR DE FORJA E INSPECCIÓN</span>
+        </div>
+        <div class="hud-sub" id="hud-mode-sub">
+          Pulsa [R] para Nueva Nave • Clic en el Escuadrón Inferior • Pulsa [V] para Pilotar y Disparar
+        </div>
+      </div>
+      <button class="forge-btn crimson" id="btn-test-flight" style="padding: 8px 12px; font-weight: 700;">
+        🚀 VUELO DE PRUEBA [V]
+      </button>
+    </div>
+  </header>
+
+  <!-- Panel Izquierdo: Ingeniería de Matriz, Clase, Paleta y Capas del Algoritmo -->
+  <aside class="left-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>SEMILLA (SEED) Y GENERADOR</span>
+        <span class="badge emerald">DETERMINISTA</span>
+      </div>
+
+      <div class="seed-row">
+        <input type="text" id="input-seed" class="seed-input" value="ARGON-7742" title="Ingresa cualquier semilla alfanumérica para recrear la nave exacta" />
+        <button class="forge-btn emerald" id="btn-random-seed" title="Generar nueva semilla aleatoria y nuevo escuadrón [R]">
+          🎲 NUEVA [R]
+        </button>
+      </div>
+
+      <div class="ctrl-label">
+        <span>Clase Estructural (Máscara Anatómica)</span>
+      </div>
+      <div class="btn-grid-2" id="class-buttons">
+        <button class="forge-btn" data-class="INTERCEPTOR">⚡ Interceptor</button>
+        <button class="forge-btn active" data-class="FIGHTER">⚔️ Caza Shmup</button>
+        <button class="forge-btn" data-class="CRUISER">🛡️ Crucero</button>
+        <button class="forge-btn" data-class="MOTHERSHIP">👑 Nodriza</button>
+      </div>
+
+      <div class="ctrl-label" style="margin-top: 7px;">
+        <span>Resolución de Matriz Simétrica</span>
+        <strong id="lbl-matrix-size">24 × 24 px</strong>
+      </div>
+      <div class="btn-grid-4" id="size-buttons">
+        <button class="forge-btn" data-size="12">12×12</button>
+        <button class="forge-btn" data-size="16">16×16</button>
+        <button class="forge-btn active" data-size="24">24×24</button>
+        <button class="forge-btn" data-size="32">32×32</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>TEORÍA DEL COLOR (HSL HUE-SHIFT)</span>
+        <span class="badge amber">PALETA</span>
+      </div>
+
+      <div class="ctrl-label" style="margin-top: 0;">
+        <span>Arquetipo Cromático de Facción</span>
+      </div>
+      <select id="select-palette" class="forge-select">
+        <option value="AUTO">🎲 Automático por Semilla (Hue-Shift)</option>
+        <option value="IMPERIAL">🌌 Imperio Galáctico (Azul Real / Oro)</option>
+        <option value="CYBERPUNK">⚡ Caza Cyberpunk Neón (Magenta / Cian)</option>
+        <option value="BIOXENO">🧬 Flota Alienígena Bio-Orgánica (Esmeralda / Violeta)</option>
+        <option value="INDUSTRIAL">⚙️ Industrial Pesado (Ámbar / Titanio)</option>
+        <option value="CRIMSON">🔥 Guardia Carmesí (Rojo Sangre / Obsidiana)</option>
+        <option value="GAMEBOY">🕹️ Retro GameBoy DMG-01 (4 Colores Verdes)</option>
+      </select>
+
+      <div class="ctrl-label">
+        <span>Estilo de Contorno Exterior (Outline)</span>
+      </div>
+      <div class="btn-grid-2" id="outline-buttons">
+        <button class="forge-btn active" data-outline="DARK">⬛ Arcade Oscuro</button>
+        <button class="forge-btn" data-outline="TINTED">🟦 Matiz Profundo</button>
+        <button class="forge-btn" data-outline="GLOW">✨ Halo Neón</button>
+        <button class="forge-btn" data-outline="NONE">🚫 Sin Contorno</button>
+      </div>
+
+      <div class="ctrl-label">
+        <span>Rampa Generada (Sombra → Base → Luz + Cabina)</span>
+      </div>
+      <div class="palette-strip" id="palette-preview"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>VISOR DE PIPELINE ALGORÍTMICO</span>
+        <span class="badge">4 ETAPAS</span>
+      </div>
+      <div class="btn-grid-2" id="stage-buttons">
+        <button class="forge-btn" data-stage="1" title="Ver mapa de calor de la función de probabilidad P(x,y)">
+          1. Máscara P(x,y)
+        </button>
+        <button class="forge-btn" data-stage="2" title="Ver celdas binarias tras el autómata celular de conectividad">
+          2. Matriz Binaria
+        </button>
+        <button class="forge-btn" data-stage="3" title="Ver sub-partes: Casco, Placas, Cabina, Armas y Motores">
+          3. Regiones
+        </button>
+        <button class="forge-btn active" data-stage="4" title="Ver sprite final con sombreado volumétrico y contorno">
+          4. Sprite Final
+        </button>
+      </div>
+
+      <div style="margin-top: 7px; display: flex; gap: 5px;">
+        <button class="forge-btn active" id="btn-toggle-grid" style="flex: 1;">
+          #️⃣ REJILLA PIXEL
+        </button>
+        <button class="forge-btn emerald" id="btn-export-png" style="flex: 1.3; font-weight: 700;">
+          💾 DESCARGAR PNG
+        </button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Panel Derecho: Ficha Técnica RPG, Telemetría y Modo Vuelo de Prueba -->
+  <aside class="right-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>ESPECIFICACIONES DE NAVE INSIGNIA</span>
+        <span class="badge amber" id="badge-ship-class">CAZA SHMUP</span>
+      </div>
+
+      <div class="ship-name-banner">
+        <div class="ship-name-title" id="ship-name">VALKYRIE MK-IV</div>
+        <div class="ship-faction-sub" id="ship-faction">FACCIÓN: ARMADA ESTELAR ARGON</div>
+      </div>
+
+      <div class="stat-bar-wrap">
+        <div class="stat-bar-head"><span>Potencia de Fuego (Cañones)</span><strong id="stat-fire-val">84</strong></div>
+        <div class="stat-track"><div class="stat-fill" id="stat-fire-bar" style="width:84%; background: var(--crimson);"></div></div>
+      </div>
+
+      <div class="stat-bar-wrap">
+        <div class="stat-bar-head"><span>Integridad de Blindaje / Escudo</span><strong id="stat-shield-val">72</strong></div>
+        <div class="stat-track"><div class="stat-fill" id="stat-shield-bar" style="width:72%; background: var(--cyan);"></div></div>
+      </div>
+
+      <div class="stat-bar-wrap">
+        <div class="stat-bar-head"><span>Velocidad e Impulso de Plasma</span><strong id="stat-speed-val">91</strong></div>
+        <div class="stat-track"><div class="stat-fill" id="stat-speed-bar" style="width:91%; background: var(--emerald);"></div></div>
+      </div>
+
+      <div class="stat-bar-wrap" style="margin-bottom: 0;">
+        <div class="stat-bar-head"><span>Índice de Simetría y Masa Activa</span><strong id="stat-mass-val">100% (214 px)</strong></div>
+        <div class="stat-track"><div class="stat-fill" id="stat-mass-bar" style="width:78%; background: var(--amber);"></div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA DE MATRIZ Y VUELO</span>
+        <span class="badge emerald" id="fps-badge">60 FPS</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr auto; row-gap: 4px; font-family: var(--font-mono); font-size: 9.6px;">
+        <span style="color: var(--text-dim);">Celdas de Casco / Blindaje:</span>
+        <strong style="color: var(--cyan);" id="val-hull-cells">0</strong>
+
+        <span style="color: var(--text-dim);">Cañones Activos (Hardpoints):</span>
+        <strong style="color: var(--crimson);" id="val-weapon-cells">0</strong>
+
+        <span style="color: var(--text-dim);">Toberas de Propulsión:</span>
+        <strong style="color: var(--amber);" id="val-thruster-cells">0</strong>
+
+        <span style="color: var(--text-dim);">Píxeles de Contorno (Outline):</span>
+        <strong style="color: var(--text-main);" id="val-outline-cells">0</strong>
+
+        <span style="color: var(--text-dim);">Puntuación Vuelo de Prueba:</span>
+        <strong style="color: var(--emerald);" id="val-flight-score">0 PTS</strong>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>CONTROLES DEL MODO TEST FLIGHT</span>
+        <span class="badge crimson">SHMUP ARENA</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 9.2px; line-height: 1.5; color: #9fc2e2;">
+        <div>• <strong>[WASD / Flechas]:</strong> Pilotar nave por el espacio</div>
+        <div>• <strong>[ESPACIO / Clic Izq]:</strong> Disparar láseres desde las puntas de arma generadas</div>
+        <div>• <strong>[SHIFT]:</strong> Postquemador de plasma</div>
+        <div>• <strong>[R]:</strong> Sintetizar nueva nave al instante</div>
+        <div>• <strong>[1 - 4]:</strong> Alternar etapas del algoritmo</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Galería Inferior: Escuadrón de 8 Variantes Generadas al Instante -->
+  <footer class="fleet-dock">
+    <div class="fleet-header">
+      <span><strong>ESCUADRÓN TÁCTICO GENERADO</strong> (CLIC EN CUALQUIER NAVE PARA INSPECCIONAR O PILOTAR)</span>
+      <button class="forge-btn" id="btn-reroll-fleet" style="padding: 2px 8px; font-size: 8.8px;">
+        🔄 NUEVO ESCUADRÓN
+      </button>
+    </div>
+    <div class="fleet-grid" id="fleet-grid"></div>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR DE SÍNTESIS PROCEDURAL DE SPRITES 8-BIT + HANGAR + SHMUP ENGINE
+       ========================================================================= -->
+  <script>
+    (() => {
+      'use strict';
+
+      // =======================================================================
+      // 1. PRNG DETERMINISTA POR SEMILLA (HASH FNV-1A + MULBERRY32)
+      // =======================================================================
+      function stringToSeed(str) {
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      function createPRNG(seedInt) {
+        let a = seedInt >>> 0;
+        return function rand() {
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function generateRandomSeedCode() {
+        const prefixes = ['ARGON', 'VORTEX', 'NOVA', 'AEGIS', 'KRONOS', 'VALKYR', 'HYPER', 'ZETA', 'OMEGA', 'CYBER'];
+        const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const num = Math.floor(1000 + Math.random() * 9000);
+        return `${p}-${num}`;
+      }
+
+      // =======================================================================
+      // 2. TEORÍA DEL COLOR: GENERADOR DE RAMPAS HSL CON HUE-SHIFTING
+      // =======================================================================
+      function hslToRgbHex(h, s, l) {
+        h = ((h % 360) + 360) % 360;
+        s = Math.max(0, Math.min(100, s)) / 100;
+        l = Math.max(0, Math.min(100, l)) / 100;
+
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+        const m = l - c / 2;
+        let r = 0, g = 0, b = 0;
+
+        if (h < 60) { r = c; g = x; b = 0; }
+        else if (h < 120) { r = x; g = c; b = 0; }
+        else if (h < 180) { r = 0; g = c; b = x; }
+        else if (h < 240) { r = 0; g = x; b = c; }
+        else if (h < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+
+        const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+
+      // Construye una rampa de 4 tonos (Shadow, Base, Highlight, Specular) aplicando Hue Shifting
+      // hacia el azul/violeta (240°) en las sombras y hacia el amarillo/cian en las luces altas
+      function buildHueShiftedRamp(baseHue, baseSat, baseLight, shiftDir = 1) {
+        return {
+          shadow:    hslToRgbHex(baseHue - 18 * shiftDir, Math.min(100, baseSat + 12), Math.max(12, baseLight - 22)),
+          base:      hslToRgbHex(baseHue, baseSat, baseLight),
+          highlight: hslToRgbHex(baseHue + 14 * shiftDir, Math.max(25, baseSat - 8), Math.min(88, baseLight + 18)),
+          specular:  hslToRgbHex(baseHue + 24 * shiftDir, Math.max(20, baseSat - 22), Math.min(96, baseLight + 32))
+        };
+      }
+
+      function synthesizeShipPalette(rng, archetype) {
+        let mode = archetype;
+        if (mode === 'AUTO') {
+          const modes = ['IMPERIAL', 'CYBERPUNK', 'BIOXENO', 'INDUSTRIAL', 'CRIMSON'];
+          mode = modes[Math.floor(rng() * modes.length)];
+        }
+
+        if (mode === 'GAMEBOY') {
+          return {
+            factionName: ' ESCUADRÓN RETRO DMG-01',
+            outlineDark: '#0f380f',
+            outlineTinted: '#0f380f',
+            outlineGlow: '#9bbc0f',
+            primary:   { shadow: '#0f380f', base: '#306230', highlight: '#8bac0f', specular: '#9bbc0f' },
+            secondary: { shadow: '#0f380f', base: '#306230', highlight: '#8bac0f', specular: '#9bbc0f' },
+            cockpit:   { shadow: '#306230', base: '#8bac0f', highlight: '#9bbc0f', specular: '#e0f8d0' },
+            weapon:    { shadow: '#0f380f', base: '#306230', highlight: '#9bbc0f', specular: '#e0f8d0' },
+            thruster:  { core: '#9bbc0f', mid: '#8bac0f', outer: '#306230', laser: '#9bbc0f' }
+          };
+        }
+
+        let h1, s1, l1, h2, s2, l2, hCockpit, thrusterColors, factionTitle;
+        const jitter = (rng() - 0.5) * 22;
+
+        switch (mode) {
+          case 'IMPERIAL':
+            h1 = 212 + jitter; s1 = 68; l1 = 48;
+            h2 = 42 + jitter * 0.5; s2 = 88; l2 = 54;
+            hCockpit = 185;
+            thrusterColors = { core: '#ffffff', mid: '#00f0ff', outer: '#0066ff', laser: '#00f0ff' };
+            factionTitle = 'ARMADA IMPERIAL ARGON';
+            break;
+          case 'CYBERPUNK':
+            h1 = 318 + jitter; s1 = 86; l1 = 50;
+            h2 = 188 + jitter; s2 = 95; l2 = 52;
+            hCockpit = 52;
+            thrusterColors = { core: '#ffffff', mid: '#ff2a85', outer: '#7b2cbf', laser: '#00f5d4' };
+            factionTitle = 'SINDIKATO NEÓN-TOKYO';
+            break;
+          case 'BIOXENO':
+            h1 = 142 + jitter; s1 = 76; l1 = 42;
+            h2 = 278 + jitter; s2 = 74; l2 = 48;
+            hCockpit = 38;
+            thrusterColors = { core: '#e9ff70', mid: '#00ff9d', outer: '#007f5f', laser: '#80ffdb' };
+            factionTitle = 'ENJAMBRE BIO-XENOID';
+            break;
+          case 'INDUSTRIAL':
+            h1 = 34 + jitter * 0.6; s1 = 85; l1 = 50;
+            h2 = 205; s2 = 22; l2 = 42;
+            hCockpit = 192;
+            thrusterColors = { core: '#fff3b0', mid: '#ff9f1c', outer: '#e71d36', laser: '#ffbe0b' };
+            factionTitle = 'CONSORCIO MINERO TITAN';
+            break;
+          case 'CRIMSON':
+          default:
+            h1 = 352 + jitter * 0.6; s1 = 82; l1 = 46;
+            h2 = 230; s2 = 25; l2 = 34;
+            hCockpit = 175;
+            thrusterColors = { core: '#ffffff', mid: '#ffbe0b', outer: '#ff2a6d', laser: '#ff2a6d' };
+            factionTitle = 'GUARDIA SOLAR CARMESÍ';
+            break;
+        }
+
+        const primary = buildHueShiftedRamp(h1, s1, l1, 1);
+        const secondary = buildHueShiftedRamp(h2, s2, l2, -1);
+        const cockpit = buildHueShiftedRamp(hCockpit, 92, 56, 1);
+        const weapon = buildHueShiftedRamp(h2, 30, 58, 1);
+
+        return {
+          factionName: factionTitle,
+          outlineDark: '#060913',
+          outlineTinted: hslToRgbHex(h1 - 24, 65, 13),
+          outlineGlow: thrusterColors.laser,
+          primary,
+          secondary,
+          cockpit,
+          weapon,
+          thruster: thrusterColors
+        };
+      }
+
+      // =======================================================================
+      // 3. PIPELINE ALGORÍTMICO DE SÍNTESIS DE SPRITES (MÉTODO BOLLINGER EVOLUCIONADO)
+      // =======================================================================
+      // Códigos de región estructural:
+      const REG = {
+        EMPTY: 0,
+        HULL_PRIMARY: 1,
+        HULL_SECONDARY: 2,
+        COCKPIT: 3,
+        WEAPON: 4,
+        THRUSTER: 5,
+        OUTLINE: 6
+      };
+
+      // Evalúa la probabilidad anatómica P(nx, ny) en el semiespacio izquierdo:
+      // nx = distancia normalizada desde el eje central de simetría [0 = centro, 1 = borde exterior]
+      // ny = posición vertical normalizada [0 = proa/nariz superior, 1 = popa/motores inferiores]
+      function evaluateAnatomicalMask(nx, ny, shipClass) {
+        // Garantizar margen de 1 píxel para el contorno exterior
+        if (nx > 0.92 || ny < 0.06 || ny > 0.92) return 0.0;
+
+        // 1. Fuselaje central (espina dorsal conectada cerca de nx = 0)
+        const spineWidth = shipClass === 'MOTHERSHIP' ? 0.36 : shipClass === 'CRUISER' ? 0.28 : 0.20;
+        if (nx <= spineWidth && ny >= 0.12 && ny <= 0.84) {
+          return 0.94;
+        }
+
+        // 2. Perfil de alas y armamento según la clase de nave
+        let p = 0.0;
+        if (shipClass === 'INTERCEPTOR') {
+          // Alas delta veloces o barridas hacia adelante
+          const wingCenterY = 0.58 - nx * 0.22;
+          const distWing = Math.abs(ny - wingCenterY);
+          if (distWing < 0.22 && nx < 0.85) {
+            p = Math.max(0, 0.82 - distWing * 2.8 - nx * 0.25);
+          }
+          // Nariz afilada
+          if (nx < 0.25 && ny >= 0.08 && ny <= 0.82) p = Math.max(p, 0.85);
+        } else if (shipClass === 'FIGHTER') {
+          // Caza Shmup equilibrado con alas principales y cañones laterales
+          const wingY = 0.54 + nx * 0.16;
+          const dWing = Math.abs(ny - wingY);
+          if (dWing < 0.25 && nx < 0.88) {
+            p = Math.max(0, 0.85 - dWing * 2.6 - nx * 0.18);
+          }
+          // Aletas delanteras (canards)
+          const canardD = Math.abs(ny - 0.30);
+          if (canardD < 0.10 && nx < 0.48) {
+            p = Math.max(p, 0.72 - nx * 0.4);
+          }
+        } else if (shipClass === 'CRUISER') {
+          // Crucero pesado con hombreras blindadas y doble bahía
+          if (ny >= 0.20 && ny <= 0.82 && nx < 0.80) {
+            const boxiness = 1.0 - Math.pow(nx / 0.82, 1.6) * 0.55 - Math.pow(Math.abs(ny - 0.52) / 0.38, 2.0) * 0.45;
+            p = Math.max(0, boxiness);
+          }
+        } else if (shipClass === 'MOTHERSHIP') {
+          // Nave Nodriza masiva de doble ala escalonada
+          if (ny >= 0.14 && ny <= 0.86 && nx < 0.90) {
+            const shieldShape = 0.92 - Math.pow(nx / 0.92, 1.8) * 0.42 - Math.pow(Math.abs(ny - 0.50) / 0.40, 2.2) * 0.38;
+            p = Math.max(0, shieldShape);
+          }
+        }
+
+        return Math.max(0, Math.min(1, p));
+      }
+
+      function generateSpaceship(seedStr, size, shipClass, paletteArchetype, outlineMode) {
+        const seedInt = stringToSeed(`${seedStr}:${size}:${shipClass}:${paletteArchetype}`);
+        const rng = createPRNG(seedInt);
+        const palette = synthesizeShipPalette(rng, paletteArchetype);
+
+        const W = size;
+        const H = size;
+        const halfW = Math.ceil(W / 2);
+
+        // Etapa 1: Matriz de probabilidad anatómica P(x, y)
+        const probGrid = new Float32Array(W * H);
+        // Etapa 2: Matriz binaria tras muestreo y autómata celular de conectividad
+        const binaryGrid = new Uint8Array(W * H);
+        // Etapa 3: Mapa de regiones estructurales (Casco, Placas, Cabina, Armas, Motores, Contorno)
+        const regionGrid = new Uint8Array(W * H);
+        // Etapa 4: Matriz de color final hexadecimal
+        const finalColorGrid = new Array(W * H).fill(null);
+
+        const idx = (x, y) => y * W + x;
+
+        // ---------------------------------------------------------------------
+        // PASO 1: MUESTREO EN LA MITAD IZQUIERDA Y SIMETRÍA BILATERAL
+        // ---------------------------------------------------------------------
+        for (let y = 0; y < H; y++) {
+          const ny = y / (H - 1);
+          for (let x = 0; x < halfW; x++) {
+            // Distancia normalizada desde el eje de simetría central (halfW - 0.5)
+            const distFromAxis = (halfW - 1 - x) / Math.max(1, halfW - 1);
+            const p = evaluateAnatomicalMask(distFromAxis, ny, shipClass);
+
+            const mirrorX = W - 1 - x;
+            probGrid[idx(x, y)] = p;
+            probGrid[idx(mirrorX, y)] = p;
+
+            // Garantizar columna espinal sólida en el corazón de la nave
+            let alive = false;
+            if (distFromAxis <= 0.12 && ny >= 0.16 && ny <= 0.78) {
+              alive = true;
+            } else if (p > 0.05) {
+              alive = rng() < p;
+            }
+
+            binaryGrid[idx(x, y)] = alive ? 1 : 0;
+            binaryGrid[idx(mirrorX, y)] = alive ? 1 : 0;
+          }
+        }
+
+        // ---------------------------------------------------------------------
+        // PASO 2: AUTÓMATA CELULAR DE CONSOLIDACIÓN Y PODA DE PÍXELES HUÉRFANOS
+        // ---------------------------------------------------------------------
+        for (let pass = 0; pass < 2; pass++) {
+          const nextBin = new Uint8Array(binaryGrid);
+          for (let y = 1; y < H - 1; y++) {
+            for (let x = 1; x < halfW; x++) {
+              let neighbors = 0;
+              for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  if (dx === 0 && dy === 0) continue;
+                  if (binaryGrid[idx(x + dx, y + dy)]) neighbors++;
+                }
+              }
+
+              const cur = binaryGrid[idx(x, y)];
+              let updated = cur;
+              if (cur === 1 && neighbors <= 1) {
+                updated = 0; // Eliminar píxel huérfano aislado
+              } else if (cur === 0 && neighbors >= 5) {
+                updated = 1; // Rellenar hueco interno para consolidar el ala/casco
+              }
+
+              const mirrorX = W - 1 - x;
+              nextBin[idx(x, y)] = updated;
+              nextBin[idx(mirrorX, y)] = updated;
+            }
+          }
+          binaryGrid.set(nextBin);
+        }
+
+        // Mantener únicamente el componente conexo principal unido a la espina central (Flood-Fill BFS)
+        const visited = new Uint8Array(W * H);
+        const queue = [];
+        const centerX = halfW - 1;
+        const centerY = Math.floor(H * 0.45);
+        binaryGrid[idx(centerX, centerY)] = 1;
+        binaryGrid[idx(W - 1 - centerX, centerY)] = 1;
+
+        queue.push([centerX, centerY]);
+        visited[idx(centerX, centerY)] = 1;
+
+        const dirs4 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+        while (queue.length > 0) {
+          const [cx, cy] = queue.shift();
+          for (let d = 0; d < dirs4.length; d++) {
+            const nx = cx + dirs4[d][0];
+            const ny = cy + dirs4[d][1];
+            if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+              const ni = idx(nx, ny);
+              if (binaryGrid[ni] === 1 && !visited[ni]) {
+                visited[ni] = 1;
+                queue.push([nx, ny]);
+              }
+            }
+          }
+        }
+
+        for (let i = 0; i < W * H; i++) {
+          if (!visited[i]) binaryGrid[i] = 0;
+        }
+
+        // ---------------------------------------------------------------------
+        // PASO 3: ASIGNACIÓN DE SUB-PARTES (CASCO, PLACAS, CABINA, ARMAS, MOTORES)
+        // ---------------------------------------------------------------------
+        const cockpitStartY = Math.floor(H * (0.28 + rng() * 0.10));
+        const cockpitEndY = Math.min(H - 4, cockpitStartY + Math.max(2, Math.floor(H * 0.18)));
+        const cockpitHalfW = Math.max(1, Math.floor(W * 0.09));
+
+        for (let y = 1; y < H - 1; y++) {
+          const ny = y / (H - 1);
+          for (let x = 1; x < halfW; x++) {
+            const iL = idx(x, y);
+            const iR = idx(W - 1 - x, y);
+            if (binaryGrid[iL] === 0) continue;
+
+            const distAxisPx = halfW - 1 - x;
+            let reg = REG.HULL_PRIMARY;
+
+            // Cabina de mando (Cockpit) centrada en el eje de simetría
+            if (distAxisPx < cockpitHalfW && y >= cockpitStartY && y <= cockpitEndY) {
+              reg = REG.COCKPIT;
+            } else {
+              // Placas de armadura secundaria por bandas estructurales
+              const plateWave = Math.sin(y * 0.65 + x * 0.5);
+              if (distAxisPx >= 2 && (plateWave > 0.25 || ((x + y) & 3) === 0)) {
+                reg = REG.HULL_SECONDARY;
+              }
+            }
+
+            // Detectar puntas delanteras en las alas para montar Cañones Láser (Weapons)
+            const emptyAbove = binaryGrid[idx(x, y - 1)] === 0;
+            const solidBelow = binaryGrid[idx(x, y + 1)] === 1;
+            if (emptyAbove && solidBelow && distAxisPx >= 2 && ny < 0.62) {
+              reg = REG.WEAPON;
+            }
+
+            // Detectar borde inferior cerca del fuselaje para montar Toberas de Propulsión (Thrusters)
+            const emptyBelow = binaryGrid[idx(x, y + 1)] === 0;
+            if (emptyBelow && ny >= 0.62 && distAxisPx <= Math.max(2, Math.floor(W * 0.22))) {
+              reg = REG.THRUSTER;
+            }
+
+            regionGrid[iL] = reg;
+            regionGrid[iR] = reg;
+          }
+        }
+
+        // Garantizar al menos 1 par de cañones y 1 par de propulsores
+        const weaponNodes = [];
+        const thrusterNodes = [];
+
+        for (let y = 1; y < H - 1; y++) {
+          for (let x = 1; x < W - 1; x++) {
+            const r = regionGrid[idx(x, y)];
+            if (r === REG.WEAPON) weaponNodes.push({ x, y });
+            if (r === REG.THRUSTER) thrusterNodes.push({ x, y });
+          }
+        }
+
+        if (thrusterNodes.length === 0) {
+          // Buscar el píxel sólido más bajo junto al eje central
+          for (let y = H - 2; y >= 2; y--) {
+            if (regionGrid[idx(halfW - 1, y)] !== REG.EMPTY) {
+              regionGrid[idx(halfW - 1, y)] = REG.THRUSTER;
+              regionGrid[idx(W - halfW, y)] = REG.THRUSTER;
+              thrusterNodes.push({ x: halfW - 1, y }, { x: W - halfW, y });
+              break;
+            }
+          }
+        }
+
+        if (weaponNodes.length === 0) {
+          for (let y = 1; y < H - 1; y++) {
+            if (regionGrid[idx(halfW - 1, y)] !== REG.EMPTY) {
+              regionGrid[idx(halfW - 1, y)] = REG.WEAPON;
+              regionGrid[idx(W - halfW, y)] = REG.WEAPON;
+              weaponNodes.push({ x: halfW - 1, y }, { x: W - halfW, y });
+              break;
+            }
+          }
+        }
+
+        // ---------------------------------------------------------------------
+        // PASO 4: DETECCIÓN DE BORDES (OUTLINE) Y SOMBREADO VOLUMÉTRICO 2D
+        // ---------------------------------------------------------------------
+        let hullCount = 0;
+        let outlineCount = 0;
+
+        // 4A. Contorno exterior (todo píxel vacío adyacente ortogonalmente a un píxel sólido)
+        if (outlineMode !== 'NONE') {
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const i = idx(x, y);
+              if (regionGrid[i] !== REG.EMPTY) continue;
+
+              const hasSolidNeighbor =
+                (y > 0 && regionGrid[idx(x, y - 1)] > 0 && regionGrid[idx(x, y - 1)] !== REG.OUTLINE) ||
+                (y < H - 1 && regionGrid[idx(x, y + 1)] > 0 && regionGrid[idx(x, y + 1)] !== REG.OUTLINE) ||
+                (x > 0 && regionGrid[idx(x - 1, y)] > 0 && regionGrid[idx(x - 1, y)] !== REG.OUTLINE) ||
+                (x < W - 1 && regionGrid[idx(x + 1, y)] > 0 && regionGrid[idx(x + 1, y)] !== REG.OUTLINE);
+
+              if (hasSolidNeighbor) {
+                regionGrid[i] = REG.OUTLINE;
+                outlineCount++;
+                finalColorGrid[i] =
+                  outlineMode === 'DARK' ? palette.outlineDark :
+                  outlineMode === 'TINTED' ? palette.outlineTinted :
+                  palette.outlineGlow;
+              }
+            }
+          }
+        }
+
+        // 4B. Iluminación especular superior y sombras volumétricas inferiores por píxel
+        for (let y = 1; y < H - 1; y++) {
+          for (let x = 1; x < W - 1; x++) {
+            const i = idx(x, y);
+            const reg = regionGrid[i];
+            if (reg === REG.EMPTY || reg === REG.OUTLINE) continue;
+
+            hullCount++;
+            const regAbove = regionGrid[idx(x, y - 1)];
+            const regBelow = regionGrid[idx(x, y + 1)];
+            const distCenter = Math.abs(x - (W - 1) * 0.5);
+
+            if (reg === REG.THRUSTER) {
+              finalColorGrid[i] = y % 2 === 0 ? palette.thruster.core : palette.thruster.mid;
+              continue;
+            }
+
+            const ramp =
+              reg === REG.HULL_PRIMARY ? palette.primary :
+              reg === REG.HULL_SECONDARY ? palette.secondary :
+              reg === REG.COCKPIT ? palette.cockpit :
+              palette.weapon;
+
+            // Regla de normal 2D para volumen 3D sobre el pixel art:
+            if (reg === REG.COCKPIT) {
+              // Reflejo diagonal cristalino en la cabina
+              if (regAbove !== REG.COCKPIT || (x + y) % 3 === 0) {
+                finalColorGrid[i] = ramp.specular;
+              } else if (regBelow !== REG.COCKPIT) {
+                finalColorGrid[i] = ramp.shadow;
+              } else {
+                finalColorGrid[i] = ramp.highlight;
+              }
+            } else {
+              const isTopEdge = regAbove === REG.EMPTY || regAbove === REG.OUTLINE || regAbove !== reg;
+              const isBotEdge = regBelow === REG.EMPTY || regBelow === REG.OUTLINE;
+
+              if (isTopEdge && distCenter <= 2.5) {
+                finalColorGrid[i] = ramp.specular;
+              } else if (isTopEdge) {
+                finalColorGrid[i] = ramp.highlight;
+              } else if (isBotEdge) {
+                finalColorGrid[i] = ramp.shadow;
+              } else {
+                finalColorGrid[i] = distCenter < 1.5 ? ramp.highlight : ramp.base;
+              }
+            }
+          }
+        }
+
+        // Generar nombre y estadísticas RPG coherentes con la topología de la nave
+        const namePrefixes = ['VALKYRIE', 'SERAPH', 'NEMESIS', 'ASTRAL', 'HYPERION', 'VANGUARD', 'ECLIPSE', 'PHANTOM', 'CENTURION', 'DRAKE'];
+        const nameSuffixes = ['MK-IV', 'IX', 'PRIME', 'ZERO', 'X-9', 'ALPHA', 'OMEGA', 'V2', 'SR-7', 'APEX'];
+        const shipName = `${namePrefixes[Math.floor(rng() * namePrefixes.length)]} ${nameSuffixes[Math.floor(rng() * nameSuffixes.length)]}`;
+
+        const firepower = Math.min(99, Math.max(35, weaponNodes.length * 14 + Math.floor(rng() * 18)));
+        const shield = Math.min(99, Math.max(30, Math.floor((hullCount / (W * H * 0.45)) * 75) + Math.floor(rng() * 15)));
+        const speed = Math.min(99, Math.max(35, 105 - Math.floor(shield * 0.45) + thrusterNodes.length * 6));
+
+        return {
+          seedStr,
+          size: W,
+          shipClass,
+          shipName,
+          palette,
+          probGrid,
+          binaryGrid,
+          regionGrid,
+          finalColorGrid,
+          weaponNodes,
+          thrusterNodes,
+          stats: {
+            hullCount,
+            outlineCount,
+            weaponCount: weaponNodes.length,
+            thrusterCount: thrusterNodes.length,
+            firepower,
+            shield,
+            speed
+          }
+        };
+      }
+
+      // Renderiza un sprite en un canvas offscreen para dibujarlo o exportarlo con máxima nitidez
+      function renderShipToOffscreen(ship, stageMode = 4, scale = 1) {
+        const W = ship.size;
+        const H = ship.size;
+        const c = document.createElement('canvas');
+        c.width = W * scale;
+        c.height = H * scale;
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const i = y * W + x;
+            let color = null;
+
+            if (stageMode === 1) {
+              // Etapa 1: Mapa de calor de la máscara de probabilidad P(x,y)
+              const p = ship.probGrid[i];
+              if (p > 0.02) {
+                const r = Math.floor(p * 255);
+                const g = Math.floor(Math.sin(p * Math.PI) * 220);
+                const b = Math.floor((1 - p) * 255);
+                color = `rgb(${r},${g},${b})`;
+              }
+            } else if (stageMode === 2) {
+              // Etapa 2: Matriz binaria simétrica
+              if (ship.binaryGrid[i]) color = '#00f0ff';
+            } else if (stageMode === 3) {
+              // Etapa 3: Regiones estructurales codificadas por color
+              const reg = ship.regionGrid[i];
+              if (reg === REG.HULL_PRIMARY) color = '#3a86ff';
+              else if (reg === REG.HULL_SECONDARY) color = '#8338ec';
+              else if (reg === REG.COCKPIT) color = '#00f5d4';
+              else if (reg === REG.WEAPON) color = '#ff006e';
+              else if (reg === REG.THRUSTER) color = '#ffbe0b';
+              else if (reg === REG.OUTLINE) color = '#1d2d44';
+            } else {
+              // Etapa 4: Sprite sombreado final
+              color = ship.finalColorGrid[i];
+            }
+
+            if (color) {
+              ctx.fillStyle = color;
+              ctx.fillRect(x * scale, y * scale, scale, scale);
+            }
+          }
+        }
+        return c;
+      }
+
+      // =======================================================================
+      // 4. ESTADO DEL HANGAR, ESCUADRÓN Y MODO "TEST FLIGHT" (SHMUP JUGABLE)
+      // =======================================================================
+      const hangarCanvas = document.getElementById('hangar-canvas');
+      const hCtx = hangarCanvas.getContext('2d');
+
+      function resizeCanvas() {
+        hangarCanvas.width = window.innerWidth;
+        hangarCanvas.height = window.innerHeight;
+        hCtx.imageSmoothingEnabled = false;
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      const state = {
+        seedStr: generateRandomSeedCode(),
+        shipClass: 'FIGHTER',
+        matrixSize: 24,
+        paletteArchetype: 'AUTO',
+        outlineMode: 'DARK',
+        pipelineStage: 4,
+        showPixelGrid: true,
+        testFlightActive: false,
+        currentShip: null,
+        currentShipCanvas: null,
+        fleet: [],
+        activeFleetIndex: 0,
+        // Estado del Modo Vuelo de Prueba (Shmup)
+        flight: {
+          x: window.innerWidth * 0.5,
+          y: window.innerHeight * 0.58,
+          vx: 0,
+          vy: 0,
+          tilt: 0,
+          score: 0,
+          shake: 0,
+          fireCooldown: 0,
+          lasers: [],
+          exhaustParticles: [],
+          asteroids: [],
+          explosions: [],
+          floatingTexts: []
+        }
+      };
+
+      // Estrellas con paralaje multicapa
+      const stars = Array.from({ length: 220 }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        speed: 18 + Math.random() * 95,
+        size: Math.random() < 0.18 ? 3 : Math.random() < 0.5 ? 2 : 1,
+        color: Math.random() < 0.25 ? '#00f0ff' : Math.random() < 0.5 ? '#ffbe0b' : '#d8ecff',
+        alpha: 0.25 + Math.random() * 0.75
+      }));
+
+      function updateHUDFromCurrentShip() {
+        const s = state.currentShip;
+        s.offscreen = renderShipToOffscreen(s, state.pipelineStage, 1);
+
+        document.getElementById('input-seed').value = s.seedStr;
+        document.getElementById('badge-ship-class').textContent = s.shipClass;
+        document.getElementById('ship-name').textContent = s.shipName;
+        document.getElementById('ship-faction').textContent = `FACCIÓN: ${s.palette.factionName}`;
+
+        document.getElementById('stat-fire-val').textContent = String(s.stats.firepower);
+        document.getElementById('stat-fire-bar').style.width = `${s.stats.firepower}%`;
+
+        document.getElementById('stat-shield-val').textContent = String(s.stats.shield);
+        document.getElementById('stat-shield-bar').style.width = `${s.stats.shield}%`;
+
+        document.getElementById('stat-speed-val').textContent = String(s.stats.speed);
+        document.getElementById('stat-speed-bar').style.width = `${s.stats.speed}%`;
+
+        const fillPct = Math.min(100, Math.round((s.stats.hullCount / (s.size * s.size * 0.55)) * 100));
+        document.getElementById('stat-mass-val').textContent = `100% (${s.stats.hullCount} px)`;
+        document.getElementById('stat-mass-bar').style.width = `${fillPct}%`;
+
+        document.getElementById('val-hull-cells').textContent = String(s.stats.hullCount);
+        document.getElementById('val-weapon-cells').textContent = String(s.stats.weaponCount);
+        document.getElementById('val-thruster-cells').textContent = String(s.stats.thrusterCount);
+        document.getElementById('val-outline-cells').textContent = String(s.stats.outlineCount);
+
+        // Actualizar tira de vista previa de la rampa cromática HSL
+        const palStrip = document.getElementById('palette-preview');
+        const swatches = [
+          s.palette.primary.shadow,
+          s.palette.primary.base,
+          s.palette.primary.highlight,
+          s.palette.primary.specular,
+          s.palette.secondary.shadow,
+          s.palette.secondary.base,
+          s.palette.cockpit.highlight,
+          s.palette.thruster.mid
+        ];
+        palStrip.innerHTML = swatches
+          .map((hex) => `<div class="pal-swatch" style="background:${hex};" title="${hex}"></div>`)
+          .join('');
+      }
+
+      function rebuildFlagship() {
+        state.currentShip = generateSpaceship(
+          state.seedStr,
+          state.matrixSize,
+          state.shipClass,
+          state.paletteArchetype,
+          state.outlineMode
+        );
+        updateHUDFromCurrentShip();
+      }
+
+      function generateSquadronFleet() {
+        const classes = ['INTERCEPTOR', 'FIGHTER', 'CRUISER', 'MOTHERSHIP'];
+        state.fleet = [];
+        const fleetGridEl = document.getElementById('fleet-grid');
+        fleetGridEl.innerHTML = '';
+
+        for (let i = 0; i < 8; i++) {
+          const seed = i === 0 ? state.seedStr : generateRandomSeedCode();
+          const cls = i === 0 ? state.shipClass : classes[i % classes.length];
+          const ship = generateSpaceship(seed, state.matrixSize, cls, state.paletteArchetype, state.outlineMode);
+          state.fleet.push(ship);
+
+          const slot = document.createElement('div');
+          slot.className = `fleet-slot ${i === 0 ? 'active' : ''}`;
+          slot.title = `${ship.shipName} (${ship.shipClass}) - Semilla: ${ship.seedStr}`;
+
+          const thumb = renderShipToOffscreen(ship, 4, 2);
+          const lbl = document.createElement('span');
+          lbl.textContent = ship.seedStr;
+
+          slot.appendChild(thumb);
+          slot.appendChild(lbl);
+
+          slot.addEventListener('click', () => {
+            state.activeFleetIndex = i;
+            state.seedStr = ship.seedStr;
+            state.shipClass = ship.shipClass;
+            document.querySelectorAll('#class-buttons .forge-btn').forEach((b) =>
+              b.classList.toggle('active', b.dataset.class === state.shipClass)
+            );
+            document.querySelectorAll('.fleet-slot').forEach((el, idxSlot) =>
+              el.classList.toggle('active', idxSlot === i)
+            );
+            rebuildFlagship();
+          });
+
+          fleetGridEl.appendChild(slot);
+        }
+
+        state.currentShip = state.fleet[0];
+        updateHUDFromCurrentShip();
+      }
+
+      // =======================================================================
+      // 5. MODO VUELO DE PRUEBA (TEST FLIGHT SHMUP) Y FÍSICA DE PROYECTILES
+      // =======================================================================
+      const keys = {};
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        keys[k] = true;
+        keys[e.code] = true;
+
+        if (document.activeElement === document.getElementById('input-seed')) return;
+
+        if (k === 'r') {
+          state.seedStr = generateRandomSeedCode();
+          generateSquadronFleet();
+        } else if (k === 'v') {
+          toggleTestFlightMode();
+        } else if (['1', '2', '3', '4'].includes(k)) {
+          const stg = parseInt(k, 10);
+          setPipelineStage(stg);
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        keys[e.key.toLowerCase()] = false;
+        keys[e.code] = false;
+      });
+
+      let mouseDown = false;
+      hangarCanvas.addEventListener('pointerdown', (e) => {
+        if (e.button === 0) mouseDown = true;
+      });
+      window.addEventListener('pointerup', () => {
+        mouseDown = false;
+      });
+
+      function toggleTestFlightMode() {
+        state.testFlightActive = !state.testFlightActive;
+        const btn = document.getElementById('btn-test-flight');
+        const statusEl = document.getElementById('hud-mode-status');
+        const subEl = document.getElementById('hud-mode-sub');
+
+        if (state.testFlightActive) {
+          btn.classList.add('active');
+          btn.textContent = '🛑 SALIR A HANGAR [V]';
+          statusEl.textContent = 'MODO VUELO DE PRUEBA ACTIVO (SHMUP)';
+          statusEl.style.color = 'var(--amber)';
+          subEl.textContent = 'WASD/Flechas: Pilotar • Espacio/Clic: Disparar Cañones • Shift: Postquemador';
+          state.flight.x = hangarCanvas.width * 0.5;
+          state.flight.y = hangarCanvas.height * 0.58;
+          state.flight.vx = 0;
+          state.flight.vy = 0;
+          // Forzar etapa 4 (sprite final) al entrar en combate
+          setPipelineStage(4);
+        } else {
+          btn.classList.remove('active');
+          btn.textContent = '🚀 VUELO DE PRUEBA [V]';
+          statusEl.textContent = 'HANGAR DE FORJA E INSPECCIÓN';
+          statusEl.style.color = 'var(--emerald)';
+          subEl.textContent = 'Pulsa [R] para Nueva Nave • Clic en el Escuadrón Inferior • Pulsa [V] para Pilotar y Disparar';
+          state.flight.asteroids.length = 0;
+          state.flight.lasers.length = 0;
+        }
+      }
+
+      function spawnShmupTarget() {
+        const w = hangarCanvas.width;
+        const margin = 340;
+        const x = margin + Math.random() * Math.max(200, w - margin * 2);
+        const isDrone = Math.random() < 0.45;
+        state.flight.asteroids.push({
+          x,
+          y: -40,
+          vx: (Math.random() - 0.5) * 45,
+          vy: 75 + Math.random() * 95,
+          radius: isDrone ? 18 : 22 + Math.random() * 12,
+          hp: isDrone ? 2 : 3,
+          isDrone,
+          seed: Math.random() * 100
+        });
+      }
+
+      function fireShipLasers(shipCenterX, shipCenterY, pixelScale) {
+        const s = state.currentShip;
+        const halfPx = (s.size * pixelScale) * 0.5;
+        const topLeftX = shipCenterX - halfPx;
+        const topLeftY = shipCenterY - halfPx;
+
+        // Ordenar nodos de arma y elegir hasta 4 bocas de cañón simétricas
+        const weapons = s.weaponNodes.slice(0, 6);
+        for (let i = 0; i < weapons.length; i++) {
+          const wn = weapons[i];
+          const lx = topLeftX + (wn.x + 0.5) * pixelScale;
+          const ly = topLeftY + wn.y * pixelScale;
+
+          state.flight.lasers.push({
+            x: lx,
+            y: ly - 4,
+            vy: -680,
+            color: s.palette.thruster.laser
+          });
+
+          // Destello de boca de cañón (Muzzle Flash)
+          for (let p = 0; p < 3; p++) {
+            state.flight.exhaustParticles.push({
+              x: lx,
+              y: ly - 2,
+              vx: (Math.random() - 0.5) * 90,
+              vy: -120 - Math.random() * 120,
+              size: pixelScale * 0.7,
+              life: 0.12,
+              maxLife: 0.12,
+              color: '#ffffff'
+            });
+          }
+        }
+
+        state.flight.shake = Math.min(6, state.flight.shake + 2.2);
+      }
+
+      function spawnPixelExplosion(x, y, color) {
+        state.flight.shake = Math.min(11, state.flight.shake + 5.5);
+        for (let i = 0; i < 26; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 40 + Math.random() * 220;
+          state.flight.explosions.push({
+            x,
+            y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            size: 4 + Math.floor(Math.random() * 6),
+            life: 0.35 + Math.random() * 0.35,
+            maxLife: 0.7,
+            color: i % 3 === 0 ? '#ffffff' : i % 2 === 0 ? '#ffbe0b' : color
+          });
+        }
+      }
+
+      // =======================================================================
+      // 6. BUCLE PRINCIPAL DE RENDERIZADO DEL HANGAR Y MODO TEST FLIGHT
+      // =======================================================================
+      let lastTime = performance.now();
+      let frames = 0;
+      let fpsAccum = 0;
+
+      function mainLoop(now) {
+        requestAnimationFrame(mainLoop);
+
+        const dt = Math.min(0.05, (now - lastTime) * 0.001);
+        const timeSec = now * 0.001;
+        lastTime = now;
+        frames++;
+        fpsAccum += dt;
+
+        const W = hangarCanvas.width;
+        const H = hangarCanvas.height;
+        const s = state.currentShip;
+        const fl = state.flight;
+
+        // Escala de píxel nítida (entero exacto)
+        const baseScale = state.testFlightActive
+          ? Math.max(4, Math.floor(Math.min(W, H) / (s.size * 6.5)))
+          : Math.max(8, Math.floor(Math.min(W, H) / (s.size * 2.7)));
+
+        // Posición de la nave en modo Hangar vs. modo Vuelo de Prueba
+        let shipX = W * 0.5;
+        let shipY = H * 0.45 + Math.sin(timeSec * 2.6) * 8;
+
+        if (state.testFlightActive) {
+          const boost = (keys['shift'] || keys['ShiftLeft']) ? 1.55 : 1.0;
+          const moveSpd = (260 + s.stats.speed * 2.2) * boost;
+
+          let ax = 0, ay = 0;
+          if (keys['a'] || keys['arrowleft']) ax -= 1;
+          if (keys['d'] || keys['arrowright']) ax += 1;
+          if (keys['w'] || keys['arrowup']) ay -= 1;
+          if (keys['s'] || keys['arrowdown']) ay += 1;
+
+          fl.vx = fl.vx * 0.84 + ax * moveSpd * 0.16;
+          fl.vy = fl.vy * 0.84 + ay * moveSpd * 0.16;
+          fl.x = Math.max(335, Math.min(W - 335, fl.x + fl.vx * dt));
+          fl.y = Math.max(95, Math.min(H - 115, fl.y + fl.vy * dt));
+          fl.tilt = (fl.vx / moveSpd) * 0.18;
+
+          shipX = fl.x;
+          shipY = fl.y;
+
+          fl.fireCooldown -= dt;
+          if ((keys[' '] || keys['Space'] || mouseDown) && fl.fireCooldown <= 0) {
+            fireShipLasers(shipX, shipY, baseScale);
+            fl.fireCooldown = 0.14;
+          }
+
+          if (Math.random() < dt * 1.9 && fl.asteroids.length < 9) {
+            spawnShmupTarget();
+          }
+        } else {
+          fl.tilt = 0;
+        }
+
+        // Emitir partículas de plasma desde las celdas marcadas como THRUSTER (Toberas)
+        const spriteSizePx = s.size * baseScale;
+        const topLeftX = shipX - spriteSizePx * 0.5;
+        const topLeftY = shipY - spriteSizePx * 0.5;
+
+        for (let i = 0; i < s.thrusterNodes.length; i++) {
+          if (Math.random() < 0.65) {
+            const tn = s.thrusterNodes[i];
+            const tx = topLeftX + (tn.x + 0.5) * baseScale;
+            const ty = topLeftY + (tn.y + 1.0) * baseScale;
+
+            fl.exhaustParticles.push({
+              x: tx + (Math.random() - 0.5) * baseScale * 0.5,
+              y: ty,
+              vx: (Math.random() - 0.5) * 28,
+              vy: (state.testFlightActive ? 220 : 120) + Math.random() * 90,
+              size: Math.max(3, Math.floor(baseScale * 0.75)),
+              life: 0.28 + Math.random() * 0.18,
+              maxLife: 0.45,
+              color: Math.random() < 0.35
+                ? s.palette.thruster.core
+                : Math.random() < 0.7
+                ? s.palette.thruster.mid
+                : s.palette.thruster.outer
+            });
+          }
+        }
+
+        // ---------------------------------------------------------------------
+        // RENDERIZADO EN CANVAS 2D (PIXEL-PERFECT)
+        // ---------------------------------------------------------------------
+        hCtx.save();
+        if (fl.shake > 0.1) {
+          hCtx.translate((Math.random() - 0.5) * fl.shake * 2, (Math.random() - 0.5) * fl.shake * 2);
+          fl.shake *= 0.86;
+        } else {
+          fl.shake = 0;
+        }
+
+        // 1. Fondo de Espacio Profundo y Rejilla Técnica de Hangar
+        hCtx.fillStyle = '#04060c';
+        hCtx.fillRect(0, 0, W, H);
+
+        // Estrellas con paralaje
+        const starBoost = state.testFlightActive ? 3.2 : 1.0;
+        for (let i = 0; i < stars.length; i++) {
+          const st = stars[i];
+          st.y += st.speed * starBoost * dt;
+          if (st.y > H) {
+            st.y = 0;
+            st.x = Math.random() * W;
+          }
+          hCtx.fillStyle = st.color;
+          hCtx.globalAlpha = st.alpha;
+          hCtx.fillRect(st.x | 0, st.y | 0, st.size, st.size * (state.testFlightActive ? 2 : 1));
+        }
+        hCtx.globalAlpha = 1.0;
+
+        // Si estamos en modo Hangar, dibujar anillo holográfico de diagnóstico
+        if (!state.testFlightActive) {
+          hCtx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
+          hCtx.lineWidth = 1.5;
+          hCtx.beginPath();
+          hCtx.arc(shipX, shipY, spriteSizePx * 0.68, 0, Math.PI * 2);
+          hCtx.stroke();
+
+          // Eje central de simetría bilateral
+          hCtx.strokeStyle = 'rgba(255, 190, 11, 0.25)';
+          hCtx.setLineDash([5, 5]);
+          hCtx.beginPath();
+          hCtx.moveTo(shipX, topLeftY - 22);
+          hCtx.lineTo(shipX, topLeftY + spriteSizePx + 28);
+          hCtx.stroke();
+          hCtx.setLineDash([]);
+        }
+
+        // 2. Actualizar y dibujar Partículas de Propulsores de Plasma
+        for (let i = fl.exhaustParticles.length - 1; i >= 0; i--) {
+          const p = fl.exhaustParticles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= dt;
+          if (p.life <= 0) {
+            fl.exhaustParticles.splice(i, 1);
+            continue;
+          }
+          const ratio = p.life / p.maxLife;
+          const sz = Math.max(2, Math.floor(p.size * ratio));
+          hCtx.fillStyle = p.color;
+          hCtx.fillRect((p.x - sz * 0.5) | 0, (p.y - sz * 0.5) | 0, sz, sz);
+        }
+
+        // 3. Dibujar el Sprite Procedural de la Nave (Pixel-Perfect sin suavizado)
+        hCtx.save();
+        hCtx.translate(shipX | 0, shipY | 0);
+        if (fl.tilt !== 0) hCtx.rotate(fl.tilt);
+        hCtx.imageSmoothingEnabled = false;
+        hCtx.drawImage(
+          s.offscreen,
+          (-spriteSizePx * 0.5) | 0,
+          (-spriteSizePx * 0.5) | 0,
+          spriteSizePx,
+          spriteSizePx
+        );
+
+        // Si la rejilla de píxeles está activa en modo Hangar, superponer cuadrícula de matriz
+        if (!state.testFlightActive && state.showPixelGrid) {
+          hCtx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
+          hCtx.lineWidth = 1;
+          const half = (-spriteSizePx * 0.5) | 0;
+          for (let g = 0; g <= s.size; g++) {
+            const pos = half + g * baseScale;
+            hCtx.beginPath();
+            hCtx.moveTo(pos, half);
+            hCtx.lineTo(pos, half + spriteSizePx);
+            hCtx.stroke();
+
+            hCtx.beginPath();
+            hCtx.moveTo(half, pos);
+            hCtx.lineTo(half + spriteSizePx, pos);
+            hCtx.stroke();
+          }
+        }
+
+        // Luces estroboscópicas de navegación en las puntas de los cañones
+        if (Math.sin(timeSec * 7) > 0.2) {
+          const half = (-spriteSizePx * 0.5) | 0;
+          hCtx.fillStyle = s.palette.thruster.laser;
+          for (let i = 0; i < Math.min(4, s.weaponNodes.length); i++) {
+            const wn = s.weaponNodes[i];
+            hCtx.fillRect(
+              half + wn.x * baseScale,
+              half + (wn.y - 1) * baseScale,
+              baseScale,
+              Math.max(2, baseScale >> 1)
+            );
+          }
+        }
+        hCtx.restore();
+
+        // 4. Actualizar y dibujar Proyectiles Láser y Objetivos en Modo Test Flight
+        if (state.testFlightActive) {
+          for (let i = fl.lasers.length - 1; i >= 0; i--) {
+            const l = fl.lasers[i];
+            l.y += l.vy * dt;
+            if (l.y < -20) {
+              fl.lasers.splice(i, 1);
+              continue;
+            }
+            hCtx.fillStyle = '#ffffff';
+            hCtx.fillRect((l.x - 2) | 0, (l.y - 12) | 0, 4, 16);
+            hCtx.fillStyle = l.color;
+            hCtx.fillRect((l.x - 4) | 0, (l.y - 8) | 0, 8, 12);
+          }
+
+          // Asteroides y Drones enemigos
+          for (let i = fl.asteroids.length - 1; i >= 0; i--) {
+            const a = fl.asteroids[i];
+            a.x += a.vx * dt;
+            a.y += a.vy * dt;
+
+            if (a.y > H + 50) {
+              fl.asteroids.splice(i, 1);
+              continue;
+            }
+
+            // Dibujar objetivo retro pixelado
+            const r = a.radius | 0;
+            hCtx.fillStyle = a.isDrone ? '#ff2a6d' : '#6c7585';
+            hCtx.fillRect((a.x - r) | 0, (a.y - r * 0.7) | 0, r * 2, r * 1.4);
+            hCtx.fillStyle = a.isDrone ? '#ffbe0b' : '#94a3b8';
+            hCtx.fillRect((a.x - r * 0.6) | 0, (a.y - r) | 0, r * 1.2, r * 2);
+
+            // Colisión láser vs. objetivo
+            for (let j = fl.lasers.length - 1; j >= 0; j--) {
+              const l = fl.lasers[j];
+              if (Math.abs(l.x - a.x) < a.radius + 6 && Math.abs(l.y - a.y) < a.radius + 6) {
+                fl.lasers.splice(j, 1);
+                a.hp--;
+                if (a.hp <= 0) {
+                  spawnPixelExplosion(a.x, a.y, a.isDrone ? '#ff2a6d' : '#00f0ff');
+                  fl.score += a.isDrone ? 250 : 100;
+                  document.getElementById('val-flight-score').textContent = `${fl.score} PTS`;
+                  fl.floatingTexts.push({
+                    x: a.x,
+                    y: a.y,
+                    text: a.isDrone ? '+250 DRON' : '+100 ROCA',
+                    life: 0.75
+                  });
+                  fl.asteroids.splice(i, 1);
+                } else {
+                  spawnPixelExplosion(l.x, l.y, '#ffbe0b');
+                }
+                break;
+              }
+            }
+          }
+        }
+
+        // Explosiones de píxeles y textos flotantes
+        for (let i = fl.explosions.length - 1; i >= 0; i--) {
+          const ex = fl.explosions[i];
+          ex.x += ex.vx * dt;
+          ex.y += ex.vy * dt;
+          ex.life -= dt;
+          if (ex.life <= 0) {
+            fl.explosions.splice(i, 1);
+            continue;
+          }
+          hCtx.fillStyle = ex.color;
+          hCtx.fillRect(ex.x | 0, ex.y | 0, ex.size, ex.size);
+        }
+
+        hCtx.font = 'bold 12px monospace';
+        for (let i = fl.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = fl.floatingTexts[i];
+          ft.y -= 35 * dt;
+          ft.life -= dt;
+          if (ft.life <= 0) {
+            fl.floatingTexts.splice(i, 1);
+            continue;
+          }
+          hCtx.fillStyle = '#00ff9d';
+          hCtx.fillText(ft.text, (ft.x - 28) | 0, ft.y | 0);
+        }
+
+        hCtx.restore();
+
+        // Actualizar contador de FPS
+        if (fpsAccum >= 0.25) {
+          document.getElementById('fps-badge').textContent = `${Math.round(frames / fpsAccum)} FPS`;
+          frames = 0;
+          fpsAccum = 0;
+        }
+      }
+
+      // =======================================================================
+      // 7. EVENTOS DE INTERFAZ Y EXPORTACIÓN LIMPIA A PNG (16X NEAREST-NEIGHBOR)
+      // =======================================================================
+      document.getElementById('btn-random-seed').addEventListener('click', () => {
+        state.seedStr = generateRandomSeedCode();
+        generateSquadronFleet();
+      });
+
+      document.getElementById('btn-reroll-fleet').addEventListener('click', () => {
+        state.seedStr = generateRandomSeedCode();
+        generateSquadronFleet();
+      });
+
+      document.getElementById('input-seed').addEventListener('change', (e) => {
+        const val = e.target.value.trim().toUpperCase() || 'ARGON-0001';
+        state.seedStr = val;
+        rebuildFlagship();
+      });
+
+      document.querySelectorAll('#class-buttons .forge-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.shipClass = btn.dataset.class;
+          document.querySelectorAll('#class-buttons .forge-btn').forEach((b) => b.classList.toggle('active', b === btn));
+          rebuildFlagship();
+        });
+      });
+
+      document.querySelectorAll('#size-buttons .forge-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.matrixSize = parseInt(btn.dataset.size, 10);
+          document.getElementById('lbl-matrix-size').textContent = `${state.matrixSize} × ${state.matrixSize} px`;
+          document.querySelectorAll('#size-buttons .forge-btn').forEach((b) => b.classList.toggle('active', b === btn));
+          generateSquadronFleet();
+        });
+      });
+
+      document.getElementById('select-palette').addEventListener('change', (e) => {
+        state.paletteArchetype = e.target.value;
+        generateSquadronFleet();
+      });
+
+      document.querySelectorAll('#outline-buttons .forge-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.outlineMode = btn.dataset.outline;
+          document.querySelectorAll('#outline-buttons .forge-btn').forEach((b) => b.classList.toggle('active', b === btn));
+          rebuildFlagship();
+        });
+      });
+
+      function setPipelineStage(stageNum) {
+        state.pipelineStage = stageNum;
+        document.querySelectorAll('#stage-buttons .forge-btn').forEach((b) =>
+          b.classList.toggle('active', parseInt(b.dataset.stage, 10) === stageNum)
+        );
+        updateHUDFromCurrentShip();
+      }
+
+      document.querySelectorAll('#stage-buttons .forge-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setPipelineStage(parseInt(btn.dataset.stage, 10)));
+      });
+
+      const gridBtn = document.getElementById('btn-toggle-grid');
+      gridBtn.addEventListener('click', () => {
+        state.showPixelGrid = !state.showPixelGrid;
+        gridBtn.classList.toggle('active', state.showPixelGrid);
+      });
+
+      document.getElementById('btn-test-flight').addEventListener('click', toggleTestFlightMode);
+
+      // Exportación limpia en PNG escalado x16 sin suavizado (Pixel-Perfect)
+      document.getElementById('btn-export-png').addEventListener('click', () => {
+        const exportCanvas = renderShipToOffscreen(state.currentShip, 4, 16);
+        const link = document.createElement('a');
+        link.download = `sprite-${state.currentShip.seedStr.toLowerCase()}-${state.currentShip.size}x${state.currentShip.size}.png`;
+        link.href = exportCanvas.toDataURL('image/png');
+        link.click();
+      });
+
+      // Inicializar con un escuadrón inédito en cada recarga de página
+      generateSquadronFleet();
+      requestAnimationFrame(mainLoop);
+    })();
+  </script>
+</body>
+</html>

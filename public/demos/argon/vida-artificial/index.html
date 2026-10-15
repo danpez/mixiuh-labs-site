@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AETHER-FLOCK // Simulación de Vida Artificial y Comportamiento Emergente [Reynolds Boids + Quadtree]</title>
+  <style>
+    :root {
+      --bg-deep: #03060f;
+      --panel-bg: rgba(6, 12, 24, 0.80);
+      --panel-bg-strong: rgba(4, 8, 18, 0.92);
+      --cyan: #00f2ff;
+      --cyan-border: rgba(0, 242, 255, 0.28);
+      --emerald: #00ff9d;
+      --amber: #ffbe0b;
+      --crimson: #ff2a6d;
+      --violet: #b537f2;
+      --text-main: #e6f4ff;
+      --text-dim: #799bb8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-deep);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
+
+    /* Sistema de doble lienzo:
+       1. #trail-canvas renderiza los agentes con motion-trails bioluminiscentes
+       2. #overlay-canvas renderiza Quadtree, vectores, radios y retículas con nitidez total */
+    #trail-canvas, #overlay-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #trail-canvas {
+      z-index: 1;
+    }
+
+    #overlay-canvas {
+      z-index: 2;
+      cursor: none;
+    }
+
+    /* Superposición sutil de laboratorio científico */
+    .scanline-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 62%, rgba(1, 3, 10, 0.72) 100%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 242, 255, 0.01) 0px,
+          rgba(0, 242, 255, 0.01) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+    }
+
+    /* Esquinas de telemetría */
+    .corner {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      border-color: rgba(0, 242, 255, 0.45);
+      pointer-events: none;
+      z-index: 4;
+    }
+    .c-tl { top: 10px; left: 10px; border-top: 2px solid; border-left: 2px solid; }
+    .c-tr { top: 10px; right: 10px; border-top: 2px solid; border-right: 2px solid; }
+    .c-bl { bottom: 10px; left: 10px; border-bottom: 2px solid; border-left: 2px solid; }
+    .c-br { bottom: 10px; right: 10px; border-bottom: 2px solid; border-right: 2px solid; }
+
+    /* Barra Superior */
+    .top-bar {
+      position: fixed;
+      top: 14px;
+      left: 20px;
+      right: 20px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      pointer-events: none;
+    }
+
+    .hud-box {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border);
+      border-left: 4px solid var(--cyan);
+      border-radius: 6px;
+      padding: 10px 16px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+    }
+
+    .hud-box.crimson {
+      border-color: rgba(255, 42, 109, 0.35);
+      border-left-color: var(--crimson);
+    }
+
+    .hud-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-transform: uppercase;
+    }
+
+    .led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulseLed 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulseLed {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.45; }
+    }
+
+    .hud-sub {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* Paneles Laterales */
+    .left-dock {
+      position: fixed;
+      top: 84px;
+      left: 20px;
+      width: 330px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: calc(100vh - 135px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .right-dock {
+      position: fixed;
+      top: 84px;
+      right: 20px;
+      width: 345px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: calc(100vh - 135px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border);
+      border-radius: 6px;
+      padding: 11px 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.58);
+    }
+
+    .card-header {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 242, 255, 0.16);
+      padding-bottom: 6px;
+      margin-bottom: 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0, 242, 255, 0.14);
+      border: 1px solid rgba(0, 242, 255, 0.35);
+      color: #8cfbff;
+    }
+
+    .badge.crimson {
+      background: rgba(255, 42, 109, 0.16);
+      border-color: rgba(255, 42, 109, 0.45);
+      color: #ff8fb3;
+    }
+
+    .badge.emerald {
+      background: rgba(0, 255, 157, 0.14);
+      border-color: rgba(0, 255, 157, 0.4);
+      color: var(--emerald);
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      row-gap: 5px;
+      column-gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .t-lbl { color: var(--text-dim); }
+    .t-val { color: var(--text-main); font-weight: 600; text-align: right; }
+    .t-val.cyan { color: var(--cyan); }
+    .t-val.emerald { color: var(--emerald); }
+    .t-val.amber { color: var(--amber); }
+    .t-val.crimson { color: var(--crimson); }
+
+    /* Barra de eficiencia del Quadtree */
+    .efficiency-wrap {
+      margin-top: 8px;
+      padding-top: 7px;
+      border-top: 1px dashed rgba(0, 242, 255, 0.18);
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(0, 242, 255, 0.12);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 95%;
+      background: linear-gradient(90deg, var(--emerald), var(--cyan));
+      box-shadow: 0 0 10px var(--emerald);
+      transition: width 0.15s ease;
+    }
+
+    /* Botones y Presets */
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .sci-btn {
+      appearance: none;
+      background: rgba(0, 242, 255, 0.08);
+      border: 1px solid rgba(0, 242, 255, 0.28);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 7px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .sci-btn:hover {
+      background: rgba(0, 242, 255, 0.2);
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0, 242, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .sci-btn.active {
+      background: rgba(0, 242, 255, 0.25);
+      border-color: var(--cyan);
+      color: #fff;
+      box-shadow: inset 0 0 10px rgba(0, 242, 255, 0.32), 0 0 10px rgba(0, 242, 255, 0.2);
+    }
+
+    .sci-btn.crimson {
+      background: rgba(255, 42, 109, 0.12);
+      border-color: rgba(255, 42, 109, 0.42);
+      color: #ff9ebb;
+    }
+
+    .sci-btn.crimson:hover, .sci-btn.crimson.active {
+      background: rgba(255, 42, 109, 0.28);
+      border-color: var(--crimson);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(255, 42, 109, 0.35);
+    }
+
+    .sci-btn.amber {
+      background: rgba(255, 190, 11, 0.1);
+      border-color: rgba(255, 190, 11, 0.4);
+      color: #ffe082;
+    }
+
+    .sci-btn.amber:hover, .sci-btn.amber.active {
+      background: rgba(255, 190, 11, 0.25);
+      border-color: var(--amber);
+      color: #fff;
+    }
+
+    /* Sliders */
+    .slider-row {
+      margin-bottom: 8px;
+    }
+    .slider-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .slider-lbl {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+
+    .slider-lbl strong {
+      color: var(--cyan);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 242, 255, 0.16);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #020814;
+      box-shadow: 0 0 9px var(--cyan);
+      cursor: pointer;
+    }
+
+    /* Barra inferior */
+    .bottom-bar {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: var(--panel-bg-strong);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-border);
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      pointer-events: auto;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+      white-space: nowrap;
+    }
+
+    .bottom-bar strong {
+      color: var(--cyan);
+    }
+
+    @media (max-width: 1024px) {
+      .left-dock, .right-dock {
+        width: 265px;
+      }
+      .bottom-bar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="trail-canvas"></canvas>
+  <canvas id="overlay-canvas"></canvas>
+  <div class="scanline-overlay"></div>
+
+  <!-- Esquinas decorativas -->
+  <div class="corner c-tl"></div>
+  <div class="corner c-tr"></div>
+  <div class="corner c-bl"></div>
+  <div class="corner c-br"></div>
+
+  <!-- Cabecera Superior -->
+  <header class="top-bar">
+    <div class="hud-box">
+      <div class="hud-title">
+        <span class="led"></span>
+        <span>AETHER-FLOCK // VIDA ARTIFICIAL Y COMPORTAMIENTO EMERGENTE</span>
+      </div>
+      <div class="hud-sub">
+        MOTOR VECTORIAL REYNOLDS (SEPARACIÓN • ALINEACIÓN • COHESIÓN) + PARTICIONAMIENTO ESPACIAL QUADTREE
+      </div>
+    </div>
+
+    <div class="hud-box crimson">
+      <div class="hud-title" style="color: #ff6b9b; font-size: 12px;">
+        AMENAZA ÁPEX: <span id="hud-predator-state" style="color: #fff;">CURSOR + 1 LEVIATÁN IA</span>
+      </div>
+      <div class="hud-sub" id="hud-click-hint">
+        Clic Izquierdo: Onda de Choque • Shift+Clic: Colocar Obstáculo • Clic Derecho: Borrar Obstáculo
+      </div>
+    </div>
+  </header>
+
+  <!-- Panel Izquierdo: Telemetría Científica, Depuración y Presets -->
+  <aside class="left-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA DE PARVADA Y QUADTREE</span>
+        <span class="badge emerald" id="fps-badge">60 FPS</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-lbl">Agentes Activos (Boids):</span>
+        <span class="t-val cyan" id="val-boids-count">1,200</span>
+
+        <span class="t-lbl">Depredadores IA Autónomos:</span>
+        <span class="t-val crimson" id="val-predators-count">1</span>
+
+        <span class="t-lbl">Obstáculos de Campo Activos:</span>
+        <span class="t-val amber" id="val-obstacles-count">0</span>
+
+        <span class="t-lbl">Chequeos Vecindad / Frame:</span>
+        <span class="t-val emerald" id="val-quad-checks">0</span>
+
+        <span class="t-lbl">Fuerza Bruta O(N²) Equivalente:</span>
+        <span class="t-val" id="val-brute-checks">1,440,000</span>
+
+        <span class="t-lbl">Nodos Quadtree Subdivididos:</span>
+        <span class="t-val cyan" id="val-quad-nodes">0</span>
+
+        <span class="t-lbl">Velocidad Media Parvada:</span>
+        <span class="t-val" id="val-avg-speed">0.0 px/f</span>
+
+        <span class="t-lbl">Agentes en Estado de Pánico:</span>
+        <span class="t-val crimson" id="val-panic-count">0</span>
+      </div>
+
+      <div class="efficiency-wrap">
+        <div class="slider-lbl" style="margin-bottom: 2px;">
+          <span>REDUCCIÓN COMPUTACIONAL QUADTREE</span>
+          <strong id="val-efficiency" style="color: var(--emerald);">96.5%</strong>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-efficiency"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>DEPURACIÓN CIENTÍFICA EN VIVO</span>
+        <span class="badge">TOGGLES</span>
+      </div>
+      <div class="btn-grid-2">
+        <button class="sci-btn" id="toggle-quadtree" title="Mostrar subdivisión espacial dinámica Quadtree [Q]">
+          🔲 QUADTREE [Q]
+        </button>
+        <button class="sci-btn" id="toggle-vectors" title="Mostrar vectores de velocidad, fuerza y radios [V]">
+          🧭 VECTORES [V]
+        </button>
+        <button class="sci-btn active" id="toggle-trails" title="Alternar estelas bioluminiscentes o modo nítido [T]">
+          ✨ ESTELAS [T]
+        </button>
+        <button class="sci-btn" id="toggle-network" title="Mostrar grafo de conectividad local entre vecinos [N]">
+          🕸️ RED LOCAL [N]
+        </button>
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 6px;">
+        <button class="sci-btn crimson active" id="btn-cycle-predators" title="Cambiar cantidad de Depredadores IA (0 a 3) [P]">
+          🦈 DEPREDADORES IA: 1
+        </button>
+        <button class="sci-btn amber" id="btn-click-mode" title="Alternar acción del clic izquierdo">
+          💥 CLIC: ONDA CHOQUE
+        </button>
+      </div>
+
+      <div class="btn-grid-2" style="margin-top: 6px;">
+        <button class="sci-btn" id="btn-spawn-obstacles">
+          ⬡ GENERAR OBSTÁCULOS
+        </button>
+        <button class="sci-btn" id="btn-clear-obstacles">
+          🗑️ LIMPIAR CAMPO
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>PRESETS DE COMPORTAMIENTO EMERGENTE</span>
+        <span class="badge">BIOMIMÉTICA</span>
+      </div>
+      <div class="btn-grid-2">
+        <button class="sci-btn active" data-preset="murmuration">
+          🐦 ESTORNINOS
+        </button>
+        <button class="sci-btn" data-preset="school">
+          🐟 CARDUMEN PECES
+        </button>
+        <button class="sci-btn" data-preset="swarm">
+          🐝 ENJAMBRE CAÓTICO
+        </button>
+        <button class="sci-btn" data-preset="vortex">
+          🌌 VÓRTICE ABISAL
+        </button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Panel Derecho: Parámetros Vectoriales en Caliente -->
+  <aside class="right-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>LEYES DE REYNOLDS & FÍSICA VECTORIAL</span>
+        <span class="badge crimson">EN CALIENTE</span>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Cantidad de Agentes (N Boids)</span>
+          <strong id="lbl-count">1200</strong>
+        </div>
+        <input type="range" id="slider-count" min="200" max="2400" step="50" value="1200" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>1. Peso de Separación (Repulsión 1/d²)</span>
+          <strong id="lbl-sep">1.85</strong>
+        </div>
+        <input type="range" id="slider-sep" min="0.0" max="4.5" step="0.05" value="1.85" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>2. Peso de Alineación (Rumbo Vecinal)</span>
+          <strong id="lbl-ali">1.35</strong>
+        </div>
+        <input type="range" id="slider-ali" min="0.0" max="4.0" step="0.05" value="1.35" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>3. Peso de Cohesión (Atracción Centroide)</span>
+          <strong id="lbl-coh">1.15</strong>
+        </div>
+        <input type="range" id="slider-coh" min="0.0" max="4.0" step="0.05" value="1.15" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Radio de Percepción Vecinal (r_a / r_c)</span>
+          <strong id="lbl-perception">54 px</strong>
+        </div>
+        <input type="range" id="slider-perception" min="22" max="110" step="2" value="54" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Radio Personal de Separación (r_s)</span>
+          <strong id="lbl-sep-radius">24 px</strong>
+        </div>
+        <input type="range" id="slider-sep-radius" min="10" max="60" step="1" value="24" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Velocidad Máxima Crucero (maxSpeed)</span>
+          <strong id="lbl-speed">4.6</strong>
+        </div>
+        <input type="range" id="slider-speed" min="1.8" max="9.0" step="0.1" value="4.6" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Fuerza Máxima de Giro (maxForce)</span>
+          <strong id="lbl-force">0.16</strong>
+        </div>
+        <input type="range" id="slider-force" min="0.03" max="0.45" step="0.01" value="0.16" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Fuerza Evasión del Depredador (F_flee)</span>
+          <strong id="lbl-predator">4.2</strong>
+        </div>
+        <input type="range" id="slider-predator" min="0.5" max="8.0" step="0.1" value="4.2" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Radio de Pánico al Depredador</span>
+          <strong id="lbl-panic-rad">135 px</strong>
+        </div>
+        <input type="range" id="slider-panic-rad" min="50" max="260" step="5" value="135" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl">
+          <span>Persistencia de Estelas (Motion Trail)</span>
+          <strong id="lbl-trail">0.84</strong>
+        </div>
+        <input type="range" id="slider-trail" min="0.0" max="0.95" step="0.01" value="0.84" />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>ECUACIÓN DE DIRECCIÓN DE REYNOLDS</span>
+        <span class="badge">CINEMÁTICA</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 10px; line-height: 1.5; color: #9fc4e6;">
+        <div>• F_steer = limit(v_desired - v_actual, maxForce)</div>
+        <div>• a = w_s·F_sep + w_a·F_ali + w_c·F_coh + F_flee</div>
+        <div>• v(t+Δt) = limit(v(t) + a·Δt, maxSpeed·η_panic)</div>
+        <div>• θ = atan2(v_y, v_x) |Complejidad: O(N log N)</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Pie de página con atajos -->
+  <footer class="bottom-bar">
+    <span><strong>[CURSOR]</strong> Depredador Ápex</span>
+    <span><strong>[CLIC IZQ]</strong> Onda de Choque / Obstáculo</span>
+    <span><strong>[Q]</strong> Ver Quadtree</span>
+    <span><strong>[V]</strong> Ver Vectores y Radios</span>
+    <span><strong>[T]</strong> Estelas</span>
+    <span><strong>[P]</strong> Depredadores IA</span>
+    <span><strong>[ESPACIO]</strong> Pausar</span>
+  </footer>
+
+  <!-- =========================================================================
+       MOTOR DE SIMULACIÓN VECTORIAL + QUADTREE + IA DE DEPREDADORES
+       ========================================================================= -->
+  <script>
+    (() => {
+      'use strict';
+
+      // =======================================================================
+      // 1. CONFIGURACIÓN GLOBAL DE LA SIMULACIÓN
+      // =======================================================================
+      const CONFIG = {
+        boidCount: 1200,
+        sepWeight: 1.85,
+        aliWeight: 1.35,
+        cohWeight: 1.15,
+        perceptionRadius: 54,
+        separationRadius: 24,
+        maxSpeed: 4.6,
+        maxForce: 0.16,
+        predatorForce: 4.2,
+        panicRadius: 135,
+        trailPersistence: 0.84, // 0 = sin rastro, 0.95 = estela muy larga
+
+        showQuadtree: false,
+        showVectors: false,
+        showTrails: true,
+        showLocalNetwork: false,
+        aiPredatorCount: 1,
+        clickMode: 'shockwave', // 'shockwave' | 'obstacle'
+        isPaused: false,
+
+        quadtreeCapacity: 8,
+        quadtreeMaxDepth: 7
+      };
+
+      // =======================================================================
+      // 2. INICIALIZACIÓN DE LIENZOS (TRAIL CANVAS + OVERLAY CANVAS)
+      // =======================================================================
+      const trailCanvas = document.getElementById('trail-canvas');
+      const trailCtx = trailCanvas.getContext('2d', { alpha: false });
+
+      const overlayCanvas = document.getElementById('overlay-canvas');
+      const overlayCtx = overlayCanvas.getContext('2d');
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      function resizeCanvases() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        trailCanvas.width = width * dpr;
+        trailCanvas.height = height * dpr;
+        trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        overlayCanvas.width = width * dpr;
+        overlayCanvas.height = height * dpr;
+        overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        trailCtx.fillStyle = '#03060f';
+        trailCtx.fillRect(0, 0, width, height);
+      }
+
+      window.addEventListener('resize', resizeCanvases);
+      resizeCanvases();
+
+      // =======================================================================
+      // 3. ESTRUCTURA DE PARTICIONAMIENTO ESPACIAL: QUADTREE RECURSIVO
+      //    Evita O(N²) puro consultando únicamente celdas dentro del radio r
+      // =======================================================================
+      let quadCheckCounter = 0;
+      let quadNodeCounter = 0;
+
+      class QuadtreeNode {
+        constructor(x, y, w, h, capacity, depth, maxDepth) {
+          this.x = x; // esquina superior izquierda
+          this.y = y;
+          this.w = w;
+          this.h = h;
+          this.capacity = capacity;
+          this.depth = depth;
+          this.maxDepth = maxDepth;
+          this.points = [];
+          this.divided = false;
+          this.nw = null;
+          this.ne = null;
+          this.sw = null;
+          this.se = null;
+          quadNodeCounter++;
+        }
+
+        contains(boid) {
+          return (
+            boid.px >= this.x &&
+            boid.px < this.x + this.w &&
+            boid.py >= this.y &&
+            boid.py < this.y + this.h
+          );
+        }
+
+        subdivide() {
+          const hw = this.w * 0.5;
+          const hh = this.h * 0.5;
+          const nextDepth = this.depth + 1;
+
+          this.nw = new QuadtreeNode(this.x, this.y, hw, hh, this.capacity, nextDepth, this.maxDepth);
+          this.ne = new QuadtreeNode(this.x + hw, this.y, hw, hh, this.capacity, nextDepth, this.maxDepth);
+          this.sw = new QuadtreeNode(this.x, this.y + hh, hw, hh, this.capacity, nextDepth, this.maxDepth);
+          this.se = new QuadtreeNode(this.x + hw, this.y + hh, hw, hh, this.capacity, nextDepth, this.maxDepth);
+          this.divided = true;
+
+          // Reubicar puntos existentes en los sub-cuadrantes hijos
+          for (let i = 0; i < this.points.length; i++) {
+            const p = this.points[i];
+            if (this.nw.contains(p)) this.nw.insert(p);
+            else if (this.ne.contains(p)) this.ne.insert(p);
+            else if (this.sw.contains(p)) this.sw.insert(p);
+            else if (this.se.contains(p)) this.se.insert(p);
+          }
+          this.points.length = 0;
+        }
+
+        insert(boid) {
+          if (!this.contains(boid)) return false;
+
+          if (!this.divided) {
+            if (this.points.length < this.capacity || this.depth >= this.maxDepth) {
+              this.points.push(boid);
+              return true;
+            }
+            this.subdivide();
+          }
+
+          if (this.nw.insert(boid)) return true;
+          if (this.ne.insert(boid)) return true;
+          if (this.sw.insert(boid)) return true;
+          if (this.se.insert(boid)) return true;
+          return false;
+        }
+
+        // Intersección círculo-rectángulo para descartar ramas completas del árbol
+        intersectsCircle(cx, cy, r) {
+          const closestX = Math.max(this.x, Math.min(cx, this.x + this.w));
+          const closestY = Math.max(this.y, Math.min(cy, this.y + this.h));
+          const dx = cx - closestX;
+          const dy = cy - closestY;
+          return (dx * dx + dy * dy) <= (r * r);
+        }
+
+        queryCircle(cx, cy, r, rSq, outBuffer) {
+          if (!this.intersectsCircle(cx, cy, r)) return;
+
+          if (!this.divided) {
+            const pts = this.points;
+            for (let i = 0; i < pts.length; i++) {
+              quadCheckCounter++;
+              const b = pts[i];
+              const dx = b.px - cx;
+              const dy = b.py - cy;
+              const dSq = dx * dx + dy * dy;
+              if (dSq <= rSq) {
+                outBuffer.push(b);
+              }
+            }
+            return;
+          }
+
+          this.nw.queryCircle(cx, cy, r, rSq, outBuffer);
+          this.ne.queryCircle(cx, cy, r, rSq, outBuffer);
+          this.sw.queryCircle(cx, cy, r, rSq, outBuffer);
+          this.se.queryCircle(cx, cy, r, rSq, outBuffer);
+        }
+
+        drawDebug(ctx) {
+          if (this.depth > 0) {
+            const alpha = Math.min(0.48, 0.06 + this.depth * 0.055);
+            ctx.strokeStyle = `rgba(0, 242, 255, ${alpha})`;
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(this.x, this.y, this.w, this.h);
+          }
+          if (this.divided) {
+            this.nw.drawDebug(ctx);
+            this.ne.drawDebug(ctx);
+            this.sw.drawDebug(ctx);
+            this.se.drawDebug(ctx);
+          }
+        }
+      }
+
+      // =======================================================================
+      // 4. CLASE BOID: CINEMÁTICA VECTORIAL Y STEERING BEHAVIORS DE REYNOLDS
+      // =======================================================================
+      class Boid {
+        constructor(id, x, y) {
+          this.id = id;
+          this.px = x;
+          this.py = y;
+
+          const angle = Math.random() * Math.PI * 2;
+          const speed = (0.55 + Math.random() * 0.45) * CONFIG.maxSpeed;
+          this.vx = Math.cos(angle) * speed;
+          this.vy = Math.sin(angle) * speed;
+
+          this.ax = 0;
+          this.ay = 0;
+
+          // Vectores de depuración para visualización científica
+          this.lastSteerX = 0;
+          this.lastSteerY = 0;
+          this.neighborCount = 0;
+          this.panicLevel = 0; // [0..1] Efecto adrenalina ante depredadores
+        }
+
+        // Fórmula clásica de Reynolds: F_steer = limit(v_desired - v_actual, maxForce)
+        computeSteering(desiredX, desiredY, maxSpeed, maxForce) {
+          const mag = Math.hypot(desiredX, desiredY);
+          if (mag < 0.0001) return [0, 0];
+
+          const scale = maxSpeed / mag;
+          let steerX = desiredX * scale - this.vx;
+          let steerY = desiredY * scale - this.vy;
+
+          const steerMag = Math.hypot(steerX, steerY);
+          if (steerMag > maxForce) {
+            const fScale = maxForce / steerMag;
+            steerX *= fScale;
+            steerY *= fScale;
+          }
+          return [steerX, steerY];
+        }
+
+        // Calcula conjuntamente Separación, Alineación y Cohesión a partir de los vecinos del Quadtree
+        flock(neighbors, obstacles, predators, mousePredator) {
+          const rPerception = CONFIG.perceptionRadius;
+          const rSeparation = CONFIG.separationRadius;
+          const rSepSq = rSeparation * rSeparation;
+          const maxSpeed = CONFIG.maxSpeed;
+          const maxForce = CONFIG.maxForce;
+
+          let sepX = 0, sepY = 0, sepCount = 0;
+          let aliX = 0, aliY = 0, aliCount = 0;
+          let cohX = 0, cohY = 0, cohCount = 0;
+
+          const len = neighbors.length;
+          for (let i = 0; i < len; i++) {
+            const other = neighbors[i];
+            if (other === this) continue;
+
+            const dx = this.px - other.px;
+            const dy = this.py - other.py;
+            const dSq = dx * dx + dy * dy;
+            if (dSq < 0.0001) continue;
+
+            // 1. Separación: Repulsión inversamente proporcional al cuadrado de la distancia (1/d²)
+            if (dSq < rSepSq) {
+              const invDSq = 1.0 / dSq;
+              sepX += dx * invDSq;
+              sepY += dy * invDSq;
+              sepCount++;
+            }
+
+            // 2. Alineación: Suma de velocidades vecinas
+            aliX += other.vx;
+            aliY += other.vy;
+            aliCount++;
+
+            // 3. Cohesión: Suma de posiciones para hallar el centroide
+            cohX += other.px;
+            cohY += other.py;
+            cohCount++;
+          }
+
+          this.neighborCount = aliCount;
+
+          let totalForceX = 0;
+          let totalForceY = 0;
+
+          // Aplicar Steering de Separación
+          if (sepCount > 0) {
+            const [sx, sy] = this.computeSteering(sepX / sepCount, sepY / sepCount, maxSpeed, maxForce * 1.35);
+            totalForceX += sx * CONFIG.sepWeight;
+            totalForceY += sy * CONFIG.sepWeight;
+          }
+
+          // Aplicar Steering de Alineación
+          if (aliCount > 0) {
+            const [ax, ay] = this.computeSteering(aliX / aliCount, aliY / aliCount, maxSpeed, maxForce);
+            totalForceX += ax * CONFIG.aliWeight;
+            totalForceY += ay * CONFIG.aliWeight;
+          }
+
+          // Aplicar Steering de Cohesión (Seek hacia el centro de masa)
+          if (cohCount > 0) {
+            const centerX = cohX / cohCount;
+            const centerY = cohY / cohCount;
+            const desiredX = centerX - this.px;
+            const desiredY = centerY - this.py;
+            const [cx, cy] = this.computeSteering(desiredX, desiredY, maxSpeed, maxForce);
+            totalForceX += cx * CONFIG.cohWeight;
+            totalForceY += cy * CONFIG.cohWeight;
+          }
+
+          // 4. Evasión de Obstáculos Físicos
+          for (let i = 0; i < obstacles.length; i++) {
+            const obs = obstacles[i];
+            const dx = this.px - obs.x;
+            const dy = this.py - obs.y;
+            const dist = Math.hypot(dx, dy);
+            const avoidZone = obs.r + 38;
+            if (dist < avoidZone && dist > 0.001) {
+              const urgency = Math.pow(1.0 - (dist - obs.r) / 38, 2);
+              const [ox, oy] = this.computeSteering(dx / dist, dy / dist, maxSpeed * 1.4, maxForce * 2.8);
+              totalForceX += ox * (2.5 + urgency * 3.5);
+              totalForceY += oy * (2.5 + urgency * 3.5);
+            }
+          }
+
+          // 5. Evasión de Depredadores (Cursor Ápex + Leviatanes IA Autónomos)
+          const panicRad = CONFIG.panicRadius;
+          const panicRadSq = panicRad * panicRad;
+          let maxPanicTrigger = 0;
+
+          // 5a. Cursor del Mouse como Depredador Ápex
+          if (mousePredator.active) {
+            const dx = this.px - mousePredator.x;
+            const dy = this.py - mousePredator.y;
+            const dSq = dx * dx + dy * dy;
+            if (dSq < panicRadSq && dSq > 0.001) {
+              const d = Math.sqrt(dSq);
+              const panicFactor = 1.0 - d / panicRad;
+              maxPanicTrigger = Math.max(maxPanicTrigger, panicFactor);
+
+              const [fx, fy] = this.computeSteering(
+                dx / d,
+                dy / d,
+                maxSpeed * 1.85,
+                maxForce * (2.2 + panicFactor * 2.5)
+              );
+              totalForceX += fx * CONFIG.predatorForce * (1.0 + panicFactor * 1.5);
+              totalForceY += fy * CONFIG.predatorForce * (1.0 + panicFactor * 1.5);
+            }
+          }
+
+          // 5b. Depredadores IA Autónomos
+          for (let i = 0; i < predators.length; i++) {
+            const pred = predators[i];
+            const dx = this.px - pred.px;
+            const dy = this.py - pred.py;
+            const dSq = dx * dx + dy * dy;
+            if (dSq < panicRadSq && dSq > 0.001) {
+              const d = Math.sqrt(dSq);
+              const panicFactor = 1.0 - d / panicRad;
+              maxPanicTrigger = Math.max(maxPanicTrigger, panicFactor);
+
+              const [fx, fy] = this.computeSteering(
+                dx / d,
+                dy / d,
+                maxSpeed * 1.85,
+                maxForce * (2.0 + panicFactor * 2.2)
+              );
+              totalForceX += fx * CONFIG.predatorForce * (1.0 + panicFactor);
+              totalForceY += fy * CONFIG.predatorForce * (1.0 + panicFactor);
+            }
+          }
+
+          if (maxPanicTrigger > this.panicLevel) {
+            this.panicLevel = Math.min(1.0, maxPanicTrigger * 1.25);
+          } else {
+            this.panicLevel *= 0.94;
+          }
+
+          this.ax += totalForceX;
+          this.ay += totalForceY;
+          this.lastSteerX = totalForceX;
+          this.lastSteerY = totalForceY;
+        }
+
+        update() {
+          this.vx += this.ax;
+          this.vy += this.ay;
+
+          // Límite estricto de velocidad máxima (con impulso de adrenalina si huye del depredador)
+          const effectiveMaxSpeed = CONFIG.maxSpeed * (1.0 + this.panicLevel * 0.82);
+          const speed = Math.hypot(this.vx, this.vy);
+          if (speed > effectiveMaxSpeed) {
+            const scale = effectiveMaxSpeed / speed;
+            this.vx *= scale;
+            this.vy *= scale;
+          } else if (speed < CONFIG.maxSpeed * 0.35) {
+            const minS = (CONFIG.maxSpeed * 0.35) / Math.max(speed, 0.001);
+            this.vx *= minS;
+            this.vy *= minS;
+          }
+
+          this.px += this.vx;
+          this.py += this.vy;
+
+          // Resetear aceleración para el siguiente ciclo
+          this.ax = 0;
+          this.ay = 0;
+
+          // Espacio toroidal continuo (envoltura de bordes sin costuras)
+          const margin = 14;
+          if (this.px < -margin) this.px = width + margin;
+          else if (this.px > width + margin) this.px = -margin;
+
+          if (this.py < -margin) this.py = height + margin;
+          else if (this.py > height + margin) this.py = -margin;
+        }
+
+        draw(ctx) {
+          // Ángulo de dirección cinemática: θ = atan2(vy, vx)
+          const theta = Math.atan2(this.vy, this.vx);
+          const cos = Math.cos(theta);
+          const sin = Math.sin(theta);
+
+          // Color bioluminiscente reactivo según pánico, densidad local de parvada y velocidad
+          let hue, sat, light;
+          if (this.panicLevel > 0.12) {
+            // Alerta de adrenalina: transición de cyan a magenta/carmesí/ámbar
+            hue = 345 - this.panicLevel * 25;
+            sat = 100;
+            light = 60 + this.panicLevel * 18;
+          } else {
+            // Bioluminiscencia normal modulada por la densidad local y rumbo
+            const densityNorm = Math.min(1.0, this.neighborCount / 18);
+            const headingMod = Math.sin(theta) * 14;
+            hue = 188 - densityNorm * 36 + headingMod; // Cyan (188°) -> Esmeralda (152°)
+            sat = 95;
+            light = 54 + densityNorm * 16;
+          }
+
+          const size = 6.8 + this.panicLevel * 2.0;
+
+          // Geometría de dardo aerodinámico rotada manualmente con (cos, sin) para máximo rendimiento
+          const noseX = this.px + cos * size * 1.35;
+          const noseY = this.py + sin * size * 1.35;
+
+          const leftX = this.px + (-cos * 0.85 - sin * 0.68) * size;
+          const leftY = this.py + (-sin * 0.85 + cos * 0.68) * size;
+
+          const notchX = this.px - cos * size * 0.38;
+          const notchY = this.py - sin * size * 0.38;
+
+          const rightX = this.px + (-cos * 0.85 + sin * 0.68) * size;
+          const rightY = this.py + (-sin * 0.85 - cos * 0.68) * size;
+
+          ctx.fillStyle = `hsl(${hue}, ${sat}%, ${light}%)`;
+          ctx.beginPath();
+          ctx.moveTo(noseX, noseY);
+          ctx.lineTo(leftX, leftY);
+          ctx.lineTo(notchX, notchY);
+          ctx.lineTo(rightX, rightY);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // =======================================================================
+      // 5. DEPREDADOR IA AUTÓNOMO (CAZADOR DE CENTROS DE DENSIDAD)
+      // =======================================================================
+      class AutonomousPredator {
+        constructor(index) {
+          this.index = index;
+          this.px = width * (0.25 + 0.5 * Math.random());
+          this.py = height * (0.25 + 0.5 * Math.random());
+          const ang = Math.random() * Math.PI * 2;
+          this.vx = Math.cos(ang) * 4.5;
+          this.vy = Math.sin(ang) * 4.5;
+          this.targetX = width * 0.5;
+          this.targetY = height * 0.5;
+          this.hasLock = false;
+          this.spine = [];
+          for (let i = 0; i < 14; i++) {
+            this.spine.push({ x: this.px, y: this.py });
+          }
+        }
+
+        hunt(quadtree, queryBuf) {
+          // Escanear amplio radio de caza en el Quadtree para localizar el centro de masa más denso
+          const scanRad = 240;
+          queryBuf.length = 0;
+          quadtree.queryCircle(this.px, this.py, scanRad, scanRad * scanRad, queryBuf);
+
+          let desiredX = 0;
+          let desiredY = 0;
+
+          if (queryBuf.length > 0) {
+            let cx = 0, cy = 0, vvx = 0, vvy = 0;
+            for (let i = 0; i < queryBuf.length; i++) {
+              cx += queryBuf[i].px;
+              cy += queryBuf[i].py;
+              vvx += queryBuf[i].vx;
+              vvy += queryBuf[i].vy;
+            }
+            cx /= queryBuf.length;
+            cy /= queryBuf.length;
+            vvx /= queryBuf.length;
+            vvy /= queryBuf.length;
+
+            // Predicción de intercepción (Pursuit behavior)
+            this.targetX = cx + vvx * 8;
+            this.targetY = cy + vvy * 8;
+            this.hasLock = true;
+
+            desiredX = this.targetX - this.px;
+            desiredY = this.targetY - this.py;
+          } else {
+            this.hasLock = false;
+            // Patrulla suave hacia el centro si no hay presas cercanas
+            desiredX = width * 0.5 - this.px + Math.cos(performance.now() * 0.001 + this.index) * 180;
+            desiredY = height * 0.5 - this.py + Math.sin(performance.now() * 0.0013 + this.index) * 180;
+          }
+
+          const mag = Math.hypot(desiredX, desiredY) || 1;
+          const huntSpeed = CONFIG.maxSpeed * 1.18;
+          const steerX = (desiredX / mag) * huntSpeed - this.vx;
+          const steerY = (desiredY / mag) * huntSpeed - this.vy;
+
+          const maxPredForce = CONFIG.maxForce * 1.35;
+          const sMag = Math.hypot(steerX, steerY) || 1;
+          const fScale = Math.min(1, maxPredForce / sMag);
+
+          this.vx += steerX * fScale;
+          this.vy += steerY * fScale;
+
+          const spd = Math.hypot(this.vx, this.vy) || 1;
+          if (spd > huntSpeed) {
+            this.vx = (this.vx / spd) * huntSpeed;
+            this.vy = (this.vy / spd) * huntSpeed;
+          }
+
+          this.px += this.vx;
+          this.py += this.vy;
+
+          if (this.px < 0) this.px += width;
+          else if (this.px > width) this.px -= width;
+          if (this.py < 0) this.py += height;
+          else if (this.py > height) this.py -= height;
+
+          // Actualizar espina articulada biomecánica
+          this.spine[0].x = this.px;
+          this.spine[0].y = this.py;
+          for (let i = 1; i < this.spine.length; i++) {
+            const prev = this.spine[i - 1];
+            const cur = this.spine[i];
+            const dx = prev.x - cur.x;
+            const dy = prev.y - cur.y;
+            const d = Math.hypot(dx, dy);
+            if (d > 65) {
+              // Salto toroidal
+              cur.x = prev.x;
+              cur.y = prev.y;
+            } else if (d > 5.5) {
+              const angle = Math.atan2(dy, dx);
+              cur.x = prev.x - Math.cos(angle) * 5.5;
+              cur.y = prev.y - Math.sin(angle) * 5.5;
+            }
+          }
+        }
+
+        drawBody(ctx) {
+          const theta = Math.atan2(this.vy, this.vx);
+
+          // Dibujar cola biomecánica articulada
+          for (let i = this.spine.length - 1; i >= 1; i--) {
+            const pt = this.spine[i];
+            const r = Math.max(1.5, (1 - i / this.spine.length) * 6.5);
+            ctx.fillStyle = `rgba(255, 42, 109, ${0.85 - (i / this.spine.length) * 0.65})`;
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Cabeza del Leviatán Depredador
+          ctx.save();
+          ctx.translate(this.px, this.py);
+          ctx.rotate(theta);
+
+          ctx.fillStyle = '#ff2a6d';
+          ctx.beginPath();
+          ctx.moveTo(16, 0);
+          ctx.lineTo(-10, -10);
+          ctx.lineTo(-5, 0);
+          ctx.lineTo(-10, 10);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(4, 0, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        drawOverlayHUD(ctx) {
+          // Radio de pánico del depredador IA
+          ctx.strokeStyle = 'rgba(255, 42, 109, 0.22)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.arc(this.px, this.py, CONFIG.panicRadius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Línea de bloqueo de objetivo hacia el centroide de caza
+          if (this.hasLock && Math.hypot(this.targetX - this.px, this.targetY - this.py) < 280) {
+            ctx.strokeStyle = 'rgba(255, 42, 109, 0.35)';
+            ctx.beginPath();
+            ctx.moveTo(this.px, this.py);
+            ctx.lineTo(this.targetX, this.targetY);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(255, 190, 11, 0.65)';
+            ctx.strokeRect(this.targetX - 6, this.targetY - 6, 12, 12);
+          }
+        }
+      }
+
+      // =======================================================================
+      // 6. GESTIÓN DE POBLACIÓN, OBSTÁCULOS Y ONDAS DE CHOQUE
+      // =======================================================================
+      const boids = [];
+      const predators = [];
+      const obstacles = [];
+      const shockwaves = [];
+      const sharedQueryBuffer = [];
+
+      const mousePredator = {
+        x: -9999,
+        y: -9999,
+        active: false
+      };
+
+      function syncBoidPopulation(targetCount) {
+        while (boids.length < targetCount) {
+          boids.push(new Boid(boids.length, Math.random() * width, Math.random() * height));
+        }
+        if (boids.length > targetCount) {
+          boids.length = targetCount;
+        }
+        document.getElementById('val-boids-count').textContent = targetCount.toLocaleString('en-US');
+        const brute = targetCount * (targetCount - 1);
+        document.getElementById('val-brute-checks').textContent = brute.toLocaleString('en-US');
+      }
+
+      function syncPredators(targetCount) {
+        while (predators.length < targetCount) {
+          predators.push(new AutonomousPredator(predators.length));
+        }
+        if (predators.length > targetCount) {
+          predators.length = targetCount;
+        }
+        document.getElementById('val-predators-count').textContent = String(targetCount);
+        document.getElementById('btn-cycle-predators').textContent = `🦈 DEPREDADORES IA: ${targetCount}`;
+        document.getElementById('btn-cycle-predators').classList.toggle('active', targetCount > 0);
+        document.getElementById('hud-predator-state').textContent =
+          `CURSOR + ${targetCount} LEVIATÁN${targetCount === 1 ? '' : 'ES'} IA`;
+      }
+
+      function emitShockwave(x, y) {
+        shockwaves.push({
+          x,
+          y,
+          radius: 8,
+          maxRadius: CONFIG.panicRadius * 1.95,
+          alpha: 1.0
+        });
+
+        // Impulso físico radial inmediato sobre los agentes cercanos
+        const blastRadius = CONFIG.panicRadius * 1.85;
+        for (let i = 0; i < boids.length; i++) {
+          const b = boids[i];
+          const dx = b.px - x;
+          const dy = b.py - y;
+          const d = Math.hypot(dx, dy);
+          if (d < blastRadius && d > 0.001) {
+            const strength = Math.pow(1.0 - d / blastRadius, 1.4) * CONFIG.maxSpeed * 2.4;
+            b.vx += (dx / d) * strength;
+            b.vy += (dy / d) * strength;
+            b.panicLevel = 1.0;
+          }
+        }
+      }
+
+      function addObstacle(x, y, radius = 28) {
+        obstacles.push({ x, y, r: radius });
+        document.getElementById('val-obstacles-count').textContent = String(obstacles.length);
+      }
+
+      syncBoidPopulation(CONFIG.boidCount);
+      syncPredators(CONFIG.aiPredatorCount);
+
+      // =======================================================================
+      // 7. INTERACCIÓN CON EL MOUSE, OBSTÁCULOS Y CONTROLES HUD
+      // =======================================================================
+      overlayCanvas.addEventListener('pointermove', (e) => {
+        mousePredator.x = e.clientX;
+        mousePredator.y = e.clientY;
+        mousePredator.active = true;
+      });
+
+      overlayCanvas.addEventListener('pointerleave', () => {
+        mousePredator.active = false;
+      });
+
+      overlayCanvas.addEventListener('pointerdown', (e) => {
+        if (e.button === 2) {
+          // Clic derecho elimina el obstáculo más cercano
+          for (let i = obstacles.length - 1; i >= 0; i--) {
+            if (Math.hypot(obstacles[i].x - e.clientX, obstacles[i].y - e.clientY) < obstacles[i].r + 25) {
+              obstacles.splice(i, 1);
+              document.getElementById('val-obstacles-count').textContent = String(obstacles.length);
+              break;
+            }
+          }
+          return;
+        }
+
+        if (e.shiftKey || CONFIG.clickMode === 'obstacle') {
+          addObstacle(e.clientX, e.clientY, 24 + Math.random() * 14);
+        } else {
+          emitShockwave(e.clientX, e.clientY);
+        }
+      });
+
+      overlayCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // Conectar Sliders en caliente
+      function bindSlider(id, lblId, key, formatter) {
+        const slider = document.getElementById(id);
+        const lbl = document.getElementById(lblId);
+        slider.addEventListener('input', () => {
+          const val = parseFloat(slider.value);
+          CONFIG[key] = val;
+          lbl.textContent = formatter(val);
+          if (key === 'boidCount') {
+            syncBoidPopulation(Math.round(val));
+          }
+        });
+      }
+
+      bindSlider('slider-count', 'lbl-count', 'boidCount', (v) => v.toFixed(0));
+      bindSlider('slider-sep', 'lbl-sep', 'sepWeight', (v) => v.toFixed(2));
+      bindSlider('slider-ali', 'lbl-ali', 'aliWeight', (v) => v.toFixed(2));
+      bindSlider('slider-coh', 'lbl-coh', 'cohWeight', (v) => v.toFixed(2));
+      bindSlider('slider-perception', 'lbl-perception', 'perceptionRadius', (v) => `${v.toFixed(0)} px`);
+      bindSlider('slider-sep-radius', 'lbl-sep-radius', 'separationRadius', (v) => `${v.toFixed(0)} px`);
+      bindSlider('slider-speed', 'lbl-speed', 'maxSpeed', (v) => v.toFixed(1));
+      bindSlider('slider-force', 'lbl-force', 'maxForce', (v) => v.toFixed(2));
+      bindSlider('slider-predator', 'lbl-predator', 'predatorForce', (v) => v.toFixed(1));
+      bindSlider('slider-panic-rad', 'lbl-panic-rad', 'panicRadius', (v) => `${v.toFixed(0)} px`);
+      bindSlider('slider-trail', 'lbl-trail', 'trailPersistence', (v) => v.toFixed(2));
+
+      // Toggles de depuración
+      function bindToggleBtn(id, key) {
+        const btn = document.getElementById(id);
+        btn.addEventListener('click', () => {
+          CONFIG[key] = !CONFIG[key];
+          btn.classList.toggle('active', CONFIG[key]);
+        });
+      }
+
+      bindToggleBtn('toggle-quadtree', 'showQuadtree');
+      bindToggleBtn('toggle-vectors', 'showVectors');
+      bindToggleBtn('toggle-trails', 'showTrails');
+      bindToggleBtn('toggle-network', 'showLocalNetwork');
+
+      document.getElementById('btn-cycle-predators').addEventListener('click', () => {
+        CONFIG.aiPredatorCount = (CONFIG.aiPredatorCount + 1) % 4;
+        syncPredators(CONFIG.aiPredatorCount);
+      });
+
+      const clickModeBtn = document.getElementById('btn-click-mode');
+      clickModeBtn.addEventListener('click', () => {
+        CONFIG.clickMode = CONFIG.clickMode === 'shockwave' ? 'obstacle' : 'shockwave';
+        clickModeBtn.textContent = CONFIG.clickMode === 'shockwave'
+          ? '💥 CLIC: ONDA CHOQUE'
+          : '⬡ CLIC: OBSTÁCULO';
+        clickModeBtn.classList.toggle('active', CONFIG.clickMode === 'obstacle');
+      });
+
+      document.getElementById('btn-spawn-obstacles').addEventListener('click', () => {
+        obstacles.length = 0;
+        const cols = 3;
+        const rows = 2;
+        for (let r = 1; r <= rows; r++) {
+          for (let c = 1; c <= cols; c++) {
+            addObstacle(
+              (width / (cols + 1)) * c + (Math.random() - 0.5) * 50,
+              (height / (rows + 1)) * r + (Math.random() - 0.5) * 50,
+              28 + Math.random() * 10
+            );
+          }
+        }
+      });
+
+      document.getElementById('btn-clear-obstacles').addEventListener('click', () => {
+        obstacles.length = 0;
+        document.getElementById('val-obstacles-count').textContent = '0';
+      });
+
+      // Presets biomiméticos
+      const PRESETS = {
+        murmuration: {
+          sepWeight: 1.85, aliWeight: 1.35, cohWeight: 1.15,
+          perceptionRadius: 54, separationRadius: 24,
+          maxSpeed: 4.6, maxForce: 0.16, trailPersistence: 0.84
+        },
+        school: {
+          sepWeight: 2.10, aliWeight: 2.25, cohWeight: 1.65,
+          perceptionRadius: 68, separationRadius: 22,
+          maxSpeed: 5.2, maxForce: 0.22, trailPersistence: 0.72
+        },
+        swarm: {
+          sepWeight: 2.65, aliWeight: 0.45, cohWeight: 0.95,
+          perceptionRadius: 42, separationRadius: 26,
+          maxSpeed: 6.8, maxForce: 0.34, trailPersistence: 0.65
+        },
+        vortex: {
+          sepWeight: 1.45, aliWeight: 1.85, cohWeight: 1.95,
+          perceptionRadius: 78, separationRadius: 20,
+          maxSpeed: 4.2, maxForce: 0.12, trailPersistence: 0.92
+        }
+      };
+
+      document.querySelectorAll('[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const p = PRESETS[btn.dataset.preset];
+          if (!p) return;
+          Object.assign(CONFIG, p);
+
+          document.getElementById('slider-sep').value = p.sepWeight;
+          document.getElementById('lbl-sep').textContent = p.sepWeight.toFixed(2);
+
+          document.getElementById('slider-ali').value = p.aliWeight;
+          document.getElementById('lbl-ali').textContent = p.aliWeight.toFixed(2);
+
+          document.getElementById('slider-coh').value = p.cohWeight;
+          document.getElementById('lbl-coh').textContent = p.cohWeight.toFixed(2);
+
+          document.getElementById('slider-perception').value = p.perceptionRadius;
+          document.getElementById('lbl-perception').textContent = `${p.perceptionRadius} px`;
+
+          document.getElementById('slider-sep-radius').value = p.separationRadius;
+          document.getElementById('lbl-sep-radius').textContent = `${p.separationRadius} px`;
+
+          document.getElementById('slider-speed').value = p.maxSpeed;
+          document.getElementById('lbl-speed').textContent = p.maxSpeed.toFixed(1);
+
+          document.getElementById('slider-force').value = p.maxForce;
+          document.getElementById('lbl-force').textContent = p.maxForce.toFixed(2);
+
+          document.getElementById('slider-trail').value = p.trailPersistence;
+          document.getElementById('lbl-trail').textContent = p.trailPersistence.toFixed(2);
+
+          document.querySelectorAll('[data-preset]').forEach((b) => {
+            b.classList.toggle('active', b === btn);
+          });
+        });
+      });
+
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (e.code === 'Space') {
+          e.preventDefault();
+          CONFIG.isPaused = !CONFIG.isPaused;
+        } else if (k === 'q') {
+          document.getElementById('toggle-quadtree').click();
+        } else if (k === 'v') {
+          document.getElementById('toggle-vectors').click();
+        } else if (k === 't') {
+          document.getElementById('toggle-trails').click();
+        } else if (k === 'n') {
+          document.getElementById('toggle-network').click();
+        } else if (k === 'p') {
+          document.getElementById('btn-cycle-predators').click();
+        }
+      });
+
+      // =======================================================================
+      // 8. BUCLE PRINCIPAL DE SIMULACIÓN Y TELEMETRÍA CIENTÍFICA
+      // =======================================================================
+      let lastFrameTime = performance.now();
+      let frameCounter = 0;
+      let fpsAccum = 0;
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+
+        const dt = (now - lastFrameTime) * 0.001;
+        lastFrameTime = now;
+
+        frameCounter++;
+        fpsAccum += dt;
+
+        // 1. Construir el Quadtree espacial dinámico para el fotograma actual
+        quadCheckCounter = 0;
+        quadNodeCounter = 0;
+        const quadtree = new QuadtreeNode(
+          0,
+          0,
+          width,
+          height,
+          CONFIG.quadtreeCapacity,
+          0,
+          CONFIG.quadtreeMaxDepth
+        );
+
+        for (let i = 0; i < boids.length; i++) {
+          quadtree.insert(boids[i]);
+        }
+
+        // 2. Desvanecimiento del lienzo de estelas (Motion Trails con Alpha Blending)
+        const fadeAlpha = CONFIG.showTrails
+          ? Math.max(0.04, 1.0 - CONFIG.trailPersistence)
+          : 1.0;
+        trailCtx.globalCompositeOperation = 'source-over';
+        trailCtx.fillStyle = `rgba(3, 6, 15, ${fadeAlpha})`;
+        trailCtx.fillRect(0, 0, width, height);
+
+        // Limpiar lienzo superior de depuración e interfaz
+        overlayCtx.clearRect(0, 0, width, height);
+
+        // 3. Actualizar física vectorial y renderizar Boids
+        const queryRad = Math.max(CONFIG.perceptionRadius, CONFIG.separationRadius);
+        const queryRadSq = queryRad * queryRad;
+
+        let speedSum = 0;
+        let panicCount = 0;
+
+        // Activar mezcla aditiva bioluminiscente para los cuerpos de los agentes
+        trailCtx.globalCompositeOperation = 'lighter';
+
+        for (let i = 0; i < boids.length; i++) {
+          const b = boids[i];
+
+          if (!CONFIG.isPaused) {
+            sharedQueryBuffer.length = 0;
+            quadtree.queryCircle(b.px, b.py, queryRad, queryRadSq, sharedQueryBuffer);
+            b.flock(sharedQueryBuffer, obstacles, predators, mousePredator);
+            b.update();
+
+            // Red local de conectividad (sobre una muestra para mantener 60fps limpios)
+            if (CONFIG.showLocalNetwork && i % 4 === 0) {
+              overlayCtx.strokeStyle = 'rgba(0, 242, 255, 0.11)';
+              overlayCtx.lineWidth = 0.7;
+              overlayCtx.beginPath();
+              const maxLinks = Math.min(sharedQueryBuffer.length, 5);
+              for (let j = 0; j < maxLinks; j++) {
+                const nb = sharedQueryBuffer[j];
+                if (nb !== b) {
+                  overlayCtx.moveTo(b.px, b.py);
+                  overlayCtx.lineTo(nb.px, nb.py);
+                }
+              }
+              overlayCtx.stroke();
+            }
+          }
+
+          b.draw(trailCtx);
+
+          speedSum += Math.hypot(b.vx, b.vy);
+          if (b.panicLevel > 0.2) panicCount++;
+        }
+
+        // 4. Actualizar y dibujar Depredadores IA Autónomos
+        for (let i = 0; i < predators.length; i++) {
+          const pred = predators[i];
+          if (!CONFIG.isPaused) {
+            pred.hunt(quadtree, sharedQueryBuffer);
+          }
+          pred.drawBody(trailCtx);
+          pred.drawOverlayHUD(overlayCtx);
+        }
+
+        // 5. Renderizar Ondas de Choque
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.radius += 11.5;
+          sw.alpha = Math.max(0, 1.0 - sw.radius / sw.maxRadius);
+
+          trailCtx.strokeStyle = `rgba(0, 242, 255, ${sw.alpha * 0.75})`;
+          trailCtx.lineWidth = 2.5;
+          trailCtx.beginPath();
+          trailCtx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+          trailCtx.stroke();
+
+          if (sw.radius >= sw.maxRadius) {
+            shockwaves.splice(i, 1);
+          }
+        }
+
+        trailCtx.globalCompositeOperation = 'source-over';
+
+        // 6. Renderizar Obstáculos de Campo en el Overlay
+        for (let i = 0; i < obstacles.length; i++) {
+          const obs = obstacles[i];
+          const grad = overlayCtx.createRadialGradient(obs.x, obs.y, 2, obs.x, obs.y, obs.r);
+          grad.addColorStop(0, 'rgba(255, 190, 11, 0.45)');
+          grad.addColorStop(1, 'rgba(255, 42, 109, 0.08)');
+          overlayCtx.fillStyle = grad;
+          overlayCtx.beginPath();
+          overlayCtx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+          overlayCtx.fill();
+
+          overlayCtx.strokeStyle = 'rgba(255, 190, 11, 0.8)';
+          overlayCtx.lineWidth = 1.5;
+          overlayCtx.stroke();
+        }
+
+        // 7. Renderizar Estructura del Quadtree si está activa
+        if (CONFIG.showQuadtree) {
+          quadtree.drawDebug(overlayCtx);
+        }
+
+        // 8. Renderizar Vectores de Fuerza y Radios de Percepción sobre una muestra representativa
+        if (CONFIG.showVectors) {
+          const sampleCount = Math.min(boids.length, 45);
+          for (let i = 0; i < sampleCount; i++) {
+            const b = boids[i];
+
+            // Radio de percepción (r_a / r_c)
+            overlayCtx.strokeStyle = 'rgba(0, 242, 255, 0.18)';
+            overlayCtx.lineWidth = 0.9;
+            overlayCtx.beginPath();
+            overlayCtx.arc(b.px, b.py, CONFIG.perceptionRadius, 0, Math.PI * 2);
+            overlayCtx.stroke();
+
+            // Radio de separación personal (r_s)
+            overlayCtx.strokeStyle = 'rgba(255, 42, 109, 0.24)';
+            overlayCtx.beginPath();
+            overlayCtx.arc(b.px, b.py, CONFIG.separationRadius, 0, Math.PI * 2);
+            overlayCtx.stroke();
+
+            // Vector Velocidad (v) en Verde Esmeralda
+            overlayCtx.strokeStyle = '#00ff9d';
+            overlayCtx.lineWidth = 1.4;
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(b.px, b.py);
+            overlayCtx.lineTo(b.px + b.vx * 5.5, b.py + b.vy * 5.5);
+            overlayCtx.stroke();
+
+            // Vector Fuerza de Giro (F_steer) amplificado en Ámbar
+            overlayCtx.strokeStyle = '#ffbe0b';
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(b.px, b.py);
+            overlayCtx.lineTo(b.px + b.lastSteerX * 95, b.py + b.lastSteerY * 95);
+            overlayCtx.stroke();
+          }
+        }
+
+        // 9. Retícula del Depredador Ápex (Cursor del Mouse)
+        if (mousePredator.active) {
+          overlayCtx.strokeStyle = 'rgba(255, 42, 109, 0.45)';
+          overlayCtx.lineWidth = 1.2;
+          overlayCtx.setLineDash([6, 6]);
+          overlayCtx.beginPath();
+          overlayCtx.arc(mousePredator.x, mousePredator.y, CONFIG.panicRadius, 0, Math.PI * 2);
+          overlayCtx.stroke();
+          overlayCtx.setLineDash([]);
+
+          overlayCtx.strokeStyle = '#ff2a6d';
+          overlayCtx.beginPath();
+          overlayCtx.arc(mousePredator.x, mousePredator.y, 6, 0, Math.PI * 2);
+          overlayCtx.stroke();
+        }
+
+        // 10. Actualizar HUD de Telemetría cada 250ms
+        if (fpsAccum >= 0.25) {
+          const fps = Math.round(frameCounter / fpsAccum);
+          document.getElementById('fps-badge').textContent = `${fps} FPS`;
+          frameCounter = 0;
+          fpsAccum = 0;
+
+          const N = boids.length;
+          const bruteChecks = N * (N - 1);
+          const savedPct = bruteChecks > 0
+            ? Math.max(0, (1.0 - quadCheckCounter / bruteChecks) * 100)
+            : 0;
+
+          document.getElementById('val-quad-checks').textContent = quadCheckCounter.toLocaleString('en-US');
+          document.getElementById('val-quad-nodes').textContent = quadNodeCounter.toLocaleString('en-US');
+          document.getElementById('val-avg-speed').textContent = `${(speedSum / Math.max(1, N)).toFixed(2)} px/f`;
+          document.getElementById('val-panic-count').textContent = panicCount.toLocaleString('en-US');
+          document.getElementById('val-efficiency').textContent = `${savedPct.toFixed(1)}%`;
+          document.getElementById('bar-efficiency').style.width = `${Math.min(100, savedPct)}%`;
+        }
+      }
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

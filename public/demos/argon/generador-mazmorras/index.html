@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRYPT-ARCHITECT // Generador y Explorador de Mazmorras Procedurales [BSP + MST + A* + FOV]</title>
+  <style>
+    :root {
+      --bg-void: #05070d;
+      --panel-bg: rgba(9, 14, 24, 0.88);
+      --panel-bg-strong: rgba(6, 10, 18, 0.95);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.25);
+      --emerald: #00ff9d;
+      --amber: #ffbe0b;
+      --crimson: #ff2a6d;
+      --violet: #b537f2;
+      --text-main: #e8f3ff;
+      --text-dim: #84a0bd;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background-color: var(--bg-void); color: var(--text-main); font-family: var(--font-sans);
+    }
+
+    #dungeon-canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      display: block; z-index: 1; cursor: crosshair;
+    }
+
+    .crt-overlay {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 64%, rgba(2, 4, 10, 0.78) 100%),
+        repeating-linear-gradient(0deg, rgba(0, 240, 255, 0.01) 0px, rgba(0, 240, 255, 0.01) 1px, transparent 1px, transparent 3px);
+    }
+
+    .top-bar {
+      position: fixed; top: 12px; left: 16px; right: 16px; z-index: 10;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none;
+    }
+
+    .hud-banner {
+      pointer-events: auto; background: var(--panel-bg);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-dim); border-left: 4px solid var(--cyan);
+      border-radius: 6px; padding: 9px 15px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
+    }
+
+    .hud-banner.mode-box {
+      border-left-color: var(--amber); border-color: rgba(255, 190, 11, 0.32);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .hud-title {
+      font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
+      letter-spacing: 1.6px; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px; text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); box-shadow: 0 0 10px var(--emerald);
+      animation: pulseDot 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.38); opacity: 0.45; }
+    }
+
+    .hud-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+
+    .left-dock, .right-dock {
+      position: fixed; top: 76px; z-index: 10;
+      display: flex; flex-direction: column; gap: 9px;
+      max-height: calc(100vh - 126px); overflow-y: auto; scrollbar-width: thin;
+    }
+    .left-dock { left: 16px; width: 332px; }
+    .right-dock { right: 16px; width: 342px; }
+
+    .card {
+      background: var(--panel-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-dim); border-radius: 6px;
+      padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.62);
+    }
+
+    .card-header {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+      letter-spacing: 1.3px; color: var(--cyan); text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+      padding-bottom: 5px; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .badge {
+      font-size: 9px; padding: 2px 6px; border-radius: 3px;
+      background: rgba(0, 240, 255, 0.14); border: 1px solid rgba(0, 240, 255, 0.35); color: #93f9ff;
+    }
+    .badge.emerald { background: rgba(0, 255, 157, 0.14); border-color: rgba(0, 255, 157, 0.4); color: var(--emerald); }
+    .badge.amber { background: rgba(255, 190, 11, 0.15); border-color: rgba(255, 190, 11, 0.45); color: var(--amber); }
+    .badge.crimson { background: rgba(255, 42, 109, 0.16); border-color: rgba(255, 42, 109, 0.45); color: #ff94b8; }
+
+    .seed-row { display: flex; gap: 6px; margin-bottom: 7px; }
+    .seed-input {
+      flex: 1; background: rgba(3, 7, 15, 0.85); border: 1px solid rgba(0, 240, 255, 0.35);
+      color: var(--emerald); font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      padding: 6px 8px; border-radius: 4px; outline: none; user-select: text; -webkit-user-select: text;
+    }
+    .seed-input:focus { border-color: var(--cyan); box-shadow: 0 0 10px rgba(0, 240, 255, 0.25); }
+
+    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+
+    .pcg-btn {
+      appearance: none; background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.28); color: var(--text-main);
+      font-family: var(--font-mono); font-size: 10px; padding: 7px 8px;
+      border-radius: 4px; cursor: pointer; transition: all 0.15s ease;
+      text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .pcg-btn:hover {
+      background: rgba(0, 240, 255, 0.2); border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.24); transform: translateY(-1px);
+    }
+    .pcg-btn.active {
+      background: rgba(0, 240, 255, 0.24); border-color: var(--cyan); color: #ffffff;
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.3), 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+    .pcg-btn.emerald { background: rgba(0, 255, 157, 0.12); border-color: rgba(0, 255, 157, 0.4); color: #a6ffda; }
+    .pcg-btn.emerald:hover, .pcg-btn.emerald.active {
+      background: rgba(0, 255, 157, 0.25); border-color: var(--emerald); color: #fff;
+      box-shadow: 0 0 12px rgba(0, 255, 157, 0.3);
+    }
+    .pcg-btn.amber { background: rgba(255, 190, 11, 0.12); border-color: rgba(255, 190, 11, 0.42); color: #ffe28a; }
+    .pcg-btn.amber:hover, .pcg-btn.amber.active {
+      background: rgba(255, 190, 11, 0.28); border-color: var(--amber); color: #fff;
+      box-shadow: 0 0 14px rgba(255, 190, 11, 0.32);
+    }
+
+    .telemetry-grid {
+      display: grid; grid-template-columns: 1fr auto;
+      row-gap: 4.5px; column-gap: 8px; font-family: var(--font-mono); font-size: 10.5px;
+    }
+    .t-lbl { color: var(--text-dim); }
+    .t-val { color: var(--text-main); font-weight: 600; text-align: right; }
+    .t-val.cyan { color: var(--cyan); }
+    .t-val.emerald { color: var(--emerald); }
+    .t-val.amber { color: var(--amber); }
+    .t-val.crimson { color: var(--crimson); }
+    .t-val.violet { color: #d58bff; }
+
+    .slider-row { margin-bottom: 7px; }
+    .slider-row:last-child { margin-bottom: 0; }
+    .slider-lbl {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-bottom: 3px;
+    }
+    .slider-lbl strong { color: var(--cyan); }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+      background: rgba(0, 240, 255, 0.16); border-radius: 3px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--cyan); border: 2px solid #020814;
+      box-shadow: 0 0 8px var(--cyan); cursor: pointer;
+    }
+
+    .legend-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+      font-family: var(--font-mono); font-size: 9.5px; color: var(--text-dim);
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+    .step-progress-wrap { margin-top: 7px; padding-top: 6px; border-top: 1px dashed rgba(0, 240, 255, 0.2); }
+    .step-bar-track {
+      width: 100%; height: 6px; background: rgba(0, 240, 255, 0.12);
+      border-radius: 3px; overflow: hidden; margin-top: 4px;
+    }
+    .step-bar-fill {
+      height: 100%; width: 100%; background: linear-gradient(90deg, var(--cyan), var(--emerald));
+      box-shadow: 0 0 10px var(--cyan); transition: width 0.1s linear;
+    }
+
+    .bottom-bar {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+      background: var(--panel-bg-strong); backdrop-filter: blur(14px);
+      border: 1px solid var(--cyan-dim); border-radius: 6px; padding: 7px 15px;
+      font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 14px; pointer-events: auto;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.8); white-space: nowrap;
+    }
+    .bottom-bar strong { color: var(--cyan); }
+
+    @media (max-width: 1100px) {
+      .left-dock, .right-dock { width: 270px; }
+      .bottom-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="dungeon-canvas"></canvas>
+  <div class="crt-overlay"></div>
+
+  <header class="top-bar">
+    <div class="hud-banner">
+      <div class="hud-title">
+        <span class="status-dot"></span>
+        <span>CRYPT-ARCHITECT // GENERADOR PROCEDURAL DE MAZMORRAS ROGUE-LIKE</span>
+      </div>
+      <div class="hud-sub">
+        ÁRBOL BSP SIN COLISIONES (AABB PADDING) • GRAFO CONEXO MST (KRUSKAL) • PASILLOS 1x1 • PATHFINDING A* & DIJKSTRA • RAYCASTING FOV
+      </div>
+    </div>
+
+    <div class="hud-banner mode-box">
+      <div>
+        <div class="hud-title" style="color: var(--amber); font-size: 11.5px;">
+          MODO ACTIVO: <span id="hud-active-mode" style="color: #fff;">VISTA DE ARQUITECTO</span>
+        </div>
+        <div class="hud-sub" id="hud-sub-hint">
+          Clic Izq: Fijar Inicio A* • Shift+Clic / Clic Der: Fijar Destino A* • Rueda/Arrastrar: Zoom y Paneo
+        </div>
+      </div>
+      <button class="pcg-btn amber" id="btn-toggle-play-mode" style="padding: 8px 12px; font-weight: 700;">
+        ⚔️ MODO EXPLORADOR [E]
+      </button>
+    </div>
+  </header>
+
+  <aside class="left-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>MOTOR PRNG & CONSTRUCCIÓN</span>
+        <span class="badge emerald" id="badge-status">LISTO</span>
+      </div>
+      <div class="seed-row">
+        <input type="text" id="input-seed" class="seed-input" value="ARGON-CRYPT-77" spellcheck="false" title="Semilla Alfanumérica Determinista" />
+        <button class="pcg-btn" id="btn-random-seed" title="Generar nueva semilla aleatoria [R]">🎲 AZAR</button>
+      </div>
+      <div class="btn-grid-2">
+        <button class="pcg-btn emerald" id="btn-instant-gen" title="Construir la mazmorra instantáneamente con la semilla actual">⚡ INSTANTÁNEA</button>
+        <button class="pcg-btn amber" id="btn-step-gen" title="Animar paso a paso el árbol BSP, habitaciones, grafo MST, pasillos y A*">🎬 PASO A PASO</button>
+      </div>
+      <div class="step-progress-wrap">
+        <div class="slider-lbl" style="margin-bottom: 2px;">
+          <span id="lbl-phase-name">FASE: MAZMORRA COMPLETA</span>
+          <strong id="lbl-phase-pct">100%</strong>
+        </div>
+        <div class="step-bar-track">
+          <div class="step-bar-fill" id="bar-phase-progress"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>TELEMETRÍA TOPOLÓGICA Y MÉTRICAS</span>
+        <span class="badge" id="badge-compute-time">0.0 ms</span>
+      </div>
+      <div class="telemetry-grid">
+        <span class="t-lbl">Semilla Activa (PRNG):</span>
+        <span class="t-val cyan" id="val-seed">ARGON-CRYPT-77</span>
+        <span class="t-lbl">Habitaciones Generadas:</span>
+        <span class="t-val emerald" id="val-rooms">0</span>
+        <span class="t-lbl">Colisiones AABB Detectadas:</span>
+        <span class="t-val emerald" id="val-collisions">0 (Garantizado)</span>
+        <span class="t-lbl">Aristas Grafo (MST + Ciclos):</span>
+        <span class="t-val cyan" id="val-edges">0</span>
+        <span class="t-lbl">Puertas Lógicas (1 Celda):</span>
+        <span class="t-val amber" id="val-doors">0</span>
+        <span class="t-lbl">Camino Crítico A* (In → Sal):</span>
+        <span class="t-val crimson" id="val-critical-len">0 pasos</span>
+        <span class="t-lbl">Área Excavada Total:</span>
+        <span class="t-val violet" id="val-excavated-pct">0.0%</span>
+        <span class="t-lbl">Conectividad de Mazmorra:</span>
+        <span class="t-val emerald" id="val-connectivity">100% CONEXO</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>CAPAS ALGORÍTMICAS (DEBUG)</span>
+        <span class="badge">TOGGLES</span>
+      </div>
+      <div class="btn-grid-2">
+        <button class="pcg-btn" id="toggle-bsp" title="Mostrar divisiones recursivas del Árbol BSP [1 / B]">📐 PARTICIONES BSP [1]</button>
+        <button class="pcg-btn" id="toggle-graph" title="Mostrar Grafo MST (Kruskal) y Atajos entre Centroides [2 / G]">🕸️ GRAFO MST [2]</button>
+        <button class="pcg-btn" id="toggle-dijkstra" title="Mostrar Mapa de Calor de Distancias de Dijkstra [3 / H]">🌡️ MAPA DIJKSTRA [3]</button>
+        <button class="pcg-btn active" id="toggle-astar" title="Mostrar Ruta Crítica Óptima calculada con A* [4 / P]">🧭 RUTA ÓPTIMA A* [4]</button>
+        <button class="pcg-btn active" id="toggle-lighting" title="Alternar iluminación dinámica 2D de antorchas [5 / L]">🔥 ILUMINACIÓN 2D [5]</button>
+        <button class="pcg-btn" id="btn-reset-camera" title="Centrar cámara y restablecer zoom [C]">🎯 CENTRAR VISTA [C]</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>BIOMA PROCEDURAL & AVENTURERO</span>
+        <span class="badge amber" id="badge-explorer-hp">HP 100/100</span>
+      </div>
+      <div class="btn-grid-3" style="margin-bottom: 8px;">
+        <button class="pcg-btn active" data-biome="crypt">💀 CRIPTA</button>
+        <button class="pcg-btn" data-biome="volcanic">🌋 VOLCÁN</button>
+        <button class="pcg-btn" data-biome="arcane">🔮 ARCANO</button>
+      </div>
+      <div class="telemetry-grid" style="border-top: 1px solid rgba(0,240,255,0.14); padding-top: 6px;">
+        <span class="t-lbl">Posición Explorador:</span>
+        <span class="t-val cyan" id="val-player-pos">(0, 0)</span>
+        <span class="t-lbl">Tesoro Recolectado:</span>
+        <span class="t-val amber" id="val-player-gold">0 / 0 Cofres</span>
+        <span class="t-lbl">Amenazas Neutralizadas:</span>
+        <span class="t-val crimson" id="val-player-kills">0 / 0</span>
+        <span class="t-lbl">Celdas Exploradas (FoW):</span>
+        <span class="t-val emerald" id="val-fow-explored">0%</span>
+      </div>
+    </section>
+  </aside>
+
+  <aside class="right-dock">
+    <section class="card">
+      <div class="card-header">
+        <span>PARÁMETROS DE ARQUITECTURA PCG</span>
+        <span class="badge crimson">EN CALIENTE</span>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Tamaño de Cuadrícula (Ancho × Alto)</span><strong id="lbl-grid-size">72 × 46</strong></div>
+        <input type="range" id="slider-grid-size" min="48" max="96" step="4" value="72" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Profundidad Árbol BSP (Niveles)</span><strong id="lbl-bsp-depth">4 (Hasta 16 salas)</strong></div>
+        <input type="range" id="slider-bsp-depth" min="3" max="5" step="1" value="4" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Tamaño Mínimo Habitación (minRoomSize)</span><strong id="lbl-min-room">5 celdas</strong></div>
+        <input type="range" id="slider-min-room" min="4" max="8" step="1" value="5" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Tamaño Máximo Habitación (maxRoomSize)</span><strong id="lbl-max-room">12 celdas</strong></div>
+        <input type="range" id="slider-max-room" min="8" max="16" step="1" value="12" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Porcentaje Pasillos Extra (Ciclos/Atajos)</span><strong id="lbl-loops">28%</strong></div>
+        <input type="range" id="slider-loops" min="0" max="65" step="2" value="28" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Radio Campo de Visión (FOV Raycasting)</span><strong id="lbl-fov-radius">10 celdas</strong></div>
+        <input type="range" id="slider-fov-radius" min="5" max="18" step="1" value="10" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-lbl"><span>Velocidad Animación Paso a Paso</span><strong id="lbl-step-speed">6x</strong></div>
+        <input type="range" id="slider-step-speed" min="1" max="20" step="1" value="6" />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>LEYENDA DE BALDOSAS Y ENTIDADES</span>
+        <span class="badge">PROCEDURAL</span>
+      </div>
+      <div class="legend-grid">
+        <div class="legend-item"><span class="legend-swatch" style="background: #00ff9d; box-shadow: 0 0 6px #00ff9d;"></span><span>Entrada (Escaleras ↑)</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #ff2a6d; box-shadow: 0 0 6px #ff2a6d;"></span><span>Salida / Jefe (Escaleras ↓)</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #ffbe0b;"></span><span>Cofre de Tesoro</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #d97724;"></span><span>Puerta Lógica (1×1)</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #b537f2;"></span><span>Trampa de Púas / Runa</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #ff5e5b;"></span><span>Centinela / Enemigo</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #00f0ff;"></span><span>Aventurero (Jugador)</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #ff9e00;"></span><span>Antorcha Dinámica</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span>REGISTRO DE EVENTOS & ALGORITMO</span>
+        <span class="badge emerald">LOG</span>
+      </div>
+      <div id="event-log" style="font-family: var(--font-mono); font-size: 9.8px; line-height: 1.48; color: #9fc2e2; max-height: 92px; overflow-y: auto;">
+        <div>• Motor PCG inicializado correctamente.</div>
+      </div>
+    </section>
+  </aside>
+
+  <footer class="bottom-bar">
+    <span><strong>[WASD / FLECHAS]</strong> Mover Aventurero</span>
+    <span><strong>[E]</strong> Arquitecto / Explorador</span>
+    <span><strong>[CLIC / SHIFT+CLIC]</strong> A* Personalizado</span>
+    <span><strong>[1/B]</strong> BSP</span>
+    <span><strong>[2/G]</strong> Grafo MST</span>
+    <span><strong>[3/H]</strong> Dijkstra</span>
+    <span><strong>[4/P]</strong> Ruta A*</span>
+    <span><strong>[R]</strong> Nueva Semilla</span>
+  </footer>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // =======================================================================
+      // 1. CONSTANTES DE BALDOSAS (TILES), ENTIDADES Y BIOMAS
+      // =======================================================================
+      const TILE = { VOID: 0, WALL: 1, FLOOR_ROOM: 2, FLOOR_CORRIDOR: 3, DOOR: 4, DOOR_OPEN: 5 };
+      const ENTITY = {
+        NONE: 0, STAIRS_UP: 1, STAIRS_DOWN: 2, CHEST: 3, CHEST_OPEN: 4,
+        TRAP: 5, TRAP_DISARMED: 6, ENEMY: 7, BOSS: 8
+      };
+
+      const BIOMES = {
+        crypt: {
+          name: 'Cripta Abisal', voidColor: '#04060c',
+          wallTop: '#1c2838', wallFace: '#101824', wallEdge: '#2e425c',
+          floorRoomA: '#131c29', floorRoomB: '#162030', floorCorr: '#0e1520',
+          crackColor: 'rgba(6, 10, 16, 0.65)', accentDetail: 'rgba(0, 255, 157, 0.14)',
+          torchColorRGB: [0, 240, 255], torchCore: '#b8ffff', doorWood: '#9c632b', doorFrame: '#d99343'
+        },
+        volcanic: {
+          name: 'Caverna Volcánica', voidColor: '#090406',
+          wallTop: '#2b181c', wallFace: '#180c0f', wallEdge: '#4c262d',
+          floorRoomA: '#1f1215', floorRoomB: '#251519', floorCorr: '#170d10',
+          crackColor: 'rgba(255, 85, 0, 0.28)', accentDetail: 'rgba(255, 140, 0, 0.18)',
+          torchColorRGB: [255, 136, 25], torchCore: '#fff1a8', doorWood: '#8c3b2b', doorFrame: '#ff7b3d'
+        },
+        arcane: {
+          name: 'Laboratorio Arcano', voidColor: '#05040d',
+          wallTop: '#211c3a', wallFace: '#130f26', wallEdge: '#443875',
+          floorRoomA: '#16132b', floorRoomB: '#1a1633', floorCorr: '#110e21',
+          crackColor: 'rgba(181, 55, 242, 0.26)', accentDetail: 'rgba(0, 240, 255, 0.18)',
+          torchColorRGB: [195, 75, 255], torchCore: '#f3d1ff', doorWood: '#52468c', doorFrame: '#00f0ff'
+        }
+      };
+
+      const CONFIG = {
+        seed: 'ARGON-CRYPT-77',
+        gridCols: 72,
+        gridRows: 46,
+        bspDepth: 4,
+        minRoomSize: 5,
+        maxRoomSize: 12,
+        extraLoopsPct: 28,
+        fovRadius: 10,
+        stepSpeed: 6,
+        biome: 'crypt',
+        playMode: false,
+        showBSP: false,
+        showGraph: false,
+        showDijkstra: false,
+        showAStar: true,
+        showLighting: true
+      };
+
+      // =======================================================================
+      // 2. GENERADOR PRNG DETERMINISTA CON SEMILLA (XMUR3 + MULBERRY32)
+      // =======================================================================
+      function createSeededPRNG(seedString) {
+        let h = 1779033703 ^ seedString.length;
+        for (let i = 0; i < seedString.length; i++) {
+          h = Math.imul(h ^ seedString.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return function mulberry32() {
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          const t = (h ^= h >>> 16) >>> 0;
+          return t / 4294967296;
+        };
+      }
+
+      function randInt(rng, min, max) {
+        return Math.floor(rng() * (max - min + 1)) + min;
+      }
+
+      // =======================================================================
+      // 3. ESTRUCTURAS DE DATOS DEL MOTOR Y CÁMARA
+      // =======================================================================
+      const canvas = document.getElementById('dungeon-canvas');
+      const ctx = canvas.getContext('2d');
+      let viewW = window.innerWidth;
+      let viewH = window.innerHeight;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      const camera = {
+        x: 0, y: 0, tileSize: 18,
+        isDragging: false, dragStartX: 0, dragStartY: 0, camStartX: 0, camStartY: 0
+      };
+
+      const dungeon = {
+        cols: 72, rows: 46,
+        tiles: [], tileSeed: [], entities: [], dijkstra: [],
+        maxDijkstraDist: 1, fow: [], fovLight: [],
+        bspNodes: [], bspLeaves: [], rooms: [],
+        allEdges: [], mstEdges: [], cycleEdges: [],
+        corridorPaths: [], doors: [], torches: [],
+        startCell: { x: 1, y: 1 }, exitCell: { x: 1, y: 1 },
+        customStart: null, customGoal: null, astarPath: [],
+        computeTimeMs: 0, excavatedCount: 0, totalChests: 0, totalEnemies: 0
+      };
+
+      const player = {
+        x: 1, y: 1, renderX: 1, renderY: 1,
+        hp: 100, maxHp: 100, chestsOpened: 0, enemiesDefeated: 0, facing: 1
+      };
+
+      const animState = { active: false, ops: [], cursor: 0, phaseTitle: 'MAZMORRA COMPLETA' };
+
+      function logEvent(msg, color = '#9fc2e2') {
+        const container = document.getElementById('event-log');
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.textContent = `• ${msg}`;
+        container.prepend(div);
+        while (container.children.length > 18) container.removeChild(container.lastChild);
+      }
+
+      // =======================================================================
+      // 4. ÁRBOL DE PARTICIÓN BINARIA DEL ESPACIO (BSP) Y AABB PADDING
+      // =======================================================================
+      function roomsOverlapWithPadding(rA, rB, padding = 2) {
+        return !(
+          rA.x + rA.w + padding <= rB.x ||
+          rB.x + rB.w + padding <= rA.x ||
+          rA.y + rA.h + padding <= rB.y ||
+          rB.y + rB.h + padding <= rA.y
+        );
+      }
+
+      class BSPNode {
+        constructor(x, y, w, h, depth) {
+          this.x = x; this.y = y; this.w = w; this.h = h; this.depth = depth;
+          this.left = null; this.right = null; this.splitDir = null; this.splitPos = 0; this.room = null;
+        }
+
+        split(rng, minLeafSize, maxDepth, nodesOut) {
+          nodesOut.push(this);
+          if (this.depth >= maxDepth) return;
+
+          let splitHoriz = rng() > 0.5;
+          if (this.w > this.h && this.w / this.h >= 1.25) splitHoriz = false;
+          else if (this.h > this.w && this.h / this.w >= 1.25) splitHoriz = true;
+
+          const maxSpan = (splitHoriz ? this.h : this.w) - minLeafSize;
+          if (maxSpan < minLeafSize) return;
+
+          const splitOffset = randInt(rng, minLeafSize, maxSpan);
+          this.splitDir = splitHoriz ? 'H' : 'V';
+
+          if (splitHoriz) {
+            this.splitPos = this.y + splitOffset;
+            this.left = new BSPNode(this.x, this.y, this.w, splitOffset, this.depth + 1);
+            this.right = new BSPNode(this.x, this.y + splitOffset, this.w, this.h - splitOffset, this.depth + 1);
+          } else {
+            this.splitPos = this.x + splitOffset;
+            this.left = new BSPNode(this.x, this.y, splitOffset, this.h, this.depth + 1);
+            this.right = new BSPNode(this.x + splitOffset, this.y, this.w - splitOffset, this.h, this.depth + 1);
+          }
+
+          this.left.split(rng, minLeafSize, maxDepth, nodesOut);
+          this.right.split(rng, minLeafSize, maxDepth, nodesOut);
+        }
+
+        collectLeaves(leavesOut) {
+          if (!this.left && !this.right) leavesOut.push(this);
+          else {
+            if (this.left) this.left.collectLeaves(leavesOut);
+            if (this.right) this.right.collectLeaves(leavesOut);
+          }
+        }
+      }
+
+      // =======================================================================
+      // 5. ÁRBOL DE EXPANSIÓN MÍNIMA (KRUSKAL MST) CON UNION-FIND
+      // =======================================================================
+      class DisjointSet {
+        constructor(n) {
+          this.parent = Array.from({ length: n }, (_, i) => i);
+          this.rank = new Array(n).fill(0);
+        }
+        find(i) {
+          if (this.parent[i] !== i) this.parent[i] = this.find(this.parent[i]);
+          return this.parent[i];
+        }
+        union(a, b) {
+          const rootA = this.find(a);
+          const rootB = this.find(b);
+          if (rootA === rootB) return false;
+          if (this.rank[rootA] < this.rank[rootB]) this.parent[rootA] = rootB;
+          else if (this.rank[rootA] > this.rank[rootB]) this.parent[rootB] = rootA;
+          else { this.parent[rootB] = rootA; this.rank[rootA]++; }
+          return true;
+        }
+      }
+
+      // =======================================================================
+      // 6. ENRUTADOR ORTOGONAL DE PASILLOS DE 1 UNIDAD DE ANCHO Y PUERTAS
+      // =======================================================================
+      function isInsideRoom(x, y, room, margin = 0) {
+        return (
+          x >= room.x - margin && x < room.x + room.w + margin &&
+          y >= room.y - margin && y < room.y + room.h + margin
+        );
+      }
+
+      function carveSingleWidthCorridor(roomA, roomB, rooms, tiles, rows, cols) {
+        const sx = roomA.cx, sy = roomA.cy;
+        const gx = roomB.cx, gy = roomB.cy;
+        const total = rows * cols;
+
+        const gCost = new Float32Array(total).fill(Infinity);
+        const fCost = new Float32Array(total).fill(Infinity);
+        const parent = new Int32Array(total).fill(-1);
+        const parentDir = new Int8Array(total).fill(-1);
+        const closed = new Uint8Array(total);
+
+        const startIdx = sy * cols + sx;
+        const goalIdx = gy * cols + gx;
+        gCost[startIdx] = 0;
+        fCost[startIdx] = Math.abs(gx - sx) + Math.abs(gy - sy);
+
+        const open = [startIdx];
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+        while (open.length > 0) {
+          let bestPos = 0;
+          for (let i = 1; i < open.length; i++) {
+            if (fCost[open[i]] < fCost[open[bestPos]]) bestPos = i;
+          }
+          const current = open[bestPos];
+          open[bestPos] = open[open.length - 1];
+          open.pop();
+
+          if (current === goalIdx) break;
+          if (closed[current]) continue;
+          closed[current] = 1;
+
+          const cx = current % cols;
+          const cy = Math.floor(current / cols);
+          const pDir = parentDir[current];
+
+          for (let d = 0; d < 4; d++) {
+            const nx = cx + dirs[d][0];
+            const ny = cy + dirs[d][1];
+            if (nx <= 1 || nx >= cols - 2 || ny <= 1 || ny >= rows - 2) continue;
+
+            const nIdx = ny * cols + nx;
+            if (closed[nIdx]) continue;
+
+            const t = tiles[ny][nx];
+            let stepCost = 2.0;
+
+            if (t === TILE.FLOOR_ROOM) {
+              stepCost = (isInsideRoom(nx, ny, roomA, 0) || isInsideRoom(nx, ny, roomB, 0)) ? 1.0 : 14.0;
+            } else if (t === TILE.FLOOR_CORRIDOR) {
+              stepCost = 1.2; // Reutilizar pasillos existentes preserva el ancho estricto de 1 celda
+            } else {
+              let touchesWallOrCorner = false;
+              for (let r = 0; r < rooms.length; r++) {
+                const rm = rooms[r];
+                if (rm === roomA || rm === roomB) {
+                  const isCorner = (nx === rm.x - 1 || nx === rm.x + rm.w) && (ny === rm.y - 1 || ny === rm.y + rm.h);
+                  if (isCorner) touchesWallOrCorner = true;
+                } else if (isInsideRoom(nx, ny, rm, 1)) {
+                  touchesWallOrCorner = true;
+                  break;
+                }
+              }
+
+              if (touchesWallOrCorner) {
+                stepCost = 90.0;
+              } else {
+                let adjCorridors = 0;
+                for (let k = 0; k < 4; k++) {
+                  const ax = nx + dirs[k][0], ay = ny + dirs[k][1];
+                  if (ax === cx && ay === cy) continue;
+                  if (tiles[ay]?.[ax] === TILE.FLOOR_CORRIDOR) adjCorridors++;
+                }
+                if (adjCorridors > 0 && tiles[cy][cx] !== TILE.FLOOR_CORRIDOR) stepCost = 3.0;
+                else if (adjCorridors > 0) stepCost = 35.0; // Evita pasillos dobles paralelos
+              }
+            }
+
+            if (pDir !== -1 && pDir !== d) stepCost += 1.5;
+
+            const tentativeG = gCost[current] + stepCost;
+            if (tentativeG < gCost[nIdx]) {
+              parent[nIdx] = current;
+              parentDir[nIdx] = d;
+              gCost[nIdx] = tentativeG;
+              fCost[nIdx] = tentativeG + Math.abs(gx - nx) + Math.abs(gy - ny);
+              open.push(nIdx);
+            }
+          }
+        }
+
+        const path = [];
+        let curr = goalIdx;
+        while (curr !== -1) {
+          path.push({ x: curr % cols, y: Math.floor(curr / cols) });
+          curr = parent[curr];
+        }
+        path.reverse();
+
+        const carvedCells = [];
+        for (let i = 0; i < path.length; i++) {
+          const { x, y } = path[i];
+          if (tiles[y][x] === TILE.WALL) {
+            tiles[y][x] = TILE.FLOOR_CORRIDOR;
+            carvedCells.push({ x, y });
+          }
+        }
+        return carvedCells;
+      }
+
+      function placeLogicalDoors(rooms, tiles, rows, cols) {
+        const doors = [];
+        const doorSet = new Set();
+
+        for (let r = 0; r < rooms.length; r++) {
+          const room = rooms[r];
+          for (let x = room.x; x < room.x + room.w; x++) {
+            const topY = room.y - 1;
+            if (topY > 1 && tiles[topY][x] === TILE.FLOOR_CORRIDOR &&
+                tiles[topY][x - 1] === TILE.WALL && tiles[topY][x + 1] === TILE.WALL) {
+              const key = `${x},${topY}`;
+              if (!doorSet.has(key)) { doorSet.add(key); doors.push({ x, y: topY }); }
+            }
+            const botY = room.y + room.h;
+            if (botY < rows - 2 && tiles[botY][x] === TILE.FLOOR_CORRIDOR &&
+                tiles[botY][x - 1] === TILE.WALL && tiles[botY][x + 1] === TILE.WALL) {
+              const key = `${x},${botY}`;
+              if (!doorSet.has(key)) { doorSet.add(key); doors.push({ x, y: botY }); }
+            }
+          }
+
+          for (let y = room.y; y < room.y + room.h; y++) {
+            const leftX = room.x - 1;
+            if (leftX > 1 && tiles[y][leftX] === TILE.FLOOR_CORRIDOR &&
+                tiles[y - 1][leftX] === TILE.WALL && tiles[y + 1][leftX] === TILE.WALL) {
+              const key = `${leftX},${y}`;
+              if (!doorSet.has(key)) { doorSet.add(key); doors.push({ x: leftX, y }); }
+            }
+            const rightX = room.x + room.w;
+            if (rightX < cols - 2 && tiles[y][rightX] === TILE.FLOOR_CORRIDOR &&
+                tiles[y - 1][rightX] === TILE.WALL && tiles[y + 1][rightX] === TILE.WALL) {
+              const key = `${rightX},${y}`;
+              if (!doorSet.has(key)) { doorSet.add(key); doors.push({ x: rightX, y }); }
+            }
+          }
+        }
+        return doors;
+      }
+
+      // =======================================================================
+      // 7. MAPA DE DISTANCIAS DE DIJKSTRA Y BÚSQUEDA DE CAMINOS A* (A-ESTRELLA)
+      // =======================================================================
+      function isWalkableTile(t) {
+        return t === TILE.FLOOR_ROOM || t === TILE.FLOOR_CORRIDOR || t === TILE.DOOR || t === TILE.DOOR_OPEN;
+      }
+
+      function computeDijkstraMap(startX, startY, tiles, rows, cols) {
+        const dist = Array.from({ length: rows }, () => new Int32Array(cols).fill(-1));
+        const queueX = new Int32Array(rows * cols);
+        const queueY = new Int32Array(rows * cols);
+        let head = 0, tail = 0;
+
+        dist[startY][startX] = 0;
+        queueX[tail] = startX; queueY[tail] = startY; tail++;
+
+        let maxDist = 1;
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+        while (head < tail) {
+          const cx = queueX[head], cy = queueY[head];
+          head++;
+          const nextD = dist[cy][cx] + 1;
+          for (let d = 0; d < 4; d++) {
+            const nx = cx + dirs[d][0], ny = cy + dirs[d][1];
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+              if (dist[ny][nx] === -1 && isWalkableTile(tiles[ny][nx])) {
+                dist[ny][nx] = nextD;
+                if (nextD > maxDist) maxDist = nextD;
+                queueX[tail] = nx; queueY[tail] = ny; tail++;
+              }
+            }
+          }
+        }
+        return { dist, maxDist };
+      }
+
+      function computeAStarPath(sx, sy, gx, gy, tiles, rows, cols) {
+        if (!isWalkableTile(tiles[sy]?.[sx]) || !isWalkableTile(tiles[gy]?.[gx])) return [];
+
+        const total = rows * cols;
+        const gScore = new Float32Array(total).fill(Infinity);
+        const fScore = new Float32Array(total).fill(Infinity);
+        const cameFrom = new Int32Array(total).fill(-1);
+        const closed = new Uint8Array(total);
+
+        const startIdx = sy * cols + sx;
+        const goalIdx = gy * cols + gx;
+        gScore[startIdx] = 0;
+        fScore[startIdx] = Math.abs(gx - sx) + Math.abs(gy - sy);
+
+        const openHeap = [startIdx];
+
+        function heapPush(nodeIdx) {
+          openHeap.push(nodeIdx);
+          let i = openHeap.length - 1;
+          while (i > 0) {
+            const p = (i - 1) >> 1;
+            if (fScore[openHeap[i]] < fScore[openHeap[p]]) {
+              const tmp = openHeap[i]; openHeap[i] = openHeap[p]; openHeap[p] = tmp; i = p;
+            } else break;
+          }
+        }
+
+        function heapPop() {
+          const top = openHeap[0];
+          const last = openHeap.pop();
+          if (openHeap.length > 0) {
+            openHeap[0] = last;
+            let i = 0;
+            const len = openHeap.length;
+            while (true) {
+              const l = i * 2 + 1, r = i * 2 + 2;
+              let smallest = i;
+              if (l < len && fScore[openHeap[l]] < fScore[openHeap[smallest]]) smallest = l;
+              if (r < len && fScore[openHeap[r]] < fScore[openHeap[smallest]]) smallest = r;
+              if (smallest !== i) {
+                const tmp = openHeap[i]; openHeap[i] = openHeap[smallest]; openHeap[smallest] = tmp;
+                i = smallest;
+              } else break;
+            }
+          }
+          return top;
+        }
+
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+        while (openHeap.length > 0) {
+          const current = heapPop();
+          if (current === goalIdx) {
+            const path = [];
+            let curr = goalIdx;
+            while (curr !== -1) {
+              path.push({ x: curr % cols, y: Math.floor(curr / cols) });
+              curr = cameFrom[curr];
+            }
+            path.reverse();
+            return path;
+          }
+
+          if (closed[current]) continue;
+          closed[current] = 1;
+
+          const cx = current % cols, cy = Math.floor(current / cols);
+          const currentG = gScore[current];
+
+          for (let d = 0; d < 4; d++) {
+            const nx = cx + dirs[d][0], ny = cy + dirs[d][1];
+            if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+            if (!isWalkableTile(tiles[ny][nx])) continue;
+
+            const nIdx = ny * cols + nx;
+            if (closed[nIdx]) continue;
+
+            const tentativeG = currentG + 1;
+            if (tentativeG < gScore[nIdx]) {
+              cameFrom[nIdx] = current;
+              gScore[nIdx] = tentativeG;
+              fScore[nIdx] = tentativeG + Math.abs(gx - nx) + Math.abs(gy - ny);
+              heapPush(nIdx);
+            }
+          }
+        }
+        return [];
+      }
+
+      // =======================================================================
+      // 8. CAMPO DE VISIÓN 2D (RAYCASTING 360° + FOG OF WAR)
+      // =======================================================================
+      function updateFieldOfView(px, py, radius) {
+        const rows = dungeon.rows, cols = dungeon.cols;
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            if (dungeon.fow[y][x] === 2) dungeon.fow[y][x] = 1;
+            dungeon.fovLight[y][x] = 0;
+          }
+        }
+        if (px < 0 || px >= cols || py < 0 || py >= rows) return;
+
+        dungeon.fow[py][px] = 2;
+        dungeon.fovLight[py][px] = 1.0;
+
+        const numRays = 180;
+        for (let i = 0; i < numRays; i++) {
+          const angle = (i / numRays) * Math.PI * 2;
+          const dx = Math.cos(angle), dy = Math.sin(angle);
+          let rx = px + 0.5, ry = py + 0.5;
+
+          for (let step = 0; step <= radius * 2.2; step++) {
+            const tx = Math.floor(rx), ty = Math.floor(ry);
+            if (tx < 0 || tx >= cols || ty < 0 || ty >= rows) break;
+
+            const dist = Math.hypot(tx - px, ty - py);
+            if (dist > radius) break;
+
+            dungeon.fow[ty][tx] = 2;
+            const falloff = Math.max(0.15, 1.0 - (dist / (radius + 0.5)) * 0.85);
+            if (falloff > dungeon.fovLight[ty][tx]) dungeon.fovLight[ty][tx] = falloff;
+
+            const tile = dungeon.tiles[ty][tx];
+            if (tile === TILE.WALL || tile === TILE.VOID || tile === TILE.DOOR) break;
+
+            rx += dx * 0.45;
+            ry += dy * 0.45;
+          }
+        }
+
+        let explored = 0, totalWalkable = 0;
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            if (isWalkableTile(dungeon.tiles[y][x])) {
+              totalWalkable++;
+              if (dungeon.fow[y][x] > 0) explored++;
+            }
+          }
+        }
+        const pct = totalWalkable > 0 ? Math.round((explored / totalWalkable) * 100) : 0;
+        document.getElementById('val-fow-explored').textContent = `${pct}%`;
+      }
+
+      // =======================================================================
+      // 9. PIPELINE DE GENERACIÓN PROCEDURAL DE LA MAZMORRA
+      // =======================================================================
+      function generateDungeon(animateStepByStep = false) {
+        const t0 = performance.now();
+        const rng = createSeededPRNG(CONFIG.seed);
+
+        const cols = CONFIG.gridCols, rows = CONFIG.gridRows;
+        dungeon.cols = cols; dungeon.rows = rows;
+        dungeon.customStart = null; dungeon.customGoal = null;
+
+        if (CONFIG.minRoomSize > CONFIG.maxRoomSize - 2) {
+          CONFIG.maxRoomSize = CONFIG.minRoomSize + 2;
+          document.getElementById('slider-max-room').value = CONFIG.maxRoomSize;
+          document.getElementById('lbl-max-room').textContent = `${CONFIG.maxRoomSize} celdas`;
+        }
+
+        const minRoom = CONFIG.minRoomSize, maxRoom = CONFIG.maxRoomSize;
+        const fullTiles = Array.from({ length: rows }, () => new Uint8Array(cols).fill(TILE.WALL));
+        dungeon.tileSeed = Array.from({ length: rows }, () => Float32Array.from({ length: cols }, () => rng()));
+        dungeon.entities = Array.from({ length: rows }, () => new Uint8Array(cols).fill(ENTITY.NONE));
+        dungeon.fow = Array.from({ length: rows }, () => new Uint8Array(cols).fill(0));
+        dungeon.fovLight = Array.from({ length: rows }, () => new Float32Array(cols).fill(0));
+
+        // 1. Subdivisión recursiva del Árbol BSP
+        const bspNodes = [], bspLeaves = [];
+        const minLeafSpan = minRoom + 4;
+        const root = new BSPNode(2, 2, cols - 4, rows - 4, 0);
+        root.split(rng, minLeafSpan, CONFIG.bspDepth, bspNodes);
+        root.collectLeaves(bspLeaves);
+
+        // 2. Tallado de habitaciones rectangulares con validación AABB (Padding >= 2 celdas)
+        const rooms = [];
+        for (let i = 0; i < bspLeaves.length; i++) {
+          const leaf = bspLeaves[i];
+          const availW = leaf.w - 2, availH = leaf.h - 2;
+          if (availW < minRoom || availH < minRoom) continue;
+
+          const rw = randInt(rng, minRoom, Math.min(maxRoom, availW));
+          const rh = randInt(rng, minRoom, Math.min(maxRoom, availH));
+          const rx = leaf.x + 1 + randInt(rng, 0, availW - rw);
+          const ry = leaf.y + 1 + randInt(rng, 0, availH - rh);
+
+          const candidate = {
+            id: rooms.length, x: rx, y: ry, w: rw, h: rh,
+            cx: Math.floor(rx + rw * 0.5), cy: Math.floor(ry + rh * 0.5), role: 'normal'
+          };
+
+          let hasCollision = false;
+          for (let j = 0; j < rooms.length; j++) {
+            if (roomsOverlapWithPadding(candidate, rooms[j], 2)) {
+              hasCollision = true;
+              break;
+            }
+          }
+
+          if (!hasCollision) {
+            rooms.push(candidate);
+            leaf.room = candidate;
+            for (let y = candidate.y; y < candidate.y + candidate.h; y++) {
+              for (let x = candidate.x; x < candidate.x + candidate.w; x++) {
+                fullTiles[y][x] = TILE.FLOOR_ROOM;
+              }
+            }
+          }
+        }
+
+        // 3. Grafo Conexo Total mediante Kruskal MST + Reintroducción de Ciclos
+        const allEdges = [];
+        for (let i = 0; i < rooms.length; i++) {
+          for (let j = i + 1; j < rooms.length; j++) {
+            const dist = Math.hypot(rooms[i].cx - rooms[j].cx, rooms[i].cy - rooms[j].cy);
+            allEdges.push({ u: i, v: j, dist });
+          }
+        }
+        allEdges.sort((a, b) => a.dist - b.dist);
+
+        const dsu = new DisjointSet(rooms.length);
+        const mstEdges = [], unusedShortEdges = [];
+        for (let i = 0; i < allEdges.length; i++) {
+          const edge = allEdges[i];
+          if (dsu.union(edge.u, edge.v)) mstEdges.push(edge);
+          else unusedShortEdges.push(edge);
+        }
+
+        const cycleEdges = [];
+        const maxCyclePool = Math.min(unusedShortEdges.length, rooms.length);
+        const numCycles = Math.round((CONFIG.extraLoopsPct / 100) * maxCyclePool);
+        for (let i = 0; i < numCycles; i++) cycleEdges.push(unusedShortEdges[i]);
+
+        // 4. Excavación de pasillos ortogonales de 1 celda de ancho
+        const activeEdges = [...mstEdges, ...cycleEdges];
+        const corridorPaths = [];
+        for (let i = 0; i < activeEdges.length; i++) {
+          const edge = activeEdges[i];
+          const carved = carveSingleWidthCorridor(rooms[edge.u], rooms[edge.v], rooms, fullTiles, rows, cols);
+          corridorPaths.push(carved);
+        }
+
+        // 5. Colocación de puertas lógicas de 1 celda en intersecciones pasillo-sala
+        const doors = placeLogicalDoors(rooms, fullTiles, rows, cols);
+        for (let i = 0; i < doors.length; i++) {
+          fullTiles[doors[i].y][doors[i].x] = TILE.DOOR;
+        }
+
+        // 6. Habitación de Entrada, Mapa de Dijkstra y Habitación del Jefe / Salida
+        const startRoom = rooms[0] || { cx: 3, cy: 3 };
+        startRoom.role = 'start';
+        const startCell = { x: startRoom.cx, y: startRoom.cy };
+
+        const { dist: dijkstraGrid, maxDist } = computeDijkstraMap(startCell.x, startCell.y, fullTiles, rows, cols);
+
+        let exitRoom = rooms[rooms.length - 1] || startRoom;
+        let bestRoomDist = -1;
+        for (let i = 1; i < rooms.length; i++) {
+          const r = rooms[i];
+          const d = dijkstraGrid[r.cy][r.cx];
+          if (d > bestRoomDist) { bestRoomDist = d; exitRoom = r; }
+        }
+        exitRoom.role = 'boss';
+        const exitCell = { x: exitRoom.cx, y: exitRoom.cy };
+
+        // 7. Ruta Crítica Óptima A* (Entrada -> Salida)
+        const astarPath = computeAStarPath(startCell.x, startCell.y, exitCell.x, exitCell.y, fullTiles, rows, cols);
+
+        // 8. Población Procedural basada en heurística de distancia geodésica
+        dungeon.entities[startCell.y][startCell.x] = ENTITY.STAIRS_UP;
+        dungeon.entities[exitCell.y][exitCell.x] = ENTITY.STAIRS_DOWN;
+
+        let totalChests = 0, totalEnemies = 0;
+        const torches = [];
+
+        for (let i = 0; i < rooms.length; i++) {
+          const r = rooms[i];
+          if (r.w >= 5 && r.h >= 5) {
+            torches.push({ x: r.x, y: r.y, phase: rng() * Math.PI * 2 });
+            torches.push({ x: r.x + r.w - 1, y: r.y + r.h - 1, phase: rng() * Math.PI * 2 });
+          } else {
+            torches.push({ x: r.cx, y: r.cy, phase: rng() * Math.PI * 2 });
+          }
+
+          if (r === startRoom) continue;
+          if (r === exitRoom) {
+            const bx = Math.max(r.x + 1, Math.min(r.x + r.w - 2, r.cx + 1)), by = r.cy;
+            if (bx !== exitCell.x || by !== exitCell.y) {
+              dungeon.entities[by][bx] = ENTITY.BOSS;
+              totalEnemies++;
+            }
+            const cx = r.x + 1, cy = r.y + 1;
+            if ((cx !== exitCell.x || cy !== exitCell.y) && dungeon.entities[cy][cx] === ENTITY.NONE) {
+              dungeon.entities[cy][cx] = ENTITY.CHEST;
+              totalChests++;
+            }
+            continue;
+          }
+
+          const distNorm = Math.max(0, dijkstraGrid[r.cy][r.cx]) / Math.max(1, maxDist);
+
+          if (rng() < 0.42 + distNorm * 0.35) {
+            const tx = randInt(rng, r.x + 1, r.x + r.w - 2);
+            const ty = randInt(rng, r.y + 1, r.y + r.h - 2);
+            if (dungeon.entities[ty][tx] === ENTITY.NONE) {
+              dungeon.entities[ty][tx] = ENTITY.CHEST;
+              totalChests++;
+            }
+          }
+
+          const enemyCount = rng() < distNorm + 0.25 ? (rng() < 0.35 ? 2 : 1) : 0;
+          for (let e = 0; e < enemyCount; e++) {
+            const ex = randInt(rng, r.x + 1, r.x + r.w - 2);
+            const ey = randInt(rng, r.y + 1, r.y + r.h - 2);
+            if (dungeon.entities[ey][ex] === ENTITY.NONE) {
+              dungeon.entities[ey][ex] = ENTITY.ENEMY;
+              totalEnemies++;
+            }
+          }
+
+          if (rng() < 0.38) {
+            const trx = randInt(rng, r.x + 1, r.x + r.w - 2);
+            const tryY = randInt(rng, r.y + 1, r.y + r.h - 2);
+            if (dungeon.entities[tryY][trx] === ENTITY.NONE) {
+              dungeon.entities[tryY][trx] = ENTITY.TRAP;
+            }
+          }
+        }
+
+        dungeon.bspNodes = bspNodes; dungeon.bspLeaves = bspLeaves; dungeon.rooms = rooms;
+        dungeon.allEdges = allEdges; dungeon.mstEdges = mstEdges; dungeon.cycleEdges = cycleEdges;
+        dungeon.corridorPaths = corridorPaths; dungeon.doors = doors; dungeon.torches = torches;
+        dungeon.dijkstra = dijkstraGrid; dungeon.maxDijkstraDist = maxDist;
+        dungeon.startCell = startCell; dungeon.exitCell = exitCell; dungeon.astarPath = astarPath;
+        dungeon.totalChests = totalChests; dungeon.totalEnemies = totalEnemies;
+
+        let excavated = 0;
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            if (isWalkableTile(fullTiles[y][x])) excavated++;
+          }
+        }
+        dungeon.excavatedCount = excavated;
+        dungeon.computeTimeMs = performance.now() - t0;
+
+        player.x = startCell.x; player.y = startCell.y;
+        player.renderX = startCell.x; player.renderY = startCell.y;
+        player.hp = 100; player.chestsOpened = 0; player.enemiesDefeated = 0;
+
+        if (animateStepByStep) {
+          dungeon.tiles = Array.from({ length: rows }, () => new Uint8Array(cols).fill(TILE.WALL));
+          buildStepByStepQueue(fullTiles);
+        } else {
+          animState.active = false;
+          dungeon.tiles = fullTiles;
+          updateFieldOfView(player.x, player.y, CONFIG.fovRadius);
+          updateProgressHUD('FASE: MAZMORRA COMPLETA', 100, 'LISTO');
+        }
+
+        updateTelemetryHUD();
+        fitCameraToDungeon();
+        logEvent(
+          `Semilla [${CONFIG.seed}]: ${rooms.length} salas, ruta crítica A* de ${astarPath.length} pasos (${dungeon.computeTimeMs.toFixed(2)} ms).`,
+          '#00ff9d'
+        );
+      }
+
+      // =======================================================================
+      // 10. ANIMACIÓN ALGORÍTMICA PASO A PASO
+      // =======================================================================
+      const stepVisualState = {
+        visibleBspCount: 0, visibleMstCount: 0, visibleCycleCount: 0,
+        visibleAStarCount: 0, dijkstraRevealRadius: 0
+      };
+
+      function buildStepByStepQueue(finalTiles) {
+        const ops = [];
+        stepVisualState.visibleBspCount = 0; stepVisualState.visibleMstCount = 0;
+        stepVisualState.visibleCycleCount = 0; stepVisualState.visibleAStarCount = 0;
+        stepVisualState.dijkstraRevealRadius = 0;
+
+        for (let i = 0; i < dungeon.bspNodes.length; i++) {
+          ops.push({ phase: '1/5 PARTICIÓN BSP', exec: () => { stepVisualState.visibleBspCount = i + 1; } });
+        }
+        for (let i = 0; i < dungeon.rooms.length; i++) {
+          const r = dungeon.rooms[i];
+          ops.push({
+            phase: '2/5 TALLANDO HABITACIONES (AABB)',
+            exec: () => {
+              for (let y = r.y; y < r.y + r.h; y++) {
+                for (let x = r.x; x < r.x + r.w; x++) dungeon.tiles[y][x] = TILE.FLOOR_ROOM;
+              }
+            }
+          });
+        }
+        for (let i = 0; i < dungeon.mstEdges.length; i++) {
+          ops.push({ phase: '3/5 GRAFO CONEXO MST (KRUSKAL)', exec: () => { stepVisualState.visibleMstCount = i + 1; } });
+        }
+        for (let i = 0; i < dungeon.cycleEdges.length; i++) {
+          ops.push({ phase: '3/5 AÑADIENDO ATAJOS / CICLOS', exec: () => { stepVisualState.visibleCycleCount = i + 1; } });
+        }
+        for (let i = 0; i < dungeon.corridorPaths.length; i++) {
+          const cPath = dungeon.corridorPaths[i];
+          for (let j = 0; j < cPath.length; j++) {
+            const cell = cPath[j];
+            ops.push({ phase: '4/5 EXCAVANDO PASILLOS 1×1', exec: () => { dungeon.tiles[cell.y][cell.x] = TILE.FLOOR_CORRIDOR; } });
+          }
+        }
+        for (let i = 0; i < dungeon.doors.length; i++) {
+          const d = dungeon.doors[i];
+          ops.push({ phase: '4/5 INSTALANDO PUERTAS LÓGICAS', exec: () => { dungeon.tiles[d.y][d.x] = TILE.DOOR; } });
+        }
+        const stepDist = Math.max(1, Math.ceil(dungeon.maxDijkstraDist / 25));
+        for (let r = 1; r <= dungeon.maxDijkstraDist; r += stepDist) {
+          const rad = r;
+          ops.push({ phase: '5/5 MAPA DE CALOR DIJKSTRA', exec: () => { stepVisualState.dijkstraRevealRadius = rad; } });
+        }
+        for (let i = 0; i < dungeon.astarPath.length; i++) {
+          ops.push({ phase: '5/5 VERIFICACIÓN A* (ENTRADA → SALIDA)', exec: () => { stepVisualState.visibleAStarCount = i + 1; } });
+        }
+        ops.push({
+          phase: 'FASE: MAZMORRA COMPLETA',
+          exec: () => {
+            dungeon.tiles = finalTiles;
+            updateFieldOfView(player.x, player.y, CONFIG.fovRadius);
+          }
+        });
+
+        animState.ops = ops; animState.cursor = 0; animState.active = true;
+        updateProgressHUD('1/5 PARTICIÓN BSP', 0, 'CONSTRUYENDO');
+      }
+
+      function updateProgressHUD(phaseText, pct, statusText) {
+        document.getElementById('lbl-phase-name').textContent = phaseText;
+        document.getElementById('lbl-phase-pct').textContent = `${Math.round(pct)}%`;
+        document.getElementById('bar-phase-progress').style.width = `${Math.min(100, pct)}%`;
+        document.getElementById('badge-status').textContent = statusText;
+      }
+
+      // =======================================================================
+      // 11. TELEMETRÍA, CÁMARA Y MOVIMIENTO DEL EXPLORADOR
+      // =======================================================================
+      function updateTelemetryHUD() {
+        const totalCells = dungeon.cols * dungeon.rows;
+        const excPct = ((dungeon.excavatedCount / totalCells) * 100).toFixed(1);
+        const totalEdges = dungeon.mstEdges.length + dungeon.cycleEdges.length;
+
+        document.getElementById('badge-compute-time').textContent = `${dungeon.computeTimeMs.toFixed(2)} ms`;
+        document.getElementById('val-seed').textContent = CONFIG.seed;
+        document.getElementById('val-rooms').textContent = `${dungeon.rooms.length} salas`;
+        document.getElementById('val-edges').textContent = `${totalEdges} (${dungeon.mstEdges.length} MST + ${dungeon.cycleEdges.length} Ciclos)`;
+        document.getElementById('val-doors').textContent = `${dungeon.doors.length} puertas`;
+        document.getElementById('val-critical-len').textContent = `${dungeon.astarPath.length} pasos`;
+        document.getElementById('val-excavated-pct').textContent = `${excPct}%`;
+        updateExplorerHUD();
+      }
+
+      function updateExplorerHUD() {
+        document.getElementById('badge-explorer-hp').textContent = `HP ${player.hp}/${player.maxHp}`;
+        document.getElementById('val-player-pos').textContent = `(${player.x}, ${player.y})`;
+        document.getElementById('val-player-gold').textContent = `${player.chestsOpened} / ${dungeon.totalChests} Cofres`;
+        document.getElementById('val-player-kills').textContent = `${player.enemiesDefeated} / ${dungeon.totalEnemies}`;
+      }
+
+      function fitCameraToDungeon() {
+        const leftPanelW = window.innerWidth > 1100 ? 355 : 285;
+        const rightPanelW = window.innerWidth > 1100 ? 365 : 285;
+        const topBarH = 78, bottomBarH = 54;
+        const availW = Math.max(300, viewW - leftPanelW - rightPanelW);
+        const availH = Math.max(240, viewH - topBarH - bottomBarH);
+
+        const tsX = Math.floor(availW / dungeon.cols);
+        const tsY = Math.floor(availH / dungeon.rows);
+        camera.tileSize = Math.max(9, Math.min(28, Math.min(tsX, tsY)));
+
+        const mapPixelW = dungeon.cols * camera.tileSize;
+        const mapPixelH = dungeon.rows * camera.tileSize;
+        camera.x = leftPanelW + Math.floor((availW - mapPixelW) * 0.5);
+        camera.y = topBarH + Math.floor((availH - mapPixelH) * 0.5);
+      }
+
+      function resizeViewport() {
+        viewW = window.innerWidth; viewH = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = viewW * dpr; canvas.height = viewH * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        fitCameraToDungeon();
+      }
+      window.addEventListener('resize', resizeViewport);
+
+      function movePlayer(dx, dy) {
+        if (animState.active) return;
+        if (!CONFIG.playMode) setPlayMode(true);
+        if (dx !== 0) player.facing = dx > 0 ? 1 : -1;
+
+        const nx = player.x + dx, ny = player.y + dy;
+        if (nx < 0 || nx >= dungeon.cols || ny < 0 || ny >= dungeon.rows) return;
+
+        const targetTile = dungeon.tiles[ny][nx];
+        if (!isWalkableTile(targetTile)) return;
+
+        if (targetTile === TILE.DOOR) {
+          dungeon.tiles[ny][nx] = TILE.DOOR_OPEN;
+          logEvent(`Puerta desbloqueada en (${nx}, ${ny}).`, '#ffbe0b');
+        }
+
+        player.x = nx; player.y = ny;
+        const ent = dungeon.entities[ny][nx];
+
+        if (ent === ENTITY.CHEST) {
+          dungeon.entities[ny][nx] = ENTITY.CHEST_OPEN;
+          player.chestsOpened++;
+          player.hp = Math.min(player.maxHp, player.hp + 10);
+          logEvent(`¡Cofre de tesoro abierto en (${nx}, ${ny})! (+10 HP)`, '#ffbe0b');
+        } else if (ent === ENTITY.TRAP) {
+          dungeon.entities[ny][nx] = ENTITY.TRAP_DISARMED;
+          player.hp = Math.max(5, player.hp - 12);
+          logEvent(`¡Trampa activada en (${nx}, ${ny})! (-12 HP)`, '#b537f2');
+        } else if (ent === ENTITY.ENEMY) {
+          dungeon.entities[ny][nx] = ENTITY.NONE;
+          player.enemiesDefeated++;
+          player.hp = Math.max(10, player.hp - 8);
+          logEvent(`Centinela derrotado en (${nx}, ${ny}).`, '#ff2a6d');
+        } else if (ent === ENTITY.BOSS) {
+          dungeon.entities[ny][nx] = ENTITY.NONE;
+          player.enemiesDefeated++;
+          logEvent(`¡GUARDIÁN DEL ABISMO DERROTADO en (${nx}, ${ny})!`, '#00ff9d');
+        } else if (ent === ENTITY.STAIRS_DOWN) {
+          logEvent(`¡Escaleras de Salida alcanzadas! Generando nivel inferior...`, '#00f0ff');
+          setTimeout(() => randomizeSeedAndGenerate(false), 350);
+        }
+
+        updateFieldOfView(player.x, player.y, CONFIG.fovRadius);
+
+        if (!dungeon.customStart && !dungeon.customGoal) {
+          dungeon.astarPath = computeAStarPath(
+            player.x, player.y, dungeon.exitCell.x, dungeon.exitCell.y,
+            dungeon.tiles, dungeon.rows, dungeon.cols
+          );
+          document.getElementById('val-critical-len').textContent = `${dungeon.astarPath.length} pasos`;
+        }
+        updateExplorerHUD();
+      }
+
+      function setPlayMode(enabled) {
+        CONFIG.playMode = enabled;
+        const btn = document.getElementById('btn-toggle-play-mode');
+        const modeSpan = document.getElementById('hud-active-mode');
+        const subHint = document.getElementById('hud-sub-hint');
+
+        btn.classList.toggle('active', enabled);
+        if (enabled) {
+          modeSpan.textContent = 'MODO EXPLORADOR (FOG OF WAR + FOV)';
+          modeSpan.style.color = '#00ff9d';
+          subHint.textContent = 'Usa [WASD] o [Flechas] para explorar con Raycasting 2D • Abre puertas, cofres y halla la salida';
+          updateFieldOfView(player.x, player.y, CONFIG.fovRadius);
+          logEvent('Modo Explorador activado: Niebla de Guerra y Raycasting FOV encendidos.', '#00ff9d');
+        } else {
+          modeSpan.textContent = 'VISTA DE ARQUITECTO';
+          modeSpan.style.color = '#ffffff';
+          subHint.textContent = 'Clic Izq: Fijar Inicio A* • Shift+Clic / Clic Der: Fijar Destino A* • Rueda/Arrastrar: Zoom y Paneo';
+          logEvent('Vista de Arquitecto activada: Mapa completo y capas de depuración visibles.', '#00f0ff');
+        }
+      }
+
+      // =======================================================================
+      // 12. RENDERIZADO PROCEDURAL 2D DE BALDOSAS, LUCES, ENTIDADES Y DEBUG
+      // =======================================================================
+      function hslFromDijkstra(dist, maxDist) {
+        const t = Math.min(1, Math.max(0, dist / Math.max(1, maxDist)));
+        const hue = (195 - t * 205 + 360) % 360;
+        return `hsla(${hue}, 92%, 52%, 0.44)`;
+      }
+
+      function drawEntityProcedural(ctx, ent, px, py, ts, timeSec) {
+        const cx = px + ts * 0.5, cy = py + ts * 0.5, r = ts * 0.36;
+
+        if (ent === ENTITY.STAIRS_UP) {
+          ctx.fillStyle = 'rgba(0, 255, 157, 0.22)';
+          ctx.fillRect(px + 2, py + 2, ts - 4, ts - 4);
+          ctx.strokeStyle = '#00ff9d'; ctx.lineWidth = 1.6;
+          ctx.strokeRect(px + 2, py + 2, ts - 4, ts - 4);
+          for (let i = 0; i < 3; i++) {
+            const sy = py + ts * (0.28 + i * 0.2), sw = ts * (0.36 + i * 0.14);
+            ctx.beginPath(); ctx.moveTo(cx - sw * 0.5, sy); ctx.lineTo(cx + sw * 0.5, sy); ctx.stroke();
+          }
+        } else if (ent === ENTITY.STAIRS_DOWN) {
+          const pulse = 0.75 + 0.25 * Math.sin(timeSec * 4.5);
+          ctx.fillStyle = `rgba(255, 42, 109, ${0.28 * pulse})`;
+          ctx.fillRect(px + 2, py + 2, ts - 4, ts - 4);
+          ctx.strokeStyle = '#ff2a6d'; ctx.lineWidth = 1.8;
+          ctx.strokeRect(px + 2, py + 2, ts - 4, ts - 4);
+          ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 1.3;
+          ctx.strokeRect(px + ts * 0.27, py + ts * 0.27, ts * 0.46, ts * 0.46);
+        } else if (ent === ENTITY.CHEST || ent === ENTITY.CHEST_OPEN) {
+          const isOpen = ent === ENTITY.CHEST_OPEN;
+          ctx.fillStyle = isOpen ? '#59442a' : '#d4891c';
+          ctx.fillRect(cx - r * 0.9, cy - r * 0.65, r * 1.8, r * 1.3);
+          ctx.strokeStyle = isOpen ? '#8c7250' : '#ffe169'; ctx.lineWidth = 1.3;
+          ctx.strokeRect(cx - r * 0.9, cy - r * 0.65, r * 1.8, r * 1.3);
+          if (!isOpen) { ctx.fillStyle = '#fff3b0'; ctx.fillRect(cx - 2, cy - 2, 4, 4); }
+        } else if (ent === ENTITY.TRAP || ent === ENTITY.TRAP_DISARMED) {
+          ctx.strokeStyle = ent === ENTITY.TRAP ? '#b537f2' : 'rgba(132, 160, 189, 0.45)';
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - r * 0.85); ctx.lineTo(cx + r * 0.85, cy);
+          ctx.lineTo(cx, cy + r * 0.85); ctx.lineTo(cx - r * 0.85, cy);
+          ctx.closePath(); ctx.stroke();
+        } else if (ent === ENTITY.ENEMY || ent === ENTITY.BOSS) {
+          const isBoss = ent === ENTITY.BOSS;
+          const bob = Math.sin(timeSec * 5 + px) * 1.5;
+          const rad = isBoss ? r * 1.18 : r * 0.85;
+          ctx.fillStyle = isBoss ? '#ff2a6d' : '#ff5e5b';
+          ctx.beginPath(); ctx.arc(cx, cy + bob, rad, 0, Math.PI * 2); ctx.fill();
+          if (isBoss) { ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 1.6; ctx.stroke(); }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cx - rad * 0.45, cy + bob - 2, 2.2, 2.2);
+          ctx.fillRect(cx + rad * 0.2, cy + bob - 2, 2.2, 2.2);
+        }
+      }
+
+      function drawAdventurer(ctx, px, py, ts, timeSec) {
+        const cx = px + ts * 0.5, cy = py + ts * 0.5, r = ts * 0.38;
+        const bounce = Math.sin(timeSec * 6) * 1.2;
+
+        const halo = ctx.createRadialGradient(cx, cy, 1, cx, cy, ts * 0.9);
+        halo.addColorStop(0, 'rgba(0, 240, 255, 0.55)');
+        halo.addColorStop(1, 'rgba(0, 240, 255, 0.0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(cx, cy, ts * 0.9, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#00f0ff';
+        ctx.beginPath(); ctx.arc(cx, cy + bounce, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.stroke();
+
+        const vx = cx + player.facing * r * 0.35;
+        ctx.fillStyle = '#04101e';
+        ctx.fillRect(vx - 2.5, cy + bounce - 2, 5, 3);
+      }
+
+      function renderScene(now) {
+        requestAnimationFrame(renderScene);
+        const timeSec = now * 0.001;
+        const biome = BIOMES[CONFIG.biome] || BIOMES.crypt;
+
+        if (animState.active) {
+          const opsPerFrame = Math.max(1, Math.floor(CONFIG.stepSpeed * 1.5));
+          for (let k = 0; k < opsPerFrame && animState.cursor < animState.ops.length; k++) {
+            const op = animState.ops[animState.cursor];
+            op.exec();
+            animState.phaseTitle = op.phase;
+            animState.cursor++;
+          }
+          const pct = (animState.cursor / Math.max(1, animState.ops.length)) * 100;
+          if (animState.cursor >= animState.ops.length) {
+            animState.active = false;
+            updateProgressHUD('FASE: MAZMORRA COMPLETA', 100, 'LISTO');
+          } else {
+            updateProgressHUD(animState.phaseTitle, pct, 'ANIMANDO');
+          }
+        }
+
+        player.renderX += (player.x - player.renderX) * 0.32;
+        player.renderY += (player.y - player.renderY) * 0.32;
+
+        if (CONFIG.playMode && !camera.isDragging) {
+          const targetCamX = viewW * 0.5 - (player.renderX + 0.5) * camera.tileSize;
+          const targetCamY = viewH * 0.5 - (player.renderY + 0.5) * camera.tileSize;
+          camera.x += (targetCamX - camera.x) * 0.08;
+          camera.y += (targetCamY - camera.y) * 0.08;
+        }
+
+        ctx.fillStyle = biome.voidColor;
+        ctx.fillRect(0, 0, viewW, viewH);
+
+        const ts = camera.tileSize, ox = camera.x, oy = camera.y;
+        const rows = dungeon.rows, cols = dungeon.cols;
+
+        for (let y = 0; y < rows; y++) {
+          const py = oy + y * ts;
+          if (py + ts < 0 || py > viewH) continue;
+
+          for (let x = 0; x < cols; x++) {
+            const px = ox + x * ts;
+            if (px + ts < 0 || px > viewW) continue;
+
+            const fowState = dungeon.fow[y][x];
+            if (CONFIG.playMode && fowState === 0) continue;
+
+            const tile = dungeon.tiles[y][x];
+            const seedVal = dungeon.tileSeed[y][x];
+
+            if (tile === TILE.WALL) {
+              const hasSouthFloor = y + 1 < rows && isWalkableTile(dungeon.tiles[y + 1][x]);
+              const hasNeighborFloor =
+                hasSouthFloor ||
+                (y > 0 && isWalkableTile(dungeon.tiles[y - 1][x])) ||
+                (x > 0 && isWalkableTile(dungeon.tiles[y][x - 1])) ||
+                (x + 1 < cols && isWalkableTile(dungeon.tiles[y][x + 1]));
+
+              if (!hasNeighborFloor) {
+                ctx.fillStyle = '#090d16';
+                ctx.fillRect(px, py, ts, ts);
+                continue;
+              }
+
+              ctx.fillStyle = biome.wallTop;
+              ctx.fillRect(px, py, ts, ts);
+
+              if (hasSouthFloor) {
+                const faceH = Math.max(3, Math.floor(ts * 0.34));
+                ctx.fillStyle = biome.wallFace;
+                ctx.fillRect(px, py + ts - faceH, ts, faceH);
+                ctx.fillStyle = biome.wallEdge;
+                ctx.fillRect(px, py + ts - faceH - 1, ts, 1.2);
+              }
+
+              if (seedVal > 0.72 && ts >= 12) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+                ctx.fillRect(px + 2, py + 2, ts - 4, 2);
+              }
+            } else if (isWalkableTile(tile)) {
+              ctx.fillStyle = tile === TILE.FLOOR_CORRIDOR
+                ? biome.floorCorr
+                : ((x + y) % 2 === 0 ? biome.floorRoomA : biome.floorRoomB);
+              ctx.fillRect(px, py, ts, ts);
+
+              if (ts >= 11) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 0.6;
+                ctx.strokeRect(px + 0.5, py + 0.5, ts - 1, ts - 1);
+
+                if (seedVal < 0.14) {
+                  ctx.fillStyle = biome.accentDetail;
+                  ctx.fillRect(px + ts * 0.25, py + ts * 0.25, ts * 0.22, ts * 0.22);
+                } else if (seedVal > 0.86) {
+                  ctx.strokeStyle = biome.crackColor;
+                  ctx.lineWidth = 1;
+                  ctx.beginPath();
+                  ctx.moveTo(px + ts * 0.2, py + ts * 0.3);
+                  ctx.lineTo(px + ts * 0.55, py + ts * 0.5);
+                  ctx.lineTo(px + ts * 0.75, py + ts * 0.38);
+                  ctx.stroke();
+                }
+              }
+
+              const showDijkNow = CONFIG.showDijkstra || (animState.active && stepVisualState.dijkstraRevealRadius > 0);
+              if (showDijkNow) {
+                const dVal = dungeon.dijkstra[y][x];
+                const maxAllowed = animState.active ? stepVisualState.dijkstraRevealRadius : dungeon.maxDijkstraDist;
+                if (dVal >= 0 && dVal <= maxAllowed) {
+                  ctx.fillStyle = hslFromDijkstra(dVal, dungeon.maxDijkstraDist);
+                  ctx.fillRect(px + 1, py + 1, ts - 2, ts - 2);
+                  if (ts >= 17 && dVal % 2 === 0) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                    ctx.font = `${Math.max(8, Math.floor(ts * 0.38))}px monospace`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(String(dVal), px + ts * 0.5, py + ts * 0.5);
+                  }
+                }
+              }
+
+              if (tile === TILE.DOOR || tile === TILE.DOOR_OPEN) {
+                const horizWall = x > 0 && x + 1 < cols &&
+                  dungeon.tiles[y][x - 1] === TILE.WALL && dungeon.tiles[y][x + 1] === TILE.WALL;
+                ctx.fillStyle = biome.doorWood;
+                ctx.strokeStyle = biome.doorFrame;
+                ctx.lineWidth = 1.2;
+
+                if (tile === TILE.DOOR) {
+                  if (horizWall) {
+                    ctx.fillRect(px + 1, py + ts * 0.32, ts - 2, ts * 0.36);
+                    ctx.strokeRect(px + 1, py + ts * 0.32, ts - 2, ts * 0.36);
+                  } else {
+                    ctx.fillRect(px + ts * 0.32, py + 1, ts * 0.36, ts - 2);
+                    ctx.strokeRect(px + ts * 0.32, py + 1, ts * 0.36, ts - 2);
+                  }
+                } else {
+                  ctx.strokeRect(px + 2, py + 2, ts - 4, ts - 4);
+                }
+              }
+
+              const ent = dungeon.entities[y][x];
+              if (ent !== ENTITY.NONE && (!CONFIG.playMode || fowState === 2 || ent <= ENTITY.STAIRS_DOWN)) {
+                drawEntityProcedural(ctx, ent, px, py, ts, timeSec);
+              }
+            }
+
+            if (CONFIG.playMode && fowState === 1) {
+              ctx.fillStyle = 'rgba(3, 5, 12, 0.68)';
+              ctx.fillRect(px, py, ts, ts);
+            } else if (CONFIG.playMode && fowState === 2) {
+              const light = dungeon.fovLight[y][x];
+              if (light < 0.95) {
+                ctx.fillStyle = `rgba(3, 5, 12, ${(1.0 - light) * 0.48})`;
+                ctx.fillRect(px, py, ts, ts);
+              }
+            }
+          }
+        }
+
+        // Iluminación Dinámica 2D de Antorchas
+        if (CONFIG.showLighting && !animState.active) {
+          const [rCol, gCol, bCol] = biome.torchColorRGB;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          for (let i = 0; i < dungeon.torches.length; i++) {
+            const t = dungeon.torches[i];
+            if (CONFIG.playMode && dungeon.fow[t.y]?.[t.x] !== 2) continue;
+
+            const tx = ox + (t.x + 0.5) * ts, ty = oy + (t.y + 0.5) * ts;
+            const flicker = 0.86 + 0.14 * Math.sin(timeSec * 8.5 + t.phase) * Math.cos(timeSec * 13.0 + i);
+            const rad = ts * 3.4 * flicker;
+
+            const grad = ctx.createRadialGradient(tx, ty, 1, tx, ty, rad);
+            grad.addColorStop(0, `rgba(${rCol}, ${gCol}, ${bCol}, 0.24)`);
+            grad.addColorStop(0.5, `rgba(${rCol}, ${gCol}, ${bCol}, 0.08)`);
+            grad.addColorStop(1, `rgba(${rCol}, ${gCol}, ${bCol}, 0.0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(tx, ty, rad, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = biome.torchCore;
+            ctx.beginPath(); ctx.arc(tx, ty, Math.max(2, ts * 0.14), 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Capa Debug 1: Árbol BSP
+        const showBspNow = CONFIG.showBSP || (animState.active && stepVisualState.visibleBspCount > 0 && stepVisualState.visibleMstCount === 0);
+        if (showBspNow) {
+          const limit = animState.active ? stepVisualState.visibleBspCount : dungeon.bspNodes.length;
+          for (let i = 0; i < limit; i++) {
+            const node = dungeon.bspNodes[i];
+            const nx = ox + node.x * ts, ny = oy + node.y * ts, nw = node.w * ts, nh = node.h * ts;
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)'; ctx.lineWidth = 1;
+            ctx.strokeRect(nx, ny, nw, nh);
+
+            if (node.splitDir === 'H') {
+              const sy = oy + node.splitPos * ts;
+              ctx.strokeStyle = 'rgba(0, 255, 157, 0.55)';
+              ctx.beginPath(); ctx.moveTo(nx, sy); ctx.lineTo(nx + nw, sy); ctx.stroke();
+            } else if (node.splitDir === 'V') {
+              const sx = ox + node.splitPos * ts;
+              ctx.strokeStyle = 'rgba(0, 255, 157, 0.55)';
+              ctx.beginPath(); ctx.moveTo(sx, ny); ctx.lineTo(sx, ny + nh); ctx.stroke();
+            }
+          }
+        }
+
+        // Capa Debug 2: Grafo MST Kruskal + Ciclos
+        const showGraphNow = CONFIG.showGraph || (animState.active && stepVisualState.visibleMstCount > 0);
+        if (showGraphNow) {
+          const mstLimit = animState.active ? stepVisualState.visibleMstCount : dungeon.mstEdges.length;
+          const cycLimit = animState.active ? stepVisualState.visibleCycleCount : dungeon.cycleEdges.length;
+
+          ctx.strokeStyle = 'rgba(255, 190, 11, 0.78)'; ctx.lineWidth = 1.8;
+          ctx.setLineDash([5, 4]);
+          for (let i = 0; i < cycLimit; i++) {
+            const e = dungeon.cycleEdges[i], rA = dungeon.rooms[e.u], rB = dungeon.rooms[e.v];
+            ctx.beginPath();
+            ctx.moveTo(ox + (rA.cx + 0.5) * ts, oy + (rA.cy + 0.5) * ts);
+            ctx.lineTo(ox + (rB.cx + 0.5) * ts, oy + (rB.cy + 0.5) * ts);
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)'; ctx.lineWidth = 2.2;
+          for (let i = 0; i < mstLimit; i++) {
+            const e = dungeon.mstEdges[i], rA = dungeon.rooms[e.u], rB = dungeon.rooms[e.v];
+            ctx.beginPath();
+            ctx.moveTo(ox + (rA.cx + 0.5) * ts, oy + (rA.cy + 0.5) * ts);
+            ctx.lineTo(ox + (rB.cx + 0.5) * ts, oy + (rB.cy + 0.5) * ts);
+            ctx.stroke();
+          }
+
+          for (let i = 0; i < dungeon.rooms.length; i++) {
+            const r = dungeon.rooms[i];
+            const rcx = ox + (r.cx + 0.5) * ts, rcy = oy + (r.cy + 0.5) * ts;
+            ctx.fillStyle = r.role === 'start' ? '#00ff9d' : r.role === 'boss' ? '#ff2a6d' : '#00f0ff';
+            ctx.beginPath(); ctx.arc(rcx, rcy, Math.max(3.5, ts * 0.24), 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#040812'; ctx.lineWidth = 1.2; ctx.stroke();
+          }
+        }
+
+        // Capa Debug 3: Ruta Crítica A*
+        const showAStarNow = CONFIG.showAStar || (animState.active && stepVisualState.visibleAStarCount > 0);
+        if (showAStarNow && dungeon.astarPath.length > 1) {
+          const pathLen = animState.active
+            ? Math.min(stepVisualState.visibleAStarCount, dungeon.astarPath.length)
+            : dungeon.astarPath.length;
+
+          if (pathLen > 1) {
+            ctx.save();
+            ctx.strokeStyle = '#ff2a6d';
+            ctx.lineWidth = Math.max(2.4, ts * 0.2);
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.shadowColor = '#ff2a6d'; ctx.shadowBlur = 8;
+
+            ctx.beginPath();
+            for (let i = 0; i < pathLen; i++) {
+              const pt = dungeon.astarPath[i];
+              const vx = ox + (pt.x + 0.5) * ts, vy = oy + (pt.y + 0.5) * ts;
+              if (i === 0) ctx.moveTo(vx, vy);
+              else ctx.lineTo(vx, vy);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffbe0b';
+            for (let i = 0; i < pathLen; i += 3) {
+              const pt = dungeon.astarPath[i];
+              ctx.beginPath();
+              ctx.arc(ox + (pt.x + 0.5) * ts, oy + (pt.y + 0.5) * ts, Math.max(1.8, ts * 0.1), 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+        }
+
+        if (dungeon.customStart) {
+          ctx.strokeStyle = '#00ff9d'; ctx.lineWidth = 2;
+          ctx.strokeRect(ox + dungeon.customStart.x * ts + 1, oy + dungeon.customStart.y * ts + 1, ts - 2, ts - 2);
+        }
+        if (dungeon.customGoal) {
+          ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 2;
+          ctx.strokeRect(ox + dungeon.customGoal.x * ts + 1, oy + dungeon.customGoal.y * ts + 1, ts - 2, ts - 2);
+        }
+
+        if (!animState.active) {
+          drawAdventurer(ctx, ox + player.renderX * ts, oy + player.renderY * ts, ts, timeSec);
+        }
+      }
+
+      // =======================================================================
+      // 13. EVENTOS DE INTERACCIÓN Y CONTROLES DEL HUD
+      // =======================================================================
+      function screenToGrid(clientX, clientY) {
+        return {
+          gx: Math.floor((clientX - camera.x) / camera.tileSize),
+          gy: Math.floor((clientY - camera.y) / camera.tileSize)
+        };
+      }
+
+      let pointerDownPos = { x: 0, y: 0 };
+      canvas.addEventListener('pointerdown', (e) => {
+        pointerDownPos = { x: e.clientX, y: e.clientY };
+        camera.isDragging = true;
+        camera.dragStartX = e.clientX; camera.dragStartY = e.clientY;
+        camera.camStartX = camera.x; camera.camStartY = camera.y;
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!camera.isDragging) return;
+        const dx = e.clientX - camera.dragStartX, dy = e.clientY - camera.dragStartY;
+        if (Math.hypot(dx, dy) > 4) {
+          camera.x = camera.camStartX + dx;
+          camera.y = camera.camStartY + dy;
+        }
+      });
+
+      window.addEventListener('pointerup', (e) => {
+        if (!camera.isDragging) return;
+        camera.isDragging = false;
+
+        if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) < 5 && e.target === canvas) {
+          const { gx, gy } = screenToGrid(e.clientX, e.clientY);
+          if (gx >= 0 && gx < dungeon.cols && gy >= 0 && gy < dungeon.rows && isWalkableTile(dungeon.tiles[gy][gx])) {
+            if (e.shiftKey || e.button === 2) dungeon.customGoal = { x: gx, y: gy };
+            else dungeon.customStart = { x: gx, y: gy };
+
+            const s = dungeon.customStart || dungeon.startCell;
+            const g = dungeon.customGoal || dungeon.exitCell;
+            dungeon.astarPath = computeAStarPath(s.x, s.y, g.x, g.y, dungeon.tiles, dungeon.rows, dungeon.cols);
+            CONFIG.showAStar = true;
+            document.getElementById('toggle-astar').classList.add('active');
+            document.getElementById('val-critical-len').textContent = `${dungeon.astarPath.length} pasos`;
+            logEvent(`Ruta A* calculada de (${s.x},${s.y}) a (${g.x},${g.y}): ${dungeon.astarPath.length} celdas.`, '#00f0ff');
+          }
+        }
+      });
+
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+        const oldTs = camera.tileSize;
+        const newTs = Math.max(7, Math.min(44, Math.round(oldTs * zoomFactor)));
+        if (newTs === oldTs) return;
+
+        const mouseMapX = (e.clientX - camera.x) / oldTs;
+        const mouseMapY = (e.clientY - camera.y) / oldTs;
+        camera.tileSize = newTs;
+        camera.x = e.clientX - mouseMapX * newTs;
+        camera.y = e.clientY - mouseMapY * newTs;
+      }, { passive: false });
+
+      const seedInput = document.getElementById('input-seed');
+      seedInput.addEventListener('change', () => {
+        CONFIG.seed = seedInput.value.trim() || 'ARGON-CRYPT-77';
+        generateDungeon(false);
+      });
+
+      function randomizeSeedAndGenerate(animate = false) {
+        const prefixes = ['ARGON', 'ABYSS', 'KRONOS', 'AETHER', 'VORTEX', 'NEXUS', 'OBSIDIAN', 'HELIO'];
+        const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const num = Math.floor(100 + Math.random() * 900);
+        CONFIG.seed = `${p}-CRYPT-${num}`;
+        seedInput.value = CONFIG.seed;
+        generateDungeon(animate);
+      }
+
+      document.getElementById('btn-random-seed').addEventListener('click', () => randomizeSeedAndGenerate(false));
+      document.getElementById('btn-instant-gen').addEventListener('click', () => {
+        CONFIG.seed = seedInput.value.trim() || 'ARGON-CRYPT-77';
+        generateDungeon(false);
+      });
+      document.getElementById('btn-step-gen').addEventListener('click', () => {
+        CONFIG.seed = seedInput.value.trim() || 'ARGON-CRYPT-77';
+        if (CONFIG.playMode) setPlayMode(false);
+        generateDungeon(true);
+      });
+      document.getElementById('btn-toggle-play-mode').addEventListener('click', () => setPlayMode(!CONFIG.playMode));
+      document.getElementById('btn-reset-camera').addEventListener('click', () => {
+        dungeon.customStart = null; dungeon.customGoal = null;
+        dungeon.astarPath = computeAStarPath(
+          dungeon.startCell.x, dungeon.startCell.y, dungeon.exitCell.x, dungeon.exitCell.y,
+          dungeon.tiles, dungeon.rows, dungeon.cols
+        );
+        fitCameraToDungeon();
+      });
+
+      function bindLayerToggle(btnId, key) {
+        const btn = document.getElementById(btnId);
+        btn.addEventListener('click', () => {
+          CONFIG[key] = !CONFIG[key];
+          btn.classList.toggle('active', CONFIG[key]);
+        });
+      }
+      bindLayerToggle('toggle-bsp', 'showBSP');
+      bindLayerToggle('toggle-graph', 'showGraph');
+      bindLayerToggle('toggle-dijkstra', 'showDijkstra');
+      bindLayerToggle('toggle-astar', 'showAStar');
+      bindLayerToggle('toggle-lighting', 'showLighting');
+
+      document.querySelectorAll('[data-biome]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          CONFIG.biome = btn.dataset.biome;
+          document.querySelectorAll('[data-biome]').forEach((b) => b.classList.toggle('active', b === btn));
+          logEvent(`Bioma cambiado a: ${BIOMES[CONFIG.biome].name}.`, '#00f0ff');
+        });
+      });
+
+      document.getElementById('slider-grid-size').addEventListener('input', (e) => {
+        const cols = parseInt(e.target.value, 10);
+        const rows = Math.round(cols * 0.64);
+        CONFIG.gridCols = cols; CONFIG.gridRows = rows;
+        document.getElementById('lbl-grid-size').textContent = `${cols} × ${rows}`;
+        generateDungeon(false);
+      });
+      document.getElementById('slider-bsp-depth').addEventListener('input', (e) => {
+        const d = parseInt(e.target.value, 10);
+        CONFIG.bspDepth = d;
+        document.getElementById('lbl-bsp-depth').textContent = `${d} (Hasta ${1 << d} salas)`;
+        generateDungeon(false);
+      });
+      document.getElementById('slider-min-room').addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        CONFIG.minRoomSize = v;
+        document.getElementById('lbl-min-room').textContent = `${v} celdas`;
+        generateDungeon(false);
+      });
+      document.getElementById('slider-max-room').addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        CONFIG.maxRoomSize = v;
+        document.getElementById('lbl-max-room').textContent = `${v} celdas`;
+        generateDungeon(false);
+      });
+      document.getElementById('slider-loops').addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        CONFIG.extraLoopsPct = v;
+        document.getElementById('lbl-loops').textContent = `${v}%`;
+        generateDungeon(false);
+      });
+      document.getElementById('slider-fov-radius').addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        CONFIG.fovRadius = v;
+        document.getElementById('lbl-fov-radius').textContent = `${v} celdas`;
+        updateFieldOfView(player.x, player.y, CONFIG.fovRadius);
+      });
+      document.getElementById('slider-step-speed').addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        CONFIG.stepSpeed = v;
+        document.getElementById('lbl-step-speed').textContent = `${v}x`;
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (document.activeElement === seedInput) return;
+        const k = e.key.toLowerCase();
+
+        if (k === 'w' || e.key === 'ArrowUp') { e.preventDefault(); movePlayer(0, -1); }
+        else if (k === 's' || e.key === 'ArrowDown') { e.preventDefault(); movePlayer(0, 1); }
+        else if (k === 'a' || e.key === 'ArrowLeft') { e.preventDefault(); movePlayer(-1, 0); }
+        else if (k === 'd' || e.key === 'ArrowRight') { e.preventDefault(); movePlayer(1, 0); }
+        else if (k === 'e') setPlayMode(!CONFIG.playMode);
+        else if (k === '1' || k === 'b') document.getElementById('toggle-bsp').click();
+        else if (k === '2' || k === 'g') document.getElementById('toggle-graph').click();
+        else if (k === '3' || k === 'h') document.getElementById('toggle-dijkstra').click();
+        else if (k === '4' || k === 'p') document.getElementById('toggle-astar').click();
+        else if (k === '5' || k === 'l') document.getElementById('toggle-lighting').click();
+        else if (k === 'c') document.getElementById('btn-reset-camera').click();
+        else if (k === 'r') randomizeSeedAndGenerate(false);
+      });
+
+      resizeViewport();
+      generateDungeon(false);
+      requestAnimationFrame(renderScene);
+    })();
+  </script>
+</body>
+</html>
