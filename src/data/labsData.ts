@@ -1263,3 +1263,11 @@ export const BONUS_EXPERIMENT = {
   lines: 1899,
   kb: 69.8
 } as const;
+
+export const YOUTUBE_LINKS = {
+  channel_es: "https://www.youtube.com/@MixiuhLabsES",
+  channel_en: "https://www.youtube.com/@MixiuhLabsEN",
+  ep01_es: "https://youtu.be/BE8g1jnP-2M",
+  ep01_en: "https://youtu.be/S4v6v9r5mVA",
+} as const;
+

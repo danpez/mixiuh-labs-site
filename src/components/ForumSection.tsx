@@ -330,10 +330,30 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
         <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#0B1D30] via-[#11283F]/90 to-[#0B1D30] border border-[#22A2DD]/30">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
-              <div className="text-xs font-mono-hud uppercase text-[#FBBF24] font-bold">
-                {lang === "es"
-                  ? "PIZARRA DE VOTACION ACTIVA · PROXIMO VIDEO EN YOUTUBE (@MixiuhLabsES / @MixiuhLabsEN)"
-                  : "ACTIVE VOTING BOARD · NEXT YOUTUBE EPISODE (@MixiuhLabsES / @MixiuhLabsEN)"}
+              <div className="text-xs font-mono-hud uppercase text-[#FBBF24] font-bold flex flex-wrap items-center gap-1.5">
+                <span>
+                  {lang === "es"
+                    ? "PIZARRA DE VOTACION ACTIVA · PROXIMO VIDEO EN YOUTUBE ("
+                    : "ACTIVE VOTING BOARD · NEXT YOUTUBE EPISODE ("}
+                </span>
+                <a
+                  href="https://www.youtube.com/@MixiuhLabsES"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#5EEAD4] hover:underline"
+                >
+                  @MixiuhLabsES
+                </a>
+                <span>/</span>
+                <a
+                  href="https://www.youtube.com/@MixiuhLabsEN"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#B794F6] hover:underline"
+                >
+                  @MixiuhLabsEN
+                </a>
+                <span>)</span>
               </div>
               <h3 className="font-display text-lg sm:text-xl font-bold text-white mt-0.5">
                 {lang === "es"

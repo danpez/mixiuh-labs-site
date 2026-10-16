@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import {
   CHALLENGES,
   BONUS_EXPERIMENT,
+  YOUTUBE_LINKS,
   type ChallengeData,
 } from "@/data/labsData";
 import {
@@ -220,9 +221,19 @@ export default function DemoArenaSection({
                         ? currentChallenge.world_es
                         : currentChallenge.world_en}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[#8FA3B8]">
-                      CAPITULO YT {currentChallenge.timestamp}
-                    </span>
+                    <a
+                      href={`${lang === "es" ? YOUTUBE_LINKS.ep01_es : YOUTUBE_LINKS.ep01_en}?t=${(() => {
+                        const [mm, ss] = currentChallenge.timestamp.split(":").map(Number);
+                        return (mm || 0) * 60 + (ss || 0);
+                      })()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-0.5 rounded-md bg-[#F43F5E]/15 hover:bg-[#F43F5E]/25 border border-[#F43F5E]/40 text-white hover:text-[#F43F5E] transition-colors cursor-pointer"
+                    >
+                      {lang === "es"
+                        ? `VER EN YT (${currentChallenge.timestamp})`
+                        : `WATCH ON YT (${currentChallenge.timestamp})`}
+                    </a>
                     <span className="px-2.5 py-0.5 rounded-md bg-[#34D399]/15 border border-[#34D399]/40 text-[#34D399] font-bold">
                       {lang === "es"
                         ? "GANADOR: GEMINI 4 ARGON"

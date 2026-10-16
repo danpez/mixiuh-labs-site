@@ -7,6 +7,7 @@ import {
   EPISODE_01_CHAPTERS,
   LAB_GLOSSARY,
   SCIENTIFIC_HONESTY_NOTES,
+  YOUTUBE_LINKS,
 } from "@/data/labsData";
 import DemoArenaSection from "@/components/DemoArenaModal";
 import ForumSection from "@/components/ForumSection";
@@ -143,6 +144,22 @@ export default function MixiuhLabsHomePage() {
             </div>
 
             <a
+              href={
+                lang === "es"
+                  ? YOUTUBE_LINKS.channel_es
+                  : YOUTUBE_LINKS.channel_en
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-[#F43F5E]/40 font-mono-hud text-xs text-white transition whitespace-nowrap"
+            >
+              <Play className="w-3.5 h-3.5 text-[#F43F5E] fill-current shrink-0" />
+              <span>
+                {lang === "es" ? "@MixiuhLabsES" : "@MixiuhLabsEN"}
+              </span>
+            </a>
+
+            <a
               href="https://github.com/danpez/gemini-4-argon-vs-3.8-flash-benchmark"
               target="_blank"
               rel="noopener noreferrer"
@@ -179,13 +196,27 @@ export default function MixiuhLabsHomePage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-mono-hud text-[#8FA3B8]">
-              <span className="px-2.5 py-1 rounded bg-[#0B1D30] border border-white/10">
-                ES: <strong className="text-white">@MixiuhLabsES</strong>
-              </span>
-              <span className="px-2.5 py-1 rounded bg-[#0B1D30] border border-white/10">
-                EN: <strong className="text-white">@MixiuhLabsEN</strong>
-              </span>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-mono-hud text-[#8FA3B8]">
+              <a
+                href={YOUTUBE_LINKS.channel_es}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 hover:border-[#22A2DD] transition inline-flex items-center gap-1"
+              >
+                <span>YouTube ES:</span>
+                <strong className="text-white">@MixiuhLabsES</strong>
+                <ArrowUpRight className="w-3 h-3 text-[#5EEAD4]" />
+              </a>
+              <a
+                href={YOUTUBE_LINKS.channel_en}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 hover:border-[#22A2DD] transition inline-flex items-center gap-1"
+              >
+                <span>YouTube EN:</span>
+                <strong className="text-white">@MixiuhLabsEN</strong>
+                <ArrowUpRight className="w-3 h-3 text-[#5EEAD4]" />
+              </a>
             </div>
           </div>
 
@@ -348,6 +379,23 @@ export default function MixiuhLabsHomePage() {
                 </a>
 
                 <a
+                  href={
+                    lang === "es"
+                      ? YOUTUBE_LINKS.ep01_es
+                      : YOUTUBE_LINKS.ep01_en
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-3.5 rounded-xl bg-[#F43F5E] hover:brightness-110 text-white font-mono-hud text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-[0_0_24px_rgba(244,63,94,0.32)]"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  {lang === "es"
+                    ? "Ver Episodio 01 en YouTube (4K60)"
+                    : "Watch Episode 01 on YouTube (4K60)"}
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <a
                   href="#foro"
                   className="px-5 py-3.5 rounded-xl bg-[#11283F] hover:bg-[#22A2DD]/20 border border-[#22A2DD]/40 text-white font-mono-hud text-xs sm:text-sm font-bold transition flex items-center gap-2"
                 >
@@ -399,9 +447,19 @@ export default function MixiuhLabsHomePage() {
                       : "2. Level 6: Boss Fight"}
                   </button>
                 </div>
-                <span className="font-mono-hud text-[11px] text-[#5EEAD4]">
-                  Voicefy 44.1kHz
-                </span>
+                <a
+                  href={
+                    lang === "es"
+                      ? YOUTUBE_LINKS.ep01_es
+                      : YOUTUBE_LINKS.ep01_en
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono-hud text-[11px] font-bold text-[#5EEAD4] hover:text-white inline-flex items-center gap-1"
+                >
+                  <span>YouTube 4K60</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </a>
               </div>
 
               {/* HTML5 Video Player with real rendered EP01 footage */}
@@ -435,13 +493,53 @@ export default function MixiuhLabsHomePage() {
                 </video>
               </div>
 
+              {/* Full Episode YouTube Banner */}
+              <div className="px-4 py-2.5 bg-[#11283F]/90 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+                <a
+                  href={
+                    lang === "es"
+                      ? YOUTUBE_LINKS.ep01_es
+                      : YOUTUBE_LINKS.ep01_en
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono-hud text-xs font-bold text-white hover:text-[#5EEAD4] transition inline-flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5 text-[#F43F5E] fill-current shrink-0" />
+                  <span>
+                    {lang === "es"
+                      ? "Abrir Episodio Completo en YouTube (10:05 · 4K60)"
+                      : "Open Full Episode on YouTube (10:05 · 4K60)"}
+                  </span>
+                  <ExternalLink className="w-3 h-3 text-[#5EEAD4]" />
+                </a>
+                <div className="flex items-center gap-2 font-mono-hud text-[11px]">
+                  <a
+                    href={YOUTUBE_LINKS.ep01_es}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-[#060B14] border border-white/15 text-[#5EEAD4] hover:border-[#22A2DD]"
+                  >
+                    YT ES
+                  </a>
+                  <a
+                    href={YOUTUBE_LINKS.ep01_en}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-[#060B14] border border-white/15 text-[#B794F6] hover:border-[#B794F6]"
+                  >
+                    YT EN
+                  </a>
+                </div>
+              </div>
+
               {/* Interactive 14 Chapters List */}
               <div className="p-4">
                 <div className="flex items-center justify-between mb-2.5">
                   <span className="font-mono-hud text-xs font-bold text-[#5EEAD4] uppercase">
                     {lang === "es"
-                      ? "14 CAPITULOS DEL EPISODIO (CLIC PARA CARGAR RETO)"
-                      : "14 EPISODE CHAPTERS (CLICK TO LOAD CHALLENGE)"}
+                      ? "14 CAPITULOS DEL EPISODIO (CLIC PARA CARGAR O VER EN YT)"
+                      : "14 EPISODE CHAPTERS (CLICK TO LOAD OR WATCH ON YT)"}
                   </span>
                   <span className="font-mono-hud text-[11px] text-[#8FA3B8]">
                     10:05 · 4K60
@@ -449,33 +547,62 @@ export default function MixiuhLabsHomePage() {
                 </div>
 
                 <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
-                  {EPISODE_01_CHAPTERS.map((chap) => (
-                    <button
-                      key={chap.time}
-                      onClick={() => {
-                        if (chap.level) {
-                          handleJumpToArena(chap.level);
-                        }
-                      }}
-                      className="w-full text-left px-3 py-2 rounded-lg bg-[#060B14]/70 hover:bg-[#11283F] border border-white/5 hover:border-[#22A2DD]/40 transition flex items-center justify-between gap-2 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="font-mono-hud text-xs font-bold text-[#22A2DD] shrink-0">
-                          {chap.time}
-                        </span>
-                        <span className="text-xs text-[#F5F7FA] truncate">
-                          {lang === "es" ? chap.title_es : chap.title_en}
-                        </span>
+                  {EPISODE_01_CHAPTERS.map((chap) => {
+                    const ytBase =
+                      lang === "es"
+                        ? YOUTUBE_LINKS.ep01_es
+                        : YOUTUBE_LINKS.ep01_en;
+                    const ytUrl = `${ytBase}?t=${chap.seconds}`;
+                    return (
+                      <div
+                        key={chap.time}
+                        onClick={() => {
+                          if (chap.level) {
+                            handleJumpToArena(chap.level);
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-lg bg-[#060B14]/70 hover:bg-[#11283F] border border-white/5 hover:border-[#22A2DD]/40 transition flex items-center justify-between gap-2 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <a
+                            href={ytUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title={
+                              lang === "es"
+                                ? `Abrir minuto ${chap.time} en YouTube`
+                                : `Open ${chap.time} on YouTube`
+                            }
+                            className="font-mono-hud text-xs font-bold text-[#22A2DD] hover:text-[#5EEAD4] underline decoration-[#22A2DD]/40 shrink-0"
+                          >
+                            {chap.time}
+                          </a>
+                          <span className="text-xs text-[#F5F7FA] truncate">
+                            {lang === "es" ? chap.title_es : chap.title_en}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {chap.level && (
+                            <span className="font-mono-hud text-[10px] px-2 py-0.5 rounded bg-[#B794F6]/15 text-[#B794F6]">
+                              {lang === "es"
+                                ? `Jugar N${chap.level}`
+                                : `Play L${chap.level}`}
+                            </span>
+                          )}
+                          <a
+                            href={ytUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-mono-hud text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-[#F43F5E]/20 text-[#8FA3B8] hover:text-white border border-white/10"
+                          >
+                            YT
+                          </a>
+                        </div>
                       </div>
-                      {chap.level && (
-                        <span className="font-mono-hud text-[10px] px-2 py-0.5 rounded bg-[#B794F6]/15 text-[#B794F6] shrink-0">
-                          {lang === "es"
-                            ? `Jugar N${chap.level}`
-                            : `Play L${chap.level}`}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -898,6 +1025,34 @@ export default function MixiuhLabsHomePage() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4">
+            <a
+              href={YOUTUBE_LINKS.channel_es}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-[#5EEAD4]"
+            >
+              YouTube ES (@MixiuhLabsES)
+            </a>
+            <a
+              href={YOUTUBE_LINKS.channel_en}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-[#B794F6]"
+            >
+              YouTube EN (@MixiuhLabsEN)
+            </a>
+            <a
+              href={
+                lang === "es"
+                  ? YOUTUBE_LINKS.ep01_es
+                  : YOUTUBE_LINKS.ep01_en
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#F43F5E] hover:text-white font-bold"
+            >
+              {lang === "es" ? "Episodio 01 (YouTube)" : "Episode 01 (YouTube)"}
+            </a>
             <a
               href="https://mixiuh.online"
               target="_blank"
