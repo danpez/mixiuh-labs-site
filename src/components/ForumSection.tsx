@@ -9,29 +9,22 @@ import {
   type Ep02Proposal,
 } from "@/data/forumData";
 import { CHALLENGES } from "@/data/labsData";
+import { EP02_CHALLENGES } from "@/data/ep02Data";
 import {
   MessageSquare,
   ArrowUp,
   Search,
   Plus,
-  Terminal,
-  Code2,
   Send,
   Play,
   Copy,
   Check,
   X,
-  Filter,
-  Award,
-  Flame,
-  Clock,
-  FileCode2,
-  Layers,
 } from "lucide-react";
 
 interface Props {
   lang: "es" | "en";
-  onJumpToArena: (challengeN: number) => void;
+  onJumpToArena: (episode: "ep02" | "ep01", challengeN: number) => void;
 }
 
 function formatInlineCode(text: string): React.ReactNode {
@@ -52,16 +45,62 @@ function formatInlineCode(text: string): React.ReactNode {
 }
 
 export default function ForumSection({ lang, onJumpToArena }: Props) {
-  // Combine curated threads with individual prompt/audit threads for all 10 challenges
+  // Combine curated threads with individual prompt/audit threads for all 6 EP02 challenges + 10 EP01 challenges
   const defaultThreads = useMemo<ForumThread[]>(() => {
-    const challengeThreads: ForumThread[] = CHALLENGES.map((ch) => ({
+    const ep02Threads: ForumThread[] = EP02_CHALLENGES.map((ch) => ({
+      id: `thread-ep02-challenge-${ch.n}`,
+      slug: `ep02-reto-${ch.n}-${ch.dir}`,
+      category: "prompts",
+      episode: "ep02",
+      badge_es: `EP02 PROMPT Y FACTURA · RETO 0${ch.n}`,
+      badge_en: `EP02 PROMPT & BILL · CHALLENGE 0${ch.n}`,
+      title_es: `EP02 Reto 0${ch.n} (${ch.name_es}): Prompt Zero-Shot, Tokens (${ch.tokens.argon_total} vs ${ch.tokens.opus_total}) y Costo ($${ch.cost_usd.argon.toFixed(2)} vs $${ch.cost_usd.opus.toFixed(2)} USD)`,
+      title_en: `EP02 Challenge 0${ch.n} (${ch.name_en}): Zero-Shot Prompt, Tokens (${ch.tokens.argon_total} vs ${ch.tokens.opus_total}) & Cost ($${ch.cost_usd.argon.toFixed(2)} vs $${ch.cost_usd.opus.toFixed(2)} USD)`,
+      excerpt_es: ch.fun_angle_es,
+      excerpt_en: ch.fun_angle_en,
+      author: "Kevin Gonzalez",
+      authorRole_es: "Arbitro · Mixiuh Labs",
+      authorRole_en: "Referee · Mixiuh Labs",
+      createdAt: "2026-10-18",
+      readTime: "4 min",
+      upvotes: 95 + (7 - ch.n) * 9,
+      views: 680 + ch.n * 65,
+      relatedChallengeN: ch.n,
+      tags: [
+        "EP02",
+        `Reto 0${ch.n}`,
+        ch.dir,
+        ch.winner === "argon" ? "Ganador: Argon" : "Ganador: Opus 5.5",
+        "Zero-Shot",
+      ],
+      content_es: [
+        `Resumen del reto (EP02 Argon vs Claude Opus 5.5): ${ch.prompt_gist_es}`,
+        `Reloj y rendimiento en Antigravity: Gemini 4 Argon (High) tardo ${ch.time_min.argon} minutos (${ch.code_stats.argon_lines} lineas / ${ch.code_stats.argon_kb} KB · ${ch.fps.argon}) contra ${ch.time_min.opus} minutos de Claude Opus 5.5 (High) (${ch.code_stats.opus_lines} lineas / ${ch.code_stats.opus_kb} KB · ${ch.fps.opus}). ${ch.speed_ratio_es}.`,
+        `Telemetria de tokens y factura API: Argon consumio ${ch.tokens.argon_total} tokens (${ch.tokens.argon_in} In, ${ch.tokens.argon_cache} Cache, ${ch.tokens.argon_out} Out en ${ch.tokens.argon_steps} pasos) por $${ch.cost_usd.argon.toFixed(2)} USD. Opus 5.5 consumio ${ch.tokens.opus_total} tokens (${ch.tokens.opus_in} In+CW, ${ch.tokens.opus_cache} Cache, ${ch.tokens.opus_out} Out en ${ch.tokens.opus_steps} pasos) por $${ch.cost_usd.opus.toFixed(2)} USD (${ch.cost_ratio_es}).`,
+        `Veredicto del arbitro (Kevin Gonzalez): "${ch.kevin_note_es}"`,
+        `Entregables destacados en Argon: ${ch.argon_features.join(" · ")}.`,
+        `Entregables y observaciones en Opus 5.5: ${ch.opus_features.join(" · ")} | ${ch.opus_observations.join(" · ")}.`,
+      ],
+      content_en: [
+        `Challenge summary (EP02 Argon vs Claude Opus 5.5): ${ch.prompt_gist_en}`,
+        `Clock & performance in Antigravity: Gemini 4 Argon (High) took ${ch.time_min.argon} minutes (${ch.code_stats.argon_lines} lines / ${ch.code_stats.argon_kb} KB · ${ch.fps.argon}) versus ${ch.time_min.opus} minutes for Claude Opus 5.5 (High) (${ch.code_stats.opus_lines} lines / ${ch.code_stats.opus_kb} KB · ${ch.fps.opus}). ${ch.speed_ratio_en}.`,
+        `Token telemetry & API bill: Argon consumed ${ch.tokens.argon_total} tokens (${ch.tokens.argon_in} In, ${ch.tokens.argon_cache} Cache, ${ch.tokens.argon_out} Out across ${ch.tokens.argon_steps} steps) for $${ch.cost_usd.argon.toFixed(2)} USD. Opus 5.5 consumed ${ch.tokens.opus_total} tokens (${ch.tokens.opus_in} In+CW, ${ch.tokens.opus_cache} Cache, ${ch.tokens.opus_out} Out across ${ch.tokens.opus_steps} steps) for $${ch.cost_usd.opus.toFixed(2)} USD (${ch.cost_ratio_en}).`,
+        `Referee verdict (Kevin Gonzalez): "${ch.kevin_note_en}"`,
+        `Key Argon deliverables: ${ch.argon_features.join(" · ")}.`,
+        `Opus 5.5 deliverables & observations: ${ch.opus_features.join(" · ")} | ${ch.opus_observations.join(" · ")}.`,
+      ],
+      comments: [],
+    }));
+
+    const ep01Threads: ForumThread[] = CHALLENGES.map((ch) => ({
       id: `thread-challenge-${ch.n}`,
       slug: `reto-${ch.n}-${ch.dir}`,
       category: "prompts",
-      badge_es: `PROMPT Y RESULTADO · NIVEL ${String(ch.n).padStart(2, "0")}`,
-      badge_en: `PROMPT & RESULT · LEVEL ${String(ch.n).padStart(2, "0")}`,
-      title_es: `Nivel ${ch.n} (${ch.name_es}): Prompt Zero-Shot, Metricas (${ch.time_min.argon}m vs ${ch.time_min.flash}m) y Notas de Arbitraje`,
-      title_en: `Level ${ch.n} (${ch.name_en}): Zero-Shot Prompt, Metrics (${ch.time_min.argon}m vs ${ch.time_min.flash}m) & Referee Notes`,
+      episode: "ep01",
+      badge_es: `EP01 PROMPT Y RESULTADO · NIVEL ${String(ch.n).padStart(2, "0")}`,
+      badge_en: `EP01 PROMPT & RESULT · LEVEL ${String(ch.n).padStart(2, "0")}`,
+      title_es: `EP01 Nivel ${ch.n} (${ch.name_es}): Prompt Zero-Shot, Metricas (${ch.time_min.argon}m vs ${ch.time_min.flash}m) y Notas de Arbitraje`,
+      title_en: `EP01 Level ${ch.n} (${ch.name_en}): Zero-Shot Prompt, Metrics (${ch.time_min.argon}m vs ${ch.time_min.flash}m) & Referee Notes`,
       excerpt_es: ch.fun_angle_es,
       excerpt_en: ch.fun_angle_en,
       author: "Kevin Gonzalez",
@@ -72,16 +111,16 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       upvotes: 60 + (11 - ch.n) * 7,
       views: 420 + ch.n * 45,
       relatedChallengeN: ch.n,
-      tags: [`Nivel ${ch.n}`, ch.dir, ch.tech.split("+")[0].trim(), "Zero-Shot"],
+      tags: ["EP01", `Nivel ${ch.n}`, ch.dir, ch.tech.split("+")[0].trim(), "Zero-Shot"],
       content_es: [
-        `Resumen del reto: ${ch.prompt_gist_es}`,
+        `Resumen del reto (EP01 Argon vs Flash): ${ch.prompt_gist_es}`,
         `Tiempos de generacion en Antigravity: Gemini 4 Argon (High) tardo ${ch.time_min.argon} minutos (${ch.code_stats.argon_lines} lineas / ${ch.code_stats.argon_kb} KB) contra ${ch.time_min.flash} minutos de Gemini 3.8 Flash (High) (${ch.code_stats.flash_lines} lineas / ${ch.code_stats.flash_kb} KB). Relacion de velocidad: ${ch.speed_ratio}.`,
         `Nota textual del arbitro (Kevin Gonzalez): "${ch.kevin_note_verbatim}"`,
         `Entregables destacados en Argon: ${ch.argon_features.join(" · ")}.`,
         `Observaciones en Flash: ${ch.flash_problems.join(" · ")}.`,
       ],
       content_en: [
-        `Challenge summary: ${ch.prompt_gist_en}`,
+        `Challenge summary (EP01 Argon vs Flash): ${ch.prompt_gist_en}`,
         `Generation times in Antigravity: Gemini 4 Argon (High) took ${ch.time_min.argon} minutes (${ch.code_stats.argon_lines} lines / ${ch.code_stats.argon_kb} KB) versus ${ch.time_min.flash} minutes for Gemini 3.8 Flash (High) (${ch.code_stats.flash_lines} lines / ${ch.code_stats.flash_kb} KB). Speed ratio: ${ch.speed_ratio}.`,
         `Referee note (Kevin Gonzalez): "${ch.kevin_note_en}"`,
         `Key Argon features: ${ch.argon_features.join(" · ")}.`,
@@ -89,7 +128,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       ],
       comments: [],
     }));
-    return [...INITIAL_FORUM_THREADS, ...challengeThreads];
+    return [...INITIAL_FORUM_THREADS, ...ep02Threads, ...ep01Threads];
   }, []);
 
   const [threads, setThreads] = useState<ForumThread[]>(defaultThreads);
@@ -99,7 +138,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
   const [activeCategory, setActiveCategory] = useState<ForumCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string>(
-    INITIAL_FORUM_THREADS[1].id // Default open: Level 6 Half-Pixel Autopsy
+    INITIAL_FORUM_THREADS[1].id // Default open: EP02 Level 1 Verlet 28 FPS vs 120 FPS Autopsy
   );
   const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>({});
   const [votedProposals, setVotedProposals] = useState<Record<string, boolean>>(
@@ -118,7 +157,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
   const [newCategory, setNewCategory] =
     useState<Exclude<ForumCategory, "all">>("propuestas");
   const [newAuthor, setNewAuthor] = useState("");
-  const [newTags, setNewTags] = useState("EP02, Benchmark, Zero-Shot");
+  const [newTags, setNewTags] = useState("EP03, Benchmark, Zero-Shot");
   const [newBody, setNewBody] = useState("");
 
   // Load saved threads/votes from localStorage
@@ -160,9 +199,18 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
     filteredThreads[0] ||
     threads[0];
 
-  const linkedChallenge = activeThread?.relatedChallengeN
-    ? CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
-    : undefined;
+  const activeThreadEpisode: "ep02" | "ep01" =
+    activeThread?.episode === "ep01" ? "ep01" : "ep02";
+
+  const linkedPromptVerbatim = useMemo(() => {
+    if (!activeThread?.relatedChallengeN) return undefined;
+    if (activeThreadEpisode === "ep02") {
+      return EP02_CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
+        ?.prompt_verbatim;
+    }
+    return CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
+      ?.prompt_verbatim;
+  }, [activeThread, activeThreadEpisode]);
 
   const handleUpvoteThread = (id: string) => {
     const already = !!upvotedIds[id];
@@ -191,13 +239,22 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentBody.trim()) return;
-    const authorName = commentAuthor.trim() || (lang === "es" ? "Ingeniero Invitado" : "Guest Engineer");
-    const roleName = commentRole.trim() || (lang === "es" ? "Comunidad Mixiuh Labs" : "Mixiuh Labs Community");
+    const authorName =
+      commentAuthor.trim() ||
+      (lang === "es" ? "Ingeniero Invitado" : "Guest Engineer");
+    const roleName =
+      commentRole.trim() ||
+      (lang === "es" ? "Comunidad Mixiuh Labs" : "Mixiuh Labs Community");
     const newComment = {
       id: `c-${Date.now()}`,
       author: authorName,
       role: roleName,
-      handle: `@${authorName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "dev"}`,
+      handle: `@${
+        authorName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "")
+          .slice(0, 12) || "dev"
+      }`,
       createdAt: lang === "es" ? "Justo ahora" : "Just now",
       body_es: commentBody.trim(),
       body_en: commentBody.trim(),
@@ -230,7 +287,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       author: newAuthor.trim() || "Miembro del Lab",
       authorRole_es: "Investigador Invitado",
       authorRole_en: "Guest Researcher",
-      createdAt: "2026-10-15",
+      createdAt: "2026-10-21",
       readTime: "3 min",
       upvotes: 1,
       views: 1,
@@ -263,21 +320,25 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
 
   const categories: { id: ForumCategory; label_es: string; label_en: string }[] =
     [
-      { id: "all", label_es: "Todos los Hilos (16)", label_en: "All Threads (16)" },
+      {
+        id: "all",
+        label_es: `Todos los Hilos (${threads.length})`,
+        label_en: `All Threads (${threads.length})`,
+      },
       {
         id: "benchmarks",
-        label_es: "Dossiers y Benchmarks",
-        label_en: "Dossiers & Benchmarks",
+        label_es: "Dossiers y Benchmarks (EP01/EP02)",
+        label_en: "Dossiers & Benchmarks (EP01/EP02)",
       },
       {
         id: "autopsias",
-        label_es: "Autopsias de Codigo (Bugs)",
-        label_en: "Code Autopsies (Bugs)",
+        label_es: "Autopsias de Codigo y Tokens",
+        label_en: "Code & Token Autopsies",
       },
       {
         id: "prompts",
-        label_es: "Los 10 Prompts Zero-Shot",
-        label_en: "All 10 Zero-Shot Prompts",
+        label_es: "Los 16 Prompts Zero-Shot",
+        label_en: "All 16 Zero-Shot Prompts",
       },
       {
         id: "pipeline",
@@ -286,8 +347,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       },
       {
         id: "propuestas",
-        label_es: "Propuestas Episodio 02",
-        label_en: "Episode 02 Proposals",
+        label_es: "Propuestas Episodio 03",
+        label_en: "Episode 03 Proposals",
       },
     ];
 
@@ -300,8 +361,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#11283F] border border-[#22A2DD]/30 text-[#5EEAD4] text-xs font-mono-hud uppercase tracking-wider mb-3">
               <MessageSquare className="w-3.5 h-3.5" />
               {lang === "es"
-                ? "FORO TECNICO MIXIUH LABS · BITACORA DE PRUEBAS"
-                : "MIXIUH LABS TECHNICAL FORUM · EXPERIMENT LOG"}
+                ? "FORO TECNICO MIXIUH LABS · BITACORA DE PRUEBAS EP01 + EP02"
+                : "MIXIUH LABS TECHNICAL FORUM · EP01 + EP02 EXPERIMENT LOG"}
             </div>
             <h2 className="font-display text-2xl sm:text-4xl font-black text-white tracking-tight">
               {lang === "es"
@@ -310,8 +371,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
             </h2>
             <p className="text-[#8FA3B8] text-sm sm:text-base mt-2 max-w-3xl">
               {lang === "es"
-                ? "Explora el analisis forense de cada reto, inspecciona las lineas exactas donde fallaron o triunfaron los modelos, copia los prompts y vota que enfrentamiento grabaremos en el Episodio 02."
-                : "Explore the forensic breakdown of each challenge, inspect the exact lines where models failed or triumphed, copy the prompts, and vote on what we test in Episode 02."}
+                ? "Explora el analisis forense de los Episodios 01 y 02, inspecciona por que Claude Opus 5.5 cayo a 28 FPS en la tela Verlet o por que su factura triplico los tokens, copia los 16 prompts y vota por el Episodio 03."
+                : "Explore the forensic breakdown of Episodes 01 and 02, inspect why Claude Opus 5.5 dropped to 28 FPS on the Verlet cloth or why its token bill was 2.6x higher, copy all 16 prompts, and vote on Episode 03."}
             </p>
           </div>
 
@@ -326,7 +387,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
           </button>
         </div>
 
-        {/* Episode 02 Voting Board */}
+        {/* Episode 03 Voting Board */}
         <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#0B1D30] via-[#11283F]/90 to-[#0B1D30] border border-[#22A2DD]/30">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
@@ -357,13 +418,13 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
               </div>
               <h3 className="font-display text-lg sm:text-xl font-bold text-white mt-0.5">
                 {lang === "es"
-                  ? "¿Que modelos o reto extremo metemos al laboratorio en el Episodio 02?"
-                  : "Which models or extreme challenge should we test in Episode 02?"}
+                  ? "¿Que modelos o reto extremo metemos al laboratorio en el Episodio 03?"
+                  : "Which models or extreme challenge should we test in Episode 03?"}
               </h3>
             </div>
             <span className="font-mono-hud text-xs text-[#5EEAD4]">
               {lang === "es"
-                ? "Haz clic en un tarjeta para sumar tu voto"
+                ? "Haz clic en una tarjeta para sumar tu voto"
                 : "Click a card to cast your vote"}
             </span>
           </div>
@@ -449,8 +510,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={
                 lang === "es"
-                  ? "Buscar por reto, Uint32Array, BSP, prompt..."
-                  : "Search challenge, Uint32Array, BSP, prompt..."
+                  ? "Buscar Opus, Verlet, tokens, CCD, Uint32Array..."
+                  : "Search Opus, Verlet, tokens, CCD, Uint32Array..."
               }
               className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1D30] border border-white/15 text-xs sm:text-sm text-white placeholder:text-[#8FA3B8] focus:outline-none focus:border-[#22A2DD]"
             />
@@ -546,14 +607,17 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
                   {activeThread.relatedChallengeN && (
                     <button
                       onClick={() =>
-                        onJumpToArena(activeThread.relatedChallengeN!)
+                        onJumpToArena(
+                          activeThreadEpisode,
+                          activeThread.relatedChallengeN!
+                        )
                       }
                       className="px-3 py-1.5 rounded-lg bg-[#B794F6] text-[#060B14] font-mono-hud text-xs font-bold flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer"
                     >
                       <Play className="w-3.5 h-3.5" />
                       {lang === "es"
-                        ? `Jugar Nivel ${activeThread.relatedChallengeN}`
-                        : `Play Level ${activeThread.relatedChallengeN}`}
+                        ? `Jugar ${activeThreadEpisode.toUpperCase()} Reto ${activeThread.relatedChallengeN}`
+                        : `Play ${activeThreadEpisode.toUpperCase()} Challenge ${activeThread.relatedChallengeN}`}
                     </button>
                   )}
                   <button
@@ -618,7 +682,11 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
                   <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/10">
                     <div className="p-4">
                       <div className="text-[11px] font-mono-hud font-bold text-[#FBBF24] mb-2">
-                        [IZQUIERDA] GEMINI 3.8 FLASH (BUG / OMISION)
+                        {lang === "es"
+                          ? activeThread.codeComparison.leftLabel_es ||
+                            "[IZQUIERDA] GEMINI 3.8 FLASH (BUG / OMISION)"
+                          : activeThread.codeComparison.leftLabel_en ||
+                            "[LEFT] GEMINI 3.8 FLASH (BUG / OMISSION)"}
                       </div>
                       <pre className="text-xs font-mono-hud text-[#F5F7FA] whitespace-pre-wrap overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.flashCode}
@@ -626,7 +694,11 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
                     </div>
                     <div className="p-4">
                       <div className="text-[11px] font-mono-hud font-bold text-[#B794F6] mb-2">
-                        [DERECHA] GEMINI 4 ARGON (SOLUCION EXACTA)
+                        {lang === "es"
+                          ? activeThread.codeComparison.rightLabel_es ||
+                            "[DERECHA] GEMINI 4 ARGON (SOLUCION EXACTA)"
+                          : activeThread.codeComparison.rightLabel_en ||
+                            "[RIGHT] GEMINI 4 ARGON (EXACT SOLUTION)"}
                       </div>
                       <pre className="text-xs font-mono-hud text-[#34D399] whitespace-pre-wrap overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.argonCode}
@@ -647,19 +719,17 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
               )}
 
               {/* Verbatim Prompt Box if thread is linked to a challenge */}
-              {linkedChallenge && (
+              {linkedPromptVerbatim && (
                 <div className="mt-6 rounded-xl bg-[#060B14] border border-[#22A2DD]/30 overflow-hidden">
                   <div className="px-4 py-2.5 bg-[#11283F] border-b border-white/10 flex items-center justify-between gap-2">
                     <span className="font-mono-hud text-xs font-bold text-[#5EEAD4]">
                       {lang === "es"
-                        ? `Prompt Oficial Zero-Shot — Nivel ${linkedChallenge.n}`
-                        : `Official Zero-Shot Prompt — Level ${linkedChallenge.n}`}
+                        ? `Prompt Oficial Zero-Shot — ${activeThreadEpisode.toUpperCase()} Reto ${activeThread.relatedChallengeN}`
+                        : `Official Zero-Shot Prompt — ${activeThreadEpisode.toUpperCase()} Challenge ${activeThread.relatedChallengeN}`}
                     </span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(
-                          linkedChallenge.prompt_verbatim
-                        );
+                        navigator.clipboard.writeText(linkedPromptVerbatim);
                         setCopiedPromptInThread(true);
                         setTimeout(() => setCopiedPromptInThread(false), 2000);
                       }}
@@ -679,7 +749,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
                     </button>
                   </div>
                   <pre className="p-4 text-xs font-mono-hud text-[#F5F7FA]/90 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
-                    {linkedChallenge.prompt_verbatim}
+                    {linkedPromptVerbatim}
                   </pre>
                 </div>
               )}
@@ -828,7 +898,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
                     }
                     className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs text-white"
                   >
-                    <option value="propuestas">Propuestas Episodio 02</option>
+                    <option value="propuestas">Propuestas Episodio 03</option>
                     <option value="benchmarks">Dossiers y Benchmarks</option>
                     <option value="autopsias">Autopsias de Codigo</option>
                     <option value="prompts">Prompts y Reproducibilidad</option>
@@ -848,8 +918,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder={
                     lang === "es"
-                      ? "Ej. Propuesta EP02: Simulador de Fluidos SPH en WebGL2"
-                      : "E.g. EP02 Proposal: SPH Fluid Simulation in WebGL2"
+                      ? "Ej. Propuesta EP03: Gemini 4 Argon vs GPT-5.4 High en WebGPU"
+                      : "E.g. EP03 Proposal: Gemini 4 Argon vs GPT-5.4 High in WebGPU"
                   }
                   className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs sm:text-sm text-white"
                 />

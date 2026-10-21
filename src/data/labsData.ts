@@ -1229,6 +1229,70 @@ export const LAB_GLOSSARY: GlossaryItem[] = [
   {
     "term": "requestAnimationFrame",
     "plain_es": "La forma en que el navegador avisa 'ya puedes dibujar el siguiente cuadro'."
+  },
+  {
+    "term": "Integración de Verlet",
+    "plain_es": "Método físico donde la velocidad sale sola de restar la posición actual menos la anterior; ideal para telas y cuerdas estables."
+  },
+  {
+    "term": "Relajación de Gauss-Seidel",
+    "plain_es": "Repasar varias veces cada hilo de la tela en un mismo cuadro para que no se estire como chicle."
+  },
+  {
+    "term": "Ecuaciones de Navier-Stokes",
+    "plain_es": "Las ecuaciones matemáticas que describen cómo se mueven los líquidos, el humo y el aire."
+  },
+  {
+    "term": "Confinamiento de Vorticidad (Curl)",
+    "plain_es": "Truco gráfico que reinyecta pequeños remolinos para que el humo no se vea borroso."
+  },
+  {
+    "term": "Solver de Jacobi (Proyección de Presión)",
+    "plain_es": "Iteraciones en la GPU que obligan al fluido a ser incompresible para que no desaparezca ni se acumule."
+  },
+  {
+    "term": "FBO Ping-Pong (Framebuffer Objects)",
+    "plain_es": "Dos texturas en la tarjeta gráfica que se turnan: una lee el estado anterior mientras la otra escribe el nuevo."
+  },
+  {
+    "term": "Calle de Vórtices de Kármán",
+    "plain_es": "La fila de remolinos alternados que se forma detrás de un cilindro cuando choca una corriente rápida."
+  },
+  {
+    "term": "XPBD (Extended Position-Based Dynamics)",
+    "plain_es": "Evolución moderna de la física por posiciones que permite calibrar rigidez real en cuerpos blandos sin que exploten."
+  },
+  {
+    "term": "Efecto Poisson (Conservación de Volumen)",
+    "plain_es": "Cuando aplastas una gomita hacia abajo, se ensancha hacia los lados para mantener el mismo volumen interno."
+  },
+  {
+    "term": "Face Culling / Greedy Meshing",
+    "plain_es": "No dibujar las caras ocultas entre dos bloques pegados tipo Minecraft para ahorrar millones de triángulos."
+  },
+  {
+    "term": "Oclusión Ambiental (AO) por Vértice",
+    "plain_es": "Oscurecer las esquinas donde se juntan tres bloques para dar profundidad realista sin usar luces costosas."
+  },
+  {
+    "term": "Síntesis FM (Modulación de Frecuencia)",
+    "plain_es": "Un oscilador (modulador) agita la frecuencia de otro (portador) para crear timbres metálicos, bajos y campanas como el Yamaha DX7."
+  },
+  {
+    "term": "Transformada Rápida de Fourier (FFT)",
+    "plain_es": "Algoritmo que descompone el sonido en vivo en sus frecuencias graves, medias y agudas para dibujar el espectro."
+  },
+  {
+    "term": "Goniómetro X-Y (Curvas de Lissajous)",
+    "plain_es": "Cruzar el canal izquierdo contra el derecho en un osciloscopio para medir la amplitud estéreo y la fase."
+  },
+  {
+    "term": "Detección Continua de Colisiones (CCD)",
+    "plain_es": "Calcular el choque a lo largo de toda la trayectoria entre un cuadro y otro para que una bola rápida jamás atraviese una pared."
+  },
+  {
+    "term": "Prompt Caching (Cache Read / Write)",
+    "plain_es": "Memoria temporal del proveedor de IA para reutilizar el contexto de pasos previos a menor costo por millón de tokens."
   }
 ];
 
@@ -1269,5 +1333,7 @@ export const YOUTUBE_LINKS = {
   channel_en: "https://www.youtube.com/@MixiuhLabsEN",
   ep01_es: "https://youtu.be/BE8g1jnP-2M",
   ep01_en: "https://youtu.be/S4v6v9r5mVA",
+  ep02_es: "https://youtu.be/x2lHrnOII90",
+  ep02_en: "https://www.youtube.com/@MixiuhLabsEN/videos",
 } as const;
 

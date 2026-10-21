@@ -1,0 +1,2766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AERO-VERLET // Laboratorio de Dinámica Textil y Fractura Mecánica</title>
+  <style>
+    :root {
+      --bg-void: #05070d;
+      --bg-panel: rgba(9, 14, 24, 0.86);
+      --bg-panel-solid: #0a101d;
+      --bg-card: rgba(16, 25, 42, 0.72);
+      --border-dim: rgba(0, 240, 255, 0.16);
+      --border-bright: rgba(0, 240, 255, 0.48);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.15);
+      --magenta: #ff006e;
+      --magenta-dim: rgba(255, 0, 110, 0.18);
+      --amber: #ffbe0b;
+      --emerald: #00f59b;
+      --red-hot: #ff2a54;
+      --text-main: #e6f4ff;
+      --text-muted: #7b93b2;
+      --text-dim: #49607e;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #sim-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+      z-index: 1;
+    }
+
+    /* Ambient Lab Scanline & Vignette Overlay */
+    .lab-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        radial-gradient(circle at 50% 45%, transparent 48%, rgba(3, 5, 10, 0.72) 100%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(255, 255, 255, 0.012) 0px,
+          rgba(255, 255, 255, 0.012) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+    }
+
+    /* Top Telemetry Header Bar */
+    .top-bar {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-dim);
+      border-left: 3px solid var(--cyan);
+      border-radius: 6px;
+      z-index: 10;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-emblem {
+      width: 34px;
+      height: 34px;
+      border: 1.5px solid var(--cyan);
+      border-radius: 4px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      background: rgba(0, 240, 255, 0.06);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+    }
+
+    .brand-emblem::before {
+      content: '';
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid var(--magenta);
+      transform: rotate(45deg);
+      box-shadow: 0 0 8px var(--magenta);
+    }
+
+    .brand-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-live {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0, 245, 155, 0.14);
+      color: var(--emerald);
+      border: 1px solid rgba(0, 245, 155, 0.4);
+      letter-spacing: 1px;
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.7px;
+    }
+
+    /* Telemetry KPI Strip */
+    .telemetry-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .kpi-box {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 112px;
+      padding: 6px 12px;
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-box::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--cyan);
+      opacity: 0.45;
+    }
+
+    .kpi-box.warn::after {
+      background: var(--amber);
+      opacity: 0.85;
+    }
+
+    .kpi-box.danger::after {
+      background: var(--red-hot);
+      opacity: 1;
+    }
+
+    .kpi-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+    }
+
+    .kpi-unit {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .oscilloscope-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid rgba(0, 240, 255, 0.18);
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+
+    #telemetry-scope {
+      width: 130px;
+      height: 34px;
+      display: block;
+    }
+
+    /* Main Control Panel (Right / Left Dock) */
+    .control-dock {
+      position: fixed;
+      top: 84px;
+      right: 16px;
+      bottom: 16px;
+      width: 340px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+      overflow: hidden;
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .control-dock.collapsed {
+      transform: translateX(calc(100% + 20px));
+    }
+
+    .dock-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 240, 255, 0.04);
+    }
+
+    .dock-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dock-title::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      border-radius: 50%;
+    }
+
+    .dock-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-bright) transparent;
+    }
+
+    .dock-body::-webkit-scrollbar {
+      width: 5px;
+    }
+    .dock-body::-webkit-scrollbar-thumb {
+      background: var(--border-bright);
+      border-radius: 3px;
+    }
+
+    .section-block {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding-bottom: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .section-block:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Segmented Mode Buttons */
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .cyber-btn {
+      appearance: none;
+      background: rgba(16, 26, 46, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 8px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cyber-btn:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.11);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+    }
+
+    .cyber-btn.active {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: var(--cyan);
+      color: #ffffff;
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.25), 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    .cyber-btn.active.laser-mode {
+      background: rgba(255, 0, 110, 0.22);
+      border-color: var(--magenta);
+      box-shadow: inset 0 0 10px rgba(255, 0, 110, 0.35), 0 0 12px rgba(255, 0, 110, 0.3);
+    }
+
+    .cyber-btn.blast-btn {
+      background: linear-gradient(135deg, rgba(255, 0, 110, 0.22), rgba(255, 190, 11, 0.18));
+      border-color: rgba(255, 80, 120, 0.65);
+      color: #fff;
+      padding: 10px 12px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .cyber-btn.blast-btn:hover {
+      background: linear-gradient(135deg, rgba(255, 0, 110, 0.38), rgba(255, 190, 11, 0.32));
+      border-color: var(--amber);
+      box-shadow: 0 0 18px rgba(255, 0, 110, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .cyber-btn.blast-btn:active {
+      transform: translateY(0);
+    }
+
+    /* Sliders */
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .control-name {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .control-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+      background: var(--cyan);
+      border: 2px solid #05070d;
+      box-shadow: 0 0 8px var(--cyan);
+      cursor: grab;
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+
+    /* Toggle Switch Row */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 3px 0;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-switch.on {
+      background: rgba(0, 240, 255, 0.22);
+      border-color: var(--cyan);
+    }
+
+    .toggle-switch.on::after {
+      left: 20px;
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    /* Bottom-Left Interaction Guide & Heatmap Legend */
+    .hud-bottom-left {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+      pointer-events: auto;
+    }
+
+    .legend-scale {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      width: 280px;
+    }
+
+    .legend-bar {
+      height: 7px;
+      width: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #00f0ff 0%, #00ff9d 35%, #ffbe0b 68%, #ff0055 90%, #ffffff 100%);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .controls-hint {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .hint-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .key-pill {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--cyan);
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 1px 6px;
+      border-radius: 3px;
+      min-width: 92px;
+      text-align: center;
+    }
+
+    .key-pill.magenta {
+      color: #ff5c9e;
+      background: rgba(255, 0, 110, 0.12);
+      border-color: rgba(255, 0, 110, 0.35);
+    }
+
+    /* Structural Integrity Bar inside Dock */
+    .integrity-meter {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .integrity-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, var(--emerald), var(--cyan));
+      transition: width 0.15s ease;
+    }
+
+    .toggle-dock-btn {
+      position: fixed;
+      top: 84px;
+      right: 16px;
+      z-index: 9;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--bg-panel);
+      color: var(--cyan);
+      border: 1px solid var(--border-bright);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    @media (max-width: 1024px) {
+      .oscilloscope-wrap {
+        display: none;
+      }
+      .kpi-box {
+        min-width: 90px;
+        padding: 4px 8px;
+      }
+      .control-dock {
+        width: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="sim-canvas"></canvas>
+  <div class="lab-overlay"></div>
+
+  <!-- Top Telemetry Bar -->
+  <header class="top-bar">
+    <div class="brand-block">
+      <div class="brand-emblem"></div>
+      <div class="brand-titles">
+        <div class="brand-title">
+          AERO-VERLET // LAB-09
+          <span class="badge-live" id="sim-status-badge">ONLINE 60Hz</span>
+        </div>
+        <div class="brand-subtitle">SOLVER DE RESTRICCIONES MULTIPASO &bull; FRACTURA DINÁMICA</div>
+      </div>
+    </div>
+
+    <div class="telemetry-strip">
+      <div class="kpi-box">
+        <span class="kpi-label">Frecuencia</span>
+        <div class="kpi-value">
+          <span id="kpi-fps">60</span>
+          <span class="kpi-unit">FPS</span>
+        </div>
+      </div>
+
+      <div class="kpi-box">
+        <span class="kpi-label">Partículas</span>
+        <div class="kpi-value">
+          <span id="kpi-particles">2856</span>
+          <span class="kpi-unit">NODOS</span>
+        </div>
+      </div>
+
+      <div class="kpi-box" id="kpi-links-card">
+        <span class="kpi-label">Enlaces Íntegros / Rotos</span>
+        <div class="kpi-value">
+          <span id="kpi-links-intact">5602</span>
+          <span class="kpi-unit">/ <strong id="kpi-links-broken" style="color: var(--magenta);">0</strong></span>
+        </div>
+      </div>
+
+      <div class="kpi-box" id="kpi-strain-card">
+        <span class="kpi-label">Tensión Máxima</span>
+        <div class="kpi-value">
+          <span id="kpi-max-strain">0%</span>
+          <span class="kpi-unit" id="kpi-strain-ratio">(1.00x)</span>
+        </div>
+      </div>
+
+      <div class="oscilloscope-wrap" title="Osciloscopio de Tensión Pico y Flujo Turbulento">
+        <canvas id="telemetry-scope" width="130" height="34"></canvas>
+      </div>
+    </div>
+  </header>
+
+  <button class="toggle-dock-btn" id="btn-open-dock" title="Mostrar Panel de Laboratorio">
+    &#9776; PANEL LAB
+  </button>
+
+  <!-- Right Control Panel -->
+  <aside class="control-dock" id="control-dock">
+    <div class="dock-header">
+      <div class="dock-title">Panel de Control Físico</div>
+      <button class="cyber-btn" id="btn-collapse-dock" style="padding: 3px 8px; font-size: 9px;">OCULTAR</button>
+    </div>
+
+    <div class="dock-body">
+      <!-- Render Modes -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Modo de Renderizado</span>
+          <span style="color: var(--cyan); font-size: 9px;">SHADER 2.5D</span>
+        </div>
+        <div class="btn-grid-3">
+          <button class="cyber-btn active" data-render="tension">Mapa Tensión</button>
+          <button class="cyber-btn" data-render="shaded">Volumétrico</button>
+          <button class="cyber-btn" data-render="cyber">Neón Cyber</button>
+        </div>
+      </div>
+
+      <!-- Anchor Presets -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Presets de Anclaje</span>
+          <span style="color: var(--emerald); font-size: 9px;" id="preset-label">CORTINA</span>
+        </div>
+        <div class="btn-grid-2">
+          <button class="cyber-btn active" data-preset="curtain">Cortina en Ganchos</button>
+          <button class="cyber-btn" data-preset="flag">Bandera Lateral</button>
+          <button class="cyber-btn" data-preset="net">Red 4 Esquinas</button>
+          <button class="cyber-btn" data-preset="rail">Riel de Ensayo</button>
+        </div>
+      </div>
+
+      <!-- Cursor Primary Tool Selector (in addition to automatic Left/Right mouse buttons) -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Herramienta Primaria (Clic Izq)</span>
+          <span style="font-size: 9px; color: var(--text-muted);">Clic Der = Láser</span>
+        </div>
+        <div class="btn-grid-3">
+          <button class="cyber-btn active" data-tool="grab">Agarre Elástico</button>
+          <button class="cyber-btn" data-tool="laser">Bisturí Láser</button>
+          <button class="cyber-btn" data-tool="pin">Anclar / Soltar</button>
+        </div>
+      </div>
+
+      <!-- Physics & Solver Parameters -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Parámetros del Solver Verlet</span>
+          <span id="integrity-pct" style="color: var(--emerald);">100.0% ÍNTEGRO</span>
+        </div>
+        <div class="integrity-meter">
+          <div class="integrity-fill" id="integrity-bar"></div>
+        </div>
+
+        <div class="control-row" style="margin-top: 4px;">
+          <div class="control-header">
+            <span class="control-name">Gravedad Vertical (m/s²)</span>
+            <span class="control-val" id="val-gravity">9.8</span>
+          </div>
+          <input type="range" id="slider-gravity" min="-5" max="25" step="0.2" value="9.8" />
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span class="control-name">Viento Turbulento Simplex 3D</span>
+            <span class="control-val" id="val-wind">1.40</span>
+          </div>
+          <input type="range" id="slider-wind" min="0" max="5.0" step="0.05" value="1.40" />
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span class="control-name">Iteraciones del Solver (Sub-pasos)</span>
+            <span class="control-val" id="val-iterations">14</span>
+          </div>
+          <input type="range" id="slider-iterations" min="4" max="28" step="1" value="14" />
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span class="control-name">Umbral de Ruptura (Tear Threshold)</span>
+            <span class="control-val" id="val-tear">2.85x</span>
+          </div>
+          <input type="range" id="slider-tear" min="1.35" max="6.0" step="0.05" value="2.85" />
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span class="control-name">Rigidez Estructural (Stiffness)</span>
+            <span class="control-val" id="val-stiffness">0.96</span>
+          </div>
+          <input type="range" id="slider-stiffness" min="0.20" max="1.00" step="0.02" value="0.96" />
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span class="control-name">Radio de Influencia Elástica</span>
+            <span class="control-val" id="val-grab-radius">64 px</span>
+          </div>
+          <input type="range" id="slider-grab-radius" min="20" max="150" step="2" value="64" />
+        </div>
+
+        <div class="toggle-row">
+          <span class="control-name">Tensores de Cizalla Diagonal (Shear)</span>
+          <div class="toggle-switch" id="toggle-shear" title="Añade fibras diagonales de refuerzo"></div>
+        </div>
+
+        <div class="toggle-row">
+          <span class="control-name">Propagación Térmica de Chispas</span>
+          <div class="toggle-switch on" id="toggle-sparks"></div>
+        </div>
+      </div>
+
+      <!-- Lab Actions & Wind Tunnel Shockwave -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Túnel de Viento y Acciones</span>
+          <span style="font-size: 9px; color: var(--amber);">[ESPACIO]</span>
+        </div>
+
+        <button class="cyber-btn blast-btn" id="btn-shockwave">
+          <span>&#9889; Onda de Choque / Explosión Radial</span>
+        </button>
+
+        <div class="btn-grid-2" style="margin-top: 4px;">
+          <button class="cyber-btn" id="btn-reset">&#8635; Reiniciar Tela</button>
+          <button class="cyber-btn" id="btn-pause">&#10074;&#10074; Pausar</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom-Left Legend & Controls Guide -->
+  <div class="hud-bottom-left">
+    <div class="hud-card legend-scale">
+      <div class="section-title" style="margin-bottom: 2px;">
+        <span>Espectro de Tensión Mecánica</span>
+        <span id="legend-threshold-tag" style="color: var(--cyan);">RUPTURA: 2.85x</span>
+      </div>
+      <div class="legend-bar"></div>
+      <div class="legend-labels">
+        <span>REPOSO (1.0x)</span>
+        <span>ELÁSTICO</span>
+        <span>PLÁSTICO</span>
+        <span style="color: var(--red-hot); font-weight: 700;">CRÍTICO</span>
+      </div>
+    </div>
+
+    <div class="hud-card controls-hint">
+      <div class="hint-line">
+        <span class="key-pill">CLIC IZQ + ARRASTRAR</span>
+        <span>Agarrar y estirar tejido (desgarro por tracción)</span>
+      </div>
+      <div class="hint-line">
+        <span class="key-pill magenta">CLIC DER / SHIFT+IZQ</span>
+        <span>Bisturí Láser de plasma (corte instantáneo de enlaces)</span>
+      </div>
+      <div class="hint-line">
+        <span class="key-pill">ALT + CLIC / ESPACIO</span>
+        <span>Fijar/soltar anclaje individual &bull; Onda de choque radial</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    /**
+     * ============================================================================
+     * 1. GENERADOR DE RUIDO SIMPLEX 3D PROCEDURAL (100% Desde Cero)
+     * ============================================================================
+     * Implementación matemática rápida de Simplex Noise 3D (Ken Perlin) para
+     * simular turbulencia aerodinámica orgánica en un campo vectorial (vx, vy, vz).
+     */
+    class SimplexNoise3D {
+      constructor(seed = 1337) {
+        this.p = new Uint8Array(256);
+        this.perm = new Uint8Array(512);
+        this.permMod12 = new Uint8Array(512);
+
+        for (let i = 0; i < 256; i++) {
+          this.p[i] = i;
+        }
+
+        let s = seed >>> 0;
+        for (let i = 255; i > 0; i--) {
+          s = (s * 1664525 + 1013904223) >>> 0;
+          const r = s % (i + 1);
+          const tmp = this.p[i];
+          this.p[i] = this.p[r];
+          this.p[r] = tmp;
+        }
+
+        for (let i = 0; i < 512; i++) {
+          const v = this.p[i & 255];
+          this.perm[i] = v;
+          this.permMod12[i] = v % 12;
+        }
+
+        this.grad3 = new Float32Array([
+          1, 1, 0,  -1, 1, 0,   1, -1, 0,  -1, -1, 0,
+          1, 0, 1,  -1, 0, 1,   1, 0, -1,  -1, 0, -1,
+          0, 1, 1,   0, -1, 1,  0, 1, -1,   0, -1, -1
+        ]);
+      }
+
+      noise3D(xin, yin, zin) {
+        const F3 = 1.0 / 3.0;
+        const G3 = 1.0 / 6.0;
+        const grad3 = this.grad3;
+        const perm = this.perm;
+        const permMod12 = this.permMod12;
+
+        const s = (xin + yin + zin) * F3;
+        const i = Math.floor(xin + s);
+        const j = Math.floor(yin + s);
+        const k = Math.floor(zin + s);
+
+        const t = (i + j + k) * G3;
+        const X0 = i - t;
+        const Y0 = j - t;
+        const Z0 = k - t;
+        const x0 = xin - X0;
+        const y0 = yin - Y0;
+        const z0 = zin - Z0;
+
+        let i1, j1, k1, i2, j2, k2;
+        if (x0 >= y0) {
+          if (y0 >= z0) {
+            i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0;
+          } else if (x0 >= z0) {
+            i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1;
+          } else {
+            i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1;
+          }
+        } else {
+          if (y0 < z0) {
+            i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1;
+          } else if (x0 < z0) {
+            i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1;
+          } else {
+            i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0;
+          }
+        }
+
+        const x1 = x0 - i1 + G3;
+        const y1 = y0 - j1 + G3;
+        const z1 = z0 - k1 + G3;
+        const x2 = x0 - i2 + 2.0 * G3;
+        const y2 = y0 - j2 + 2.0 * G3;
+        const z2 = z0 - k2 + 2.0 * G3;
+        const x3 = x0 - 1.0 + 3.0 * G3;
+        const y3 = y0 - 1.0 + 3.0 * G3;
+        const z3 = z0 - 1.0 + 3.0 * G3;
+
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+
+        const gi0 = permMod12[ii + perm[jj + perm[kk]]] * 3;
+        const gi1 = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]] * 3;
+        const gi2 = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]] * 3;
+        const gi3 = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]] * 3;
+
+        let n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+        if (t0 > 0) {
+          t0 *= t0;
+          n0 = t0 * t0 * (grad3[gi0] * x0 + grad3[gi0 + 1] * y0 + grad3[gi0 + 2] * z0);
+        }
+
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+        if (t1 > 0) {
+          t1 *= t1;
+          n1 = t1 * t1 * (grad3[gi1] * x1 + grad3[gi1 + 1] * y1 + grad3[gi1 + 2] * z1);
+        }
+
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+        if (t2 > 0) {
+          t2 *= t2;
+          n2 = t2 * t2 * (grad3[gi2] * x2 + grad3[gi2 + 1] * y2 + grad3[gi2 + 2] * z2);
+        }
+
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+        if (t3 > 0) {
+          t3 *= t3;
+          n3 = t3 * t3 * (grad3[gi3] * x3 + grad3[gi3 + 1] * y3 + grad3[gi3 + 2] * z3);
+        }
+
+        return 32.0 * (n0 + n1 + n2 + n3);
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 2. TABLAS DE COLOR PRECOMPUTADAS (LUT) PARA MAPA DE TENSIÓN DE ALTA VELOCIDAD
+     * ============================================================================
+     */
+    const TENSION_BUCKETS = 32;
+    const TENSION_COLOR_LUT = new Array(TENSION_BUCKETS);
+    const CYBER_COLOR_LUT = new Array(TENSION_BUCKETS);
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function buildColorLUTs() {
+      // Paradas de color para el Mapa de Tensión Mecánica:
+      // 0.0: Cian reposo (#00e5ff) -> 0.35: Turquesa/Esmeralda (#00ff95)
+      // -> 0.65: Ámbar (#ffbe0b) -> 0.88: Rojo incandescente (#ff1e42) -> 1.0: Blanco crítico (#fff5f8)
+      const stops = [
+        { pos: 0.00, r: 0,   g: 229, b: 255 },
+        { pos: 0.32, r: 0,   g: 255, b: 155 },
+        { pos: 0.62, r: 255, g: 190, b: 11  },
+        { pos: 0.86, r: 255, g: 30,  b: 66  },
+        { pos: 1.00, r: 255, g: 240, b: 248 }
+      ];
+
+      for (let i = 0; i < TENSION_BUCKETS; i++) {
+        const t = i / (TENSION_BUCKETS - 1);
+        let s0 = stops[0], s1 = stops[stops.length - 1];
+        for (let j = 0; j < stops.length - 1; j++) {
+          if (t >= stops[j].pos && t <= stops[j + 1].pos) {
+            s0 = stops[j];
+            s1 = stops[j + 1];
+            break;
+          }
+        }
+        const localT = (t - s0.pos) / Math.max(0.0001, s1.pos - s0.pos);
+        const r = Math.round(lerp(s0.r, s1.r, localT));
+        const g = Math.round(lerp(s0.g, s1.g, localT));
+        const b = Math.round(lerp(s0.b, s1.b, localT));
+        TENSION_COLOR_LUT[i] = `rgb(${r},${g},${b})`;
+
+        // Escala Cyberpunk Neón: Cian eléctrico -> Violeta -> Magenta -> Blanco Láser
+        const cr = Math.round(lerp(0, 255, Math.pow(t, 0.75)));
+        const cg = Math.round(lerp(240, 20, t < 0.7 ? t / 0.7 : 1 - (t - 0.7) * 3));
+        const cb = Math.round(lerp(255, 140, Math.sin(t * Math.PI * 0.5)));
+        CYBER_COLOR_LUT[i] = `rgb(${cr},${ Math.max(0, Math.min(255, cg)) },${cb})`;
+      }
+    }
+    buildColorLUTs();
+
+    /**
+     * ============================================================================
+     * 3. MOTOR FÍSICO DE TELA VERLET 3D Y SOLVER DE RESTRICCIONES
+     * ============================================================================
+     */
+    class VerletClothEngine {
+      constructor() {
+        // Dimensiones de malla superiores al mínimo requerido (68 columnas x 42 filas = 2,856 partículas)
+        this.cols = 68;
+        this.rows = 42;
+        this.numParticles = this.cols * this.rows;
+
+        // Parámetros físicos configurables en tiempo real
+        this.gravity = 9.8;
+        this.windStrength = 1.40;
+        this.solverIterations = 14;
+        this.tearThreshold = 2.85;
+        this.stiffness = 0.96;
+        this.grabRadius = 64;
+        this.enableShear = false;
+        this.enableSparks = true;
+        this.damping = 0.986;
+
+        this.preset = 'curtain';
+        this.renderMode = 'tension'; // 'tension' | 'shaded' | 'cyber'
+        this.primaryTool = 'grab';   // 'grab' | 'laser' | 'pin'
+        this.paused = false;
+
+        this.simplex = new SimplexNoise3D(4096);
+        this.simTime = 0;
+
+        // Arrays tipados (SoA - Structure of Arrays) para máximo rendimiento de caché CPU
+        this.px = new Float32Array(this.numParticles);
+        this.py = new Float32Array(this.numParticles);
+        this.pz = new Float32Array(this.numParticles);
+
+        this.ox = new Float32Array(this.numParticles);
+        this.oy = new Float32Array(this.numParticles);
+        this.oz = new Float32Array(this.numParticles);
+
+        this.nx = new Float32Array(this.numParticles);
+        this.ny = new Float32Array(this.numParticles);
+        this.nz = new Float32Array(this.numParticles);
+
+        this.pinned = new Uint8Array(this.numParticles);
+        this.pinX = new Float32Array(this.numParticles);
+        this.pinY = new Float32Array(this.numParticles);
+        this.pinZ = new Float32Array(this.numParticles);
+
+        // Estado de agarre elástico con mouse
+        this.grabbedIndices = [];
+        this.grabbedWeights = [];
+        this.grabbedOffsetX = [];
+        this.grabbedOffsetY = [];
+
+        // Efectos visuales de laboratorio (chispas de ruptura + ondas de choque + estela láser)
+        this.sparks = [];
+        this.shockwaves = [];
+        this.laserTrail = [];
+
+        // Métricas de telemetría
+        this.intactCount = 0;
+        this.brokenCount = 0;
+        this.totalActiveDesignLinks = 0;
+        this.maxStrainRatio = 1.0;
+        this.normalizedPeakStress = 0.0;
+
+        // Buffers de agrupamiento de líneas por color para renderizado rápido
+        this.bucketHeads = new Int32Array(TENSION_BUCKETS);
+        this.bucketNext = null;
+      }
+
+      initMesh(canvasWidth, canvasHeight) {
+        const usableW = Math.min(canvasWidth - 390, canvasWidth * 0.66);
+        const usableH = canvasHeight * 0.72;
+
+        // Espaciado adaptable para que la malla luzca proporcionada en cualquier pantalla
+        const spacingX = Math.max(8.5, Math.min(14.5, usableW / this.cols));
+        const spacingY = Math.max(8.5, Math.min(14.0, usableH / this.rows));
+        this.restSpacingX = spacingX;
+        this.restSpacingY = spacingY;
+
+        const clothW = (this.cols - 1) * spacingX;
+        const clothH = (this.rows - 1) * spacingY;
+
+        // Centrar ligeramente a la izquierda del panel de control lateral
+        const panelOffset = window.innerWidth > 900 ? 155 : 0;
+        const startX = Math.max(40, (canvasWidth - panelOffset - clothW) * 0.5);
+        const startY = Math.max(86, (canvasHeight - clothH) * 0.34);
+
+        this.originX = startX;
+        this.originY = startY;
+        this.clothW = clothW;
+        this.clothH = clothH;
+
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const idx = r * this.cols + c;
+            let x = startX + c * spacingX;
+            let y = startY + r * spacingY;
+            let z = Math.sin(c * 0.25) * 1.5;
+
+            // Si es preset de red horizontal/dosel, darle una ligera concavidad inicial elegante
+            if (this.preset === 'net') {
+              const u = (c / (this.cols - 1)) * 2 - 1;
+              const v = (r / (this.rows - 1)) * 2 - 1;
+              z = (1 - (u * u + v * v) * 0.5) * 18;
+            }
+
+            this.px[idx] = this.ox[idx] = this.pinX[idx] = x;
+            this.py[idx] = this.oy[idx] = this.pinY[idx] = y;
+            this.pz[idx] = this.oz[idx] = this.pinZ[idx] = z;
+            this.pinned[idx] = 0;
+          }
+        }
+
+        this.applyAnchorPreset(this.preset);
+        this.buildConstraints(spacingX, spacingY);
+        this.sparks.length = 0;
+        this.shockwaves.length = 0;
+        this.grabbedIndices.length = 0;
+      }
+
+      applyAnchorPreset(presetName) {
+        this.preset = presetName;
+        this.pinned.fill(0);
+
+        const cols = this.cols;
+        const rows = this.rows;
+
+        if (presetName === 'curtain') {
+          // Cortina colgada de 9 ganchos reforzados en el borde superior
+          const hooks = 8;
+          for (let h = 0; h <= hooks; h++) {
+            const c = Math.round((h / hooks) * (cols - 1));
+            this.setPin(0, c, true);
+            // Doble punto de refuerzo junto al gancho para soportar tirones fuertes antes de desgarrar
+            if (c + 1 < cols && h < hooks) this.setPin(0, c + 1, true);
+          }
+        } else if (presetName === 'flag') {
+          // Bandera anclada al mástil izquierdo
+          for (let r = 0; r < rows; r += 2) {
+            this.setPin(r, 0, true);
+          }
+          this.setPin(0, 0, true);
+          this.setPin(rows - 1, 0, true);
+          this.setPin(0, 1, true);
+          this.setPin(rows - 1, 1, true);
+        } else if (presetName === 'net') {
+          // Red sujeta de las 4 esquinas con parches de anclaje estructurales
+          const patch = 2;
+          for (let dr = 0; dr <= patch; dr++) {
+            for (let dc = 0; dc <= patch; dc++) {
+              if (dr + dc <= patch) {
+                this.setPin(dr, dc, true);
+                this.setPin(dr, cols - 1 - dc, true);
+                this.setPin(rows - 1 - dr, dc, true);
+                this.setPin(rows - 1 - dr, cols - 1 - dc, true);
+              }
+            }
+          }
+        } else if (presetName === 'rail') {
+          // Riel continuo de laboratorio (fila superior íntegra fijada cada nodo)
+          for (let c = 0; c < cols; c++) {
+            this.setPin(0, c, true);
+          }
+        }
+      }
+
+      setPin(r, c, state) {
+        const idx = r * this.cols + c;
+        this.pinned[idx] = state ? 1 : 0;
+        if (state) {
+          this.pinX[idx] = this.px[idx];
+          this.pinY[idx] = this.py[idx];
+          this.pinZ[idx] = this.pz[idx];
+        }
+      }
+
+      buildConstraints(spacingX, spacingY) {
+        const cols = this.cols;
+        const rows = this.rows;
+
+        const numHoriz = (cols - 1) * rows;
+        const numVert = cols * (rows - 1);
+        const numShear = 2 * (cols - 1) * (rows - 1);
+        const total = numHoriz + numVert + numShear;
+
+        this.numStructural = numHoriz + numVert;
+        this.totalConstraints = total;
+
+        this.cA = new Int32Array(total);
+        this.cB = new Int32Array(total);
+        this.cRest = new Float32Array(total);
+        this.cActive = new Uint8Array(total);
+        this.cType = new Uint8Array(total); // 0 = estructural H, 1 = estructural V, 2 = cizalla diagonal
+        this.cStrain = new Float32Array(total);
+        this.bucketNext = new Int32Array(total);
+
+        // Mapa rápido de celda -> índices de sus enlaces estructurales para sombreado de polígonos
+        const numQuads = (cols - 1) * (rows - 1);
+        this.quadTop = new Int32Array(numQuads);
+        this.quadBottom = new Int32Array(numQuads);
+        this.quadLeft = new Int32Array(numQuads);
+        this.quadRight = new Int32Array(numQuads);
+        this.quadShear1 = new Int32Array(numQuads);
+        this.quadShear2 = new Int32Array(numQuads);
+
+        let ptr = 0;
+
+        // 1. Enlaces estructurales horizontales
+        const hMap = new Int32Array(numHoriz);
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols - 1; c++) {
+            const idx = ptr++;
+            this.cA[idx] = r * cols + c;
+            this.cB[idx] = r * cols + (c + 1);
+            this.cRest[idx] = spacingX;
+            this.cActive[idx] = 1;
+            this.cType[idx] = 0;
+            this.cStrain[idx] = 1.0;
+            hMap[r * (cols - 1) + c] = idx;
+          }
+        }
+
+        // 2. Enlaces estructurales verticales
+        const vMap = new Int32Array(numVert);
+        for (let r = 0; r < rows - 1; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = ptr++;
+            this.cA[idx] = r * cols + c;
+            this.cB[idx] = (r + 1) * cols + c;
+            this.cRest[idx] = spacingY;
+            this.cActive[idx] = 1;
+            this.cType[idx] = 1;
+            this.cStrain[idx] = 1.0;
+            vMap[r * cols + c] = idx;
+          }
+        }
+
+        // 3. Enlaces diagonales de cizalla (Shear)
+        const diagLen = Math.hypot(spacingX, spacingY);
+        for (let r = 0; r < rows - 1; r++) {
+          for (let c = 0; c < cols - 1; c++) {
+            const qIdx = r * (cols - 1) + c;
+            const p00 = r * cols + c;
+            const p10 = r * cols + (c + 1);
+            const p01 = (r + 1) * cols + c;
+            const p11 = (r + 1) * cols + (c + 1);
+
+            const s1 = ptr++;
+            this.cA[s1] = p00;
+            this.cB[s1] = p11;
+            this.cRest[s1] = diagLen;
+            this.cActive[s1] = this.enableShear ? 1 : 0;
+            this.cType[s1] = 2;
+            this.cStrain[s1] = 1.0;
+
+            const s2 = ptr++;
+            this.cA[s2] = p10;
+            this.cB[s2] = p01;
+            this.cRest[s2] = diagLen;
+            this.cActive[s2] = this.enableShear ? 1 : 0;
+            this.cType[s2] = 2;
+            this.cStrain[s2] = 1.0;
+
+            this.quadTop[qIdx] = hMap[r * (cols - 1) + c];
+            this.quadBottom[qIdx] = hMap[(r + 1) * (cols - 1) + c];
+            this.quadLeft[qIdx] = vMap[r * cols + c];
+            this.quadRight[qIdx] = vMap[r * cols + (c + 1)];
+            this.quadShear1[qIdx] = s1;
+            this.quadShear2[qIdx] = s2;
+          }
+        }
+
+        this.brokenCount = 0;
+        this.recountLinks();
+      }
+
+      setShearEnabled(enabled) {
+        this.enableShear = enabled;
+        const numQuads = (this.cols - 1) * (this.rows - 1);
+        for (let q = 0; q < numQuads; q++) {
+          const intactQuad =
+            this.cActive[this.quadTop[q]] &&
+            this.cActive[this.quadBottom[q]] &&
+            this.cActive[this.quadLeft[q]] &&
+            this.cActive[this.quadRight[q]];
+          const state = enabled && intactQuad ? 1 : 0;
+          this.cActive[this.quadShear1[q]] = state;
+          this.cActive[this.quadShear2[q]] = state;
+        }
+        this.recountLinks();
+      }
+
+      recountLinks() {
+        let intact = 0;
+        const limit = this.enableShear ? this.totalConstraints : this.numStructural;
+        for (let i = 0; i < limit; i++) {
+          if (this.cActive[i]) intact++;
+        }
+        this.intactCount = intact;
+        this.totalActiveDesignLinks = limit;
+      }
+
+      spawnTearSpark(x, y, vx, vy, color = '#ff2a54') {
+        if (!this.enableSparks || this.sparks.length > 260) return;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1.2 + Math.random() * 4.5;
+        this.sparks.push({
+          x,
+          y,
+          vx: vx * 0.35 + Math.cos(angle) * speed,
+          vy: vy * 0.35 + Math.sin(angle) * speed - 0.8,
+          life: 1.0,
+          decay: 0.028 + Math.random() * 0.035,
+          size: 1.4 + Math.random() * 2.0,
+          color
+        });
+      }
+
+      triggerRadialShockwave(centerX, centerY) {
+        const cx = centerX !== undefined ? centerX : this.originX + this.clothW * 0.5;
+        const cy = centerY !== undefined ? centerY : this.originY + this.clothH * 0.48;
+        const radius = Math.max(this.clothW, this.clothH) * 0.72;
+
+        this.shockwaves.push({
+          x: cx,
+          y: cy,
+          r: 8,
+          maxR: radius * 1.15,
+          alpha: 1.0
+        });
+
+        for (let i = 0; i < this.numParticles; i++) {
+          if (this.pinned[i]) continue;
+          const dx = this.px[i] - cx;
+          const dy = this.py[i] - cy;
+          const dist = Math.hypot(dx, dy) + 0.001;
+          if (dist < radius) {
+            const falloff = Math.pow(1 - dist / radius, 1.5);
+            const force = 28.0 * falloff;
+            const nx = dx / dist;
+            const ny = dy / dist;
+
+            // Impulso Verlet directo modificando la posición previa (ox, oy, oz)
+            this.ox[i] -= nx * force;
+            this.oy[i] -= ny * force;
+            this.oz[i] -= 34.0 * falloff * (0.6 + 0.4 * Math.cos(dist * 0.05));
+          }
+        }
+
+        // Chispas en el epicentro
+        for (let s = 0; s < 28; s++) {
+          this.spawnTearSpark(cx, cy, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, '#ffbe0b');
+        }
+      }
+
+      /**
+       * Cálculo de normales 3D por partícula para sombreado volumétrico y presión aerodinámica
+       */
+      computeSurfaceNormals() {
+        const cols = this.cols;
+        const rows = this.rows;
+        const px = this.px, py = this.py, pz = this.pz;
+        const nx = this.nx, ny = this.ny, nz = this.nz;
+
+        nx.fill(0);
+        ny.fill(0);
+        nz.fill(1);
+
+        const numQuads = (cols - 1) * (rows - 1);
+        for (let q = 0; q < numQuads; q++) {
+          if (
+            !this.cActive[this.quadTop[q]] ||
+            !this.cActive[this.quadBottom[q]] ||
+            !this.cActive[this.quadLeft[q]] ||
+            !this.cActive[this.quadRight[q]]
+          ) {
+            continue;
+          }
+
+          const r = (q / (cols - 1)) | 0;
+          const c = q - r * (cols - 1);
+
+          const i00 = r * cols + c;
+          const i10 = i00 + 1;
+          const i01 = i00 + cols;
+          const i11 = i01 + 1;
+
+          // Vectores diagonales del quad para obtener su normal 3D exacta
+          const ax = px[i11] - px[i00];
+          const ay = py[i11] - py[i00];
+          const az = pz[i11] - pz[i00];
+
+          const bx = px[i01] - px[i10];
+          const by = py[i01] - py[i10];
+          const bz = pz[i01] - pz[i10];
+
+          let cx = ay * bz - az * by;
+          let cy = az * bx - ax * bz;
+          let cz = ax * by - ay * bx;
+
+          const len = Math.hypot(cx, cy, cz) || 1;
+          cx /= len;
+          cy /= len;
+          cz /= len;
+
+          nx[i00] = cx; ny[i00] = cy; nz[i00] = cz;
+          nx[i10] = cx; ny[i10] = cy; nz[i10] = cz;
+          nx[i01] = cx; ny[i01] = cy; nz[i01] = cz;
+          nx[i11] = cx; ny[i11] = cy; nz[i11] = cz;
+        }
+      }
+
+      /**
+       * Paso principal de Integración de Verlet + Viento Simplex 3D + Solver de Relajación Multipaso
+       */
+      step(dt, mouseState) {
+        if (this.paused) return;
+
+        this.simTime += dt;
+        const time = this.simTime;
+
+        this.computeSurfaceNormals();
+
+        const n = this.numParticles;
+        const px = this.px, py = this.py, pz = this.pz;
+        const ox = this.ox, oy = this.oy, oz = this.oz;
+        const nx = this.nx, ny = this.ny, nz = this.nz;
+        const pinned = this.pinned;
+
+        const gravStep = this.gravity * 0.042;
+        const windAmp = this.windStrength;
+        const damping = this.damping;
+        const isFlag = this.preset === 'flag';
+        const isNet = this.preset === 'net';
+
+        // 1. INTEGRACIÓN DE VERLET EN 3D Y CAMPO DE VIENTO TURBULENTO SIMPLEX
+        const noiseScale = 0.0042;
+        for (let i = 0; i < n; i++) {
+          if (pinned[i]) {
+            px[i] = this.pinX[i];
+            py[i] = this.pinY[i];
+            pz[i] = this.pinZ[i];
+            ox[i] = px[i];
+            oy[i] = py[i];
+            oz[i] = pz[i];
+            continue;
+          }
+
+          const x = px[i];
+          const y = py[i];
+          const z = pz[i];
+
+          let vx = (x - ox[i]) * damping;
+          let vy = (y - oy[i]) * damping;
+          let vz = (z - oz[i]) * damping;
+
+          ox[i] = x;
+          oy[i] = y;
+          oz[i] = z;
+
+          // Campo de viento turbulento 3D (Ruido Simplex)
+          let wx = 0, wy = 0, wz = 0;
+          if (windAmp > 0.001) {
+            const n1 = this.simplex.noise3D(x * noiseScale - time * 1.35, y * noiseScale, time * 0.7);
+            const n2 = this.simplex.noise3D(x * noiseScale * 1.8 + 31.4, y * noiseScale * 1.8 - time * 1.1, z * noiseScale);
+
+            if (isFlag) {
+              // Túnel de viento horizontal intenso para ondear la bandera
+              wx = (0.85 + 0.45 * n1) * windAmp * 0.46;
+              wy = n2 * windAmp * 0.14;
+              wz = (n1 * 0.7 + n2 * 0.5) * windAmp * 0.55;
+            } else if (isNet) {
+              // Corriente ascendente arremolinada para la red de 4 esquinas
+              wx = n1 * windAmp * 0.25;
+              wy = (-0.35 + n2 * 0.45) * windAmp * 0.22;
+              wz = (0.5 + n1) * windAmp * 0.55;
+            } else {
+              // Brisa turbulenta tridimensional sobre la cortina
+              wx = (0.28 + n1 * 0.72) * windAmp * 0.26;
+              wy = n2 * windAmp * 0.09;
+              wz = (n1 * 0.65 + n2 * 0.35) * windAmp * 0.52;
+            }
+
+            // Presión aerodinámica proyectada sobre la normal de la superficie
+            const dotWind = wx * nx[i] + wy * ny[i] + wz * nz[i];
+            wx = wx * 0.45 + nx[i] * dotWind * 0.55;
+            wy = wy * 0.45 + ny[i] * dotWind * 0.55;
+            wz = wz * 0.45 + nz[i] * dotWind * 0.55;
+          }
+
+          px[i] = x + vx + wx;
+          py[i] = y + vy + gravStep + wy;
+          pz[i] = z + vz + wz - z * 0.012; // Fuerza restauradora suave en Z
+        }
+
+        // 2. SOLVER DE RESTRICCIONES MULTIPASO (Relaxation Iterations) Y DESGARRO (Tearing)
+        const iterations = this.solverIterations;
+        const stiffness = this.stiffness;
+        const shearStiffness = stiffness * 0.38;
+        const tearRatioLimit = this.tearThreshold;
+
+        const cA = this.cA;
+        const cB = this.cB;
+        const cRest = this.cRest;
+        const cActive = this.cActive;
+        const cType = this.cType;
+        const cStrain = this.cStrain;
+
+        const limit = this.enableShear ? this.totalConstraints : this.numStructural;
+        const hasGrab = mouseState.isGrabbing && this.grabbedIndices.length > 0;
+
+        let frameMaxRatio = 1.0;
+        let toreThisFrame = false;
+
+        for (let iter = 0; iter < iterations; iter++) {
+          // Aplicar tracción elástica del cursor en cada sub-paso para permitir estirar y desgarrar la tela con fuerza
+          if (hasGrab) {
+            const mx = mouseState.x;
+            const my = mouseState.y;
+            const gIdx = this.grabbedIndices;
+            const gW = this.grabbedWeights;
+            const gOffX = this.grabbedOffsetX;
+            const gOffY = this.grabbedOffsetY;
+
+            for (let g = 0; g < gIdx.length; g++) {
+              const pIdx = gIdx[g];
+              if (pinned[pIdx]) continue;
+              const w = gW[g];
+              const targetX = mx + gOffX[g];
+              const targetY = my + gOffY[g];
+              const pullStrength = 0.32 * w;
+              px[pIdx] += (targetX - px[pIdx]) * pullStrength;
+              py[pIdx] += (targetY - py[pIdx]) * pullStrength;
+              pz[pIdx] *= (1 - 0.15 * w);
+            }
+          }
+
+          const checkTearNow = (iter === 0 || iter === (iterations >> 1));
+
+          for (let i = 0; i < limit; i++) {
+            if (!cActive[i]) continue;
+
+            const a = cA[i];
+            const b = cB[i];
+
+            const dx = px[b] - px[a];
+            const dy = py[b] - py[a];
+            const dz = pz[b] - pz[a];
+
+            const distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq < 1e-7) continue;
+
+            const dist = Math.sqrt(distSq);
+            const rest = cRest[i];
+            const ratio = dist / rest;
+
+            if (iter === iterations - 1) {
+              cStrain[i] = ratio;
+              if (cType[i] < 2 && ratio > frameMaxRatio) {
+                frameMaxRatio = ratio;
+              }
+            }
+
+            // Comprobación física de ruptura por tensión crítica (Tear Threshold)
+            if (checkTearNow && ratio > tearRatioLimit) {
+              cActive[i] = 0;
+              cStrain[i] = 1.0;
+              this.brokenCount++;
+              this.intactCount = Math.max(0, this.intactCount - 1);
+              toreThisFrame = true;
+
+              const midX = (px[a] + px[b]) * 0.5;
+              const midY = (py[a] + py[b]) * 0.5;
+              const rvx = (px[b] - ox[b]) - (px[a] - ox[a]);
+              const rvy = (py[b] - oy[b]) - (py[a] - oy[a]);
+              this.spawnTearSpark(midX, midY, rvx, rvy, '#ff2a54');
+              continue;
+            }
+
+            const pinA = pinned[a];
+            const pinB = pinned[b];
+            if (pinA && pinB) continue;
+
+            const k = cType[i] === 2 ? shearStiffness : stiffness;
+            const diff = ((dist - rest) / dist) * k;
+
+            const corrX = dx * diff;
+            const corrY = dy * diff;
+            const corrZ = dz * diff;
+
+            if (pinA) {
+              px[b] -= corrX;
+              py[b] -= corrY;
+              pz[b] -= corrZ;
+            } else if (pinB) {
+              px[a] += corrX;
+              py[a] += corrY;
+              pz[a] += corrZ;
+            } else {
+              const hx = corrX * 0.5;
+              const hy = corrY * 0.5;
+              const hz = corrZ * 0.5;
+              px[a] += hx;
+              py[a] += hy;
+              pz[a] += hz;
+              px[b] -= hx;
+              py[b] -= hy;
+              pz[b] -= hz;
+            }
+          }
+        }
+
+        // Si algún enlace estructural se rompió y hay tensores de cizalla activos, limpiar diagonales huérfanas
+        if (toreThisFrame && this.enableShear) {
+          const numQuads = (this.cols - 1) * (this.rows - 1);
+          for (let q = 0; q < numQuads; q++) {
+            if (
+              !cActive[this.quadTop[q]] ||
+              !cActive[this.quadBottom[q]] ||
+              !cActive[this.quadLeft[q]] ||
+              !cActive[this.quadRight[q]]
+            ) {
+              if (cActive[this.quadShear1[q]]) {
+                cActive[this.quadShear1[q]] = 0;
+                this.intactCount = Math.max(0, this.intactCount - 1);
+              }
+              if (cActive[this.quadShear2[q]]) {
+                cActive[this.quadShear2[q]] = 0;
+                this.intactCount = Math.max(0, this.intactCount - 1);
+              }
+            }
+          }
+        }
+
+        this.maxStrainRatio = frameMaxRatio;
+        const maxElong = Math.max(0.05, this.tearThreshold - 1.0);
+        this.normalizedPeakStress = Math.min(1.0, Math.max(0.0, (frameMaxRatio - 1.0) / maxElong));
+
+        // 3. ACTUALIZAR PARTÍCULAS DE CHISPAS Y ONDAS DE CHOQUE
+        for (let i = this.sparks.length - 1; i >= 0; i--) {
+          const sp = this.sparks[i];
+          sp.x += sp.vx;
+          sp.y += sp.vy;
+          sp.vy += 0.16;
+          sp.vx *= 0.96;
+          sp.life -= sp.decay;
+          if (sp.life <= 0) {
+            this.sparks.splice(i, 1);
+          }
+        }
+
+        for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+          const sw = this.shockwaves[i];
+          sw.r += (sw.maxR - sw.r) * 0.14 + 6.0;
+          sw.alpha = Math.max(0, 1 - sw.r / sw.maxR);
+          if (sw.alpha <= 0.02) {
+            this.shockwaves.splice(i, 1);
+          }
+        }
+
+        for (let i = this.laserTrail.length - 1; i >= 0; i--) {
+          this.laserTrail[i].life -= 0.075;
+          if (this.laserTrail[i].life <= 0) {
+            this.laserTrail.splice(i, 1);
+          }
+        }
+      }
+
+      /**
+       * Iniciar agarre elástico en torno a (mx, my)
+       */
+      beginGrab(mx, my) {
+        this.grabbedIndices.length = 0;
+        this.grabbedWeights.length = 0;
+        this.grabbedOffsetX.length = 0;
+        this.grabbedOffsetY.length = 0;
+
+        const R = this.grabRadius;
+        const R2 = R * R;
+        const px = this.px;
+        const py = this.py;
+
+        for (let i = 0; i < this.numParticles; i++) {
+          const dx = px[i] - mx;
+          const dy = py[i] - my;
+          const d2 = dx * dx + dy * dy;
+          if (d2 <= R2) {
+            const d = Math.sqrt(d2);
+            const w = Math.pow(1 - d / R, 1.35);
+            this.grabbedIndices.push(i);
+            this.grabbedWeights.push(w);
+            this.grabbedOffsetX.push(dx);
+            this.grabbedOffsetY.push(dy);
+          }
+        }
+      }
+
+      endGrab() {
+        this.grabbedIndices.length = 0;
+      }
+
+      /**
+       * Alternar anclaje (pin) del nodo más cercano a (mx, my)
+       */
+      toggleNearestPin(mx, my) {
+        let bestIdx = -1;
+        let bestD2 = 32 * 32;
+        for (let i = 0; i < this.numParticles; i++) {
+          const dx = this.px[i] - mx;
+          const dy = this.py[i] - my;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestD2) {
+            bestD2 = d2;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx !== -1) {
+          const nextState = this.pinned[bestIdx] ? 0 : 1;
+          this.pinned[bestIdx] = nextState;
+          if (nextState) {
+            this.pinX[bestIdx] = this.px[bestIdx];
+            this.pinY[bestIdx] = this.py[bestIdx];
+            this.pinZ[bestIdx] = this.pz[bestIdx];
+          }
+        }
+      }
+
+      /**
+       * Bisturí Láser: Corta instantáneamente cualquier enlace que cruce el segmento (x1,y1)->(x2,y2)
+       */
+      laserCutSegment(x1, y1, x2, y2) {
+        this.laserTrail.push({ x1, y1, x2, y2, life: 1.0 });
+
+        const minX = Math.min(x1, x2) - 6;
+        const maxX = Math.max(x1, x2) + 6;
+        const minY = Math.min(y1, y2) - 6;
+        const maxY = Math.max(y1, y2) + 6;
+
+        const px = this.px;
+        const py = this.py;
+        const cA = this.cA;
+        const cB = this.cB;
+        const cActive = this.cActive;
+        const limit = this.enableShear ? this.totalConstraints : this.numStructural;
+
+        let cutAny = false;
+
+        for (let i = 0; i < limit; i++) {
+          if (!cActive[i]) continue;
+
+          const a = cA[i];
+          const b = cB[i];
+          const ax = px[a], ay = py[a];
+          const bx = px[b], by = py[b];
+
+          // Descarte rápido por Bounding Box (AABB)
+          if (
+            (ax < minX && bx < minX) ||
+            (ax > maxX && bx > maxX) ||
+            (ay < minY && by < minY) ||
+            (ay > maxY && by > maxY)
+          ) {
+            continue;
+          }
+
+          if (segmentsIntersectOrTouch(x1, y1, x2, y2, ax, ay, bx, by)) {
+            cActive[i] = 0;
+            this.brokenCount++;
+            this.intactCount = Math.max(0, this.intactCount - 1);
+            cutAny = true;
+
+            const mx = (ax + bx) * 0.5;
+            const my = (ay + by) * 0.5;
+            this.spawnTearSpark(mx, my, (x2 - x1) * 0.25, (y2 - y1) * 0.25, '#ff006e');
+          }
+        }
+
+        // Limpiar tensores de cizalla en celdas cuyos bordes hayan sido cortados
+        if (cutAny && this.enableShear) {
+          const numQuads = (this.cols - 1) * (this.rows - 1);
+          for (let q = 0; q < numQuads; q++) {
+            if (
+              !cActive[this.quadTop[q]] ||
+              !cActive[this.quadBottom[q]] ||
+              !cActive[this.quadLeft[q]] ||
+              !cActive[this.quadRight[q]]
+            ) {
+              if (cActive[this.quadShear1[q]]) {
+                cActive[this.quadShear1[q]] = 0;
+                this.intactCount = Math.max(0, this.intactCount - 1);
+              }
+              if (cActive[this.quadShear2[q]]) {
+                cActive[this.quadShear2[q]] = 0;
+                this.intactCount = Math.max(0, this.intactCount - 1);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    /**
+     * Intersección exacta de segmentos 2D + tolerancia de radio láser para cortes fluidos
+     */
+    function segmentsIntersectOrTouch(x1, y1, x2, y2, x3, y3, x4, y4) {
+      const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+      if (Math.abs(denom) > 1e-6) {
+        const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+        const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+        if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+          return true;
+        }
+      }
+      // Si el usuario hace clic puntual con el bisturí sobre un hilo, comprobar distancia punto-segmento
+      const mx = (x3 + x4) * 0.5;
+      const my = (y3 + y4) * 0.5;
+      return distToSegmentSq(mx, my, x1, y1, x2, y2) < 20.0;
+    }
+
+    function distToSegmentSq(px, py, vx, vy, wx, wy) {
+      const l2 = (wx - vx) * (wx - vx) + (wy - vy) * (wy - vy);
+      if (l2 === 0) return (px - vx) * (px - vx) + (py - vy) * (py - vy);
+      let t = ((px - vx) * (wx - vx) + (py - vy) * (wy - vy)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      const projX = vx + t * (wx - vx);
+      const projY = vy + t * (wy - vy);
+      return (px - projX) * (px - projX) + (py - projY) * (py - projY);
+    }
+
+    /**
+     * ============================================================================
+     * 4. MOTOR DE RENDERIZADO DE LABORATORIO Y SOMBREADO 2.5D
+     * ============================================================================
+     */
+    class LabRenderer {
+      constructor(canvas, engine) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d', { alpha: false });
+        this.engine = engine;
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.resize();
+      }
+
+      resize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.canvas.width = Math.floor(this.width * this.dpr);
+        this.canvas.height = Math.floor(this.height * this.dpr);
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      }
+
+      drawBackgroundGrid() {
+        const ctx = this.ctx;
+        const w = this.width;
+        const h = this.height;
+
+        // Fondo oscuro profundo de laboratorio científico
+        const bgGrad = ctx.createRadialGradient(w * 0.42, h * 0.45, 40, w * 0.45, h * 0.5, Math.max(w, h) * 0.85);
+        bgGrad.addColorStop(0, '#0a1222');
+        bgGrad.addColorStop(0.55, '#060a14');
+        bgGrad.addColorStop(1, '#03050a');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Retícula métrica principal
+        const step = 48;
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.042)';
+        ctx.beginPath();
+        for (let x = (w * 0.5) % step; x < w; x += step) {
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+        }
+        for (let y = (h * 0.5) % step; y < h; y += step) {
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+
+        // Cruces de calibración óptica
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.13)';
+        ctx.beginPath();
+        const crossStep = step * 3;
+        for (let x = (w * 0.5) % crossStep; x < w; x += crossStep) {
+          for (let y = (h * 0.5) % crossStep; y < h; y += crossStep) {
+            ctx.moveTo(x - 4, y);
+            ctx.lineTo(x + 4, y);
+            ctx.moveTo(x, y - 4);
+            ctx.lineTo(x, y + 4);
+          }
+        }
+        ctx.stroke();
+      }
+
+      render(mouseState) {
+        const ctx = this.ctx;
+        const eng = this.engine;
+
+        this.drawBackgroundGrid();
+
+        const mode = eng.renderMode;
+        if (mode === 'shaded') {
+          this.drawVolumetricShadedCloth();
+        } else if (mode === 'cyber') {
+          this.drawCyberpunkCloth();
+        } else {
+          this.drawTensionHeatmapCloth();
+        }
+
+        this.drawAnchorPins();
+        this.drawShockwaves();
+        this.drawSparks();
+        this.drawCursorAndLaser(mouseState);
+      }
+
+      /**
+       * MODO 1: MAPA DE TENSIÓN MECÁNICA (Agrupado en 32 buckets para 60+ FPS constantes)
+       */
+      drawTensionHeatmapCloth() {
+        const ctx = this.ctx;
+        const eng = this.engine;
+        const px = eng.px, py = eng.py;
+        const cols = eng.cols, rows = eng.rows;
+
+        // 1. Sombreado sutil translúcido de celdas íntegras para dar volumen al tejido
+        const numQuads = (cols - 1) * (rows - 1);
+        ctx.fillStyle = 'rgba(0, 195, 255, 0.055)';
+        ctx.beginPath();
+        for (let q = 0; q < numQuads; q++) {
+          if (
+            !eng.cActive[eng.quadTop[q]] ||
+            !eng.cActive[eng.quadBottom[q]] ||
+            !eng.cActive[eng.quadLeft[q]] ||
+            !eng.cActive[eng.quadRight[q]]
+          ) {
+            continue;
+          }
+          const r = (q / (cols - 1)) | 0;
+          const c = q - r * (cols - 1);
+          const i00 = r * cols + c;
+          const i10 = i00 + 1;
+          const i01 = i00 + cols;
+          const i11 = i01 + 1;
+
+          ctx.moveTo(px[i00], py[i00]);
+          ctx.lineTo(px[i10], py[i10]);
+          ctx.lineTo(px[i11], py[i11]);
+          ctx.lineTo(px[i01], py[i01]);
+        }
+        ctx.fill();
+
+        // 2. Clasificar cada enlace activo en su bucket de tensión mecánica (0..31)
+        const heads = eng.bucketHeads;
+        const next = eng.bucketNext;
+        heads.fill(-1);
+
+        const cA = eng.cA, cB = eng.cB, cActive = eng.cActive, cStrain = eng.cStrain;
+        const maxElong = Math.max(0.08, eng.tearThreshold - 1.0);
+        const limit = eng.enableShear ? eng.totalConstraints : eng.numStructural;
+
+        for (let i = 0; i < limit; i++) {
+          if (!cActive[i]) continue;
+          const norm = (cStrain[i] - 1.0) / maxElong;
+          let b = (norm * (TENSION_BUCKETS - 1)) | 0;
+          if (b < 0) b = 0;
+          else if (b >= TENSION_BUCKETS) b = TENSION_BUCKETS - 1;
+
+          next[i] = heads[b];
+          heads[b] = i;
+        }
+
+        // 3. Dibujar todos los enlaces por lote de tensión
+        for (let b = 0; b < TENSION_BUCKETS; b++) {
+          let idx = heads[b];
+          if (idx === -1) continue;
+
+          ctx.beginPath();
+          ctx.strokeStyle = TENSION_COLOR_LUT[b];
+          ctx.lineWidth = b > 24 ? 2.1 : b > 14 ? 1.45 : 1.1;
+
+          while (idx !== -1) {
+            const p1 = cA[idx];
+            const p2 = cB[idx];
+            ctx.moveTo(px[p1], py[p1]);
+            ctx.lineTo(px[p2], py[p2]);
+            idx = next[idx];
+          }
+          ctx.stroke();
+        }
+      }
+
+      /**
+       * MODO 2: SOMBREADO VOLUMÉTRICO DIRECCIONAL (Normales 3D por celda + Luz Especular)
+       */
+      drawVolumetricShadedCloth() {
+        const ctx = this.ctx;
+        const eng = this.engine;
+        const px = eng.px, py = eng.py, pz = eng.pz;
+        const cols = eng.cols, rows = eng.rows;
+        const numQuads = (cols - 1) * (rows - 1);
+
+        // Vector de luz direccional principal normalizado: L = (-0.42, -0.58, 0.70)
+        const lx = -0.42, ly = -0.58, lz = 0.70;
+        // Vector medio Blinn-Phong H para brillo especular de seda balística
+        const hx = -0.22, hy = -0.31, hz = 0.92;
+        const maxElong = Math.max(0.08, eng.tearThreshold - 1.0);
+
+        for (let q = 0; q < numQuads; q++) {
+          const top = eng.quadTop[q];
+          const bot = eng.quadBottom[q];
+          const left = eng.quadLeft[q];
+          const right = eng.quadRight[q];
+
+          if (!eng.cActive[top] || !eng.cActive[bot] || !eng.cActive[left] || !eng.cActive[right]) {
+            continue;
+          }
+
+          const r = (q / (cols - 1)) | 0;
+          const c = q - r * (cols - 1);
+          const i00 = r * cols + c;
+          const i10 = i00 + 1;
+          const i01 = i00 + cols;
+          const i11 = i01 + 1;
+
+          // Normal 3D de la celda usando el producto vectorial de sus diagonales
+          const ax = px[i11] - px[i00];
+          const ay = py[i11] - py[i00];
+          const az = pz[i11] - pz[i00];
+
+          const bx = px[i01] - px[i10];
+          const by = py[i01] - py[i10];
+          const bz = pz[i01] - pz[i10];
+
+          let nx = ay * bz - az * by;
+          let ny = az * bx - ax * bz;
+          let nz = ax * by - ay * bx;
+          const len = Math.hypot(nx, ny, nz) || 1;
+          nx /= len; ny /= len; nz /= len;
+
+          // Iluminación de dos caras (front/back)
+          const ndotl = Math.abs(nx * lx + ny * ly + nz * lz);
+          const ndoth = Math.abs(nx * hx + ny * hy + nz * hz);
+          const spec = Math.pow(ndoth, 14) * 0.55;
+
+          // Tensión media de la celda para calentar el material antes de desgarrarse
+          const maxCellStrain = Math.max(
+            eng.cStrain[top],
+            eng.cStrain[bot],
+            eng.cStrain[left],
+            eng.cStrain[right]
+          );
+          const stress = Math.min(1, Math.max(0, (maxCellStrain - 1.0) / maxElong));
+
+          // Textura de micro-tejido alternando urdimbre/trama
+          const weave = ((c + r) & 1) ? 1.04 : 0.96;
+          const baseLight = (0.18 + ndotl * 0.72) * weave;
+
+          const red = Math.min(255, ((22 + baseLight * 58 + spec * 170) * (1 - stress * 0.5) + stress * 255) | 0);
+          const green = Math.min(255, ((48 + baseLight * 155 + spec * 210) * (1 - stress * 0.65) + stress * 65) | 0);
+          const blue = Math.min(255, ((85 + baseLight * 215 + spec * 235) * (1 - stress * 0.78) + stress * 80) | 0);
+
+          const color = `rgb(${red},${green},${blue})`;
+          ctx.fillStyle = color;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 0.65;
+
+          ctx.beginPath();
+          ctx.moveTo(px[i00], py[i00]);
+          ctx.lineTo(px[i10], py[i10]);
+          ctx.lineTo(px[i11], py[i11]);
+          ctx.lineTo(px[i01], py[i01]);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        // Dibujar hebras sueltas cuyos quads se hayan desgarrado
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.65)';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        for (let i = 0; i < eng.numStructural; i++) {
+          if (!eng.cActive[i]) continue;
+          if (eng.cStrain[i] > 1.35) {
+            const a = eng.cA[i], b = eng.cB[i];
+            ctx.moveTo(px[a], py[a]);
+            ctx.lineTo(px[b], py[b]);
+          }
+        }
+        ctx.stroke();
+      }
+
+      /**
+       * MODO 3: NEÓN CYBERPUNK (Holograma Interferométrico + Pulso de Escaneo)
+       */
+      drawCyberpunkCloth() {
+        const ctx = this.ctx;
+        const eng = this.engine;
+        const px = eng.px, py = eng.py, pz = eng.pz;
+        const cols = eng.cols, rows = eng.rows;
+        const numQuads = (cols - 1) * (rows - 1);
+
+        // 1. Celdas holográficas iridiscentes
+        const scanRow = ((eng.simTime * 14) % rows) | 0;
+        for (let q = 0; q < numQuads; q += 1) {
+          if (
+            !eng.cActive[eng.quadTop[q]] ||
+            !eng.cActive[eng.quadBottom[q]] ||
+            !eng.cActive[eng.quadLeft[q]] ||
+            !eng.cActive[eng.quadRight[q]]
+          ) {
+            continue;
+          }
+          const r = (q / (cols - 1)) | 0;
+          const c = q - r * (cols - 1);
+          const i00 = r * cols + c;
+          const i10 = i00 + 1;
+          const i01 = i00 + cols;
+          const i11 = i01 + 1;
+
+          const isScan = Math.abs(r - scanRow) <= 1;
+          const zShift = Math.min(1, Math.max(0, (pz[i00] + 25) / 50));
+
+          if (isScan) {
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
+          } else {
+            ctx.fillStyle = ((c + r) & 1)
+              ? `rgba(18, 12, 46, ${0.42 + zShift * 0.25})`
+              : `rgba(8, 28, 54, ${0.42 + zShift * 0.25})`;
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(px[i00], py[i00]);
+          ctx.lineTo(px[i10], py[i10]);
+          ctx.lineTo(px[i11], py[i11]);
+          ctx.lineTo(px[i01], py[i01]);
+          ctx.fill();
+        }
+
+        // 2. Malla de neón reactiva al estrés
+        const heads = eng.bucketHeads;
+        const next = eng.bucketNext;
+        heads.fill(-1);
+
+        const cA = eng.cA, cB = eng.cB, cActive = eng.cActive, cStrain = eng.cStrain;
+        const maxElong = Math.max(0.08, eng.tearThreshold - 1.0);
+        const limit = eng.enableShear ? eng.totalConstraints : eng.numStructural;
+
+        for (let i = 0; i < limit; i++) {
+          if (!cActive[i]) continue;
+          const norm = (cStrain[i] - 1.0) / maxElong;
+          let b = (norm * (TENSION_BUCKETS - 1)) | 0;
+          if (b < 0) b = 0;
+          else if (b >= TENSION_BUCKETS) b = TENSION_BUCKETS - 1;
+          next[i] = heads[b];
+          heads[b] = i;
+        }
+
+        for (let b = 0; b < TENSION_BUCKETS; b++) {
+          let idx = heads[b];
+          if (idx === -1) continue;
+
+          ctx.beginPath();
+          ctx.strokeStyle = CYBER_COLOR_LUT[b];
+          ctx.lineWidth = b > 20 ? 2.2 : 1.15;
+
+          while (idx !== -1) {
+            const p1 = cA[idx];
+            const p2 = cB[idx];
+            ctx.moveTo(px[p1], py[p1]);
+            ctx.lineTo(px[p2], py[p2]);
+            idx = next[idx];
+          }
+          ctx.stroke();
+        }
+
+        // 3. Nodos luminosos en las intersecciones cada 3 columnas/filas
+        ctx.fillStyle = '#00f0ff';
+        ctx.beginPath();
+        for (let r = 0; r < rows; r += 3) {
+          for (let c = 0; c < cols; c += 3) {
+            const idx = r * cols + c;
+            ctx.rect(px[idx] - 1.2, py[idx] - 1.2, 2.4, 2.4);
+          }
+        }
+        ctx.fill();
+      }
+
+      drawAnchorPins() {
+        const ctx = this.ctx;
+        const eng = this.engine;
+        const px = eng.px, py = eng.py, pinned = eng.pinned;
+
+        ctx.strokeStyle = '#ffbe0b';
+        ctx.fillStyle = '#05070d';
+        ctx.lineWidth = 1.6;
+
+        for (let i = 0; i < eng.numParticles; i++) {
+          if (!pinned[i]) continue;
+          const x = px[i];
+          const y = py[i];
+
+          ctx.beginPath();
+          ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffbe0b';
+          ctx.beginPath();
+          ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#05070d';
+        }
+      }
+
+      drawShockwaves() {
+        const ctx = this.ctx;
+        const waves = this.engine.shockwaves;
+        for (let i = 0; i < waves.length; i++) {
+          const sw = waves[i];
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0, 240, 255, ${sw.alpha * 0.85})`;
+          ctx.lineWidth = 3.5 * sw.alpha + 1;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.r * 0.86, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255, 0, 110, ${sw.alpha * 0.55})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      drawSparks() {
+        const ctx = this.ctx;
+        const sparks = this.engine.sparks;
+        if (sparks.length === 0) return;
+
+        for (let i = 0; i < sparks.length; i++) {
+          const sp = sparks[i];
+          ctx.globalAlpha = Math.max(0, sp.life);
+          ctx.strokeStyle = sp.color;
+          ctx.lineWidth = sp.size;
+          ctx.beginPath();
+          ctx.moveTo(sp.x, sp.y);
+          ctx.lineTo(sp.x - sp.vx * 1.6, sp.y - sp.vy * 1.6);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+      }
+
+      drawCursorAndLaser(mouseState) {
+        const ctx = this.ctx;
+        const eng = this.engine;
+
+        // 1. Estela incandescente del Bisturí Láser
+        const trail = eng.laserTrail;
+        if (trail.length > 0) {
+          ctx.save();
+          ctx.lineCap = 'round';
+          for (let i = 0; i < trail.length; i++) {
+            const seg = trail[i];
+            // Halo exterior magenta
+            ctx.strokeStyle = `rgba(255, 0, 110, ${seg.life * 0.65})`;
+            ctx.lineWidth = 9 * seg.life;
+            ctx.beginPath();
+            ctx.moveTo(seg.x1, seg.y1);
+            ctx.lineTo(seg.x2, seg.y2);
+            ctx.stroke();
+
+            // Núcleo láser blanco-carmesí
+            ctx.strokeStyle = `rgba(255, 235, 245, ${seg.life})`;
+            ctx.lineWidth = 2.4 * seg.life;
+            ctx.beginPath();
+            ctx.moveTo(seg.x1, seg.y1);
+            ctx.lineTo(seg.x2, seg.y2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        if (!mouseState.inside) return;
+
+        const mx = mouseState.x;
+        const my = mouseState.y;
+
+        // 2. Indicador de herramienta sobre el cursor
+        if (mouseState.isLaserActive || eng.primaryTool === 'laser') {
+          ctx.save();
+          ctx.strokeStyle = '#ff006e';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(mx, my, 10, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(mx - 15, my);
+          ctx.lineTo(mx + 15, my);
+          ctx.moveTo(mx, my - 15);
+          ctx.lineTo(mx, my + 15);
+          ctx.stroke();
+          ctx.restore();
+        } else if (eng.primaryTool === 'pin') {
+          ctx.save();
+          ctx.strokeStyle = '#ffbe0b';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(mx, my, 12, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          // Radio de influencia elástica del agarre
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(mx, my, eng.grabRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = mouseState.isGrabbing
+            ? 'rgba(0, 240, 255, 0.62)'
+            : 'rgba(0, 240, 255, 0.22)';
+          ctx.lineWidth = mouseState.isGrabbing ? 1.8 : 1.0;
+          ctx.setLineDash([5, 5]);
+          ctx.stroke();
+
+          if (mouseState.isGrabbing) {
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.06)';
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 5. OSCILOSCOPIO DE TELEMETRÍA EN TIEMPO REAL
+     * ============================================================================
+     */
+    class TelemetryScope {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.w = canvas.width;
+        this.h = canvas.height;
+        this.stressHistory = new Float32Array(this.w);
+        this.windHistory = new Float32Array(this.w);
+        this.ptr = 0;
+      }
+
+      pushSample(normStress, windSample) {
+        this.stressHistory[this.ptr] = normStress;
+        this.windHistory[this.ptr] = windSample;
+        this.ptr = (this.ptr + 1) % this.w;
+      }
+
+      draw() {
+        const ctx = this.ctx;
+        const w = this.w;
+        const h = this.h;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Línea base
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.5);
+        ctx.lineTo(w, h * 0.5);
+        ctx.stroke();
+
+        // Curva de flujo de viento (Cian)
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const idx = (this.ptr + x) % w;
+          const y = h - 4 - this.windHistory[idx] * (h - 8);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Curva de tensión mecánica pico (Ámbar/Magenta)
+        ctx.strokeStyle = '#ff006e';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const idx = (this.ptr + x) % w;
+          const y = h - 3 - this.stressHistory[idx] * (h - 6);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 6. INICIALIZACIÓN, INTERACCIÓN DUAL DEL MOUSE Y CONTROLADORES HUD
+     * ============================================================================
+     */
+    const canvas = document.getElementById('sim-canvas');
+    const engine = new VerletClothEngine();
+    const renderer = new LabRenderer(canvas, engine);
+    const scope = new TelemetryScope(document.getElementById('telemetry-scope'));
+
+    engine.initMesh(renderer.width, renderer.height);
+
+    const mouseState = {
+      x: renderer.width * 0.4,
+      y: renderer.height * 0.4,
+      prevX: renderer.width * 0.4,
+      prevY: renderer.height * 0.4,
+      isGrabbing: false,
+      isLaserActive: false,
+      inside: false
+    };
+
+    // Bloquear menú contextual del navegador para permitir Clic Derecho + Arrastrar (Bisturí Láser)
+    window.addEventListener('contextmenu', (e) => {
+      if (e.target === canvas) {
+        e.preventDefault();
+      }
+    });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      canvas.setPointerCapture(e.pointerId);
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      mouseState.x = mouseState.prevX = x;
+      mouseState.y = mouseState.prevY = y;
+      mouseState.inside = true;
+
+      // Alt + Clic: fijar o soltar punto de anclaje más cercano
+      if (e.altKey || (e.button === 0 && engine.primaryTool === 'pin')) {
+        engine.toggleNearestPin(x, y);
+        return;
+      }
+
+      // Clic Derecho (button === 2) o Shift + Clic Izquierdo o Modo Bisturí seleccionado
+      if (e.button === 2 || (e.button === 0 && e.shiftKey) || (e.button === 0 && engine.primaryTool === 'laser')) {
+        mouseState.isLaserActive = true;
+        mouseState.isGrabbing = false;
+        engine.laserCutSegment(x - 1, y - 1, x + 1, y + 1);
+      } else if (e.button === 0) {
+        mouseState.isGrabbing = true;
+        mouseState.isLaserActive = false;
+        engine.beginGrab(x, y);
+      }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      mouseState.prevX = mouseState.x;
+      mouseState.prevY = mouseState.y;
+      mouseState.x = x;
+      mouseState.y = y;
+      mouseState.inside = true;
+
+      if (mouseState.isLaserActive) {
+        engine.laserCutSegment(mouseState.prevX, mouseState.prevY, x, y);
+      }
+    });
+
+    function releasePointer() {
+      mouseState.isGrabbing = false;
+      mouseState.isLaserActive = false;
+      engine.endGrab();
+    }
+
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('pointerleave', () => {
+      mouseState.inside = false;
+    });
+
+    window.addEventListener('resize', () => {
+      renderer.resize();
+      engine.initMesh(renderer.width, renderer.height);
+    });
+
+    // Atajo de teclado: Barra Espaciadora para disparar Onda de Choque Radial
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+        e.preventDefault();
+        const cx = mouseState.inside ? mouseState.x : undefined;
+        const cy = mouseState.inside ? mouseState.y : undefined;
+        engine.triggerRadialShockwave(cx, cy);
+      } else if (e.code === 'KeyR') {
+        engine.initMesh(renderer.width, renderer.height);
+      }
+    });
+
+    /**
+     * Enlace de controles del HUD
+     */
+    // Modos de renderizado
+    document.querySelectorAll('[data-render]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-render]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        engine.renderMode = btn.getAttribute('data-render');
+      });
+    });
+
+    // Presets de anclaje
+    const presetNamesES = {
+      curtain: 'CORTINA',
+      flag: 'BANDERA',
+      net: 'RED 4 ESQ',
+      rail: 'RIEL LAB'
+    };
+    document.querySelectorAll('[data-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-preset]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const preset = btn.getAttribute('data-preset');
+        document.getElementById('preset-label').textContent = presetNamesES[preset] || 'ACTIVO';
+        engine.preset = preset;
+        engine.initMesh(renderer.width, renderer.height);
+      });
+    });
+
+    // Selector de herramienta primaria
+    document.querySelectorAll('[data-tool]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-tool]').forEach((b) => {
+          b.classList.remove('active', 'laser-mode');
+        });
+        const tool = btn.getAttribute('data-tool');
+        btn.classList.add('active');
+        if (tool === 'laser') btn.classList.add('laser-mode');
+        engine.primaryTool = tool;
+      });
+    });
+
+    // Sliders
+    const sliderGravity = document.getElementById('slider-gravity');
+    const valGravity = document.getElementById('val-gravity');
+    sliderGravity.addEventListener('input', () => {
+      engine.gravity = parseFloat(sliderGravity.value);
+      valGravity.textContent = engine.gravity.toFixed(1);
+    });
+
+    const sliderWind = document.getElementById('slider-wind');
+    const valWind = document.getElementById('val-wind');
+    sliderWind.addEventListener('input', () => {
+      engine.windStrength = parseFloat(sliderWind.value);
+      valWind.textContent = engine.windStrength.toFixed(2);
+    });
+
+    const sliderIterations = document.getElementById('slider-iterations');
+    const valIterations = document.getElementById('val-iterations');
+    sliderIterations.addEventListener('input', () => {
+      engine.solverIterations = parseInt(sliderIterations.value, 10);
+      valIterations.textContent = engine.solverIterations;
+    });
+
+    const sliderTear = document.getElementById('slider-tear');
+    const valTear = document.getElementById('val-tear');
+    const legendThresholdTag = document.getElementById('legend-threshold-tag');
+    sliderTear.addEventListener('input', () => {
+      engine.tearThreshold = parseFloat(sliderTear.value);
+      const txt = engine.tearThreshold.toFixed(2) + 'x';
+      valTear.textContent = txt;
+      legendThresholdTag.textContent = 'RUPTURA: ' + txt;
+    });
+
+    const sliderStiffness = document.getElementById('slider-stiffness');
+    const valStiffness = document.getElementById('val-stiffness');
+    sliderStiffness.addEventListener('input', () => {
+      engine.stiffness = parseFloat(sliderStiffness.value);
+      valStiffness.textContent = engine.stiffness.toFixed(2);
+    });
+
+    const sliderGrabRadius = document.getElementById('slider-grab-radius');
+    const valGrabRadius = document.getElementById('val-grab-radius');
+    sliderGrabRadius.addEventListener('input', () => {
+      engine.grabRadius = parseFloat(sliderGrabRadius.value);
+      valGrabRadius.textContent = engine.grabRadius + ' px';
+    });
+
+    // Toggles
+    const toggleShear = document.getElementById('toggle-shear');
+    toggleShear.addEventListener('click', () => {
+      const next = !engine.enableShear;
+      toggleShear.classList.toggle('on', next);
+      engine.setShearEnabled(next);
+    });
+
+    const toggleSparks = document.getElementById('toggle-sparks');
+    toggleSparks.addEventListener('click', () => {
+      engine.enableSparks = !engine.enableSparks;
+      toggleSparks.classList.toggle('on', engine.enableSparks);
+    });
+
+    // Botones de acción
+    document.getElementById('btn-shockwave').addEventListener('click', () => {
+      engine.triggerRadialShockwave();
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      engine.initMesh(renderer.width, renderer.height);
+    });
+
+    const btnPause = document.getElementById('btn-pause');
+    const statusBadge = document.getElementById('sim-status-badge');
+    btnPause.addEventListener('click', () => {
+      engine.paused = !engine.paused;
+      if (engine.paused) {
+        btnPause.innerHTML = '&#9654; Reanudar';
+        btnPause.classList.add('active');
+        statusBadge.textContent = 'PAUSADO';
+        statusBadge.style.color = 'var(--amber)';
+      } else {
+        btnPause.innerHTML = '&#10074;&#10074; Pausar';
+        btnPause.classList.remove('active');
+        statusBadge.textContent = 'ONLINE 60Hz';
+        statusBadge.style.color = 'var(--emerald)';
+      }
+    });
+
+    // Plegar/Desplegar Panel
+    const controlDock = document.getElementById('control-dock');
+    document.getElementById('btn-collapse-dock').addEventListener('click', () => {
+      controlDock.classList.add('collapsed');
+    });
+    document.getElementById('btn-open-dock').addEventListener('click', () => {
+      controlDock.classList.remove('collapsed');
+    });
+
+    /**
+     * ============================================================================
+     * 7. BUCLE PRINCIPAL DE SIMULACIÓN Y TELEMETRÍA (requestAnimationFrame)
+     * ============================================================================
+     */
+    const elFps = document.getElementById('kpi-fps');
+    const elParticles = document.getElementById('kpi-particles');
+    const elLinksIntact = document.getElementById('kpi-links-intact');
+    const elLinksBroken = document.getElementById('kpi-links-broken');
+    const elMaxStrain = document.getElementById('kpi-max-strain');
+    const elStrainRatio = document.getElementById('kpi-strain-ratio');
+    const elStrainCard = document.getElementById('kpi-strain-card');
+    const elIntegrityPct = document.getElementById('integrity-pct');
+    const elIntegrityBar = document.getElementById('integrity-bar');
+
+    elParticles.textContent = engine.numParticles;
+
+    let lastTime = performance.now();
+    let fpsAccumulator = 0;
+    let fpsFrames = 0;
+    let displayedFps = 60;
+    let uiTick = 0;
+
+    function animate(now) {
+      const rawDt = (now - lastTime) * 0.001;
+      lastTime = now;
+      const dt = Math.min(rawDt, 0.033);
+
+      fpsAccumulator += rawDt;
+      fpsFrames++;
+      if (fpsAccumulator >= 0.35) {
+        displayedFps = Math.min(144, Math.round(fpsFrames / fpsAccumulator));
+        elFps.textContent = displayedFps;
+        fpsAccumulator = 0;
+        fpsFrames = 0;
+      }
+
+      // Ejecutar paso físico
+      engine.step(dt, mouseState);
+
+      // Renderizar escena
+      renderer.render(mouseState);
+
+      // Actualizar telemetría y osciloscopio
+      uiTick++;
+      if (uiTick % 2 === 0) {
+        const windProbe = Math.min(
+          1,
+          Math.max(
+            0,
+            (engine.windStrength / 5.0) *
+              (0.55 + 0.45 * Math.sin(engine.simTime * 3.2))
+          )
+        );
+        scope.pushSample(engine.normalizedPeakStress, windProbe);
+        scope.draw();
+
+        elLinksIntact.textContent = engine.intactCount;
+        elLinksBroken.textContent = engine.brokenCount;
+
+        const stressPct = Math.round(engine.normalizedPeakStress * 100);
+        elMaxStrain.textContent = stressPct + '%';
+        elStrainRatio.textContent = '(' + engine.maxStrainRatio.toFixed(2) + 'x)';
+
+        elStrainCard.classList.remove('warn', 'danger');
+        if (stressPct >= 82) {
+          elStrainCard.classList.add('danger');
+        } else if (stressPct >= 52) {
+          elStrainCard.classList.add('warn');
+        }
+
+        const totalLinks = Math.max(1, engine.intactCount + engine.brokenCount);
+        const integrity = (engine.intactCount / totalLinks) * 100;
+        elIntegrityPct.textContent = integrity.toFixed(1) + '% ÍNTEGRO';
+        elIntegrityBar.style.width = integrity.toFixed(1) + '%';
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

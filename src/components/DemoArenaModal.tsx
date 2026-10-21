@@ -8,8 +8,11 @@ import {
   type ChallengeData,
 } from "@/data/labsData";
 import {
+  EP02_CHALLENGES,
+  type Ep02ChallengeData,
+} from "@/data/ep02Data";
+import {
   Play,
-  Code2,
   Copy,
   Check,
   ExternalLink,
@@ -17,25 +20,26 @@ import {
   Columns,
   Maximize2,
   Terminal,
-  AlertTriangle,
-  Award,
-  Clock,
   FileCode,
   Sparkles,
-  ChevronRight,
   Image as ImageIcon,
+  Cpu,
 } from "lucide-react";
 
 interface Props {
   lang: "es" | "en";
+  activeEpisode: "ep02" | "ep01";
+  onChangeEpisode: (ep: "ep02" | "ep01") => void;
   selectedChallengeN: number;
   onSelectChallengeN: (n: number) => void;
 }
 
-type ArenaTab = "argon" | "split" | "flash" | "prompt" | "source" | "stills";
+type ArenaTab = "argon" | "split" | "opponent" | "prompt" | "source" | "stills";
 
 export default function DemoArenaSection({
   lang,
+  activeEpisode,
+  onChangeEpisode,
   selectedChallengeN,
   onSelectChallengeN,
 }: Props) {
@@ -43,7 +47,7 @@ export default function DemoArenaSection({
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
-  const [sourceModel, setSourceModel] = useState<"argon" | "flash">("argon");
+  const [sourceModel, setSourceModel] = useState<"argon" | "opponent">("argon");
   const [sourceData, setSourceData] = useState<{
     code: string;
     lines: number;
@@ -52,15 +56,31 @@ export default function DemoArenaSection({
   const [loadingSource, setLoadingSource] = useState(false);
   const [showBonus, setShowBonus] = useState(false);
 
-  const currentChallenge: ChallengeData =
+  const isEp02 = activeEpisode === "ep02";
+
+  const ep02Challenge: Ep02ChallengeData =
+    EP02_CHALLENGES.find((c) => c.n === selectedChallengeN) || EP02_CHALLENGES[0];
+
+  const ep01Challenge: ChallengeData =
     CHALLENGES.find((c) => c.n === selectedChallengeN) || CHALLENGES[5];
+
+  const activeDir = showBonus
+    ? BONUS_EXPERIMENT.dir
+    : isEp02
+    ? ep02Challenge.dir
+    : ep01Challenge.dir;
 
   useEffect(() => {
     if (activeTab === "source") {
       setLoadingSource(true);
-      const dir = showBonus ? BONUS_EXPERIMENT.dir : currentChallenge.dir;
-      const model = showBonus ? "argon" : sourceModel;
-      fetch(`/api/source?model=${model}&dir=${dir}`)
+      const apiModel = showBonus
+        ? "argon"
+        : sourceModel === "argon"
+        ? "argon"
+        : isEp02
+        ? "opus"
+        : "flash";
+      fetch(`/api/source?model=${apiModel}&dir=${activeDir}`)
         .then((r) => r.json())
         .then((data) => {
           if (data.code) {
@@ -74,10 +94,14 @@ export default function DemoArenaSection({
         .catch(() => {})
         .finally(() => setLoadingSource(false));
     }
-  }, [activeTab, sourceModel, currentChallenge.dir, showBonus]);
+  }, [activeTab, sourceModel, activeDir, showBonus, isEp02]);
+
+  const activePromptVerbatim = isEp02
+    ? ep02Challenge.prompt_verbatim
+    : ep01Challenge.prompt_verbatim;
 
   const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(currentChallenge.prompt_verbatim);
+    navigator.clipboard.writeText(activePromptVerbatim);
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 2200);
   };
@@ -89,6 +113,9 @@ export default function DemoArenaSection({
     setTimeout(() => setCopiedCode(false), 2200);
   };
 
+  const opponentShortName = isEp02 ? "Opus 5.5" : "Flash";
+  const opponentFullName = isEp02 ? "Claude Opus 5.5" : "Gemini 3.8 Flash";
+
   return (
     <section id="arena" className="scroll-mt-24 py-14 border-t border-[#22A2DD]/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -97,85 +124,177 @@ export default function DemoArenaSection({
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#11283F] border border-[#22A2DD]/30 text-[#5EEAD4] text-xs font-mono-hud uppercase tracking-wider mb-3">
               <Terminal className="w-3.5 h-3.5" />
-              {lang === "es"
-                ? "ARENA INTERACTIVA ZERO-SHOT · 20 SIMULACIONES EN VIVO"
-                : "INTERACTIVE ZERO-SHOT ARENA · 20 LIVE SIMULATIONS"}
+              {isEp02
+                ? lang === "es"
+                  ? "ARENA INTERACTIVA EP02 · 12 MOTORES ZERO-SHOT EN VIVO (ARGON VS OPUS 5.5)"
+                  : "INTERACTIVE ARENA EP02 · 12 LIVE ZERO-SHOT ENGINES (ARGON VS OPUS 5.5)"
+                : lang === "es"
+                ? "ARENA INTERACTIVA EP01 · 20 SIMULACIONES EN VIVO (ARGON VS 3.8 FLASH)"
+                : "INTERACTIVE ARENA EP01 · 20 LIVE SIMULATIONS (ARGON VS 3.8 FLASH)"}
             </div>
             <h2 className="font-display text-2xl sm:text-4xl font-black tracking-tight text-white">
-              {lang === "es"
-                ? "Juega y Audita los 10 Retos en tu Navegador"
-                : "Play & Audit All 10 Challenges in Your Browser"}
+              {isEp02
+                ? lang === "es"
+                  ? "Juega y Audita los 6 Retos Extremos (Argon vs Claude Opus 5.5)"
+                  : "Play & Audit All 6 Extreme Challenges (Argon vs Claude Opus 5.5)"
+                : lang === "es"
+                ? "Juega y Audita los 10 Retos del Episodio 01 (Argon vs 3.8 Flash)"
+                : "Play & Audit All 10 Episode 01 Challenges (Argon vs 3.8 Flash)"}
             </h2>
             <p className="text-[#8FA3B8] text-sm sm:text-base mt-2 max-w-3xl">
-              {lang === "es"
+              {isEp02
+                ? lang === "es"
+                  ? "Cada simulador es el archivo index.html original entregado en un solo intento dentro de Antigravity, sin editar ni una linea. Ejecuta Gemini 4 Argon o Claude Opus 5.5, comparalos lado a lado, o inspecciona la telemetria real de tokens y costos API."
+                  : "Every simulator below is the untouched single-attempt index.html generated inside Antigravity. Run Gemini 4 Argon or Claude Opus 5.5, compare them side-by-side, or inspect real token telemetry and API costs."
+                : lang === "es"
                 ? "Cada simulacion de abajo es el archivo index.html original entregado en un solo intento dentro de Antigravity, sin editar una sola linea. Corre Gemini 4 Argon, comparalo lado a lado contra Gemini 3.8 Flash, o copia el prompt exacto."
                 : "Every simulation below is the untouched single-attempt index.html generated inside Antigravity. Run Gemini 4 Argon, compare it side-by-side against Gemini 3.8 Flash, or copy the verbatim prompt."}
             </p>
           </div>
 
-          {/* Bonus Gummy Bears Toggle */}
-          <div className="flex items-center gap-3 self-start lg:self-end">
+          {/* Episode Switcher + Bonus Gummy Bears Toggle */}
+          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-end">
+            <div className="inline-flex rounded-xl bg-[#0B1D30] p-1 border border-[#22A2DD]/30">
+              <button
+                onClick={() => {
+                  setShowBonus(false);
+                  onChangeEpisode("ep02");
+                }}
+                className={`px-3.5 py-2 rounded-lg font-mono-hud text-xs font-bold transition cursor-pointer ${
+                  isEp02 && !showBonus
+                    ? "bg-[#22A2DD] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                {lang === "es" ? "EP02: Argon vs Opus (12)" : "EP02: Argon vs Opus (12)"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBonus(false);
+                  onChangeEpisode("ep01");
+                }}
+                className={`px-3.5 py-2 rounded-lg font-mono-hud text-xs font-bold transition cursor-pointer ${
+                  !isEp02 && !showBonus
+                    ? "bg-[#22A2DD] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                {lang === "es" ? "EP01: Argon vs Flash (20)" : "EP01: Argon vs Flash (20)"}
+              </button>
+            </div>
+
             <button
               onClick={() => {
                 setShowBonus(!showBonus);
                 if (!showBonus) setActiveTab("argon");
               }}
-              className={`px-4 py-2.5 rounded-xl font-mono-hud text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2.5 rounded-xl font-mono-hud text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer ${
                 showBonus
                   ? "bg-[#B794F6]/20 border-[#B794F6] text-white shadow-[0_0_20px_rgba(183,148,246,0.25)]"
                   : "bg-[#0B1D30] border-[#22A2DD]/25 text-[#8FA3B8] hover:text-white hover:border-[#B794F6]/60"
               }`}
             >
               <Sparkles className="w-4 h-4 text-[#B794F6]" />
-              {lang === "es"
-                ? "Bonus Lab: Gummy Bears SDF"
-                : "Bonus Lab: Gummy Bears SDF"}
+              {lang === "es" ? "Bonus: Gummy Bears SDF" : "Bonus: Gummy Bears SDF"}
             </button>
           </div>
         </div>
 
-        {/* 10 Challenge Selector Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-6">
-          {CHALLENGES.map((ch) => {
-            const isSelected = !showBonus && ch.n === selectedChallengeN;
-            return (
-              <button
-                key={ch.n}
-                onClick={() => {
-                  setShowBonus(false);
-                  onSelectChallengeN(ch.n);
-                }}
-                className={`group relative text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                  isSelected
-                    ? "bg-[#11283F] border-[#B794F6] shadow-[0_0_18px_rgba(183,148,246,0.2)]"
-                    : "bg-[#0B1D30]/80 border-white/10 hover:border-[#22A2DD]/50 hover:bg-[#0B1D30]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span
-                    className={`font-mono-hud text-[11px] font-bold ${
-                      isSelected ? "text-[#B794F6]" : "text-[#5EEAD4]"
-                    }`}
-                  >
-                    N{String(ch.n).padStart(2, "0")}
-                  </span>
-                  {ch.flash_broken ? (
-                    <span className="px-1.5 py-0.5 rounded bg-[#F43F5E]/20 border border-[#F43F5E]/40 text-[#F43F5E] font-mono-hud text-[9px] font-bold">
-                      {lang === "es" ? "FLASH ROTO" : "BROKEN"}
+        {/* Challenge Selector Grid: 6 cards for EP02, 10 cards for EP01 */}
+        {isEp02 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-6">
+            {EP02_CHALLENGES.map((ch) => {
+              const isSelected = !showBonus && ch.n === ep02Challenge.n;
+              const isOpusWin = ch.winner === "opus";
+              return (
+                <button
+                  key={ch.n}
+                  onClick={() => {
+                    setShowBonus(false);
+                    onSelectChallengeN(ch.n);
+                  }}
+                  className={`group relative text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#11283F] border-[#B794F6] shadow-[0_0_18px_rgba(183,148,246,0.22)]"
+                      : "bg-[#0B1D30]/80 border-white/10 hover:border-[#22A2DD]/50 hover:bg-[#0B1D30]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span
+                      className={`font-mono-hud text-[11px] font-bold ${
+                        isSelected ? "text-[#B794F6]" : "text-[#5EEAD4]"
+                      }`}
+                    >
+                      R{String(ch.n).padStart(2, "0")}
                     </span>
-                  ) : (
-                    <span className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                      {ch.time_min.argon}m/{ch.time_min.flash}m
+                    <span
+                      className={`px-1.5 py-0.5 rounded font-mono-hud text-[9px] font-bold ${
+                        isOpusWin
+                          ? "bg-[#FBBF24]/20 border border-[#FBBF24]/40 text-[#FBBF24]"
+                          : "bg-[#34D399]/20 border border-[#34D399]/40 text-[#34D399]"
+                      }`}
+                    >
+                      {isOpusWin ? "OPUS WIN" : "ARGON WIN"}
                     </span>
-                  )}
-                </div>
-                <div className="text-xs font-semibold text-white line-clamp-2 leading-snug">
-                  {lang === "es" ? ch.name_es : ch.name_en}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  </div>
+                  <div className="text-xs font-semibold text-white line-clamp-2 leading-snug mb-1.5">
+                    {lang === "es" ? ch.name_es : ch.name_en}
+                  </div>
+                  <div className="flex items-center justify-between font-mono-hud text-[10px] text-[#8FA3B8] pt-1 border-t border-white/5">
+                    <span>
+                      {ch.time_min.argon}m vs {ch.time_min.opus}m
+                    </span>
+                    <span className="text-[#5EEAD4]">
+                      ${ch.cost_usd.argon.toFixed(2)}/${ch.cost_usd.opus.toFixed(2)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-6">
+            {CHALLENGES.map((ch) => {
+              const isSelected = !showBonus && ch.n === ep01Challenge.n;
+              return (
+                <button
+                  key={ch.n}
+                  onClick={() => {
+                    setShowBonus(false);
+                    onSelectChallengeN(ch.n);
+                  }}
+                  className={`group relative text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#11283F] border-[#B794F6] shadow-[0_0_18px_rgba(183,148,246,0.2)]"
+                      : "bg-[#0B1D30]/80 border-white/10 hover:border-[#22A2DD]/50 hover:bg-[#0B1D30]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span
+                      className={`font-mono-hud text-[11px] font-bold ${
+                        isSelected ? "text-[#B794F6]" : "text-[#5EEAD4]"
+                      }`}
+                    >
+                      N{String(ch.n).padStart(2, "0")}
+                    </span>
+                    {ch.flash_broken ? (
+                      <span className="px-1.5 py-0.5 rounded bg-[#F43F5E]/20 border border-[#F43F5E]/40 text-[#F43F5E] font-mono-hud text-[9px] font-bold">
+                        {lang === "es" ? "FLASH ROTO" : "BROKEN"}
+                      </span>
+                    ) : (
+                      <span className="font-mono-hud text-[10px] text-[#8FA3B8]">
+                        {ch.time_min.argon}m/{ch.time_min.flash}m
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs font-semibold text-white line-clamp-2 leading-snug">
+                    {lang === "es" ? ch.name_es : ch.name_en}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Main Arena Card */}
         <div className="rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/25 overflow-hidden shadow-2xl">
@@ -211,19 +330,23 @@ export default function DemoArenaSection({
                 </div>
               </div>
             </div>
-          ) : (
+          ) : isEp02 ? (
             <div className="p-5 sm:p-6 bg-gradient-to-r from-[#0B1D30] via-[#11283F] to-[#0B1D30] border-b border-white/10">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 text-xs font-mono-hud mb-1.5">
                     <span className="px-2.5 py-0.5 rounded-md bg-[#22A2DD]/15 border border-[#22A2DD]/40 text-[#5EEAD4]">
                       {lang === "es"
-                        ? currentChallenge.world_es
-                        : currentChallenge.world_en}
+                        ? ep02Challenge.world_es
+                        : ep02Challenge.world_en}
                     </span>
                     <a
-                      href={`${lang === "es" ? YOUTUBE_LINKS.ep01_es : YOUTUBE_LINKS.ep01_en}?t=${(() => {
-                        const [mm, ss] = currentChallenge.timestamp.split(":").map(Number);
+                      href={`${YOUTUBE_LINKS.ep02_es}?t=${(() => {
+                        const ts =
+                          lang === "es"
+                            ? ep02Challenge.timestamp_es
+                            : ep02Challenge.timestamp_en;
+                        const [mm, ss] = ts.split(":").map(Number);
                         return (mm || 0) * 60 + (ss || 0);
                       })()}`}
                       target="_blank"
@@ -231,65 +354,94 @@ export default function DemoArenaSection({
                       className="px-2.5 py-0.5 rounded-md bg-[#F43F5E]/15 hover:bg-[#F43F5E]/25 border border-[#F43F5E]/40 text-white hover:text-[#F43F5E] transition-colors cursor-pointer"
                     >
                       {lang === "es"
-                        ? `VER EN YT (${currentChallenge.timestamp})`
-                        : `WATCH ON YT (${currentChallenge.timestamp})`}
+                        ? `VER EN YT (${ep02Challenge.timestamp_es})`
+                        : `WATCH ON YT (${ep02Challenge.timestamp_en})`}
                     </a>
-                    <span className="px-2.5 py-0.5 rounded-md bg-[#34D399]/15 border border-[#34D399]/40 text-[#34D399] font-bold">
-                      {lang === "es"
-                        ? "GANADOR: GEMINI 4 ARGON"
-                        : "WINNER: GEMINI 4 ARGON"}
-                    </span>
-                    {currentChallenge.flash_broken && (
-                      <span className="px-2.5 py-0.5 rounded-md bg-[#F43F5E]/15 border border-[#F43F5E]/40 text-[#F43F5E] font-bold">
+                    {ep02Challenge.winner === "argon" ? (
+                      <span className="px-2.5 py-0.5 rounded-md bg-[#34D399]/15 border border-[#34D399]/40 text-[#34D399] font-bold">
                         {lang === "es"
-                          ? "FLASH ENTREGO ROTO / INCOMPLETO"
-                          : "FLASH DELIVERED BROKEN"}
+                          ? "GANADOR: GEMINI 4 ARGON"
+                          : "WINNER: GEMINI 4 ARGON"}
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-md bg-[#FBBF24]/15 border border-[#FBBF24]/40 text-[#FBBF24] font-bold">
+                        {lang === "es"
+                          ? "GANADOR: CLAUDE OPUS 5.5"
+                          : "WINNER: CLAUDE OPUS 5.5"}
+                      </span>
+                    )}
+                    {ep02Challenge.opus_slow_fps && (
+                      <span className="px-2.5 py-0.5 rounded-md bg-[#F43F5E]/15 border border-[#F43F5E]/40 text-[#F43F5E] font-bold">
+                        OPUS FPS: {ep02Challenge.fps.opus}
                       </span>
                     )}
                   </div>
                   <h3 className="font-display text-xl sm:text-2xl font-black text-white">
                     {lang === "es"
-                      ? `Nivel ${currentChallenge.n}: ${currentChallenge.name_es}`
-                      : `Level ${currentChallenge.n}: ${currentChallenge.name_en}`}
+                      ? `Reto 0${ep02Challenge.n}: ${ep02Challenge.name_es}`
+                      : `Challenge 0${ep02Challenge.n}: ${ep02Challenge.name_en}`}
                   </h3>
                   <p className="text-xs sm:text-sm text-[#8FA3B8] mt-1">
                     <span className="text-[#5EEAD4] font-mono-hud">Stack:</span>{" "}
-                    {currentChallenge.tech}
+                    {ep02Challenge.tech}
                   </p>
                 </div>
 
-                {/* Speed & Code Scoreboard */}
+                {/* EP02 Speed, Tokens & Cost Scoreboard */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 shrink-0">
                   <div className="px-3.5 py-2 rounded-xl bg-[#060B14]/80 border border-[#B794F6]/40">
-                    <div className="text-[10px] font-mono-hud uppercase text-[#B794F6]">
-                      Gemini 4 Argon
-                    </div>
-                    <div className="font-mono-hud text-base font-bold text-white">
-                      {currentChallenge.time_min.argon} min{" "}
-                      <span className="text-xs font-normal text-[#8FA3B8]">
-                        · {currentChallenge.code_stats.argon_lines} loc (
-                        {currentChallenge.code_stats.argon_kb} KB)
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-mono-hud uppercase text-[#B794F6]">
+                      <span>Gemini 4 Argon</span>
+                      <span className="text-[#34D399] font-bold">
+                        ${ep02Challenge.cost_usd.argon.toFixed(2)} USD
                       </span>
                     </div>
+                    <div className="font-mono-hud text-base font-bold text-white">
+                      {ep02Challenge.time_min.argon} min{" "}
+                      <span className="text-xs font-normal text-[#8FA3B8]">
+                        · {ep02Challenge.code_stats.argon_lines} loc ·{" "}
+                        {ep02Challenge.fps.argon}
+                      </span>
+                    </div>
+                    <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
+                      Tokens: {ep02Challenge.tokens.argon_total} (
+                      {ep02Challenge.tokens.argon_steps} pasos)
+                    </div>
                   </div>
+
                   <div className="px-3.5 py-2 rounded-xl bg-[#060B14]/80 border border-[#FBBF24]/40">
-                    <div className="text-[10px] font-mono-hud uppercase text-[#FBBF24]">
-                      Gemini 3.8 Flash
-                    </div>
-                    <div className="font-mono-hud text-base font-bold text-white">
-                      {currentChallenge.time_min.flash} min{" "}
-                      <span className="text-xs font-normal text-[#8FA3B8]">
-                        · {currentChallenge.code_stats.flash_lines} loc (
-                        {currentChallenge.code_stats.flash_kb} KB)
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-mono-hud uppercase text-[#FBBF24]">
+                      <span>Claude Opus 5.5</span>
+                      <span className="text-[#FBBF24] font-bold">
+                        ${ep02Challenge.cost_usd.opus.toFixed(2)} USD
                       </span>
                     </div>
+                    <div className="font-mono-hud text-base font-bold text-white">
+                      {ep02Challenge.time_min.opus} min{" "}
+                      <span className="text-xs font-normal text-[#8FA3B8]">
+                        · {ep02Challenge.code_stats.opus_lines} loc ·{" "}
+                        {ep02Challenge.fps.opus}
+                      </span>
+                    </div>
+                    <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
+                      Tokens: {ep02Challenge.tokens.opus_total} (
+                      {ep02Challenge.tokens.opus_steps} pasos)
+                    </div>
                   </div>
+
                   <div className="col-span-2 sm:col-span-1 px-3.5 py-2 rounded-xl bg-[#060B14]/80 border border-white/10">
                     <div className="text-[10px] font-mono-hud uppercase text-[#5EEAD4]">
-                      {lang === "es" ? "Diferencia Reloj" : "Speed Ratio"}
+                      {lang === "es" ? "Reloj y Factura API" : "Clock & API Bill"}
                     </div>
                     <div className="font-mono-hud text-xs font-bold text-white mt-0.5">
-                      {currentChallenge.speed_ratio}
+                      {lang === "es"
+                        ? ep02Challenge.speed_ratio_es
+                        : ep02Challenge.speed_ratio_en}
+                    </div>
+                    <div className="font-mono-hud text-[11px] text-[#34D399] mt-0.5">
+                      {lang === "es"
+                        ? ep02Challenge.cost_ratio_es
+                        : ep02Challenge.cost_ratio_en}
                     </div>
                   </div>
                 </div>
@@ -302,8 +454,104 @@ export default function DemoArenaSection({
                     [HALLAZGO CLAVE]
                   </span>
                   {lang === "es"
-                    ? currentChallenge.fun_angle_es
-                    : currentChallenge.fun_angle_en}
+                    ? ep02Challenge.fun_angle_es
+                    : ep02Challenge.fun_angle_en}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-[#0B1D30] via-[#11283F] to-[#0B1D30] border-b border-white/10">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono-hud mb-1.5">
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#22A2DD]/15 border border-[#22A2DD]/40 text-[#5EEAD4]">
+                      {lang === "es"
+                        ? ep01Challenge.world_es
+                        : ep01Challenge.world_en}
+                    </span>
+                    <a
+                      href={`${lang === "es" ? YOUTUBE_LINKS.ep01_es : YOUTUBE_LINKS.ep01_en}?t=${(() => {
+                        const [mm, ss] = ep01Challenge.timestamp.split(":").map(Number);
+                        return (mm || 0) * 60 + (ss || 0);
+                      })()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-0.5 rounded-md bg-[#F43F5E]/15 hover:bg-[#F43F5E]/25 border border-[#F43F5E]/40 text-white hover:text-[#F43F5E] transition-colors cursor-pointer"
+                    >
+                      {lang === "es"
+                        ? `VER EN YT (${ep01Challenge.timestamp})`
+                        : `WATCH ON YT (${ep01Challenge.timestamp})`}
+                    </a>
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#34D399]/15 border border-[#34D399]/40 text-[#34D399] font-bold">
+                      {lang === "es"
+                        ? "GANADOR: GEMINI 4 ARGON"
+                        : "WINNER: GEMINI 4 ARGON"}
+                    </span>
+                    {ep01Challenge.flash_broken && (
+                      <span className="px-2.5 py-0.5 rounded-md bg-[#F43F5E]/15 border border-[#F43F5E]/40 text-[#F43F5E] font-bold">
+                        {lang === "es"
+                          ? "FLASH ENTREGO ROTO / INCOMPLETO"
+                          : "FLASH DELIVERED BROKEN"}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-display text-xl sm:text-2xl font-black text-white">
+                    {lang === "es"
+                      ? `Nivel ${ep01Challenge.n}: ${ep01Challenge.name_es}`
+                      : `Level ${ep01Challenge.n}: ${ep01Challenge.name_en}`}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#8FA3B8] mt-1">
+                    <span className="text-[#5EEAD4] font-mono-hud">Stack:</span>{" "}
+                    {ep01Challenge.tech}
+                  </p>
+                </div>
+
+                {/* EP01 Speed & Code Scoreboard */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 shrink-0">
+                  <div className="px-3.5 py-2 rounded-xl bg-[#060B14]/80 border border-[#B794F6]/40">
+                    <div className="text-[10px] font-mono-hud uppercase text-[#B794F6]">
+                      Gemini 4 Argon
+                    </div>
+                    <div className="font-mono-hud text-base font-bold text-white">
+                      {ep01Challenge.time_min.argon} min{" "}
+                      <span className="text-xs font-normal text-[#8FA3B8]">
+                        · {ep01Challenge.code_stats.argon_lines} loc (
+                        {ep01Challenge.code_stats.argon_kb} KB)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="px-3.5 py-2 rounded-xl bg-[#060B14]/80 border border-[#FBBF24]/40">
+                    <div className="text-[10px] font-mono-hud uppercase text-[#FBBF24]">
+                      Gemini 3.8 Flash
+                    </div>
+                    <div className="font-mono-hud text-base font-bold text-white">
+                      {ep01Challenge.time_min.flash} min{" "}
+                      <span className="text-xs font-normal text-[#8FA3B8]">
+                        · {ep01Challenge.code_stats.flash_lines} loc (
+                        {ep01Challenge.code_stats.flash_kb} KB)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 px-3.5 py-2 rounded-xl bg-[#060B14]/80 border border-white/10">
+                    <div className="text-[10px] font-mono-hud uppercase text-[#5EEAD4]">
+                      {lang === "es" ? "Diferencia Reloj" : "Speed Ratio"}
+                    </div>
+                    <div className="font-mono-hud text-xs font-bold text-white mt-0.5">
+                      {ep01Challenge.speed_ratio}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fun Angle / Insight Banner */}
+              <div className="mt-4 p-3.5 rounded-xl bg-[#060B14]/70 border border-[#22A2DD]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p className="text-xs sm:text-sm text-[#F5F7FA]">
+                  <span className="font-mono-hud font-bold text-[#5EEAD4] mr-2">
+                    [HALLAZGO CLAVE]
+                  </span>
+                  {lang === "es"
+                    ? ep01Challenge.fun_angle_es
+                    : ep01Challenge.fun_angle_en}
                 </p>
               </div>
             </div>
@@ -324,8 +572,8 @@ export default function DemoArenaSection({
                 {showBonus
                   ? "Jugar Gummy Bears (WebGL)"
                   : lang === "es"
-                  ? "Jugar Argon (Ganador)"
-                  : "Play Argon (Winner)"}
+                  ? "Jugar Argon"
+                  : "Play Argon"}
               </button>
 
               {!showBonus && (
@@ -340,20 +588,22 @@ export default function DemoArenaSection({
                   >
                     <Columns className="w-3.5 h-3.5" />
                     {lang === "es"
-                      ? "Arena Lado a Lado (Flash vs Argon)"
-                      : "Side-by-Side Arena (Flash vs Argon)"}
+                      ? `Arena Lado a Lado (${opponentShortName} vs Argon)`
+                      : `Side-by-Side Arena (${opponentShortName} vs Argon)`}
                   </button>
 
                   <button
-                    onClick={() => setActiveTab("flash")}
+                    onClick={() => setActiveTab("opponent")}
                     className={`px-3.5 py-2 rounded-lg font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      activeTab === "flash"
+                      activeTab === "opponent"
                         ? "bg-[#FBBF24] text-[#060B14]"
                         : "bg-[#0B1D30] text-[#8FA3B8] hover:text-white border border-white/10"
                     }`}
                   >
                     <Play className="w-3.5 h-3.5" />
-                    {lang === "es" ? "Jugar Flash" : "Play Flash"}
+                    {lang === "es"
+                      ? `Jugar ${opponentShortName}`
+                      : `Play ${opponentShortName}`}
                   </button>
 
                   <button
@@ -365,7 +615,11 @@ export default function DemoArenaSection({
                     }`}
                   >
                     <Terminal className="w-3.5 h-3.5" />
-                    {lang === "es"
+                    {isEp02
+                      ? lang === "es"
+                        ? "Prompt, Tokens y Auditoria"
+                        : "Prompt, Tokens & Audit"
+                      : lang === "es"
                       ? "Prompt Exacto y Auditoria"
                       : "Verbatim Prompt & Audit"}
                   </button>
@@ -400,7 +654,7 @@ export default function DemoArenaSection({
             {/* Right Controls: Reload Iframe + Open in New Tab */}
             <div className="flex items-center gap-2">
               {(activeTab === "argon" ||
-                activeTab === "flash" ||
+                activeTab === "opponent" ||
                 activeTab === "split") && (
                 <button
                   onClick={() => setIframeKey((k) => k + 1)}
@@ -414,7 +668,11 @@ export default function DemoArenaSection({
               {!showBonus && (
                 <>
                   <a
-                    href={currentChallenge.demo_urls.argon}
+                    href={
+                      isEp02
+                        ? ep02Challenge.demo_urls.argon
+                        : ep01Challenge.demo_urls.argon
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-lg bg-[#B794F6]/15 hover:bg-[#B794F6]/25 border border-[#B794F6]/40 text-xs font-mono-hud text-[#B794F6] flex items-center gap-1"
@@ -423,13 +681,17 @@ export default function DemoArenaSection({
                     Argon
                   </a>
                   <a
-                    href={currentChallenge.demo_urls.flash}
+                    href={
+                      isEp02
+                        ? ep02Challenge.demo_urls.opus
+                        : ep01Challenge.demo_urls.flash
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-lg bg-[#FBBF24]/15 hover:bg-[#FBBF24]/25 border border-[#FBBF24]/40 text-xs font-mono-hud text-[#FBBF24] flex items-center gap-1"
                   >
                     <Maximize2 className="w-3 h-3" />
-                    Flash
+                    {opponentShortName}
                   </a>
                 </>
               )}
@@ -443,25 +705,33 @@ export default function DemoArenaSection({
                 <span className="text-[#B794F6] font-bold">
                   {showBonus
                     ? "GEMINI 4 ARGON // GUMMY BEARS SOFT-BODY SIMULATION"
-                    : `GEMINI 4 ARGON (HIGH) // ${currentChallenge.page_titles.argon}`}
+                    : isEp02
+                    ? `GEMINI 4 ARGON (HIGH) // ${ep02Challenge.page_titles.argon}`
+                    : `GEMINI 4 ARGON (HIGH) // ${ep01Challenge.page_titles.argon}`}
                 </span>
                 <span className="text-[#8FA3B8]">
                   {showBonus
                     ? `${BONUS_EXPERIMENT.lines} lineas · ${BONUS_EXPERIMENT.kb} KB`
-                    : `${currentChallenge.time_min.argon} min · ${currentChallenge.code_stats.argon_lines} lineas`}
+                    : isEp02
+                    ? `${ep02Challenge.time_min.argon} min · $${ep02Challenge.cost_usd.argon.toFixed(2)} USD · ${ep02Challenge.code_stats.argon_lines} lineas · ${ep02Challenge.fps.argon}`
+                    : `${ep01Challenge.time_min.argon} min · ${ep01Challenge.code_stats.argon_lines} lineas`}
                 </span>
               </div>
               <iframe
-                key={`argon-${currentChallenge.dir}-${showBonus}-${iframeKey}`}
+                key={`argon-${activeEpisode}-${activeDir}-${showBonus}-${iframeKey}`}
                 src={
                   showBonus
                     ? BONUS_EXPERIMENT.demo_url
-                    : currentChallenge.demo_urls.argon
+                    : isEp02
+                    ? ep02Challenge.demo_urls.argon
+                    : ep01Challenge.demo_urls.argon
                 }
                 title={
                   showBonus
                     ? "Gummy Bears Soft-Body Physics"
-                    : currentChallenge.page_titles.argon
+                    : isEp02
+                    ? ep02Challenge.page_titles.argon
+                    : ep01Challenge.page_titles.argon
                 }
                 className="w-full h-[560px] sm:h-[650px] border-0 bg-black"
                 sandbox="allow-scripts allow-same-origin allow-pointer-lock"
@@ -469,21 +739,32 @@ export default function DemoArenaSection({
             </div>
           )}
 
-          {activeTab === "flash" && !showBonus && (
+          {activeTab === "opponent" && !showBonus && (
             <div className="relative bg-black">
               <div className="px-4 py-2 bg-[#060B14] border-b border-white/10 flex items-center justify-between text-xs font-mono-hud">
                 <span className="text-[#FBBF24] font-bold">
-                  GEMINI 3.8 FLASH (HIGH) // {currentChallenge.page_titles.flash}
+                  {isEp02
+                    ? `CLAUDE OPUS 5.5 (HIGH) // ${ep02Challenge.page_titles.opus}`
+                    : `GEMINI 3.8 FLASH (HIGH) // ${ep01Challenge.page_titles.flash}`}
                 </span>
                 <span className="text-[#8FA3B8]">
-                  {currentChallenge.time_min.flash} min ·{" "}
-                  {currentChallenge.code_stats.flash_lines} lineas
+                  {isEp02
+                    ? `${ep02Challenge.time_min.opus} min · $${ep02Challenge.cost_usd.opus.toFixed(2)} USD · ${ep02Challenge.code_stats.opus_lines} lineas · ${ep02Challenge.fps.opus}`
+                    : `${ep01Challenge.time_min.flash} min · ${ep01Challenge.code_stats.flash_lines} lineas`}
                 </span>
               </div>
               <iframe
-                key={`flash-${currentChallenge.dir}-${iframeKey}`}
-                src={currentChallenge.demo_urls.flash}
-                title={currentChallenge.page_titles.flash}
+                key={`opponent-${activeEpisode}-${activeDir}-${iframeKey}`}
+                src={
+                  isEp02
+                    ? ep02Challenge.demo_urls.opus
+                    : ep01Challenge.demo_urls.flash
+                }
+                title={
+                  isEp02
+                    ? ep02Challenge.page_titles.opus
+                    : ep01Challenge.page_titles.flash
+                }
                 className="w-full h-[560px] sm:h-[650px] border-0 bg-black"
                 sandbox="allow-scripts allow-same-origin allow-pointer-lock"
               />
@@ -492,21 +773,28 @@ export default function DemoArenaSection({
 
           {activeTab === "split" && !showBonus && (
             <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/15 bg-black">
-              {/* Left: FLASH (per Mixiuh Labs canon: FLASH always on the left, ARGON on the right) */}
+              {/* Left: OPPONENT (per Mixiuh Labs canon: Opponent always on the left in amber, ARGON on the right in violet) */}
               <div>
                 <div className="px-4 py-2 bg-[#060B14] border-b border-[#FBBF24]/30 flex items-center justify-between text-xs font-mono-hud">
                   <span className="text-[#FBBF24] font-bold">
-                    [IZQUIERDA] GEMINI 3.8 FLASH · {currentChallenge.time_min.flash} MIN
+                    {isEp02
+                      ? `[IZQUIERDA] CLAUDE OPUS 5.5 · ${ep02Challenge.time_min.opus} MIN · $${ep02Challenge.cost_usd.opus.toFixed(2)}`
+                      : `[IZQUIERDA] GEMINI 3.8 FLASH · ${ep01Challenge.time_min.flash} MIN`}
                   </span>
                   <span className="text-[#8FA3B8]">
-                    {currentChallenge.code_stats.flash_lines} loc ·{" "}
-                    {currentChallenge.code_stats.flash_kb} KB
+                    {isEp02
+                      ? `${ep02Challenge.code_stats.opus_lines} loc · ${ep02Challenge.fps.opus}`
+                      : `${ep01Challenge.code_stats.flash_lines} loc · ${ep01Challenge.code_stats.flash_kb} KB`}
                   </span>
                 </div>
                 <iframe
-                  key={`split-flash-${currentChallenge.dir}-${iframeKey}`}
-                  src={currentChallenge.demo_urls.flash}
-                  title={`Flash - ${currentChallenge.name_es}`}
+                  key={`split-opp-${activeEpisode}-${activeDir}-${iframeKey}`}
+                  src={
+                    isEp02
+                      ? ep02Challenge.demo_urls.opus
+                      : ep01Challenge.demo_urls.flash
+                  }
+                  title={`${opponentFullName} - ${activeDir}`}
                   className="w-full h-[480px] sm:h-[560px] border-0 bg-black"
                   sandbox="allow-scripts allow-same-origin allow-pointer-lock"
                 />
@@ -516,17 +804,24 @@ export default function DemoArenaSection({
               <div>
                 <div className="px-4 py-2 bg-[#060B14] border-b border-[#B794F6]/30 flex items-center justify-between text-xs font-mono-hud">
                   <span className="text-[#B794F6] font-bold">
-                    [DERECHA] GEMINI 4 ARGON · {currentChallenge.time_min.argon} MIN (GANADOR)
+                    {isEp02
+                      ? `[DERECHA] GEMINI 4 ARGON · ${ep02Challenge.time_min.argon} MIN · $${ep02Challenge.cost_usd.argon.toFixed(2)}`
+                      : `[DERECHA] GEMINI 4 ARGON · ${ep01Challenge.time_min.argon} MIN (GANADOR)`}
                   </span>
                   <span className="text-[#8FA3B8]">
-                    {currentChallenge.code_stats.argon_lines} loc ·{" "}
-                    {currentChallenge.code_stats.argon_kb} KB
+                    {isEp02
+                      ? `${ep02Challenge.code_stats.argon_lines} loc · ${ep02Challenge.fps.argon}`
+                      : `${ep01Challenge.code_stats.argon_lines} loc · ${ep01Challenge.code_stats.argon_kb} KB`}
                   </span>
                 </div>
                 <iframe
-                  key={`split-argon-${currentChallenge.dir}-${iframeKey}`}
-                  src={currentChallenge.demo_urls.argon}
-                  title={`Argon - ${currentChallenge.name_es}`}
+                  key={`split-argon-${activeEpisode}-${activeDir}-${iframeKey}`}
+                  src={
+                    isEp02
+                      ? ep02Challenge.demo_urls.argon
+                      : ep01Challenge.demo_urls.argon
+                  }
+                  title={`Argon - ${activeDir}`}
                   className="w-full h-[480px] sm:h-[560px] border-0 bg-black"
                   sandbox="allow-scripts allow-same-origin allow-pointer-lock"
                 />
@@ -540,19 +835,89 @@ export default function DemoArenaSection({
               <div className="p-5 rounded-xl bg-[#0B1D30] border border-[#34D399]/30">
                 <div className="text-xs font-mono-hud uppercase text-[#34D399] font-bold mb-1.5">
                   {lang === "es"
-                    ? "NOTA TEXTUAL DE EVALUACION DE KEVIN GONZALEZ (ARBITRO)"
-                    : "KEVIN GONZALEZ'S VERBATIM REFEREE NOTE"}
+                    ? "VEREDICTO Y AUDITORIA DE KEVIN GONZALEZ (ARBITRO)"
+                    : "KEVIN GONZALEZ'S REFEREE VERDICT & AUDIT"}
                 </div>
                 <p className="text-sm sm:text-base text-white leading-relaxed">
                   &ldquo;
-                  {lang === "es"
-                    ? currentChallenge.kevin_note_verbatim
-                    : currentChallenge.kevin_note_en}
+                  {isEp02
+                    ? lang === "es"
+                      ? ep02Challenge.kevin_note_es
+                      : ep02Challenge.kevin_note_en
+                    : lang === "es"
+                    ? ep01Challenge.kevin_note_verbatim
+                    : ep01Challenge.kevin_note_en}
                   &rdquo;
                 </p>
               </div>
 
-              {/* Feature & Problem Audit Grid */}
+              {/* EP02 Token & API Cost Telemetry Box */}
+              {isEp02 && (
+                <div className="p-5 rounded-xl bg-[#0B1D30] border border-[#22A2DD]/30">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div className="text-xs font-mono-hud uppercase text-[#5EEAD4] font-bold flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5" />
+                      {lang === "es"
+                        ? `TELEMETRIA DE TOKENS Y FACTURA API · RETO 0${ep02Challenge.n}`
+                        : `TOKEN TELEMETRY & API BILL · CHALLENGE 0${ep02Challenge.n}`}
+                    </div>
+                    <span className="font-mono-hud text-xs text-[#8FA3B8]">
+                      {lang === "es"
+                        ? ep02Challenge.cost_ratio_es
+                        : ep02Challenge.cost_ratio_en}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono-hud text-xs">
+                    <div className="p-3.5 rounded-lg bg-[#060B14] border border-[#B794F6]/30 flex items-center justify-between">
+                      <div>
+                        <div className="text-[#B794F6] font-bold">
+                          GEMINI 4 ARGON (HIGH)
+                        </div>
+                        <div className="text-[#8FA3B8] mt-1">
+                          In: {ep02Challenge.tokens.argon_in} · Cache:{" "}
+                          {ep02Challenge.tokens.argon_cache} · Out:{" "}
+                          {ep02Challenge.tokens.argon_out}
+                        </div>
+                        <div className="text-white mt-0.5">
+                          Total: {ep02Challenge.tokens.argon_total} tokens (
+                          {ep02Challenge.tokens.argon_steps} pasos)
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-[#34D399]">
+                          ${ep02Challenge.cost_usd.argon.toFixed(2)}
+                        </div>
+                        <div className="text-[10px] text-[#8FA3B8]">USD</div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-lg bg-[#060B14] border border-[#FBBF24]/30 flex items-center justify-between">
+                      <div>
+                        <div className="text-[#FBBF24] font-bold">
+                          CLAUDE OPUS 5.5 (HIGH)
+                        </div>
+                        <div className="text-[#8FA3B8] mt-1">
+                          In+CW: {ep02Challenge.tokens.opus_in} · Cache:{" "}
+                          {ep02Challenge.tokens.opus_cache} · Out:{" "}
+                          {ep02Challenge.tokens.opus_out}
+                        </div>
+                        <div className="text-white mt-0.5">
+                          Total: {ep02Challenge.tokens.opus_total} tokens (
+                          {ep02Challenge.tokens.opus_steps} pasos)
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-[#FBBF24]">
+                          ${ep02Challenge.cost_usd.opus.toFixed(2)}
+                        </div>
+                        <div className="text-[10px] text-[#8FA3B8]">USD</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Feature & Observation Audit Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Argon Features */}
                 <div className="p-5 rounded-xl bg-[#0B1D30] border border-[#B794F6]/30">
@@ -563,11 +928,16 @@ export default function DemoArenaSection({
                         : "Delivered by Gemini 4 Argon (High)"}
                     </span>
                     <span className="font-mono-hud text-xs px-2 py-0.5 rounded bg-[#B794F6]/15">
-                      {currentChallenge.time_min.argon} min
+                      {isEp02
+                        ? `${ep02Challenge.time_min.argon}m · $${ep02Challenge.cost_usd.argon.toFixed(2)}`
+                        : `${ep01Challenge.time_min.argon} min`}
                     </span>
                   </h4>
                   <ul className="space-y-2 text-xs sm:text-sm text-[#F5F7FA]">
-                    {currentChallenge.argon_features.map((feat, i) => (
+                    {(isEp02
+                      ? ep02Challenge.argon_features
+                      : ep01Challenge.argon_features
+                    ).map((feat, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="font-mono-hud text-[#34D399] font-bold mt-0.5">
                           [+]
@@ -578,21 +948,30 @@ export default function DemoArenaSection({
                   </ul>
                 </div>
 
-                {/* Flash Features & Problems */}
+                {/* Opponent Features & Observations */}
                 <div className="p-5 rounded-xl bg-[#0B1D30] border border-[#FBBF24]/30 space-y-4">
                   <div>
                     <h4 className="font-display text-base font-bold text-[#FBBF24] mb-3 flex items-center justify-between">
                       <span>
-                        {lang === "es"
+                        {isEp02
+                          ? lang === "es"
+                            ? "Lo que entrego Claude Opus 5.5 (High)"
+                            : "Delivered by Claude Opus 5.5 (High)"
+                          : lang === "es"
                           ? "Lo que entrego Gemini 3.8 Flash (High)"
                           : "Delivered by Gemini 3.8 Flash (High)"}
                       </span>
                       <span className="font-mono-hud text-xs px-2 py-0.5 rounded bg-[#FBBF24]/15">
-                        {currentChallenge.time_min.flash} min
+                        {isEp02
+                          ? `${ep02Challenge.time_min.opus}m · $${ep02Challenge.cost_usd.opus.toFixed(2)}`
+                          : `${ep01Challenge.time_min.flash} min`}
                       </span>
                     </h4>
                     <ul className="space-y-2 text-xs sm:text-sm text-[#F5F7FA]">
-                      {currentChallenge.flash_features.map((feat, i) => (
+                      {(isEp02
+                        ? ep02Challenge.opus_features
+                        : ep01Challenge.flash_features
+                      ).map((feat, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className="font-mono-hud text-[#FBBF24] font-bold mt-0.5">
                             [·]
@@ -605,12 +984,19 @@ export default function DemoArenaSection({
 
                   <div className="pt-3 border-t border-white/10">
                     <div className="text-xs font-mono-hud uppercase text-[#F43F5E] font-bold mb-2">
-                      {lang === "es"
+                      {isEp02
+                        ? lang === "es"
+                          ? "NOTAS DE AUDITORIA Y TELEMETRIA EN OPUS 5.5"
+                          : "AUDIT & TELEMETRY NOTES ON OPUS 5.5"
+                        : lang === "es"
                         ? "FALLOS Y OMISIONES DETECTADOS EN FLASH"
                         : "BUGS & OMISSIONS DETECTED IN FLASH"}
                     </div>
                     <ul className="space-y-2 text-xs sm:text-sm text-[#8FA3B8]">
-                      {currentChallenge.flash_problems.map((prob, i) => (
+                      {(isEp02
+                        ? ep02Challenge.opus_observations
+                        : ep01Challenge.flash_problems
+                      ).map((prob, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className="font-mono-hud text-[#F43F5E] font-bold mt-0.5">
                             [!]
@@ -629,8 +1015,8 @@ export default function DemoArenaSection({
                   <div>
                     <span className="font-mono-hud text-xs font-bold text-[#5EEAD4]">
                       {lang === "es"
-                        ? `PROMPT OFICIAL INTEGRO · NIVEL ${currentChallenge.n} (${currentChallenge.dir})`
-                        : `OFFICIAL VERBATIM PROMPT · LEVEL ${currentChallenge.n} (${currentChallenge.dir})`}
+                        ? `PROMPT OFICIAL INTEGRO · ${isEp02 ? `EP02 RETO 0${ep02Challenge.n}` : `EP01 NIVEL ${ep01Challenge.n}`} (${activeDir})`
+                        : `OFFICIAL VERBATIM PROMPT · ${isEp02 ? `EP02 CHALLENGE 0${ep02Challenge.n}` : `EP01 LEVEL ${ep01Challenge.n}`} (${activeDir})`}
                     </span>
                   </div>
                   <button
@@ -653,7 +1039,7 @@ export default function DemoArenaSection({
                   </button>
                 </div>
                 <pre className="p-4 sm:p-6 text-xs sm:text-sm font-mono-hud text-[#F5F7FA] whitespace-pre-wrap leading-relaxed max-h-[460px] overflow-y-auto">
-                  {currentChallenge.prompt_verbatim}
+                  {activePromptVerbatim}
                 </pre>
               </div>
             </div>
@@ -661,20 +1047,39 @@ export default function DemoArenaSection({
 
           {activeTab === "stills" && !showBonus && (
             <div className="p-5 sm:p-8 bg-[#060B14]/90 space-y-6">
+              {isEp02 && ep02Challenge.stills.vs && (
+                <div className="rounded-xl overflow-hidden border border-[#22A2DD]/40 bg-black">
+                  <div className="px-4 py-2 bg-[#11283F] text-xs font-mono-hud font-bold text-[#5EEAD4]">
+                    {lang === "es"
+                      ? `COMPARATIVA LADO A LADO 4K — RETO 0${ep02Challenge.n} (OPUS 5.5 VS ARGON)`
+                      : `4K SIDE-BY-SIDE COMPARISON — CHALLENGE 0${ep02Challenge.n} (OPUS 5.5 VS ARGON)`}
+                  </div>
+                  <img
+                    src={ep02Challenge.stills.vs}
+                    alt={`EP02 VS ${ep02Challenge.dir}`}
+                    className="w-full h-auto object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#FBBF24] font-bold mb-3">
-                    [IZQUIERDA] CAPTURAS DE GRABACION REAL — GEMINI 3.8 FLASH
+                    [IZQUIERDA] CAPTURAS DE GRABACION REAL — {opponentFullName.toUpperCase()}
                   </h4>
                   <div className="space-y-3">
-                    {currentChallenge.stills.flash.map((src) => (
+                    {(isEp02
+                      ? ep02Challenge.stills.opus
+                      : ep01Challenge.stills.flash
+                    ).map((src) => (
                       <div
                         key={src}
                         className="rounded-xl overflow-hidden border border-[#FBBF24]/30 bg-black"
                       >
                         <img
                           src={src}
-                          alt={`Flash capture ${src}`}
+                          alt={`${opponentShortName} capture ${src}`}
                           className="w-full h-auto object-cover"
                           loading="lazy"
                         />
@@ -690,7 +1095,10 @@ export default function DemoArenaSection({
                     [DERECHA] CAPTURAS DE GRABACION REAL — GEMINI 4 ARGON
                   </h4>
                   <div className="space-y-3">
-                    {currentChallenge.stills.argon.map((src) => (
+                    {(isEp02
+                      ? ep02Challenge.stills.argon
+                      : ep01Challenge.stills.argon
+                    ).map((src) => (
                       <div
                         key={src}
                         className="rounded-xl overflow-hidden border border-[#B794F6]/30 bg-black"
@@ -726,19 +1134,26 @@ export default function DemoArenaSection({
                             : "bg-[#0B1D30] text-[#8FA3B8] border border-white/10"
                         }`}
                       >
-                        gemini-4-argon/{currentChallenge.dir}/index.html (
-                        {currentChallenge.code_stats.argon_lines} loc)
+                        gemini-4-argon/{activeDir}/index.html (
+                        {isEp02
+                          ? ep02Challenge.code_stats.argon_lines
+                          : ep01Challenge.code_stats.argon_lines}{" "}
+                        loc)
                       </button>
                       <button
-                        onClick={() => setSourceModel("flash")}
+                        onClick={() => setSourceModel("opponent")}
                         className={`px-3.5 py-1.5 rounded-lg font-mono-hud text-xs font-bold cursor-pointer ${
-                          sourceModel === "flash"
+                          sourceModel === "opponent"
                             ? "bg-[#FBBF24] text-[#060B14]"
                             : "bg-[#0B1D30] text-[#8FA3B8] border border-white/10"
                         }`}
                       >
-                        gemini-3.8-flash/{currentChallenge.dir}/index.html (
-                        {currentChallenge.code_stats.flash_lines} loc)
+                        {isEp02 ? "claude-opus-5.5" : "gemini-3.8-flash"}/
+                        {activeDir}/index.html (
+                        {isEp02
+                          ? ep02Challenge.code_stats.opus_lines
+                          : ep01Challenge.code_stats.flash_lines}{" "}
+                        loc)
                       </button>
                     </>
                   )}

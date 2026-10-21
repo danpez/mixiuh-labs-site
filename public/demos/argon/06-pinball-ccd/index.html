@@ -1,0 +1,2749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NEON OVERDRIVE // Cyberpunk Pinball CCD Engine</title>
+  <style>
+    :root {
+      --bg-void: #05050b;
+      --bg-panel: #0b0c18;
+      --bg-card: #101326;
+      --neon-cyan: #00f3ff;
+      --neon-magenta: #ff007f;
+      --neon-yellow: #ffe600;
+      --neon-green: #00ff88;
+      --neon-orange: #ff6b00;
+      --neon-purple: #b537f2;
+      --text-main: #e8f4ff;
+      --text-dim: #6c7fa6;
+      --border-glow: rgba(0, 243, 255, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 35% 25%, #111530 0%, #06060e 65%, #020205 100%);
+      color: var(--text-main);
+      font-family: 'Courier New', 'JetBrains Mono', 'Consolas', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Ambient Cyber Grid Backdrop */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 0, 127, 0.03) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .arcade-shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      justify-content: center;
+      gap: 16px;
+      height: min(97vh, 920px);
+      max-width: 98vw;
+      padding: 10px;
+    }
+
+    /* Pinball Cabinet Frame */
+    .cabinet-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #0d1024 0%, #070812 100%);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 16px;
+      box-shadow:
+        0 0 28px rgba(0, 243, 255, 0.22),
+        inset 0 0 24px rgba(255, 0, 127, 0.14);
+      padding: 8px;
+      height: 100%;
+      aspect-ratio: 560 / 880;
+    }
+
+    canvas#pinballCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 10px;
+      background: #05060f;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    /* On-screen Mobile / Mouse Touch Controls Overlay at bottom of cabinet */
+    .touch-controls {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 52px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      gap: 10px;
+    }
+
+    .touch-btn {
+      pointer-events: auto;
+      background: rgba(11, 14, 32, 0.78);
+      border: 1.5px solid rgba(0, 243, 255, 0.55);
+      color: var(--neon-cyan);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      text-transform: uppercase;
+      transition: transform 0.06s ease, background 0.1s ease, box-shadow 0.1s ease;
+      box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+    }
+
+    .touch-btn:active, .touch-btn.active {
+      background: rgba(0, 243, 255, 0.25);
+      color: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 0 18px var(--neon-cyan);
+      transform: translateY(1px) scale(0.98);
+    }
+
+    /* Right Side Panel: LED Matrix Scoreboard & Physics Telemetry */
+    .side-panel {
+      width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: rgba(11, 12, 24, 0.94);
+      border: 1.5px solid rgba(0, 243, 255, 0.35);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow:
+        0 0 30px rgba(0, 0, 0, 0.8),
+        inset 0 0 20px rgba(0, 243, 255, 0.06);
+      overflow-y: auto;
+    }
+
+    .brand-header {
+      border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .brand-sub {
+      font-size: 10px;
+      color: var(--neon-magenta);
+      letter-spacing: 1.5px;
+      font-weight: 700;
+    }
+
+    /* Dot-Matrix LED Scoreboard Display */
+    .led-matrix-box {
+      position: relative;
+      background: #06040a;
+      border: 2px solid #231b38;
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow:
+        inset 0 0 18px rgba(255, 0, 127, 0.22),
+        0 0 12px rgba(0, 243, 255, 0.12);
+      overflow: hidden;
+    }
+
+    /* Subtle LED dot grid overlay */
+    .led-matrix-box::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(0, 0, 0, 0.45) 1px, transparent 0);
+      background-size: 3px 3px;
+      pointer-events: none;
+    }
+
+    .led-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    .led-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .led-label {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: #8b9bb4;
+      text-transform: uppercase;
+    }
+
+    .led-score {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--neon-yellow);
+      text-shadow:
+        0 0 8px rgba(255, 230, 0, 0.85),
+        0 0 18px rgba(255, 107, 0, 0.65);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .led-highscore {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: var(--neon-magenta);
+      text-shadow: 0 0 8px var(--neon-magenta);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .led-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.12);
+    }
+
+    .led-stat-cell {
+      background: rgba(16, 20, 42, 0.85);
+      border: 1px solid rgba(0, 243, 255, 0.22);
+      border-radius: 6px;
+      padding: 5px 6px;
+      text-align: center;
+    }
+
+    .led-stat-cell .lbl {
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      display: block;
+    }
+
+    .led-stat-cell .val {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .led-stat-cell .val.mult-val {
+      color: var(--neon-green);
+      text-shadow: 0 0 8px var(--neon-green);
+    }
+
+    .led-stat-cell .val.mb-val {
+      color: var(--neon-magenta);
+      text-shadow: 0 0 8px var(--neon-magenta);
+    }
+
+    /* Status Ticker Banner */
+    .led-banner {
+      margin-top: 8px;
+      background: rgba(255, 0, 127, 0.12);
+      border: 1px solid rgba(255, 0, 127, 0.4);
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #ff99cc;
+      text-align: center;
+      letter-spacing: 1.2px;
+      text-shadow: 0 0 6px var(--neon-magenta);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Plunger Tension Gauge in Sidebar */
+    .plunger-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(0, 243, 255, 0.22);
+      border-radius: 10px;
+      padding: 9px 12px;
+    }
+
+    .card-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tension-bar-outer {
+      width: 100%;
+      height: 12px;
+      background: #060710;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .tension-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--neon-cyan) 0%, var(--neon-yellow) 60%, var(--neon-magenta) 100%);
+      box-shadow: 0 0 12px var(--neon-magenta);
+      transition: width 0.03s linear;
+    }
+
+    /* Action Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .cyber-btn {
+      background: linear-gradient(180deg, #151b38 0%, #0c1022 100%);
+      border: 1px solid rgba(0, 243, 255, 0.45);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+    }
+
+    .cyber-btn:hover {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(0, 243, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .cyber-btn.active-toggle {
+      background: linear-gradient(180deg, rgba(0, 255, 136, 0.24) 0%, rgba(0, 180, 95, 0.15) 100%);
+      border-color: var(--neon-green);
+      color: var(--neon-green);
+      box-shadow: 0 0 14px rgba(0, 255, 136, 0.3);
+    }
+
+    .cyber-btn.magenta-btn {
+      border-color: rgba(255, 0, 127, 0.55);
+      color: #ff85c1;
+    }
+
+    .cyber-btn.magenta-btn:hover {
+      border-color: var(--neon-magenta);
+      box-shadow: 0 0 12px rgba(255, 0, 127, 0.4);
+    }
+
+    /* Physics Telemetry & CCD Debug Card */
+    .telemetry-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(0, 243, 255, 0.24);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 11px;
+    }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 2.5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .telemetry-row:last-child {
+      border-bottom: none;
+    }
+
+    .t-key {
+      color: var(--text-dim);
+    }
+
+    .t-val {
+      color: var(--neon-cyan);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .substep-selector {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .substep-chip {
+      flex: 1;
+      background: #080b18;
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .substep-chip.selected {
+      background: rgba(0, 243, 255, 0.2);
+      border-color: var(--neon-cyan);
+      color: #fff;
+      box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+    }
+
+    /* Mission & Controls Legend */
+    .legend-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: #b4c6e0;
+    }
+
+    .kbd {
+      display: inline-block;
+      background: #1b2242;
+      border: 1px solid rgba(0, 243, 255, 0.4);
+      border-radius: 4px;
+      padding: 0px 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+    }
+
+    @media (max-width: 900px) {
+      .arcade-shell {
+        flex-direction: column;
+        height: 99vh;
+        gap: 8px;
+      }
+      .side-panel {
+        width: 100%;
+        max-height: 34vh;
+      }
+      .cabinet-wrap {
+        height: 63vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="arcade-shell">
+    <!-- PINBALL PLAYFIELD CABINET -->
+    <div class="cabinet-wrap">
+      <canvas id="pinballCanvas" width="560" height="880"></canvas>
+      <div class="touch-controls">
+        <button id="btnLeftFlip" class="touch-btn" type="button">◄ FLIP IZQ (A / ←)</button>
+        <button id="btnNudge" class="touch-btn" type="button">▲ NUDGE (W / ↑)</button>
+        <button id="btnRightFlip" class="touch-btn" type="button">FLIP DER (D / →) ►</button>
+      </div>
+    </div>
+
+    <!-- LED MATRIX & TELEMETRY SIDEBAR -->
+    <aside class="side-panel">
+      <div class="brand-header">
+        <div>
+          <div class="brand-title">NEON // OVERDRIVE</div>
+          <div class="brand-sub">CCD SUB-STEPPING PINBALL ENGINE</div>
+        </div>
+        <div style="text-align:right; font-size:10px; color:var(--neon-green); font-weight:700;">
+          ZERO-TUNNEL<br/>v2.4 ARCADE
+        </div>
+      </div>
+
+      <!-- LED MATRIX SCOREBOARD -->
+      <div class="led-matrix-box">
+        <div class="led-row">
+          <span class="led-label">PUNTAJE ACTUAL</span>
+          <span id="uiScore" class="led-score">000,000</span>
+        </div>
+        <div class="led-row">
+          <span class="led-label">HIGH SCORE</span>
+          <span id="uiHighScore" class="led-highscore">000,000</span>
+        </div>
+        <div class="led-meta-grid">
+          <div class="led-stat-cell">
+            <span class="lbl">BOLAS</span>
+            <span id="uiBalls" class="val">3</span>
+          </div>
+          <div class="led-stat-cell">
+            <span class="lbl">MULTIPLICADOR</span>
+            <span id="uiMultiplier" class="val mult-val">1X</span>
+          </div>
+          <div class="led-stat-cell">
+            <span class="lbl">EN JUEGO</span>
+            <span id="uiActiveBalls" class="val mb-val">1</span>
+          </div>
+        </div>
+        <div id="uiBanner" class="led-banner">MANTÉN [ESPACIO] O ARRASTRA EL RESORTE</div>
+      </div>
+
+      <!-- PLUNGER SPRING TENSION METER -->
+      <div class="plunger-card">
+        <div class="card-title">
+          <span>RESORTE LANZADOR (PLUNGER)</span>
+          <span id="uiTensionPct" style="color:var(--neon-yellow);">0%</span>
+        </div>
+        <div class="tension-bar-outer">
+          <div id="uiTensionBar" class="tension-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE CONTROLS & BENCHMARK BUTTONS -->
+      <div class="btn-grid">
+        <button id="btnDebug" class="cyber-btn" type="button" title="Conmutar vectores de velocidad y normales de colisión">
+          🛠 DEBUG FÍSICO: OFF
+        </button>
+        <button id="btnMute" class="cyber-btn active-toggle" type="button" title="Activar/Silenciar Sintetizador WebAudio">
+          🔊 AUDIO SYNTH: ON
+        </button>
+        <button id="btnMultiball" class="cyber-btn magenta-btn" type="button" title="Probar Multiball 3 bolas al instante">
+          ⚡ TEST MULTIBALL (3X)
+        </button>
+        <button id="btnReset" class="cyber-btn" type="button" title="Reiniciar partida">
+          ↻ REINICIAR MESA
+        </button>
+      </div>
+
+      <!-- REAL-TIME CCD TELEMETRY -->
+      <div class="telemetry-card">
+        <div class="card-title">
+          <span>TELEMETRÍA CCD &amp; SUB-STEPPING</span>
+          <span id="uiFpsBadge" style="color:var(--neon-green);">60 FPS</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="t-key">Sub-pasos / Frame:</span>
+          <span id="uiSubsteps" class="t-val">20 pasos (1200 Hz)</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="t-key">Chequeos CCD / seg:</span>
+          <span id="uiChecksPerSec" class="t-val">0</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="t-key">Vel. Máx Bola:</span>
+          <span id="uiMaxSpeed" class="t-val">0 px/s</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="t-key">Dianas Abatibles:</span>
+          <span id="uiDropStatus" class="t-val">0 / 7 completadas</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="t-key">Spinner RPM:</span>
+          <span id="uiSpinnerRpm" class="t-val">0 RPM</span>
+        </div>
+        <div class="substep-selector" title="Ajustar precisión de Sub-stepping en tiempo real">
+          <button class="substep-chip" data-steps="12" type="button">12 SUBS</button>
+          <button class="substep-chip" data-steps="16" type="button">16 SUBS</button>
+          <button class="substep-chip selected" data-steps="20" type="button">20 SUBS</button>
+          <button class="substep-chip" data-steps="28" type="button">28 SUBS</button>
+        </div>
+      </div>
+
+      <!-- CONTROLS & RULES LEGEND -->
+      <div class="legend-card">
+        <div class="card-title" style="margin-bottom:4px;">CONTROLES Y REGLAS DE LA MESA</div>
+        <div>• <span class="kbd">ESPACIO</span> o <b>Arrastrar Resorte</b>: Comprimir y lanzar bola.</div>
+        <div>• <span class="kbd">←</span> / <span class="kbd">A</span> y <span class="kbd">→</span> / <span class="kbd">D</span>: Flippers (incluye 3er Flipper superior).</div>
+        <div>• <span class="kbd">↑</span> / <span class="kbd">W</span>: Sacudir mesa (Nudge) | <span class="kbd">B</span>: Modo Debug Físico.</div>
+        <div>• <b>Dianas (Drop Targets)</b>: Derriba el banco Izq (C-Y-B-R) o Der (O-V-R) para activar <b>MULTIBALL (3 bolas)</b> y subir multiplicador <b>2X → 4X → 8X</b>.</div>
+        <div>• <b>Spinner + Carriles SUP</b>: Gira el rotor izquierdo para cargar multiplicador y bonos de habilidad.</div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // =========================================================================
+      // 1. PROCEDURAL WEBAUDIO SYNTHESIZER (ZERO EXTERNAL ASSETS)
+      // =========================================================================
+      class CyberAudioSynth {
+        constructor() {
+          this.ctx = null;
+          this.muted = false;
+          this.lastWallTick = 0;
+          this.lastSpinnerTick = 0;
+        }
+
+        ensureContext() {
+          if (this.muted) return false;
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+              this.ctx = new AudioCtx();
+            }
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+          return Boolean(this.ctx);
+        }
+
+        toggleMute() {
+          this.muted = !this.muted;
+          if (!this.muted) {
+            this.ensureContext();
+            this.playBumperHit(1);
+          }
+          return this.muted;
+        }
+
+        playFlipper(isUp) {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = isUp ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(isUp ? 135 : 95, now);
+          osc.frequency.exponentialRampToValueAtTime(isUp ? 420 : 52, now + 0.055);
+
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.065);
+        }
+
+        playPlungerRelease(powerRatio) {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          const baseFreq = 90 + powerRatio * 140;
+          osc.frequency.setValueAtTime(baseFreq, now);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq * 3.4, now + 0.19);
+
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.21);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        }
+
+        playBumperHit(variant = 0) {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const pitches = [261.63, 329.63, 392.00, 523.25, 659.25];
+          const root = pitches[variant % pitches.length];
+
+          // Sub-bass punch + FM harmonic bell
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = 'square';
+          osc2.type = 'sine';
+
+          osc1.frequency.setValueAtTime(root, now);
+          osc1.frequency.exponentialRampToValueAtTime(root * 1.9, now + 0.045);
+          osc1.frequency.exponentialRampToValueAtTime(root * 0.75, now + 0.14);
+
+          osc2.frequency.setValueAtTime(root * 2.5, now);
+          osc2.frequency.exponentialRampToValueAtTime(root * 1.25, now + 0.14);
+
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.16);
+          osc2.stop(now + 0.16);
+        }
+
+        playSlingshot() {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(160, now + 0.095);
+
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.105);
+        }
+
+        playDropTarget(allCleared = false) {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const notes = allCleared ? [440, 554.37, 659.25, 880, 1108.73] : [380, 570];
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const t0 = now + idx * 0.055;
+            osc.frequency.setValueAtTime(freq, t0);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.12, t0 + 0.09);
+
+            gain.gain.setValueAtTime(0.18, t0);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.11);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t0);
+            osc.stop(t0 + 0.12);
+          });
+        }
+
+        playSpinnerTick(speedFactor = 1) {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          if (now - this.lastSpinnerTick < 0.028) return;
+          this.lastSpinnerTick = now;
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          const freq = Math.min(1800, 680 + speedFactor * 35);
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.25, now + 0.02);
+
+          gain.gain.setValueAtTime(0.09, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.028);
+        }
+
+        playRollover() {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(740, now);
+          osc.frequency.setValueAtTime(1110, now + 0.045);
+
+          gain.gain.setValueAtTime(0.13, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        }
+
+        playWallBounce(impactSpeed) {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          if (now - this.lastWallTick < 0.035 || impactSpeed < 90) return;
+          this.lastWallTick = now;
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          const vol = Math.min(0.11, (impactSpeed / 1200) * 0.1);
+          osc.frequency.setValueAtTime(170 + Math.min(240, impactSpeed * 0.15), now);
+          osc.frequency.exponentialRampToValueAtTime(75, now + 0.025);
+
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.028);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.03);
+        }
+
+        playDrain() {
+          if (!this.ensureContext()) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(310, now);
+          osc.frequency.exponentialRampToValueAtTime(58, now + 0.42);
+
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        }
+      }
+
+      // =========================================================================
+      // 2. VECTOR & CONTINUOUS COLLISION DETECTION (CCD) MATH UTILITIES
+      // =========================================================================
+      const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+
+      /**
+       * Returns closest point on segment AB to point P, plus normalized parameter t in [0, 1]
+       */
+      function closestPointOnSegment(px, py, ax, ay, bx, by) {
+        const abx = bx - ax;
+        const aby = by - ay;
+        const lenSq = abx * abx + aby * aby;
+        if (lenSq < 1e-8) {
+          return { x: ax, y: ay, t: 0 };
+        }
+        const apx = px - ax;
+        const apy = py - ay;
+        const t = clamp((apx * abx + apy * aby) / lenSq, 0, 1);
+        return {
+          x: ax + t * abx,
+          y: ay + t * aby,
+          t
+        };
+      }
+
+      /**
+       * Checks if swept motion segment P0->P1 intersects segment A->B.
+       * Used as an additional safeguard so even extreme velocity spikes cannot tunnel.
+       */
+      function intersectSegments(p0x, p0y, p1x, p1y, ax, ay, bx, by) {
+        const rX = p1x - p0x;
+        const rY = p1y - p0y;
+        const sX = bx - ax;
+        const sY = by - ay;
+        const denom = rX * sY - rY * sX;
+        if (Math.abs(denom) < 1e-8) return null;
+        const qpX = ax - p0x;
+        const qpY = ay - p0y;
+        const u = (qpX * rY - qpY * rX) / denom;
+        const t = (qpX * sY - qpY * sX) / denom;
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+          return {
+            x: p0x + t * rX,
+            y: p0y + t * rY,
+            t,
+            u
+          };
+        }
+        return null;
+      }
+
+      // =========================================================================
+      // 3. TABLE ARCHITECTURE & PLAYFIELD DEFINITIONS (560 x 880)
+      // =========================================================================
+      const canvas = document.getElementById('pinballCanvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;   // 560
+      const H = canvas.height;  // 880
+
+      const synth = new CyberAudioSynth();
+
+      // Physics Constants
+      const GRAVITY = 690;             // Table slope gravity (px/s^2)
+      const BALL_RADIUS = 10.5;        // Standard steel cyber-ball radius (px)
+      const AIR_DAMPING = 0.99985;     // Per sub-step velocity retention
+      const MAX_BALL_SPEED = 2450;     // Clamped peak speed (px/s)
+
+      // Configurable sub-steps per frame (default 20, user-selectable 12..28)
+      let subStepsPerFrame = 20;
+      let debugMode = false;
+
+      // Game State
+      let score = 0;
+      let highScore = 0;
+      try {
+        highScore = parseInt(localStorage.getItem('cyber_pinball_hi') || '0', 10) || 0;
+      } catch (_) {
+        highScore = 0;
+      }
+      let ballsRemaining = 3;
+      let multiplier = 1;
+      let gameOver = false;
+      let bannerText = 'MANTÉN [ESPACIO] O ARRASTRA EL RESORTE';
+      let bannerTimer = 0;
+
+      // Screen Shake State
+      let shakeIntensity = 0;
+      let shakeX = 0;
+      let shakeY = 0;
+
+      // Kickback Shield (Left Outlane saver)
+      let leftKickbackArmed = true;
+
+      // Telemetry Counters
+      let collisionChecksThisFrame = 0;
+      let displayedChecksPerSec = 0;
+      let displayedFps = 60;
+      let maxObservedBallSpeed = 0;
+      let fpsFrameCount = 0;
+      let fpsAccumTime = 0;
+
+      // Input State
+      const keys = {
+        left: false,
+        right: false,
+        space: false
+      };
+
+      // Plunger (Right Launch Channel: x = 494..532, center x = 513)
+      const plunger = {
+        x: 513,
+        restY: 805,
+        maxPull: 72,
+        pull: 0,           // 0..72 px
+        tension: 0,        // 0..1
+        isDragging: false,
+        dragStartY: 0,
+        lastReleaseVy: 0
+      };
+
+      // One-Way Gate at top of Plunger Channel
+      const oneWayGate = {
+        ax: 488,
+        ay: 168,
+        bx: 523,
+        by: 112,
+        openVisualTimer: 0
+      };
+
+      // Build Static Wall Segments (Outer Arch, Plunger Divider, Guides, Slingshots)
+      const walls = [];
+
+      function addWall(ax, ay, bx, by, opts = {}) {
+        const dx = bx - ax;
+        const dy = by - ay;
+        const len = Math.hypot(dx, dy) || 1;
+        // Default left-hand normal (-dy, dx) / len
+        let nx = -dy / len;
+        let ny = dx / len;
+        if (opts.flipNormal) {
+          nx = -nx;
+          ny = -ny;
+        }
+        walls.push({
+          ax, ay, bx, by,
+          nx, ny,
+          restitution: opts.restitution ?? 0.55,
+          thickness: opts.thickness ?? 2.5,
+          color: opts.color ?? '#00f3ff',
+          kickerSpeed: opts.kickerSpeed ?? 0,
+          scoreValue: opts.scoreValue ?? 0,
+          tag: opts.tag ?? 'wall',
+          flash: 0
+        });
+      }
+
+      function buildPlayfieldGeometry() {
+        walls.length = 0;
+
+        // 1. Smooth Upper Arch from Left Wall (28, 225) over Top (280, 32) to Right Outer Wall (532, 225)
+        const archSegments = 28;
+        const centerX = 280;
+        const centerY = 225;
+        const rx = 252;
+        const ry = 193;
+        for (let i = 0; i < archSegments; i++) {
+          const a0 = Math.PI + (i / archSegments) * Math.PI;
+          const a1 = Math.PI + ((i + 1) / archSegments) * Math.PI;
+          const x0 = centerX + rx * Math.cos(a0);
+          const y0 = centerY + ry * Math.sin(a0);
+          const x1 = centerX + rx * Math.cos(a1);
+          const y1 = centerY + ry * Math.sin(a1);
+          // Normal points inward toward (centerX, centerY)
+          addWall(x0, y0, x1, y1, {
+            restitution: 0.45,
+            color: '#00f3ff',
+            flipNormal: true
+          });
+        }
+
+        // 2. Left Outer Boundary & Bottom Left Apron
+        addWall(28, 705, 28, 225, { restitution: 0.5, color: '#00f3ff', flipNormal: true });
+        addWall(28, 705, 168, 798, { restitution: 0.42, color: '#00f3ff', flipNormal: true });
+        addWall(168, 798, 168, 868, { restitution: 0.4, color: '#00f3ff', flipNormal: true });
+
+        // 3. Right Outer Wall (Plunger Outer Wall) & Plunger Floor
+        addWall(532, 225, 532, 838, { restitution: 0.45, color: '#00f3ff', flipNormal: true });
+        addWall(494, 838, 532, 838, { restitution: 0.25, color: '#ffe600', flipNormal: true });
+
+        // 4. Plunger Inner Divider Wall (x = 494 from y = 838 up to y = 168)
+        addWall(494, 838, 494, 215, { restitution: 0.48, color: '#ff007f' });
+        addWall(494, 215, 488, 168, { restitution: 0.48, color: '#ff007f' });
+
+        // 5. Right Playfield Lower Apron (feeds toward drain / right flipper)
+        addWall(494, 705, 354, 798, { restitution: 0.42, color: '#00f3ff' });
+        addWall(354, 798, 354, 868, { restitution: 0.4, color: '#00f3ff' });
+
+        // 6. Upper Skill Rollover Divider Fins (3 Lanes at top center)
+        addWall(205, 82, 205, 142, { restitution: 0.6, thickness: 3.5, color: '#ffe600' });
+        addWall(262, 74, 262, 136, { restitution: 0.6, thickness: 3.5, color: '#ffe600' });
+        addWall(318, 82, 318, 142, { restitution: 0.6, thickness: 3.5, color: '#ffe600' });
+
+        // 7. Left Spinner Orbit Guide Wall (guides ball through the Left Spinner channel)
+        addWall(96, 198, 96, 305, { restitution: 0.55, thickness: 3.5, color: '#00ff88' });
+        addWall(96, 305, 114, 345, { restitution: 0.55, thickness: 3.5, color: '#00ff88' });
+
+        // 8. Left Drop-Target Backing Wall & Angled Bumper Guide
+        addWall(46, 378, 46, 512, { restitution: 0.5, thickness: 3, color: '#ff007f' });
+        addWall(28, 365, 46, 378, { restitution: 0.5, color: '#ff007f' });
+        addWall(46, 512, 28, 526, { restitution: 0.5, color: '#ff007f' });
+
+        // 9. Right Drop-Target Backing Wall (Mid-Upper Right)
+        addWall(444, 245, 476, 352, { restitution: 0.5, thickness: 3, color: '#ff007f' });
+        addWall(476, 352, 494, 368, { restitution: 0.5, color: '#ff007f' });
+
+        // 10. Left Inlane / Outlane Guide Rail (feeds smoothly onto Left Flipper pivot at 168, 768)
+        addWall(68, 575, 68, 692, { restitution: 0.48, thickness: 3, color: '#00f3ff' });
+        addWall(68, 692, 168, 768, { restitution: 0.35, thickness: 3, color: '#00f3ff' });
+
+        // 11. Right Inlane / Outlane Guide Rail (feeds smoothly onto Right Flipper pivot at 354, 768)
+        addWall(454, 575, 454, 692, { restitution: 0.48, thickness: 3, color: '#00f3ff' });
+        addWall(454, 692, 354, 768, { restitution: 0.35, thickness: 3, color: '#00f3ff' });
+
+        // 12. Left Slingshot Triangle (Above Left Flipper)
+        // Active Kicker Face: (106, 582) -> (172, 718) facing Up-Right into playfield
+        addWall(106, 582, 172, 718, {
+          restitution: 0.9,
+          kickerSpeed: 740,
+          scoreValue: 350,
+          color: '#ff007f',
+          tag: 'slingshot',
+          flipNormal: true
+        });
+        addWall(106, 582, 106, 686, { restitution: 0.5, color: '#00f3ff' });
+        addWall(106, 686, 172, 718, { restitution: 0.45, color: '#00f3ff', flipNormal: true });
+
+        // 13. Right Slingshot Triangle (Above Right Flipper)
+        // Active Kicker Face: (350, 718) -> (416, 582) facing Up-Left into playfield
+        addWall(350, 718, 416, 582, {
+          restitution: 0.9,
+          kickerSpeed: 740,
+          scoreValue: 350,
+          color: '#ff007f',
+          tag: 'slingshot',
+          flipNormal: true
+        });
+        addWall(416, 582, 416, 686, { restitution: 0.5, color: '#00f3ff', flipNormal: true });
+        addWall(350, 718, 416, 686, { restitution: 0.45, color: '#00f3ff', flipNormal: true });
+      }
+
+      // =========================================================================
+      // 4. FLIPPERS (2 LOWER + 1 UPPER MINI FLIPPER WITH ANGULAR VELOCITY CCD)
+      // =========================================================================
+      const flippers = [
+        {
+          id: 'left',
+          side: 'left',
+          px: 168,
+          py: 768,
+          length: 75,
+          rBase: 11,
+          rTip: 7,
+          restAngle: 0.43,                 // Points down-right at rest
+          activeAngle: -0.52,              // Swings up-right when energized
+          angle: 0.43,
+          omega: 0,                        // Instantaneous angular velocity (rad/s)
+          maxOmegaUp: 28.0,                // Fast solenoid upward snap
+          maxOmegaDown: 17.5,              // Spring return speed
+          color: '#00f3ff',
+          wasPressed: false
+        },
+        {
+          id: 'right',
+          side: 'right',
+          px: 354,
+          py: 768,
+          length: 75,
+          rBase: 11,
+          rTip: 7,
+          restAngle: Math.PI - 0.43,       // Points down-left at rest
+          activeAngle: Math.PI + 0.52,     // Swings up-left when energized
+          angle: Math.PI - 0.43,
+          omega: 0,
+          maxOmegaUp: 28.0,
+          maxOmegaDown: 17.5,
+          color: '#ff007f',
+          wasPressed: false
+        },
+        {
+          id: 'upperRight',
+          side: 'right',
+          px: 478,
+          py: 432,
+          length: 54,
+          rBase: 9,
+          rTip: 6,
+          restAngle: Math.PI - 0.48,       // Points down-left at rest
+          activeAngle: Math.PI + 0.46,     // Swings up-left toward Left Drop Targets & Spinner
+          angle: Math.PI - 0.48,
+          omega: 0,
+          maxOmegaUp: 29.0,
+          maxOmegaDown: 18.0,
+          color: '#ffe600',
+          wasPressed: false
+        }
+      ];
+
+      function getFlipperTip(f) {
+        return {
+          x: f.px + Math.cos(f.angle) * f.length,
+          y: f.py + Math.sin(f.angle) * f.length
+        };
+      }
+
+      // =========================================================================
+      // 5. HIGH-ENERGY ACTIVE BUMPERS (5 NEON BUMPERS + SHOCKWAVE RINGS)
+      // =========================================================================
+      const bumpers = [
+        { x: 184, y: 218, r: 23, kick: 790, points: 500, color: '#00f3ff', label: '500', flash: 0, pulseScale: 1, soundId: 0 },
+        { x: 336, y: 218, r: 23, kick: 790, points: 500, color: '#00f3ff', label: '500', flash: 0, pulseScale: 1, soundId: 1 },
+        { x: 260, y: 285, r: 27, kick: 860, points: 1000, color: '#ff007f', label: '1K', flash: 0, pulseScale: 1, soundId: 3 },
+        { x: 175, y: 348, r: 21, kick: 760, points: 400, color: '#ffe600', label: '400', flash: 0, pulseScale: 1, soundId: 2 },
+        { x: 345, y: 348, r: 21, kick: 760, points: 400, color: '#00ff88', label: '400', flash: 0, pulseScale: 1, soundId: 4 }
+      ];
+
+      // =========================================================================
+      // 6. ABATIBLE DROP TARGETS, SPINNER & SKILL ROLLOVER LANES
+      // =========================================================================
+      const dropTargets = [];
+
+      function initDropTargets() {
+        dropTargets.length = 0;
+        // Left Bank (4 targets along x ~ 55, y = 386..504): C - Y - B - R
+        const leftLabels = ['C', 'Y', 'B', 'R'];
+        for (let i = 0; i < 4; i++) {
+          const y0 = 385 + i * 30;
+          const y1 = y0 + 22;
+          dropTargets.push({
+            bank: 'left',
+            label: leftLabels[i],
+            ax: 56, ay: y0,
+            bx: 56, by: y1,
+            nx: 1, ny: 0,
+            active: true,
+            flash: 0,
+            color: '#ff007f'
+          });
+        }
+
+        // Right Bank (3 targets along angled upper-right wall): O - V - R
+        const rightLabels = ['O', 'V', 'R'];
+        for (let i = 0; i < 3; i++) {
+          const t0 = i / 3;
+          const t1 = (i + 0.78) / 3;
+          const ax = 434 + t0 * 32;
+          const ay = 250 + t0 * 102;
+          const bx = 434 + t1 * 32;
+          const by = 250 + t1 * 102;
+          const dx = bx - ax;
+          const dy = by - ay;
+          const len = Math.hypot(dx, dy) || 1;
+          dropTargets.push({
+            bank: 'right',
+            label: rightLabels[i],
+            ax, ay, bx, by,
+            nx: -dy / len,
+            ny: dx / len,
+            active: true,
+            flash: 0,
+            color: '#ffe600'
+          });
+        }
+      }
+
+      // High-Speed Multiplier Spinner in the Left Orbit Channel
+      const spinner = {
+        x: 62,
+        y: 252,
+        width: 52,
+        angle: 0,
+        omega: 0,            // Angular speed (rad/s)
+        rotationsAccum: 0,
+        spinsForNextMult: 14,
+        flash: 0
+      };
+
+      // Top Rollover Skill Lanes (SYN / ACK / OVR)
+      const rolloverLanes = [
+        { x: 176, y: 112, r: 16, label: 'SYN', lit: false, cooldown: 0 },
+        { x: 233, y: 106, r: 16, label: 'ACK', lit: false, cooldown: 0 },
+        { x: 290, y: 106, r: 16, label: 'OVR', lit: false, cooldown: 0 },
+        { x: 347, y: 112, r: 16, label: 'NET', lit: false, cooldown: 0 }
+      ];
+
+      // =========================================================================
+      // 7. BALLS, PARTICLES, SHOCKWAVES & FLOATING SCORE POPUPS
+      // =========================================================================
+      const balls = [];
+      const particles = [];
+      const shockwaves = [];
+      const floatingTexts = [];
+      const debugContacts = []; // Stores last frame's collision contact points for Debug Mode
+
+      function createBall(x, y, vx = 0, vy = 0, color = '#00f3ff') {
+        return {
+          x,
+          y,
+          prevX: x,
+          prevY: y,
+          vx,
+          vy,
+          r: BALL_RADIUS,
+          color,
+          trail: [],
+          stuckTimer: 0,
+          inPlungerLane: x > 494
+        };
+      }
+
+      function spawnBallInPlunger() {
+        balls.push(createBall(513, plunger.restY - BALL_RADIUS - 2, 0, 0, '#00f3ff'));
+      }
+
+      function spawnSparks(x, y, nx, ny, color, count = 14, speedScale = 1) {
+        const baseAngle = Math.atan2(ny, nx);
+        for (let i = 0; i < count; i++) {
+          const spread = (Math.random() - 0.5) * 2.1;
+          const spd = (90 + Math.random() * 280) * speedScale;
+          const ang = baseAngle + spread;
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            life: 1.0,
+            decay: 1.8 + Math.random() * 1.6,
+            size: 1.8 + Math.random() * 2.6,
+            color
+          });
+        }
+        if (particles.length > 360) {
+          particles.splice(0, particles.length - 360);
+        }
+      }
+
+      function spawnShockwave(x, y, startR, maxR, color) {
+        shockwaves.push({
+          x,
+          y,
+          r: startR,
+          maxR,
+          alpha: 1.0,
+          color
+        });
+      }
+
+      function spawnFloatingText(x, y, text, color = '#ffe600') {
+        floatingTexts.push({
+          x: clamp(x, 55, W - 75),
+          y: clamp(y, 50, H - 60),
+          text,
+          color,
+          life: 1.0,
+          vy: -48
+        });
+      }
+
+      function triggerScreenShake(amount) {
+        shakeIntensity = Math.min(11, Math.max(shakeIntensity, amount));
+      }
+
+      function setBanner(msg, duration = 3.2) {
+        bannerText = msg;
+        bannerTimer = duration;
+        const el = document.getElementById('uiBanner');
+        if (el) el.textContent = msg;
+      }
+
+      function addPoints(basePts, x, y, color = '#ffe600', showPopup = true) {
+        const total = Math.round(basePts * multiplier);
+        score += total;
+        if (score > highScore) {
+          highScore = score;
+          try {
+            localStorage.setItem('cyber_pinball_hi', String(highScore));
+          } catch (_) {}
+        }
+        if (showPopup && total >= 250) {
+          spawnFloatingText(x, y, `+${total.toLocaleString()}`, color);
+        }
+      }
+
+      function upgradeMultiplier() {
+        if (multiplier < 2) multiplier = 2;
+        else if (multiplier < 4) multiplier = 4;
+        else if (multiplier < 8) multiplier = 8;
+      }
+
+      function activateMultiball(sourceText = '¡CYBER MULTIBALL ACTIVADO!') {
+        upgradeMultiplier();
+        synth.playDropTarget(true);
+        triggerScreenShake(9);
+        setBanner(`${sourceText} (${multiplier}X)`, 4.5);
+
+        // Spawn up to 3 active balls simultaneously with staggered velocities from the reactor core
+        const colors = ['#00f3ff', '#ff007f', '#ffe600'];
+        while (balls.length < 3) {
+          const idx = balls.length;
+          const angle = -Math.PI * 0.5 + (idx === 1 ? -0.35 : 0.35);
+          const speed = 640 + idx * 90;
+          const spawnX = 260 + (idx === 1 ? -34 : 34);
+          const spawnY = 165;
+          const newBall = createBall(
+            spawnX,
+            spawnY,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            colors[idx % colors.length]
+          );
+          balls.push(newBall);
+          spawnShockwave(spawnX, spawnY, 8, 68, colors[idx % colors.length]);
+          spawnSparks(spawnX, spawnY, 0, -1, colors[idx % colors.length], 22, 1.3);
+        }
+      }
+
+      // =========================================================================
+      // 8. CORE CONTINUOUS COLLISION DETECTION (CCD) & SUB-STEPPING ENGINE
+      // =========================================================================
+
+      /**
+       * Resolves Circle-Segment collision (Walls, Slingshots, Drop Targets, One-Way Gate)
+       * Includes swept segment crossing check (prevX,prevY -> x,y) so tunneling is impossible.
+       */
+      function resolveBallSegmentCCD(ball, ax, ay, bx, by, radiusInflation, restitution, kickerSpeed, normalOverride = null) {
+        collisionChecksThisFrame++;
+        const minDist = ball.r + radiusInflation;
+
+        // 1. Check if the swept path (prev -> current) crossed the segment directly
+        const crossing = intersectSegments(ball.prevX, ball.prevY, ball.x, ball.y, ax, ay, bx, by);
+        if (crossing) {
+          // Pull ball slightly back along its incoming vector onto the pre-impact side
+          const segDx = bx - ax;
+          const segDy = by - ay;
+          const segLen = Math.hypot(segDx, segDy) || 1;
+          let nx = normalOverride ? normalOverride.x : -segDy / segLen;
+          let ny = normalOverride ? normalOverride.y : segDx / segLen;
+          const toPrevX = ball.prevX - crossing.x;
+          const toPrevY = ball.prevY - crossing.y;
+          if (!normalOverride && (toPrevX * nx + toPrevY * ny < 0)) {
+            nx = -nx;
+            ny = -ny;
+          }
+          ball.x = crossing.x + nx * (minDist + 0.25);
+          ball.y = crossing.y + ny * (minDist + 0.25);
+        }
+
+        // 2. Closest point on segment AB to ball center
+        const cp = closestPointOnSegment(ball.x, ball.y, ax, ay, bx, by);
+        let dx = ball.x - cp.x;
+        let dy = ball.y - cp.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq >= minDist * minDist) return null;
+
+        const dist = Math.sqrt(distSq);
+        let nx, ny;
+        if (dist > 1e-6) {
+          nx = dx / dist;
+          ny = dy / dist;
+        } else if (normalOverride) {
+          nx = normalOverride.x;
+          ny = normalOverride.y;
+        } else {
+          const segDx = bx - ax;
+          const segDy = by - ay;
+          const segLen = Math.hypot(segDx, segDy) || 1;
+          nx = -segDy / segLen;
+          ny = segDx / segLen;
+        }
+
+        // If this is a directional kicker/target with an explicit normal, orient outward
+        if (normalOverride && (nx * normalOverride.x + ny * normalOverride.y < -0.25)) {
+          nx = normalOverride.x;
+          ny = normalOverride.y;
+        }
+
+        // Positional projection (eliminates penetration)
+        const overlap = minDist - dist;
+        ball.x += nx * (overlap + 0.08);
+        ball.y += ny * (overlap + 0.08);
+
+        // Velocity reflection
+        const vn = ball.vx * nx + ball.vy * ny;
+        if (vn < 0) {
+          const impulse = -(1 + restitution) * vn;
+          ball.vx += impulse * nx;
+          ball.vy += impulse * ny;
+
+          // Slight tangential surface friction
+          const tx = -ny;
+          const ty = nx;
+          const vt = ball.vx * tx + ball.vy * ty;
+          ball.vx -= vt * 0.015 * tx;
+          ball.vy -= vt * 0.015 * ty;
+        }
+
+        // Active Slingshot Kicker boost
+        if (kickerSpeed > 0 && (!normalOverride || (nx * normalOverride.x + ny * normalOverride.y > 0.3))) {
+          ball.vx = nx * kickerSpeed + ball.vx * 0.25;
+          ball.vy = ny * kickerSpeed + ball.vy * 0.25;
+        }
+
+        if (debugMode && debugContacts.length < 40) {
+          debugContacts.push({ x: cp.x, y: cp.y, nx, ny });
+        }
+
+        return { cx: cp.x, cy: cp.y, nx, ny, impactSpeed: Math.abs(vn) };
+      }
+
+      /**
+       * Resolves Circle vs Tapered Capsule Flipper with Exact Tangential Angular Velocity Transfer
+       * V_flipper(C) = (-omega * ry, omega * rx)
+       */
+      function resolveBallFlipperCCD(ball, f) {
+        collisionChecksThisFrame++;
+        const tip = getFlipperTip(f);
+
+        // Swept crossing check against flipper spine
+        const crossing = intersectSegments(ball.prevX, ball.prevY, ball.x, ball.y, f.px, f.py, tip.x, tip.y);
+        if (crossing) {
+          const rAtCross = f.rBase + (f.rTip - f.rBase) * crossing.u;
+          const minD = ball.r + rAtCross;
+          let dx = ball.prevX - crossing.x;
+          let dy = ball.prevY - crossing.y;
+          const len = Math.hypot(dx, dy) || 1;
+          ball.x = crossing.x + (dx / len) * (minD + 0.4);
+          ball.y = crossing.y + (dy / len) * (minD + 0.4);
+        }
+
+        const cp = closestPointOnSegment(ball.x, ball.y, f.px, f.py, tip.x, tip.y);
+        const rFlipper = f.rBase + (f.rTip - f.rBase) * cp.t;
+        const minDist = ball.r + rFlipper;
+
+        let dx = ball.x - cp.x;
+        let dy = ball.y - cp.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq >= minDist * minDist) return false;
+
+        const dist = Math.sqrt(distSq);
+        let nx, ny;
+        if (dist > 1e-6) {
+          nx = dx / dist;
+          ny = dy / dist;
+        } else {
+          // Fallback upward normal perpendicular to flipper spine
+          const spineDx = tip.x - f.px;
+          const spineDy = tip.y - f.py;
+          const spineLen = Math.hypot(spineDx, spineDy) || 1;
+          nx = f.side === 'left' ? spineDy / spineLen : -spineDy / spineLen;
+          ny = f.side === 'left' ? -spineDx / spineLen : spineDx / spineLen;
+        }
+
+        // Push ball completely outside the capsule surface
+        const overlap = minDist - dist;
+        ball.x += nx * (overlap + 0.2);
+        ball.y += ny * (overlap + 0.2);
+
+        // Exact instantaneous velocity of the contact point C on the rotating flipper:
+        // r_vec = C - Pivot = (rx, ry)
+        // V_flipper = omega x r_vec = (-omega * ry, omega * rx)
+        const rx = cp.x - f.px;
+        const ry = cp.y - f.py;
+        const vFlipX = -f.omega * ry;
+        const vFlipY = f.omega * rx;
+
+        // Relative velocity of the ball with respect to the moving flipper surface
+        const relVx = ball.vx - vFlipX;
+        const relVy = ball.vy - vFlipY;
+        const relVn = relVx * nx + relVy * ny;
+
+        if (relVn < 0) {
+          // Higher restitution when flipper is actively swinging upward
+          const isSwingingUp = (f.side === 'left' && f.omega < -0.5) || (f.side === 'right' && f.omega > 0.5);
+          const e = isSwingingUp ? 0.58 : 0.42;
+
+          // Normal impulse in the flipper's reference frame
+          let newRelVx = relVx - (1 + e) * relVn * nx;
+          let newRelVy = relVy - (1 + e) * relVn * ny;
+
+          // Transform back to world frame + add live solenoid kick transfer
+          const coilTransferBoost = isSwingingUp ? (1.16 + 0.22 * cp.t) : 1.0;
+          ball.vx = vFlipX * coilTransferBoost + newRelVx;
+          ball.vy = vFlipY * coilTransferBoost + newRelVy;
+
+          const impactSpd = Math.abs(relVn);
+          if (impactSpd > 140 || isSwingingUp) {
+            spawnSparks(cp.x + nx * rFlipper, cp.y + ny * rFlipper, nx, ny, f.color, isSwingingUp ? 14 : 6, isSwingingUp ? 1.15 : 0.6);
+            synth.playWallBounce(impactSpd + (isSwingingUp ? 300 : 0));
+          }
+        }
+
+        if (debugMode && debugContacts.length < 40) {
+          debugContacts.push({ x: cp.x, y: cp.y, nx, ny });
+        }
+        return true;
+      }
+
+      /**
+       * Ball-to-Ball Elastic Collision (Active during Multiball)
+       */
+      function resolveBallToBallCollisions() {
+        for (let i = 0; i < balls.length; i++) {
+          for (let j = i + 1; j < balls.length; j++) {
+            collisionChecksThisFrame++;
+            const b1 = balls[i];
+            const b2 = balls[j];
+            const dx = b2.x - b1.x;
+            const dy = b2.y - b1.y;
+            const minDist = b1.r + b2.r;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < minDist * minDist && distSq > 1e-8) {
+              const dist = Math.sqrt(distSq);
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const overlap = (minDist - dist) * 0.52;
+
+              b1.x -= nx * overlap;
+              b1.y -= ny * overlap;
+              b2.x += nx * overlap;
+              b2.y += ny * overlap;
+
+              const rvx = b2.vx - b1.vx;
+              const rvy = b2.vy - b1.vy;
+              const velAlongNormal = rvx * nx + rvy * ny;
+
+              if (velAlongNormal < 0) {
+                const restitution = 0.88;
+                const jImpulse = -(1 + restitution) * velAlongNormal * 0.5;
+                b1.vx -= jImpulse * nx;
+                b1.vy -= jImpulse * ny;
+                b2.vx += jImpulse * nx;
+                b2.vy += jImpulse * ny;
+
+                const midX = (b1.x + b2.x) * 0.5;
+                const midY = (b1.y + b2.y) * 0.5;
+                spawnSparks(midX, midY, nx, ny, '#ffffff', 10, 0.9);
+                synth.playWallBounce(Math.abs(velAlongNormal));
+              }
+            }
+          }
+        }
+      }
+
+      /**
+       * Main Physics Stepper (Executes `subStepsPerFrame` sub-steps every frame)
+       */
+      function stepPhysics(frameDt) {
+        const dt = Math.min(frameDt, 0.025);
+        const subDt = dt / subStepsPerFrame;
+        collisionChecksThisFrame = 0;
+        debugContacts.length = 0;
+
+        // Update Plunger Compression when holding Space
+        if (keys.space && !plunger.isDragging) {
+          plunger.pull = Math.min(plunger.maxPull, plunger.pull + 95 * dt);
+        }
+        plunger.tension = plunger.pull / plunger.maxPull;
+
+        // Trigger Flipper Audio on fresh press
+        const leftPressed = keys.left;
+        const rightPressed = keys.right;
+
+        for (const f of flippers) {
+          const isPressed = f.side === 'left' ? leftPressed : rightPressed;
+          if (isPressed !== f.wasPressed) {
+            if (f.id !== 'upperRight') {
+              synth.playFlipper(isPressed);
+            }
+            f.wasPressed = isPressed;
+          }
+        }
+
+        // =====================================================================
+        // SUB-STEP LOOP (12 to 28 iterations per frame)
+        // =====================================================================
+        for (let step = 0; step < subStepsPerFrame; step++) {
+          // 1. Advance Flipper Angles & Compute Exact Angular Velocity `omega`
+          for (const f of flippers) {
+            const isPressed = f.side === 'left' ? leftPressed : rightPressed;
+            const prevAngle = f.angle;
+            if (f.side === 'left') {
+              // Left flipper: restAngle (+0.43) -> activeAngle (-0.52)
+              if (isPressed) {
+                f.angle = Math.max(f.activeAngle, f.angle - f.maxOmegaUp * subDt);
+              } else {
+                f.angle = Math.min(f.restAngle, f.angle + f.maxOmegaDown * subDt);
+              }
+            } else {
+              // Right flippers: restAngle (PI - 0.43) -> activeAngle (PI + 0.52)
+              if (isPressed) {
+                f.angle = Math.min(f.activeAngle, f.angle + f.maxOmegaUp * subDt);
+              } else {
+                f.angle = Math.max(f.restAngle, f.angle - f.maxOmegaDown * subDt);
+              }
+            }
+            f.omega = (f.angle - prevAngle) / subDt;
+          }
+
+          // 2. Advance Each Ball
+          for (let bIdx = 0; bIdx < balls.length; bIdx++) {
+            const ball = balls[bIdx];
+            ball.prevX = ball.x;
+            ball.prevY = ball.y;
+
+            // Integrate Gravity & Air Drag
+            ball.vy += GRAVITY * subDt;
+            ball.vx *= AIR_DAMPING;
+            ball.vy *= AIR_DAMPING;
+
+            ball.x += ball.vx * subDt;
+            ball.y += ball.vy * subDt;
+
+            // Track whether ball is inside Plunger Lane
+            if (ball.x > 494 && ball.y > 168) {
+              ball.inPlungerLane = true;
+            } else if (ball.x < 478) {
+              ball.inPlungerLane = false;
+            }
+
+            // Plunger Piston Interaction (inside right channel x > 494)
+            const pistonY = plunger.restY + plunger.pull;
+            if (ball.x > 492 && ball.y + ball.r > pistonY) {
+              ball.y = pistonY - ball.r;
+              if (ball.vy > 0) {
+                ball.vy = -ball.vy * 0.2;
+              }
+              ball.vx *= 0.9;
+            }
+
+            // Left Outlane Kickback Shield (saves ball once per cycle on left outlane x < 68, y > 670)
+            if (leftKickbackArmed && ball.x < 66 && ball.y > 675 && ball.vy > 0) {
+              leftKickbackArmed = false;
+              ball.vy = -980;
+              ball.vx = 65;
+              synth.playSlingshot();
+              triggerScreenShake(6);
+              spawnShockwave(48, 685, 6, 42, '#00ff88');
+              spawnSparks(48, 685, 0, -1, '#00ff88', 18, 1.2);
+              addPoints(1500, 52, 665, '#00ff88');
+              setBanner('¡ESCUDOS KICKBACK ACTIVADOS! +1,500', 2.8);
+            }
+
+            // 3. Resolve Flippers First (with exact tangential velocity transfer)
+            for (const f of flippers) {
+              resolveBallFlipperCCD(ball, f);
+            }
+
+            // 4. Resolve Drop Targets
+            for (const dtgt of dropTargets) {
+              if (!dtgt.active) continue;
+              const hit = resolveBallSegmentCCD(
+                ball,
+                dtgt.ax, dtgt.ay, dtgt.bx, dtgt.by,
+                3.5, 0.75, 320,
+                { x: dtgt.nx, y: dtgt.ny }
+              );
+              if (hit) {
+                dtgt.active = false;
+                dtgt.flash = 1.0;
+                addPoints(1500, hit.cx, hit.cy, dtgt.color);
+                spawnSparks(hit.cx, hit.cy, hit.nx, hit.ny, dtgt.color, 18, 1.1);
+                spawnShockwave(hit.cx, hit.cy, 5, 38, dtgt.color);
+                triggerScreenShake(4.5);
+
+                // Check if this bank or all targets are now cleared
+                const bankTargets = dropTargets.filter(t => t.bank === dtgt.bank);
+                const bankCleared = bankTargets.every(t => !t.active);
+                if (bankCleared) {
+                  const bankName = dtgt.bank === 'left' ? 'BANCO C-Y-B-R' : 'BANCO O-V-R';
+                  addPoints(5000, W * 0.5, 320, '#00ff88');
+                  activateMultiball(`¡${bankName} COMPLETADO! MULTIBALL`);
+                  // Re-arm that bank after a moment and re-arm kickback shield
+                  leftKickbackArmed = true;
+                  setTimeout(() => {
+                    for (const t of bankTargets) {
+                      t.active = true;
+                      t.flash = 1.0;
+                    }
+                  }, 1400);
+                } else {
+                  synth.playDropTarget(false);
+                  setBanner(`DIANA [${dtgt.label}] DERRIBADA! COMPLETA EL BANCO PARA MULTIBALL`, 2.4);
+                }
+              }
+            }
+
+            // 5. Resolve High-Energy Active Bumpers (Circle-Circle CCD)
+            for (const bmp of bumpers) {
+              collisionChecksThisFrame++;
+              const dx = ball.x - bmp.x;
+              const dy = ball.y - bmp.y;
+              const minDist = ball.r + bmp.r;
+              const distSq = dx * dx + dy * dy;
+              if (distSq < minDist * minDist) {
+                const dist = Math.sqrt(distSq) || 1;
+                const nx = dx / dist;
+                const ny = dy / dist;
+
+                // Push ball cleanly outside bumper
+                ball.x = bmp.x + nx * (minDist + 0.5);
+                ball.y = bmp.y + ny * (minDist + 0.5);
+
+                // High-energy radial kick
+                ball.vx = nx * bmp.kick + (Math.random() - 0.5) * 45;
+                ball.vy = ny * bmp.kick + (Math.random() - 0.5) * 45;
+
+                bmp.flash = 1.0;
+                bmp.pulseScale = 1.28;
+                addPoints(bmp.points, bmp.x, bmp.y - 18, bmp.color);
+                spawnShockwave(bmp.x, bmp.y, bmp.r * 0.8, bmp.r * 2.5, bmp.color);
+                spawnSparks(bmp.x + nx * bmp.r, bmp.y + ny * bmp.r, nx, ny, bmp.color, 18, 1.25);
+                triggerScreenShake(5.5);
+                synth.playBumperHit(bmp.soundId);
+
+                if (debugMode && debugContacts.length < 40) {
+                  debugContacts.push({ x: bmp.x + nx * bmp.r, y: bmp.y + ny * bmp.r, nx, ny });
+                }
+              }
+            }
+
+            // 6. Resolve One-Way Plunger Exit Gate
+            // Allows ball to pass from plunger lane upward/leftward into upper arch, blocks return
+            if (!ball.inPlungerLane && (ball.vx > -20 || ball.vy > 0)) {
+              resolveBallSegmentCCD(
+                ball,
+                oneWayGate.ax, oneWayGate.ay,
+                oneWayGate.bx, oneWayGate.by,
+                2.5, 0.5, 0,
+                { x: -0.82, y: -0.57 }
+              );
+            } else {
+              const cpGate = closestPointOnSegment(ball.x, ball.y, oneWayGate.ax, oneWayGate.ay, oneWayGate.bx, oneWayGate.by);
+              if (Math.hypot(ball.x - cpGate.x, ball.y - cpGate.y) < ball.r + 6) {
+                oneWayGate.openVisualTimer = 0.25;
+              }
+            }
+
+            // 7. Resolve Static Walls & Slingshots (Two passes to prevent any corner-pinch clipping)
+            for (let pass = 0; pass < 2; pass++) {
+              for (const w of walls) {
+                const hit = resolveBallSegmentCCD(
+                  ball,
+                  w.ax, w.ay, w.bx, w.by,
+                  w.thickness,
+                  w.restitution,
+                  pass === 0 ? w.kickerSpeed : 0,
+                  w.tag === 'slingshot' ? { x: w.nx, y: w.ny } : null
+                );
+                if (hit && pass === 0) {
+                  if (w.tag === 'slingshot') {
+                    w.flash = 1.0;
+                    addPoints(w.scoreValue, hit.cx, hit.cy, w.color);
+                    spawnSparks(hit.cx, hit.cy, hit.nx, hit.ny, w.color, 16, 1.15);
+                    spawnShockwave(hit.cx, hit.cy, 6, 36, w.color);
+                    triggerScreenShake(4.0);
+                    synth.playSlingshot();
+                  } else if (hit.impactSpeed > 180) {
+                    w.flash = Math.min(1, w.flash + 0.45);
+                    spawnSparks(hit.cx, hit.cy, hit.nx, hit.ny, w.color, 6, 0.65);
+                    synth.playWallBounce(hit.impactSpeed);
+                  }
+                }
+              }
+            }
+
+            // 8. Clamp Maximum Ball Velocity
+            const spd = Math.hypot(ball.vx, ball.vy);
+            if (spd > MAX_BALL_SPEED) {
+              const scale = MAX_BALL_SPEED / spd;
+              ball.vx *= scale;
+              ball.vy *= scale;
+            }
+            if (spd > maxObservedBallSpeed) {
+              maxObservedBallSpeed = spd;
+            }
+          }
+
+          // 9. Ball-to-Ball Elastic Collisions (Multiball)
+          if (balls.length > 1) {
+            resolveBallToBallCollisions();
+          }
+        }
+
+        // =====================================================================
+        // FRAME-RATE TRIGGERS (SPINNER, ROLLOVERS, TRAILS, DRAIN CHECK)
+        // =====================================================================
+        for (let i = balls.length - 1; i >= 0; i--) {
+          const ball = balls[i];
+          const spd = Math.hypot(ball.vx, ball.vy);
+
+          // Record neon velocity trail
+          ball.trail.push({ x: ball.x, y: ball.y, spd });
+          if (ball.trail.length > 22) {
+            ball.trail.shift();
+          }
+
+          // Anti-Stuck Electromagnetic Micro-Pulse (if stuck outside plunger & flipper cradle)
+          const nearFlipperCradle = ball.y > 700 && ball.x > 140 && ball.x < 380;
+          if (!ball.inPlungerLane && !nearFlipperCradle && spd < 14) {
+            ball.stuckTimer += dt;
+            if (ball.stuckTimer > 1.35) {
+              ball.vx += (ball.x < 260 ? 1 : -1) * 185;
+              ball.vy -= 210;
+              ball.stuckTimer = 0;
+              spawnShockwave(ball.x, ball.y, 4, 28, '#00f3ff');
+            }
+          } else {
+            ball.stuckTimer = 0;
+          }
+
+          // Check Left Orbit Spinner Gate
+          if (Math.abs(ball.y - spinner.y) < 16 && ball.x > 30 && ball.x < 94 && Math.abs(ball.vy) > 45) {
+            spinner.omega += Math.abs(ball.vy) * 0.042;
+            spinner.omega = Math.min(spinner.omega, 85);
+            spinner.flash = 1.0;
+          }
+
+          // Check Top Skill Rollover Lanes
+          for (const lane of rolloverLanes) {
+            if (lane.cooldown <= 0 && Math.hypot(ball.x - lane.x, ball.y - lane.y) < lane.r + ball.r) {
+              lane.cooldown = 0.65;
+              lane.lit = true;
+              addPoints(400, lane.x, lane.y, '#00ff88', false);
+              synth.playRollover();
+              spawnShockwave(lane.x, lane.y, 4, 24, '#00ff88');
+
+              if (rolloverLanes.every(l => l.lit)) {
+                upgradeMultiplier();
+                addPoints(3000, 260, 115, '#ffe600');
+                setBanner(`¡CARRILES SYN-ACK-OVR COMPLETOS! MULTIPLICADOR ${multiplier}X`, 3.5);
+                synth.playDropTarget(true);
+                setTimeout(() => {
+                  rolloverLanes.forEach(l => { l.lit = false; });
+                }, 900);
+              }
+            }
+          }
+
+          // Check Ball Drain (Bottom of table y > 865)
+          if (ball.y - ball.r > H - 10) {
+            balls.splice(i, 1);
+            synth.playDrain();
+            triggerScreenShake(5);
+
+            if (balls.length === 0) {
+              ballsRemaining--;
+              if (ballsRemaining > 0) {
+                multiplier = Math.max(1, Math.floor(multiplier / 2));
+                leftKickbackArmed = true;
+                spawnBallInPlunger();
+                setBanner(`BOLA PERDIDA — QUEDAN ${ballsRemaining} BOLAS. LANZA DE NUEVO`, 3.5);
+              } else {
+                gameOver = true;
+                setBanner('GAME OVER // PRESIONA [ESPACIO] O REINICIAR MESA', 10);
+              }
+            } else {
+              setBanner(`MULTIBALL EN CURSO: ${balls.length} BOLA(S) EN JUEGO`, 2.2);
+            }
+          }
+        }
+
+        // Update Spinner Rotation & Multiplier Progression
+        if (spinner.omega > 0.2) {
+          const prevHalfTurns = Math.floor(spinner.angle / Math.PI);
+          spinner.angle += spinner.omega * dt;
+          const currHalfTurns = Math.floor(spinner.angle / Math.PI);
+          if (currHalfTurns > prevHalfTurns) {
+            const ticks = currHalfTurns - prevHalfTurns;
+            score += ticks * 120 * multiplier;
+            spinner.rotationsAccum += ticks;
+            synth.playSpinnerTick(spinner.omega);
+            if (spinner.rotationsAccum >= spinner.spinsForNextMult) {
+              spinner.rotationsAccum = 0;
+              upgradeMultiplier();
+              addPoints(2500, spinner.x + 25, spinner.y, '#00ff88');
+              setBanner(`¡ROTOR OVERDRIVE! MULTIPLICADOR SUBE A ${multiplier}X`, 3.0);
+            }
+          }
+          spinner.omega *= Math.pow(0.42, dt);
+          if (spinner.omega < 0.25) spinner.omega = 0;
+        }
+        spinner.flash = Math.max(0, spinner.flash - dt * 2.5);
+        oneWayGate.openVisualTimer = Math.max(0, oneWayGate.openVisualTimer - dt);
+
+        // Update Rollover Cooldowns, Bumper Flashes, Wall Flashes
+        for (const lane of rolloverLanes) {
+          if (lane.cooldown > 0) lane.cooldown = Math.max(0, lane.cooldown - dt);
+        }
+        for (const bmp of bumpers) {
+          bmp.flash = Math.max(0, bmp.flash - dt * 3.2);
+          bmp.pulseScale = 1 + (bmp.pulseScale - 1) * Math.pow(0.01, dt);
+        }
+        for (const w of walls) {
+          if (w.flash > 0) w.flash = Math.max(0, w.flash - dt * 3.5);
+        }
+        for (const dtgt of dropTargets) {
+          if (dtgt.flash > 0) dtgt.flash = Math.max(0, dtgt.flash - dt * 3.0);
+        }
+
+        // Update Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.vy += 320 * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= p.decay * dt;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // Update Shockwaves
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.r += (sw.maxR - sw.r) * 11 * dt;
+          sw.alpha -= 2.8 * dt;
+          if (sw.alpha <= 0) shockwaves.splice(i, 1);
+        }
+
+        // Update Floating Score Popups
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const ft = floatingTexts[i];
+          ft.y += ft.vy * dt;
+          ft.life -= 1.25 * dt;
+          if (ft.life <= 0) floatingTexts.splice(i, 1);
+        }
+
+        // Update Screen Shake
+        if (shakeIntensity > 0.05) {
+          shakeX = (Math.random() - 0.5) * shakeIntensity * 2;
+          shakeY = (Math.random() - 0.5) * shakeIntensity * 2;
+          shakeIntensity *= Math.pow(0.015, dt);
+        } else {
+          shakeIntensity = 0;
+          shakeX = 0;
+          shakeY = 0;
+        }
+
+        // Banner Timer
+        if (bannerTimer > 0) {
+          bannerTimer -= dt;
+        }
+      }
+
+      // =========================================================================
+      // 9. CYBERPUNK CANVAS 2D RENDERER + PHYSICS DEBUG OVERLAY
+      // =========================================================================
+      function renderTable() {
+        ctx.save();
+        ctx.clearRect(0, 0, W, H);
+        ctx.translate(shakeX, shakeY);
+
+        // 1. Cyber Background Grid & Reactor Core Art
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.045)';
+        ctx.lineWidth = 1;
+        for (let x = 28; x <= 532; x += 28) {
+          ctx.beginPath();
+          ctx.moveTo(x, 30);
+          ctx.lineTo(x, 850);
+          ctx.stroke();
+        }
+        for (let y = 40; y <= 850; y += 28) {
+          ctx.beginPath();
+          ctx.moveTo(28, y);
+          ctx.lineTo(532, y);
+          ctx.stroke();
+        }
+
+        // Center Cyber Emblem (Underneath playfield glass)
+        ctx.save();
+        ctx.translate(260, 490);
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.14)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 74, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.12)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 54, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(0, 243, 255, 0.16)';
+        ctx.font = '900 15px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('NEON OVERDRIVE', 0, -8);
+        ctx.fillStyle = 'rgba(255, 230, 0, 0.26)';
+        ctx.font = '800 22px "Courier New", monospace';
+        ctx.fillText(`${multiplier}X BONUS`, 0, 18);
+        ctx.restore();
+
+        // 2. Render Top Skill Rollover Lanes
+        for (const lane of rolloverLanes) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(lane.x, lane.y, lane.r, 0, Math.PI * 2);
+          ctx.fillStyle = lane.lit ? 'rgba(0, 255, 136, 0.28)' : 'rgba(16, 22, 44, 0.7)';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = lane.lit ? '#00ff88' : 'rgba(0, 243, 255, 0.35)';
+          if (lane.lit) {
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 12;
+          }
+          ctx.stroke();
+
+          ctx.fillStyle = lane.lit ? '#ffffff' : '#6c7fa6';
+          ctx.font = '900 10px "Courier New", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(lane.label, lane.x, lane.y);
+          ctx.restore();
+        }
+
+        // 3. Render Left Outlane Kickback Shield Indicator
+        ctx.save();
+        ctx.strokeStyle = leftKickbackArmed ? '#00ff88' : 'rgba(255, 0, 127, 0.25)';
+        ctx.lineWidth = leftKickbackArmed ? 3 : 1.5;
+        if (leftKickbackArmed) {
+          ctx.shadowColor = '#00ff88';
+          ctx.shadowBlur = 10;
+        }
+        ctx.beginPath();
+        ctx.moveTo(31, 682);
+        ctx.lineTo(65, 682);
+        ctx.stroke();
+        ctx.fillStyle = leftKickbackArmed ? '#00ff88' : '#536280';
+        ctx.font = '800 8px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(leftKickbackArmed ? 'SHIELD ON' : 'SHIELD OFF', 48, 695);
+        ctx.restore();
+
+        // 4. Render Left Orbit Multiplier Spinner
+        ctx.save();
+        ctx.translate(spinner.x, spinner.y);
+        // Spinner Frame
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-26, -4, 52, 8);
+        // Rotating Optical Blade
+        const bladeHalfScale = Math.cos(spinner.angle);
+        ctx.fillStyle = spinner.flash > 0 ? '#ffffff' : '#00ff88';
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = 10 + spinner.flash * 12;
+        ctx.fillRect(-22, -7 * Math.abs(bladeHalfScale) - 1.5, 44, 3 + 14 * Math.abs(bladeHalfScale));
+        ctx.restore();
+
+        // 5. Render One-Way Plunger Exit Gate
+        ctx.save();
+        ctx.strokeStyle = oneWayGate.openVisualTimer > 0 ? '#00ff88' : '#ffe600';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(oneWayGate.ax, oneWayGate.ay);
+        const gateSwing = oneWayGate.openVisualTimer > 0 ? -14 : 0;
+        ctx.lineTo(oneWayGate.bx + gateSwing, oneWayGate.by);
+        ctx.stroke();
+        ctx.restore();
+
+        // 6. Render Walls & Slingshots
+        for (const w of walls) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(w.ax, w.ay);
+          ctx.lineTo(w.bx, w.by);
+          ctx.lineCap = 'round';
+          ctx.lineWidth = w.thickness * 2 + (w.flash * 3);
+          ctx.strokeStyle = w.flash > 0.2 ? '#ffffff' : w.color;
+          ctx.shadowColor = w.color;
+          ctx.shadowBlur = w.tag === 'slingshot' ? (12 + w.flash * 16) : (7 + w.flash * 10);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 7. Render Abatible Drop Targets
+        for (const dtgt of dropTargets) {
+          const midX = (dtgt.ax + dtgt.bx) * 0.5;
+          const midY = (dtgt.ay + dtgt.by) * 0.5;
+          ctx.save();
+          if (dtgt.active) {
+            ctx.beginPath();
+            ctx.moveTo(dtgt.ax, dtgt.ay);
+            ctx.lineTo(dtgt.bx, dtgt.by);
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = dtgt.flash > 0.2 ? '#ffffff' : dtgt.color;
+            ctx.shadowColor = dtgt.color;
+            ctx.shadowBlur = 14;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 10px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dtgt.label, midX + dtgt.nx * 13, midY + dtgt.ny * 13);
+          } else {
+            // Dropped slot outline
+            ctx.beginPath();
+            ctx.moveTo(dtgt.ax, dtgt.ay);
+            ctx.lineTo(dtgt.bx, dtgt.by);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 8. Render High-Energy Active Bumpers
+        for (const bmp of bumpers) {
+          ctx.save();
+          const drawR = bmp.r * bmp.pulseScale;
+
+          // Outer Neon Halo
+          ctx.beginPath();
+          ctx.arc(bmp.x, bmp.y, drawR, 0, Math.PI * 2);
+          ctx.fillStyle = bmp.flash > 0.15 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(8, 12, 28, 0.92)';
+          ctx.shadowColor = bmp.color;
+          ctx.shadowBlur = 16 + bmp.flash * 22;
+          ctx.fill();
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = bmp.flash > 0.15 ? '#ffffff' : bmp.color;
+          ctx.stroke();
+
+          // Inner Core Ring
+          ctx.beginPath();
+          ctx.arc(bmp.x, bmp.y, drawR * 0.62, 0, Math.PI * 2);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = bmp.color;
+          ctx.stroke();
+
+          // Points Label
+          ctx.fillStyle = bmp.flash > 0.15 ? '#05060f' : '#ffffff';
+          ctx.font = '900 11px "Courier New", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(bmp.label, bmp.x, bmp.y);
+          ctx.restore();
+        }
+
+        // 9. Render Right-Lane Plunger & Spring Coils
+        ctx.save();
+        const pistonY = plunger.restY + plunger.pull;
+        const floorY = 836;
+        const springCoils = 9;
+
+        // Spring Zig-Zag
+        ctx.beginPath();
+        ctx.moveTo(plunger.x, pistonY + 6);
+        for (let i = 1; i <= springCoils; i++) {
+          const cy = pistonY + 6 + ((floorY - (pistonY + 6)) * (i / springCoils));
+          const cx = plunger.x + (i % 2 === 0 ? -10 : 10);
+          ctx.lineTo(cx, cy);
+        }
+        ctx.strokeStyle = plunger.tension > 0.65 ? '#ff007f' : '#00f3ff';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = ctx.strokeStyle;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+
+        // Plunger Piston Head
+        ctx.fillStyle = '#ffe600';
+        ctx.shadowColor = '#ffe600';
+        ctx.shadowBlur = 10;
+        ctx.fillRect(plunger.x - 14, pistonY - 3, 28, 8);
+        ctx.restore();
+
+        // 10. Render Tapered Capsule Flippers
+        for (const f of flippers) {
+          const tip = getFlipperTip(f);
+          ctx.save();
+          ctx.shadowColor = f.color;
+          ctx.shadowBlur = 14;
+
+          // Draw tapered capsule body
+          const angle = f.angle;
+          const perpX = -Math.sin(angle);
+          const perpY = Math.cos(angle);
+
+          ctx.beginPath();
+          ctx.arc(f.px, f.py, f.rBase, angle + Math.PI * 0.5, angle + Math.PI * 1.5);
+          ctx.lineTo(tip.x - perpX * f.rTip, tip.y - perpY * f.rTip);
+          ctx.arc(tip.x, tip.y, f.rTip, angle - Math.PI * 0.5, angle + Math.PI * 0.5);
+          ctx.closePath();
+
+          ctx.fillStyle = '#0e1329';
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = f.color;
+          ctx.stroke();
+
+          // Pivot Core Dot
+          ctx.beginPath();
+          ctx.arc(f.px, f.py, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 11. Render Shockwave Rings
+        for (const sw of shockwaves) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+          ctx.strokeStyle = sw.color;
+          ctx.globalAlpha = clamp(sw.alpha, 0, 1);
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = sw.color;
+          ctx.shadowBlur = 12;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 12. Render Velocity-Mapped Ball Light Trails & Balls
+        for (const ball of balls) {
+          // Neon Light Trail (width & intensity scale with ball speed)
+          if (ball.trail.length > 1) {
+            ctx.save();
+            for (let i = 1; i < ball.trail.length; i++) {
+              const p0 = ball.trail[i - 1];
+              const p1 = ball.trail[i];
+              const ratio = i / ball.trail.length;
+              const speedFactor = clamp(p1.spd / 1200, 0.15, 1.0);
+              ctx.beginPath();
+              ctx.moveTo(p0.x, p0.y);
+              ctx.lineTo(p1.x, p1.y);
+              ctx.strokeStyle = p1.spd > 1100 ? '#ff007f' : ball.color;
+              ctx.globalAlpha = ratio * 0.55 * speedFactor;
+              ctx.lineWidth = ball.r * 1.65 * ratio;
+              ctx.lineCap = 'round';
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+
+          // Chrome + Neon Ball Core
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(
+            ball.x - 3.5, ball.y - 3.5, 1.5,
+            ball.x, ball.y, ball.r
+          );
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.55, ball.color);
+          grad.addColorStop(1, '#0c1938');
+          ctx.fillStyle = grad;
+          ctx.shadowColor = ball.color;
+          ctx.shadowBlur = 16;
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#ffffff';
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 13. Render Spark Particles
+        for (const p of particles) {
+          ctx.save();
+          ctx.globalAlpha = clamp(p.life, 0, 1);
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 14. Render Floating Score Popups
+        for (const ft of floatingTexts) {
+          ctx.save();
+          ctx.globalAlpha = clamp(ft.life, 0, 1);
+          ctx.font = '900 13px "Courier New", monospace';
+          ctx.fillStyle = ft.color;
+          ctx.shadowColor = ft.color;
+          ctx.shadowBlur = 8;
+          ctx.textAlign = 'center';
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        }
+
+        // =====================================================================
+        // 15. REAL-TIME PHYSICS DEBUG OVERLAY (Normals, Velocity Vectors, Contacts)
+        // =====================================================================
+        if (debugMode) {
+          ctx.save();
+
+          // A. Wall Surface Normals (Green Vectors from segment midpoints)
+          ctx.strokeStyle = 'rgba(0, 255, 136, 0.78)';
+          ctx.lineWidth = 1.4;
+          for (const w of walls) {
+            const mx = (w.ax + w.bx) * 0.5;
+            const my = (w.ay + w.by) * 0.5;
+            const nLen = 14;
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(mx + w.nx * nLen, my + w.ny * nLen);
+            ctx.stroke();
+
+            // Normal tip dot
+            ctx.fillStyle = '#00ff88';
+            ctx.fillRect(mx + w.nx * nLen - 1.5, my + w.ny * nLen - 1.5, 3, 3);
+          }
+
+          // B. Flipper Angular Velocity & Spine Normals
+          for (const f of flippers) {
+            const tip = getFlipperTip(f);
+            const mx = (f.px + tip.x) * 0.5;
+            const my = (f.py + tip.y) * 0.5;
+            const rx = tip.x - f.px;
+            const ry = tip.y - f.py;
+            const vTipX = -f.omega * ry;
+            const vTipY = f.omega * rx;
+
+            // Spine line
+            ctx.strokeStyle = '#ffe600';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(f.px, f.py);
+            ctx.lineTo(tip.x, tip.y);
+            ctx.stroke();
+
+            // Tangential velocity vector at tip when moving
+            if (Math.abs(f.omega) > 0.1) {
+              ctx.strokeStyle = '#ff007f';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(tip.x, tip.y);
+              ctx.lineTo(tip.x + vTipX * 0.04, tip.y + vTipY * 0.04);
+              ctx.stroke();
+            }
+
+            ctx.fillStyle = '#ffe600';
+            ctx.font = '700 9px monospace';
+            ctx.fillText(`ω:${f.omega.toFixed(1)}rad/s`, mx - 24, my - 14);
+          }
+
+          // C. Ball Velocity Vectors (V) & Speed Readouts
+          for (const ball of balls) {
+            const spd = Math.hypot(ball.vx, ball.vy);
+            const vScale = 0.065;
+            const vxEnd = ball.x + ball.vx * vScale;
+            const vyEnd = ball.y + ball.vy * vScale;
+
+            ctx.strokeStyle = '#ffe600';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(ball.x, ball.y);
+            ctx.lineTo(vxEnd, vyEnd);
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 10px monospace';
+            ctx.fillText(`|V|=${Math.round(spd)}px/s`, ball.x + 14, ball.y - 10);
+          }
+
+          // D. Active Sub-step Contact Points
+          for (const c of debugContacts) {
+            ctx.strokeStyle = '#ff007f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y);
+            ctx.lineTo(c.x + c.nx * 18, c.y + c.ny * 18);
+            ctx.stroke();
+          }
+
+          // E. On-Canvas HUD Telemetry Overlay
+          ctx.fillStyle = 'rgba(5, 6, 15, 0.82)';
+          ctx.strokeStyle = '#00ff88';
+          ctx.lineWidth = 1;
+          ctx.fillRect(36, 42, 208, 66);
+          ctx.strokeRect(36, 42, 208, 66);
+          ctx.fillStyle = '#00ff88';
+          ctx.font = '700 10px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(`CCD DEBUG MODE [ACTIVE]`, 44, 57);
+          ctx.fillText(`SUB-STEPS: ${subStepsPerFrame}/frame (${displayedFps} FPS)`, 44, 72);
+          ctx.fillText(`CCD CHECKS/S: ${displayedChecksPerSec.toLocaleString()}`, 44, 87);
+          ctx.fillText(`MAX BALL V: ${Math.round(maxObservedBallSpeed)} px/s`, 44, 102);
+
+          ctx.restore();
+        }
+
+        // Game Over Overlay on Canvas
+        if (gameOver) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(5, 6, 15, 0.78)';
+          ctx.fillRect(60, 360, W - 120, 140);
+          ctx.strokeStyle = '#ff007f';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(60, 360, W - 120, 140);
+
+          ctx.fillStyle = '#ff007f';
+          ctx.font = '900 28px "Courier New", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('SYSTEM OVERLOAD', W * 0.5, 408);
+
+          ctx.fillStyle = '#ffe600';
+          ctx.font = '800 16px "Courier New", monospace';
+          ctx.fillText(`SCORE FINAL: ${score.toLocaleString()}`, W * 0.5, 442);
+
+          ctx.fillStyle = '#00f3ff';
+          ctx.font = '700 12px "Courier New", monospace';
+          ctx.fillText('PRESIONA [ESPACIO] O CLIC EN REINICIAR', W * 0.5, 476);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // 10. UI SYNCHRONIZATION & EVENT HANDLERS
+      // =========================================================================
+      const uiScore = document.getElementById('uiScore');
+      const uiHighScore = document.getElementById('uiHighScore');
+      const uiBalls = document.getElementById('uiBalls');
+      const uiMultiplier = document.getElementById('uiMultiplier');
+      const uiActiveBalls = document.getElementById('uiActiveBalls');
+      const uiTensionPct = document.getElementById('uiTensionPct');
+      const uiTensionBar = document.getElementById('uiTensionBar');
+      const uiFpsBadge = document.getElementById('uiFpsBadge');
+      const uiSubsteps = document.getElementById('uiSubsteps');
+      const uiChecksPerSec = document.getElementById('uiChecksPerSec');
+      const uiMaxSpeed = document.getElementById('uiMaxSpeed');
+      const uiDropStatus = document.getElementById('uiDropStatus');
+      const uiSpinnerRpm = document.getElementById('uiSpinnerRpm');
+
+      function updateSidePanelUI() {
+        uiScore.textContent = String(score).padStart(6, '0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        uiHighScore.textContent = String(highScore).padStart(6, '0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        uiBalls.textContent = String(ballsRemaining);
+        uiMultiplier.textContent = `${multiplier}X`;
+        uiActiveBalls.textContent = String(balls.length);
+
+        const pct = Math.round(plunger.tension * 100);
+        uiTensionPct.textContent = `${pct}%`;
+        uiTensionBar.style.width = `${pct}%`;
+
+        uiFpsBadge.textContent = `${displayedFps} FPS`;
+        uiSubsteps.textContent = `${subStepsPerFrame} pasos (${subStepsPerFrame * 60} Hz)`;
+        uiChecksPerSec.textContent = displayedChecksPerSec.toLocaleString();
+
+        let currentPeak = 0;
+        for (const b of balls) {
+          const s = Math.hypot(b.vx, b.vy);
+          if (s > currentPeak) currentPeak = s;
+        }
+        uiMaxSpeed.textContent = `${Math.round(currentPeak)} px/s (Pico: ${Math.round(maxObservedBallSpeed)})`;
+
+        const droppedCount = dropTargets.filter(t => !t.active).length;
+        uiDropStatus.textContent = `${droppedCount} / ${dropTargets.length} derribadas`;
+
+        const rpm = Math.round((spinner.omega / (Math.PI * 2)) * 60);
+        uiSpinnerRpm.textContent = `${rpm} RPM`;
+      }
+
+      function releasePlunger() {
+        if (plunger.pull <= 2) {
+          plunger.pull = 0;
+          return;
+        }
+        const powerRatio = clamp(plunger.pull / plunger.maxPull, 0.12, 1.0);
+        const launchSpeed = 880 + powerRatio * 1080 + (Math.random() - 0.5) * 35;
+        synth.playPlungerRelease(powerRatio);
+
+        // Apply upward launch velocity to any ball resting in the plunger channel
+        for (const ball of balls) {
+          if (ball.x > 492 && ball.y > 720) {
+            ball.vy = -launchSpeed;
+            ball.vx = (Math.random() - 0.5) * 16;
+            spawnSparks(ball.x, ball.y + ball.r, 0, -1, '#ffe600', 18, 1.2);
+          }
+        }
+        plunger.pull = 0;
+        plunger.tension = 0;
+        setBanner('¡BOLA LANZADA AL CIRCUITO SUPERIOR!', 2.5);
+      }
+
+      function nudgeTable() {
+        if (gameOver) return;
+        triggerScreenShake(6.5);
+        synth.playWallBounce(420);
+        for (const ball of balls) {
+          if (!ball.inPlungerLane) {
+            ball.vx += (Math.random() - 0.5) * 160;
+            ball.vy -= 85;
+          }
+        }
+        setBanner('¡SACUDIDA DE MESA (NUDGE)!', 1.5);
+      }
+
+      function resetGame() {
+        score = 0;
+        ballsRemaining = 3;
+        multiplier = 1;
+        gameOver = false;
+        leftKickbackArmed = true;
+        maxObservedBallSpeed = 0;
+        balls.length = 0;
+        particles.length = 0;
+        shockwaves.length = 0;
+        floatingTexts.length = 0;
+        rolloverLanes.forEach(l => { l.lit = false; l.cooldown = 0; });
+        initDropTargets();
+        spawnBallInPlunger();
+        setBanner('MANTÉN [ESPACIO] O ARRASTRA EL RESORTE', 4.0);
+      }
+
+      // Keyboard Controls
+      window.addEventListener('keydown', (e) => {
+        synth.ensureContext();
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+          keys.left = true;
+          document.getElementById('btnLeftFlip').classList.add('active');
+        } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+          keys.right = true;
+          document.getElementById('btnRightFlip').classList.add('active');
+        } else if (e.code === 'Space') {
+          e.preventDefault();
+          if (gameOver) {
+            resetGame();
+            return;
+          }
+          keys.space = true;
+        } else if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+          e.preventDefault();
+          nudgeTable();
+        } else if (e.code === 'KeyB' || e.code === 'F2') {
+          e.preventDefault();
+          toggleDebugMode();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+          keys.left = false;
+          document.getElementById('btnLeftFlip').classList.remove('active');
+        } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+          keys.right = false;
+          document.getElementById('btnRightFlip').classList.remove('active');
+        } else if (e.code === 'Space') {
+          e.preventDefault();
+          keys.space = false;
+          releasePlunger();
+        }
+      });
+
+      // Mouse / Touch Drag on Plunger or Playfield
+      function getCanvasPoint(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: ((clientX - rect.left) / rect.width) * W,
+          y: ((clientY - rect.top) / rect.height) * H
+        };
+      }
+
+      canvas.addEventListener('pointerdown', (e) => {
+        synth.ensureContext();
+        const pt = getCanvasPoint(e.clientX, e.clientY);
+        // Right side / Plunger area initiates plunger pull
+        if (pt.x > 465 || (balls.length === 1 && balls[0].inPlungerLane && pt.y > 600)) {
+          plunger.isDragging = true;
+          plunger.dragStartY = pt.y;
+          canvas.setPointerCapture(e.pointerId);
+        } else if (pt.x < W * 0.5) {
+          keys.left = true;
+        } else {
+          keys.right = true;
+        }
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (!plunger.isDragging) return;
+        const pt = getCanvasPoint(e.clientX, e.clientY);
+        const pullDist = Math.max(8, pt.y - plunger.dragStartY + 18);
+        plunger.pull = clamp(pullDist, 0, plunger.maxPull);
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (plunger.isDragging) {
+          plunger.isDragging = false;
+          if (plunger.pull < 12) {
+            // Quick tap on plunger gives a full-power launch convenience
+            plunger.pull = plunger.maxPull * 0.86;
+          }
+          releasePlunger();
+        }
+        keys.left = false;
+        keys.right = false;
+      });
+
+      // On-Screen Touch Buttons
+      const btnLeftFlip = document.getElementById('btnLeftFlip');
+      const btnRightFlip = document.getElementById('btnRightFlip');
+      const btnNudge = document.getElementById('btnNudge');
+
+      btnLeftFlip.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        synth.ensureContext();
+        keys.left = true;
+        btnLeftFlip.classList.add('active');
+      });
+      btnLeftFlip.addEventListener('pointerup', () => {
+        keys.left = false;
+        btnLeftFlip.classList.remove('active');
+      });
+
+      btnRightFlip.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        synth.ensureContext();
+        keys.right = true;
+        btnRightFlip.classList.add('active');
+      });
+      btnRightFlip.addEventListener('pointerup', () => {
+        keys.right = false;
+        btnRightFlip.classList.remove('active');
+      });
+
+      btnNudge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        synth.ensureContext();
+        nudgeTable();
+      });
+
+      // Sidebar Buttons
+      const btnDebug = document.getElementById('btnDebug');
+      const btnMute = document.getElementById('btnMute');
+      const btnMultiball = document.getElementById('btnMultiball');
+      const btnReset = document.getElementById('btnReset');
+
+      function toggleDebugMode() {
+        debugMode = !debugMode;
+        btnDebug.textContent = debugMode ? '🛠 DEBUG FÍSICO: ON' : '🛠 DEBUG FÍSICO: OFF';
+        btnDebug.classList.toggle('active-toggle', debugMode);
+      }
+
+      btnDebug.addEventListener('click', () => {
+        synth.ensureContext();
+        toggleDebugMode();
+      });
+
+      btnMute.addEventListener('click', () => {
+        const isMuted = synth.toggleMute();
+        btnMute.textContent = isMuted ? '🔇 AUDIO SYNTH: MUTE' : '🔊 AUDIO SYNTH: ON';
+        btnMute.classList.toggle('active-toggle', !isMuted);
+      });
+
+      btnMultiball.addEventListener('click', () => {
+        synth.ensureContext();
+        if (gameOver) resetGame();
+        // Also launch any ball waiting in the plunger so all 3 are in the main playfield
+        for (const b of balls) {
+          if (b.inPlungerLane) {
+            b.vy = -1650;
+          }
+        }
+        activateMultiball('¡MULTIBALL 3X ACTIVADO!');
+      });
+
+      btnReset.addEventListener('click', () => {
+        synth.ensureContext();
+        resetGame();
+      });
+
+      // Sub-step Selector Chips
+      document.querySelectorAll('.substep-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.substep-chip').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+          subStepsPerFrame = parseInt(chip.dataset.steps, 10) || 20;
+        });
+      });
+
+      // =========================================================================
+      // 11. INITIALIZATION & MAIN ANIMATION LOOP
+      // =========================================================================
+      buildPlayfieldGeometry();
+      initDropTargets();
+      spawnBallInPlunger();
+
+      let lastTime = performance.now();
+
+      function gameLoop(now) {
+        const rawDt = (now - lastTime) / 1000;
+        lastTime = now;
+
+        // FPS & Telemetry Aggregation
+        fpsFrameCount++;
+        fpsAccumTime += rawDt;
+        if (fpsAccumTime >= 0.35) {
+          displayedFps = Math.min(144, Math.round(fpsFrameCount / fpsAccumTime));
+          displayedChecksPerSec = Math.round(collisionChecksThisFrame * displayedFps);
+          fpsFrameCount = 0;
+          fpsAccumTime = 0;
+        }
+
+        stepPhysics(rawDt);
+        renderTable();
+        updateSidePanelUI();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      requestAnimationFrame(gameLoop);
+    })();
+  </script>
+</body>
+</html>

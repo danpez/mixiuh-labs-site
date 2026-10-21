@@ -25,12 +25,14 @@ const spaceMono = Space_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://labs.mixiuh.online"),
-  title: "Mixiuh Labs | Foro de Ingenieria, Benchmarks de IA y Demos Zero-Shot",
+  title:
+    "Mixiuh Labs | Gemini 4 Argon vs Claude Opus 5.5 · Foro y Benchmarks Zero-Shot",
   description:
-    "Aqui no se opina: se prueba. Laboratorio interactivo y foro tecnico de Mixiuh Labs. Episodio 01: Gemini 4 Argon (High) vs. Gemini 3.8 Flash (High) — 10 retos extremos zero-shot, 20 demos jugables en vivo, prompts integros y autopsias de codigo.",
+    "Aqui no se opina: se prueba. Laboratorio interactivo y foro tecnico de Mixiuh Labs. Episodio 02: Gemini 4 Argon vs. Claude Opus 5.5 (4-2, $6.26 vs $16.26 USD, 12 motores en vivo) y Episodio 01: Argon vs. 3.8 Flash (10-0, 20 demos).",
   keywords: [
     "Mixiuh Labs",
     "Gemini 4 Argon",
+    "Claude Opus 5.5",
     "Gemini 3.8 Flash",
     "Zero-Shot Coding Benchmark",
     "Antigravity",
@@ -52,17 +54,18 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title: "Mixiuh Labs | Gemini 4 Argon vs. 3.8 Flash (10-0 Zero-Shot Benchmark)",
+    title:
+      "Mixiuh Labs | Gemini 4 Argon vs. Claude Opus 5.5 (6 Retos Extremos y la Factura Real)",
     description:
-      "Aqui no se opina: se prueba. Juega las 20 simulaciones zero-shot en tu navegador, inspecciona el bug del medio pixel en Uint32Array, copia los 10 prompts y participa en el foro de Mixiuh Labs.",
+      "Aqui no se opina: se prueba. Juega las 32 simulaciones zero-shot en tu navegador (EP02 Argon vs Opus 5.5 + EP01 Argon vs Flash), audita la factura real de tokens ($6.26 vs $16.26 USD) y participa en el foro de ingenieria.",
     url: "https://labs.mixiuh.online",
     siteName: "Mixiuh Labs",
     images: [
       {
-        url: "/brand/thumbs/ep01_x-card_1200x675.png",
+        url: "/brand/thumbs/ep02_x-card_1200x675.png",
         width: 1200,
         height: 675,
-        alt: "Mixiuh Labs EP01 - Gemini 4 Argon vs 3.8 Flash",
+        alt: "Mixiuh Labs EP02 - Gemini 4 Argon vs Claude Opus 5.5",
       },
     ],
     locale: "es_MX",
@@ -70,10 +73,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mixiuh Labs | Gemini 4 Argon vs. 3.8 Flash (10-0 Zero-Shot Benchmark)",
+    title:
+      "Mixiuh Labs | Gemini 4 Argon vs. Claude Opus 5.5 (4-2 · $6.26 vs $16.26 USD)",
     description:
-      "Aqui no se opina: se prueba. 10 retos zero-shot, 20 demos jugables en vivo, prompts integros y foro de ingenieria.",
-    images: ["/brand/thumbs/ep01_x-card_1200x675.png"],
+      "Aqui no se opina: se prueba. 6 retos extremos zero-shot, 32 demos jugables en vivo, telemetria de tokens y foro de ingenieria.",
+    images: ["/brand/thumbs/ep02_x-card_1200x675.png"],
   },
 };
 

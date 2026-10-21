@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-const VALID_MODELS = new Set(["argon", "flash"]);
+const VALID_MODELS = new Set(["argon", "flash", "opus"]);
 const VALID_DIRS = new Set([
+  // Episode 01 (10 challenges + 1 bonus)
   "sistema-solar",
   "visualizador-adn",
   "vida-artificial",
@@ -15,12 +16,19 @@ const VALID_DIRS = new Set([
   "arbol-fractal",
   "spirograph-parametrico",
   "gummy-bears",
+  // Episode 02 (6 challenges: Argon vs Opus 5.5)
+  "01-tela-verlet",
+  "02-fluidos-navier-stokes",
+  "03-cuerpo-blando-sdf",
+  "04-voxel-minecraft",
+  "05-sintetizador-fm",
+  "06-pinball-ccd",
 ]);
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model") || "argon";
-  const dir = searchParams.get("dir") || "motor-raycasting";
+  const dir = searchParams.get("dir") || "06-pinball-ccd";
 
   if (!VALID_MODELS.has(model) || !VALID_DIRS.has(dir)) {
     return NextResponse.json({ error: "Parametros invalidos" }, { status: 400 });

@@ -35,11 +35,16 @@ export interface ForumThread {
   readTime: string;
   upvotes: number;
   views: number;
+  episode?: "ep01" | "ep02";
   relatedChallengeN?: number;
   tags: string[];
   codeComparison?: {
     title_es: string;
     title_en: string;
+    leftLabel_es?: string;
+    leftLabel_en?: string;
+    rightLabel_es?: string;
+    rightLabel_en?: string;
     flashCode: string;
     argonCode: string;
     explanation_es: string;
@@ -66,65 +71,205 @@ export interface Ep02Proposal {
 
 export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
   {
-    id: "prop-argon-vs-claude",
-    title_es: "Gemini 4 Argon (High) vs. Claude 4.6 Opus — 10 Retos de Fisica y Motores 3D",
-    title_en: "Gemini 4 Argon (High) vs. Claude 4.6 Opus — 10 Physics & 3D Engine Challenges",
-    models: "Gemini 4 Argon vs Claude 4.6 Opus",
+    id: "prop-argon-vs-gpt5",
+    title_es: "Gemini 4 Argon (High) vs. GPT-5.4 (High) — 6 Motores de Ingenieria y Factura de Tokens",
+    title_en: "Gemini 4 Argon (High) vs. GPT-5.4 (High) — 6 Engineering Engines & Token Bill",
+    models: "Gemini 4 Argon vs GPT-5.4 High",
     category_es: "Duelo de Modelos Frontera",
     category_en: "Frontier Model Duel",
-    description_es: "Mismo protocolo estricto Zero-Shot en un solo index.html sin texturas externas: tela Verlet con desgarro, fluidos Navier-Stokes en WebGL, cinematica inversa y raytracing en tiempo real.",
-    description_en: "Same strict single-file index.html Zero-Shot protocol with zero external assets: tearable Verlet cloth, WebGL Navier-Stokes fluids, inverse kinematics, and real-time raytracing.",
-    votes: 148,
-    status_es: "En cabeza para EP02",
-    status_en: "Leading for EP02",
+    description_es: "Despues de vencer 10-0 a Flash y 4-2 a Claude Opus 5.5, enfrentar a Gemini 4 Argon contra GPT-5.4 High midiendo tiempo real, FPS y costo exacto por millon de tokens.",
+    description_en: "After beating Flash 10-0 and Claude Opus 5.5 4-2, pit Gemini 4 Argon against GPT-5.4 High auditing wall-clock latency, FPS, and exact token bill.",
+    votes: 184,
+    status_es: "En cabeza para EP03",
+    status_en: "Leading for EP03",
   },
   {
     id: "prop-emulador-chip8",
     title_es: "Reto Jefe: Emulador de Consola Retro + Ensamblador y ROM Procedural en 1 Archivo",
     title_en: "Boss Challenge: Retro Console Emulator + Assembler & Procedural ROM in 1 File",
-    models: "Argon vs Flash vs Opus",
+    models: "Argon vs Opus 5.5 vs GPT-5.4",
     category_es: "Arquitectura de Sistemas",
     category_en: "Systems Architecture",
     description_es: "Pedir en un solo intento una maquina virtual con ciclo fetch-decode-execute, registros en vivo, debugger paso a paso en hexadecimal y un juego jugable compilado en memoria al abrir el HTML.",
     description_en: "Zero-shot virtual machine featuring a fetch-decode-execute cycle, live CPU register inspector, hex step-by-step debugger, and a playable game compiled in memory on load.",
-    votes: 112,
-    status_es: "Candidato Nivel Jefe",
-    status_en: "Boss Level Candidate",
+    votes: 156,
+    status_es: "Candidato Nivel Jefe EP03",
+    status_en: "EP03 Boss Level Candidate",
   },
   {
-    id: "prop-sintetizador-dsp",
-    title_es: "Sintetizador Polifonico FM + Secuenciador y Osciloscopio FFT con WebAudio Puro",
-    title_en: "Polyphonic FM Synth + Sequencer & FFT Oscilloscope in Pure WebAudio",
-    models: "Gemini 4 Argon vs GPT-5.4 High",
-    category_es: "DSP y Audio Procedural",
-    category_en: "DSP & Procedural Audio",
-    description_es: "Cero samples externos: osciladores modulados en frecuencia, envolventes ADSR, filtro resonante biquad, reverb de convolucion algoritmica y espectro FFT a 60 FPS.",
-    description_en: "Zero external audio samples: FM operators, ADSR envelopes, biquad resonant filter, algorithmic convolution reverb, and 60 FPS FFT spectrum analyzer.",
-    votes: 94,
+    id: "prop-raytracer-bvh",
+    title_es: "Path Tracer en Tiempo Real en WebGL2 con BVH, Refraccion Caustica y Denoiser",
+    title_en: "Real-Time WebGL2 Path Tracer with BVH, Caustic Refraction & Temporal Denoiser",
+    models: "Gemini 4 Argon vs Claude Opus 5.5",
+    category_es: "GPU y Shaders Avanzados",
+    category_en: "GPU & Advanced Shaders",
+    description_es: "Trazado de rayos estocastico de multiples rebotes en un fragment shader GLSL con jerarquia de volumenes delimitadores (BVH), lentes de vidrio con dispersion cromatica y acumulacion temporal.",
+    description_en: "Multi-bounce stochastic path tracing in a GLSL fragment shader with Bounding Volume Hierarchy (BVH), dispersive glass lenses, and progressive temporal accumulation.",
+    votes: 129,
     status_es: "En evaluacion",
     status_en: "Under Evaluation",
   },
   {
-    id: "prop-cuerpo-blando-sdf",
-    title_es: "Fisica de Cuerpo Blando 3D (Marching Cubes SDF) — El Origen de los Gummy Bears",
-    title_en: "3D Soft-Body Physics (Marching Cubes SDF) — The Gummy Bears Challenge",
-    models: "Benchmark Abierto",
-    category_es: "WebGL y Shaders",
-    category_en: "WebGL & Shaders",
-    description_es: "Convertir el experimento extra de la madrugada del 14 de octubre (Gummy Bears con 10 puntos de masa, conservacion de volumen y Marching Cubes SDF) en una prueba oficial cronometrada.",
-    description_en: "Turn the post-benchmark Gummy Bears experiment (10 mass points, volume conservation, and Marching Cubes SDF) into an official timed zero-shot challenge.",
-    votes: 87,
-    status_es: "Solicitado por la comunidad",
-    status_en: "Community Requested",
+    id: "prop-argon-vs-claude",
+    title_es: "COMPLETADO EN EP02: Gemini 4 Argon vs. Claude Opus 5.5 (Verlet, Navier-Stokes, Voxel, FM, Pinball)",
+    title_en: "COMPLETED IN EP02: Gemini 4 Argon vs. Claude Opus 5.5 (Verlet, Navier-Stokes, Voxel, FM, Pinball)",
+    models: "Ganador: Argon 4-2 ($6.26 vs $16.26)",
+    category_es: "Completado · Ver Arriba",
+    category_en: "Completed · Watch Above",
+    description_es: "Propuesta ganadora de la comunidad ya ejecutada y publicada en YouTube 4K60: 6 retos extremos de fisica, 3D y audio con las 12 demos cargadas en la Arena Interactiva.",
+    description_en: "Community-voted winner now live in 4K60 on YouTube: 6 extreme physics, 3D, and audio challenges with all 12 deliverables playable in the Interactive Arena.",
+    votes: 248,
+    status_es: "Publicado en EP02",
+    status_en: "Published in EP02",
   }
 ];
 
 export const INITIAL_FORUM_THREADS: ForumThread[] = [
   {
+    id: "thread-ep02-dossier",
+    slug: "ep02-dossier-oficial-gemini-4-argon-vs-claude-opus-5-5-tokens",
+    category: "benchmarks",
+    pinned: true,
+    episode: "ep02",
+    badge_es: "DOSSIER OFICIAL EP02 · NUEVO",
+    badge_en: "OFFICIAL EP02 DOSSIER · NEW",
+    title_es: "Gemini 4 Argon (High) vs. Claude Opus 5.5 (High): 6 Retos Extremos, Marcador 4-2 y la Factura Real de Tokens ($6.26 vs $16.26 USD)",
+    title_en: "Gemini 4 Argon (High) vs. Claude Opus 5.5 (High): 6 Extreme Challenges, 4-2 Scoreboard & Real Token Bill ($6.26 vs $16.26 USD)",
+    excerpt_es: "En el Episodio 02 subimos la apuesta: enfrentamos a Gemini 4 Argon contra Claude Opus 5.5 en 6 motores fisicos, 3D y DSP, auditando no solo el cronometro (90 vs 159 min) sino cada token de entrada, salida y lectura de cache.",
+    excerpt_en: "In Episode 02 we raised the stakes: pitting Gemini 4 Argon against Claude Opus 5.5 across 6 physics, 3D, and DSP engines, auditing not just wall-clock time (90 vs 159 min) but every input, output, and cache-read token.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-21",
+    readTime: "9 min",
+    upvotes: 312,
+    views: 2640,
+    tags: ["EP02", "Gemini 4 Argon", "Claude Opus 5.5", "Token Cost", "Zero-Shot", "Benchmark"],
+    content_es: [
+      "Despues del 10-0 del Episodio 01 contra Gemini 3.8 Flash, la comunidad pidio el duelo mayor: Gemini 4 Argon (High) frente a Claude Opus 5.5 (High). Para que el enfrentamiento fuera implacable, disenamos 6 retos donde no basta con pintar bonito: tela fisica Verlet con desgarro, fluidos Navier-Stokes en shaders GLSL, cuerpos blandos 3D con conservacion de volumen XPBD, un motor de mundo Voxel 3D estilo Minecraft, un sintetizador polifonico FM en Web Audio API y una mesa de Pinball Cyberpunk con deteccion continua de colisiones (CCD).",
+      "Protocolo de Igualdad (Fair-Play High vs High): Ambos modelos corrieron en su nivel de esfuerzo 'High' en hilos limpios, con un solo intento Zero-Shot por reto y cero texturas o audios externos. A diferencia del Episodio 01, aqui NINGUN modelo entrego codigo roto: los 12 archivos index.html compilaron y corrieron al primer intento.",
+      "Marcador Final de Calidad y Eficiencia: 4 - 2 a favor de Gemini 4 Argon. Argon se llevo los Niveles 01 (Tela Verlet), 02 (Fluidos Navier-Stokes), 04 (Motor Voxel 3D) y 06 (Pinball CCD), manteniendo 120 FPS clavados en los 6 retos. Claude Opus 5.5 gano legitimamente el Nivel 03 (Cuerpos Blandos 3D, siendo el unico reto donde termino antes que Argon: 30.87 vs 34.74 min y esculpiendo 6 morfologias XPBD) y el Nivel 05 (Sintetizador FM, donde entrego una estacion DAW de 8 pistas con linea Acid 303 y goniometro Lissajous X-Y).",
+      "El Cronometro y la Factura Real de Tokens: Completar los 6 retos le tomo a Gemini 4 Argon 90.13 minutos acumulados (45 pasos de agente, 15,719 lineas / 531.0 KB de codigo) frente a 158.66 minutos de Claude Opus 5.5 (143 pasos de agente, 9,603 lineas / 507.6 KB). En tokens, Argon consumio 3.63 millones de tokens totales por una factura exacta de $6.26 USD; Opus 5.5 consumio 13.01 millones de tokens (12.25M en lecturas de cache por sus bucles de verificacion) por $16.26 USD. Argon fue 1.76x mas rapido y 2.60x mas economico."
+    ],
+    content_en: [
+      "Following the 10-0 sweep in Episode 01 against Gemini 3.8 Flash, the community demanded the heavyweight bout: Gemini 4 Argon (High) versus Claude Opus 5.5 (High). We designed 6 unforgiving physics, 3D, and DSP challenges: tearable Verlet cloth, GPU Navier-Stokes fluids in GLSL, 3D soft-body XPBD physics, a Minecraft-style 3D Voxel engine, a polyphonic FM synthesizer in pure Web Audio API, and a Cyberpunk Pinball table with Continuous Collision Detection (CCD).",
+      "Fair-Play Protocol (High vs High): Both models ran at 'High' effort in clean sessions with a single Zero-Shot attempt per challenge and zero external textures or audio files. Unlike Episode 01, NEITHER model shipped broken code: all 12 index.html deliverables executed on the first try.",
+      "Final Scoreboard: 4 - 2 in favor of Gemini 4 Argon. Argon won Levels 01 (Verlet Cloth), 02 (Navier-Stokes Fluids), 04 (3D Voxel Engine), and 06 (Pinball CCD), holding a locked 120 FPS across all 6 challenges. Claude Opus 5.5 earned two clear victories in Level 03 (3D Soft Bodies—the only test where Opus beat Argon on the clock at 30.87m vs 34.74m while sculpting 6 XPBD shapes) and Level 05 (FM Synthesizer, delivering an 8-track DAW with an Acid 303 line and X-Y Lissajous goniometer).",
+      "The Stopwatch & Real Token Bill: Completing all 6 challenges took Gemini 4 Argon 90.13 total minutes (45 agent steps, 15,719 lines / 531.0 KB) versus 158.66 minutes for Claude Opus 5.5 (143 agent steps, 9,603 lines / 507.6 KB). In token telemetry, Argon used 3.63M total tokens for an exact bill of $6.26 USD; Opus 5.5 consumed 13.01M tokens (12.25M in cache reads across its verification loops) for $16.26 USD. Argon was 1.76x faster and 2.60x cheaper."
+    ],
+    comments: [
+      {
+        id: "c-ep02-1",
+        author: "Kevin Gonzalez",
+        role: "Arbitro · Mixiuh Labs",
+        handle: "@kevingon",
+        createdAt: "Hoy",
+        body_es: "Las 12 nuevas simulaciones del Episodio 02 ya estan activas en la Arena Interactiva aqui arriba (pueden alternar entre Episodio 02 y Episodio 01 con un clic). No olviden activar el sonido en los Niveles 05 y 06 para escuchar el Web Audio procedural en vivo.",
+        body_en: "All 12 new Episode 02 simulations are now live in the Interactive Arena above (you can toggle between Episode 02 and Episode 01 with one click). Make sure to unmute on Levels 05 and 06 to hear the procedural Web Audio live.",
+        upvotes: 64
+      }
+    ]
+  },
+  {
+    id: "thread-autopsia-ep02-verlet",
+    slug: "autopsia-ep02-nivel-1-tela-verlet-28fps-opus-vs-120fps-argon",
+    category: "autopsias",
+    pinned: true,
+    episode: "ep02",
+    badge_es: "AUTOPSIA DE RENDIMIENTO · EP02 N01",
+    badge_en: "PERFORMANCE AUTOPSY · EP02 L01",
+    title_es: "Nivel 1 (Tela Verlet): Por que los 18,430 enlaces y 30 iteraciones de Claude Opus 5.5 hundieron el CPU a 28 FPS mientras Argon clavo 120 FPS",
+    title_en: "Level 1 (Verlet Cloth): Why Claude Opus 5.5's 18,430 Links & 30 Solver Iterations Tanked CPU to 28 FPS While Argon Locked 120 FPS",
+    excerpt_es: "Mas restricciones no siempre significa mejor ingenieria en tiempo real: analizamos las 552,900 relajaciones por cuadro de Opus frente al solver Gauss-Seidel calibrado de Argon.",
+    excerpt_en: "More constraints don't always mean better real-time engineering: dissecting Opus's 552,900 relaxations per frame vs Argon's calibrated Gauss-Seidel solver.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-21",
+    readTime: "6 min",
+    upvotes: 228,
+    views: 1790,
+    relatedChallengeN: 1,
+    tags: ["EP02", "Nivel 1", "Verlet", "Gauss-Seidel", "120 FPS vs 28 FPS", "Performance"],
+    codeComparison: {
+      title_es: "Configuracion por defecto del Solver de Restricciones en CPU (Opus 5.5 vs Argon)",
+      title_en: "Default CPU Constraint Solver Configuration (Opus 5.5 vs Argon)",
+      leftLabel_es: "[IZQUIERDA] CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
+      leftLabel_en: "[LEFT] CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
+      rightLabel_es: "[DERECHA] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
+      rightLabel_en: "[RIGHT] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
+      flashCode: `// claude-opus-5.5/01-tela-verlet/index.html
+// Malla 77x48 (3,696 nodos) con Estructural + Cizalla + Flexion activados de serie:
+// Total: 18,430 enlaces * 30 iteraciones = 552,900 pases por frame en 1 hilo JS
+const state = {
+  cols: 77, rows: 48,
+  iterations: 30,
+  useShear: true,
+  useBend: true, // <-- Multiplica enlaces a 18,430; cae a 28 FPS (6.28 ms/frame)
+};`,
+      argonCode: `// gemini-4-argon/01-tela-verlet/index.html
+// Malla 72x44 (3,168 nodos, 6,228 enlaces) en Float32Arrays contiguos:
+// 14 iteraciones Gauss-Seidel = 87,192 operaciones en cache L1 -> 120 FPS clavados
+const CONFIG = {
+  cols: 72, rows: 44,
+  solverIterations: 14, // <-- Tensado perfecto a 120 FPS (0.9 ms/frame)
+  stiffness: 0.98,
+  tearThreshold: 2.35,
+};`,
+      explanation_es: "En simulacion fisica sobre un hilo principal de JavaScript (presupuesto de 8.33 ms por cuadro a 120 Hz), activar simultaneamente enlaces estructurales, diagonales de cizalla y saltos dobles de flexion eleva la malla de Opus a 18,430 objetos en memoria. Multiplicado por 30 iteraciones de relajacion y el renderizado de 18,430 trazos en Canvas 2D, el frame tarda ~35 ms (28 FPS). Argon empaqueto coordenadas en arreglos tipados y calibro 14 iteraciones estructurales con sombreado por celda a 120 FPS.",
+      explanation_en: "In single-threaded JavaScript physics (an 8.33 ms frame budget at 120 Hz), enabling structural, diagonal shear, and double-stride bend links simultaneously inflates Opus's mesh to 18,430 heap objects. Multiplied by 30 solver iterations plus 18,430 Canvas 2D stroke calls, each frame takes ~35 ms (28 FPS). Argon packed coordinates into contiguous arrays and calibrated 14 Gauss-Seidel iterations to hold a locked 120 FPS."
+    },
+    content_es: [
+      "El Nivel 01 del Episodio 02 pedia una malla densa de tela con integracion de Verlet desde cero, mapa de calor de tension mecanica y corte con bisturi laser.",
+      "Gemini 4 Argon completo el reto en solo 2 pasos de agente (6.68 minutos y $0.65 USD). Su simulador mantiene 120 FPS inamovibles incluso mientras cortas la tela con el bisturi laser, disparas ondas de choque y observas el osciloscopio de tension maxima en tiempo real.",
+      "Claude Opus 5.5 tardo 30.87 minutos (28 pasos de agente y $3.05 USD). Aunque su interfaz es limpia, cometio un error clasico de sobre-ingenieria sin presupuesto de frame: activo por defecto restricciones estructurales, de cizalla y de flexion (18,430 enlaces totales) con 30 iteraciones de relajacion por cuadro, hundiendo el rendimiento a 28 FPS en su propio contador de telemetria."
+    ],
+    content_en: [
+      "Level 01 of Episode 02 called for a dense Verlet cloth mesh built from scratch with a mechanical tension heatmap and a laser scalpel cutter.",
+      "Gemini 4 Argon finished the challenge in just 2 agent steps (6.68 minutes and $0.65 USD). Its simulator holds a rock-solid 120 FPS even while slicing fabric with the laser scalpel, firing radial shockwaves, and plotting peak tension on a live oscilloscope.",
+      "Claude Opus 5.5 took 30.87 minutes (28 agent steps and $3.05 USD). While its UI is clean, it fell into a classic unbudgeted over-engineering trap: enabling structural, shear, and bend constraints by default (18,430 total links) at 30 solver iterations per frame, dropping performance to 28 FPS on its own telemetry counter."
+    ],
+    comments: []
+  },
+  {
+    id: "thread-autopsia-ep02-tokens",
+    slug: "autopsia-ep02-factura-tokens-45-pasos-argon-vs-143-pasos-opus",
+    category: "benchmarks",
+    episode: "ep02",
+    badge_es: "AUDITORIA DE COSTOS · TOKENS",
+    badge_en: "COST AUDIT · TOKEN TELEMETRY",
+    title_es: "Radiografia de la Factura ($6.26 vs $16.26 USD): Por que Argon uso 45 pasos (3.63M tokens) y Opus necesito 143 pasos (13.01M tokens)",
+    title_en: "Inside the Token Bill ($6.26 vs $16.26 USD): Why Argon Took 45 Steps (3.63M Tokens) While Opus Needed 143 Steps (13.01M Tokens)",
+    excerpt_es: "Desglose reto por reto de Input, Cache Read y Output tokens extraidos directamente de los logs de ejecucion de ambos agentes.",
+    excerpt_en: "Challenge-by-challenge breakdown of Input, Cache Read, and Output tokens extracted directly from both agents' execution logs.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-21",
+    readTime: "7 min",
+    upvotes: 195,
+    views: 1480,
+    tags: ["Tokens", "API Pricing", "Prompt Caching", "Claude Opus 5.5", "Gemini 4 Argon"],
+    content_es: [
+      "En los benchmarks tradicionales rara vez se habla de cuanto cuesta en dolares reales que un agente autonomo termine un proyecto complejo. En el Episodio 02 instrumentamos ambos entornos para medir tanto el tiempo de reloj como el consumo de tokens con tarifas oficiales.",
+      "En 3 de los 6 retos (Nivel 01 Tela Verlet, Nivel 04 Motor Voxel y Nivel 06 Pinball CCD), Gemini 4 Argon (High) necesito unicamente entre 2 y 3 pasos de agente: planifico la arquitectura matematica completa y escribio archivos de 2,500 a 2,760 lineas de un solo tiron, costando entre $0.65 y $0.70 USD por reto.",
+      "En los retos con shaders 3D mas delicados (Nivel 02 Navier-Stokes, Nivel 03 Cuerpos Blandos y Nivel 05 Sintetizador FM), Argon realizo entre 9 y 19 pasos para verificar y pulir detalles, sumando 45 pasos en todo el torneo (1.06M Input, 2.26M Cache Read, 306.9K Output = $6.26 USD).",
+      "Claude Opus 5.5 (High), en cambio, ejecuto un bucle intensivo de entre 18 y 28 pasos en CADA UNO de los 6 retos (143 pasos totales). En cada paso de verificacion con navegador headless, el agente vuelve a enviar todo el historial de conversacion (acumulando 12.25 millones de tokens en Cache Read mas 501K de Output), elevando la factura total a $16.26 USD y el tiempo a 158.66 minutos."
+    ],
+    content_en: [
+      "Traditional benchmarks rarely disclose how many real dollars it costs for an autonomous agent to ship a complex project. In Episode 02 we instrumented both environments to audit wall-clock latency alongside exact token billing under official API pricing.",
+      "Across 3 of the 6 challenges (Level 01 Verlet Cloth, Level 04 Voxel Engine, and Level 06 Pinball CCD), Gemini 4 Argon (High) needed only 2 to 3 agent steps: it architected the full mathematical solver and wrote 2,500 to 2,760 lines in a single pass, costing just $0.65 to $0.70 USD per challenge.",
+      "On the more intricate 3D shader and DSP challenges (Level 02 Navier-Stokes, Level 03 Soft Bodies, and Level 05 FM Synthesizer), Argon used 9 to 19 steps to verify and refine, totaling 45 steps across the tournament (1.06M Input, 2.26M Cache Read, 306.9K Output = $6.26 USD).",
+      "Claude Opus 5.5 (High), by contrast, ran an intensive 18-to-28-step verification loop on EVERY single challenge (143 total steps). Because each tool-call turn re-reads the growing conversation context, Opus accumulated 12.25M Cache Read tokens plus 501K Output tokens, driving its total bill to $16.26 USD and wall-clock time to 158.66 minutes."
+    ],
+    comments: []
+  },
+  {
     id: "thread-ep01-dossier",
     slug: "ep01-dossier-oficial-gemini-4-argon-vs-3-8-flash",
     category: "benchmarks",
-    pinned: true,
+    pinned: false,
+    episode: "ep01",
     badge_es: "DOSSIER OFICIAL EP01",
     badge_en: "OFFICIAL EP01 DOSSIER",
     title_es: "Gemini 4 Argon (High) vs. Gemini 3.8 Flash (High): 10 Retos Extremos Zero-Shot, Metodologia y Marcador 10-0",
