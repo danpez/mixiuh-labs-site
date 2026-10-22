@@ -35,7 +35,7 @@ export interface ForumThread {
   readTime: string;
   upvotes: number;
   views: number;
-  episode?: "ep01" | "ep02";
+  episode?: "ep01" | "ep02" | "ep03" | "cc01";
   relatedChallengeN?: number;
   tags: string[];
   codeComparison?: {
@@ -138,6 +138,64 @@ export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
 ];
 
 export const INITIAL_FORUM_THREADS: ForumThread[] = [
+  {
+    id: "thread-ep03-dossier-real",
+    slug: "ep03-dossier-gemini-4-argon-high-sin-kit-vs-mixiuh-superpowers-kit-4-2",
+    category: "benchmarks",
+    pinned: true,
+    episode: "ep03",
+    badge_es: "DOSSIER OFICIAL EP03 · 12 CORRIDAS REALES AGY",
+    badge_en: "OFFICIAL EP03 DOSSIER · 12 REAL AGY RUNS",
+    title_es: "¿Siguen Sirviendo los Kits de Skills y Memoria con Gemini 4 Argon High? La Verdad del 4-2 (276m vs 302m · $10.85 vs $7.69 USD)",
+    title_en: "Do Skills & Memory Kits Still Matter with Gemini 4 Argon High? The Honest 4-2 Verdict (276m vs 302m · $10.85 vs $7.69 USD)",
+    excerpt_es: "Corrimos 12 instancias reales y aisladas en la CLI de Antigravity (6 con Gemini 4 Argon High a pelo vs 6 con el Mixiuh Superpowers Kit v1.0). La IA sin kit gano 2 rondas clave, pero el Kit se llevo el marcador 4-2 y ahorro 26 minutos.",
+    excerpt_en: "We ran 12 real isolated benchmarks in Antigravity CLI (6 Raw Gemini 4 Argon High vs 6 with Mixiuh Superpowers Kit v1.0). Raw AI won 2 key rounds, while the Kit won 4-2 overall and saved 26 minutes.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-22",
+    readTime: "8 min",
+    upvotes: 412,
+    views: 3890,
+    tags: ["EP03", "Gemini 4 Argon High", "Superpowers Kit", "MCP Auto-Debugger", "Zero-GC", "Benchmark Real"],
+    codeComparison: {
+      title_es: "Reto 02 (Terminal HFT): Objetos JS Estandar (11,073 ord/s) vs Skill 02 Float64Array RingBuffer (70,406 ord/s)",
+      title_en: "Challenge 02 (HFT Terminal): Standard JS Objects (11,073 ord/s) vs Skill 02 Float64Array RingBuffer (70,406 ord/s)",
+      leftLabel_es: "[IZQUIERDA] IA SIN KIT (58 MIN · $1.60 USD · 11,073 ORD/S)",
+      leftLabel_en: "[LEFT] RAW AI (58 MIN · $1.60 USD · 11,073 ORD/S)",
+      rightLabel_es: "[DERECHA] IA + SUPERPOWERS KIT (42 MIN · $1.40 USD · 70,406 ORD/S)",
+      rightLabel_en: "[RIGHT] AI + SUPERPOWERS KIT (42 MIN · $1.40 USD · 70,406 ORD/S)",
+      flashCode: `// ia-sin-kit/02-terminal-trading/index.html
+// Asigna objetos { price, size, side, ts } en el heap en cada tick:
+function pushTradeTick(price, size, side) {
+  trades.unshift({ id: ++seq, price, size, side, ts: performance.now() });
+  if (trades.length > 250) trades.pop(); // <-- Presion al Garbage Collector (11,073 ord/s)
+}`,
+      argonCode: `// ia-superpowers-kit/02-terminal-trading/index.html
+// Skill 02 Zero-GC: RingBuffer pre-alocado en Float64Array (0 allocs por tick)
+const RING_CAP = 16384;
+const tradeRing = new Float64Array(RING_CAP * 4); // [price, size, side, ts]
+function recordTickZeroGC(price, size, side, now) {
+  const base = (head & (RING_CAP - 1)) << 2;
+  tradeRing[base] = price; tradeRing[base + 1] = size; // <-- 70,406 ord/s clavados
+}`,
+      explanation_es: "En el Reto 02 (Terminal HFT), darle al modelo el Skill 02 de arquitectura Zero-GC con RingBuffers pre-alocados no solo sextuplico el throughput de ordenes por segundo (70,406 vs 11,073 ord/s), sino que evito que el agente reescribiera el motor a mitad de camino, terminando 16 minutos antes (42m vs 58m) y costando menos ($1.40 vs $1.60 USD).",
+      explanation_en: "In Challenge 02 (HFT Terminal), equipping the model with Skill 02's Zero-GC Float64Array RingBuffer pattern not only boosted throughput 6.3x (70,406 vs 11,073 ord/s), it prevented the agent from refactoring mid-run—finishing 16 minutes faster (42m vs 58m) and costing less ($1.40 vs $1.60 USD)."
+    },
+    content_es: [
+      "Con modelos frontera tan capaces como Gemini 4 Argon High, quisimos responder con datos reales una pregunta que todo ingeniero se hace hoy: ¿siguen siendo necesarios los Kits de Skills, bancos de memoria y el Auto-Debugger MCP, o solo queman tokens extra?",
+      "Protocolo de Laboratorio: Ejecutamos 12 instancias reales y aisladas de `agy --model gemini-4-argon-high --effort high` (6 en carpetas limpias sin ninguna regla y 6 con el Mixiuh Superpowers Kit v1.0). Primero lo mas importante: ninguna de las 12 entregas fallo ni arrojo errores de consola. Gemini 4 Argon High sin kit es un monstruo por derecho propio.",
+      "Cuando Gana la IA Sin Kit (2 puntos): En el Reto 03 (Arcade Bullet-Hell Boss Rush), las reglas conservadoras de presupuesto de particulas del Kit limitaron los proyectiles a 432 y tardaron 69 min ($2.32 USD), mientras que Gemini 4 Argon High sin kit desato patrones Danmaku 4 veces mas densos (1,829 proyectiles activos a 60 FPS) en 51 min ($1.09 USD). En el Reto 04 (Red Zero-Trust 3D), el modelo sin kit resolvio todo en apenas 5 pasos de agente ($0.74 USD vs $2.04 USD de 21 pasos con Kit) con un HUD eBPF/XDP mas limpio.",
+      "Por que el Mixiuh Superpowers Kit Gana 4-2 en el Global (276 min vs 302 min): En sistemas donde la arquitectura de memoria o el estado multi-ventana son criticos, el Kit marco una diferencia contundente: en el Reto 01 (Galaxia N-Body) entrego 20,000 estrellas por GPU Instancing con Bloom HDR y lente de Einstein; en el Reto 02 (Terminal HFT) fue 16 minutos mas rapido, mas barato y 6.3x mas veloz (70,406 ord/s); en el Reto 05 (Motor DAG GLSL) ahorro 10 minutos al mismo precio ($1.41 USD) e incluyo ventana PiP Raymarching 3D; y en el Reto 06 (MixiuhOS Desktop) el Auto-Debugger MCP detecto en el DOM que las ventanas iniciales se solapaban y las distribuyo limpiamente."
+    ],
+    content_en: [
+      "With frontier models as capable as Gemini 4 Argon High, we wanted to answer with hard data a question every engineer asks today: do you still need Skills Kits, Memory Banks, and MCP Auto-Debuggers, or do they just burn extra tokens?",
+      "Lab Protocol: We ran 12 real isolated instances of `agy --model gemini-4-argon-high --effort high` (6 in clean directories with zero rules, and 6 with the Mixiuh Superpowers Kit v1.0). First, the headline finding: zero out of 12 deliverables crashed or threw console errors. Raw Gemini 4 Argon High is a beast in its own right.",
+      "When Raw AI Wins (2 points): In Challenge 03 (Bullet-Hell Boss Rush), the Kit's conservative particle-budget guardrails capped active bullets at 432 and took 69 min ($2.32 USD), whereas Raw Gemini 4 Argon High unleashed 4x denser Danmaku spirals (1,829 active bullets at 60 FPS) in 51 min ($1.09 USD). In Challenge 04 (3D Zero-Trust Network), Raw AI finished in just 5 agent steps ($0.74 USD vs $2.04 USD across 21 steps with the Kit) with a cleaner eBPF/XDP quarantine HUD.",
+      "Why the Mixiuh Superpowers Kit Wins 4-2 Overall (276 min vs 302 min): Whenever memory layout or multi-window DOM state is critical, the Kit proved decisive: in Challenge 01 (N-Body Galaxy) it delivered 20,000 GPU-instanced stars with HDR Bloom and Einstein lensing; in Challenge 02 (HFT Terminal) it finished 16 minutes faster, cheaper, and with 6.3x higher order throughput (70,406 ord/s); in Challenge 05 (DAG GLSL Studio) it saved 10 minutes at the exact same $1.41 cost while adding a floating 3D SDF Raymarching PiP viewport; and in Challenge 06 (MixiuhOS Desktop) the MCP Auto-Debugger caught overlapping startup windows in the live DOM and arranged 4 clean multi-window apps."
+    ],
+    comments: []
+  },
   {
     id: "thread-cc01-overfit-tenito03",
     slug: "del-comentario-al-codigo-01-tenito03-overfit-studio-3d-marca-ropa-ia",

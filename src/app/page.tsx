@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BENCHMARK_TOTALS,
   CHALLENGES,
@@ -15,6 +15,12 @@ import {
   EPISODE_02_CHAPTERS,
   EP02_HONESTY_NOTES,
 } from "@/data/ep02Data";
+import {
+  EP03_BENCHMARK_TOTALS,
+  EP03_CHALLENGES,
+  EPISODE_03_CHAPTERS,
+  EP03_HONESTY_NOTES,
+} from "@/data/ep03Data";
 import DemoArenaSection from "@/components/DemoArenaModal";
 import ForumSection from "@/components/ForumSection";
 import {
@@ -27,32 +33,105 @@ import {
   Search,
   ArrowUpRight,
   Layers,
+  LayoutGrid,
+  FileText,
+  Sparkles,
+  MessageSquare,
+  Cpu,
+  Download,
+  Copy,
+  Check,
 } from "lucide-react";
+
+type MainView = "blog" | "dossiers" | "comunidad" | "arena" | "foro";
+type DossierEpisode = "ep03" | "ep02" | "ep01";
+type BlogFilter = "all" | "torneos" | "kits" | "comunidad";
 
 export default function MixiuhLabsHomePage() {
   const [lang, setLang] = useState<"es" | "en">("es");
+  const [mainView, setMainView] = useState<MainView>("blog");
+  const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
+  const [dossierEp, setDossierEp] = useState<DossierEpisode>("ep03");
+
+  // Arena & Episode state
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
+  const [arenaMode, setArenaMode] = useState<"ep03" | "ep02_ep01">("ep03");
+
+  // EP03 interactive comparator state
+  const [ep03ChallengeN, setEp03ChallengeN] = useState<number>(2);
+  const [ep03Mode, setEp03Mode] = useState<
+    "split" | "superkit" | "vanilla" | "still" | "prompt"
+  >("split");
+  const [copiedEp03Prompt, setCopiedEp03Prompt] = useState(false);
+
+  // Video & Glossary state
   const [activeVideoClip, setActiveVideoClip] = useState<"hook" | "boss">(
     "hook"
   );
   const [glossarySearch, setGlossarySearch] = useState("");
+  const [foroSubTab, setForoSubTab] = useState<"hilos" | "glosario">("hilos");
 
-  const isEp02 = activeEpisode === "ep02";
+  // Sync URL hash navigation so external links (#ep03-superpowers-kit, #comentario-al-codigo, #arena, #foro, #glosario) open the right view
+  useEffect(() => {
+    const applyHash = () => {
+      const h = window.location.hash.replace("#", "");
+      if (!h || h === "top") return;
+      if (h === "ep03-superpowers-kit") {
+        setMainView("dossiers");
+        setDossierEp("ep03");
+      } else if (h === "comentario-al-codigo") {
+        setMainView("comunidad");
+      } else if (h === "dossier" || h === "matriz") {
+        setMainView("dossiers");
+      } else if (h === "arena") {
+        setMainView("arena");
+      } else if (h === "foro") {
+        setMainView("foro");
+        setForoSubTab("hilos");
+      } else if (h === "glosario" || h === "ecosistema") {
+        setMainView("foro");
+        setForoSubTab("glosario");
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  const navigateToView = (view: MainView, subEp?: DossierEpisode) => {
+    setMainView(view);
+    if (subEp) {
+      setDossierEp(subEp);
+      if (subEp === "ep02" || subEp === "ep01") {
+        setActiveEpisode(subEp);
+      }
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleEpisodeChange = (ep: "ep02" | "ep01") => {
     setActiveEpisode(ep);
+    setDossierEp(ep);
     setSelectedChallengeN(ep === "ep02" ? 1 : 6);
     setActiveVideoClip("hook");
   };
 
-  const handleJumpToArena = (episode: "ep02" | "ep01", challengeN: number) => {
-    setActiveEpisode(episode);
-    setSelectedChallengeN(challengeN);
-    const el = document.getElementById("arena");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
+  const handleJumpToArena = (
+    episode: "ep03" | "ep02" | "ep01",
+    challengeN: number
+  ) => {
+    if (episode === "ep03") {
+      setEp03ChallengeN(challengeN);
+      setArenaMode("ep03");
+      setMainView("arena");
+    } else {
+      setActiveEpisode(episode);
+      setSelectedChallengeN(challengeN);
+      setArenaMode("ep02_ep01");
+      setMainView("arena");
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const filteredGlossary = LAB_GLOSSARY.filter((item) => {
@@ -64,1748 +143,2105 @@ export default function MixiuhLabsHomePage() {
     );
   });
 
-  const activeHonestyNotes = isEp02
-    ? EP02_HONESTY_NOTES.map((n) => (lang === "es" ? n.es : n.en))
-    : SCIENTIFIC_HONESTY_NOTES.slice(0, 10);
+  const isEp02 = dossierEp === "ep02";
+
+  // Blog Cards Data (All 4 Productions)
+  const BLOG_ARTICLES = [
+    {
+      id: "ep03",
+      filter: "kits" as const,
+      date: "25 Oct 2026",
+      readTime: "07:31 Video · 12 Demos",
+      badge_es: "EPISODIO 03 · BENCHMARK AGY CLI",
+      badge_en: "EPISODE 03 · AGY CLI BENCHMARK",
+      accentColor: "#34D399",
+      scoreBadge_es: "SUPERKIT 4 - 2 SIN KIT",
+      scoreBadge_en: "SUPERKIT 4 - 2 RAW AI",
+      thumb: "/brand/thumbs/ep03_thumb_A.jpg",
+      title_es:
+        "Gemini 4 Argon High Sin Kit vs. Mixiuh Superpowers Kit: ¿Siguen Sirviendo los Skills y Memoria Hoy?",
+      title_en:
+        "Gemini 4 Argon High Raw vs. Mixiuh Superpowers Kit: Do You Still Need Skills & Memory Kits Today?",
+      excerpt_es:
+        "Corrimos 12 instancias reales y aisladas en la terminal de Antigravity. Gemini 4 Argon High sin kit gano 2 retos clave (Arcade Bullet-Hell con 1,829 balas en 51m y Red Zero-Trust 3D en 5 pasos por $0.74 USD), pero el Superpowers Kit gano 4-2 en el global (276m vs 302m), entregando 70,406 ord/s en HFT Zero-GC y corrigiendo ventanas con el Auto-Debugger MCP.",
+      excerpt_en:
+        "We executed 12 real isolated runs in the Antigravity CLI. Raw Gemini 4 Argon High won 2 key rounds (Bullet-Hell Boss Rush with 1,829 bullets in 51m and 3D Zero-Trust Network in 5 steps for $0.74 USD), while the Superpowers Kit won 4-2 overall (276m vs 302m), delivering 70,406 ord/s in Zero-GC HFT and fixing overlapping windows via the MCP Auto-Debugger.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "4 - 2 Kit" },
+        { label_es: "TIEMPO TOTAL", label_en: "TOTAL TIME", val: "276m vs 302m" },
+        { label_es: "COSTO API", label_en: "API COST", val: "$10.85 vs $7.69" },
+        { label_es: "TOKENS", label_en: "TOKENS", val: "3.52M vs 2.65M" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep03"),
+      onOpenArena: () => {
+        setArenaMode("ep03");
+        navigateToView("arena");
+      },
+    },
+    {
+      id: "cc01",
+      filter: "comunidad" as const,
+      date: "24 Oct 2026",
+      readTime: "Estudio 3D + 10 Artes 2K",
+      badge_es: "DEL COMENTARIO AL CODIGO #01 · @TENITO03",
+      badge_en: "FROM COMMENT TO CODE #01 · @TENITO03",
+      accentColor: "#FBBF24",
+      scoreBadge_es: "OVERFIT STUDIO 3D",
+      scoreBadge_en: "OVERFIT STUDIO 3D",
+      thumb: "/brand/thumbs/cc01_thumb_A.jpg",
+      title_es:
+        "De un Comentario a una Marca de Ropa IA en 3D: OVERFIT Studio 3D y la Coleccion 'Guerra de Pesos'",
+      title_en:
+        "From a Comment to a 3D AI Streetwear Brand: OVERFIT Studio 3D & the 'Weight War' Collection",
+      excerpt_es:
+        "@tenito03 nos pregunto en el Reel de la tela Verlet si con esa textura podiamos hacer una playera, un mockup en blanco editable y lanzar una marca de ropa. Esculpimos en Blender Cycles 3 maniquies de algodon de 300 GSM (Hombre, Mujer y Mesa) y disenamos 10 estampados satiricos en 2K con exportacion 4K.",
+      excerpt_en:
+        "@tenito03 asked on the Verlet cloth Reel if we could turn that texture into a t-shirt, an editable blank mockup, and launch a clothing brand. We sculpted 3 300 GSM mannequins in Blender Cycles (Male, Female, Flat-Lay) and designed 10 satirical 2K prints with 4K export.",
+      metrics: [
+        { label_es: "MANIQUIES 3D", label_en: "3D MODELS", val: "Hombre/Mujer/Mesa" },
+        { label_es: "COLECCION", label_en: "COLLECTION", val: "10 Artes 2K UHD" },
+        { label_es: "GRAMAJE", label_en: "FABRIC", val: "300 GSM + Verlet" },
+        { label_es: "EXPORTACION", label_en: "EXPORT", val: "Reels 9:16 + PNG 4K" },
+      ],
+      onOpenDossier: () => navigateToView("comunidad"),
+      onOpenArena: () => navigateToView("comunidad"),
+    },
+    {
+      id: "ep02",
+      filter: "torneos" as const,
+      date: "21 Oct 2026",
+      readTime: "08:06 Video · 12 Demos",
+      badge_es: "EPISODIO 02 · DUELO DE TITANES HIGH",
+      badge_en: "EPISODE 02 · HIGH TITAN DUEL",
+      accentColor: "#B794F6",
+      scoreBadge_es: "ARGON 4 - 2 OPUS 5.5",
+      scoreBadge_en: "ARGON 4 - 2 OPUS 5.5",
+      thumb: "/brand/thumbs/ep02_thumb_A.jpg",
+      title_es:
+        "Gemini 4 Argon vs. Claude Opus 5.5: 6 Retos Extremos de Fisica, WebGL2 y la Factura Real de Tokens",
+      title_en:
+        "Gemini 4 Argon vs. Claude Opus 5.5: 6 Extreme Physics & WebGL2 Challenges and the Real Token Bill",
+      excerpt_es:
+        "Enfrentamos a Claude Opus 5.5 (High) contra Gemini 4 Argon (High) en 6 motores zero-shot: Tela Verlet con desgarro, Fluidos Navier-Stokes GLSL, Cuerpos Blandos XPBD, Motor Voxel 3D, Sintetizador FM DX7 y Pinball CCD. Opus gano 2 retos, pero Argon se impuso 4-2 siendo 1.76x mas rapido y 2.60x mas barato.",
+      excerpt_en:
+        "We pitted Claude Opus 5.5 (High) against Gemini 4 Argon (High) across 6 zero-shot engines: Tearable Verlet Cloth, GLSL Navier-Stokes Fluids, XPBD Soft Bodies, 3D Voxel Engine, DX7 FM Synth, and CCD Pinball. Opus won 2 rounds, while Argon won 4-2 at 1.76x speed and 2.60x lower cost.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "4 - 2 Argon" },
+        { label_es: "TIEMPO TOTAL", label_en: "TOTAL TIME", val: "90m vs 159m" },
+        { label_es: "COSTO API", label_en: "API COST", val: "$6.26 vs $16.26" },
+        { label_es: "TOKENS", label_en: "TOKENS", val: "3.63M vs 13.01M" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep02"),
+      onOpenArena: () => handleJumpToArena("ep02", 1),
+    },
+    {
+      id: "ep01",
+      filter: "torneos" as const,
+      date: "16 Oct 2026",
+      readTime: "10:05 Video · 21 Demos",
+      badge_es: "EPISODIO 01 · TORNEO FUNDACIONAL",
+      badge_en: "EPISODE 01 · FOUNDATIONAL TOURNAMENT",
+      accentColor: "#22A2DD",
+      scoreBadge_es: "ARGON 10 - 0 FLASH",
+      scoreBadge_en: "ARGON 10 - 0 FLASH",
+      thumb: "/brand/thumbs/01_marcador-0-10_1280.jpg",
+      title_es:
+        "Gemini 4 Argon vs. Gemini 3.8 Flash: 10 Retos Zero-Shot y el Medio Pixel que Rompio un Mundo 3D",
+      title_en:
+        "Gemini 4 Argon vs. Gemini 3.8 Flash: 10 Zero-Shot Challenges & the Half Pixel That Broke a 3D World",
+      excerpt_es:
+        "10 pruebas zero-shot sin imagenes externas en Antigravity: Sistema Solar 3D, ADN, Boids, Mazmorras, Falling Sand, Raycasting Wolfenstein, Pixel Art, Reloj CSS, Arbol Fractal y Spirograph. Incluye la autopsia forense del error de redondeo Math.floor(p.x + 0.5) que encerro la camara de Flash dentro de un muro.",
+      excerpt_en:
+        "10 zero-shot challenges with zero external assets in Antigravity: 3D Solar System, DNA Helix, Boids, Dungeons, Falling Sand, Wolfenstein Raycaster, Pixel Art, CSS Clock, Fractal Tree, and Spirograph. Includes the forensic autopsy of the Math.floor(p.x + 0.5) bug that trapped Flash inside a wall.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "10 - 0 Argon" },
+        { label_es: "TIEMPO TOTAL", label_en: "TOTAL TIME", val: "55m vs 94m" },
+        { label_es: "APPS FUNCIONALES", label_en: "WORKING APPS", val: "10/10 vs 8/10" },
+        { label_es: "CODIGO GENERADO", label_en: "CODE VOLUME", val: "671 KB vs 603 KB" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep01"),
+      onOpenArena: () => handleJumpToArena("ep01", 6),
+    },
+  ];
+
+  const filteredArticles = BLOG_ARTICLES.filter(
+    (a) => blogFilter === "all" || a.filter === blogFilter
+  );
 
   return (
-    <div className="min-h-screen labs-grid-bg text-[#F5F7FA]">
-      {/* Sticky Top Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#060B14]/90 border-b border-[#22A2DD]/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <a href="#top" className="flex items-center gap-2.5 shrink-0 group">
-            <img
-              src="/brand/logos/mixiuh-labs_mark_dark.svg"
-              alt="Mixiuh Labs"
-              className="h-8 w-8 shrink-0"
-            />
-            <div className="flex items-center gap-2">
-              <span className="font-mono-hud text-sm sm:text-base font-bold tracking-wider text-white whitespace-nowrap">
-                MIXIUH <span className="text-[#22A2DD]">LABS</span>
-              </span>
-              <span className="hidden 2xl:inline-block px-2 py-0.5 rounded bg-[#11283F] border border-[#22A2DD]/30 font-mono-hud text-[10px] font-bold text-[#5EEAD4] whitespace-nowrap">
-                FORUM & BENCHMARK HUB
-              </span>
-            </div>
-          </a>
+    <div className="min-h-screen labs-grid-bg text-[#F5F7FA] flex flex-col">
+      {/* STICKY HEADER WITH 5 CLEAN PORTAL SECTIONS */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#060B14]/95 border-b border-[#22A2DD]/25">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="h-16 flex items-center justify-between gap-3">
+            {/* Brand Logo */}
+            <button
+              onClick={() => navigateToView("blog")}
+              className="flex items-center gap-2.5 shrink-0 group cursor-pointer text-left"
+            >
+              <img
+                src="/brand/logos/mixiuh-labs_mark_dark.svg"
+                alt="Mixiuh Labs"
+                className="h-8 w-8 shrink-0"
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono-hud text-sm sm:text-base font-bold tracking-wider text-white whitespace-nowrap">
+                    MIXIUH <span className="text-[#22A2DD]">LABS</span>
+                  </span>
+                  <span className="hidden xl:inline-block px-2 py-0.5 rounded bg-[#11283F] border border-[#22A2DD]/30 font-mono-hud text-[10px] font-bold text-[#5EEAD4] whitespace-nowrap">
+                    BLOG · BENCHMARKS · ARENA
+                  </span>
+                </div>
+              </div>
+            </button>
 
-          <nav className="hidden lg:flex items-center gap-3 text-[11px] font-mono-hud text-[#8FA3B8] whitespace-nowrap">
-            <a
-              href="#comentario-al-codigo"
-              className="px-2 py-1 rounded bg-[#FBBF24]/15 border border-[#FBBF24]/40 text-[#FBBF24] hover:text-white font-bold transition-colors"
-            >
-              {lang === "es"
-                ? "OVERFIT 3D (#01)"
-                : "OVERFIT 3D (#01)"}
-            </a>
-            <a
-              href="#dossier"
-              onClick={() => handleEpisodeChange("ep02")}
-              className={`transition-colors ${
-                isEp02 ? "text-[#5EEAD4] font-bold" : "hover:text-[#5EEAD4]"
-              }`}
-            >
-              {lang === "es" ? "EP02: Argon vs Opus" : "EP02: Argon vs Opus"}
-            </a>
-            <a
-              href="#dossier"
-              onClick={() => handleEpisodeChange("ep01")}
-              className={`transition-colors ${
-                !isEp02 ? "text-[#5EEAD4] font-bold" : "hover:text-[#5EEAD4]"
-              }`}
-            >
-              {lang === "es" ? "EP01: Argon vs Flash" : "EP01: Argon vs Flash"}
-            </a>
-            <a
-              href="#matriz"
-              className="hover:text-[#5EEAD4] transition-colors"
-            >
-              {lang === "es" ? "Matriz" : "Matrix"}
-            </a>
-            <a
-              href="#arena"
-              className="hover:text-[#B794F6] text-white font-bold transition-colors"
-            >
-              {lang === "es" ? "Arena (32)" : "Arena (32)"}
-            </a>
-            <a
-              href="#foro"
-              className="hover:text-[#5EEAD4] transition-colors"
-            >
-              {lang === "es" ? "Foro" : "Forum"}
-            </a>
-            <a
-              href="#glosario"
-              className="hover:text-[#5EEAD4] transition-colors"
-            >
-              {lang === "es" ? "Glosario" : "Glossary"}
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
-            {/* Language Switcher */}
-            <div className="inline-flex rounded-lg bg-[#0B1D30] p-0.5 border border-white/15">
+            {/* Primary 5-View Portal Switcher (Desktop) */}
+            <nav className="hidden md:flex items-center gap-1.5 bg-[#0B1D30] p-1 rounded-xl border border-white/10 font-mono-hud text-xs">
               <button
-                onClick={() => setLang("es")}
-                className={`px-2.5 py-1 rounded-md font-mono-hud text-xs font-bold transition cursor-pointer ${
+                onClick={() => navigateToView("blog")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  mainView === "blog"
+                    ? "bg-[#22A2DD] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>{lang === "es" ? "Inicio / Blog (4)" : "Home / Blog (4)"}</span>
+              </button>
+
+              <button
+                onClick={() => navigateToView("dossiers")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  mainView === "dossiers"
+                    ? "bg-[#34D399] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>
+                  {lang === "es"
+                    ? "Dossiers (EP03 · EP02 · EP01)"
+                    : "Dossiers (EP03 · EP02 · EP01)"}
+                </span>
+              </button>
+
+              <button
+                onClick={() => navigateToView("comunidad")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  mainView === "comunidad"
+                    ? "bg-[#FBBF24] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>
+                  {lang === "es"
+                    ? "OVERFIT 3D & SuperKit"
+                    : "OVERFIT 3D & SuperKit"}
+                </span>
+              </button>
+
+              <button
+                onClick={() => navigateToView("arena")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  mainView === "arena"
+                    ? "bg-[#B794F6] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>{lang === "es" ? "Arena (45 Demos)" : "Arena (45 Demos)"}</span>
+              </button>
+
+              <button
+                onClick={() => navigateToView("foro")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  mainView === "foro"
+                    ? "bg-[#5EEAD4] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>
+                  {lang === "es" ? "Foro & Glosario" : "Forum & Glossary"}
+                </span>
+              </button>
+            </nav>
+
+            {/* Right Controls: Lang + YouTube + GitHub */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="inline-flex rounded-lg bg-[#0B1D30] p-0.5 border border-white/15">
+                <button
+                  onClick={() => setLang("es")}
+                  className={`px-2.5 py-1 rounded-md font-mono-hud text-xs font-bold transition cursor-pointer ${
+                    lang === "es"
+                      ? "bg-[#22A2DD] text-[#060B14]"
+                      : "text-[#8FA3B8] hover:text-white"
+                  }`}
+                >
+                  ES
+                </button>
+                <button
+                  onClick={() => setLang("en")}
+                  className={`px-2.5 py-1 rounded-md font-mono-hud text-xs font-bold transition cursor-pointer ${
+                    lang === "en"
+                      ? "bg-[#22A2DD] text-[#060B14]"
+                      : "text-[#8FA3B8] hover:text-white"
+                  }`}
+                >
+                  EN
+                </button>
+              </div>
+
+              <a
+                href={
                   lang === "es"
-                    ? "bg-[#22A2DD] text-[#060B14]"
-                    : "text-[#8FA3B8] hover:text-white"
-                }`}
+                    ? YOUTUBE_LINKS.channel_es
+                    : YOUTUBE_LINKS.channel_en
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-[#F43F5E]/40 font-mono-hud text-xs text-white transition"
               >
-                ES
-              </button>
-              <button
-                onClick={() => setLang("en")}
-                className={`px-2.5 py-1 rounded-md font-mono-hud text-xs font-bold transition cursor-pointer ${
-                  lang === "en"
-                    ? "bg-[#22A2DD] text-[#060B14]"
-                    : "text-[#8FA3B8] hover:text-white"
-                }`}
+                <Play className="w-3.5 h-3.5 text-[#F43F5E] fill-current shrink-0" />
+                <span>{lang === "es" ? "@MixiuhLabsES" : "@MixiuhLabsEN"}</span>
+              </a>
+
+              <a
+                href="https://github.com/danpez/gemini-4-argon-vs-3.8-flash-benchmark"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 font-mono-hud text-xs text-white transition"
               >
-                EN
-              </button>
+                <Code2 className="w-3.5 h-3.5 text-[#5EEAD4] shrink-0" />
+                <span>GitHub</span>
+              </a>
             </div>
+          </div>
 
-            <a
-              href={
-                lang === "es"
-                  ? YOUTUBE_LINKS.channel_es
-                  : YOUTUBE_LINKS.channel_en
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-[#F43F5E]/40 font-mono-hud text-xs text-white transition whitespace-nowrap"
+          {/* Mobile View Switcher Bar */}
+          <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-2.5 pt-1 font-mono-hud text-[11px] whitespace-nowrap">
+            <button
+              onClick={() => navigateToView("blog")}
+              className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
+                mainView === "blog"
+                  ? "bg-[#22A2DD] text-[#060B14]"
+                  : "bg-[#0B1D30] text-[#8FA3B8]"
+              }`}
             >
-              <Play className="w-3.5 h-3.5 text-[#F43F5E] fill-current shrink-0" />
-              <span>
-                {lang === "es" ? "@MixiuhLabsES" : "@MixiuhLabsEN"}
-              </span>
-            </a>
-
-            <a
-              href="https://github.com/danpez/mixiuh-labs-site"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 font-mono-hud text-xs text-white transition whitespace-nowrap"
+              {lang === "es" ? "Blog (4)" : "Blog (4)"}
+            </button>
+            <button
+              onClick={() => navigateToView("dossiers")}
+              className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
+                mainView === "dossiers"
+                  ? "bg-[#34D399] text-[#060B14]"
+                  : "bg-[#0B1D30] text-[#8FA3B8]"
+              }`}
             >
-              <Code2 className="w-3.5 h-3.5 text-[#5EEAD4] shrink-0" />
-              <span>GitHub Repo</span>
-            </a>
-
-            <a
-              href="https://mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition whitespace-nowrap"
+              {lang === "es" ? "Dossiers EP01-03" : "Dossiers EP01-03"}
+            </button>
+            <button
+              onClick={() => navigateToView("comunidad")}
+              className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
+                mainView === "comunidad"
+                  ? "bg-[#FBBF24] text-[#060B14]"
+                  : "bg-[#0B1D30] text-[#8FA3B8]"
+              }`}
             >
-              <span>mixiuh.online</span>
-              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-            </a>
+              OVERFIT 3D & Kit
+            </button>
+            <button
+              onClick={() => navigateToView("arena")}
+              className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
+                mainView === "arena"
+                  ? "bg-[#B794F6] text-[#060B14]"
+                  : "bg-[#0B1D30] text-[#8FA3B8]"
+              }`}
+            >
+              Arena (45)
+            </button>
+            <button
+              onClick={() => navigateToView("foro")}
+              className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
+                mainView === "foro"
+                  ? "bg-[#5EEAD4] text-[#060B14]"
+                  : "bg-[#0B1D30] text-[#8FA3B8]"
+              }`}
+            >
+              {lang === "es" ? "Foro & Glosario" : "Forum & Glossary"}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* HERO & EPISODE COMMAND CENTER */}
-      <section id="top" className="relative pt-8 pb-14 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Motto Pill + Channel Links */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#0B1D30] border border-[#22A2DD]/40">
-              <span className="w-2 h-2 rounded-full bg-[#34D399] animate-pulse" />
-              <span className="font-mono-hud text-xs font-bold tracking-wider text-[#5EEAD4]">
-                {lang === "es"
-                  ? "AQUI NO SE OPINA: SE PRUEBA. // LABORATORIO ABIERTO Y FORO DE INGENIERIA"
-                  : "HERE, WE DON'T GUESS: WE TEST. // OPEN BENCHMARK LAB & ENGINEERING FORUM"}
-              </span>
-            </div>
+      {/* =====================================================================
+          VIEW 1: BLOG & PORTADA DE EPISODIOS (CLEAN EDITORIAL HUB)
+         ===================================================================== */}
+      {mainView === "blog" && (
+        <main className="flex-1 py-8 sm:py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            {/* Editorial Lab Header + Global Stats Bar */}
+            <div className="rounded-3xl bg-gradient-to-br from-[#0B1D30] via-[#11283F] to-[#060B14] border border-[#22A2DD]/35 p-6 sm:p-10 shadow-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#060B14] border border-[#34D399]/50">
+                  <span className="w-2 h-2 rounded-full bg-[#34D399] animate-pulse" />
+                  <span className="font-mono-hud text-xs font-bold tracking-wider text-[#34D399]">
+                    {lang === "es"
+                      ? "AQUI NO SE OPINA: SE PRUEBA. // BLOG DE BENCHMARKS Y LABORATORIO INTERACTIVO"
+                      : "HERE, WE DON'T GUESS: WE TEST. // BENCHMARK BLOG & INTERACTIVE LAB"}
+                  </span>
+                </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono-hud text-[#8FA3B8]">
-              <a
-                href={YOUTUBE_LINKS.channel_es}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2.5 py-1 rounded bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 hover:border-[#22A2DD] transition inline-flex items-center gap-1"
-              >
-                <span>YouTube ES:</span>
-                <strong className="text-white">@MixiuhLabsES</strong>
-                <ArrowUpRight className="w-3 h-3 text-[#5EEAD4]" />
-              </a>
-              <a
-                href={YOUTUBE_LINKS.channel_en}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2.5 py-1 rounded bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 hover:border-[#22A2DD] transition inline-flex items-center gap-1"
-              >
-                <span>YouTube EN:</span>
-                <strong className="text-white">@MixiuhLabsEN</strong>
-                <ArrowUpRight className="w-3 h-3 text-[#5EEAD4]" />
-              </a>
-            </div>
-          </div>
-
-          {/* Episode Selector Switchbar */}
-          <div
-            id="dossier"
-            className="scroll-mt-24 mb-8 p-2 rounded-2xl bg-[#0B1D30]/90 border border-[#22A2DD]/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shadow-xl"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 flex-1">
-              <a
-                href="#comentario-al-codigo"
-                className="p-3 rounded-xl border bg-gradient-to-r from-[#11283F] to-[#0B1D30] border-[#FBBF24]/70 hover:border-[#FBBF24] shadow-[0_0_20px_rgba(251,191,36,0.18)] text-left transition flex items-center justify-between gap-3 cursor-pointer"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-[#FBBF24]/20 border border-[#FBBF24]/50 font-mono-hud text-[10px] font-bold text-[#FBBF24]">
+                <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                  <a
+                    href="/downloads/mixiuh-superpowers-kit.zip"
+                    download
+                    className="px-3 py-1.5 rounded-lg bg-[#34D399] text-[#060B14] font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>
                       {lang === "es"
-                        ? "ESTRENO · DEL COMENTARIO AL CODIGO #01"
-                        : "NEW · COMMENT TO CODE #01"}
+                        ? "Descargar Superpowers Kit v1.0 (.ZIP)"
+                        : "Download Superpowers Kit v1.0 (.ZIP)"}
                     </span>
-                    <span className="font-mono-hud text-[11px] text-[#5EEAD4]">
-                      @tenito03
-                    </span>
-                  </div>
-                  <div className="font-display text-sm sm:text-base font-bold text-white mt-1">
+                  </a>
+                  <button
+                    onClick={() => navigateToView("comunidad")}
+                    className="px-3 py-1.5 rounded-lg bg-[#FBBF24] text-[#060B14] font-bold hover:brightness-110 transition inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>OVERFIT Studio 3D</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#34D399]/15 border border-[#34D399]/40 text-[#34D399] font-mono-hud text-xs font-bold">
                     {lang === "es"
-                      ? "OVERFIT Studio 3D: 10 Artes IA + Mockups 300 GSM"
-                      : "OVERFIT Studio 3D: 10 AI Prints + 300 GSM Mockups"}
+                      ? "ESTRENO DESTACADO · EPISODIO 03 · 12 CORRIDAS REALES EN ANTIGRAVITY CLI"
+                      : "FEATURED RELEASE · EPISODE 03 · 12 REAL ANTIGRAVITY CLI RUNS"}
                   </div>
-                </div>
-                <span className="font-mono-hud text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FBBF24] text-[#060B14] shrink-0">
-                  {lang === "es" ? "Abrir 3D" : "Open 3D"}
-                </span>
-              </a>
+                  <h1 className="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.08]">
+                    {lang === "es" ? (
+                      <>
+                        Gemini 4 Argon High{" "}
+                        <span className="text-[#FBBF24]">Sin Kit</span> vs.{" "}
+                        <span className="text-[#34D399]">
+                          Mixiuh Superpowers Kit
+                        </span>
+                        :{" "}
+                        <span className="text-[#5EEAD4]">
+                          El Veredicto 4 - 2 Real
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Gemini 4 Argon High{" "}
+                        <span className="text-[#FBBF24]">Raw</span> vs.{" "}
+                        <span className="text-[#34D399]">
+                          Mixiuh Superpowers Kit
+                        </span>
+                        :{" "}
+                        <span className="text-[#5EEAD4]">
+                          The Honest 4 - 2 Verdict
+                        </span>
+                      </>
+                    )}
+                  </h1>
+                  <p className="text-sm sm:text-base text-[#8FA3B8] leading-relaxed">
+                    {lang === "es"
+                      ? "¿Siguen siendo necesarios los Kits de Skills, bancos de memoria y el Auto-Debugger MCP hoy, o solo gastan mas tokens? Pusimos a prueba a Gemini 4 Argon High en 12 instancias aisladas. El modelo sin kit gano 2 rondas clave (Arcade Bullet-Hell con 1,829 proyectiles y Red Zero-Trust 3D en 5 pasos por $0.74), pero el Superpowers Kit gano 4-2 en el global (276m vs 302m), entregando 70,406 ord/s en HFT Zero-GC y corrigiendo ventanas con MCP."
+                      : "Are Skills Kits, Memory Banks, and MCP Auto-Debuggers still needed today, or do they just burn extra tokens? We tested Gemini 4 Argon High across 12 isolated runs. Raw AI won 2 key rounds (Bullet-Hell Boss Rush with 1,829 bullets and 3D Zero-Trust Network in 5 steps for $0.74), while the Superpowers Kit won 4-2 overall (276m vs 302m), delivering 70,406 ord/s in Zero-GC HFT and fixing window overlaps via MCP."}
+                  </p>
 
-              <button
-                onClick={() => handleEpisodeChange("ep02")}
-                className={`p-3 rounded-xl border text-left transition flex items-center justify-between gap-3 cursor-pointer ${
-                  isEp02
-                    ? "bg-[#11283F] border-[#B794F6] shadow-[0_0_20px_rgba(183,148,246,0.22)]"
-                    : "bg-[#060B14]/70 border-white/10 hover:border-white/25"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-[#34D399]/20 border border-[#34D399]/40 font-mono-hud text-[10px] font-bold text-[#34D399]">
-                      {lang === "es" ? "NUEVO · EPISODIO 02" : "NEW · EPISODE 02"}
-                    </span>
-                    <span className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                      4-2 · $6.26 vs $16.26 USD
-                    </span>
-                  </div>
-                  <div className="font-display text-sm sm:text-base font-bold text-white mt-1">
-                    Gemini 4 Argon vs. Claude Opus 5.5 (6 Retos Extremos)
-                  </div>
-                </div>
-                <span
-                  className={`font-mono-hud text-xs font-bold px-2.5 py-1 rounded-lg ${
-                    isEp02
-                      ? "bg-[#B794F6] text-[#060B14]"
-                      : "bg-white/5 text-[#8FA3B8]"
-                  }`}
-                >
-                  12 Demos
-                </span>
-              </button>
-
-              <button
-                onClick={() => handleEpisodeChange("ep01")}
-                className={`p-3 rounded-xl border text-left transition flex items-center justify-between gap-3 cursor-pointer ${
-                  !isEp02
-                    ? "bg-[#11283F] border-[#22A2DD] shadow-[0_0_20px_rgba(34,162,221,0.22)]"
-                    : "bg-[#060B14]/70 border-white/10 hover:border-white/25"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-[#22A2DD]/20 border border-[#22A2DD]/40 font-mono-hud text-[10px] font-bold text-[#5EEAD4]">
-                      {lang === "es" ? "ARCHIVO · EPISODIO 01" : "ARCHIVE · EPISODE 01"}
-                    </span>
-                    <span className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                      10-0 · 55m vs 94m
-                    </span>
-                  </div>
-                  <div className="font-display text-sm sm:text-base font-bold text-white mt-1">
-                    Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos + Medio Pixel)
-                  </div>
-                </div>
-                <span
-                  className={`font-mono-hud text-xs font-bold px-2.5 py-1 rounded-lg ${
-                    !isEp02
-                      ? "bg-[#22A2DD] text-[#060B14]"
-                      : "bg-white/5 text-[#8FA3B8]"
-                  }`}
-                >
-                  20 Demos
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Hero Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left 7 Cols: Title, Scoreboard & CTAs */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#B794F6]/15 border border-[#B794F6]/40 text-[#B794F6] font-mono-hud text-xs font-bold">
-                {isEp02
-                  ? lang === "es"
-                    ? "EPISODIO 02 · DUELO DE TITANES ZERO-SHOT + FACTURA REAL DE TOKENS"
-                    : "EPISODE 02 · ZERO-SHOT TITAN DUEL + REAL API TOKEN BILL"
-                  : lang === "es"
-                  ? "EPISODIO 01 · TORNEO ZERO-SHOT EN ANTIGRAVITY"
-                  : "EPISODE 01 · ZERO-SHOT TOURNAMENT IN ANTIGRAVITY"}
-              </div>
-
-              {isEp02 ? (
-                <h1 className="font-display text-3xl sm:text-5xl lg:text-[50px] font-black text-white tracking-tight leading-[1.08]">
-                  {lang === "es" ? (
-                    <>
-                      Gemini 4{" "}
-                      <span className="text-[#B794F6]">Argon</span> vs. Claude{" "}
-                      <span className="text-[#FBBF24]">Opus 5.5</span>:{" "}
-                      <span className="text-[#5EEAD4]">
-                        6 Retos Extremos y la Factura Real
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Gemini 4{" "}
-                      <span className="text-[#B794F6]">Argon</span> vs. Claude{" "}
-                      <span className="text-[#FBBF24]">Opus 5.5</span>:{" "}
-                      <span className="text-[#5EEAD4]">
-                        6 Extreme Challenges & the Real API Bill
-                      </span>
-                    </>
-                  )}
-                </h1>
-              ) : (
-                <h1 className="font-display text-3xl sm:text-5xl lg:text-[52px] font-black text-white tracking-tight leading-[1.08]">
-                  {lang === "es" ? (
-                    <>
-                      Gemini 4{" "}
-                      <span className="text-[#B794F6]">Argon</span> vs. Gemini
-                      3.8 <span className="text-[#FBBF24]">Flash</span>:{" "}
-                      <span className="text-[#5EEAD4]">
-                        10 Retos y el Medio Píxel que Rompió un Mundo
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Gemini 4{" "}
-                      <span className="text-[#B794F6]">Argon</span> vs. Gemini
-                      3.8 <span className="text-[#FBBF24]">Flash</span>:{" "}
-                      <span className="text-[#5EEAD4]">
-                        10 Challenges & the Half Pixel That Broke a World
-                      </span>
-                    </>
-                  )}
-                </h1>
-              )}
-
-              <p className="text-base sm:text-lg text-[#8FA3B8] leading-relaxed">
-                {isEp02
-                  ? lang === "es"
-                    ? "Despues del 10-0 contra Flash, metimos al laboratorio a un rival peso pesado: Claude Opus 5.5 (High) contra Gemini 4 Argon (High) en Antigravity. Mismo prompt, un solo intento sin correcciones y telemetria completa de tokens en 6 motores extremos (Tela Verlet, Navier-Stokes, Audio FFT Bloom, 65,536 particulas GPU, Sintetizador FM de 4 operadores y Pinball CCD). Juega las 12 entregas en vivo y audita cada centavo."
-                    : "After the 10-0 sweep against Flash, we brought a heavyweight contender into the lab: Claude Opus 5.5 (High) vs. Gemini 4 Argon (High) inside Antigravity. Identical prompts, single zero-shot attempt, and full token telemetry across 6 extreme engines (Verlet Cloth, Navier-Stokes Fluid, Audio FFT Bloom, 65,536 GPU Particles, 4-Op FM Synth, and CCD Pinball). Play all 12 deliverables live and audit every cent."
-                  : lang === "es"
-                  ? "Enfrentamos a las variantes High de Gemini 4 Argon y Gemini 3.8 Flash dentro de Antigravity con el mismo prompt, un solo intento sin correcciones y cero imagenes externas en 10 retos de WebGL, fisica, pixel art, CSS puro y matematicas. Explora las 20 simulaciones en vivo, audita el codigo fuente y participa en el foro."
-                  : "We pitted the High variants of Gemini 4 Argon and Gemini 3.8 Flash head-to-head inside Antigravity using identical prompts, a single attempt with zero follow-ups, and zero external images across 10 WebGL, physics, pixel art, pure CSS, and math challenges. Play all 20 simulations live, audit the code, and join the forum."}
-              </p>
-
-              {/* Big VS Scoreboard Card with Mascots */}
-              {isEp02 ? (
-                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B1D30] via-[#11283F] to-[#0B1D30] border border-[#22A2DD]/30 shadow-2xl">
-                  <div className="grid grid-cols-3 items-center gap-3 pb-5 border-b border-white/10">
-                    {/* Left: CLAUDE OPUS 5.5 (Mixiuh Labs canon: Opponent always on left in amber) */}
-                    <div className="flex items-center gap-3">
-                      <img
-                        src="/brand/mascots/opus_star.png"
-                        alt="Claude Opus 5.5"
-                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1.5 border border-[#FBBF24]/50 object-contain shrink-0"
-                      />
-                      <div>
-                        <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#FBBF24] uppercase">
-                          Claude Opus 5.5
-                        </div>
-                        <div className="font-display text-2xl sm:text-4xl font-black text-[#FBBF24]">
-                          2
-                        </div>
-                        <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                          159 min · $16.26 USD
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Center VS */}
-                    <div className="text-center">
-                      <div className="inline-block px-3 py-1 rounded-full bg-[#060B14] border border-white/15 font-mono-hud text-xs font-bold text-[#5EEAD4]">
-                        MARCADOR 4 - 2
-                      </div>
-                      <div className="font-mono-hud text-xs text-[#34D399] font-bold mt-1.5">
-                        -69 MIN · -$10.00 USD
-                      </div>
-                    </div>
-
-                    {/* Right: GEMINI 4 ARGON */}
-                    <div className="flex items-center justify-end gap-3 text-right">
-                      <div>
-                        <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#B794F6] uppercase">
-                          Gemini 4 Argon
-                        </div>
-                        <div className="font-display text-2xl sm:text-4xl font-black text-[#34D399]">
-                          4
-                        </div>
-                        <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                          90 min · $6.26 USD
-                        </div>
-                      </div>
-                      <img
-                        src="/brand/mascots/argon_winner.png"
-                        alt="Gemini 4 Argon"
-                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1 border border-[#B794F6]/50 object-contain shrink-0"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 4 Sub-metrics for EP02 */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "RELOJ ACUMULADO" : "OVERALL CLOCK"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        90m vs 159m
-                      </div>
-                      <div className="text-[11px] text-[#34D399]">
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <button
+                      onClick={() => navigateToView("dossiers", "ep03")}
+                      className="px-5 py-3 rounded-xl bg-[#34D399] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition flex items-center gap-2 shadow-[0_0_24px_rgba(52,211,153,0.3)] cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>
                         {lang === "es"
-                          ? "Argon 1.76x mas rapido"
-                          : "Argon 1.76x faster"}
-                      </div>
-                    </div>
+                          ? "Leer Dossier EP03 + Probar 12 Demos"
+                          : "Read EP03 Dossier + Play 12 Demos"}
+                      </span>
+                    </button>
 
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "FACTURA API REAL" : "REAL API BILL"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        $6.26 vs $16.26
-                      </div>
-                      <div className="text-[11px] text-[#FBBF24]">
+                    <button
+                      onClick={() => navigateToView("comunidad")}
+                      className="px-5 py-3 rounded-xl bg-[#FBBF24] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition flex items-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>
                         {lang === "es"
-                          ? "Opus 2.60x mas caro"
-                          : "Opus 2.60x costlier"}
-                      </div>
-                    </div>
+                          ? "Ver Del Comentario al Codigo #01 (OVERFIT 3D)"
+                          : "Open Comment to Code #01 (OVERFIT 3D)"}
+                      </span>
+                    </button>
 
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "TOKENS CONSUMIDOS" : "TOTAL TOKENS"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        3.63M vs 13.01M
-                      </div>
-                      <div className="text-[11px] text-[#B794F6]">
-                        {lang === "es"
-                          ? "45 vs 143 pasos agente"
-                          : "45 vs 143 agent steps"}
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "TASA DE CUADROS" : "FRAME RATE"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        120 FPS (6/6 Argon)
-                      </div>
-                      <div className="text-[11px] text-[#F43F5E]">
-                        {lang === "es"
-                          ? "Opus: 28 FPS en Reto 01"
-                          : "Opus: 28 FPS on Ch 01"}
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => navigateToView("dossiers", "ep02")}
+                      className="px-4 py-3 rounded-xl bg-[#060B14] hover:bg-[#11283F] border border-[#B794F6]/50 text-[#B794F6] font-mono-hud text-xs sm:text-sm font-bold transition cursor-pointer"
+                    >
+                      {lang === "es"
+                        ? "Dossier EP02 (Argon vs Opus 5.5)"
+                        : "EP02 Dossier (Argon vs Opus 5.5)"}
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B1D30] via-[#11283F] to-[#0B1D30] border border-[#22A2DD]/30 shadow-2xl">
-                  <div className="grid grid-cols-3 items-center gap-3 pb-5 border-b border-white/10">
-                    {/* Left: FLASH */}
-                    <div className="flex items-center gap-3">
-                      <img
-                        src="/brand/mascots/flash_embarrassed.png"
-                        alt="Gemini 3.8 Flash"
-                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1 border border-[#FBBF24]/40 object-contain shrink-0"
-                      />
-                      <div>
-                        <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#FBBF24] uppercase">
-                          Gemini 3.8 Flash
-                        </div>
-                        <div className="font-display text-2xl sm:text-4xl font-black text-white">
-                          0
-                        </div>
-                        <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                          94 min · 8/10 func.
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Center VS */}
-                    <div className="text-center">
-                      <div className="inline-block px-3 py-1 rounded-full bg-[#060B14] border border-white/15 font-mono-hud text-xs font-bold text-[#5EEAD4]">
-                        MARCADOR FINAL
-                      </div>
-                      <div className="font-mono-hud text-xs text-[#34D399] font-bold mt-1.5">
-                        -39 MIN (-41.5%)
-                      </div>
-                    </div>
-
-                    {/* Right: ARGON */}
-                    <div className="flex items-center justify-end gap-3 text-right">
-                      <div>
-                        <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#B794F6] uppercase">
-                          Gemini 4 Argon
-                        </div>
-                        <div className="font-display text-2xl sm:text-4xl font-black text-[#34D399]">
-                          10
-                        </div>
-                        <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                          55 min · 10/10 func.
-                        </div>
-                      </div>
-                      <img
-                        src="/brand/mascots/argon_winner.png"
-                        alt="Gemini 4 Argon"
-                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1 border border-[#B794F6]/50 object-contain shrink-0"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 4 Sub-metrics for EP01 */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "RELOJ ACUMULADO" : "OVERALL CLOCK"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        55m vs 94m
-                      </div>
-                      <div className="text-[11px] text-[#34D399]">
-                        Argon 1.71x total
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "VELOCIDAD POR RETO" : "SPEED PER TEST"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        Argon 7 · Flash 3
-                      </div>
-                      <div className="text-[11px] text-[#FBBF24]">
-                        {lang === "es" ? "Rigor: no fue 10-0" : "Honest clock split"}
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "VOLUMEN CODIGO" : "CODE VOLUME"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        671 KB vs 603 KB
-                      </div>
-                      <div className="text-[11px] text-[#B794F6]">
-                        17,582 vs 18,673 loc
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#060B14]/70 border border-white/10">
-                      <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
-                        {lang === "es" ? "EN <= 5 MINUTOS" : "IN <= 5 MINUTES"}
-                      </div>
-                      <div className="font-mono-hud text-sm font-bold text-white mt-0.5">
-                        8 de 10 retos
-                      </div>
-                      <div className="text-[11px] text-[#5EEAD4]">
-                        {lang === "es" ? "Mediana Argon: 4m" : "Argon median: 4m"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3">
-                <a
-                  href="#arena"
-                  className="px-6 py-3.5 rounded-xl bg-[#B794F6] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition flex items-center gap-2 shadow-[0_0_28px_rgba(183,148,246,0.35)]"
-                >
-                  <Play className="w-4 h-4 fill-current" />
-                  {isEp02
-                    ? lang === "es"
-                      ? "Jugar los 12 Motores EP02 en Vivo"
-                      : "Play All 12 EP02 Engines Live"
-                    : lang === "es"
-                    ? "Jugar las 20 Simulaciones EP01 en Vivo"
-                    : "Play All 20 EP01 Simulations Live"}
-                </a>
-
-                <a
-                  href={
-                    isEp02
-                      ? YOUTUBE_LINKS.ep02_es
-                      : lang === "es"
-                      ? YOUTUBE_LINKS.ep01_es
-                      : YOUTUBE_LINKS.ep01_en
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-5 py-3.5 rounded-xl bg-[#F43F5E] hover:brightness-110 text-white font-mono-hud text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-[0_0_24px_rgba(244,63,94,0.32)]"
-                >
-                  <Play className="w-4 h-4 fill-current" />
-                  {isEp02
-                    ? lang === "es"
-                      ? "Ver Episodio 02 en YouTube (4K60)"
-                      : "Watch Episode 02 on YouTube (4K60)"
-                    : lang === "es"
-                    ? "Ver Episodio 01 en YouTube (4K60)"
-                    : "Watch Episode 01 on YouTube (4K60)"}
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-
-                <a
-                  href="#foro"
-                  className="px-5 py-3.5 rounded-xl bg-[#11283F] hover:bg-[#22A2DD]/20 border border-[#22A2DD]/40 text-white font-mono-hud text-xs sm:text-sm font-bold transition flex items-center gap-2"
-                >
-                  <Terminal className="w-4 h-4 text-[#5EEAD4]" />
-                  {isEp02
-                    ? lang === "es"
-                      ? "Autopsia 28 FPS vs 120 FPS y Tokens"
-                      : "28 FPS vs 120 FPS & Token Autopsy"
-                    : lang === "es"
-                    ? "Ver Autopsia del Medio Pixel (Nivel 6)"
-                    : "Inspect Half-Pixel Bug Autopsy (Level 6)"}
-                </a>
-              </div>
-            </div>
-
-            {/* Right 5 Cols: Video Preview Player + Interactive Chapters */}
-            <div className="lg:col-span-5 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 overflow-hidden shadow-2xl">
-              {/* Video Clip Switcher Header */}
-              <div className="p-3.5 bg-[#11283F] border-b border-white/10 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setActiveVideoClip("hook")}
-                    className={`px-3 py-1.5 rounded-lg font-mono-hud text-xs font-bold transition cursor-pointer ${
-                      activeVideoClip === "hook"
-                        ? "bg-[#22A2DD] text-[#060B14]"
-                        : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
-                    }`}
+                {/* Right Featured Thumbnail + Telemetry Summary */}
+                <div className="lg:col-span-5 space-y-3">
+                  <div
+                    onClick={() => navigateToView("dossiers", "ep03")}
+                    className="group relative rounded-2xl overflow-hidden border-2 border-[#34D399]/60 shadow-2xl cursor-pointer"
                   >
-                    {isEp02
-                      ? lang === "es"
-                        ? "1. Hook Oficial EP02"
-                        : "1. Official EP02 Hook"
-                      : lang === "es"
-                      ? "1. Hook Oficial EP01"
-                      : "1. Official EP01 Hook"}
-                  </button>
-                  <button
-                    onClick={() => setActiveVideoClip("boss")}
-                    className={`px-3 py-1.5 rounded-lg font-mono-hud text-xs font-bold transition cursor-pointer ${
-                      activeVideoClip === "boss"
-                        ? "bg-[#F43F5E] text-white"
-                        : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
-                    }`}
-                  >
-                    {isEp02
-                      ? lang === "es"
-                        ? "2. Reto 01 & 06 (Verlet + Pinball)"
-                        : "2. Ch 01 & 06 (Verlet + Pinball)"
-                      : lang === "es"
-                      ? "2. Nivel 6: El Jefe (Raycasting)"
-                      : "2. Level 6: Boss Fight"}
-                  </button>
-                </div>
-                <a
-                  href={
-                    isEp02
-                      ? YOUTUBE_LINKS.ep02_es
-                      : lang === "es"
-                      ? YOUTUBE_LINKS.ep01_es
-                      : YOUTUBE_LINKS.ep01_en
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono-hud text-[11px] font-bold text-[#5EEAD4] hover:text-white inline-flex items-center gap-1"
-                >
-                  <span>YouTube 4K60</span>
-                  <ArrowUpRight className="w-3 h-3" />
-                </a>
-              </div>
-
-              {/* HTML5 Video Player with real rendered EP02 / EP01 footage */}
-              <div className="relative bg-black aspect-video">
-                <video
-                  key={`${activeEpisode}-${activeVideoClip}`}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  poster={
-                    isEp02
-                      ? activeVideoClip === "hook"
-                        ? "/brand/thumbs/ep02_thumb_A_1280.jpg"
-                        : "/brand/thumbs/ep02_thumb_B_1280.jpg"
-                      : activeVideoClip === "hook"
-                      ? "/brand/thumbs/01_marcador-0-10_1280.jpg"
-                      : "/brand/thumbs/02_medio-pixel_1280.jpg"
-                  }
-                  className="w-full h-full object-cover"
-                >
-                  <source
-                    src={
-                      isEp02
-                        ? activeVideoClip === "hook"
-                          ? "/videos/ep02-hook.mp4"
-                          : "/videos/ep02-boss.mp4"
-                        : activeVideoClip === "hook"
-                        ? "/videos/ep01-hook.mp4"
-                        : "/videos/ep01-boss.mp4"
-                    }
-                    type="video/mp4"
-                  />
-                  <track
-                    kind="captions"
-                    src={
-                      isEp02
-                        ? "/videos/ep02_captions_es.vtt"
-                        : "/videos/captions_es.vtt"
-                    }
-                    srcLang="es"
-                    label="Espanol (Mexico)"
-                  />
-                  {isEp02 && (
-                    <track
-                      kind="captions"
-                      src="/videos/ep02_captions_en.vtt"
-                      srcLang="en"
-                      label="English"
+                    <img
+                      src="/brand/thumbs/ep03_thumb_A.jpg"
+                      alt="EP03 Raw vs Superpowers Kit"
+                      className="w-full aspect-video object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     />
-                  )}
-                </video>
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#060B14]/90 via-transparent to-transparent flex items-end p-4">
+                      <div className="w-full flex items-center justify-between font-mono-hud text-xs">
+                        <span className="px-2.5 py-1 rounded bg-[#34D399] text-[#060B14] font-bold">
+                          MARCADOR REAL: 4 - 2 SUPERKIT
+                        </span>
+                        <span className="text-white font-bold">
+                          276m vs 302m · $10.85 vs $7.69
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center font-mono-hud">
+                    <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                      <div className="text-base sm:text-lg font-black text-[#34D399]">
+                        4
+                      </div>
+                      <div className="text-[10px] text-[#8FA3B8]">
+                        {lang === "es" ? "EPISODIOS" : "EPISODES"}
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                      <div className="text-base sm:text-lg font-black text-[#5EEAD4]">
+                        45
+                      </div>
+                      <div className="text-[10px] text-[#8FA3B8]">
+                        {lang === "es" ? "DEMOS EN VIVO" : "LIVE DEMOS"}
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                      <div className="text-base sm:text-lg font-black text-[#B794F6]">
+                        22
+                      </div>
+                      <div className="text-[10px] text-[#8FA3B8]">
+                        {lang === "es" ? "PROMPTS PUROS" : "RAW PROMPTS"}
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                      <div className="text-base sm:text-lg font-black text-[#FBBF24]">
+                        53
+                      </div>
+                      <div className="text-[10px] text-[#8FA3B8]">
+                        {lang === "es" ? "GLOSARIO" : "GLOSSARY"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* BLOG / ARCHIVO DE EPISODIOS Y DOSSIERS TECNICOS */}
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-white/10 pb-4">
+                <div>
+                  <div className="font-mono-hud text-xs font-bold text-[#5EEAD4] uppercase mb-1">
+                    {lang === "es"
+                      ? "ARCHIVO EDITORIAL Y BITACORA DE PRUEBAS"
+                      : "EDITORIAL ARCHIVE & BENCHMARK LOG"}
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
+                    {lang === "es"
+                      ? "Episodios, Dossiers Tecnicos y Series de la Comunidad"
+                      : "Episodes, Technical Dossiers & Community Series"}
+                  </h2>
+                </div>
+
+                {/* Category Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 font-mono-hud text-xs">
+                  {(
+                    [
+                      {
+                        id: "all",
+                        es: "Todos (4)",
+                        en: "All (4)",
+                      },
+                      {
+                        id: "torneos",
+                        es: "Torneos IA vs IA (EP01, EP02)",
+                        en: "AI vs AI Duels (EP01, EP02)",
+                      },
+                      {
+                        id: "kits",
+                        es: "Kits & Workflows (EP03)",
+                        en: "Kits & Workflows (EP03)",
+                      },
+                      {
+                        id: "comunidad",
+                        es: "Del Comentario al Codigo (#01)",
+                        en: "Comment to Code (#01)",
+                      },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setBlogFilter(f.id)}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                        blogFilter === f.id
+                          ? "bg-[#22A2DD] text-[#060B14]"
+                          : "bg-[#0B1D30] text-[#8FA3B8] hover:text-white border border-white/10"
+                      }`}
+                    >
+                      {lang === "es" ? f.es : f.en}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Full Episode YouTube Banner */}
-              <div className="px-4 py-2.5 bg-[#11283F]/90 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-                <a
-                  href={
-                    isEp02
-                      ? YOUTUBE_LINKS.ep02_es
-                      : lang === "es"
-                      ? YOUTUBE_LINKS.ep01_es
-                      : YOUTUBE_LINKS.ep01_en
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono-hud text-xs font-bold text-white hover:text-[#5EEAD4] transition inline-flex items-center gap-1.5"
-                >
-                  <Play className="w-3.5 h-3.5 text-[#F43F5E] fill-current shrink-0" />
-                  <span>
-                    {isEp02
-                      ? lang === "es"
-                        ? "Abrir Episodio 02 en YouTube (08:06 · 4K60)"
-                        : "Open Episode 02 on YouTube (08:06 · 4K60)"
-                      : lang === "es"
-                      ? "Abrir Episodio 01 en YouTube (10:05 · 4K60)"
-                      : "Open Episode 01 on YouTube (10:05 · 4K60)"}
-                  </span>
-                  <ExternalLink className="w-3 h-3 text-[#5EEAD4]" />
-                </a>
-                <div className="flex items-center gap-2 font-mono-hud text-[11px]">
-                  <a
-                    href={isEp02 ? YOUTUBE_LINKS.ep02_es : YOUTUBE_LINKS.ep01_es}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2 py-0.5 rounded bg-[#060B14] border border-white/15 text-[#5EEAD4] hover:border-[#22A2DD]"
+              {/* 2-Column Editorial Blog Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {filteredArticles.map((art) => (
+                  <article
+                    key={art.id}
+                    className="rounded-2xl bg-[#0B1D30] border border-white/10 hover:border-[#22A2DD]/50 overflow-hidden shadow-xl flex flex-col justify-between transition"
                   >
-                    YT ES
-                  </a>
-                  <a
-                    href={isEp02 ? YOUTUBE_LINKS.ep02_en : YOUTUBE_LINKS.ep01_en}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2 py-0.5 rounded bg-[#060B14] border border-white/15 text-[#B794F6] hover:border-[#B794F6]"
-                  >
-                    YT EN
-                  </a>
-                </div>
-              </div>
-
-              {/* Interactive Chapters List */}
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="font-mono-hud text-xs font-bold text-[#5EEAD4] uppercase">
-                    {isEp02
-                      ? lang === "es"
-                        ? "10 CAPITULOS DEL EPISODIO 02 (CLIC PARA JUGAR O VER EN YT)"
-                        : "10 EPISODE 02 CHAPTERS (CLICK TO PLAY OR WATCH ON YT)"
-                      : lang === "es"
-                      ? "14 CAPITULOS DEL EPISODIO 01 (CLIC PARA JUGAR O VER EN YT)"
-                      : "14 EPISODE 01 CHAPTERS (CLICK TO PLAY OR WATCH ON YT)"}
-                  </span>
-                  <span className="font-mono-hud text-[11px] text-[#8FA3B8]">
-                    {isEp02 ? "08:06 · 4K60" : "10:05 · 4K60"}
-                  </span>
-                </div>
-
-                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
-                  {isEp02
-                    ? EPISODE_02_CHAPTERS.map((chap) => {
-                        const timeStr =
-                          lang === "es" ? chap.time_es : chap.time_en;
-                        const secs =
-                          lang === "es" ? chap.seconds_es : chap.seconds_en;
-                        const ytUrl = `${YOUTUBE_LINKS.ep02_es}?t=${secs}`;
-                        return (
-                          <div
-                            key={chap.time_es}
-                            onClick={() => {
-                              if (chap.level) {
-                                handleJumpToArena("ep02", chap.level);
-                              }
+                    <div>
+                      {/* Thumbnail Banner */}
+                      <div
+                        onClick={art.onOpenDossier}
+                        className="relative aspect-video bg-black overflow-hidden cursor-pointer group"
+                      >
+                        <img
+                          src={art.thumb}
+                          alt={lang === "es" ? art.title_es : art.title_en}
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                        />
+                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                          <span
+                            className="px-2.5 py-1 rounded-md bg-[#060B14]/90 border font-mono-hud text-[11px] font-bold"
+                            style={{
+                              borderColor: art.accentColor,
+                              color: art.accentColor,
                             }}
-                            className="w-full text-left px-3 py-2 rounded-lg bg-[#060B14]/70 hover:bg-[#11283F] border border-white/5 hover:border-[#22A2DD]/40 transition flex items-center justify-between gap-2 cursor-pointer"
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <a
-                                href={ytUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-mono-hud text-xs font-bold text-[#22A2DD] hover:text-[#5EEAD4] underline decoration-[#22A2DD]/40 shrink-0"
-                              >
-                                {timeStr}
-                              </a>
-                              <span className="text-xs text-[#F5F7FA] truncate">
-                                {lang === "es" ? chap.title_es : chap.title_en}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {chap.level && (
-                                <span className="font-mono-hud text-[10px] px-2 py-0.5 rounded bg-[#B794F6]/15 text-[#B794F6]">
-                                  {lang === "es"
-                                    ? `Jugar R0${chap.level}`
-                                    : `Play C0${chap.level}`}
-                                </span>
-                              )}
-                              <a
-                                href={ytUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-mono-hud text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-[#F43F5E]/20 text-[#8FA3B8] hover:text-white border border-white/10"
-                              >
-                                YT
-                              </a>
-                            </div>
-                          </div>
-                        );
-                      })
-                    : EPISODE_01_CHAPTERS.map((chap) => {
-                        const ytBase =
-                          lang === "es"
-                            ? YOUTUBE_LINKS.ep01_es
-                            : YOUTUBE_LINKS.ep01_en;
-                        const ytUrl = `${ytBase}?t=${chap.seconds}`;
-                        return (
-                          <div
-                            key={chap.time}
-                            onClick={() => {
-                              if (chap.level) {
-                                handleJumpToArena("ep01", chap.level);
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 rounded-lg bg-[#060B14]/70 hover:bg-[#11283F] border border-white/5 hover:border-[#22A2DD]/40 transition flex items-center justify-between gap-2 cursor-pointer"
+                            {lang === "es" ? art.badge_es : art.badge_en}
+                          </span>
+                          <span
+                            className="px-2.5 py-1 rounded-md font-mono-hud text-[11px] font-bold text-[#060B14]"
+                            style={{ backgroundColor: art.accentColor }}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <a
-                                href={ytUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-mono-hud text-xs font-bold text-[#22A2DD] hover:text-[#5EEAD4] underline decoration-[#22A2DD]/40 shrink-0"
-                              >
-                                {chap.time}
-                              </a>
-                              <span className="text-xs text-[#F5F7FA] truncate">
-                                {lang === "es" ? chap.title_es : chap.title_en}
-                              </span>
+                            {lang === "es"
+                              ? art.scoreBadge_es
+                              : art.scoreBadge_en}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-center justify-between font-mono-hud text-xs text-[#8FA3B8]">
+                          <span>{art.date}</span>
+                          <span className="text-[#5EEAD4]">{art.readTime}</span>
+                        </div>
+
+                        <h3
+                          onClick={art.onOpenDossier}
+                          className="font-display text-xl sm:text-2xl font-black text-white leading-snug hover:text-[#5EEAD4] transition cursor-pointer"
+                        >
+                          {lang === "es" ? art.title_es : art.title_en}
+                        </h3>
+
+                        <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
+                          {lang === "es" ? art.excerpt_es : art.excerpt_en}
+                        </p>
+
+                        {/* 4 Mini Metrics */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                          {art.metrics.map((m, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 rounded-xl bg-[#060B14]/80 border border-white/10"
+                            >
+                              <div className="font-mono-hud text-[10px] text-[#8FA3B8]">
+                                {lang === "es" ? m.label_es : m.label_en}
+                              </div>
+                              <div className="font-mono-hud text-xs font-bold text-white mt-0.5 truncate">
+                                {m.val}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {chap.level && (
-                                <span className="font-mono-hud text-[10px] px-2 py-0.5 rounded bg-[#B794F6]/15 text-[#B794F6]">
-                                  {lang === "es"
-                                    ? `Jugar N${chap.level}`
-                                    : `Play L${chap.level}`}
-                                </span>
-                              )}
-                              <a
-                                href={ytUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-mono-hud text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-[#F43F5E]/20 text-[#8FA3B8] hover:text-white border border-white/10"
-                              >
-                                YT
-                              </a>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Footer Actions */}
+                    <div className="px-6 py-4 bg-[#060B14]/80 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                      <button
+                        onClick={art.onOpenDossier}
+                        className="px-4 py-2 rounded-xl font-mono-hud text-xs font-bold text-[#060B14] hover:brightness-110 transition inline-flex items-center gap-1.5 cursor-pointer"
+                        style={{ backgroundColor: art.accentColor }}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>
+                          {lang === "es"
+                            ? "Abrir Dossier Completo"
+                            : "Open Full Dossier"}
+                        </span>
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={art.onOpenArena}
+                          className="px-3.5 py-2 rounded-xl bg-[#11283F] hover:bg-[#22A2DD] text-[#5EEAD4] hover:text-[#060B14] font-mono-hud text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          <span>
+                            {lang === "es" ? "Probar Demos" : "Play Demos"}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => navigateToView("foro")}
+                          className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[#8FA3B8] hover:text-white font-mono-hud text-xs transition cursor-pointer"
+                        >
+                          {lang === "es" ? "Foro" : "Forum"}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            {/* QUICK NAVIGATION CARDS TO SPECIALIZED LAB SECTIONS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4">
+              <div
+                onClick={() => navigateToView("arena")}
+                className="p-6 rounded-2xl bg-[#0B1D30] border border-[#B794F6]/40 hover:border-[#B794F6] transition cursor-pointer flex flex-col justify-between"
+              >
+                <div>
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#B794F6]/15 font-mono-hud text-xs font-bold text-[#B794F6] mb-3">
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>ARENA ZERO-SHOT (45 DEMOS)</span>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white mb-2">
+                    {lang === "es"
+                      ? "Ejecuta los 45 Simuladores en tu Navegador"
+                      : "Run All 45 Simulators Live in Your Browser"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
+                    {lang === "es"
+                      ? "Compara lado a lado las entregas de EP03 (Sin Kit vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01 (Argon vs Flash) y OVERFIT 3D sin recargar todo el sitio."
+                      : "Compare side-by-side deliverables from EP03 (Raw vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01 (Argon vs Flash), and OVERFIT 3D with zero page lag."}
+                  </p>
+                </div>
+                <div className="mt-4 font-mono-hud text-xs font-bold text-[#B794F6]">
+                  {lang === "es" ? "Entrar a la Arena →" : "Enter the Arena →"}
+                </div>
+              </div>
+
+              <div
+                onClick={() => {
+                  setForoSubTab("hilos");
+                  navigateToView("foro");
+                }}
+                className="p-6 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/40 hover:border-[#22A2DD] transition cursor-pointer flex flex-col justify-between"
+              >
+                <div>
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#22A2DD]/15 font-mono-hud text-xs font-bold text-[#5EEAD4] mb-3">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>FORO TECNICO Y AUTOPSIAS (28 HILOS)</span>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white mb-2">
+                    {lang === "es"
+                      ? "Autopsias de Codigo, Facturas de Tokens y Prompts"
+                      : "Code Autopsies, Token Bills & Verbatim Prompts"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
+                    {lang === "es"
+                      ? "Lee el analisis forense del 4-2 de EP03, el 28 FPS vs 120 FPS de Verlet en EP02, el bug del medio pixel en EP01, copia los 22 prompts y vota por el siguiente reto."
+                      : "Read the forensic breakdown of EP03's 4-2 verdict, EP02's 28 FPS Verlet bottleneck, EP01's half-pixel bug, copy all 22 prompts, and vote on the next challenge."}
+                  </p>
+                </div>
+                <div className="mt-4 font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                  {lang === "es"
+                    ? "Abrir Foro y Autopsias →"
+                    : "Open Forum & Autopsies →"}
+                </div>
+              </div>
+
+              <div
+                onClick={() => {
+                  setForoSubTab("glosario");
+                  navigateToView("foro");
+                }}
+                className="p-6 rounded-2xl bg-[#0B1D30] border border-[#34D399]/40 hover:border-[#34D399] transition cursor-pointer flex flex-col justify-between"
+              >
+                <div>
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#34D399]/15 font-mono-hud text-xs font-bold text-[#34D399] mb-3">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>GLOSARIO (53 TERMINOS) & ECOSISTEMA</span>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white mb-2">
+                    {lang === "es"
+                      ? "Diccionario de Ingenieria y Protocolo Cientifico"
+                      : "Engineering Dictionary & Scientific Honesty Protocol"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
+                    {lang === "es"
+                      ? "Consulta en lenguaje claro los 53 conceptos de nuestros episodios (Verlet, Navier-Stokes, XPBD, RingBuffer, DAG, DDA) y conoce las herramientas propias de Mixiuh."
+                      : "Look up 53 plain-language engineering concepts (Verlet, Navier-Stokes, XPBD, RingBuffer, DAG, DDA) and explore Mixiuh's proprietary software stack."}
+                  </p>
+                </div>
+                <div className="mt-4 font-mono-hud text-xs font-bold text-[#34D399]">
+                  {lang === "es"
+                    ? "Explorar Glosario →"
+                    : "Explore Glossary →"}
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </main>
+      )}
 
-      {/* DEL COMENTARIO AL CODIGO #01 — OVERFIT STUDIO 3D (@TENITO03) */}
-      <section
-        id="comentario-al-codigo"
-        className="scroll-mt-20 py-14 border-t border-[#FBBF24]/30 bg-gradient-to-b from-[#081526] via-[#060B14] to-[#0B1D30]"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          {/* Header Row */}
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-            <div className="space-y-2 max-w-3xl">
-              <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/40 font-mono-hud text-xs font-bold text-[#FBBF24]">
-                <span>
+      {/* =====================================================================
+          VIEW 2: DOSSIERS DE EPISODIOS (EP03 · EP02 · EP01 — ONE AT A TIME)
+         ===================================================================== */}
+      {mainView === "dossiers" && (
+        <main className="flex-1 py-8 sm:py-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            {/* Top Episode Dossier Selector Bar */}
+            <div className="p-3 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-xl">
+              <div className="flex items-center gap-2 font-mono-hud text-xs text-[#5EEAD4] px-2">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className="font-bold uppercase">
                   {lang === "es"
-                    ? "NUEVA SECCION · DEL COMENTARIO AL CODIGO #01 · RETO DE @TENITO03"
-                    : "NEW SERIES · FROM COMMENT TO CODE #01 · @TENITO03 CHALLENGE"}
+                    ? "SELECCIONA EL DOSSIER TECNICO:"
+                    : "SELECT TECHNICAL DOSSIER:"}
                 </span>
               </div>
-              <h2 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
-                {lang === "es" ? (
-                  <>
-                    De un Comentario a una Marca de Ropa IA en 3D:{" "}
-                    <span className="text-[#5EEAD4]">OVERFIT Studio 3D</span>{" "}
-                    <span className="text-[#B794F6]">
-                      (Coleccion Guerra de Pesos)
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    From a Comment to a 3D AI Streetwear Brand:{" "}
-                    <span className="text-[#5EEAD4]">OVERFIT Studio 3D</span>{" "}
-                    <span className="text-[#B794F6]">
-                      (Weight War Collection)
-                    </span>
-                  </>
-                )}
-              </h2>
-              <p className="text-sm sm:text-base text-[#8FA3B8] leading-relaxed">
-                {lang === "es"
-                  ? "Despues de publicar la tela fisica de Verlet del Episodio 02, @tenito03 nos reto en comentarios a convertir esa textura en una playera, un mockup en blanco editable y una marca de ropa completa. Esculpimos en Blender Cycles tres siluetas reales en algodon de 300 gramos (Hombre, Mujer y Mesa) y creamos los 10 artes satiricos de la coleccion Guerra de Pesos. Pruebalo en vivo aqui abajo o abrelo a pantalla completa."
-                  : "After posting the Episode 02 Verlet cloth simulation, @tenito03 challenged us in the comments to turn that texture into a t-shirt, an editable blank mockup, and a full clothing brand. We sculpted three real 300 GSM silhouettes in Blender Cycles (Male, Female, Flat-Lay) and designed 10 satirical AI prints for the Weight War collection. Try it live below or open it in full screen."}
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <a
-                href="/overfit/index.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-3 rounded-xl bg-[#FBBF24] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2 shadow-[0_0_25px_rgba(251,191,36,0.3)]"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>
-                  {lang === "es"
-                    ? "Abrir OVERFIT Studio 3D (Pantalla Completa)"
-                    : "Launch OVERFIT Studio 3D (Full Screen)"}
-                </span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-
-              <a
-                href="/api/source?model=comunidad&dir=cc01-overfit-studio"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-3 rounded-xl bg-[#0B1D30] hover:bg-[#11283F] border border-[#22A2DD]/40 text-[#5EEAD4] font-mono-hud text-xs sm:text-sm font-bold transition inline-flex items-center gap-2"
-              >
-                <Code2 className="w-4 h-4" />
-                <span>
-                  {lang === "es"
-                    ? "Auditar Codigo (JSON / HTML)"
-                    : "Audit Source (JSON / HTML)"}
-                </span>
-              </a>
-
-              <a
-                href="#foro"
-                className="px-4 py-3 rounded-xl bg-[#11283F] hover:bg-[#B794F6]/20 border border-[#B794F6]/40 text-white font-mono-hud text-xs sm:text-sm font-bold transition inline-flex items-center gap-2"
-              >
-                <Terminal className="w-4 h-4 text-[#B794F6]" />
-                <span>
-                  {lang === "es"
-                    ? "Proponer Reto para el Episodio #02"
-                    : "Propose Challenge for Episode #02"}
-                </span>
-              </a>
-            </div>
-          </div>
-
-          {/* 3-Column Overview: Original Comment + 3 Stages + Thumbnails */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            {/* Col 1: Original Comment Card */}
-            <div className="lg:col-span-4 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 p-4 flex flex-col justify-between gap-4">
-              <div>
-                <div className="font-mono-hud text-[11px] font-bold text-[#5EEAD4] uppercase mb-2">
-                  {lang === "es"
-                    ? "1. EL COMENTARIO ORIGINAL (@TENITO03)"
-                    : "1. THE ORIGINAL COMMENT (@TENITO03)"}
-                </div>
-                <div className="rounded-xl overflow-hidden border-2 border-[#22A2DD]/50 bg-white p-1 shadow-lg">
-                  <img
-                    src="/brand/thumbs/comentario_tenito03_ig.jpg"
-                    alt="Comentario de @tenito03 en Instagram"
-                    className="w-full h-auto rounded-lg object-contain"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 font-mono-hud text-[10px] text-center">
-                <div className="p-2 rounded-lg bg-[#060B14] border border-[#34D399]/40 text-[#34D399] font-bold">
-                  1. MOCKUP 300G
-                </div>
-                <div className="p-2 rounded-lg bg-[#060B14] border border-[#22A2DD]/40 text-[#5EEAD4] font-bold">
-                  2. 10 ARTES IA
-                </div>
-                <div className="p-2 rounded-lg bg-[#060B14] border border-[#FBBF24]/40 text-[#FBBF24] font-bold">
-                  3. PACK 4K
-                </div>
-              </div>
-            </div>
-
-            {/* Col 2: Architecture & 10 Designs Summary */}
-            <div className="lg:col-span-8 rounded-2xl bg-[#0B1D30] border border-[#B794F6]/30 p-5 flex flex-col justify-between gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3.5 rounded-xl bg-[#060B14] border border-white/10">
-                  <div className="font-mono-hud text-[11px] font-bold text-[#34D399]">
-                    {lang === "es"
-                      ? "ETAPA 1 · BLENDER CYCLES 300G"
-                      : "STAGE 1 · BLENDER CYCLES 300G"}
-                  </div>
-                  <div className="font-display text-sm font-bold text-white mt-1">
-                    {lang === "es"
-                      ? "Hombre, Mujer y Mesa Flat-Lay"
-                      : "Male, Female & Studio Flat-Lay"}
-                  </div>
-                  <p className="text-xs text-[#8FA3B8] mt-1 leading-relaxed">
-                    {lang === "es"
-                      ? "Mapas de iluminacion y pliegues reales en 300 GSM con 6 colores textiles, modo Mockup en Blanco y subida de tu propio logo PNG."
-                      : "Real 300 GSM lighting and fold displacement maps with 6 colorways, Blank Mockup mode, and custom PNG logo upload."}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-[#060B14] border border-white/10">
-                  <div className="font-mono-hud text-[11px] font-bold text-[#5EEAD4]">
-                    {lang === "es"
-                      ? "ETAPA 2 · 10 ARTES OVERFIT"
-                      : "STAGE 2 · 10 OVERFIT PRINTS"}
-                  </div>
-                  <div className="font-display text-sm font-bold text-white mt-1">
-                    {lang === "es"
-                      ? "Coleccion Guerra de Pesos"
-                      : "Weight War Collection"}
-                  </div>
-                  <p className="text-xs text-[#8FA3B8] mt-1 leading-relaxed">
-                    {lang === "es"
-                      ? "#01 Strawberry R's, #02 Vibe Coding en Prod, #03 CUDA Poor, #04 Benchmark, #05 Open Source, #06 Censura, #07 Tabla Nutricional LLM, #08 Sin AGI, #09 Dev Evolution y #10 Tranvia."
-                      : "#01 Strawberry R's, #02 Vibe Coding in Prod, #03 CUDA Poor, #04 Benchmark, #05 Open Source, #06 Refusal, #07 LLM Nutrition Facts, #08 No AGI, #09 Dev Evolution & #10 Token Trolley."}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-[#060B14] border border-white/10">
-                  <div className="font-mono-hud text-[11px] font-bold text-[#FBBF24]">
-                    {lang === "es"
-                      ? "ETAPA 3 · VISTAS Y SALIDA 4K"
-                      : "STAGE 3 · VIEWS & 4K EXPORT"}
-                  </div>
-                  <div className="font-display text-sm font-bold text-white mt-1">
-                    {lang === "es"
-                      ? "Frente + Espalda y Lookbook"
-                      : "Front + Back & Lookbook"}
-                  </div>
-                  <p className="text-xs text-[#8FA3B8] mt-1 leading-relaxed">
-                    {lang === "es"
-                      ? "Alterna entre Vista Frente, Zoom Pecho, Espalda, Frente + Espalda (#07 Tabla Nutricional) y Hombre + Mujer, y exporta posters 9:16 y PNG 4K."
-                      : "Switch between Front, Chest Zoom, Back, Front + Back (#07 LLM Nutrition Facts), and Male + Female views, and export 9:16 posters and 4K PNGs."}
-                  </p>
-                </div>
-              </div>
-
-              {/* 3 Episode Thumbnails Preview */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <img
-                  src="/brand/thumbs/cc01_thumb_A.jpg"
-                  alt="Miniatura A - De Comentario a Marca"
-                  className="w-full h-28 sm:h-32 object-cover rounded-xl border border-white/15"
-                />
-                <img
-                  src="/brand/thumbs/cc01_thumb_B.jpg"
-                  alt="Miniatura B - 10 Diseños IA 3D"
-                  className="w-full h-28 sm:h-32 object-cover rounded-xl border border-white/15"
-                />
-                <img
-                  src="/brand/thumbs/cc01_thumb_C.jpg"
-                  alt="Miniatura C - Mockups 300 GSM"
-                  className="w-full h-28 sm:h-32 object-cover rounded-xl border border-white/15"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Live Interactive Embedded OVERFIT Studio 3D */}
-          <div className="rounded-2xl bg-[#060B14] border-2 border-[#22A2DD]/40 overflow-hidden shadow-2xl">
-            <div className="px-4 py-3 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#34D399] animate-pulse" />
-                <span className="font-mono-hud text-xs sm:text-sm font-bold text-white">
-                  {lang === "es"
-                    ? "ESTUDIO INTERACTIVO EN VIVO · OVERFIT STUDIO 3D (PRUEBA LOS 10 ESTAMPADOS, SILUETAS Y VISTAS)"
-                    : "LIVE INTERACTIVE STUDIO · OVERFIT STUDIO 3D (TEST ALL 10 PRINTS, SILHOUETTES & VIEWS)"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href="/overfit/index.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1 rounded-lg bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1"
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 max-w-4xl">
+                <button
+                  onClick={() => setDossierEp("ep03")}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                    dossierEp === "ep03"
+                      ? "bg-[#11283F] border-[#34D399] shadow-[0_0_20px_rgba(52,211,153,0.25)]"
+                      : "bg-[#060B14]/70 border-white/10 hover:border-white/30"
+                  }`}
                 >
-                  <span>
-                    {lang === "es"
-                      ? "Abrir en Nueva Pestaña"
-                      : "Open in New Tab"}
-                  </span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-            <div className="w-full h-[820px] sm:h-[860px] bg-[#04060A]">
-              <iframe
-                src="/overfit/index.html"
-                title="OVERFIT Studio 3D — Del Comentario al Codigo #01 (@tenito03)"
-                className="w-full h-full border-0"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+                  <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                    <span className="text-[#34D399] font-bold">
+                      EPISODIO 03 · NUEVO
+                    </span>
+                    <span className="text-[#5EEAD4]">4-2 · 276m vs 302m</span>
+                  </div>
+                  <div className="font-display text-xs sm:text-sm font-bold text-white mt-1 truncate">
+                    Argon High Sin Kit vs. Superpowers Kit
+                  </div>
+                </button>
 
-      {/* COMPARATIVE MATRIX TABLE (EP02 6 CHALLENGES + TOKEN BILL OR EP01 10 CHALLENGES) */}
-      <section
-        id="matriz"
-        className="scroll-mt-24 py-12 border-t border-[#22A2DD]/15 bg-[#060B14]/60"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-            <div>
-              <div className="text-xs font-mono-hud uppercase text-[#5EEAD4] font-bold mb-1">
-                {isEp02
-                  ? lang === "es"
-                    ? "TABLA MAESTRA VERIFICADA EP02 · 6 RETOS ZERO-SHOT + FACTURA DE TOKENS"
-                    : "VERIFIED EP02 MASTER TABLE · 6 ZERO-SHOT CHALLENGES + TOKEN BILL"
-                  : lang === "es"
-                  ? "TABLA MAESTRA VERIFICADA EP01 · 10 RETOS ZERO-SHOT"
-                  : "VERIFIED EP01 MASTER TABLE · 10 ZERO-SHOT CHALLENGES"}
-              </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
-                {isEp02
-                  ? lang === "es"
-                    ? "Matriz Comparativa: Tiempo, FPS, Tokens y Costo en USD"
-                    : "Comparative Matrix: Time, FPS, Tokens & Cost in USD"
-                  : lang === "es"
-                  ? "Matriz Comparativa Nivel por Nivel (Episodio 01)"
-                  : "Level-by-Level Comparative Matrix (Episode 01)"}
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleEpisodeChange("ep02")}
-                className={`px-3 py-1.5 rounded-lg font-mono-hud text-xs font-bold transition cursor-pointer ${
-                  isEp02
-                    ? "bg-[#B794F6] text-[#060B14]"
-                    : "bg-[#0B1D30] text-[#8FA3B8] border border-white/10"
-                }`}
-              >
-                EP02: Argon vs Opus (6)
-              </button>
-              <button
-                onClick={() => handleEpisodeChange("ep01")}
-                className={`px-3 py-1.5 rounded-lg font-mono-hud text-xs font-bold transition cursor-pointer ${
-                  !isEp02
-                    ? "bg-[#22A2DD] text-[#060B14]"
-                    : "bg-[#0B1D30] text-[#8FA3B8] border border-white/10"
-                }`}
-              >
-                EP01: Argon vs Flash (10)
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/25 overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              {isEp02 ? (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#11283F] border-b border-white/10 font-mono-hud text-[11px] uppercase text-[#8FA3B8]">
-                      <th className="py-3.5 px-4">#</th>
-                      <th className="py-3.5 px-4">
-                        {lang === "es" ? "Reto y Stack" : "Challenge & Stack"}
-                      </th>
-                      <th className="py-3.5 px-4 text-[#FBBF24]">
-                        Claude Opus 5.5 (Reloj / Loc / FPS)
-                      </th>
-                      <th className="py-3.5 px-4 text-[#FBBF24]">
-                        Opus Tokens / USD
-                      </th>
-                      <th className="py-3.5 px-4 text-[#B794F6]">
-                        Gemini 4 Argon (Reloj / Loc / FPS)
-                      </th>
-                      <th className="py-3.5 px-4 text-[#B794F6]">
-                        Argon Tokens / USD
-                      </th>
-                      <th className="py-3.5 px-4">
-                        {lang === "es" ? "Ganador" : "Winner"}
-                      </th>
-                      <th className="py-3.5 px-4 text-right">
-                        {lang === "es" ? "Accion" : "Action"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10 text-xs sm:text-sm">
-                    {EP02_CHALLENGES.map((ch) => (
-                      <tr
-                        key={ch.n}
-                        onClick={() => handleJumpToArena("ep02", ch.n)}
-                        className="hover:bg-[#11283F]/60 transition cursor-pointer"
-                      >
-                        <td className="py-3.5 px-4 font-mono-hud font-bold text-[#5EEAD4]">
-                          {String(ch.n).padStart(2, "0")}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-white">
-                            {lang === "es" ? ch.name_es : ch.name_en}
-                          </div>
-                          <div className="text-xs text-[#8FA3B8]">{ch.tech}</div>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud">
-                          <span className="text-[#FBBF24] font-bold">
-                            {ch.time_min.opus} min
-                          </span>{" "}
-                          <span
-                            className={`text-xs ${
-                              ch.opus_slow_fps
-                                ? "text-[#F43F5E] font-bold"
-                                : "text-[#8FA3B8]"
-                            }`}
-                          >
-                            · {ch.fps.opus}
-                          </span>
-                          <span className="text-[#8FA3B8] text-xs block">
-                            {ch.code_stats.opus_lines} loc · {ch.code_stats.opus_kb} KB
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud">
-                          <span className="text-[#FBBF24] font-bold">
-                            ${ch.cost_usd.opus.toFixed(2)} USD
-                          </span>
-                          <span className="text-[#8FA3B8] text-xs block">
-                            {ch.tokens.opus_total} tok ({ch.tokens.opus_steps}p)
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud">
-                          <span className="text-[#B794F6] font-bold">
-                            {ch.time_min.argon} min
-                          </span>{" "}
-                          <span className="text-[#34D399] text-xs">
-                            · {ch.fps.argon}
-                          </span>
-                          <span className="text-[#8FA3B8] text-xs block">
-                            {ch.code_stats.argon_lines} loc · {ch.code_stats.argon_kb} KB
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud">
-                          <span className="text-[#34D399] font-bold">
-                            ${ch.cost_usd.argon.toFixed(2)} USD
-                          </span>
-                          <span className="text-[#8FA3B8] text-xs block">
-                            {ch.tokens.argon_total} tok ({ch.tokens.argon_steps}p)
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {ch.winner === "argon" ? (
-                            <span className="px-2.5 py-1 rounded bg-[#34D399]/15 border border-[#34D399]/40 font-mono-hud text-[11px] font-bold text-[#34D399]">
-                              ARGON
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded bg-[#FBBF24]/15 border border-[#FBBF24]/40 font-mono-hud text-[11px] font-bold text-[#FBBF24]">
-                              OPUS 5.5
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleJumpToArena("ep02", ch.n);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-[#22A2DD]/15 hover:bg-[#22A2DD] text-[#5EEAD4] hover:text-[#060B14] font-mono-hud text-xs font-bold transition inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Play className="w-3 h-3" />
-                            {lang === "es" ? "Probar" : "Test"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#060B14] border-t-2 border-[#22A2DD]/30 font-mono-hud text-xs font-bold">
-                      <td className="py-4 px-4 text-[#5EEAD4]">TOTAL</td>
-                      <td className="py-4 px-4 text-white">
-                        {lang === "es"
-                          ? "6 Retos Extremos (12 Archivos index.html)"
-                          : "6 Extreme Challenges (12 index.html Files)"}
-                      </td>
-                      <td className="py-4 px-4 text-[#FBBF24]">
-                        {EP02_BENCHMARK_TOTALS.opus_min_rounded} min ·{" "}
-                        {EP02_BENCHMARK_TOTALS.code_totals.opus_lines} loc (
-                        {EP02_BENCHMARK_TOTALS.code_totals.opus_kb} KB)
-                      </td>
-                      <td className="py-4 px-4 text-[#FBBF24]">
-                        ${EP02_BENCHMARK_TOTALS.opus_cost_usd.toFixed(2)} USD ·{" "}
-                        {EP02_BENCHMARK_TOTALS.opus_tokens_total} tok
-                      </td>
-                      <td className="py-4 px-4 text-[#B794F6]">
-                        {EP02_BENCHMARK_TOTALS.argon_min_rounded} min ·{" "}
-                        {EP02_BENCHMARK_TOTALS.code_totals.argon_lines} loc (
-                        {EP02_BENCHMARK_TOTALS.code_totals.argon_kb} KB)
-                      </td>
-                      <td className="py-4 px-4 text-[#34D399]">
-                        ${EP02_BENCHMARK_TOTALS.argon_cost_usd.toFixed(2)} USD ·{" "}
-                        {EP02_BENCHMARK_TOTALS.argon_tokens_total} tok
-                      </td>
-                      <td className="py-4 px-4 text-[#34D399]">
-                        ARGON {EP02_BENCHMARK_TOTALS.score}
-                      </td>
-                      <td className="py-4 px-4 text-right text-[#8FA3B8]">
-                        1.76x / 2.60x
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#11283F] border-b border-white/10 font-mono-hud text-[11px] uppercase text-[#8FA3B8]">
-                      <th className="py-3.5 px-4">#</th>
-                      <th className="py-3.5 px-4">
-                        {lang === "es" ? "Reto y Mundo" : "Challenge & World"}
-                      </th>
-                      <th className="py-3.5 px-4 text-[#FBBF24]">
-                        Flash (Tiempo / Loc)
-                      </th>
-                      <th className="py-3.5 px-4 text-[#B794F6]">
-                        Argon (Tiempo / Loc)
-                      </th>
-                      <th className="py-3.5 px-4">
-                        {lang === "es" ? "Relacion Reloj" : "Speed Ratio"}
-                      </th>
-                      <th className="py-3.5 px-4">
-                        {lang === "es" ? "Veredicto Calidad" : "Quality Verdict"}
-                      </th>
-                      <th className="py-3.5 px-4 text-right">
-                        {lang === "es" ? "Accion" : "Action"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10 text-xs sm:text-sm">
-                    {CHALLENGES.map((ch) => (
-                      <tr
-                        key={ch.n}
-                        onClick={() => handleJumpToArena("ep01", ch.n)}
-                        className="hover:bg-[#11283F]/60 transition cursor-pointer"
-                      >
-                        <td className="py-3.5 px-4 font-mono-hud font-bold text-[#5EEAD4]">
-                          {String(ch.n).padStart(2, "0")}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-white">
-                            {lang === "es" ? ch.name_es : ch.name_en}
-                          </div>
-                          <div className="text-xs text-[#8FA3B8]">{ch.tech}</div>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud">
-                          <span className="text-[#FBBF24] font-bold">
-                            {ch.time_min.flash} min
-                          </span>
-                          <span className="text-[#8FA3B8] text-xs block">
-                            {ch.code_stats.flash_lines} loc ·{" "}
-                            {ch.code_stats.flash_kb} KB
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud">
-                          <span className="text-[#B794F6] font-bold">
-                            {ch.time_min.argon} min
-                          </span>
-                          <span className="text-[#8FA3B8] text-xs block">
-                            {ch.code_stats.argon_lines} loc ·{" "}
-                            {ch.code_stats.argon_kb} KB
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono-hud text-xs">
-                          <span
-                            className={
-                              ch.faster_model === "argon"
-                                ? "text-[#34D399]"
-                                : "text-[#FBBF24]"
-                            }
-                          >
-                            {ch.speed_ratio}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-[#34D399]/15 border border-[#34D399]/40 font-mono-hud text-[11px] font-bold text-[#34D399]">
-                              ARGON (0-{ch.n})
-                            </span>
-                            {ch.flash_broken && (
-                              <span className="px-2 py-0.5 rounded bg-[#F43F5E]/15 border border-[#F43F5E]/40 font-mono-hud text-[10px] font-bold text-[#F43F5E]">
-                                {lang === "es" ? "FLASH ROTO" : "FLASH BROKEN"}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleJumpToArena("ep01", ch.n);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-[#22A2DD]/15 hover:bg-[#22A2DD] text-[#5EEAD4] hover:text-[#060B14] font-mono-hud text-xs font-bold transition inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Play className="w-3 h-3" />
-                            {lang === "es" ? "Probar" : "Test"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#060B14] border-t-2 border-[#22A2DD]/30 font-mono-hud text-xs font-bold">
-                      <td className="py-4 px-4 text-[#5EEAD4]">TOTAL</td>
-                      <td className="py-4 px-4 text-white">
-                        {lang === "es"
-                          ? "10 Retos Completados (20 Archivos index.html)"
-                          : "10 Completed Challenges (20 index.html Files)"}
-                      </td>
-                      <td className="py-4 px-4 text-[#FBBF24]">
-                        {BENCHMARK_TOTALS.flash_min} min ·{" "}
-                        {BENCHMARK_TOTALS.code_totals.flash_lines} loc (
-                        {BENCHMARK_TOTALS.code_totals.flash_kb} KB)
-                      </td>
-                      <td className="py-4 px-4 text-[#B794F6]">
-                        {BENCHMARK_TOTALS.argon_min} min ·{" "}
-                        {BENCHMARK_TOTALS.code_totals.argon_lines} loc (
-                        {BENCHMARK_TOTALS.code_totals.argon_kb} KB)
-                      </td>
-                      <td className="py-4 px-4 text-[#34D399]">
-                        -39 min (-{BENCHMARK_TOTALS.pct_time_saved}%)
-                      </td>
-                      <td className="py-4 px-4 text-[#34D399]">
-                        MARCADOR {BENCHMARK_TOTALS.score}
-                      </td>
-                      <td className="py-4 px-4 text-right text-[#8FA3B8]">
-                        10/10 vs 8/10
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* INTERACTIVE LIVE ARENA (ALL 32 SIMULATIONS + GUMMY BEARS BONUS) */}
-      <DemoArenaSection
-        lang={lang}
-        activeEpisode={activeEpisode}
-        onChangeEpisode={handleEpisodeChange}
-        selectedChallengeN={selectedChallengeN}
-        onSelectChallengeN={setSelectedChallengeN}
-      />
-
-      {/* INTERACTIVE ENGINEERING FORUM & COMMUNITY */}
-      <ForumSection lang={lang} onJumpToArena={handleJumpToArena} />
-
-      {/* TECHNICAL GLOSSARY (53 TERMS) & SCIENTIFIC HONESTY PROTOCOL */}
-      <section
-        id="glosario"
-        className="scroll-mt-24 py-14 border-t border-[#22A2DD]/15 bg-[#060B14]/70"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          {/* Scientific Honesty & Transparency Protocol */}
-          <div className="rounded-2xl bg-[#0B1D30] border border-[#34D399]/30 p-6 sm:p-8 shadow-xl">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-2 text-xs font-mono-hud uppercase text-[#34D399] font-bold">
-                <ShieldCheck className="w-4 h-4" />
-                {lang === "es"
-                  ? `PROTOCOLO DE HONESTIDAD CIENTIFICA · ${isEp02 ? "EPISODIO 02" : "EPISODIO 01"}`
-                  : `SCIENTIFIC HONESTY PROTOCOL · ${isEp02 ? "EPISODE 02" : "EPISODE 01"}`}
-              </div>
-              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleEpisodeChange("ep02")}
-                  className={`px-2.5 py-1 rounded font-mono-hud text-[11px] font-bold cursor-pointer ${
-                    isEp02
-                      ? "bg-[#34D399] text-[#060B14]"
-                      : "bg-[#060B14] text-[#8FA3B8]"
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                    dossierEp === "ep02"
+                      ? "bg-[#11283F] border-[#B794F6] shadow-[0_0_20px_rgba(183,148,246,0.25)]"
+                      : "bg-[#060B14]/70 border-white/10 hover:border-white/30"
                   }`}
                 >
-                  Notas EP02
+                  <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                    <span className="text-[#B794F6] font-bold">EPISODIO 02</span>
+                    <span className="text-[#5EEAD4]">
+                      4-2 · $6.26 vs $16.26
+                    </span>
+                  </div>
+                  <div className="font-display text-xs sm:text-sm font-bold text-white mt-1 truncate">
+                    Gemini 4 Argon vs. Claude Opus 5.5
+                  </div>
                 </button>
+
                 <button
                   onClick={() => handleEpisodeChange("ep01")}
-                  className={`px-2.5 py-1 rounded font-mono-hud text-[11px] font-bold cursor-pointer ${
-                    !isEp02
-                      ? "bg-[#34D399] text-[#060B14]"
-                      : "bg-[#060B14] text-[#8FA3B8]"
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                    dossierEp === "ep01"
+                      ? "bg-[#11283F] border-[#22A2DD] shadow-[0_0_20px_rgba(34,162,221,0.25)]"
+                      : "bg-[#060B14]/70 border-white/10 hover:border-white/30"
                   }`}
                 >
-                  Notas EP01
+                  <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                    <span className="text-[#5EEAD4] font-bold">EPISODIO 01</span>
+                    <span className="text-[#8FA3B8]">10-0 · 55m vs 94m</span>
+                  </div>
+                  <div className="font-display text-xs sm:text-sm font-bold text-white mt-1 truncate">
+                    Gemini 4 Argon vs. Gemini 3.8 Flash
+                  </div>
                 </button>
               </div>
             </div>
-            <h2 className="font-display text-2xl sm:text-3xl font-black text-white mb-2">
-              {lang === "es"
-                ? "Notas de Rigor Metodologico y Transparencia de Datos"
-                : "Methodological Rigor & Data Transparency Notes"}
-            </h2>
-            <p className="text-sm text-[#8FA3B8] mb-6 max-w-3xl">
-              {lang === "es"
-                ? "Para que nuestras pruebas sean tomadas en serio por ingenieros, documentamos abiertamente las victorias del rival, las tarifas de tokens y los limites de hardware observados:"
-                : "So that our benchmarks stand up to strict engineering scrutiny, we openly document rival wins, official token rates, and hardware boundaries:"}
-            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {activeHonestyNotes.map((note, idx) => (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-xl bg-[#060B14] border border-white/10 text-xs text-[#F5F7FA]/90 leading-relaxed flex items-start gap-2.5"
-                >
-                  <span className="font-mono-hud text-[#5EEAD4] font-bold shrink-0">
-                    [{String(idx + 1).padStart(2, "0")}]
-                  </span>
-                  <span>{note}</span>
+            {/* -----------------------------------------------------------------
+                SUB-DOSSIER A: EPISODIO 03 (REAL 4-2 BENCHMARK + 12 DEMOS + MATRIX)
+               ----------------------------------------------------------------- */}
+            {dossierEp === "ep03" && (
+              <div id="ep03-superpowers-kit" className="space-y-10">
+                {/* EP03 Hero & Scoreboard */}
+                <div className="rounded-2xl bg-[#0B1D30] border border-[#34D399]/40 p-6 sm:p-8 shadow-2xl space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#34D399]/15 border border-[#34D399]/50 font-mono-hud text-xs font-bold text-[#34D399]">
+                      {lang === "es"
+                        ? "DOSSIER OFICIAL EPISODIO 03 · 12 CORRIDAS REALES AGY CLI (GEMINI 4 ARGON HIGH)"
+                        : "OFFICIAL EPISODE 03 DOSSIER · 12 REAL AGY CLI RUNS (GEMINI 4 ARGON HIGH)"}
+                    </div>
+                    <a
+                      href="/downloads/mixiuh-superpowers-kit.zip"
+                      download
+                      className="px-4 py-2 rounded-xl bg-[#34D399] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-2 shadow-[0_0_24px_rgba(52,211,153,0.3)]"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>
+                        {lang === "es"
+                          ? "Descargar Mixiuh Superpowers Kit v1.0 (.ZIP Gratis)"
+                          : "Download Mixiuh Superpowers Kit v1.0 (Free .ZIP)"}
+                      </span>
+                    </a>
+                  </div>
+
+                  <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+                    {lang === "es" ? (
+                      <>
+                        Gemini 4 Argon High{" "}
+                        <span className="text-[#FBBF24]">Sin Kit (Raw)</span>{" "}
+                        vs.{" "}
+                        <span className="text-[#34D399]">
+                          Mixiuh Superpowers Kit v1.0
+                        </span>
+                        :{" "}
+                        <span className="text-[#5EEAD4]">
+                          ¿Siguen Sirviendo los Skills y Memoria Hoy?
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Gemini 4 Argon High{" "}
+                        <span className="text-[#FBBF24]">Raw (No Kit)</span> vs.{" "}
+                        <span className="text-[#34D399]">
+                          Mixiuh Superpowers Kit v1.0
+                        </span>
+                        :{" "}
+                        <span className="text-[#5EEAD4]">
+                          Do You Still Need Skills & Memory Kits Today?
+                        </span>
+                      </>
+                    )}
+                  </h1>
+
+                  <p className="text-sm sm:text-base text-[#8FA3B8] leading-relaxed max-w-4xl">
+                    {lang === "es"
+                      ? "Ejecutamos 12 instancias aisladas de `agy --model gemini-4-argon-high --effort high` en 6 sistemas extremos. A diferencia de los modelos del ano pasado, Gemini 4 Argon High sin kit NO entrego codigo roto en ningun reto e incluso gano 2 puntos (Reto 03 Arcade Bullet-Hell con 1,829 proyectiles activos en 51m vs 69m, y Reto 04 Red Zero-Trust 3D en solo 5 pasos de agente por $0.74 USD). Sin embargo, el Mixiuh Superpowers Kit gano 4 a 2 en el global y ahorro 26 minutos totales (276m vs 302m), logrando 70,406 ord/s en la Terminal HFT Zero-GC (6.3x mas rapido y mas barato), compilando el estudio DAG GLSL 10 minutos antes al mismo precio y corrigiendo con el Auto-Debugger MCP el solapamiento de ventanas en MixiuhOS."
+                      : "We ran 12 isolated instances of `agy --model gemini-4-argon-high --effort high` across 6 extreme systems. Unlike last year's models, Raw Gemini 4 Argon High shipped zero broken apps and won 2 rounds outright (Ch 03 Bullet-Hell Boss Rush with 1,829 active bullets in 51m vs 69m, and Ch 04 3D Zero-Trust Network in just 5 agent steps for $0.74 USD). However, the Mixiuh Superpowers Kit won 4-2 overall and saved 26 total minutes (276m vs 302m), delivering 70,406 ord/s in the Zero-GC HFT Terminal (6.3x higher throughput, faster and cheaper), compiling the DAG GLSL Studio 10 minutes earlier for the exact same cost, and catching overlapping startup windows in MixiuhOS via the MCP Auto-Debugger."}
+                  </p>
+
+                  {/* 4 Real Telemetry Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#34D399]/40">
+                      <div className="font-mono-hud text-[11px] text-[#34D399] font-bold">
+                        {lang === "es"
+                          ? "MARCADOR GLOBAL REAL"
+                          : "REAL OVERALL SCORE"}
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        4 - 2{" "}
+                        <span className="text-sm text-[#34D399]">SUPERKIT</span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#8FA3B8] mt-1">
+                        {lang === "es"
+                          ? "Kit gana R1, R2, R5, R6 · Raw gana R3, R4"
+                          : "Kit wins C1, C2, C5, C6 · Raw wins C3, C4"}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#22A2DD]/40">
+                      <div className="font-mono-hud text-[11px] text-[#5EEAD4] font-bold">
+                        {lang === "es"
+                          ? "RELOJ ACUMULADO (6 RETOS)"
+                          : "TOTAL CLOCK (6 TESTS)"}
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        276m <span className="text-sm text-[#8FA3B8]">vs 302m</span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#34D399] mt-1">
+                        {lang === "es"
+                          ? "-26 minutos totales a favor del Kit"
+                          : "-26 total minutes saved with Kit"}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#FBBF24]/40">
+                      <div className="font-mono-hud text-[11px] text-[#FBBF24] font-bold">
+                        {lang === "es"
+                          ? "FACTURA API Y TOKENS"
+                          : "API BILL & TOKENS"}
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        $10.85{" "}
+                        <span className="text-sm text-[#8FA3B8]">vs $7.69</span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#FBBF24] mt-1">
+                        3.52M tok (80p) vs 2.65M tok (53p)
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#B794F6]/40">
+                      <div className="font-mono-hud text-[11px] text-[#B794F6] font-bold">
+                        {lang === "es"
+                          ? "VOLUMEN DE CODIGO REAL"
+                          : "REAL CODE VOLUME"}
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        7,937{" "}
+                        <span className="text-sm text-[#8FA3B8]">vs 6,996 loc</span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#5EEAD4] mt-1">
+                        325.4 KB (Kit) vs 279.1 KB (Sin Kit)
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                {/* EP03 Verified Comparative Matrix Table */}
+                <div className="rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 overflow-hidden shadow-xl">
+                  <div className="p-5 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="font-mono-hud text-xs font-bold text-[#34D399] uppercase">
+                        {lang === "es"
+                          ? "MATRIZ COMPARATIVA VERIFICADA EP03 · 12 CORRIDAS AGY CLI"
+                          : "VERIFIED EP03 COMPARATIVE MATRIX · 12 AGY CLI RUNS"}
+                      </div>
+                      <h2 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
+                        {lang === "es"
+                          ? "Desglose por Reto: Reloj, Costo USD, Tokens, Pasos y Veredicto"
+                          : "Challenge Breakdown: Clock, USD Cost, Tokens, Steps & Verdict"}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#060B14] border-b border-white/10 font-mono-hud text-[11px] uppercase text-[#8FA3B8]">
+                          <th className="py-3.5 px-4">#</th>
+                          <th className="py-3.5 px-4">
+                            {lang === "es"
+                              ? "Reto y Skill Evaluado"
+                              : "Challenge & Evaluated Skill"}
+                          </th>
+                          <th className="py-3.5 px-4 text-[#FBBF24]">
+                            IA Sin Kit (Reloj / Loc / FPS)
+                          </th>
+                          <th className="py-3.5 px-4 text-[#FBBF24]">
+                            Sin Kit Tokens / USD
+                          </th>
+                          <th className="py-3.5 px-4 text-[#34D399]">
+                            Superpowers Kit (Reloj / Loc / FPS)
+                          </th>
+                          <th className="py-3.5 px-4 text-[#34D399]">
+                            Superkit Tokens / USD
+                          </th>
+                          <th className="py-3.5 px-4">
+                            {lang === "es" ? "Ganador" : "Winner"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10 text-xs sm:text-sm">
+                        {EP03_CHALLENGES.map((ch) => (
+                          <tr
+                            key={ch.n}
+                            onClick={() => setEp03ChallengeN(ch.n)}
+                            className={`hover:bg-[#11283F]/70 transition cursor-pointer ${
+                              ep03ChallengeN === ch.n ? "bg-[#11283F]/40" : ""
+                            }`}
+                          >
+                            <td className="py-3.5 px-4 font-mono-hud font-bold text-[#5EEAD4]">
+                              0{ch.n}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-white">
+                                {lang === "es" ? ch.name_es : ch.name_en}
+                              </div>
+                              <div className="text-xs text-[#34D399] font-mono-hud">
+                                {ch.skill}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono-hud">
+                              <span className="text-[#FBBF24] font-bold">
+                                {ch.vanilla_min} min
+                              </span>{" "}
+                              <span className="text-xs text-[#8FA3B8]">
+                                · {ch.vanilla_fps}
+                              </span>
+                              <span className="text-xs text-[#8FA3B8] block">
+                                {ch.vanilla_lines} loc · {ch.vanilla_kb} KB
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono-hud">
+                              <span className="text-[#FBBF24] font-bold">
+                                ${ch.vanilla_usd.toFixed(2)} USD
+                              </span>
+                              <span className="text-xs text-[#8FA3B8] block">
+                                {ch.vanilla_tok} tok ({ch.vanilla_steps}p)
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono-hud">
+                              <span className="text-[#34D399] font-bold">
+                                {ch.superkit_min} min
+                              </span>{" "}
+                              <span className="text-xs text-[#5EEAD4]">
+                                · {ch.superkit_fps}
+                              </span>
+                              <span className="text-xs text-[#8FA3B8] block">
+                                {ch.superkit_lines} loc · {ch.superkit_kb} KB
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono-hud">
+                              <span className="text-[#34D399] font-bold">
+                                ${ch.superkit_usd.toFixed(2)} USD
+                              </span>
+                              <span className="text-xs text-[#8FA3B8] block">
+                                {ch.superkit_tok} tok ({ch.superkit_steps}p)
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {ch.winner === "superkit" ? (
+                                <span className="px-2.5 py-1 rounded bg-[#34D399]/15 border border-[#34D399]/40 font-mono-hud text-[11px] font-bold text-[#34D399]">
+                                  SUPERKIT
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded bg-[#FBBF24]/15 border border-[#FBBF24]/40 font-mono-hud text-[11px] font-bold text-[#FBBF24]">
+                                  IA SIN KIT
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-[#060B14] border-t-2 border-[#34D399]/40 font-mono-hud text-xs font-bold">
+                          <td className="py-4 px-4 text-[#5EEAD4]">TOTAL</td>
+                          <td className="py-4 px-4 text-white">
+                            6 Retos Extremos (12 Corridas Reales agy CLI)
+                          </td>
+                          <td className="py-4 px-4 text-[#FBBF24]">
+                            302 min · 6,996 loc (279.1 KB)
+                          </td>
+                          <td className="py-4 px-4 text-[#FBBF24]">
+                            $7.69 USD · 2.65M tok (53p)
+                          </td>
+                          <td className="py-4 px-4 text-[#34D399]">
+                            276 min · 7,937 loc (325.4 KB)
+                          </td>
+                          <td className="py-4 px-4 text-[#34D399]">
+                            $10.85 USD · 3.52M tok (80p)
+                          </td>
+                          <td className="py-4 px-4 text-[#34D399]">
+                            SUPERKIT 4 - 2
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* EP03 Interactive 12-Demo Comparator */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    {EP03_CHALLENGES.map((ch) => {
+                      const active = ep03ChallengeN === ch.n;
+                      return (
+                        <button
+                          key={ch.n}
+                          onClick={() => setEp03ChallengeN(ch.n)}
+                          className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                            active
+                              ? "bg-[#11283F] border-[#34D399] shadow-[0_0_20px_rgba(52,211,153,0.22)]"
+                              : "bg-[#0B1D30]/80 border-white/10 hover:border-white/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                            <span className="text-[#5EEAD4] font-bold">
+                              R0{ch.n}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded font-bold ${
+                                ch.winner === "superkit"
+                                  ? "bg-[#34D399]/20 text-[#34D399]"
+                                  : "bg-[#FBBF24]/20 text-[#FBBF24]"
+                              }`}
+                            >
+                              {ch.winner === "superkit" ? "KIT WIN" : "RAW WIN"}
+                            </span>
+                          </div>
+                          <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="font-mono-hud text-[10px] text-[#8FA3B8] mt-1">
+                            {ch.superkit_min}m vs {ch.vanilla_min}m
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {(() => {
+                    const cur =
+                      EP03_CHALLENGES.find((c) => c.n === ep03ChallengeN) ||
+                      EP03_CHALLENGES[0];
+                    const vanillaUrl = `/demos/ia-sin-kit/${cur.dir}/index.html`;
+                    const superkitUrl = `/demos/ia-superpowers-kit/${cur.dir}/index.html`;
+                    return (
+                      <div className="rounded-2xl bg-[#060B14] border-2 border-[#34D399]/50 overflow-hidden shadow-2xl">
+                        <div className="p-4 sm:p-5 bg-[#11283F] border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                              <span className="px-2 py-0.5 rounded bg-[#34D399]/20 text-[#34D399] font-bold">
+                                {cur.skill}
+                              </span>
+                              <span className="text-[#FBBF24]">
+                                Sin Kit: {cur.vanilla_min}m · $
+                                {cur.vanilla_usd.toFixed(2)} ({cur.vanilla_tok}{" "}
+                                tok)
+                              </span>
+                              <span className="text-[#5EEAD4]">
+                                Superkit: {cur.superkit_min}m · $
+                                {cur.superkit_usd.toFixed(2)} ({cur.superkit_tok}{" "}
+                                tok)
+                              </span>
+                            </div>
+                            <h3 className="font-display text-lg sm:text-xl font-black text-white">
+                              0{cur.n}.{" "}
+                              {lang === "es" ? cur.name_es : cur.name_en}
+                            </h3>
+                            <p className="text-xs text-[#8FA3B8] max-w-3xl">
+                              {lang === "es" ? cur.verdict_es : cur.verdict_en}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <div className="inline-flex flex-wrap rounded-lg bg-[#060B14] p-0.5 border border-white/15 font-mono-hud text-xs">
+                              <button
+                                onClick={() => setEp03Mode("split")}
+                                className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
+                                  ep03Mode === "split"
+                                    ? "bg-[#34D399] text-[#060B14]"
+                                    : "text-[#8FA3B8] hover:text-white"
+                                }`}
+                              >
+                                {lang === "es" ? "Lado a Lado" : "Side by Side"}
+                              </button>
+                              <button
+                                onClick={() => setEp03Mode("superkit")}
+                                className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
+                                  ep03Mode === "superkit"
+                                    ? "bg-[#5EEAD4] text-[#060B14]"
+                                    : "text-[#8FA3B8] hover:text-white"
+                                }`}
+                              >
+                                Superkit
+                              </button>
+                              <button
+                                onClick={() => setEp03Mode("vanilla")}
+                                className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
+                                  ep03Mode === "vanilla"
+                                    ? "bg-[#FBBF24] text-[#060B14]"
+                                    : "text-[#8FA3B8] hover:text-white"
+                                }`}
+                              >
+                                {lang === "es" ? "IA Sin Kit" : "Raw AI"}
+                              </button>
+                              <button
+                                onClick={() => setEp03Mode("still")}
+                                className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
+                                  ep03Mode === "still"
+                                    ? "bg-[#B794F6] text-[#060B14]"
+                                    : "text-[#8FA3B8] hover:text-white"
+                                }`}
+                              >
+                                {lang === "es" ? "Captura VS" : "VS Still"}
+                              </button>
+                              <button
+                                onClick={() => setEp03Mode("prompt")}
+                                className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
+                                  ep03Mode === "prompt"
+                                    ? "bg-[#22A2DD] text-[#060B14]"
+                                    : "text-[#8FA3B8] hover:text-white"
+                                }`}
+                              >
+                                Prompt
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {ep03Mode === "split" && (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                            <div className="flex flex-col">
+                              <div className="px-3 py-2 bg-[#0B1D30] border-b border-white/10 flex items-center justify-between font-mono-hud text-xs">
+                                <span className="text-[#FBBF24] font-bold">
+                                  IZQUIERDA · GEMINI 4 ARGON HIGH SIN KIT —{" "}
+                                  {cur.vanilla_fps}
+                                </span>
+                                <div className="flex items-center gap-3">
+                                  <a
+                                    href={`/api/source?model=ia-sin-kit&dir=${cur.dir}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#8FA3B8] hover:text-white underline"
+                                  >
+                                    JSON Source ({cur.vanilla_lines} loc)
+                                  </a>
+                                  <a
+                                    href={vanillaUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#FBBF24] hover:underline"
+                                  >
+                                    Pantalla Completa ↗
+                                  </a>
+                                </div>
+                              </div>
+                              <iframe
+                                src={vanillaUrl}
+                                title={`Raw AI ${cur.dir}`}
+                                className="w-full h-[540px] border-0 bg-[#04060A]"
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="px-3 py-2 bg-[#0B1D30] border-b border-white/10 flex items-center justify-between font-mono-hud text-xs">
+                                <span className="text-[#34D399] font-bold">
+                                  DERECHA · IA + MIXIUH SUPERPOWERS KIT —{" "}
+                                  {cur.superkit_fps}
+                                </span>
+                                <div className="flex items-center gap-3">
+                                  <a
+                                    href={`/api/source?model=ia-superpowers-kit&dir=${cur.dir}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#5EEAD4] hover:text-white underline"
+                                  >
+                                    JSON Source ({cur.superkit_lines} loc)
+                                  </a>
+                                  <a
+                                    href={superkitUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#34D399] hover:underline"
+                                  >
+                                    Pantalla Completa ↗
+                                  </a>
+                                </div>
+                              </div>
+                              <iframe
+                                src={superkitUrl}
+                                title={`Superkit ${cur.dir}`}
+                                className="w-full h-[540px] border-0 bg-[#04060A]"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {(ep03Mode === "superkit" ||
+                          ep03Mode === "vanilla") && (
+                          <iframe
+                            src={
+                              ep03Mode === "superkit" ? superkitUrl : vanillaUrl
+                            }
+                            title={`EP03 ${ep03Mode} ${cur.dir}`}
+                            className="w-full h-[640px] border-0 bg-[#04060A]"
+                          />
+                        )}
+
+                        {ep03Mode === "still" && (
+                          <div className="p-6 bg-[#04060A] flex flex-col items-center">
+                            <img
+                              src={cur.vs_still}
+                              alt={cur.name_es}
+                              className="max-h-[580px] w-auto rounded-xl border border-white/15"
+                            />
+                          </div>
+                        )}
+
+                        {ep03Mode === "prompt" && (
+                          <div className="p-6 bg-[#060B14] space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                                PROMPT IDENTICO ENVIADO A AMBAS INSTANCIAS DE
+                                AGY CLI
+                              </span>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    cur.prompt_verbatim
+                                  );
+                                  setCopiedEp03Prompt(true);
+                                  setTimeout(
+                                    () => setCopiedEp03Prompt(false),
+                                    2000
+                                  );
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                {copiedEp03Prompt ? (
+                                  <Check className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                                <span>
+                                  {copiedEp03Prompt
+                                    ? "Copiado"
+                                    : "Copiar Prompt"}
+                                </span>
+                              </button>
+                            </div>
+                            <pre className="p-4 rounded-xl bg-[#0B1D30] border border-white/10 text-xs sm:text-sm text-[#F5F7FA] whitespace-pre-wrap font-mono-hud leading-relaxed">
+                              {cur.prompt_verbatim}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* EP03 Honesty Notes */}
+                <div className="rounded-2xl bg-[#0B1D30] border border-[#34D399]/30 p-6">
+                  <div className="flex items-center gap-2 font-mono-hud text-xs text-[#34D399] font-bold uppercase mb-3">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>
+                      {lang === "es"
+                        ? "PROTOCOLO DE HONESTIDAD CIENTIFICA · EPISODIO 03"
+                        : "SCIENTIFIC HONESTY PROTOCOL · EPISODE 03"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {EP03_HONESTY_NOTES.map((n, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3.5 rounded-xl bg-[#060B14] border border-white/10 text-xs text-[#F5F7FA]/90 leading-relaxed flex items-start gap-2.5"
+                      >
+                        <span className="font-mono-hud text-[#34D399] font-bold shrink-0">
+                          [0{idx + 1}]
+                        </span>
+                        <span>{lang === "es" ? n.es : n.en}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* -----------------------------------------------------------------
+                SUB-DOSSIER B & C: EPISODIO 02 OR EPISODIO 01
+               ----------------------------------------------------------------- */}
+            {(dossierEp === "ep02" || dossierEp === "ep01") && (
+              <div className="space-y-10">
+                {/* Hero Grid for EP02 / EP01 */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  <div className="lg:col-span-7 space-y-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#B794F6]/15 border border-[#B794F6]/40 text-[#B794F6] font-mono-hud text-xs font-bold">
+                      {isEp02
+                        ? lang === "es"
+                          ? "EPISODIO 02 · DUELO DE TITANES ZERO-SHOT + FACTURA REAL DE TOKENS"
+                          : "EPISODE 02 · ZERO-SHOT TITAN DUEL + REAL API TOKEN BILL"
+                        : lang === "es"
+                        ? "EPISODIO 01 · TORNEO ZERO-SHOT EN ANTIGRAVITY"
+                        : "EPISODE 01 · ZERO-SHOT TOURNAMENT IN ANTIGRAVITY"}
+                    </div>
+
+                    <h1 className="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.08]">
+                      {isEp02
+                        ? lang === "es"
+                          ? "Gemini 4 Argon vs. Claude Opus 5.5: 6 Retos Extremos y la Factura Real"
+                          : "Gemini 4 Argon vs. Claude Opus 5.5: 6 Extreme Challenges & the Real API Bill"
+                        : lang === "es"
+                        ? "Gemini 4 Argon vs. Gemini 3.8 Flash: 10 Retos y el Medio Pixel que Rompio un Mundo"
+                        : "Gemini 4 Argon vs. Gemini 3.8 Flash: 10 Challenges & the Half Pixel That Broke a World"}
+                    </h1>
+
+                    {/* Scoreboard Card */}
+                    {isEp02 ? (
+                      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B1D30] via-[#11283F] to-[#0B1D30] border border-[#22A2DD]/30 shadow-2xl">
+                        <div className="grid grid-cols-3 items-center gap-3 pb-5 border-b border-white/10">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src="/brand/mascots/opus_star.png"
+                              alt="Claude Opus 5.5"
+                              className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1.5 border border-[#FBBF24]/50 object-contain shrink-0"
+                            />
+                            <div>
+                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#FBBF24] uppercase">
+                                Claude Opus 5.5
+                              </div>
+                              <div className="font-display text-2xl sm:text-4xl font-black text-[#FBBF24]">
+                                2
+                              </div>
+                              <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
+                                159 min · $16.26 USD
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-center">
+                            <div className="inline-block px-3 py-1 rounded-full bg-[#060B14] border border-white/15 font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                              MARCADOR 4 - 2
+                            </div>
+                            <div className="font-mono-hud text-xs text-[#34D399] font-bold mt-1.5">
+                              -69 MIN · -$10.00 USD
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-3 text-right">
+                            <div>
+                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#B794F6] uppercase">
+                                Gemini 4 Argon
+                              </div>
+                              <div className="font-display text-2xl sm:text-4xl font-black text-[#34D399]">
+                                4
+                              </div>
+                              <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
+                                90 min · $6.26 USD
+                              </div>
+                            </div>
+                            <img
+                              src="/brand/mascots/argon_winner.png"
+                              alt="Gemini 4 Argon"
+                              className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1 border border-[#B794F6]/50 object-contain shrink-0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B1D30] via-[#11283F] to-[#0B1D30] border border-[#22A2DD]/30 shadow-2xl">
+                        <div className="grid grid-cols-3 items-center gap-3 pb-5 border-b border-white/10">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src="/brand/mascots/flash_embarrassed.png"
+                              alt="Gemini 3.8 Flash"
+                              className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1 border border-[#FBBF24]/40 object-contain shrink-0"
+                            />
+                            <div>
+                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#FBBF24] uppercase">
+                                Gemini 3.8 Flash
+                              </div>
+                              <div className="font-display text-2xl sm:text-4xl font-black text-white">
+                                0
+                              </div>
+                              <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
+                                94 min · 8/10 func.
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-center">
+                            <div className="inline-block px-3 py-1 rounded-full bg-[#060B14] border border-white/15 font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                              MARCADOR 10 - 0
+                            </div>
+                            <div className="font-mono-hud text-xs text-[#34D399] font-bold mt-1.5">
+                              -39 MIN (-41.5%)
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-3 text-right">
+                            <div>
+                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#B794F6] uppercase">
+                                Gemini 4 Argon
+                              </div>
+                              <div className="font-display text-2xl sm:text-4xl font-black text-[#34D399]">
+                                10
+                              </div>
+                              <div className="font-mono-hud text-[11px] text-[#8FA3B8]">
+                                55 min · 10/10 func.
+                              </div>
+                            </div>
+                            <img
+                              src="/brand/mascots/argon_winner.png"
+                              alt="Gemini 4 Argon"
+                              className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#060B14] p-1 border border-[#B794F6]/50 object-contain shrink-0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={() =>
+                          handleJumpToArena(isEp02 ? "ep02" : "ep01", 1)
+                        }
+                        className="px-5 py-3 rounded-xl bg-[#B794F6] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition flex items-center gap-2 cursor-pointer"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>
+                          {isEp02
+                            ? "Abrir los 12 Motores EP02 en la Arena"
+                            : "Abrir las 20 Simulaciones EP01 en la Arena"}
+                        </span>
+                      </button>
+
+                      <a
+                        href={
+                          isEp02 ? YOUTUBE_LINKS.ep02_es : YOUTUBE_LINKS.ep01_es
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-5 py-3 rounded-xl bg-[#F43F5E] text-white font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>Ver en YouTube (4K60)</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Right Video Preview */}
+                  <div className="lg:col-span-5 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 overflow-hidden shadow-2xl">
+                    <div className="p-3 bg-[#11283F] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setActiveVideoClip("hook")}
+                          className={`px-3 py-1 rounded-lg font-mono-hud text-xs font-bold cursor-pointer ${
+                            activeVideoClip === "hook"
+                              ? "bg-[#22A2DD] text-[#060B14]"
+                              : "bg-[#060B14] text-[#8FA3B8]"
+                          }`}
+                        >
+                          1. Hook Oficial
+                        </button>
+                        <button
+                          onClick={() => setActiveVideoClip("boss")}
+                          className={`px-3 py-1 rounded-lg font-mono-hud text-xs font-bold cursor-pointer ${
+                            activeVideoClip === "boss"
+                              ? "bg-[#F43F5E] text-white"
+                              : "bg-[#060B14] text-[#8FA3B8]"
+                          }`}
+                        >
+                          2. Nivel Jefe
+                        </button>
+                      </div>
+                      <span className="font-mono-hud text-xs text-[#5EEAD4]">
+                        {isEp02 ? "EP02 · 4K60" : "EP01 · 4K60"}
+                      </span>
+                    </div>
+                    <div className="relative bg-black aspect-video">
+                      <video
+                        key={`${dossierEp}-${activeVideoClip}`}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={
+                          isEp02
+                            ? "/brand/thumbs/ep02_thumb_A_1280.jpg"
+                            : "/brand/thumbs/01_marcador-0-10_1280.jpg"
+                        }
+                        className="w-full h-full object-cover"
+                      >
+                        <source
+                          src={
+                            isEp02
+                              ? activeVideoClip === "hook"
+                                ? "/videos/ep02-hook.mp4"
+                                : "/videos/ep02-boss.mp4"
+                              : activeVideoClip === "hook"
+                              ? "/videos/ep01-hook.mp4"
+                              : "/videos/ep01-boss.mp4"
+                          }
+                          type="video/mp4"
+                        />
+                      </video>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comparative Matrix Table for EP02 or EP01 */}
+                <div className="rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/25 overflow-hidden shadow-xl">
+                  <div className="p-5 bg-[#11283F] border-b border-white/10">
+                    <h2 className="font-display text-xl sm:text-2xl font-black text-white">
+                      {isEp02
+                        ? "Matriz Comparativa EP02: Tiempo, FPS, Tokens y Costo en USD"
+                        : "Matriz Comparativa EP01: 10 Retos Zero-Shot"}
+                    </h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {isEp02 ? (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#060B14] border-b border-white/10 font-mono-hud text-[11px] uppercase text-[#8FA3B8]">
+                            <th className="py-3.5 px-4">#</th>
+                            <th className="py-3.5 px-4">Reto y Stack</th>
+                            <th className="py-3.5 px-4 text-[#FBBF24]">
+                              Claude Opus 5.5
+                            </th>
+                            <th className="py-3.5 px-4 text-[#FBBF24]">
+                              Opus Tokens / USD
+                            </th>
+                            <th className="py-3.5 px-4 text-[#B794F6]">
+                              Gemini 4 Argon
+                            </th>
+                            <th className="py-3.5 px-4 text-[#B794F6]">
+                              Argon Tokens / USD
+                            </th>
+                            <th className="py-3.5 px-4">Ganador</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10 text-xs sm:text-sm">
+                          {EP02_CHALLENGES.map((ch) => (
+                            <tr
+                              key={ch.n}
+                              onClick={() => handleJumpToArena("ep02", ch.n)}
+                              className="hover:bg-[#11283F]/60 transition cursor-pointer"
+                            >
+                              <td className="py-3.5 px-4 font-mono-hud font-bold text-[#5EEAD4]">
+                                0{ch.n}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-white">
+                                  {lang === "es" ? ch.name_es : ch.name_en}
+                                </div>
+                                <div className="text-xs text-[#8FA3B8]">
+                                  {ch.tech}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#FBBF24]">
+                                {ch.time_min.opus} min · {ch.fps.opus}
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#FBBF24]">
+                                ${ch.cost_usd.opus.toFixed(2)} USD (
+                                {ch.tokens.opus_total})
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#B794F6]">
+                                {ch.time_min.argon} min · {ch.fps.argon}
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#34D399]">
+                                ${ch.cost_usd.argon.toFixed(2)} USD (
+                                {ch.tokens.argon_total})
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud font-bold">
+                                {ch.winner === "argon" ? (
+                                  <span className="text-[#34D399]">ARGON</span>
+                                ) : (
+                                  <span className="text-[#FBBF24]">
+                                    OPUS 5.5
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#060B14] border-b border-white/10 font-mono-hud text-[11px] uppercase text-[#8FA3B8]">
+                            <th className="py-3.5 px-4">#</th>
+                            <th className="py-3.5 px-4">Reto</th>
+                            <th className="py-3.5 px-4 text-[#FBBF24]">
+                              Gemini 3.8 Flash
+                            </th>
+                            <th className="py-3.5 px-4 text-[#B794F6]">
+                              Gemini 4 Argon
+                            </th>
+                            <th className="py-3.5 px-4">Relacion</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10 text-xs sm:text-sm">
+                          {CHALLENGES.map((ch) => (
+                            <tr
+                              key={ch.n}
+                              onClick={() => handleJumpToArena("ep01", ch.n)}
+                              className="hover:bg-[#11283F]/60 transition cursor-pointer"
+                            >
+                              <td className="py-3.5 px-4 font-mono-hud font-bold text-[#5EEAD4]">
+                                {String(ch.n).padStart(2, "0")}
+                              </td>
+                              <td className="py-3.5 px-4 font-bold text-white">
+                                {lang === "es" ? ch.name_es : ch.name_en}
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#FBBF24]">
+                                {ch.time_min.flash} min (
+                                {ch.code_stats.flash_lines} loc)
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#B794F6]">
+                                {ch.time_min.argon} min (
+                                {ch.code_stats.argon_lines} loc)
+                              </td>
+                              <td className="py-3.5 px-4 font-mono-hud text-[#34D399]">
+                                {ch.speed_ratio}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+        </main>
+      )}
 
-          {/* Interactive 53-Term Glossary */}
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-mono-hud uppercase text-[#5EEAD4] font-bold mb-1">
-                  <BookOpen className="w-4 h-4" />
+      {/* =====================================================================
+          VIEW 3: DEL COMENTARIO AL CODIGO #01 (OVERFIT 3D) & SUPERPOWERS KIT
+         ===================================================================== */}
+      {mainView === "comunidad" && (
+        <main id="comentario-al-codigo" className="flex-1 py-8 sm:py-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+            <div className="rounded-2xl bg-[#0B1D30] border border-[#FBBF24]/40 p-6 sm:p-8 shadow-2xl space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="px-3.5 py-1 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/50 font-mono-hud text-xs font-bold text-[#FBBF24]">
                   {lang === "es"
-                    ? `GLOSARIO TECNICO MIXIUH LABS (${LAB_GLOSSARY.length} CONCEPTOS EP01 + EP02)`
-                    : `MIXIUH LABS TECHNICAL GLOSSARY (${LAB_GLOSSARY.length} CONCEPTS EP01 + EP02)`}
+                    ? "SERIE DEL COMENTARIO AL CODIGO #01 · RETO DE @TENITO03"
+                    : "FROM COMMENT TO CODE SERIES #01 · @TENITO03 CHALLENGE"}
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href="/overfit/index.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-xl bg-[#FBBF24] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>
+                      {lang === "es"
+                        ? "Abrir OVERFIT Studio 3D en Pantalla Completa"
+                        : "Open OVERFIT Studio 3D Full Screen"}
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <a
+                    href="/api/source?model=comunidad&dir=cc01-overfit-studio"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-xl bg-[#060B14] border border-[#22A2DD]/40 text-[#5EEAD4] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    <span>JSON Source</span>
+                  </a>
                 </div>
-                <h3 className="font-display text-2xl font-black text-white">
-                  {lang === "es"
-                    ? "Diccionario de Ingenieria en Lenguaje Claro"
-                    : "Plain-Language Engineering Dictionary"}
-                </h3>
               </div>
 
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-[#8FA3B8] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={glossarySearch}
-                  onChange={(e) => setGlossarySearch(e.target.value)}
-                  placeholder={
-                    lang === "es"
-                      ? "Buscar Verlet, CCD, FBO, DDA..."
-                      : "Search Verlet, CCD, FBO, DDA..."
-                  }
-                  className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1D30] border border-white/15 text-xs text-white placeholder:text-[#8FA3B8]"
+              <h1 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
+                {lang === "es"
+                  ? "De un Comentario a una Marca de Ropa IA en 3D: OVERFIT Studio 3D (Coleccion Guerra de Pesos)"
+                  : "From a Comment to a 3D AI Streetwear Brand: OVERFIT Studio 3D (Weight War Collection)"}
+              </h1>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                <div className="lg:col-span-5 rounded-xl bg-[#060B14] border border-[#22A2DD]/30 p-4 flex flex-col justify-between gap-3">
+                  <div className="font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                    1. EL COMENTARIO ORIGINAL DE @TENITO03 EN INSTAGRAM
+                  </div>
+                  <div className="rounded-lg overflow-hidden bg-white p-2">
+                    <img
+                      src="/brand/thumbs/tenito_comment.png"
+                      alt="Comentario de @tenito03"
+                      className="w-full h-auto object-contain"
+                    />
+                  </div>
+                </div>
+
+                <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <img
+                    src="/brand/thumbs/cc01_thumb_A.jpg"
+                    alt="Miniatura A OVERFIT"
+                    className="w-full aspect-video object-cover rounded-xl border border-white/15"
+                  />
+                  <img
+                    src="/brand/thumbs/cc01_thumb_B.jpg"
+                    alt="Miniatura B OVERFIT"
+                    className="w-full aspect-video object-cover rounded-xl border border-white/15"
+                  />
+                  <img
+                    src="/brand/thumbs/cc01_thumb_C.jpg"
+                    alt="Miniatura C OVERFIT"
+                    className="w-full aspect-video object-cover rounded-xl border border-white/15"
+                  />
+                </div>
+              </div>
+
+              {/* Embedded Live OVERFIT Studio 3D */}
+              <div className="rounded-2xl bg-[#060B14] border-2 border-[#FBBF24]/50 overflow-hidden shadow-2xl">
+                <div className="px-4 py-3 bg-[#11283F] border-b border-white/10 flex items-center justify-between">
+                  <span className="font-mono-hud text-xs font-bold text-white">
+                    OVERFIT STUDIO 3D EN VIVO · GIRA 360°, HAZ ZOOM MACRO HD O
+                    PRUEBA LOS 10 ESTAMPADOS
+                  </span>
+                  <a
+                    href="/overfit/index.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono-hud text-xs font-bold text-[#FBBF24] hover:underline"
+                  >
+                    Pantalla Completa ↗
+                  </a>
+                </div>
+                <iframe
+                  src="/overfit/index.html"
+                  title="OVERFIT Studio 3D"
+                  className="w-full h-[820px] border-0 bg-[#04060A]"
                 />
               </div>
             </div>
+          </div>
+        </main>
+      )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredGlossary.map((g) => (
-                <div
-                  key={g.term}
-                  className="p-4 rounded-xl bg-[#0B1D30] border border-white/10 hover:border-[#22A2DD]/40 transition"
+      {/* =====================================================================
+          VIEW 4: ARENA INTERACTIVA (ALL 45 DEMOS: EP03 + EP02 + EP01)
+         ===================================================================== */}
+      {mainView === "arena" && (
+        <main className="flex-1 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+            <div className="p-3 rounded-2xl bg-[#0B1D30] border border-[#B794F6]/40 flex flex-wrap items-center justify-between gap-3">
+              <div className="font-mono-hud text-xs font-bold text-[#B794F6]">
+                {lang === "es"
+                  ? "MODO DE ARENA INTERACTIVA (45 DEMOS TOTALES):"
+                  : "INTERACTIVE ARENA MODE (45 TOTAL DEMOS):"}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                <button
+                  onClick={() => setArenaMode("ep03")}
+                  className={`px-3.5 py-2 rounded-xl font-bold cursor-pointer ${
+                    arenaMode === "ep03"
+                      ? "bg-[#34D399] text-[#060B14]"
+                      : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
+                  }`}
                 >
-                  <div className="font-mono-hud text-xs font-bold text-[#5EEAD4] mb-1">
-                    {g.term}
+                  EP03: Sin Kit vs Superpowers Kit (12)
+                </button>
+                <button
+                  onClick={() => {
+                    setArenaMode("ep02_ep01");
+                    handleEpisodeChange("ep02");
+                  }}
+                  className={`px-3.5 py-2 rounded-xl font-bold cursor-pointer ${
+                    arenaMode === "ep02_ep01" && activeEpisode === "ep02"
+                      ? "bg-[#B794F6] text-[#060B14]"
+                      : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
+                  }`}
+                >
+                  EP02: Argon vs Opus 5.5 (12)
+                </button>
+                <button
+                  onClick={() => {
+                    setArenaMode("ep02_ep01");
+                    handleEpisodeChange("ep01");
+                  }}
+                  className={`px-3.5 py-2 rounded-xl font-bold cursor-pointer ${
+                    arenaMode === "ep02_ep01" && activeEpisode === "ep01"
+                      ? "bg-[#22A2DD] text-[#060B14]"
+                      : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
+                  }`}
+                >
+                  EP01: Argon vs 3.8 Flash (20 + Bonus)
+                </button>
+                <button
+                  onClick={() => navigateToView("comunidad")}
+                  className="px-3.5 py-2 rounded-xl bg-[#FBBF24]/20 border border-[#FBBF24]/50 text-[#FBBF24] font-bold cursor-pointer"
+                >
+                  OVERFIT Studio 3D (1)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {arenaMode === "ep03" ? (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {EP03_CHALLENGES.map((ch) => (
+                  <button
+                    key={ch.n}
+                    onClick={() => setEp03ChallengeN(ch.n)}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                      ep03ChallengeN === ch.n
+                        ? "bg-[#11283F] border-[#34D399]"
+                        : "bg-[#0B1D30] border-white/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                      <span className="text-[#5EEAD4] font-bold">R0{ch.n}</span>
+                      <span
+                        className={
+                          ch.winner === "superkit"
+                            ? "text-[#34D399] font-bold"
+                            : "text-[#FBBF24] font-bold"
+                        }
+                      >
+                        {ch.winner === "superkit" ? "KIT WIN" : "RAW WIN"}
+                      </span>
+                    </div>
+                    <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                      {lang === "es" ? ch.name_es : ch.name_en}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {(() => {
+                const cur =
+                  EP03_CHALLENGES.find((c) => c.n === ep03ChallengeN) ||
+                  EP03_CHALLENGES[0];
+                const vanillaUrl = `/demos/ia-sin-kit/${cur.dir}/index.html`;
+                const superkitUrl = `/demos/ia-superpowers-kit/${cur.dir}/index.html`;
+                return (
+                  <div className="rounded-2xl bg-[#060B14] border-2 border-[#34D399]/50 overflow-hidden shadow-2xl">
+                    <div className="p-4 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-black text-white">
+                          EP03 Reto 0{cur.n}:{" "}
+                          {lang === "es" ? cur.name_es : cur.name_en}
+                        </h3>
+                        <p className="text-xs text-[#8FA3B8]">
+                          {lang === "es" ? cur.verdict_es : cur.verdict_en}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => navigateToView("dossiers", "ep03")}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#34D399] text-[#060B14] font-mono-hud text-xs font-bold cursor-pointer"
+                      >
+                        Ver Dossier Completo EP03
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                      <iframe
+                        src={vanillaUrl}
+                        title={`Raw ${cur.dir}`}
+                        className="w-full h-[560px] border-0 bg-[#04060A]"
+                      />
+                      <iframe
+                        src={superkitUrl}
+                        title={`Superkit ${cur.dir}`}
+                        className="w-full h-[560px] border-0 bg-[#04060A]"
+                      />
+                    </div>
                   </div>
-                  <p className="text-xs text-[#F5F7FA]/90 leading-relaxed">
-                    {g.plain_es}
-                  </p>
-                </div>
-              ))}
+                );
+              })()}
             </div>
-          </div>
-        </div>
-      </section>
+          ) : (
+            <DemoArenaSection
+              lang={lang}
+              activeEpisode={activeEpisode}
+              onChangeEpisode={handleEpisodeChange}
+              selectedChallengeN={selectedChallengeN}
+              onSelectChallengeN={setSelectedChallengeN}
+            />
+          )}
+        </main>
+      )}
 
-      {/* MIXIUH ECOSYSTEM & B2B ENGINEERING FUNNEL */}
-      <section
-        id="ecosistema"
-        className="scroll-mt-24 py-14 border-t border-[#22A2DD]/20 bg-gradient-to-b from-[#060B14] to-[#0B1D30]"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#11283F] border border-[#22A2DD]/30 font-mono-hud text-xs text-[#5EEAD4] mb-3">
-              ECOSISTEMA DE PRODUCTOS PROPIOS MIXIUH
-            </div>
-            <h2 className="font-display text-2xl sm:text-4xl font-black text-white">
-              {lang === "es"
-                ? "Las Herramientas con las que Construimos Mixiuh Labs"
-                : "The In-House Tools Behind Mixiuh Labs"}
-            </h2>
-            <p className="text-sm sm:text-base text-[#8FA3B8] mt-2">
-              {lang === "es"
-                ? "Mixiuh Labs es el brazo de investigacion y pruebas de Mixiuh. Todos nuestros episodios, voces clonadas, editores de video y plataformas SaaS son tecnologia propia."
-                : "Mixiuh Labs is the research and benchmarking arm of Mixiuh. All our episodes, cloned voices, video editors, and SaaS platforms are built with our own proprietary technology."}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
-            <a
-              href="https://reelfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group p-6 rounded-2xl bg-[#060B14] border border-white/10 hover:border-[#22A2DD] transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-2.5 py-1 rounded bg-[#22A2DD]/15 font-mono-hud text-xs font-bold text-[#5EEAD4]">
-                    REELFY + VOICEFY
-                  </span>
-                  <ArrowUpRight className="w-4 h-4 text-[#8FA3B8] group-hover:text-[#5EEAD4]" />
-                </div>
-                <h3 className="font-display text-lg font-bold text-white mb-2">
-                  Edicion de Video Local-First e IA de Voz a 44.1 kHz
-                </h3>
-                <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
-                  El motor de montaje, subtitulos, tarjetas Skia 4K60 y clonacion de voz local con F5-TTS y Dynamic Match EQ con el que se produjeron los Episodios 01 y 02.
-                </p>
-              </div>
-              <div className="mt-4 font-mono-hud text-xs text-[#5EEAD4]">
-                reelfy.mixiuh.online →
-              </div>
-            </a>
-
-            <a
-              href="https://holdyfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group p-6 rounded-2xl bg-[#060B14] border border-white/10 hover:border-[#B794F6] transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-2.5 py-1 rounded bg-[#B794F6]/15 font-mono-hud text-xs font-bold text-[#B794F6]">
-                    HOLDYFY + WHATSAPP CLOUD AI
-                  </span>
-                  <ArrowUpRight className="w-4 h-4 text-[#8FA3B8] group-hover:text-[#B794F6]" />
-                </div>
-                <h3 className="font-display text-lg font-bold text-white mb-2">
-                  Agenda Inteligente, Anticipos y Agente IA WhatsApp
-                </h3>
-                <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
-                  Red de profesionales y servicios agendables con cobros protegidos anti no-show y automatizacion oficial con Meta WhatsApp Cloud API.
-                </p>
-              </div>
-              <div className="mt-4 font-mono-hud text-xs text-[#B794F6]">
-                holdyfy.mixiuh.online →
-              </div>
-            </a>
-
-            <a
-              href="https://queryfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group p-6 rounded-2xl bg-[#060B14] border border-white/10 hover:border-[#34D399] transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-2.5 py-1 rounded bg-[#34D399]/15 font-mono-hud text-xs font-bold text-[#34D399]">
-                    QUERYFY + STOCKFY
-                  </span>
-                  <ArrowUpRight className="w-4 h-4 text-[#8FA3B8] group-hover:text-[#34D399]" />
-                </div>
-                <h3 className="font-display text-lg font-bold text-white mb-2">
-                  DBA Local-First con IA y Punto de Venta Movil
-                </h3>
-                <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
-                  Administracion de bases de datos SQL/NoSQL asistida por IA (Queryfy) y punto de venta todo en uno con Tap-to-Pay desde celular (Stockfy).
-                </p>
-              </div>
-              <div className="mt-4 font-mono-hud text-xs text-[#34D399]">
-                queryfy.mixiuh.online →
-              </div>
-            </a>
-          </div>
-
-          {/* Sponsorship & Custom Engineering CTA Banner */}
-          <div className="rounded-2xl bg-[#11283F] border border-[#22A2DD]/40 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div>
-              <div className="font-mono-hud text-xs text-[#5EEAD4] font-bold uppercase mb-1">
-                {lang === "es"
-                  ? "CONTACTO COMERCIAL, PATROCINIOS Y DESARROLLO DE SOFTWARE"
-                  : "COMMERCIAL CONTACT, SPONSORSHIPS & CUSTOM ENGINEERING"}
-              </div>
-              <h3 className="font-display text-xl sm:text-2xl font-black text-white">
-                {lang === "es"
-                  ? "¿Quieres patrocinar un benchmark o construir software de alto rendimiento con Mixiuh?"
-                  : "Want to sponsor a benchmark or build high-performance software with Mixiuh?"}
-              </h3>
-              <p className="text-xs sm:text-sm text-[#8FA3B8] mt-1 max-w-2xl">
-                {lang === "es"
-                  ? "Desarrollamos plataformas web Next.js, agentes de IA sobre Meta WhatsApp Cloud API, aplicaciones moviles iOS/Android y herramientas de ingenieria a medida."
-                  : "We architect ultra-fast Next.js platforms, Meta WhatsApp Cloud API AI agents, native iOS/Android mobile apps, and custom engineering tools."}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <a
-                href="mailto:mixiuhonline@gmail.com?subject=Mixiuh%20Labs%20-%20Contacto"
-                className="px-5 py-3 rounded-xl bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition"
+      {/* =====================================================================
+          VIEW 5: FORO TECNICO, AUTOPSIAS & GLOSARIO (53 TERMINOS)
+         ===================================================================== */}
+      {mainView === "foro" && (
+        <main className="flex-1 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+            <div className="p-2.5 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 inline-flex items-center gap-2 font-mono-hud text-xs">
+              <button
+                onClick={() => setForoSubTab("hilos")}
+                className={`px-4 py-2 rounded-xl font-bold cursor-pointer ${
+                  foroSubTab === "hilos"
+                    ? "bg-[#22A2DD] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
               >
-                mixiuhonline@gmail.com
-              </a>
-              <a
-                href="https://mixiuh.online"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-3 rounded-xl bg-[#060B14] border border-white/15 text-white font-mono-hud text-xs font-bold hover:border-[#5EEAD4] transition"
+                {lang === "es"
+                  ? "1. Foro Tecnico, Autopsias y Prompts (28 Hilos)"
+                  : "1. Technical Forum, Autopsies & Prompts (28 Threads)"}
+              </button>
+              <button
+                onClick={() => setForoSubTab("glosario")}
+                className={`px-4 py-2 rounded-xl font-bold cursor-pointer ${
+                  foroSubTab === "glosario"
+                    ? "bg-[#34D399] text-[#060B14]"
+                    : "text-[#8FA3B8] hover:text-white"
+                }`}
               >
-                {lang === "es" ? "Visitar mixiuh.online" : "Visit mixiuh.online"}
-              </a>
+                {lang === "es"
+                  ? "2. Glosario Tecnico (53 Conceptos) & Ecosistema"
+                  : "2. Technical Glossary (53 Concepts) & Ecosystem"}
+              </button>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Footer */}
+          {foroSubTab === "hilos" ? (
+            <ForumSection lang={lang} onJumpToArena={handleJumpToArena} />
+          ) : (
+            <section className="py-8">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-mono-hud uppercase text-[#5EEAD4] font-bold mb-1">
+                        <BookOpen className="w-4 h-4" />
+                        <span>
+                          GLOSARIO TECNICO MIXIUH LABS ({LAB_GLOSSARY.length}{" "}
+                          CONCEPTOS)
+                        </span>
+                      </div>
+                      <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
+                        {lang === "es"
+                          ? "Diccionario de Ingenieria en Lenguaje Claro"
+                          : "Plain-Language Engineering Dictionary"}
+                      </h2>
+                    </div>
+
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-4 h-4 text-[#8FA3B8] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={glossarySearch}
+                        onChange={(e) => setGlossarySearch(e.target.value)}
+                        placeholder="Buscar Verlet, CCD, FBO, DDA..."
+                        className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1D30] border border-white/15 text-xs text-white placeholder:text-[#8FA3B8]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filteredGlossary.map((g) => (
+                      <div
+                        key={g.term}
+                        className="p-4 rounded-xl bg-[#0B1D30] border border-white/10 hover:border-[#22A2DD]/40 transition"
+                      >
+                        <div className="font-mono-hud text-xs font-bold text-[#5EEAD4] mb-1">
+                          {g.term}
+                        </div>
+                        <p className="text-xs text-[#F5F7FA]/90 leading-relaxed">
+                          {g.plain_es}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+        </main>
+      )}
+
+      {/* FOOTER */}
       <footer className="py-8 border-t border-white/10 bg-[#060B14] text-xs font-mono-hud text-[#8FA3B8]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -1820,42 +2256,36 @@ export default function MixiuhLabsHomePage() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <a
-              href={YOUTUBE_LINKS.channel_es}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white hover:text-[#5EEAD4]"
+            <button
+              onClick={() => navigateToView("blog")}
+              className="hover:text-white cursor-pointer"
             >
-              YouTube ES (@MixiuhLabsES)
-            </a>
-            <a
-              href={YOUTUBE_LINKS.channel_en}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white hover:text-[#B794F6]"
+              Inicio / Blog
+            </button>
+            <button
+              onClick={() => navigateToView("dossiers", "ep03")}
+              className="text-[#34D399] hover:text-white font-bold cursor-pointer"
             >
-              YouTube EN (@MixiuhLabsEN)
-            </a>
-            <a
-              href={YOUTUBE_LINKS.ep02_es}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#34D399] hover:text-white font-bold"
+              EP03 Superpowers Kit
+            </button>
+            <button
+              onClick={() => navigateToView("comunidad")}
+              className="text-[#FBBF24] hover:text-white font-bold cursor-pointer"
             >
-              {lang === "es" ? "Episodio 02 (YouTube)" : "Episode 02 (YouTube)"}
-            </a>
-            <a
-              href={
-                lang === "es"
-                  ? YOUTUBE_LINKS.ep01_es
-                  : YOUTUBE_LINKS.ep01_en
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#F43F5E] hover:text-white font-bold"
+              OVERFIT 3D
+            </button>
+            <button
+              onClick={() => navigateToView("dossiers", "ep02")}
+              className="text-[#B794F6] hover:text-white font-bold cursor-pointer"
             >
-              {lang === "es" ? "Episodio 01 (YouTube)" : "Episode 01 (YouTube)"}
-            </a>
+              EP02 Argon vs Opus
+            </button>
+            <button
+              onClick={() => navigateToView("dossiers", "ep01")}
+              className="text-[#5EEAD4] hover:text-white font-bold cursor-pointer"
+            >
+              EP01 Argon vs Flash
+            </button>
             <a
               href="https://mixiuh.online"
               target="_blank"
@@ -1863,38 +2293,6 @@ export default function MixiuhLabsHomePage() {
               className="hover:text-white"
             >
               Mixiuh
-            </a>
-            <a
-              href="https://holdyfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white"
-            >
-              Holdyfy
-            </a>
-            <a
-              href="https://stockfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white"
-            >
-              Stockfy
-            </a>
-            <a
-              href="https://reelfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white"
-            >
-              Reelfy
-            </a>
-            <a
-              href="https://queryfy.mixiuh.online"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white"
-            >
-              Queryfy
             </a>
           </div>
         </div>

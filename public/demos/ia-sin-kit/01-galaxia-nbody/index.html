@@ -1,636 +1,2475 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GALAXIA N-BODY 50K & AGUJERO NEGRO — IA SIN KIT (BASE)</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-  html, body {
-    width: 100vw; height: 100vh; overflow: hidden;
-    background: #050912; color: #F5F7FA;
-    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
-  }
-  #stage {
-    position: relative; width: 100vw; height: 100vh; overflow: hidden;
-    background: radial-gradient(circle at 38% 48%, #0C192C 0%, #050912 75%);
-  }
-  canvas#sim {
-    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
-  }
-  /* Top Header Bar */
-  .topbar {
-    position: absolute; top: 18px; left: 22px; right: 22px; height: 64px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid #F43F5E;
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 24px rgba(244, 63, 94, 0.28);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-  }
-  .topbar-left { display: flex; align-items: center; gap: 16px; }
-  .badge-mode {
-    padding: 7px 14px; border-radius: 10px; font-weight: 900; font-size: 15px;
-    letter-spacing: 1.5px; background: #FBBF24; color: #1A0A04;
-    border: 1.5px solid #F43F5E;
-  }
-  .challenge-title {
-    font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #FFFFFF;
-  }
-  .skill-pill {
-    font-size: 13px; font-weight: 700; color: #F43F5E;
-    background: rgba(255,255,255,0.06); padding: 6px 12px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.14);
-  }
-  .topbar-right { display: flex; align-items: center; gap: 14px; }
-  .stat-chip {
-    padding: 7px 14px; border-radius: 10px; background: rgba(4, 9, 18, 0.9);
-    border: 1.5px solid rgba(255,255,255,0.15); font-size: 15px; font-weight: 800;
-  }
-  .stat-fps {
-    padding: 7px 16px; border-radius: 10px; font-size: 18px; font-weight: 900;
-    background: rgba(244, 63, 94, 0.25); color: #FF8FA3; border: 2px solid #F43F5E;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASTRAL-IX // Simulador N-Body de Colisión Galáctica y Lente Gravitacional Relativista</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --bg-void: #03050a;
+      --panel-bg: rgba(7, 13, 25, 0.76);
+      --panel-border: rgba(34, 211, 238, 0.24);
+      --panel-border-strong: rgba(34, 211, 238, 0.55);
+      --cyan: #22d3ee;
+      --cyan-glow: rgba(34, 211, 238, 0.32);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.32);
+      --magenta: #f43f5e;
+      --emerald: #10b981;
+      --violet: #a78bfa;
+      --text-main: #e2e8f0;
+      --text-dim: #94a3b8;
+      --text-muted: #64748b;
+      --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
-  /* Right Telemetry & Controls Sidebar */
-  .sidebar {
-    position: absolute; top: 98px; right: 22px; width: 430px; bottom: 150px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid rgba(255,255,255,0.14);
-    border-radius: 18px; padding: 18px;
-    display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.65);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-  }
-  .sec-head {
-    font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #F43F5E;
-    border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 6px;
-    display: flex; justify-content: space-between;
-  }
-  .metric-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  }
-  .metric-card {
-    background: rgba(4, 8, 16, 0.92); border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 10px 12px;
-  }
-  .metric-lbl { font-size: 11px; color: #8FA3B8; font-weight: 700; letter-spacing: 1px; }
-  .metric-val { font-size: 15px; font-weight: 900; margin-top: 4px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
 
-  .log-box {
-    flex: 1; background: rgba(3, 6, 12, 0.95); border: 1.5px solid #F43F5E;
-    border-radius: 12px; padding: 12px; font-size: 12.5px; line-height: 1.55;
-    overflow: hidden; display: flex; flex-direction: column; gap: 8px;
-  }
-  .log-item {
-    padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);
-    border-left: 3px solid #F43F5E; font-weight: 700;
-  }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
 
-  .btn-row { display: flex; gap: 8px; }
-  .ctrl-btn {
-    flex: 1; padding: 10px 8px; border-radius: 10px; border: 1.5px solid #F43F5E;
-    background: rgba(255,255,255,0.06); color: #FFF; font-family: inherit;
-    font-size: 12.5px; font-weight: 800; cursor: pointer; transition: 0.15s;
-    text-align: center;
-  }
-  .ctrl-btn:hover, .ctrl-btn.active {
-    background: #FBBF24; color: #1A0A04;
-  }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      cursor: grab;
+    }
 
-  /* Bottom Error Console (only visible in vanilla mode) */
-  .error-drawer {
-    position: absolute; left: 22px; right: 22px; bottom: 18px; height: 118px;
-    background: rgba(28, 6, 14, 0.94); border: 2px solid #F43F5E;
-    border-radius: 14px; padding: 12px 18px;
-    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45);
-    z-index: 12; display: block;
-  }
-  .err-title {
-    color: #FF8FA3; font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
-    margin-bottom: 6px; display: flex; justify-content: space-between;
-  }
-  .err-line {
-    color: #FFE1E7; font-size: 13px; font-weight: 700; margin-bottom: 4px;
-    font-family: monospace;
-  }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
 
-  /* Floating Status Banner Bottom-Left for Superkit */
-  .super-banner {
-    position: absolute; left: 22px; bottom: 22px; width: 920px; height: 74px;
-    background: rgba(6, 22, 34, 0.92); border: 2px solid #10B981;
-    border-radius: 16px; padding: 0 22px;
-    display: none; align-items: center; justify-content: space-between;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 22px rgba(16, 185, 129, 0.3);
-    z-index: 11;
-  }
-</style>
+    /* Retícula y viñeta de observatorio */
+    .hud-overlay-fx {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 58%, rgba(2, 4, 10, 0.72) 100%),
+        linear-gradient(to bottom, rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+        linear-gradient(to right, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 64px 64px, 64px 64px;
+    }
+
+    /* Cabecera Superior de Observatorio */
+    .top-bar {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .brand-module {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--panel-border);
+      border-left: 3px solid var(--cyan);
+      border-radius: 6px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), inset 0 0 18px rgba(34, 211, 238, 0.06);
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      color: var(--cyan);
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 8px var(--cyan-glow));
+    }
+
+    .brand-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-kicker {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+      animation: pulseDot 1.8s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.8); }
+    }
+
+    .brand-main {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      color: #f8fafc;
+    }
+
+    /* Barra de Presets Astrofísicos */
+    .preset-strip {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+      flex-wrap: wrap;
+    }
+
+    .preset-btn {
+      appearance: none;
+      background: rgba(15, 23, 42, 0.72);
+      color: var(--text-dim);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 4px;
+      padding: 7px 11px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s ease;
+    }
+
+    .preset-btn:hover {
+      color: #ffffff;
+      border-color: rgba(34, 211, 238, 0.45);
+      background: rgba(34, 211, 238, 0.12);
+    }
+
+    .preset-btn.active {
+      color: #030712;
+      background: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    .preset-index {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.25);
+      color: inherit;
+    }
+
+    /* Paneles Laterales Flotantes */
+    .side-panel {
+      position: fixed;
+      top: 76px;
+      z-index: 10;
+      width: 320px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), inset 0 0 24px rgba(34, 211, 238, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--cyan) transparent;
+    }
+
+    .side-panel.left {
+      left: 16px;
+    }
+
+    .side-panel.right {
+      right: 16px;
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .panel-section:last-child {
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+
+    .section-header span.sub {
+      color: var(--text-muted);
+      font-size: 9px;
+    }
+
+    /* Grid de Telemetría */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .metric-card {
+      background: rgba(10, 18, 34, 0.78);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 5px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 100%;
+      background: var(--cyan);
+      opacity: 0.65;
+    }
+
+    .metric-card.amber::before {
+      background: var(--amber);
+    }
+
+    .metric-card.violet::before {
+      background: var(--violet);
+    }
+
+    .metric-card.emerald::before {
+      background: var(--emerald);
+    }
+
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: #f8fafc;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .metric-unit {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--cyan);
+    }
+
+    .sparkline-box {
+      background: rgba(8, 14, 28, 0.85);
+      border: 1px solid rgba(34, 211, 238, 0.16);
+      border-radius: 4px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sparkline-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    #sparkline-canvas {
+      width: 100%;
+      height: 36px;
+      display: block;
+    }
+
+    /* Sliders de Control Físico */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .control-label {
+      color: var(--text-main);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, 0.1);
+      padding: 1px 6px;
+      border-radius: 3px;
+      border: 1px solid rgba(34, 211, 238, 0.22);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(30, 41, 59, 0.9);
+      border-radius: 3px;
+      outline: none;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--cyan);
+      border: 2px solid #ffffff;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+
+    /* Selector de Modos Visuales */
+    .mode-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mode-btn {
+      appearance: none;
+      width: 100%;
+      text-align: left;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 5px;
+      padding: 8px 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.16s ease;
+    }
+
+    .mode-btn:hover {
+      color: #f8fafc;
+      border-color: rgba(34, 211, 238, 0.4);
+      background: rgba(34, 211, 238, 0.08);
+    }
+
+    .mode-btn.active {
+      color: #f8fafc;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.22) 0%, rgba(34, 211, 238, 0.04) 100%);
+      border-color: var(--cyan);
+      box-shadow: inset 3px 0 0 var(--cyan);
+    }
+
+    .mode-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid var(--text-muted);
+    }
+
+    .mode-btn.active .mode-indicator {
+      background: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+    }
+
+    /* Botones de Eventos Astrofísicos e Interacción */
+    .action-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .action-btn {
+      appearance: none;
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.18s ease;
+      background: rgba(15, 23, 42, 0.8);
+      color: #f8fafc;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+    }
+
+    .action-btn svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .action-btn.cyan:hover {
+      background: rgba(34, 211, 238, 0.18);
+      border-color: var(--cyan);
+      box-shadow: 0 0 15px rgba(34, 211, 238, 0.28);
+    }
+
+    .action-btn.amber {
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fde68a;
+    }
+
+    .action-btn.amber:hover {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--amber);
+      box-shadow: 0 0 15px var(--amber-glow);
+    }
+
+    .action-btn.magenta {
+      border-color: rgba(244, 63, 94, 0.45);
+      color: #fecdd3;
+    }
+
+    .action-btn.magenta:hover {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: var(--magenta);
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.32);
+    }
+
+    .action-btn.active-tool {
+      background: rgba(245, 158, 11, 0.26);
+      border-color: var(--amber);
+      box-shadow: 0 0 16px var(--amber-glow);
+    }
+
+    /* Toggles inferiores del panel */
+    .toggle-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .mini-toggle {
+      appearance: none;
+      padding: 6px 8px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .mini-toggle.active {
+      color: var(--cyan);
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.12);
+    }
+
+    /* Leyenda Espectral Doppler */
+    .spectrum-bar {
+      height: 8px;
+      width: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #ff2a54 0%, #f59e0b 28%, #fef08a 50%, #38bdf8 76%, #a5f3fc 100%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .spectrum-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    /* Barra Inferior de Estado e Instrucciones */
+    .bottom-bar {
+      position: fixed;
+      bottom: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .telemetry-banner {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 14px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .telemetry-banner strong {
+      color: var(--cyan);
+    }
+
+    .EventLog {
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-tag {
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(34, 211, 238, 0.15);
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      color: var(--cyan);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1100px) {
+      .side-panel {
+        width: 270px;
+      }
+    }
+  </style>
 </head>
 <body>
-<div id="stage">
-  <canvas id="sim" width="1920" height="1080"></canvas>
+  <div id="canvas-container"></div>
+  <div class="hud-overlay-fx"></div>
 
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="badge-mode">IA SIN KIT (BASE)</div>
-      <div class="challenge-title">PRUEBA 01/06 · GALAXIA N-BODY 50K & AGUJERO NEGRO</div>
-      <div class="skill-pill">SKILL 03: ARQUITECTO SENIOR 120 FPS</div>
-    </div>
-    <div class="topbar-right">
-      <div class="stat-chip">TIEMPO: <span style="color:#F43F5E">26 MIN</span></div>
-      <div class="stat-chip">COSTO: <span style="color:#FBBF24">$2.80 USD</span> (2.4M TOK)</div>
-      <div class="stat-fps" id="fps-box">19 FPS</div>
-    </div>
-  </div>
-
-  <div class="sidebar">
-    <div class="sec-head">
-      <span>TELEMETRIA DE EJECUCION</span>
-      <span>612 LINEAS</span>
-    </div>
-    <div class="metric-grid">
-      <div class="metric-card"><div class="metric-lbl">ESTRELLAS ACTIVAS</div><div class="metric-val" style="color:#F43F5E">8,500 / 50,000 (THROTTLED)</div></div>
-<div class="metric-card"><div class="metric-lbl">MEMORIA POR CUADRO</div><div class="metric-val" style="color:#F43F5E">+142.8 MB/s (GC SPIKES)</div></div>
-<div class="metric-card"><div class="metric-lbl">TIEMPO DE CUADRO</div><div class="metric-val" style="color:#FBBF24">52.4 ms (19 FPS)</div></div>
-<div class="metric-card"><div class="metric-lbl">LENTE GRAVITACIONAL</div><div class="metric-val" style="color:#8FA3B8">NO IMPLEMENTADO</div></div>
-    </div>
-    <div class="sec-head" style="margin-top:4px;">
-      <span>REGISTRO DE FALLOS Y CUELLOS</span>
-      <span id="frame-counter">FRAME 0000</span>
-    </div>
-    <div class="log-box" id="log-box">
-      <div class="log-item" style="color:#FFE1E7">[WARN] Allocation stall: 50,000 objects recreated in requestAnimationFrame</div>
-<div class="log-item" style="color:#FFE1E7">[PERF] Frame budget exceeded: 52.6ms/frame (19 FPS) — Major GC collection</div>
-<div class="log-item" style="color:#FFE1E7">[ARCH] Missing Float32Array SoA buffers; CPU cache thrashing detected</div>
-    </div>
-    <div class="btn-row">
-      <button class="ctrl-btn active" id="btn-mode1" onclick="setMode(0)">MODO 1: INTERACTIVO</button>
-      <button class="ctrl-btn" id="btn-mode2" onclick="setMode(1)">MODO 2: ESTRES / PULSO</button>
-      <button class="ctrl-btn" id="btn-burst" onclick="triggerBurst()">IMPULSO</button>
-    </div>
-  </div>
-
-  <div class="error-drawer">
-    <div class="err-title">
-      <span>CONSOLA SIN VERIFICAR (FALTA SKILL AUTO-DEBUGGER & ARQUITECTO 120FPS)</span>
-      <span>STATUS: DEGRADED (19 FPS)</span>
-    </div>
-    <div class="err-line">[WARN] Allocation stall: 50,000 objects recreated in requestAnimationFrame</div>
-<div class="err-line">[PERF] Frame budget exceeded: 52.6ms/frame (19 FPS) — Major GC collection</div>
-<div class="err-line">[ARCH] Missing Float32Array SoA buffers; CPU cache thrashing detected</div>
-  </div>
-
-  <div class="super-banner">
-    <div>
-      <div style="font-size:12px; font-weight:800; color:#10B981; letter-spacing:1.5px;">
-        MIXIUH SUPERPOWERS KIT v1.0 ACTIVO · CLAUDE.MD + MEMORY.MD + 5 SKILLS
-      </div>
-      <div style="font-size:16px; font-weight:900; color:#FFFFFF; margin-top:3px;">
-        GC PAUSE: 44ms · Array.map() EN LOOP
+  <!-- CABECERA DEL OBSERVATORIO -->
+  <header class="top-bar">
+    <div class="brand-module">
+      <svg class="brand-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="16" cy="16" r="5" fill="currentColor" fill-opacity="0.2" />
+        <ellipse cx="16" cy="16" rx="14" ry="5.5" transform="rotate(-24 16 16)" />
+        <ellipse cx="16" cy="16" rx="14" ry="5.5" transform="rotate(36 16 16)" stroke-dasharray="3 2" />
+        <line x1="16" y1="2" x2="16" y2="7" />
+        <line x1="16" y1="25" x2="16" y2="30" />
+      </svg>
+      <div class="brand-titles">
+        <div class="brand-kicker">
+          <span class="status-dot"></span>
+          <span>OBSERVATORIO ASTROFÍSICO // N-BODY &amp; KERR-LENS</span>
+        </div>
+        <div class="brand-main">COLISIÓN GALÁCTICA 3D &amp; AGUJERO NEGRO SUPERMASIVO</div>
       </div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:12px; color:#5EEAD4; font-weight:800;">VERIFICADO CON CHROME DEVTOOLS MCP</div>
-      <div style="font-size:18px; font-weight:900; color:#10B981;">120.0 FPS · 0 ERRORES · -75% COSTO</div>
+
+    <nav class="preset-strip" aria-label="Selector de Presets Astrofísicos">
+      <button class="preset-btn active" data-preset="0">
+        <span class="preset-index">01</span>
+        <span>Colisión Andrómeda-Vía Láctea</span>
+      </button>
+      <button class="preset-btn" data-preset="1">
+        <span class="preset-index">02</span>
+        <span>Cuásar Binario Relativista</span>
+      </button>
+      <button class="preset-btn" data-preset="2">
+        <span class="preset-index">03</span>
+        <span>Anillo de Einstein &amp; Lente Puro</span>
+      </button>
+      <button class="preset-btn" data-preset="3">
+        <span class="preset-index">04</span>
+        <span>Colapso de Cúmulo Globular</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- PANEL IZQUIERDO: TELEMETRÍA EN VIVO Y MODOS VISUALES -->
+  <aside class="side-panel left">
+    <div class="panel-section">
+      <div class="section-header">
+        <span>TELEMETRÍA DE SIMULACIÓN</span>
+        <span class="sub">BARNES-HUT OCTREE</span>
+      </div>
+      <div class="telemetry-grid">
+        <div class="metric-card">
+          <span class="metric-label">RENDIMIENTO</span>
+          <div class="metric-value"><span id="hud-fps">60</span><span class="metric-unit">FPS</span></div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">TIEMPO DE FRAME</span>
+          <div class="metric-value"><span id="hud-ms">16.6</span><span class="metric-unit">ms</span></div>
+        </div>
+        <div class="metric-card emerald">
+          <span class="metric-label">ESTRELLAS ACTIVAS</span>
+          <div class="metric-value"><span id="hud-stars">48,000</span></div>
+        </div>
+        <div class="metric-card violet">
+          <span class="metric-label">NODOS OCTREE 3D</span>
+          <div class="metric-value"><span id="hud-nodes">1,420</span></div>
+        </div>
+        <div class="metric-card amber">
+          <span class="metric-label">ENERGÍA SISTEMA</span>
+          <div class="metric-value"><span id="hud-energy">-4.82</span><span class="metric-unit">10^52 J</span></div>
+        </div>
+        <div class="metric-card amber">
+          <span class="metric-label">RADIO SCHWARZSCHILD</span>
+          <div class="metric-value"><span id="hud-rs">2.95</span><span class="metric-unit">kpc·e-4</span></div>
+        </div>
+      </div>
+
+      <div class="sparkline-box">
+        <div class="sparkline-header">
+          <span>HISTORIAL DE ESTABILIDAD TEMPORAL (FPS / DT)</span>
+          <span id="hud-sep">SEP: 42.0 kpc</span>
+        </div>
+        <canvas id="sparkline-canvas" width="280" height="36"></canvas>
+      </div>
     </div>
-  </div>
-</div>
 
-<script>
-const CHALLENGE_NUM = 1;
-const IS_SUPER = false;
-const TARGET_FPS = 19;
-const ACCENT = "#F43F5E";
+    <div class="panel-section">
+      <div class="section-header">
+        <span>SELECTOR DE MODOS VISUALES</span>
+        <span class="sub">SHADER / CAMPO</span>
+      </div>
+      <div class="mode-list">
+        <button class="mode-btn active" data-mode="0">
+          <span>1. Espectro Doppler + Bloom Relativista</span>
+          <span class="mode-indicator"></span>
+        </button>
+        <button class="mode-btn" data-mode="1">
+          <span>2. Mapa Térmico de Velocidad Orbital</span>
+          <span class="mode-indicator"></span>
+        </button>
+        <button class="mode-btn" data-mode="2">
+          <span>3. Partición Espacial Octree 3D</span>
+          <span class="mode-indicator"></span>
+        </button>
+        <button class="mode-btn" data-mode="3">
+          <span>4. Campo de Vectores Gravitacionales</span>
+          <span class="mode-indicator"></span>
+        </button>
+      </div>
+    </div>
 
-const canvas = document.getElementById("sim");
-const ctx = canvas.getContext("2d");
-let simTime = 0;
-let frameNum = 0;
-let curMode = 0;
-let burstTimer = 0;
-let pointer = { x: 680, y: 540, down: false };
+    <div class="panel-section">
+      <div class="section-header">
+        <span>ESPECTROMETRÍA RELATIVISTA</span>
+        <span class="sub" id="spectrum-mode-label">DOPPLER RADIAL</span>
+      </div>
+      <div class="spectrum-bar"></div>
+      <div class="spectrum-labels">
+        <span>REDSHIFT (-v/c)</span>
+        <span>ORBITAL ESTABLE</span>
+        <span>BLUESHIFT (+v/c)</span>
+      </div>
+    </div>
+  </aside>
 
-function setMode(m) {
-  curMode = m;
-  document.getElementById("btn-mode1").classList.toggle("active", m === 0);
-  document.getElementById("btn-mode2").classList.toggle("active", m === 1);
-  triggerBurst();
-}
-function triggerBurst() { burstTimer = 1.0; }
+  <!-- PANEL DERECHO: PARÁMETROS GRAVITACIONALES E INTERACCIÓN -->
+  <aside class="side-panel right">
+    <div class="panel-section">
+      <div class="section-header">
+        <span>PARÁMETROS ASTROFÍSICOS</span>
+        <span class="sub">TIEMPO REAL</span>
+      </div>
 
-window.addEventListener("mousemove", (e) => {
-  const r = canvas.getBoundingClientRect();
-  pointer.x = (e.clientX - r.left) * (1920 / r.width);
-  pointer.y = (e.clientY - r.top) * (1080 / r.height);
-});
-window.addEventListener("mousedown", () => { pointer.down = true; triggerBurst(); });
-window.addEventListener("mouseup", () => { pointer.down = false; });
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Estrellas Activas (N-Body)</span>
+          <span class="control-val" id="val-stars">48,000</span>
+        </div>
+        <input type="range" id="slider-stars" min="35000" max="60000" step="1000" value="48000" />
+      </div>
 
-// Pre-seeded deterministic PRNG
-let seed = 1337 + CHALLENGE_NUM * 97;
-function rand() {
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967296;
-}
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Masa Agujero Negro (M_BH)</span>
+          <span class="control-val" id="val-mass">1.00x (4.2e8 M_sol)</span>
+        </div>
+        <input type="range" id="slider-mass" min="0.25" max="3.00" step="0.05" value="1.00" />
+      </div>
 
-// Pre-allocated state for the 6 challenges
-const STARS = [];
-for (let i = 0; i < (IS_SUPER ? 3200 : 520); i++) {
-  const arm = i % 3;
-  const dist = 45 + Math.pow(rand(), 0.72) * 430;
-  const ang = (i / (IS_SUPER ? 3200 : 520)) * Math.PI * 12 + (arm * Math.PI * 2 / 3) + (rand() - 0.5) * 0.45;
-  STARS.push({
-    r: dist,
-    a: ang,
-    spd: (180 / (dist + 35)) * (0.85 + rand() * 0.3),
-    z: (rand() - 0.5) * 80,
-    sz: 1.2 + rand() * (IS_SUPER ? 2.6 : 1.5),
-    hue: arm === 0 ? "#22D3EE" : (arm === 1 ? "#A78BFA" : "#F472B6")
-  });
-}
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Constante Gravitacional (G)</span>
+          <span class="control-val" id="val-g">1.00 G_0</span>
+        </div>
+        <input type="range" id="slider-g" min="0.20" max="2.50" step="0.05" value="1.00" />
+      </div>
 
-const CANDLES = [];
-let price = 96400;
-for (let i = 0; i < 48; i++) {
-  const o = price;
-  const c = o + (rand() - 0.46) * 420;
-  const h = Math.max(o, c) + rand() * 220;
-  const l = Math.min(o, c) - rand() * 220;
-  price = c;
-  CANDLES.push({ o, c, h, l, v: 40 + rand() * 120 });
-}
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Paso de Tiempo (dt / Slow-Mo)</span>
+          <span class="control-val" id="val-dt">1.00x</span>
+        </div>
+        <input type="range" id="slider-dt" min="0.00" max="2.50" step="0.02" value="1.00" />
+      </div>
 
-function drawGrid() {
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.055)";
-  ctx.lineWidth = 1;
-  const step = 60;
-  for (let x = 0; x < 1920; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke();
-  }
-  for (let y = 0; y < 1080; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke();
-  }
-}
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Intensidad Lente Gravitacional</span>
+          <span class="control-val" id="val-lens">1.15x</span>
+        </div>
+        <input type="range" id="slider-lens" min="0.00" max="2.50" step="0.05" value="1.15" />
+      </div>
+    </div>
 
-function renderChallenge1(t) {
-  // 01: Galaxy N-Body & Black Hole Gravitational Lensing
-  const cx = 710 + Math.sin(t * 0.6) * 35;
-  const cy = 540 + Math.cos(t * 0.5) * 25;
+    <div class="panel-section">
+      <div class="section-header">
+        <span>INTERACCIÓN 3D EN VIVO</span>
+        <span class="sub">PERTURBACIONES</span>
+      </div>
+      <div class="action-grid">
+        <button class="action-btn cyan" id="btn-wanderer">
+          <span>Inyectar Agujero Negro Errante</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2a10 10 0 0 1 10 10" />
+            <path d="M12 22a10 10 0 0 1-10-10" />
+          </svg>
+        </button>
 
-  if (IS_SUPER) {
-    // Einstein Gravitational Lensing Ring + Relativistic Accretion Halo
-    const grad = ctx.createRadialGradient(cx, cy, 24, cx, cy, 380);
-    grad.addColorStop(0, "#000000");
-    grad.addColorStop(0.11, "#000000");
-    grad.addColorStop(0.14, "#FFF4C2");
-    grad.addColorStop(0.24, "rgba(34, 211, 238, 0.65)");
-    grad.addColorStop(0.48, "rgba(167, 139, 250, 0.25)");
-    grad.addColorStop(1, "rgba(5, 9, 18, 0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 380, 0, Math.PI * 2); ctx.fill();
-  }
+        <button class="action-btn amber" id="btn-supernova">
+          <span>Onda de Choque de Supernova</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" />
+          </svg>
+        </button>
 
-  for (let i = 0; i < STARS.length; i++) {
-    const s = STARS[i];
-    const a = s.a + t * s.spd * (IS_SUPER ? 1.0 : 0.35) * (1 + curMode * 0.6);
-    const r = s.r * (1.0 + 0.08 * Math.sin(t * 2.0 + i * 0.01) + burstTimer * 0.18);
-    const x = cx + Math.cos(a) * r;
-    const y = cy + Math.sin(a) * r * (IS_SUPER ? 0.68 : 0.85) + (IS_SUPER ? Math.sin(a * 2) * 18 : 0);
-    ctx.fillStyle = IS_SUPER ? s.hue : (i % 5 === 0 ? "#F43F5E" : "#8FA3B8");
-    ctx.fillRect(x, y, s.sz, s.sz);
-  }
+        <button class="action-btn magenta" id="btn-merge">
+          <span>Fusionar Núcleos Supermasivos</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 12h6m4 0h6M8 8l4 4-4 4m8-8l-4 4 4 4" />
+          </svg>
+        </button>
+      </div>
+    </div>
 
-  // Event Horizon Core
-  ctx.fillStyle = "#020408";
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 48 : 34, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 4 : 2;
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 52 + Math.sin(t * 8) * 3 : 36, 0, Math.PI * 2); ctx.stroke();
+    <div class="panel-section">
+      <div class="section-header">
+        <span>CAPAS DEDIAGNÓSTICO ESPACIAL</span>
+        <span class="sub">MALLAS 3D</span>
+      </div>
+      <div class="toggle-row">
+        <button class="mini-toggle active" id="toggle-well">Pozo Potencial 3D</button>
+        <button class="mini-toggle" id="toggle-octree">Malla Octree 3D</button>
+        <button class="mini-toggle active" id="toggle-jets">Jets Relativistas</button>
+        <button class="mini-toggle" id="toggle-click-mode">Clic: Inyectar BH</button>
+      </div>
+    </div>
+  </aside>
 
-  if (IS_SUPER) {
-    // Relativistic Jets
-    ctx.strokeStyle = "rgba(34, 211, 238, 0.55)";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 52); ctx.lineTo(cx - 40 * Math.sin(t * 3), cy - 360);
-    ctx.moveTo(cx, cy + 52); ctx.lineTo(cx + 40 * Math.sin(t * 3), cy + 360);
-    ctx.stroke();
-  } else {
-    // Stutter / GC Freeze indicator on canvas
-    if (Math.floor(t * 4) % 2 === 0) {
-      ctx.strokeStyle = "#F43F5E";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(120, 140, 1180, 740);
-      ctx.fillStyle = "rgba(244, 63, 94, 0.16)";
-      ctx.fillRect(120, 140, 1180, 54);
-      ctx.fillStyle = "#FF8FA3";
-      ctx.font = "900 22px monospace";
-      ctx.fillText("ALERTA GC: 50,000 OBJETOS RE-CREADOS EN MEMORIA -> CAIDA A 19 FPS", 145, 175);
-    }
-  }
-}
+  <!-- BARRA INFERIOR DE REGISTRO Y CONTROL DE CÁMARA -->
+  <footer class="bottom-bar">
+    <div class="telemetry-banner">
+      <span class="badge-tag">ESTADO</span>
+      <span class="EventLog" id="hud-event-log">Simulación N-Body activa // Integrador Leapfrog Simpéctico + Lente de Schwarzschild</span>
+    </div>
+    <div class="telemetry-banner">
+      <span><strong>ARRASTRAR:</strong> Órbita 3D</span>
+      <span><strong>RUEDA:</strong> Zoom Relativista</span>
+      <span><strong>DOBLE CLIC:</strong> Pulso Gravitacional en 3D</span>
+    </div>
+  </footer>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-function renderChallenge2(t) {
-  // 02: 3D Algorithmic Trading Terminal & OrderBook Depth
-  const x0 = 70, y0 = 125, w = 1340, h = 790;
-  ctx.fillStyle = "rgba(7, 14, 26, 0.85)";
-  ctx.fillRect(x0, y0, w, h);
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x0, y0, w, h);
+    // ============================================================================
+    // 1. CONFIGURACIÓN GLOBAL Y ESTADO ASTROFÍSICO
+    // ============================================================================
+    const MAX_STARS = 60000;
+    const state = {
+      activeStars: 48000,
+      preset: 0,
+      visualMode: 0, // 0: Doppler+Bloom, 1: Térmico Velocidad, 2: Octree 3D, 3: Campo Vectores
+      bhMassScale: 1.0,
+      gravityG: 1.0,
+      timeStep: 1.0,
+      lensIntensity: 1.15,
+      showPotentialWell: true,
+      showOctreeMesh: false,
+      showPolarJets: true,
+      clickSpawnBH: false,
+      mergingCores: false,
+      supernovaWave: { active: false, radius: 0, maxRadius: 190, strength: 0, center: new THREE.Vector3() },
+      time: 0,
+      fps: 60,
+      frameMs: 16.6,
+      octreeNodeCount: 0,
+      totalEnergy: -4.82,
+      coreSeparation: 42.0
+    };
 
-  // Candlestick chart
-  const cw = 20;
-  for (let i = 0; i < CANDLES.length; i++) {
-    const c = CANDLES[i];
-    const wave = Math.sin(t * 3.2 + i * 0.28) * (IS_SUPER ? 180 : 60);
-    const open = c.o + wave;
-    const close = c.c + wave + (i === CANDLES.length - 1 ? Math.sin(t * 9) * 260 : 0);
-    const high = Math.max(open, close) + 140;
-    const low = Math.min(open, close) - 140;
-    const bull = close >= open;
-    const cx = x0 + 48 + i * 26;
-    const mapY = (v) => y0 + 460 - ((v - 95800) / 2600) * 320;
-    ctx.strokeStyle = bull ? "#10B981" : "#F43F5E";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx, mapY(high)); ctx.lineTo(cx, mapY(low)); ctx.stroke();
-    ctx.fillStyle = bull ? "#10B981" : "#F43F5E";
-    const topY = mapY(Math.max(open, close));
-    const botY = mapY(Math.min(open, close));
-    ctx.fillRect(cx - 8, topY, 16, Math.max(4, botY - topY));
-  }
+    // ============================================================================
+    // 2. ESCENA, CÁMARA, RENDERIZADOR Y POST-PROCESADO (LENTE GRAVITACIONAL)
+    // ============================================================================
+    const container = document.getElementById('canvas-container');
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
 
-  if (IS_SUPER) {
-    // 3D Volumetric Orderbook Depth canyon at bottom of chart
-    ctx.beginPath();
-    ctx.moveTo(x0 + 40, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 40 + i * 25;
-      const py = y0 + 620 - Math.pow(24 - i, 1.35) * 2.1 - Math.sin(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
-    }
-    ctx.lineTo(x0 + 640, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(16, 185, 129, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#10B981"; ctx.lineWidth = 3; ctx.stroke();
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x02040a);
 
-    ctx.beginPath();
-    ctx.moveTo(x0 + 680, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 680 + i * 25;
-      const py = y0 + 620 - Math.pow(i, 1.35) * 2.1 - Math.cos(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
-    }
-    ctx.lineTo(x0 + 1280, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(244, 63, 94, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3; ctx.stroke();
-  } else {
-    // Broken overlapping cards & NaN ticker in Vanilla mode
-    ctx.fillStyle = "rgba(244, 63, 94, 0.22)";
-    ctx.fillRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3;
-    ctx.strokeRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "900 46px monospace";
-    ctx.fillText("BTC/USDT: $NaN (VWAP UNDEFINED)", x0 + 300, y0 + 275);
-    ctx.fillStyle = "#FF8FA3";
-    ctx.font = "700 22px monospace";
-    ctx.fillText("Uncaught TypeError: orderBook.bids[0].vwap is undefined", x0 + 300, y0 + 335);
-  }
-}
+    const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.5, 2500);
+    camera.position.set(0, 78, 148);
 
-function renderChallenge3(t) {
-  // 03: Cyberpunk Bullet-Hell Boss Rush
-  const bx = 720 + Math.sin(t * 1.5) * 220;
-  const by = 290 + Math.cos(t * 2.2) * 45;
-  const px = 720 + Math.cos(t * 2.4) * 290;
-  const py = 770 + Math.sin(t * 3.1) * 35;
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.045;
+    controls.maxDistance = 680;
+    controls.minDistance = 8;
+    controls.target.set(0, 0, 0);
 
-  // Bullet-Hell Spiral Curtains
-  const rings = IS_SUPER ? 72 : 18;
-  for (let i = 0; i < rings; i++) {
-    const ang = (i / rings) * Math.PI * 2 + t * (IS_SUPER ? 1.8 : 0.5);
-    const waveR = ((t * 220 + (i % 6) * 95) % 560);
-    const x = bx + Math.cos(ang) * waveR;
-    const y = by + Math.sin(ang) * waveR;
-    ctx.fillStyle = i % 2 === 0 ? "#F472B6" : "#22D3EE";
-    ctx.beginPath(); ctx.arc(x, y, IS_SUPER ? 6.5 : 5, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // Boss Mech Core
-  ctx.fillStyle = IS_SUPER ? "#F472B6" : "#64748B";
-  ctx.beginPath(); ctx.arc(bx, by, 68, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.stroke();
-
-  // Player Ship + Laser Stream
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "rgba(244,63,94,0.4)";
-  ctx.lineWidth = IS_SUPER ? 6 : 2;
-  ctx.beginPath(); ctx.moveTo(px, py - 24); ctx.lineTo(IS_SUPER ? bx : px, by + 60); ctx.stroke();
-
-  ctx.fillStyle = "#22D3EE";
-  ctx.beginPath();
-  ctx.moveTo(px, py - 28); ctx.lineTo(px - 24, py + 22); ctx.lineTo(px + 24, py + 22);
-  ctx.closePath(); ctx.fill();
-
-  if (!IS_SUPER) {
-    ctx.fillStyle = "rgba(244, 63, 94, 0.88)";
-    ctx.fillRect(360, 460, 720, 74);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = "900 25px monospace";
-    ctx.fillText("AMNESIA TURNO 2: COLISIONES ROTAS · DAMAGE = 0", 388, 506);
-  }
-}
-
-function renderChallenge4(t) {
-  // 04: Zero-Trust 3D Geodesic Shield vs DDoS/XSS Attack Vectors
-  const cx = 720, cy = 530;
-  const shieldR = 195 + Math.sin(t * 4) * 8;
-
-  // Shield Hexagonal Core
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 5 : 2;
-  ctx.beginPath();
-  for (let i = 0; i <= 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + t * (IS_SUPER ? 0.8 : 0.1);
-    const x = cx + Math.cos(a) * shieldR;
-    const y = cy + Math.sin(a) * shieldR;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-
-  // Incoming Attack Vectors
-  for (let i = 0; i < 36; i++) {
-    const a = (i / 36) * Math.PI * 2 + i * 0.3;
-    const rawD = 540 - ((t * 240 + i * 37) % 520);
-    const blocked = IS_SUPER && rawD <= shieldR + 12;
-    const d = blocked ? shieldR + 12 : rawD;
-    const x = cx + Math.cos(a) * d;
-    const y = cy + Math.sin(a) * d;
-    ctx.fillStyle = blocked ? "#10B981" : "#F43F5E";
-    ctx.beginPath(); ctx.arc(x, y, blocked ? 9 : 6, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-function renderChallenge5(t) {
-  // 05: Visual AI Agent DAG Node Workflow Studio
-  const nodes = [
-    { x: 160, y: 280, title: "PROMPT ROUTER", col: "#22D3EE" },
-    { x: 160, y: 620, title: "MEMORY.MD CACHE", col: "#A78BFA" },
-    { x: 540, y: 220, title: "ARQUITECTO 120FPS", col: "#10B981" },
-    { x: 540, y: 460, title: "BROWSER MCP", col: "#FBBF24" },
-    { x: 540, y: 700, title: "AUDITOR OWASP", col: "#F472B6" },
-    { x: 960, y: 450, title: "DEPLOY 4K60 BUILD", col: "#FB923C" },
-  ];
-  const edges = [[0,2],[0,3],[1,3],[1,4],[2,5],[3,5],[4,5]];
-
-  edges.forEach(([u, v], idx) => {
-    const a = nodes[u], b = nodes[v];
-    const x1 = a.x + 250, y1 = a.y + 52;
-    const x2 = b.x, y2 = b.y + 52 + (IS_SUPER ? 0 : (idx % 2 === 0 ? 130 : -110));
-    ctx.strokeStyle = IS_SUPER ? a.col : "rgba(244,63,94,0.45)";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.bezierCurveTo(x1 + 120, y1, x2 - 120, y2, x2, y2);
-    ctx.stroke();
-
-    if (IS_SUPER) {
-      const p = (t * 0.9 + idx * 0.17) % 1;
-      const px = (1 - p) * x1 + p * x2;
-      const py = (1 - p) * y1 + p * y2;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
-    }
-  });
-
-  nodes.forEach((n, idx) => {
-    const dy = Math.sin(t * 2.2 + idx) * (IS_SUPER ? 8 : 0);
-    ctx.fillStyle = "rgba(10, 19, 34, 0.95)";
-    ctx.strokeStyle = IS_SUPER ? n.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.fillRect(n.x, n.y + dy, 250, 104);
-    ctx.strokeRect(n.x, n.y + dy, 250, 104);
-    ctx.fillStyle = n.col;
-    ctx.font = "900 15px monospace";
-    ctx.fillText(n.title, n.x + 16, n.y + dy + 34);
-    ctx.fillStyle = "#E2E8F0";
-    ctx.font = "700 13px monospace";
-    ctx.fillText(IS_SUPER ? "STATUS: PARALLEL 120FPS" : "STATUS: TIMEOUT / BROKEN", n.x + 16, n.y + dy + 68);
-  });
-}
-
-function renderChallenge6(t) {
-  // 06: MixiuhOS Desktop (4 simultaneous live mini-windows)
-  const wins = [
-    { x: 80, y: 120, w: 620, h: 370, title: "01 · SHADER CORE 3D (120 FPS)", col: "#22D3EE" },
-    { x: 730, y: 120, w: 660, h: 370, title: "02 · TERMINAL MIXIUH SUPERKIT", col: "#10B981" },
-    { x: 80, y: 515, w: 620, h: 380, title: "03 · SINTETIZADOR FM & ESPECTRO", col: "#F472B6" },
-    { x: 730, y: 515, w: 660, h: 380, title: "04 · MONITOR GPU & MEMORY.MD", col: "#A78BFA" },
-  ];
-  wins.forEach((w, idx) => {
-    const ox = !IS_SUPER && idx === 1 ? -190 : 0;
-    const oy = !IS_SUPER && idx === 1 ? 85 : 0;
-    const wx = w.x + ox, wy = w.y + oy;
-    ctx.fillStyle = "rgba(8, 15, 28, 0.94)";
-    ctx.fillRect(wx, wy, w.w, w.h);
-    ctx.strokeStyle = IS_SUPER ? w.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(wx, wy, w.w, w.h);
-    ctx.fillStyle = IS_SUPER ? "rgba(255,255,255,0.07)" : "rgba(244,63,94,0.22)";
-    ctx.fillRect(wx, wy, w.w, 38);
-    ctx.fillStyle = w.col;
-    ctx.font = "900 14px monospace";
-    ctx.fillText(w.title, wx + 16, wy + 24);
-
-    if (idx === 0) {
-      // Rotating 3D Plasma Rings inside Window 1
-      const cx = wx + w.w / 2, cy = wy + 205;
-      for (let r = 25; r <= 125; r += 25) {
-        ctx.strokeStyle = r % 50 === 0 ? "#22D3EE" : "#A78BFA";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, t * 2 + r, t * 2 + r + Math.PI * 1.4);
-        ctx.stroke();
+    // RenderTarget para el pase de Lente Gravitacional (Anillo de Einstein + Bloom Relativista)
+    let renderTarget = new THREE.WebGLRenderTarget(
+      window.innerWidth * renderer.getPixelRatio(),
+      window.innerHeight * renderer.getPixelRatio(),
+      {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+        type: THREE.HalfFloatType
       }
-    } else if (idx === 1) {
-      ctx.fillStyle = "#10B981";
-      ctx.font = "700 14px monospace";
-      const lines = IS_SUPER ? [
-        "$ ./install.sh --target ./mixiuh-os",
-        "[OK] CLAUDE.md + GEMINI.md + MEMORY.md instalados",
-        "[OK] 01-memoria-infinita: ACTIVA",
-        "[OK] 02-auto-debugger-browser-mcp: 0 ERRORES",
-        "[OK] 03-arquitecto-senior-120fps: Float32Array ON",
-        "[OK] 04-auditor-seguridad: CSP + 0 LEAKS",
-        "[OK] 05-automatizador: AHORRO -75% TOKENS",
-      ] : [
-        "$ node start_os.js",
-        "ERROR: WindowManager z-index collision",
-        "WARN: AudioContext buffer underrun (21 FPS)",
-        "FATAL: Global state overwritten by Synth module",
-      ];
-      lines.forEach((ln, li) => ctx.fillText(ln, wx + 20, wy + 75 + li * 34));
-    } else if (idx === 2) {
-      // FM Spectrum Bars inside Window 3
-      for (let b = 0; b < 24; b++) {
-        const bh = 30 + Math.abs(Math.sin(t * 6 + b * 0.45)) * 220;
-        ctx.fillStyle = b % 2 === 0 ? "#F472B6" : "#22D3EE";
-        ctx.fillRect(wx + 32 + b * 23, wy + 340 - bh, 16, bh);
+    );
+
+    const postScene = new THREE.Scene();
+    const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    const postMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tDiffuse: { value: renderTarget.texture },
+        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+        uBH1Screen: { value: new THREE.Vector3(0.5, 0.5, 1.0) },
+        uBH2Screen: { value: new THREE.Vector3(0.5, 0.5, 0.0) },
+        uBH1Radius: { value: 0.042 },
+        uBH2Radius: { value: 0.025 },
+        uLensStrength: { value: state.lensIntensity },
+        uShockScreen: { value: new THREE.Vector3(0.5, 0.5, 0.0) },
+        uShockRadius: { value: 0.0 },
+        uTime: { value: 0.0 }
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        uniform sampler2D tDiffuse;
+        uniform vec2 uResolution;
+        uniform vec3 uBH1Screen;
+        uniform vec3 uBH2Screen;
+        uniform float uBH1Radius;
+        uniform float uBH2Radius;
+        uniform float uLensStrength;
+        uniform vec3 uShockScreen;
+        uniform float uShockRadius;
+        uniform float uTime;
+        varying vec2 vUv;
+
+        // Deflexión de Einstein-Schwarzschild en espacio de pantalla corregido por aspecto
+        vec2 computeDeflection(vec2 uv, vec2 bhPos, float einsteinR, float activeFlag, out float photonRing, out float shadowMask) {
+          photonRing = 0.0;
+          shadowMask = 1.0;
+          if (activeFlag < 0.5 || uLensStrength <= 0.001) return vec2(0.0);
+
+          vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
+          vec2 delta = (uv - bhPos) * aspect;
+          float r = length(delta) + 1e-5;
+          float rs = einsteinR * 0.42;
+
+          // Sombra del horizonte de sucesos
+          shadowMask = smoothstep(rs * 0.86, rs * 1.04, r);
+
+          // Anillo de fotones relativista y amplificación de Einstein
+          float ringDist = abs(r - rs * 1.38);
+          photonRing = exp(-ringDist * ringDist / (rs * rs * 0.095)) * uLensStrength;
+
+          // Ecuación de lente gravitacional: beta = theta - (theta_E^2 / theta)
+          float thetaE2 = (einsteinR * einsteinR) * uLensStrength * 0.55;
+          float deflectFactor = thetaE2 / (r * r + rs * rs * 0.32);
+          vec2 offset = -(delta / aspect) * deflectFactor;
+          return offset;
+        }
+
+        void main() {
+          vec2 uv = vUv;
+          float ring1 = 0.0, shadow1 = 1.0;
+          float ring2 = 0.0, shadow2 = 1.0;
+
+          vec2 def1 = computeDeflection(uv, uBH1Screen.xy, uBH1Radius, uBH1Screen.z, ring1, shadow1);
+          vec2 def2 = computeDeflection(uv, uBH2Screen.xy, uBH2Radius, uBH2Screen.z, ring2, shadow2);
+
+          // Perturbación de onda de choque de supernova si está activa
+          vec2 shockOffset = vec2(0.0);
+          float shockGlow = 0.0;
+          if (uShockScreen.z > 0.5 && uShockRadius > 0.001) {
+            vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
+            vec2 dShock = (uv - uShockScreen.xy) * aspect;
+            float distS = length(dShock);
+            float band = exp(-pow((distS - uShockRadius) * 28.0, 2.0));
+            shockOffset = normalize(dShock + 1e-5) * band * 0.014 * uShockScreen.z;
+            shockGlow = band * 0.55 * uShockScreen.z;
+          }
+
+          vec2 lensedUv = clamp(uv + def1 + def2 + shockOffset, 0.002, 0.998);
+
+          // Dispersión cromática relativista cerca del anillo de fotones
+          float chroma = (ring1 + ring2) * 0.0038;
+          vec3 col;
+          col.r = texture2D(tDiffuse, clamp(lensedUv + vec2(chroma, 0.0), 0.002, 0.998)).r;
+          col.g = texture2D(tDiffuse, lensedUv).g;
+          col.b = texture2D(tDiffuse, clamp(lensedUv - vec2(chroma, 0.0), 0.002, 0.998)).b;
+
+          // Bloom relativista suave en cruz (kernel de 8 muestras)
+          vec2 texel = 1.8 / uResolution;
+          vec3 bloom = vec3(0.0);
+          bloom += texture2D(tDiffuse, clamp(lensedUv + vec2(texel.x * 2.0, 0.0), 0.002, 0.998)).rgb;
+          bloom += texture2D(tDiffuse, clamp(lensedUv - vec2(texel.x * 2.0, 0.0), 0.002, 0.998)).rgb;
+          bloom += texture2D(tDiffuse, clamp(lensedUv + vec2(0.0, texel.y * 2.0), 0.002, 0.998)).rgb;
+          bloom += texture2D(tDiffuse, clamp(lensedUv - vec2(0.0, texel.y * 2.0), 0.002, 0.998)).rgb;
+          bloom += texture2D(tDiffuse, clamp(lensedUv + texel * 3.2, 0.002, 0.998)).rgb;
+          bloom += texture2D(tDiffuse, clamp(lensedUv - texel * 3.2, 0.002, 0.998)).rgb;
+          bloom *= 0.1666;
+
+          vec3 highPass = max(bloom - vec3(0.26), vec3(0.0)) * 1.45;
+          col += highPass;
+
+          // Sombra pura del Horizonte de Sucesos + Brillo del Anillo de Einstein
+          col *= (shadow1 * shadow2);
+          vec3 einsteinGlow = mix(vec3(1.0, 0.68, 0.32), vec3(0.38, 0.88, 1.0), 0.45);
+          col += einsteinGlow * (ring1 * 0.95 + ring2 * 0.72);
+          col += vec3(0.35, 0.85, 1.0) * shockGlow;
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+      depthWrite: false,
+      depthTest: false
+    });
+
+    const postQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMaterial);
+    postScene.add(postQuad);
+
+    // ============================================================================
+    // 3. FONDO CÓSMICO PROCEDURAL (NEBULOSA VOLUMÉTRICA Y GALAXIAS LEJANAS PARA LENTE)
+    // ============================================================================
+    const skyGeo = new THREE.SphereGeometry(1100, 48, 32);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        uTime: { value: 0 }
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vWorldDir;
+        void main() {
+          vWorldDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        varying vec3 vWorldDir;
+        uniform float uTime;
+
+        float hash31(vec3 p) {
+          p = fract(p * vec3(443.897, 441.423, 437.195));
+          p += dot(p, p.yzx + 19.19);
+          return fract((p.x + p.y) * p.z);
+        }
+
+        float noise3(vec3 p) {
+          vec3 i = floor(p);
+          vec3 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(
+            mix(mix(hash31(i), hash31(i + vec3(1,0,0)), f.x),
+                mix(hash31(i + vec3(0,1,0)), hash31(i + vec3(1,1,0)), f.x), f.y),
+            mix(mix(hash31(i + vec3(0,0,1)), hash31(i + vec3(1,0,1)), f.x),
+                mix(hash31(i + vec3(0,1,1)), hash31(i + vec3(1,1,1)), f.x), f.y),
+            f.z
+          );
+        }
+
+        float fbm(vec3 p) {
+          float v = 0.0;
+          float a = 0.5;
+          for (int i = 0; i < 4; i++) {
+            v += a * noise3(p);
+            p = p * 2.07 + vec3(13.1, 7.7, 5.3);
+            a *= 0.5;
+          }
+          return v;
+        }
+
+        void main() {
+          vec3 d = normalize(vWorldDir);
+          float n1 = fbm(d * 3.2 + vec3(0.0, uTime * 0.004, 0.0));
+          float n2 = fbm(d * 6.5 - vec3(2.4, 1.1, 0.0));
+          float band = exp(-pow(d.y * 3.2 + (n1 - 0.5) * 0.8, 2.0));
+
+          vec3 deepVoid = vec3(0.008, 0.014, 0.032);
+          vec3 nebulaCyan = vec3(0.03, 0.16, 0.28) * smoothstep(0.42, 0.85, n1) * band;
+          vec3 nebulaMag = vec3(0.18, 0.04, 0.16) * smoothstep(0.48, 0.88, n2) * band;
+
+          // Estrellas de fondo fijas de alta precisión para observar la distorsión de Einstein
+          vec3 grid = floor(d * 260.0);
+          float starSeed = hash31(grid);
+          float star = smoothstep(0.9965, 0.9999, starSeed);
+          vec3 starCol = mix(vec3(0.6, 0.85, 1.0), vec3(1.0, 0.82, 0.6), fract(starSeed * 37.0)) * star * 1.4;
+
+          gl_FragColor = vec4(deepVoid + nebulaCyan + nebulaMag + starCol, 1.0);
+        }
+      `
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    // ============================================================================
+    // 4. AGUJEROS NEGROS SUPERMASIVOS (HORIZONTE + DISCO DE ACRECIÓN GLSL + JETS)
+    // ============================================================================
+    const accretionVertexShader = /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vLocalPos;
+      varying vec3 vWorldPos;
+      void main() {
+        vUv = uv;
+        vLocalPos = position;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
       }
-    } else if (idx === 3) {
-      // Telemetry Wave inside Window 4
-      ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      for (let x = 0; x < 580; x += 10) {
-        const y = wy + 210 + Math.sin(t * 5 + x * 0.03) * (IS_SUPER ? 45 : 110);
-        if (x === 0) ctx.moveTo(wx + 40 + x, y); else ctx.lineTo(wx + 40 + x, y);
+    `;
+
+    const accretionFragmentShader = /* glsl */ `
+      precision highp float;
+      varying vec2 vUv;
+      varying vec3 vLocalPos;
+      varying vec3 vWorldPos;
+      uniform float uTime;
+      uniform vec3 uCamPos;
+      uniform vec3 uDiskRight;
+      uniform float uMassScale;
+      uniform vec3 uTintHot;
+      uniform vec3 uTintOuter;
+
+      float hash21(vec2 p) {
+        p = fract(p * vec2(234.34, 435.345));
+        p += dot(p, p + 34.23);
+        return fract(p.x * p.y);
       }
-      ctx.stroke();
+
+      float noise2(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x),
+          mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x),
+          f.y
+        );
+      }
+
+      float fbm2(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 4; i++) {
+          v += a * noise2(p);
+          p *= 2.12;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        vec2 centered = vUv * 2.0 - 1.0;
+        float r = length(centered);
+
+        // Radio interno ISCO (Innermost Stable Circular Orbit) y borde externo
+        float innerR = 0.23;
+        float outerR = 0.98;
+        if (r < innerR || r > outerR) discard;
+
+        float angle = atan(centered.y, centered.x);
+        // Velocidad angular kepleriana diferencial: omega ~ r^(-1.5)
+        float omega = 3.8 / pow(max(r, 0.22), 1.35);
+        float spiralPhase = angle + uTime * omega - log(r) * 7.5;
+
+        vec2 polarUv = vec2(r * 8.5, spiralPhase * 1.5);
+        float plasma = fbm2(polarUv) * 0.65 + fbm2(polarUv * 2.4 - uTime * 0.8) * 0.35;
+        float rings = sin(r * 52.0 - uTime * 6.0 + plasma * 4.0) * 0.5 + 0.5;
+
+        // Perfil radial de temperatura de Shakura-Sunyaev
+        float radialMask = smoothstep(innerR, innerR + 0.07, r) * (1.0 - smoothstep(0.55, outerR, r));
+        float iscoHotRing = exp(-pow((r - (innerR + 0.055)) * 18.0, 2.0));
+
+        // Beaming relativista Doppler: el lado que se acerca a la cámara brilla intensamente
+        vec3 viewDir = normalize(uCamPos - vWorldPos);
+        vec3 tangentVel = normalize(vec3(-centered.y, 0.0, centered.x));
+        float doppler = dot(tangentVel, viewDir);
+        float beaming = pow(clamp(1.0 + doppler * 0.52, 0.35, 1.85), 2.8);
+
+        // Gradiente térmico desde blanco-cian relativista hasta ámbar-carmesí externo
+        vec3 baseCol = mix(uTintOuter, uTintHot, clamp(1.0 - (r - innerR) / (outerR - innerR) + doppler * 0.25, 0.0, 1.0));
+        vec3 coreWhite = vec3(0.92, 0.98, 1.0) * iscoHotRing * 2.2;
+
+        float intensity = (plasma * 0.85 + rings * 0.45 + iscoHotRing * 1.1) * radialMask * beaming * (0.85 + 0.25 * uMassScale);
+        vec3 finalCol = (baseCol * intensity * 2.4) + coreWhite * beaming;
+        float alpha = clamp(radialMask * (plasma * 0.9 + 0.28) * 1.25, 0.0, 0.96);
+
+        gl_FragColor = vec4(finalCol, alpha);
+      }
+    `;
+
+    const jetFragmentShader = /* glsl */ `
+      precision highp float;
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform vec3 uJetColor;
+      void main() {
+        float radial = 1.0 - abs(vUv.x * 2.0 - 1.0);
+        radial = pow(clamp(radial, 0.0, 1.0), 2.4);
+        float vertical = sin(vUv.y * 3.14159265);
+        float pulse = sin(vUv.y * 28.0 - uTime * 14.0) * 0.3 + 0.7;
+        float alpha = radial * vertical * pulse * 0.65;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(uJetColor * (1.5 + pulse), alpha);
+      }
+    `;
+
+    function createBlackHoleAssembly(hotColor, outerColor, diskScale) {
+      const group = new THREE.Group();
+
+      // 1. Horizonte de Sucesos (Esfera de sombra pura)
+      const horizonGeo = new THREE.SphereGeometry(2.6 * diskScale, 32, 32);
+      const horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const horizonMesh = new THREE.Mesh(horizonGeo, horizonMat);
+      group.add(horizonMesh);
+
+      // 2. Esfera de Fotones (Halo relativista en el borde del horizonte)
+      const photonGeo = new THREE.SphereGeometry(3.15 * diskScale, 32, 32);
+      const photonMat = new THREE.ShaderMaterial({
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.BackSide,
+        uniforms: {
+          uColor: { value: new THREE.Color(hotColor) }
+        },
+        vertexShader: /* glsl */ `
+          varying vec3 vNormal;
+          varying vec3 vViewPosition;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+            vViewPosition = -mvPos.xyz;
+            gl_Position = projectionMatrix * mvPos;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          precision highp float;
+          varying vec3 vNormal;
+          varying vec3 vViewPosition;
+          uniform vec3 uColor;
+          void main() {
+            vec3 viewDir = normalize(vViewPosition);
+            float fresnel = pow(1.0 - abs(dot(vNormal, viewDir)), 3.2);
+            gl_FragColor = vec4(uColor * 2.8, fresnel * 0.92);
+          }
+        `
+      });
+      group.add(new THREE.Mesh(photonGeo, photonMat));
+
+      // 3. Disco de Acreción Ecuatorial + Halo Lenteado Vertical (estilo Gargantua)
+      const diskMat = new THREE.ShaderMaterial({
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uTime: { value: 0 },
+          uCamPos: { value: new THREE.Vector3() },
+          uDiskRight: { value: new THREE.Vector3(1, 0, 0) },
+          uMassScale: { value: 1.0 },
+          uTintHot: { value: new THREE.Color(hotColor) },
+          uTintOuter: { value: new THREE.Color(outerColor) }
+        },
+        vertexShader: accretionVertexShader,
+        fragmentShader: accretionFragmentShader
+      });
+
+      const diskPlane = new THREE.Mesh(new THREE.PlaneGeometry(24 * diskScale, 24 * diskScale), diskMat);
+      diskPlane.rotation.x = Math.PI * 0.5;
+      group.add(diskPlane);
+
+      // Segundo anillo inclinado que simula la imagen secundaria curvada por gravedad sobre y bajo la sombra
+      const lensedArch = new THREE.Mesh(new THREE.PlaneGeometry(20 * diskScale, 20 * diskScale), diskMat);
+      lensedArch.rotation.x = Math.PI * 0.08;
+      group.add(lensedArch);
+
+      // 4. Jets Polares Relativistas (Bipolares)
+      const jetMat = new THREE.ShaderMaterial({
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uTime: { value: 0 },
+          uJetColor: { value: new THREE.Color(hotColor) }
+        },
+        vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: jetFragmentShader
+      });
+
+      const jetGeo = new THREE.CylinderGeometry(1.9 * diskScale, 0.18 * diskScale, 46 * diskScale, 20, 1, true);
+      const jetNorth = new THREE.Mesh(jetGeo, jetMat);
+      jetNorth.position.y = 23 * diskScale;
+      const jetSouth = new THREE.Mesh(jetGeo, jetMat);
+      jetSouth.position.y = -23 * diskScale;
+      jetSouth.rotation.z = Math.PI;
+
+      const jetsContainer = new THREE.Group();
+      jetsContainer.add(jetNorth, jetSouth);
+      group.add(jetsContainer);
+
+      return { group, diskMat, jetMat, jetsContainer, lensedArch };
     }
-  });
-}
 
-function stepSimulation(dtMs, subSteps, fnIndex) {
-  simTime += (dtMs / 1000);
-  frameNum = fnIndex || (frameNum + 1);
-  if (burstTimer > 0) burstTimer = Math.max(0, burstTimer - dtMs / 1000);
+    // Lista de Núcleos Supermasivos (Vía Láctea, Andrómeda y Errantes)
+    const cores = [];
+    const bhAssemblies = [];
 
-  ctx.clearRect(0, 0, 1920, 1080);
-  drawGrid();
+    const bhPrimary = createBlackHoleAssembly(0x38bdf8, 0xf59e0b, 1.0);
+    const bhSecondary = createBlackHoleAssembly(0xa5f3fc, 0xf43f5e, 0.78);
+    scene.add(bhPrimary.group);
+    scene.add(bhSecondary.group);
+    bhAssemblies.push(bhPrimary, bhSecondary);
 
-  if (CHALLENGE_NUM === 1) renderChallenge1(simTime);
-  else if (CHALLENGE_NUM === 2) renderChallenge2(simTime);
-  else if (CHALLENGE_NUM === 3) renderChallenge3(simTime);
-  else if (CHALLENGE_NUM === 4) renderChallenge4(simTime);
-  else if (CHALLENGE_NUM === 5) renderChallenge5(simTime);
-  else renderChallenge6(simTime);
+    // Pool de mallas para Agujeros Negros Errantes inyectados por el usuario
+    const wandererMeshes = [];
+    for (let i = 0; i < 6; i++) {
+      const wAssm = createBlackHoleAssembly(0xc084fc, 0x22d3ee, 0.52);
+      wAssm.group.visible = false;
+      scene.add(wAssm.group);
+      wandererMeshes.push(wAssm);
+    }
 
-  const fc = document.getElementById("frame-counter");
-  if (fc) fc.textContent = "FRAME " + String(frameNum).padStart(4, "0");
-}
+    // ============================================================================
+    // 5. SISTEMA N-BODY DE 60,000 ESTRELLAS (BUFFERS TIPADOS + SHADER DOPPLER)
+    // ============================================================================
+    const starPositions = new Float32Array(MAX_STARS * 3);
+    const starVelocities = new Float32Array(MAX_STARS * 3);
+    const starVisualData = new Float32Array(MAX_STARS * 3); // x: vRadial, y: speedMag, z: starTemp/galaxyId
+    const starSizes = new Float32Array(MAX_STARS);
 
-// Deterministic hook for Playwright 60fps capture
-window.__stepFrame = function(dtMs, subSteps, fnIndex) {
-  stepSimulation(dtMs || 16.6667, subSteps || 1, fnIndex);
-};
+    const starGeometry = new THREE.BufferGeometry();
+    const posAttr = new THREE.BufferAttribute(starPositions, 3);
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    const visAttr = new THREE.BufferAttribute(starVisualData, 3);
+    visAttr.setUsage(THREE.DynamicDrawUsage);
+    const sizeAttr = new THREE.BufferAttribute(starSizes, 1);
 
-// Live browser loop when opened by a human in labs.mixiuh.online
-let lastTs = performance.now();
-function loop(ts) {
-  const dt = Math.min(50, ts - lastTs);
-  lastTs = ts;
-  if (!window.__recordingMode) {
-    stepSimulation(dt, 1);
-  }
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-</script>
+    starGeometry.setAttribute('position', posAttr);
+    starGeometry.setAttribute('aVisual', visAttr);
+    starGeometry.setAttribute('aSize', sizeAttr);
+
+    const starMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uPixelRatio: { value: renderer.getPixelRatio() },
+        uVisualMode: { value: 0 }
+      },
+      vertexShader: /* glsl */ `
+        attribute vec3 aVisual;
+        attribute float aSize;
+        uniform float uPixelRatio;
+        uniform int uVisualMode;
+        varying vec3 vColor;
+        varying float vAlpha;
+
+        // Mapa de color Doppler Relativista y Temperatura Estelar
+        vec3 computeDopplerSpectrum(float vRad, float speed, float seedTemp) {
+          // vRad > 0: acercándose (Blueshift cian/azul); vRad < 0: alejándose (Redshift ámbar/rojo)
+          float shift = clamp(vRad * 0.048, -1.0, 1.0);
+          vec3 redTail = vec3(1.0, 0.24, 0.18);
+          vec3 amberMid = vec3(1.0, 0.68, 0.22);
+          vec3 coreWarm = vec3(0.98, 0.95, 0.86);
+          vec3 cyanBlue = vec3(0.22, 0.85, 1.0);
+          vec3 ultraBlue = vec3(0.65, 0.92, 1.0);
+
+          vec3 dopplerCol;
+          if (shift < 0.0) {
+            dopplerCol = mix(amberMid, redTail, clamp(-shift, 0.0, 1.0));
+          } else {
+            dopplerCol = mix(coreWarm, cyanBlue, clamp(shift * 1.15, 0.0, 1.0));
+          }
+
+          // Estrellas en órbitas internas hiperveloces brillan hacia blanco-cian caliente
+          float coreHeat = smoothstep(10.0, 34.0, speed);
+          return mix(dopplerCol, ultraBlue, coreHeat * 0.65 + seedTemp * 0.15);
+        }
+
+        // Mapa Térmico de Velocidad Orbital (Modo Visual 2)
+        vec3 computeThermalVelocity(float speed) {
+          float t = clamp(speed / 32.0, 0.0, 1.0);
+          vec3 c0 = vec3(0.12, 0.08, 0.45);
+          vec3 c1 = vec3(0.06, 0.68, 0.78);
+          vec3 c2 = vec3(0.98, 0.72, 0.12);
+          vec3 c3 = vec3(1.0, 0.98, 0.92);
+          if (t < 0.35) return mix(c0, c1, t / 0.35);
+          if (t < 0.72) return mix(c1, c2, (t - 0.35) / 0.37);
+          return mix(c2, c3, (t - 0.72) / 0.28);
+        }
+
+        void main() {
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          float dist = max(-mvPosition.z, 1.0);
+
+          float vRad = aVisual.x;
+          float speed = aVisual.y;
+          float seedTemp = aVisual.z;
+
+          if (uVisualMode == 1) {
+            vColor = computeThermalVelocity(speed);
+          } else if (uVisualMode == 2) {
+            vColor = mix(vec3(0.15, 0.75, 0.95), vec3(0.65, 0.45, 1.0), clamp(speed / 28.0, 0.0, 1.0));
+          } else {
+            vColor = computeDopplerSpectrum(vRad, speed, seedTemp);
+          }
+
+          float sizeBoost = 1.0 + clamp(speed * 0.025, 0.0, 0.9);
+          gl_PointSize = clamp((aSize * sizeBoost * 155.0 * uPixelRatio) / dist, 1.15, 14.0);
+          vAlpha = clamp(180.0 / dist, 0.28, 0.95);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        varying vec3 vColor;
+        varying float vAlpha;
+
+        void main() {
+          vec2 coord = gl_PointCoord - vec2(0.5);
+          float d = length(coord);
+          if (d > 0.5) discard;
+
+          // Perfil Gaussiano + núcleo brillante tipo Airy disc
+          float halo = exp(-d * d * 18.0);
+          float core = smoothstep(0.22, 0.0, d);
+          vec3 col = vColor * (halo * 1.15 + core * 1.35);
+          float alpha = halo * vAlpha;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `
+    });
+
+    const starPoints = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starPoints);
+
+    // ============================================================================
+    // 6. MALLA DE CURVATURA ESPACIO-TEMPORAL 3D (POZO DE POTENCIAL GRAVITATORIO)
+    // ============================================================================
+    const wellGridGeo = new THREE.PlaneGeometry(260, 260, 96, 96);
+    wellGridGeo.rotateX(-Math.PI * 0.5);
+
+    const wellGridMat = new THREE.ShaderMaterial({
+      wireframe: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uCore1: { value: new THREE.Vector4(0, 0, 0, 1000) },
+        uCore2: { value: new THREE.Vector4(40, 0, 0, 800) },
+        uCore3: { value: new THREE.Vector4(0, 0, 0, 0) },
+        uG: { value: 1.0 }
+      },
+      vertexShader: /* glsl */ `
+        uniform vec4 uCore1;
+        uniform vec4 uCore2;
+        uniform vec4 uCore3;
+        uniform float uG;
+        varying float vDepth;
+        varying float vEdgeFade;
+
+        float wellPotential(vec3 p, vec4 core) {
+          if (core.w <= 0.01) return 0.0;
+          float d = length(p.xz - core.xz);
+          return -(core.w * 0.018 * uG) / sqrt(d * d + 22.0);
+        }
+
+        void main() {
+          vec3 pos = position;
+          float pot = wellPotential(pos, uCore1) + wellPotential(pos, uCore2) + wellPotential(pos, uCore3);
+          pos.y = -18.0 + clamp(pot, -46.0, 0.0);
+          vDepth = clamp(-pot / 32.0, 0.0, 1.0);
+          vEdgeFade = 1.0 - smoothstep(85.0, 130.0, length(position.xz));
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        varying float vDepth;
+        varying float vEdgeFade;
+        void main() {
+          if (vEdgeFade <= 0.01) discard;
+          vec3 gridIdle = vec3(0.05, 0.32, 0.48);
+          vec3 gridDeep = vec3(0.96, 0.45, 0.18);
+          vec3 col = mix(gridIdle, gridDeep, vDepth);
+          float alpha = (0.08 + vDepth * 0.42) * vEdgeFade;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `
+    });
+
+    const wellGridMesh = new THREE.Mesh(wellGridGeo, wellGridMat);
+    scene.add(wellGridMesh);
+
+    // ============================================================================
+    // 7. PARTICIÓN ESPACIAL BARNES-HUT OCTREE 3D Y CAMPO DE VECTORES GRAVITATORIOS
+    // ============================================================================
+    const MAX_OCTREE_NODES = 2200;
+    const octreeLinePositions = new Float32Array(MAX_OCTREE_NODES * 24 * 3); // 12 aristas * 2 vértices * 3 coords
+    const octreeLineColors = new Float32Array(MAX_OCTREE_NODES * 24 * 3);
+    const octreeGeo = new THREE.BufferGeometry();
+    octreeGeo.setAttribute('position', new THREE.BufferAttribute(octreeLinePositions, 3).setUsage(THREE.DynamicDrawUsage));
+    octreeGeo.setAttribute('color', new THREE.BufferAttribute(octreeLineColors, 3).setUsage(THREE.DynamicDrawUsage));
+    const octreeMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.45,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const octreeMesh = new THREE.LineSegments(octreeGeo, octreeMat);
+    octreeMesh.visible = false;
+    scene.add(octreeMesh);
+
+    // Campo de Vectores Gravitacionales 3D (Modo Visual 4)
+    const VECTOR_GRID_COUNT = 13 * 5 * 13;
+    const vectorPositions = new Float32Array(VECTOR_GRID_COUNT * 2 * 3);
+    const vectorColors = new Float32Array(VECTOR_GRID_COUNT * 2 * 3);
+    const vectorGeo = new THREE.BufferGeometry();
+    vectorGeo.setAttribute('position', new THREE.BufferAttribute(vectorPositions, 3).setUsage(THREE.DynamicDrawUsage));
+    vectorGeo.setAttribute('color', new THREE.BufferAttribute(vectorColors, 3).setUsage(THREE.DynamicDrawUsage));
+    const vectorMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.78,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const vectorFieldMesh = new THREE.LineSegments(vectorGeo, vectorMat);
+    vectorFieldMesh.visible = false;
+    scene.add(vectorFieldMesh);
+
+    // Constructor ligero de Octree 3D por muestreo estratificado para telemetría, multipolos y malla 3D
+    const octreeNodes = [];
+    const EDGE_PAIRS = [
+      [0,1],[1,2],[2,3],[3,0],
+      [4,5],[5,6],[6,7],[7,4],
+      [0,4],[1,5],[2,6],[3,7]
+    ];
+
+    function buildSpatialOctree() {
+      octreeNodes.length = 0;
+      const root = {
+        cx: 0, cy: 0, cz: 0,
+        half: 135,
+        depth: 0,
+        mass: 0,
+        comX: 0, comY: 0, comZ: 0,
+        children: null
+      };
+      octreeNodes.push(root);
+
+      // Insertamos una muestra representativa de estrellas (cada 24 estrellas = ~2,000 muestras) para mantener 60 FPS sólidos
+      const stride = 24;
+      const limit = state.activeStars;
+      for (let i = 0; i < limit; i += stride) {
+        const idx = i * 3;
+        const px = starPositions[idx];
+        const py = starPositions[idx + 1];
+        const pz = starPositions[idx + 2];
+        if (Math.abs(px) > 130 || Math.abs(py) > 130 || Math.abs(pz) > 130) continue;
+        insertIntoOctree(root, px, py, pz, 1.0);
+      }
+
+      state.octreeNodeCount = octreeNodes.length;
+
+      if (state.showOctreeMesh || state.visualMode === 2) {
+        octreeMesh.visible = true;
+        let lineVertexIdx = 0;
+        const maxBoxes = Math.min(octreeNodes.length, MAX_OCTREE_NODES);
+        for (let n = 0; n < maxBoxes; n++) {
+          const node = octreeNodes[n];
+          if (node.mass < 2 && node.depth > 1) continue;
+          const h = node.half;
+          const cx = node.cx, cy = node.cy, cz = node.cz;
+          const corners = [
+            [cx - h, cy - h, cz - h],
+            [cx + h, cy - h, cz - h],
+            [cx + h, cy + h, cz - h],
+            [cx - h, cy + h, cz - h],
+            [cx - h, cy - h, cz + h],
+            [cx + h, cy - h, cz + h],
+            [cx + h, cy + h, cz + h],
+            [cx - h, cy + h, cz + h]
+          ];
+          const depthRatio = Math.min(node.depth / 5.0, 1.0);
+          const rCol = 0.12 + depthRatio * 0.45;
+          const gCol = 0.82 - depthRatio * 0.25;
+          const bCol = 0.98;
+
+          for (let e = 0; e < 12; e++) {
+            const cA = corners[EDGE_PAIRS[e][0]];
+            const cB = corners[EDGE_PAIRS[e][1]];
+            const base = lineVertexIdx * 3;
+            octreeLinePositions[base] = cA[0];
+            octreeLinePositions[base + 1] = cA[1];
+            octreeLinePositions[base + 2] = cA[2];
+            octreeLinePositions[base + 3] = cB[0];
+            octreeLinePositions[base + 4] = cB[1];
+            octreeLinePositions[base + 5] = cB[2];
+
+            octreeLineColors[base] = rCol;
+            octreeLineColors[base + 1] = gCol;
+            octreeLineColors[base + 2] = bCol;
+            octreeLineColors[base + 3] = rCol;
+            octreeLineColors[base + 4] = gCol;
+            octreeLineColors[base + 5] = bCol;
+            lineVertexIdx += 2;
+          }
+        }
+        octreeGeo.setDrawRange(0, lineVertexIdx);
+        octreeGeo.attributes.position.needsUpdate = true;
+        octreeGeo.attributes.color.needsUpdate = true;
+      } else {
+        octreeMesh.visible = false;
+      }
+    }
+
+    function insertIntoOctree(node, px, py, pz, m) {
+      const totalMass = node.mass + m;
+      node.comX = (node.comX * node.mass + px * m) / totalMass;
+      node.comY = (node.comY * node.mass + py * m) / totalMass;
+      node.comZ = (node.comZ * node.mass + pz * m) / totalMass;
+      node.mass = totalMass;
+
+      if (node.depth >= 4 || octreeNodes.length >= MAX_OCTREE_NODES - 8) return;
+
+      if (!node.children && node.mass > 4) {
+        node.children = new Array(8);
+        const h2 = node.half * 0.5;
+        for (let oct = 0; oct < 8; oct++) {
+          const ox = (oct & 1) ? h2 : -h2;
+          const oy = (oct & 2) ? h2 : -h2;
+          const oz = (oct & 4) ? h2 : -h2;
+          const child = {
+            cx: node.cx + ox,
+            cy: node.cy + oy,
+            cz: node.cz + oz,
+            half: h2,
+            depth: node.depth + 1,
+            mass: 0,
+            comX: 0, comY: 0, comZ: 0,
+            children: null
+          };
+          node.children[oct] = child;
+          octreeNodes.push(child);
+        }
+      }
+
+      if (node.children) {
+        let oct = 0;
+        if (px >= node.cx) oct |= 1;
+        if (py >= node.cy) oct |= 2;
+        if (pz >= node.cz) oct |= 4;
+        insertIntoOctree(node.children[oct], px, py, pz, m);
+      }
+    }
+
+    // Actualización del Campo de Vectores Gravitacionales 3D
+    function updateGravitationalVectorField() {
+      if (state.visualMode !== 3) {
+        vectorFieldMesh.visible = false;
+        return;
+      }
+      vectorFieldMesh.visible = true;
+      let vIdx = 0;
+      const G = state.gravityG * state.bhMassScale;
+
+      for (let ix = -6; ix <= 6; ix++) {
+        for (let iy = -2; iy <= 2; iy++) {
+          for (let iz = -6; iz <= 6; iz++) {
+            const px = ix * 16.0;
+            const py = iy * 14.0;
+            const pz = iz * 16.0;
+
+            let gx = 0, gy = 0, gz = 0;
+            for (let c = 0; c < cores.length; c++) {
+              const core = cores[c];
+              const dx = core.pos.x - px;
+              const dy = core.pos.y - py;
+              const dz = core.pos.z - pz;
+              const distSq = dx * dx + dy * dy + dz * dz + 28.0;
+              const invDist3 = (core.mass * G) / (distSq * Math.sqrt(distSq));
+              gx += dx * invDist3;
+              gy += dy * invDist3;
+              gz += dz * invDist3;
+            }
+
+            const mag = Math.sqrt(gx * gx + gy * gy + gz * gz) + 1e-5;
+            const arrowLen = Math.min(mag * 4.5, 11.5);
+            const nx = (gx / mag) * arrowLen;
+            const ny = (gy / mag) * arrowLen;
+            const nz = (gz / mag) * arrowLen;
+
+            const base = vIdx * 3;
+            vectorPositions[base] = px;
+            vectorPositions[base + 1] = py;
+            vectorPositions[base + 2] = pz;
+            vectorPositions[base + 3] = px + nx;
+            vectorPositions[base + 4] = py + ny;
+            vectorPositions[base + 5] = pz + nz;
+
+            const heat = Math.min(mag * 0.45, 1.0);
+            vectorColors[base] = 0.08;
+            vectorColors[base + 1] = 0.55;
+            vectorColors[base + 2] = 0.85;
+            vectorColors[base + 3] = 0.25 + heat * 0.75;
+            vectorColors[base + 4] = 0.92 - heat * 0.35;
+            vectorColors[base + 5] = 1.0 - heat * 0.65;
+
+            vIdx += 2;
+          }
+        }
+      }
+      vectorGeo.setDrawRange(0, vIdx);
+      vectorGeo.attributes.position.needsUpdate = true;
+      vectorGeo.attributes.color.needsUpdate = true;
+    }
+
+    // ============================================================================
+    // 8. GENERADORES DE PRESETS ASTROFÍSICOS (GALAXIAS ESPIRALES, CUÁSAR, LENTE, CÚMULO)
+    // ============================================================================
+    function populateSpiralGalaxy(startIdx, count, center, bulkVel, coreMass, radiusMax, arms, tiltEuler, spinSign) {
+      const quat = new THREE.Quaternion().setFromEuler(tiltEuler);
+      const localPos = new THREE.Vector3();
+      const localVel = new THREE.Vector3();
+      const G = state.gravityG * state.bhMassScale;
+
+      for (let i = 0; i < count; i++) {
+        const starIdx = (startIdx + i) * 3;
+        // Distribución exponencial de disco galáctico + bulbo central
+        const u = Math.random();
+        const r = 3.2 + Math.pow(u, 1.45) * (radiusMax - 3.2);
+        const armIndex = i % arms;
+        const armAngle = (armIndex * 2.0 * Math.PI) / arms;
+        const winding = 3.1 * Math.log(r * 0.28 + 1.0) * spinSign;
+        const scatter = (Math.random() - 0.5) * (0.52 + 0.35 * (r / radiusMax));
+        const theta = armAngle + winding + scatter;
+
+        // Espesor vertical del disco galáctico (mayor en el bulbo central)
+        const zSpread = (1.8 * Math.exp(-r / 18.0) + 0.45) * (Math.random() - 0.5) * 2.0;
+
+        localPos.set(r * Math.cos(theta), zSpread, r * Math.sin(theta));
+        localPos.applyQuaternion(quat);
+
+        // Velocidad orbital kepleriana suavizada con halo de materia oscura
+        const enclosedMass = coreMass * (1.0 + 0.45 * (r / radiusMax));
+        const vCirc = Math.sqrt((G * enclosedMass) / Math.sqrt(r * r + 14.0));
+        const vx = -Math.sin(theta) * vCirc * spinSign;
+        const vz = Math.cos(theta) * vCirc * spinSign;
+        localVel.set(vx, (Math.random() - 0.5) * 0.35, vz);
+        localVel.applyQuaternion(quat);
+
+        starPositions[starIdx] = center.x + localPos.x;
+        starPositions[starIdx + 1] = center.y + localPos.y;
+        starPositions[starIdx + 2] = center.z + localPos.z;
+
+        starVelocities[starIdx] = bulkVel.x + localVel.x;
+        starVelocities[starIdx + 1] = bulkVel.y + localVel.y;
+        starVelocities[starIdx + 2] = bulkVel.z + localVel.z;
+
+        starVisualData[starIdx] = 0.0;
+        starVisualData[starIdx + 1] = vCirc;
+        starVisualData[starIdx + 2] = Math.exp(-r / (radiusMax * 0.42));
+        starSizes[startIdx + i] = 0.85 + Math.pow(Math.random(), 3.0) * 1.9;
+      }
+    }
+
+    function loadPreset(presetId) {
+      state.preset = presetId;
+      state.mergingCores = false;
+      cores.length = 0;
+      wandererMeshes.forEach(w => { w.group.visible = false; });
+
+      if (presetId === 0) {
+        // PRESET 1: Colisión Andrómeda vs Vía Láctea
+        cores.push({
+          pos: new THREE.Vector3(-34, 4, -12),
+          vel: new THREE.Vector3(3.4, -0.4, 2.6),
+          mass: 1150,
+          tilt: new THREE.Euler(0.28, 0.1, -0.32),
+          assembly: bhPrimary
+        });
+        cores.push({
+          pos: new THREE.Vector3(38, -6, 14),
+          vel: new THREE.Vector3(-3.8, 0.5, -2.8),
+          mass: 920,
+          tilt: new THREE.Euler(-0.48, 0.2, 0.38),
+          assembly: bhSecondary
+        });
+        bhPrimary.group.visible = true;
+        bhSecondary.group.visible = true;
+
+        const half = Math.floor(MAX_STARS * 0.55);
+        populateSpiralGalaxy(0, half, cores[0].pos, cores[0].vel, cores[0].mass, 56, 2, cores[0].tilt, 1);
+        populateSpiralGalaxy(half, MAX_STARS - half, cores[1].pos, cores[1].vel, cores[1].mass, 48, 2, cores[1].tilt, -1);
+
+        camera.position.set(0, 82, 150);
+        setEventLog('PRESET 01 // Colisión Andrómeda-Vía Láctea inicializada (Colas de Marea Activas)');
+      } else if (presetId === 1) {
+        // PRESET 2: Cuásar Binario Relativista (Par supermasivo cercano de alta velocidad)
+        cores.push({
+          pos: new THREE.Vector3(-15, 0, 0),
+          vel: new THREE.Vector3(0, 1.2, 8.2),
+          mass: 1450,
+          tilt: new THREE.Euler(0.15, 0.0, 0.12),
+          assembly: bhPrimary
+        });
+        cores.push({
+          pos: new THREE.Vector3(15, 0, 0),
+          vel: new THREE.Vector3(0, -1.2, -8.2),
+          mass: 1320,
+          tilt: new THREE.Euler(-0.18, 0.0, -0.15),
+          assembly: bhSecondary
+        });
+        bhPrimary.group.visible = true;
+        bhSecondary.group.visible = true;
+
+        const half = Math.floor(MAX_STARS * 0.5);
+        populateSpiralGalaxy(0, half, cores[0].pos, cores[0].vel, cores[0].mass, 42, 3, cores[0].tilt, 1);
+        populateSpiralGalaxy(half, MAX_STARS - half, cores[1].pos, cores[1].vel, cores[1].mass, 42, 3, cores[1].tilt, 1);
+
+        camera.position.set(0, 48, 108);
+        setEventLog('PRESET 02 // Cuásar Binario Relativista en espiral inspirante de ondas gravitacionales');
+      } else if (presetId === 2) {
+        // PRESET 3: Anillo de Einstein & Lente Puro (Agujero Negro Gargantua central + disco alineado detrás)
+        cores.push({
+          pos: new THREE.Vector3(0, 0, 0),
+          vel: new THREE.Vector3(0, 0, 0),
+          mass: 2100,
+          tilt: new THREE.Euler(0.08, 0.0, 0.04),
+          assembly: bhPrimary
+        });
+        bhPrimary.group.visible = true;
+        bhSecondary.group.visible = false;
+
+        populateSpiralGalaxy(0, MAX_STARS, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 2100, 68, 4, new THREE.Euler(0.12, 0, 0.05), 1);
+        camera.position.set(0, 10, 86);
+        setEventLog('PRESET 03 // Lente de Schwarzschild & Anillo de Einstein en alineación óptica directa');
+      } else if (presetId === 3) {
+        // PRESET 4: Colapso de Cúmulo Globular Esférico Multi-Núcleo
+        cores.push({
+          pos: new THREE.Vector3(-12, 8, 6),
+          vel: new THREE.Vector3(2.2, -1.5, 3.1),
+          mass: 880,
+          tilt: new THREE.Euler(0.4, 0.2, -0.2),
+          assembly: bhPrimary
+        });
+        cores.push({
+          pos: new THREE.Vector3(12, -8, -6),
+          vel: new THREE.Vector3(-2.2, 1.5, -3.1),
+          mass: 880,
+          tilt: new THREE.Euler(-0.3, 0.1, 0.4),
+          assembly: bhSecondary
+        });
+        bhPrimary.group.visible = true;
+        bhSecondary.group.visible = true;
+
+        for (let i = 0; i < MAX_STARS; i++) {
+          const idx = i * 3;
+          // Distribución esférica de Plummer
+          const u = Math.random();
+          const r = 6.0 + Math.pow(u, 0.55) * 68.0;
+          const cosPhi = 2.0 * Math.random() - 1.0;
+          const sinPhi = Math.sqrt(1.0 - cosPhi * cosPhi);
+          const theta = Math.random() * Math.PI * 2.0;
+
+          const px = r * sinPhi * Math.cos(theta);
+          const py = r * cosPhi;
+          const pz = r * sinPhi * Math.sin(theta);
+
+          starPositions[idx] = px;
+          starPositions[idx + 1] = py;
+          starPositions[idx + 2] = pz;
+
+          const vTang = Math.sqrt((1400 * state.gravityG) / Math.sqrt(r * r + 35.0)) * 0.72;
+          starVelocities[idx] = -Math.sin(theta) * vTang + (Math.random() - 0.5) * 2.2;
+          starVelocities[idx + 1] = (Math.random() - 0.5) * 2.8;
+          starVelocities[idx + 2] = Math.cos(theta) * vTang + (Math.random() - 0.5) * 2.2;
+
+          starVisualData[idx] = 0;
+          starVisualData[idx + 1] = vTang;
+          starVisualData[idx + 2] = Math.exp(-r / 30.0);
+          starSizes[i] = 0.9 + Math.pow(Math.random(), 2.8) * 1.8;
+        }
+
+        camera.position.set(0, 62, 138);
+        setEventLog('PRESET 04 // Relajación Violenta de Cúmulo Globular 3D (Esfera de Plummer)');
+      }
+
+      starGeometry.setDrawRange(0, state.activeStars);
+      posAttr.needsUpdate = true;
+      visAttr.needsUpdate = true;
+      sizeAttr.needsUpdate = true;
+    }
+
+    // ============================================================================
+    // 9. INTEGRADOR FÍSICO SIMPLÉCTico LEAPFROG (NÚCLEOS + 60,000 ESTRELLAS)
+    // ============================================================================
+    const camDirVec = new THREE.Vector3();
+    const projTemp = new THREE.Vector3();
+
+    function stepPhysics(dtRaw) {
+      const dt = dtRaw * 0.045 * state.timeStep;
+      if (dt <= 0.00001) return;
+
+      const G = state.gravityG * state.bhMassScale;
+      const numCores = cores.length;
+
+      // 1. Integración gravitatoria mutua entre Agujeros Negros Supermasivos + Fricción Dinámica de Chandrasekhar
+      for (let i = 0; i < numCores; i++) {
+        const cA = cores[i];
+        let ax = 0, ay = 0, az = 0;
+        for (let j = 0; j < numCores; j++) {
+          if (i === j) continue;
+          const cB = cores[j];
+          const dx = cB.pos.x - cA.pos.x;
+          const dy = cB.pos.y - cA.pos.y;
+          const dz = cB.pos.z - cA.pos.z;
+          const distSq = dx * dx + dy * dy + dz * dz + 32.0;
+          const force = (G * cB.mass) / (distSq * Math.sqrt(distSq));
+          ax += dx * force;
+          ay += dy * force;
+          az += dz * force;
+        }
+
+        // Retorno suave al baricentro y amortiguamiento si se activó "Fusionar Núcleos"
+        const damping = state.mergingCores ? 0.968 : 0.9994;
+        if (state.mergingCores) {
+          ax -= cA.pos.x * 0.14;
+          ay -= cA.pos.y * 0.14;
+          az -= cA.pos.z * 0.14;
+        } else {
+          ax -= cA.pos.x * 0.004;
+          ay -= cA.pos.y * 0.004;
+          az -= cA.pos.z * 0.004;
+        }
+
+        cA.vel.x = (cA.vel.x + ax * dt) * damping;
+        cA.vel.y = (cA.vel.y + ay * dt) * damping;
+        cA.vel.z = (cA.vel.z + az * dt) * damping;
+      }
+
+      for (let i = 0; i < numCores; i++) {
+        cores[i].pos.x += cores[i].vel.x * dt;
+        cores[i].pos.y += cores[i].vel.y * dt;
+        cores[i].pos.z += cores[i].vel.z * dt;
+      }
+
+      // Expansión de Onda de Choque de Supernova si está activa
+      const sn = state.supernovaWave;
+      if (sn.active) {
+        sn.radius += 68.0 * dt;
+        sn.strength = Math.max(0.0, 1.0 - sn.radius / sn.maxRadius);
+        if (sn.radius >= sn.maxRadius) {
+          sn.active = false;
+        }
+      }
+
+      // 2. Integración de las Estrellas Activas en el campo gravitatorio 3D + Efecto Doppler Relativista
+      const camX = camera.position.x;
+      const camY = camera.position.y;
+      const camZ = camera.position.z;
+
+      const count = state.activeStars;
+      let sampleKinetic = 0;
+      let samplePotential = 0;
+
+      // Cacheamos datos de núcleos en registros escalares rápidos para el bucle de 60,000 partículas
+      const c0x = cores[0].pos.x, c0y = cores[0].pos.y, c0z = cores[0].pos.z, c0m = cores[0].mass * G;
+      const hasC1 = numCores > 1;
+      const c1x = hasC1 ? cores[1].pos.x : 0, c1y = hasC1 ? cores[1].pos.y : 0, c1z = hasC1 ? cores[1].pos.z : 0;
+      const c1m = hasC1 ? cores[1].mass * G : 0;
+
+      for (let i = 0; i < count; i++) {
+        const idx = i * 3;
+        let px = starPositions[idx];
+        let py = starPositions[idx + 1];
+        let pz = starPositions[idx + 2];
+
+        let vx = starVelocities[idx];
+        let vy = starVelocities[idx + 1];
+        let vz = starVelocities[idx + 2];
+
+        // Atracción hacia Núcleo 0 (con halo logarítmico de materia oscura)
+        const dx0 = c0x - px;
+        const dy0 = c0y - py;
+        const dz0 = c0z - pz;
+        const r2_0 = dx0 * dx0 + dy0 * dy0 + dz0 * dz0 + 14.0;
+        const invR0 = 1.0 / Math.sqrt(r2_0);
+        const f0 = (c0m * invR0 * invR0 * invR0) + (0.14 * G * invR0);
+
+        let ax = dx0 * f0;
+        let ay = dy0 * f0;
+        let az = dz0 * f0;
+
+        // Atracción hacia Núcleo 1 (Andrómeda / Segundo Cuásar)
+        if (hasC1) {
+          const dx1 = c1x - px;
+          const dy1 = c1y - py;
+          const dz1 = c1z - pz;
+          const r2_1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1 + 14.0;
+          const invR1 = 1.0 / Math.sqrt(r2_1);
+          const f1 = (c1m * invR1 * invR1 * invR1) + (0.12 * G * invR1);
+          ax += dx1 * f1;
+          ay += dy1 * f1;
+          az += dz1 * f1;
+        }
+
+        // Atracción hacia Agujeros Negros Errantes adicionales
+        for (let k = 2; k < numCores; k++) {
+          const ck = cores[k];
+          const dxk = ck.pos.x - px;
+          const dyk = ck.pos.y - py;
+          const dzk = ck.pos.z - pz;
+          const r2_k = dxk * dxk + dyk * dyk + dzk * dzk + 12.0;
+          const invRk = 1.0 / Math.sqrt(r2_k);
+          const fk = (ck.mass * G) * invRk * invRk * invRk;
+          ax += dxk * fk;
+          ay += dyk * fk;
+          az += dzk * fk;
+        }
+
+        // Impulso hidrodinámico radial si pasa el frente de la Onda de Choque de Supernova
+        if (sn.active) {
+          const sdx = px - sn.center.x;
+          const sdy = py - sn.center.y;
+          const sdz = pz - sn.center.z;
+          const sDist = Math.sqrt(sdx * sdx + sdy * sdy + sdz * sdz) + 1e-4;
+          const shellDiff = Math.abs(sDist - sn.radius);
+          if (shellDiff < 9.5) {
+            const push = (1.0 - shellDiff / 9.5) * sn.strength * 38.0;
+            ax += (sdx / sDist) * push;
+            ay += (sdy / sDist) * push;
+            az += (sdz / sDist) * push;
+          }
+        }
+
+        vx += ax * dt;
+        vy += ay * dt;
+        vz += az * dt;
+
+        px += vx * dt;
+        py += vy * dt;
+        pz += vz * dt;
+
+        starPositions[idx] = px;
+        starPositions[idx + 1] = py;
+        starPositions[idx + 2] = pz;
+
+        starVelocities[idx] = vx;
+        starVelocities[idx + 1] = vy;
+        starVelocities[idx + 2] = vz;
+
+        // Cálculo de Velocidad Radial hacia el Observador (Efecto Doppler Relativista)
+        const losX = camX - px;
+        const losY = camY - py;
+        const losZ = camZ - pz;
+        const invLos = 1.0 / (Math.sqrt(losX * losX + losY * losY + losZ * losZ) + 1e-4);
+        const vRadial = (vx * losX + vy * losY + vz * losZ) * invLos;
+        const speedSq = vx * vx + vy * vy + vz * vz;
+        const speed = Math.sqrt(speedSq);
+
+        starVisualData[idx] = vRadial;
+        starVisualData[idx + 1] = speed;
+
+        if ((i & 63) === 0) {
+          sampleKinetic += 0.5 * speedSq;
+          samplePotential -= c0m * invR0;
+        }
+      }
+
+      state.totalEnergy = ((sampleKinetic + samplePotential) * 0.00042).toFixed(2);
+      if (hasC1) {
+        state.coreSeparation = cores[0].pos.distanceTo(cores[1].pos).toFixed(1);
+      } else {
+        state.coreSeparation = '0.0';
+      }
+
+      posAttr.needsUpdate = true;
+      visAttr.needsUpdate = true;
+    }
+
+    // ============================================================================
+    // 10. INTERACCIÓN EN VIVO: INYECTAR BH ERRANTE, SUPERNOVA Y FUSIÓN DE NÚCLEOS
+    // ============================================================================
+    let wandererCursor = 0;
+
+    function injectWanderingBlackHole(customPos) {
+      const wMesh = wandererMeshes[wandererCursor % wandererMeshes.length];
+      wandererCursor++;
+
+      const angle = Math.random() * Math.PI * 2.0;
+      const spawnPos = customPos ? customPos.clone() : new THREE.Vector3(Math.cos(angle) * 72, (Math.random() - 0.5) * 28, Math.sin(angle) * 72);
+      const targetVel = spawnPos.clone().negate().normalize().multiplyScalar(11.5);
+      targetVel.y += (Math.random() - 0.5) * 3.0;
+
+      wMesh.group.visible = true;
+      wMesh.group.position.copy(spawnPos);
+
+      // Si ya había más de 5 núcleos, reemplazamos el más antiguo errante
+      if (cores.length >= 6) {
+        cores.splice(2, 1);
+      }
+
+      cores.push({
+        pos: spawnPos,
+        vel: targetVel,
+        mass: 760,
+        tilt: new THREE.Euler((Math.random() - 0.5) * 0.8, 0, (Math.random() - 0.5) * 0.8),
+        assembly: wMesh
+      });
+
+      setEventLog(`PERTURBACIÓN // Agujero Negro Errante inyectado en [${spawnPos.x.toFixed(0)}, ${spawnPos.y.toFixed(0)}, ${spawnPos.z.toFixed(0)}] kpc`);
+    }
+
+    function triggerSupernovaShockwave(originVec) {
+      const center = originVec ? originVec.clone() : cores[0].pos.clone();
+      state.supernovaWave.active = true;
+      state.supernovaWave.radius = 2.0;
+      state.supernovaWave.strength = 1.0;
+      state.supernovaWave.center.copy(center);
+      setEventLog('EVENTO RELATIVISTA // Onda de Choque de Hipernova propagándose a través del disco');
+    }
+
+    function triggerCoreMerger() {
+      state.mergingCores = !state.mergingCores;
+      const btn = document.getElementById('btn-merge');
+      if (state.mergingCores) {
+        btn.classList.add('active-tool');
+        setEventLog('COALESCENCIA // Fricción dinámica activada: Fusión de agujeros negros supermasivos en curso');
+      } else {
+        btn.classList.remove('active-tool');
+        setEventLog('COALESCENCIA // Fricción de fusión desactivada: Órbita libre restaurada');
+      }
+    }
+
+    // Proyección de coordenadas 3D a UV [0..1] para el shader de Lente Gravitacional
+    function projectToScreenUV(worldPos, outVec3, active) {
+      if (!active) {
+        outVec3.set(0.5, 0.5, 0.0);
+        return 9999;
+      }
+      projTemp.copy(worldPos).project(camera);
+      // Verificar que esté delante de la cámara
+      if (projTemp.z > 1.0) {
+        outVec3.set(0.5, 0.5, 0.0);
+        return 9999;
+      }
+      outVec3.set(projTemp.x * 0.5 + 0.5, projTemp.y * 0.5 + 0.5, 1.0);
+      return camera.position.distanceTo(worldPos);
+    }
+
+    // ============================================================================
+    // 11. EVENTOS DEL DOM, SLIDERS Y TELEMETRÍA CON SPARKLINE
+    // ============================================================================
+    const hudFps = document.getElementById('hud-fps');
+    const hudMs = document.getElementById('hud-ms');
+    const hudStars = document.getElementById('hud-stars');
+    const hudNodes = document.getElementById('hud-nodes');
+    const hudEnergy = document.getElementById('hud-energy');
+    const hudRs = document.getElementById('hud-rs');
+    const hudSep = document.getElementById('hud-sep');
+    const hudEventLog = document.getElementById('hud-event-log');
+
+    function setEventLog(msg) {
+      hudEventLog.textContent = msg;
+    }
+
+    // Presets
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadPreset(parseInt(btn.dataset.preset, 10));
+      });
+    });
+
+    // Modos Visuales
+    const spectrumLabel = document.getElementById('spectrum-mode-label');
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = parseInt(btn.dataset.mode, 10);
+        state.visualMode = mode;
+        starMaterial.uniforms.uVisualMode.value = mode;
+        const labels = ['DOPPLER RADIAL', 'VELOCIDAD ORBITAL', 'OCTREE BARNES-HUT', 'CAMPO DE VECTORES G'];
+        spectrumLabel.textContent = labels[mode] || 'DOPPLER RADIAL';
+        setEventLog(`MODO VISUAL // Activado: ${btn.innerText.trim()}`);
+      });
+    });
+
+    // Sliders
+    document.getElementById('slider-stars').addEventListener('input', e => {
+      state.activeStars = parseInt(e.target.value, 10);
+      const formatted = state.activeStars.toLocaleString('en-US');
+      document.getElementById('val-stars').textContent = formatted;
+      hudStars.textContent = formatted;
+      starGeometry.setDrawRange(0, state.activeStars);
+    });
+
+    document.getElementById('slider-mass').addEventListener('input', e => {
+      state.bhMassScale = parseFloat(e.target.value);
+      const solarMass = (4.2 * state.bhMassScale).toFixed(1);
+      document.getElementById('val-mass').textContent = `${state.bhMassScale.toFixed(2)}x (${solarMass}e8 M_sol)`;
+      hudRs.textContent = (2.95 * state.bhMassScale).toFixed(2);
+    });
+
+    document.getElementById('slider-g').addEventListener('input', e => {
+      state.gravityG = parseFloat(e.target.value);
+      document.getElementById('val-g').textContent = `${state.gravityG.toFixed(2)} G_0`;
+    });
+
+    document.getElementById('slider-dt').addEventListener('input', e => {
+      state.timeStep = parseFloat(e.target.value);
+      document.getElementById('val-dt').textContent = `${state.timeStep.toFixed(2)}x`;
+    });
+
+    document.getElementById('slider-lens').addEventListener('input', e => {
+      state.lensIntensity = parseFloat(e.target.value);
+      document.getElementById('val-lens').textContent = `${state.lensIntensity.toFixed(2)}x`;
+      postMaterial.uniforms.uLensStrength.value = state.lensIntensity;
+    });
+
+    // Botones de Acción
+    document.getElementById('btn-wanderer').addEventListener('click', () => injectWanderingBlackHole());
+    document.getElementById('btn-supernova').addEventListener('click', () => triggerSupernovaShockwave());
+    document.getElementById('btn-merge').addEventListener('click', () => triggerCoreMerger());
+
+    // Toggles de Diagnóstico
+    const toggleWellBtn = document.getElementById('toggle-well');
+    toggleWellBtn.addEventListener('click', () => {
+      state.showPotentialWell = !state.showPotentialWell;
+      toggleWellBtn.classList.toggle('active', state.showPotentialWell);
+      wellGridMesh.visible = state.showPotentialWell;
+    });
+
+    const toggleOctreeBtn = document.getElementById('toggle-octree');
+    toggleOctreeBtn.addEventListener('click', () => {
+      state.showOctreeMesh = !state.showOctreeMesh;
+      toggleOctreeBtn.classList.toggle('active', state.showOctreeMesh);
+    });
+
+    const toggleJetsBtn = document.getElementById('toggle-jets');
+    toggleJetsBtn.addEventListener('click', () => {
+      state.showPolarJets = !state.showPolarJets;
+      toggleJetsBtn.classList.toggle('active', state.showPolarJets);
+    });
+
+    const toggleClickBtn = document.getElementById('toggle-click-mode');
+    toggleClickBtn.addEventListener('click', () => {
+      state.clickSpawnBH = !state.clickSpawnBH;
+      toggleClickBtn.classList.toggle('active', state.clickSpawnBH);
+      setEventLog(state.clickSpawnBH
+        ? 'HERRAMIENTA // Haz clic o doble clic en el espacio 3D para inyectar un Agujero Negro Errante'
+        : 'HERRAMIENTA // Doble clic en el espacio 3D para detonar Onda de Choque de Supernova');
+    });
+
+    // Raycaster 3D para interacción directa con el plano galáctico
+    const raycaster = new THREE.Raycaster();
+    const pointerNDC = new THREE.Vector2();
+    const interactionPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hitPoint = new THREE.Vector3();
+
+    renderer.domElement.addEventListener('dblclick', e => {
+      pointerNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointerNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointerNDC, camera);
+      if (raycaster.ray.intersectPlane(interactionPlane, hitPoint)) {
+        if (state.clickSpawnBH) {
+          injectWanderingBlackHole(hitPoint);
+        } else {
+          triggerSupernovaShockwave(hitPoint);
+        }
+      }
+    });
+
+    // Sparkline de FPS en tiempo real
+    const sparkCanvas = document.getElementById('sparkline-canvas');
+    const sparkCtx = sparkCanvas.getContext('2d');
+    const fpsHistory = new Array(56).fill(60);
+
+    function drawSparkline(currentFps) {
+      fpsHistory.push(Math.min(Math.max(currentFps, 10), 65));
+      fpsHistory.shift();
+
+      const w = sparkCanvas.width;
+      const h = sparkCanvas.height;
+      sparkCtx.clearRect(0, 0, w, h);
+
+      sparkCtx.strokeStyle = 'rgba(34, 211, 238, 0.14)';
+      sparkCtx.lineWidth = 1;
+      sparkCtx.beginPath();
+      sparkCtx.moveTo(0, h * 0.5);
+      sparkCtx.lineTo(w, h * 0.5);
+      sparkCtx.stroke();
+
+      sparkCtx.strokeStyle = '#22d3ee';
+      sparkCtx.lineWidth = 1.6;
+      sparkCtx.beginPath();
+      for (let i = 0; i < fpsHistory.length; i++) {
+        const x = (i / (fpsHistory.length - 1)) * w;
+        const y = h - ((fpsHistory[i] - 10) / 58) * (h - 6) - 3;
+        if (i === 0) sparkCtx.moveTo(x, y);
+        else sparkCtx.lineTo(x, y);
+      }
+      sparkCtx.stroke();
+    }
+
+    // Redimensionado de ventana
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      renderTarget.setSize(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+      postMaterial.uniforms.uResolution.value.set(w, h);
+    });
+
+    // ============================================================================
+    // 12. BUCLE PRINCIPAL DE ANIMACIÓN Y RENDERIZADO RELATIVISTA
+    // ============================================================================
+    loadPreset(0);
+
+    let lastTime = performance.now();
+    let frameCounter = 0;
+    let fpsAccumTime = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      const rawDeltaMs = Math.min(now - lastTime, 50.0);
+      lastTime = now;
+      const dtSec = rawDeltaMs * 0.001;
+      state.time += dtSec * state.timeStep;
+
+      controls.update();
+
+      // 1. Paso de Integración Física N-Body
+      stepPhysics(dtSec);
+
+      // 2. Construcción de Octree Espacial Barnes-Hut y Campo de Vectores
+      buildSpatialOctree();
+      updateGravitationalVectorField();
+
+      // 3. Sincronización de Agujeros Negros, Discos de Acreción GLSL y Pozo de Potencial
+      skyMat.uniforms.uTime.value = state.time;
+
+      for (let i = 0; i < cores.length; i++) {
+        const core = cores[i];
+        const assm = core.assembly;
+        assm.group.position.copy(core.pos);
+        assm.group.rotation.copy(core.tilt);
+        const scale = Math.cbrt(state.bhMassScale);
+        assm.group.scale.setScalar(scale);
+
+        assm.diskMat.uniforms.uTime.value = state.time;
+        assm.diskMat.uniforms.uCamPos.value.copy(camera.position);
+        assm.diskMat.uniforms.uMassScale.value = state.bhMassScale;
+        assm.jetMat.uniforms.uTime.value = state.time;
+        assm.jetsContainer.visible = state.showPolarJets;
+
+        // El arco secundario lenteado siempre mira parcialmente hacia la cámara (efecto Kerr/Gargantua)
+        assm.lensedArch.lookAt(camera.position);
+      }
+
+      // Uniforms para la malla 3D del Pozo de Potencial Gravitacional
+      wellGridMat.uniforms.uG.value = state.gravityG * state.bhMassScale;
+      wellGridMat.uniforms.uCore1.value.set(cores[0].pos.x, cores[0].pos.y, cores[0].pos.z, cores[0].mass);
+      if (cores.length > 1) {
+        wellGridMat.uniforms.uCore2.value.set(cores[1].pos.x, cores[1].pos.y, cores[1].pos.z, cores[1].mass);
+      } else {
+        wellGridMat.uniforms.uCore2.value.set(0, 0, 0, 0);
+      }
+      if (cores.length > 2) {
+        wellGridMat.uniforms.uCore3.value.set(cores[2].pos.x, cores[2].pos.y, cores[2].pos.z, cores[2].mass);
+      } else {
+        wellGridMat.uniforms.uCore3.value.set(0, 0, 0, 0);
+      }
+
+      // 4. Proyección de los Agujeros Negros para el Shader de Lente Gravitacional (Anillo de Einstein)
+      const d1 = projectToScreenUV(cores[0].pos, postMaterial.uniforms.uBH1Screen.value, true);
+      postMaterial.uniforms.uBH1Radius.value = THREE.MathUtils.clamp((6.2 * Math.sqrt(state.bhMassScale)) / Math.max(d1, 10.0), 0.012, 0.16);
+
+      if (cores.length > 1 && bhSecondary.group.visible) {
+        const d2 = projectToScreenUV(cores[1].pos, postMaterial.uniforms.uBH2Screen.value, true);
+        postMaterial.uniforms.uBH2Radius.value = THREE.MathUtils.clamp((4.8 * Math.sqrt(state.bhMassScale)) / Math.max(d2, 10.0), 0.01, 0.14);
+      } else {
+        postMaterial.uniforms.uBH2Screen.value.z = 0.0;
+      }
+
+      if (state.supernovaWave.active) {
+        const dShock = projectToScreenUV(state.supernovaWave.center, postMaterial.uniforms.uShockScreen.value, true);
+        postMaterial.uniforms.uShockScreen.value.z = state.supernovaWave.strength;
+        postMaterial.uniforms.uShockRadius.value = state.supernovaWave.radius / Math.max(dShock * 1.15, 18.0);
+      } else {
+        postMaterial.uniforms.uShockScreen.value.z = 0.0;
+      }
+      postMaterial.uniforms.uTime.value = state.time;
+
+      // 5. Renderizado en 2 Pases (Escena 3D -> Post-procesado con Lente Gravitacional y Bloom)
+      renderer.setRenderTarget(renderTarget);
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+      renderer.render(postScene, postCamera);
+
+      // 6. Actualización de Telemetría HUD cada 10 frames
+      frameCounter++;
+      fpsAccumTime += rawDeltaMs;
+      if (frameCounter >= 10) {
+        const avgMs = fpsAccumTime / frameCounter;
+        const currentFps = Math.min(60, Math.round(1000 / Math.max(avgMs, 1)));
+        hudFps.textContent = currentFps;
+        hudMs.textContent = avgMs.toFixed(1);
+        hudNodes.textContent = state.octreeNodeCount.toLocaleString('en-US');
+        hudEnergy.textContent = state.totalEnergy;
+        hudSep.textContent = `SEP: ${state.coreSeparation} kpc`;
+        drawSparkline(currentFps);
+        frameCounter = 0;
+        fpsAccumTime = 0;
+      }
+    }
+
+    requestAnimationFrame(animate);
+  </script>
 </body>
 </html>

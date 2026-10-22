@@ -1,636 +1,3058 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ESTUDIO DE NODOS IA & PIPELINE DAG — IA + SUPERPOWERS KIT</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-  html, body {
-    width: 100vw; height: 100vh; overflow: hidden;
-    background: #050912; color: #F5F7FA;
-    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
-  }
-  #stage {
-    position: relative; width: 100vw; height: 100vh; overflow: hidden;
-    background: radial-gradient(circle at 38% 48%, #0C192C 0%, #050912 75%);
-  }
-  canvas#sim {
-    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
-  }
-  /* Top Header Bar */
-  .topbar {
-    position: absolute; top: 18px; left: 22px; right: 22px; height: 64px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid #FB923C;
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 24px rgba(16, 185, 129, 0.25);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-  }
-  .topbar-left { display: flex; align-items: center; gap: 16px; }
-  .badge-mode {
-    padding: 7px 14px; border-radius: 10px; font-weight: 900; font-size: 15px;
-    letter-spacing: 1.5px; background: #10B981; color: #041018;
-    border: 1.5px solid #FB923C;
-  }
-  .challenge-title {
-    font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #FFFFFF;
-  }
-  .skill-pill {
-    font-size: 13px; font-weight: 700; color: #FB923C;
-    background: rgba(255,255,255,0.06); padding: 6px 12px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.14);
-  }
-  .topbar-right { display: flex; align-items: center; gap: 14px; }
-  .stat-chip {
-    padding: 7px 14px; border-radius: 10px; background: rgba(4, 9, 18, 0.9);
-    border: 1.5px solid rgba(255,255,255,0.15); font-size: 15px; font-weight: 800;
-  }
-  .stat-fps {
-    padding: 7px 16px; border-radius: 10px; font-size: 18px; font-weight: 900;
-    background: rgba(16, 185, 129, 0.22); color: #10B981; border: 2px solid #FB923C;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // NODE SHADER &amp; DSP STUDIO</title>
+  <style>
+    :root {
+      --bg-void: #05070b;
+      --bg-panel: rgba(10, 14, 23, 0.88);
+      --bg-panel-solid: #0a0e17;
+      --bg-node: rgba(13, 18, 30, 0.94);
+      --border-dim: rgba(56, 189, 248, 0.16);
+      --border-bright: rgba(34, 211, 238, 0.45);
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --cyan: #22d3ee;
+      --emerald: #10b981;
+      --magenta: #f472b6;
+      --amber: #fbbf24;
+      --orange: #fb923c;
+      --violet: #a78bfa;
+      --danger: #f43f5e;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
-  /* Right Telemetry & Controls Sidebar */
-  .sidebar {
-    position: absolute; top: 98px; right: 22px; width: 430px; bottom: 18px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid rgba(255,255,255,0.14);
-    border-radius: 18px; padding: 18px;
-    display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.65);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-  }
-  .sec-head {
-    font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #FB923C;
-    border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 6px;
-    display: flex; justify-content: space-between;
-  }
-  .metric-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  }
-  .metric-card {
-    background: rgba(4, 8, 16, 0.92); border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 10px 12px;
-  }
-  .metric-lbl { font-size: 11px; color: #8FA3B8; font-weight: 700; letter-spacing: 1px; }
-  .metric-val { font-size: 15px; font-weight: 900; margin-top: 4px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
 
-  .log-box {
-    flex: 1; background: rgba(3, 6, 12, 0.95); border: 1.5px solid #FB923C;
-    border-radius: 12px; padding: 12px; font-size: 12.5px; line-height: 1.55;
-    overflow: hidden; display: flex; flex-direction: column; gap: 8px;
-  }
-  .log-item {
-    padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);
-    border-left: 3px solid #FB923C; font-weight: 700;
-  }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 12px;
+    }
 
-  .btn-row { display: flex; gap: 8px; }
-  .ctrl-btn {
-    flex: 1; padding: 10px 8px; border-radius: 10px; border: 1.5px solid #FB923C;
-    background: rgba(255,255,255,0.06); color: #FFF; font-family: inherit;
-    font-size: 12.5px; font-weight: 800; cursor: pointer; transition: 0.15s;
-    text-align: center;
-  }
-  .ctrl-btn:hover, .ctrl-btn.active {
-    background: #10B981; color: #041018;
-  }
+    /* TOP TELEMETRY & PRESET BAR */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: linear-gradient(180deg, rgba(8, 12, 21, 0.98) 0%, rgba(10, 15, 26, 0.92) 100%);
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      gap: 10px;
+    }
 
-  /* Bottom Error Console (only visible in vanilla mode) */
-  .error-drawer {
-    position: absolute; left: 22px; right: 22px; bottom: 18px; height: 118px;
-    background: rgba(28, 6, 14, 0.94); border: 2px solid #F43F5E;
-    border-radius: 14px; padding: 12px 18px;
-    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45);
-    z-index: 12; display: none;
-  }
-  .err-title {
-    color: #FF8FA3; font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
-    margin-bottom: 6px; display: flex; justify-content: space-between;
-  }
-  .err-line {
-    color: #FFE1E7; font-size: 13px; font-weight: 700; margin-bottom: 4px;
-    font-family: monospace;
-  }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 245px;
+    }
 
-  /* Floating Status Banner Bottom-Left for Superkit */
-  .super-banner {
-    position: absolute; left: 22px; bottom: 22px; width: 920px; height: 74px;
-    background: rgba(6, 22, 34, 0.92); border: 2px solid #10B981;
-    border-radius: 16px; padding: 0 22px;
-    display: flex; align-items: center; justify-content: space-between;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 22px rgba(16, 185, 129, 0.3);
-    z-index: 11;
-  }
-</style>
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.28), rgba(167, 139, 250, 0.12));
+      border: 1px solid var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.25);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 12.5px;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-title span.tag {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(34, 211, 238, 0.15);
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      color: var(--cyan);
+    }
+
+    .brand-sub {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* PRESET TOOLBAR */
+    .preset-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+
+    .btn {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    .btn:hover {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.12);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .btn.active {
+      border-color: var(--cyan);
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(16, 185, 129, 0.16));
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.28);
+    }
+
+    .btn.preset-1 { border-left: 3px solid var(--cyan); }
+    .btn.preset-2 { border-left: 3px solid var(--magenta); }
+    .btn.preset-3 { border-left: 3px solid var(--amber); }
+    .btn.action-layout { border-color: rgba(16, 185, 129, 0.4); color: #a7f3d0; }
+    .btn.action-mutate { border-color: rgba(167, 139, 250, 0.45); color: #ddd6fe; }
+    .btn.action-audio { border-color: rgba(251, 191, 36, 0.5); color: var(--amber); }
+    .btn.action-audio.playing {
+      background: rgba(251, 191, 36, 0.2);
+      border-color: var(--amber);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+    }
+
+    /* TELEMETRY HUD PILLS */
+    .telemetry-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+    }
+
+    .metric-pill {
+      background: rgba(9, 13, 22, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 5px;
+      padding: 3px 8px;
+      display: flex;
+      flex-direction: column;
+      min-width: 68px;
+    }
+
+    .metric-label {
+      font-size: 8.5px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .metric-val {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .metric-val.ok { color: var(--emerald); }
+    .metric-val.warn { color: var(--amber); }
+    .metric-val.err { color: var(--danger); }
+
+    /* MAIN WORKSPACE LAYOUT */
+    .workspace {
+      position: fixed;
+      top: 52px;
+      left: 0;
+      right: 0;
+      bottom: 28px;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* LEFT: NODE GRAPH CANVAS AREA */
+    .graph-pane {
+      position: relative;
+      flex: 1 1 60%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #0b1120 0%, #05070b 100%);
+      cursor: grab;
+    }
+
+    .graph-pane.panning {
+      cursor: grabbing;
+    }
+
+    /* Full-pane 2D canvas for grid + animated Bezier cables + signal particles */
+    #graphCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* World transform container for DOM Node Cards */
+    #nodeWorld {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      transform-origin: 0 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* FLOATING NODE SPAWN PALETTE & GRAPH CONTROLS */
+    .graph-toolbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      background: rgba(8, 12, 22, 0.88);
+      border: 1px solid var(--border-dim);
+      padding: 6px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      max-width: calc(100% - 24px);
+    }
+
+    .spawn-btn {
+      height: 25px;
+      padding: 0 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .spawn-btn:hover {
+      background: rgba(34, 211, 238, 0.15);
+      border-color: var(--cyan);
+      color: #fff;
+    }
+
+    .spawn-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* TOPOLOGICAL ORDER LIVE BANNER */
+    .topo-banner {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 20;
+      background: rgba(8, 12, 22, 0.9);
+      border: 1px solid var(--border-dim);
+      border-radius: 7px;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      backdrop-filter: blur(8px);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .topo-chain {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      overflow-x: auto;
+      white-space: nowrap;
+      color: var(--text-main);
+      flex: 1;
+    }
+
+    .topo-step {
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      color: var(--cyan);
+      font-size: 9.5px;
+    }
+
+    .topo-arrow {
+      color: var(--text-dim);
+      font-size: 10px;
+    }
+
+    .dag-alert {
+      position: absolute;
+      top: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      background: rgba(244, 63, 94, 0.94);
+      border: 1px solid #fda4af;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      box-shadow: 0 0 24px rgba(244, 63, 94, 0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .dag-alert.visible {
+      opacity: 1;
+    }
+
+    /* NODE CARD STYLING */
+    .node-card {
+      position: absolute;
+      width: 224px;
+      background: var(--bg-node);
+      border: 1px solid rgba(100, 116, 139, 0.38);
+      border-radius: 9px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+      pointer-events: auto;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .node-card:hover,
+    .node-card.selected {
+      border-color: var(--cyan);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.8), 0 0 16px rgba(34, 211, 238, 0.22);
+    }
+
+    .node-header {
+      height: 28px;
+      padding: 0 9px;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: grab;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .node-header:active {
+      cursor: grabbing;
+    }
+
+    .node-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .node-del-btn {
+      width: 18px;
+      height: 18px;
+      border: none;
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.7);
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .node-del-btn:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    /* Live Mini-Canvas inside Every Node */
+    .node-preview-wrap {
+      position: relative;
+      margin: 7px 8px 5px 8px;
+      height: 52px;
+      border-radius: 5px;
+      overflow: hidden;
+      background: #04060a;
+      border: 1px solid rgba(56, 189, 248, 0.18);
+    }
+
+    .node-preview-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .node-preview-badge {
+      position: absolute;
+      top: 3px;
+      right: 5px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: rgba(226, 232, 240, 0.85);
+      background: rgba(4, 6, 10, 0.72);
+      padding: 1px 4px;
+      border-radius: 3px;
+      pointer-events: none;
+    }
+
+    /* Ports Row */
+    .node-ports {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      gap: 6px;
+    }
+
+    .ports-col {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .ports-col.inputs { align-items: flex-start; }
+    .ports-col.outputs { align-items: flex-end; }
+
+    .port-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--text-muted);
+      height: 18px;
+      position: relative;
+    }
+
+    .port-socket {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background: #090d16;
+      cursor: crosshair;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      position: relative;
+      z-index: 5;
+    }
+
+    .ports-col.inputs .port-socket { margin-left: -6px; }
+    .ports-col.outputs .port-socket { margin-right: -6px; }
+
+    .port-socket:hover,
+    .port-socket.snap-target {
+      transform: scale(1.38);
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .port-socket.type-float { border-color: var(--cyan); color: var(--cyan); }
+    .port-socket.type-vec3 { border-color: var(--magenta); color: var(--magenta); }
+    .port-socket.type-sdf { border-color: var(--emerald); color: var(--emerald); }
+    .port-socket.type-audio { border-color: var(--amber); color: var(--amber); }
+
+    .port-socket.connected {
+      background: currentColor;
+    }
+
+    /* Node Controls (Sliders, Selects) */
+    .node-controls {
+      padding: 4px 9px 8px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .ctrl-row {
+      display: flex;
+       flex-direction: column;
+      gap: 2px;
+    }
+
+    .ctrl-head {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--text-muted);
+    }
+
+    .ctrl-val {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .ctrl-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(30, 41, 59, 0.9);
+      outline: none;
+      cursor: ew-resize;
+    }
+
+    .ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 1.5px solid #ffffff;
+      box-shadow: 0 0 6px rgba(34, 211, 238, 0.8);
+      cursor: ew-resize;
+    }
+
+    .ctrl-select {
+      width: 100%;
+      height: 22px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(100, 116, 139, 0.4);
+      border-radius: 4px;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      padding: 0 5px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* RIGHT PANE: WEBGL 3D RAYMARCHING VIEWPORT + GLSL COMPILER & INSPECTOR */
+    .right-pane {
+      width: 44%;
+      min-width: 420px;
+      height: 100%;
+      border-left: 1px solid var(--border-dim);
+      background: var(--bg-panel-solid);
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      transition: width 0.22s ease;
+    }
+
+    .right-pane.expanded {
+      width: 68%;
+    }
+
+    .viewport-container {
+      position: relative;
+      flex: 1 1 64%;
+      min-height: 260px;
+      background: #020306;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    #glCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #glCanvas:active {
+      cursor: grabbing;
+    }
+
+    .viewport-hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+
+    .vp-badge {
+      background: rgba(5, 8, 15, 0.82);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-main);
+      backdrop-filter: blur(6px);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .vp-controls {
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .vp-footer-overlay {
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: rgba(226, 232, 240, 0.78);
+    }
+
+    .vp-pill {
+      background: rgba(5, 8, 15, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+
+    /* COMPILER & INSPECTOR PANEL */
+    .inspector-pane {
+      flex: 0 0 230px;
+      display: flex;
+      flex-direction: column;
+      background: #070a12;
+      overflow: hidden;
+    }
+
+    .inspector-tabs {
+      height: 30px;
+      background: rgba(15, 23, 42, 0.8);
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .compiler-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--emerald);
+      font-weight: 700;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+
+    .inspector-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      overflow: hidden;
+    }
+
+    .glsl-code-box {
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.42;
+      color: #a5f3fc;
+      background: #05070c;
+      border-right: 1px solid var(--border-dim);
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .dsp-telemetry-box {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .dsp-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 6px;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 4px;
+      border-left: 2px solid var(--cyan);
+    }
+
+    /* FOOTER BAR */
+    .statusbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      background: #060911;
+      border-top: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      z-index: 100;
+    }
+
+    .legend-list {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-swatch {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  </style>
 </head>
 <body>
-<div id="stage">
-  <canvas id="sim" width="1920" height="1080"></canvas>
-
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="badge-mode">IA + SUPERKIT</div>
-      <div class="challenge-title">PRUEBA 05/06 · ESTUDIO DE NODOS IA & PIPELINE DAG</div>
-      <div class="skill-pill">SKILL 05: AUTOMATIZADOR DE PRODUCTIVIDAD</div>
-    </div>
-    <div class="topbar-right">
-      <div class="stat-chip">TIEMPO: <span style="color:#FB923C">9 MIN</span></div>
-      <div class="stat-chip">COSTO: <span style="color:#10B981">$0.79 USD</span> (265K TOK)</div>
-      <div class="stat-fps" id="fps-box">120 FPS</div>
-    </div>
-  </div>
-
-  <div class="sidebar">
-    <div class="sec-head">
-      <span>TELEMETRIA DE EJECUCION</span>
-      <span>2,280 LINEAS</span>
-    </div>
-    <div class="metric-grid">
-      <div class="metric-card"><div class="metric-lbl">NODOS EN PARALELO</div><div class="metric-val" style="color:#10B981">8/8 SUBAGENTES ACTIVOS</div></div>
-<div class="metric-card"><div class="metric-lbl">FLUJO DE PAQUETES</div><div class="metric-val" style="color:#22D3EE">1,420 TOK/s EN VIVO</div></div>
-<div class="metric-card"><div class="metric-lbl">AHORRO DE TOKENS</div><div class="metric-val" style="color:#10B981">-68% (CACHE SEMANTICA)</div></div>
-<div class="metric-card"><div class="metric-lbl">MOTOR GRAFICO NODOS</div><div class="metric-val" style="color:#FB923C">120 FPS · MAGNETIC SNAP</div></div>
-    </div>
-    <div class="sec-head" style="margin-top:4px;">
-      <span>AUDITORIA DE SKILLS ACTIVAS</span>
-      <span id="frame-counter">FRAME 0000</span>
-    </div>
-    <div class="log-box" id="log-box">
-      <div class="log-item" style="color:#D1FAE5">[DAG] Ordenamiento topologico con ejecucion paralela de 8 subagentes en vivo</div>
-<div class="log-item" style="color:#D1FAE5">[OK] Cables Bezier magneticos con flujo de paquetes luminosos a 120 FPS</div>
-<div class="log-item" style="color:#D1FAE5">[OK] Cache de contexto automatica: -68% de consumo de tokens en el flujo</div>
-    </div>
-    <div class="btn-row">
-      <button class="ctrl-btn active" id="btn-mode1" onclick="setMode(0)">MODO 1: INTERACTIVO</button>
-      <button class="ctrl-btn" id="btn-mode2" onclick="setMode(1)">MODO 2: ESTRES / PULSO</button>
-      <button class="ctrl-btn" id="btn-burst" onclick="triggerBurst()">IMPULSO</button>
-    </div>
-  </div>
-
-  <div class="error-drawer">
-    <div class="err-title">
-      <span>CONSOLA SIN VERIFICAR (FALTA SKILL AUTO-DEBUGGER & ARQUITECTO 120FPS)</span>
-      <span>STATUS: DEGRADED (120 FPS)</span>
-    </div>
-    <div class="err-line">[GRAPH] Bezier spline anchor NaN when dragging node #3 (port offset lost)</div>
-<div class="err-line">[PIPE] Sequential execution bottleneck: waiting 28s on single blocking worker</div>
-<div class="err-line">[EXPORT] Circular dependency not detected -> JSON serialize stack overflow</div>
-  </div>
-
-  <div class="super-banner">
-    <div>
-      <div style="font-size:12px; font-weight:800; color:#10B981; letter-spacing:1.5px;">
-        MIXIUH SUPERPOWERS KIT v1.0 ACTIVO · CLAUDE.MD + MEMORY.MD + 5 SKILLS
+  <!-- TOPBAR: BRAND, PRESETS & REAL-TIME DAG/GPU TELEMETRY -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+          <line x1="12" y1="22" x2="12" y2="15.5"></line>
+          <polyline points="22 8.5 12 15.5 2 8.5"></polyline>
+          <polyline points="2 15.5 12 8.5 22 15.5"></polyline>
+          <line x1="12" y1="2" x2="12" y2="8.5"></line>
+        </svg>
       </div>
-      <div style="font-size:16px; font-weight:900; color:#FFFFFF; margin-top:3px;">
-        GRAFO DAG PARALELO · CABLES MAGNETICOS 120 FPS
+      <div>
+        <div class="brand-title">NEXUS <span class="tag">v4.2 DAG+GLSL</span></div>
+        <div class="brand-sub">NODE SHADER &amp; DSP STUDIO // RAYMARCHING 3D</div>
       </div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:12px; color:#5EEAD4; font-weight:800;">VERIFICADO CON CHROME DEVTOOLS MCP</div>
-      <div style="font-size:18px; font-weight:900; color:#10B981;">120.0 FPS · 0 ERRORES · -75% COSTO</div>
+
+    <nav class="preset-bar" aria-label="Presets y Acciones del Grafo">
+      <button id="btnPreset1" class="btn preset-1 active" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/></svg>
+        1. Agujero de Gusano Raymarching
+      </button>
+      <button id="btnPreset2" class="btn preset-2" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 19 8 16 20 8 20 5 8 12 2"/><path d="M12 2v18M5 8h14"/></svg>
+        2. Fractal Ciber-Cristal 4D
+      </button>
+      <button id="btnPreset3" class="btn preset-3" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h3l3-8 4 16 4-12 3 4h3"/></svg>
+        3. Pulso Audio-Reactivo Synth
+      </button>
+      <button id="btnAutoLayout" class="btn action-layout" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v3h12V9M12 12v3"/></svg>
+        Auto-Ordenar Grafo (Layout)
+      </button>
+      <button id="btnMutate" class="btn action-mutate" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Inyectar Mutación Procedural
+      </button>
+      <button id="btnAudioToggle" class="btn action-audio" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        <span id="audioBtnLabel">DSP SYNTH: AUTO</span>
+      </button>
+    </nav>
+
+    <div class="telemetry-bar">
+      <div class="metric-pill">
+        <span class="metric-label">SHADER FPS</span>
+        <span id="hudFps" class="metric-val ok">60 FPS</span>
+      </div>
+      <div class="metric-pill">
+        <span class="metric-label">DAG EVAL</span>
+        <span id="hudDagMs" class="metric-val">0.08 ms</span>
+      </div>
+      <div class="metric-pill">
+        <span class="metric-label">NODOS / CABLES</span>
+        <span id="hudNodesCables" class="metric-val">7 / 6</span>
+      </div>
     </div>
-  </div>
-</div>
+  </header>
 
-<script>
-const CHALLENGE_NUM = 5;
-const IS_SUPER = true;
-const TARGET_FPS = 120;
-const ACCENT = "#FB923C";
+  <!-- MAIN WORKSPACE -->
+  <main class="workspace">
+    <!-- LEFT: INFINITE NODE GRAPH CANVAS -->
+    <section id="graphPane" class="graph-pane" aria-label="Editor de Nodos DAG">
+      <!-- Quick Node Spawner Toolbar -->
+      <div class="graph-toolbar">
+        <button class="spawn-btn" data-spawn="LFO_TIME" type="button">
+          <span class="spawn-dot" style="background:var(--cyan)"></span>+ LFO / Tiempo
+        </button>
+        <button class="spawn-btn" data-spawn="AUDIO_FFT" type="button">
+          <span class="spawn-dot" style="background:var(--amber)"></span>+ Audio FFT / Synth
+        </button>
+        <button class="spawn-btn" data-spawn="SIMPLEX_4D" type="button">
+          <span class="spawn-dot" style="background:var(--violet)"></span>+ Ruido Simplex 4D
+        </button>
+        <button class="spawn-btn" data-spawn="SDF_GEOM" type="button">
+          <span class="spawn-dot" style="background:var(--emerald)"></span>+ Geometría SDF
+        </button>
+        <button class="spawn-btn" data-spawn="SDF_OP" type="button">
+          <span class="spawn-dot" style="background:var(--orange)"></span>+ Operador / Twist / Rep
+        </button>
+        <button class="spawn-btn" data-spawn="COSINE_PAL" type="button">
+          <span class="spawn-dot" style="background:var(--magenta)"></span>+ Paleta Coseno
+        </button>
+        <button id="btnResetView" class="spawn-btn" type="button" title="Centrar Vista">
+          Centrar Zoom (100%)
+        </button>
+      </div>
 
-const canvas = document.getElementById("sim");
-const ctx = canvas.getContext("2d");
-let simTime = 0;
-let frameNum = 0;
-let curMode = 0;
-let burstTimer = 0;
-let pointer = { x: 680, y: 540, down: false };
+      <!-- Cycle Detection Alert -->
+      <div id="dagAlert" class="dag-alert">CICLO DETECTADO EN EL GRAFO DAG: CONEXIÓN RECHAZADA</div>
 
-function setMode(m) {
-  curMode = m;
-  document.getElementById("btn-mode1").classList.toggle("active", m === 0);
-  document.getElementById("btn-mode2").classList.toggle("active", m === 1);
-  triggerBurst();
-}
-function triggerBurst() { burstTimer = 1.0; }
+      <!-- Canvas 2D for Infinite Grid + Animated Bezier Cables + Signal Pulses -->
+      <canvas id="graphCanvas"></canvas>
 
-window.addEventListener("mousemove", (e) => {
-  const r = canvas.getBoundingClientRect();
-  pointer.x = (e.clientX - r.left) * (1920 / r.width);
-  pointer.y = (e.clientY - r.top) * (1080 / r.height);
-});
-window.addEventListener("mousedown", () => { pointer.down = true; triggerBurst(); });
-window.addEventListener("mouseup", () => { pointer.down = false; });
+      <!-- DOM World for Interactive Node Cards -->
+      <div id="nodeWorld"></div>
 
-// Pre-seeded deterministic PRNG
-let seed = 1337 + CHALLENGE_NUM * 97;
-function rand() {
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967296;
-}
+      <!-- Bottom Topological Evaluation Order Bar -->
+      <div class="topo-banner">
+        <span style="color:var(--text-muted);font-weight:700;">ORDEN TOPOLÓGICO DAG:</span>
+        <div id="topoChain" class="topo-chain"></div>
+        <span id="zoomBadge" style="color:var(--cyan);font-weight:700;">ZOOM: 100%</span>
+      </div>
+    </section>
 
-// Pre-allocated state for the 6 challenges
-const STARS = [];
-for (let i = 0; i < (IS_SUPER ? 3200 : 520); i++) {
-  const arm = i % 3;
-  const dist = 45 + Math.pow(rand(), 0.72) * 430;
-  const ang = (i / (IS_SUPER ? 3200 : 520)) * Math.PI * 12 + (arm * Math.PI * 2 / 3) + (rand() - 0.5) * 0.45;
-  STARS.push({
-    r: dist,
-    a: ang,
-    spd: (180 / (dist + 35)) * (0.85 + rand() * 0.3),
-    z: (rand() - 0.5) * 80,
-    sz: 1.2 + rand() * (IS_SUPER ? 2.6 : 1.5),
-    hue: arm === 0 ? "#22D3EE" : (arm === 1 ? "#A78BFA" : "#F472B6")
-  });
-}
+    <!-- RIGHT: REAL-TIME 3D WEBGL RAYMARCHING VIEWPORT + GLSL COMPILER CONSOLE -->
+    <aside id="rightPane" class="right-pane">
+      <div class="viewport-container">
+        <canvas id="glCanvas"></canvas>
 
-const CANDLES = [];
-let price = 96400;
-for (let i = 0; i < 48; i++) {
-  const o = price;
-  const c = o + (rand() - 0.46) * 420;
-  const h = Math.max(o, c) + rand() * 220;
-  const l = Math.min(o, c) - rand() * 220;
-  price = c;
-  CANDLES.push({ o, c, h, l, v: 40 + rand() * 120 });
-}
+        <div class="viewport-hud">
+          <div class="vp-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            <span id="vpTitle">VIEWPORT 3D // RAYMARCHING SDF + POST-BLOOM</span>
+          </div>
+          <div class="vp-controls">
+            <button id="btnResetCam" class="btn" type="button" title="Reiniciar Cámara 3D">Cam Reset</button>
+            <button id="btnExpandVp" class="btn" type="button" title="Ampliar / Dividir Viewport">Ampliar 3D</button>
+          </div>
+        </div>
 
-function drawGrid() {
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.055)";
-  ctx.lineWidth = 1;
-  const step = 60;
-  for (let x = 0; x < 1920; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke();
-  }
-  for (let y = 0; y < 1080; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke();
-  }
-}
+        <div class="vp-footer-overlay">
+          <span class="vp-pill" id="vpShaderInfo">STEPS: 96 // SDF: MANDELBULB + TORUS // AA: 1x</span>
+          <span class="vp-pill">ARRASTRAR: ÓRBITA 3D // RUEDA: DISTANCIA</span>
+        </div>
+      </div>
 
-function renderChallenge1(t) {
-  // 01: Galaxy N-Body & Black Hole Gravitational Lensing
-  const cx = 710 + Math.sin(t * 0.6) * 35;
-  const cy = 540 + Math.cos(t * 0.5) * 25;
+      <!-- GLSL LIVE COMPILER & DSP TELEMETRY -->
+      <div class="inspector-pane">
+        <div class="inspector-tabs">
+          <div class="compiler-status">
+            <span id="compilerDot" class="status-dot"></span>
+            <span id="compilerStatusText">GLSL COMPILER // OK (0 ERRORES) — PIPELINE ACOPLADO AL DAG</span>
+          </div>
+          <span id="glslCompileTime" style="color:var(--cyan)">COMPILE: 0.34 ms</span>
+        </div>
+        <div class="inspector-body">
+          <pre id="glslCodeBox" class="glsl-code-box"></pre>
+          <div id="dspTelemetryBox" class="dsp-telemetry-box"></div>
+        </div>
+      </div>
+    </aside>
+  </main>
 
-  if (IS_SUPER) {
-    // Einstein Gravitational Lensing Ring + Relativistic Accretion Halo
-    const grad = ctx.createRadialGradient(cx, cy, 24, cx, cy, 380);
-    grad.addColorStop(0, "#000000");
-    grad.addColorStop(0.11, "#000000");
-    grad.addColorStop(0.14, "#FFF4C2");
-    grad.addColorStop(0.24, "rgba(34, 211, 238, 0.65)");
-    grad.addColorStop(0.48, "rgba(167, 139, 250, 0.25)");
-    grad.addColorStop(1, "rgba(5, 9, 18, 0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 380, 0, Math.PI * 2); ctx.fill();
-  }
+  <!-- STATUSBAR -->
+  <footer class="statusbar">
+    <div class="legend-list">
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--cyan)"></span>Puerto Float / LFO</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--magenta)"></span>Puerto Vec3 / Color</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--emerald)"></span>Puerto SDF Geometry</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--amber)"></span>Puerto Audio FFT / Synth</div>
+    </div>
+    <div>ARRASTRA DE SALIDA (DERECHA) A ENTRADA (IZQUIERDA) PARA CONECTAR // CLIC EN ENTRADA CONECTADA PARA DESCONECTAR</div>
+  </footer>
 
-  for (let i = 0; i < STARS.length; i++) {
-    const s = STARS[i];
-    const a = s.a + t * s.spd * (IS_SUPER ? 1.0 : 0.35) * (1 + curMode * 0.6);
-    const r = s.r * (1.0 + 0.08 * Math.sin(t * 2.0 + i * 0.01) + burstTimer * 0.18);
-    const x = cx + Math.cos(a) * r;
-    const y = cy + Math.sin(a) * r * (IS_SUPER ? 0.68 : 0.85) + (IS_SUPER ? Math.sin(a * 2) * 18 : 0);
-    ctx.fillStyle = IS_SUPER ? s.hue : (i % 5 === 0 ? "#F43F5E" : "#8FA3B8");
-    ctx.fillRect(x, y, s.sz, s.sz);
-  }
+  <script>
+  (() => {
+    'use strict';
 
-  // Event Horizon Core
-  ctx.fillStyle = "#020408";
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 48 : 34, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 4 : 2;
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 52 + Math.sin(t * 8) * 3 : 36, 0, Math.PI * 2); ctx.stroke();
+    // =========================================================================
+    // 1. PORT TYPES & NODE CATALOG DEFINITIONS
+    // =========================================================================
+    const PORT_COLORS = {
+      float: '#22d3ee',
+      vec3:  '#f472b6',
+      sdf:   '#10b981',
+      audio: '#fbbf24'
+    };
 
-  if (IS_SUPER) {
-    // Relativistic Jets
-    ctx.strokeStyle = "rgba(34, 211, 238, 0.55)";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 52); ctx.lineTo(cx - 40 * Math.sin(t * 3), cy - 360);
-    ctx.moveTo(cx, cy + 52); ctx.lineTo(cx + 40 * Math.sin(t * 3), cy + 360);
-    ctx.stroke();
-  } else {
-    // Stutter / GC Freeze indicator on canvas
-    if (Math.floor(t * 4) % 2 === 0) {
-      ctx.strokeStyle = "#F43F5E";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(120, 140, 1180, 740);
-      ctx.fillStyle = "rgba(244, 63, 94, 0.16)";
-      ctx.fillRect(120, 140, 1180, 54);
-      ctx.fillStyle = "#FF8FA3";
-      ctx.font = "900 22px monospace";
-      ctx.fillText("ALERTA GC: 50,000 OBJETOS RE-CREADOS EN MEMORIA -> CAIDA A 19 FPS", 145, 175);
+    // Type compatibility matrix: exact match or float->vec3 / audio->float coercion
+    function areTypesCompatible(outType, inType) {
+      if (outType === inType) return true;
+      if (outType === 'float' && inType === 'vec3') return true;
+      if (outType === 'audio' && inType === 'float') return true;
+      return false;
     }
-  }
-}
 
-function renderChallenge2(t) {
-  // 02: 3D Algorithmic Trading Terminal & OrderBook Depth
-  const x0 = 70, y0 = 125, w = 1340, h = 790;
-  ctx.fillStyle = "rgba(7, 14, 26, 0.85)";
-  ctx.fillRect(x0, y0, w, h);
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x0, y0, w, h);
+    const NODE_CATALOG = {
+      LFO_TIME: {
+        title: 'Generador LFO / Tiempo',
+        shortName: 'LFO',
+        headerBg: 'linear-gradient(90deg, rgba(34,211,238,0.28), rgba(15,23,42,0.9))',
+        accent: '#22d3ee',
+        inputs: [
+          { id: 'fm', label: 'FM Mod', type: 'float' }
+        ],
+        outputs: [
+          { id: 'out', label: 'Señal LFO', type: 'float' }
+        ],
+        controls: [
+          { key: 'waveform', label: 'Onda', type: 'select', options: ['0: Seno Armónico', '1: Diente Sierra', '2: Triángulo', '3: Pulso Cuántico'], default: 0 },
+          { key: 'freq', label: 'Frecuencia (Hz)', type: 'range', min: 0.1, max: 6.0, step: 0.05, default: 1.2 },
+          { key: 'amp', label: 'Amplitud', type: 'range', min: 0.0, max: 2.0, step: 0.05, default: 1.0 },
+          { key: 'phase', label: 'Fase (Rad)', type: 'range', min: 0.0, max: 6.28, step: 0.05, default: 0.0 }
+        ]
+      },
+      AUDIO_FFT: {
+        title: 'Analizador Audio FFT / Synth',
+        shortName: 'FFT_SYNTH',
+        headerBg: 'linear-gradient(90deg, rgba(251,191,36,0.28), rgba(15,23,42,0.9))',
+        accent: '#fbbf24',
+        inputs: [
+          { id: 'pitchMod', label: 'Pitch Mod', type: 'float' }
+        ],
+        outputs: [
+          { id: 'fft', label: 'Espectro FFT', type: 'audio' },
+          { id: 'bass', label: 'Pulso Sub-Grave', type: 'float' }
+        ],
+        controls: [
+          { key: 'synthMode', label: 'Patrón Synth', type: 'select', options: ['0: Cyber Bass Arp', '1: Quantum Drone', '2: Acid Resonance'], default: 0 },
+          { key: 'bpm', label: 'Tempo (BPM)', type: 'range', min: 70, max: 175, step: 1, default: 128 },
+          { key: 'cutoff', label: 'Filtro Cutoff (Hz)', type: 'range', min: 150, max: 4800, step: 25, default: 1550 },
+          { key: 'gain', label: 'Drive Reactivo', type: 'range', min: 0.1, max: 2.5, step: 0.05, default: 1.25 }
+        ]
+      },
+      SIMPLEX_4D: {
+        title: 'Ruido Fractal Simplex 4D',
+        shortName: 'SIMPLEX_4D',
+        headerBg: 'linear-gradient(90deg, rgba(167,139,250,0.3), rgba(15,23,42,0.9))',
+        accent: '#a78bfa',
+        inputs: [
+          { id: 'timeIn', label: 'Fase 4D (W)', type: 'float' }
+        ],
+        outputs: [
+          { id: 'warp', label: 'Vector Warp', type: 'vec3' },
+          { id: 'field', label: 'Escalar FBM', type: 'float' }
+        ],
+        controls: [
+          { key: 'scale', label: 'Escala Espacial', type: 'range', min: 0.2, max: 5.0, step: 0.05, default: 1.75 },
+          { key: 'octaves', label: 'Octavas FBM', type: 'range', min: 1, max: 5, step: 1, default: 3 },
+          { key: 'lacunarity', label: 'Lacunaridad', type: 'range', min: 1.2, max: 3.5, step: 0.05, default: 2.0 },
+          { key: 'warpAmp', label: 'Intensidad Warp', type: 'range', min: 0.0, max: 2.5, step: 0.05, default: 0.85 }
+        ]
+      },
+      SDF_GEOM: {
+        title: 'Geometría SDF (Fractal / 3D)',
+        shortName: 'SDF_GEOM',
+        headerBg: 'linear-gradient(90deg, rgba(16,185,129,0.28), rgba(15,23,42,0.9))',
+        accent: '#10b981',
+        inputs: [
+          { id: 'morphIn', label: 'Mod Morph', type: 'float' },
+          { id: 'warpIn', label: 'Domain Warp', type: 'vec3' }
+        ],
+        outputs: [
+          { id: 'sdf', label: 'Campo SDF', type: 'sdf' }
+        ],
+        controls: [
+          { key: 'shape', label: 'Primitiva SDF', type: 'select', options: ['0: Toroide Cuántico', '1: Octaedro Ciber-Cristal', '2: Fractal Mandelbulb 4D', '3: Giroide Metamaterial'], default: 0 },
+          { key: 'power', label: 'Potencia / Orden', type: 'range', min: 2.0, max: 12.0, step: 0.2, default: 8.0 },
+          { key: 'radius', label: 'Escala / Radio', type: 'range', min: 0.35, max: 1.8, step: 0.02, default: 0.95 },
+          { key: 'morph', label: 'Factor Morph', type: 'range', min: 0.0, max: 1.5, step: 0.02, default: 0.35 }
+        ]
+      },
+      SDF_OP: {
+        title: 'Operador / Twist / Repetición',
+        shortName: 'SDF_OP',
+        headerBg: 'linear-gradient(90deg, rgba(251,146,60,0.3), rgba(15,23,42,0.9))',
+        accent: '#fb923c',
+        inputs: [
+          { id: 'sdfIn', label: 'Entrada SDF', type: 'sdf' },
+          { id: 'modIn', label: 'Mod Torsión', type: 'float' }
+        ],
+        outputs: [
+          { id: 'sdfOut', label: 'SDF Procesado', type: 'sdf' }
+        ],
+        controls: [
+          { key: 'opMode', label: 'Operación Espacial', type: 'select', options: ['0: Twist + Plegamiento', '1: Repetición Infinita (Túnel)', '2: Caleidoscopio KIFS 4D', '3: Unión Booleana Suave'], default: 1 },
+          { key: 'twist', label: 'Torsión (Twist)', type: 'range', min: -4.0, max: 4.0, step: 0.05, default: 1.35 },
+          { key: 'repeat', label: 'Período Repetición', type: 'range', min: 0.0, max: 6.0, step: 0.1, default: 3.4 },
+          { key: 'smoothK', label: 'Fusión Suave (K)', type: 'range', min: 0.05, max: 1.2, step: 0.02, default: 0.35 }
+        ]
+      },
+      COSINE_PAL: {
+        title: 'Paleta Espectral Coseno',
+        shortName: 'PALETTE',
+        headerBg: 'linear-gradient(90deg, rgba(244,114,182,0.3), rgba(15,23,42,0.9))',
+        accent: '#f472b6',
+        inputs: [
+          { id: 'shiftIn', label: 'Fase Color', type: 'float' },
+          { id: 'tintIn', label: 'Modulación RGB', type: 'vec3' }
+        ],
+        outputs: [
+          { id: 'colorOut', label: 'Espectro RGB', type: 'vec3' }
+        ],
+        controls: [
+          { key: 'presetPal', label: 'Espectro Base', type: 'select', options: ['0: Ciber-Neón (Cyan/Magenta)', '1: Plasma Solar (Oro/Violeta)', '2: Bioluminiscente (Esmeralda)', '3: Cristal Iridiscente'], default: 0 },
+          { key: 'cycle', label: 'Frecuencia Ciclos', type: 'range', min: 0.2, max: 4.0, step: 0.05, default: 1.2 },
+          { key: 'iridescence', label: 'Iridiscencia Fresnel', type: 'range', min: 0.0, max: 2.0, step: 0.05, default: 1.15 },
+          { key: 'specular', label: 'Brillo Especular', type: 'range', min: 0.1, max: 2.5, step: 0.05, default: 1.45 }
+        ]
+      },
+      MASTER_OUT: {
+        title: 'Master Output WebGL + Bloom',
+        shortName: 'MASTER_OUT',
+        headerBg: 'linear-gradient(90deg, rgba(56,189,248,0.38), rgba(16,185,129,0.28))',
+        accent: '#38bdf8',
+        undeletable: true,
+        inputs: [
+          { id: 'sdf', label: 'SDF Geometry', type: 'sdf' },
+          { id: 'color', label: 'Paleta / Material', type: 'vec3' },
+          { id: 'mod', label: 'Desplazamiento', type: 'float' },
+          { id: 'audio', label: 'Audio FFT Sync', type: 'audio' }
+        ],
+        outputs: [],
+        controls: [
+          { key: 'bloom', label: 'Post-Bloom Neón', type: 'range', min: 0.0, max: 2.5, step: 0.05, default: 1.3 },
+          { key: 'chromatic', label: 'Aberración Cromática', type: 'range', min: 0.0, max: 1.5, step: 0.02, default: 0.45 },
+          { key: 'tunnelSpeed', label: 'Velocidad Vuelo 3D', type: 'range', min: 0.0, max: 4.0, step: 0.05, default: 1.25 },
+          { key: 'exposure', label: 'Exposición HDR', type: 'range', min: 0.4, max: 2.2, step: 0.05, default: 1.15 }
+        ]
+      }
+    };
 
-  // Candlestick chart
-  const cw = 20;
-  for (let i = 0; i < CANDLES.length; i++) {
-    const c = CANDLES[i];
-    const wave = Math.sin(t * 3.2 + i * 0.28) * (IS_SUPER ? 180 : 60);
-    const open = c.o + wave;
-    const close = c.c + wave + (i === CANDLES.length - 1 ? Math.sin(t * 9) * 260 : 0);
-    const high = Math.max(open, close) + 140;
-    const low = Math.min(open, close) - 140;
-    const bull = close >= open;
-    const cx = x0 + 48 + i * 26;
-    const mapY = (v) => y0 + 460 - ((v - 95800) / 2600) * 320;
-    ctx.strokeStyle = bull ? "#10B981" : "#F43F5E";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx, mapY(high)); ctx.lineTo(cx, mapY(low)); ctx.stroke();
-    ctx.fillStyle = bull ? "#10B981" : "#F43F5E";
-    const topY = mapY(Math.max(open, close));
-    const botY = mapY(Math.min(open, close));
-    ctx.fillRect(cx - 8, topY, 16, Math.max(4, botY - topY));
-  }
+    // =========================================================================
+    // 2. REAL-TIME WEB AUDIO SYNTHESIZER & FFT SPECTRUM ENGINE (ZERO-GC)
+    // =========================================================================
+    const fftBins = new Uint8Array(64);
+    const waveBins = new Uint8Array(64);
 
-  if (IS_SUPER) {
-    // 3D Volumetric Orderbook Depth canyon at bottom of chart
-    ctx.beginPath();
-    ctx.moveTo(x0 + 40, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 40 + i * 25;
-      const py = y0 + 620 - Math.pow(24 - i, 1.35) * 2.1 - Math.sin(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
+    const audioEngine = {
+      ctx: null,
+      analyser: null,
+      osc1: null,
+      osc2: null,
+      subOsc: null,
+      filter: null,
+      gainNode: null,
+      masterGain: null,
+      isPlaying: false,
+      lastNoteStep: -1,
+      bass: 0.35,
+      mid: 0.25,
+      high: 0.2,
+      energy: 0.3,
+
+      toggleLiveAudio() {
+        const btn = document.getElementById('btnAudioToggle');
+        const label = document.getElementById('audioBtnLabel');
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+          this.analyser = this.ctx.createAnalyser();
+          this.analyser.fftSize = 128;
+          this.analyser.smoothingTimeConstant = 0.78;
+
+          this.filter = this.ctx.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.value = 1400;
+          this.filter.Q.value = 6.5;
+
+          this.gainNode = this.ctx.createGain();
+          this.gainNode.gain.value = 0.001;
+
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = 0.22;
+
+          this.osc1 = this.ctx.createOscillator();
+          this.osc1.type = 'sawtooth';
+          this.osc1.frequency.value = 110;
+
+          this.osc2 = this.ctx.createOscillator();
+          this.osc2.type = 'square';
+          this.osc2.frequency.value = 110.8;
+
+          this.subOsc = this.ctx.createOscillator();
+          this.subOsc.type = 'sine';
+          this.subOsc.frequency.value = 55;
+
+          this.osc1.connect(this.filter);
+          this.osc2.connect(this.filter);
+          this.subOsc.connect(this.filter);
+          this.filter.connect(this.gainNode);
+          this.gainNode.connect(this.masterGain);
+          this.masterGain.connect(this.analyser);
+          this.analyser.connect(this.ctx.destination);
+
+          this.osc1.start();
+          this.osc2.start();
+          this.subOsc.start();
+          this.isPlaying = true;
+        } else if (this.isPlaying) {
+          this.isPlaying = false;
+          if (this.masterGain && this.ctx) {
+            this.masterGain.gain.setTargetAtTime(0.0, this.ctx.currentTime, 0.04);
+          }
+        } else {
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          this.isPlaying = true;
+          if (this.masterGain && this.ctx) {
+            this.masterGain.gain.setTargetAtTime(0.22, this.ctx.currentTime, 0.04);
+          }
+        }
+
+        if (this.isPlaying) {
+          btn.classList.add('playing');
+          label.textContent = 'DSP SYNTH: EN VIVO';
+        } else {
+          btn.classList.remove('playing');
+          label.textContent = 'DSP SYNTH: AUTO';
+        }
+      },
+
+      update(time, bpm, cutoff, drive, synthMode, pitchMod) {
+        const beatFreq = (bpm || 128) / 60.0;
+        const stepFloat = time * beatFreq * 4.0; // 16th notes
+        const stepIndex = Math.floor(stepFloat);
+        const stepFrac = stepFloat - stepIndex;
+        const env = Math.exp(-stepFrac * 4.2);
+
+        if (this.isPlaying && this.ctx && this.analyser) {
+          const now = this.ctx.currentTime;
+          if (stepIndex !== this.lastNoteStep) {
+            this.lastNoteStep = stepIndex;
+            const scale0 = [55, 55, 65.41, 73.42, 82.41, 55, 98.0, 82.41];
+            const scale1 = [49.0, 73.42, 55.0, 82.41, 65.41, 98.0, 73.42, 110.0];
+            const scale2 = [55, 110, 55, 130.8, 65.41, 110, 82.41, 164.8];
+            const activeScale = synthMode === 1 ? scale1 : (synthMode === 2 ? scale2 : scale0);
+            const baseFreq = activeScale[stepIndex % activeScale.length] * (1.0 + pitchMod * 0.15);
+
+            this.osc1.frequency.setTargetAtTime(baseFreq, now, 0.012);
+            this.osc2.frequency.setTargetAtTime(baseFreq * (synthMode === 1 ? 1.5 : 1.006), now, 0.012);
+            this.subOsc.frequency.setTargetAtTime(baseFreq * 0.5, now, 0.012);
+
+            this.gainNode.gain.cancelScheduledValues(now);
+            this.gainNode.gain.setValueAtTime(0.05, now);
+            this.gainNode.gain.linearRampToValueAtTime(Math.min(0.95, 0.45 * drive), now + 0.015);
+            this.gainNode.gain.exponentialRampToValueAtTime(0.04, now + (0.22 / beatFreq));
+          }
+
+          const targetCutoff = Math.max(120, Math.min(7000, cutoff + env * 1600 * drive));
+          this.filter.frequency.setTargetAtTime(targetCutoff, now, 0.02);
+
+          this.analyser.getByteFrequencyData(fftBins);
+          this.analyser.getByteTimeDomainData(waveBins);
+
+          let bSum = 0, mSum = 0, hSum = 0;
+          for (let i = 0; i < 8; i++) bSum += fftBins[i];
+          for (let i = 8; i < 28; i++) mSum += fftBins[i];
+          for (let i = 28; i < 64; i++) hSum += fftBins[i];
+
+          this.bass = (bSum / (8 * 255)) * drive;
+          this.mid  = (mSum / (20 * 255)) * drive;
+          this.high = (hSum / (36 * 255)) * drive;
+        } else {
+          // Procedural harmonic DSP spectrum when WebAudio speaker output is muted/auto
+          const kickPulse = Math.pow(Math.max(0, Math.cos((stepFloat * 0.25) * Math.PI * 2)), 6.0);
+          const arpPulse = env * (0.6 + 0.4 * Math.sin(stepIndex * 1.7 + pitchMod));
+          for (let i = 0; i < 64; i++) {
+            const norm = i / 64;
+            const sub = Math.exp(-norm * 6.5) * (0.55 + 0.45 * kickPulse);
+            const formant = Math.exp(-Math.pow((norm - (cutoff / 5000)), 2) * 28.0) * arpPulse;
+            const shimmer = Math.abs(Math.sin(i * 0.65 - time * 8.0)) * 0.22 * env;
+            const val = Math.min(255, Math.max(4, Math.floor((sub + formant + shimmer) * 195 * drive)));
+            fftBins[i] = val;
+            waveBins[i] = Math.floor(128 + Math.sin(i * 0.35 + time * 14.0) * 58 * (sub + formant * 0.5));
+          }
+          this.bass = (0.35 + 0.65 * kickPulse) * drive;
+          this.mid  = (0.25 + 0.55 * arpPulse) * drive;
+          this.high = (0.18 + 0.45 * Math.abs(Math.sin(time * 5.0))) * drive;
+        }
+        this.energy = (this.bass * 0.5 + this.mid * 0.35 + this.high * 0.15);
+      }
+    };
+
+    // =========================================================================
+    // 3. DIRECTED ACYCLIC GRAPH (DAG) ENGINE, CYCLE DETECTION & TOPO SORT
+    // =========================================================================
+    const graphPane = document.getElementById('graphPane');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+    const nodeWorld = document.getElementById('nodeWorld');
+    const topoChainEl = document.getElementById('topoChain');
+    const dagAlertEl = document.getElementById('dagAlert');
+
+    let nodes = [];
+    let cables = []; // { id, fromNode, fromPort, toNode, toPort, type }
+    let topoOrder = [];
+    let nodeIdCounter = 1;
+    let cableIdCounter = 1;
+    let alertTimer = null;
+
+    // Infinite canvas pan & zoom state
+    const view = {
+      x: 24,
+      y: 52,
+      zoom: 1.0,
+      isPanning: false,
+      panStartX: 0,
+      panStartY: 0
+    };
+
+    function updateWorldTransform() {
+      nodeWorld.style.transform = `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.zoom})`;
+      document.getElementById('zoomBadge').textContent = `ZOOM: ${Math.round(view.zoom * 100)}%`;
     }
-    ctx.lineTo(x0 + 640, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(16, 185, 129, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#10B981"; ctx.lineWidth = 3; ctx.stroke();
 
-    ctx.beginPath();
-    ctx.moveTo(x0 + 680, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 680 + i * 25;
-      const py = y0 + 620 - Math.pow(i, 1.35) * 2.1 - Math.cos(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
+    function showDagAlert(msg) {
+      dagAlertEl.textContent = msg;
+      dagAlertEl.classList.add('visible');
+      if (alertTimer) clearTimeout(alertTimer);
+      alertTimer = setTimeout(() => dagAlertEl.classList.remove('visible'), 2400);
     }
-    ctx.lineTo(x0 + 1280, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(244, 63, 94, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3; ctx.stroke();
-  } else {
-    // Broken overlapping cards & NaN ticker in Vanilla mode
-    ctx.fillStyle = "rgba(244, 63, 94, 0.22)";
-    ctx.fillRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3;
-    ctx.strokeRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "900 46px monospace";
-    ctx.fillText("BTC/USDT: $NaN (VWAP UNDEFINED)", x0 + 300, y0 + 275);
-    ctx.fillStyle = "#FF8FA3";
-    ctx.font = "700 22px monospace";
-    ctx.fillText("Uncaught TypeError: orderBook.bids[0].vwap is undefined", x0 + 300, y0 + 335);
-  }
-}
 
-function renderChallenge3(t) {
-  // 03: Cyberpunk Bullet-Hell Boss Rush
-  const bx = 720 + Math.sin(t * 1.5) * 220;
-  const by = 290 + Math.cos(t * 2.2) * 45;
-  const px = 720 + Math.cos(t * 2.4) * 290;
-  const py = 770 + Math.sin(t * 3.1) * 35;
-
-  // Bullet-Hell Spiral Curtains
-  const rings = IS_SUPER ? 72 : 18;
-  for (let i = 0; i < rings; i++) {
-    const ang = (i / rings) * Math.PI * 2 + t * (IS_SUPER ? 1.8 : 0.5);
-    const waveR = ((t * 220 + (i % 6) * 95) % 560);
-    const x = bx + Math.cos(ang) * waveR;
-    const y = by + Math.sin(ang) * waveR;
-    ctx.fillStyle = i % 2 === 0 ? "#F472B6" : "#22D3EE";
-    ctx.beginPath(); ctx.arc(x, y, IS_SUPER ? 6.5 : 5, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // Boss Mech Core
-  ctx.fillStyle = IS_SUPER ? "#F472B6" : "#64748B";
-  ctx.beginPath(); ctx.arc(bx, by, 68, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.stroke();
-
-  // Player Ship + Laser Stream
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "rgba(244,63,94,0.4)";
-  ctx.lineWidth = IS_SUPER ? 6 : 2;
-  ctx.beginPath(); ctx.moveTo(px, py - 24); ctx.lineTo(IS_SUPER ? bx : px, by + 60); ctx.stroke();
-
-  ctx.fillStyle = "#22D3EE";
-  ctx.beginPath();
-  ctx.moveTo(px, py - 28); ctx.lineTo(px - 24, py + 22); ctx.lineTo(px + 24, py + 22);
-  ctx.closePath(); ctx.fill();
-
-  if (!IS_SUPER) {
-    ctx.fillStyle = "rgba(244, 63, 94, 0.88)";
-    ctx.fillRect(360, 460, 720, 74);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = "900 25px monospace";
-    ctx.fillText("AMNESIA TURNO 2: COLISIONES ROTAS · DAMAGE = 0", 388, 506);
-  }
-}
-
-function renderChallenge4(t) {
-  // 04: Zero-Trust 3D Geodesic Shield vs DDoS/XSS Attack Vectors
-  const cx = 720, cy = 530;
-  const shieldR = 195 + Math.sin(t * 4) * 8;
-
-  // Shield Hexagonal Core
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 5 : 2;
-  ctx.beginPath();
-  for (let i = 0; i <= 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + t * (IS_SUPER ? 0.8 : 0.1);
-    const x = cx + Math.cos(a) * shieldR;
-    const y = cy + Math.sin(a) * shieldR;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-
-  // Incoming Attack Vectors
-  for (let i = 0; i < 36; i++) {
-    const a = (i / 36) * Math.PI * 2 + i * 0.3;
-    const rawD = 540 - ((t * 240 + i * 37) % 520);
-    const blocked = IS_SUPER && rawD <= shieldR + 12;
-    const d = blocked ? shieldR + 12 : rawD;
-    const x = cx + Math.cos(a) * d;
-    const y = cy + Math.sin(a) * d;
-    ctx.fillStyle = blocked ? "#10B981" : "#F43F5E";
-    ctx.beginPath(); ctx.arc(x, y, blocked ? 9 : 6, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-function renderChallenge5(t) {
-  // 05: Visual AI Agent DAG Node Workflow Studio
-  const nodes = [
-    { x: 160, y: 280, title: "PROMPT ROUTER", col: "#22D3EE" },
-    { x: 160, y: 620, title: "MEMORY.MD CACHE", col: "#A78BFA" },
-    { x: 540, y: 220, title: "ARQUITECTO 120FPS", col: "#10B981" },
-    { x: 540, y: 460, title: "BROWSER MCP", col: "#FBBF24" },
-    { x: 540, y: 700, title: "AUDITOR OWASP", col: "#F472B6" },
-    { x: 960, y: 450, title: "DEPLOY 4K60 BUILD", col: "#FB923C" },
-  ];
-  const edges = [[0,2],[0,3],[1,3],[1,4],[2,5],[3,5],[4,5]];
-
-  edges.forEach(([u, v], idx) => {
-    const a = nodes[u], b = nodes[v];
-    const x1 = a.x + 250, y1 = a.y + 52;
-    const x2 = b.x, y2 = b.y + 52 + (IS_SUPER ? 0 : (idx % 2 === 0 ? 130 : -110));
-    ctx.strokeStyle = IS_SUPER ? a.col : "rgba(244,63,94,0.45)";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.bezierCurveTo(x1 + 120, y1, x2 - 120, y2, x2, y2);
-    ctx.stroke();
-
-    if (IS_SUPER) {
-      const p = (t * 0.9 + idx * 0.17) % 1;
-      const px = (1 - p) * x1 + p * x2;
-      const py = (1 - p) * y1 + p * y2;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
+    // DFS reachability check: returns true if adding edge (fromId -> toId) creates a cycle
+    function wouldCreateCycle(fromId, toId) {
+      if (fromId === toId) return true;
+      const visited = new Set();
+      const stack = [toId];
+      while (stack.length > 0) {
+        const curr = stack.pop();
+        if (curr === fromId) return true;
+        if (visited.has(curr)) continue;
+        visited.add(curr);
+        for (let i = 0; i < cables.length; i++) {
+          const c = cables[i];
+          if (c.fromNode === curr && !visited.has(c.toNode)) {
+            stack.push(c.toNode);
+          }
+        }
+      }
+      return false;
     }
-  });
 
-  nodes.forEach((n, idx) => {
-    const dy = Math.sin(t * 2.2 + idx) * (IS_SUPER ? 8 : 0);
-    ctx.fillStyle = "rgba(10, 19, 34, 0.95)";
-    ctx.strokeStyle = IS_SUPER ? n.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.fillRect(n.x, n.y + dy, 250, 104);
-    ctx.strokeRect(n.x, n.y + dy, 250, 104);
-    ctx.fillStyle = n.col;
-    ctx.font = "900 15px monospace";
-    ctx.fillText(n.title, n.x + 16, n.y + dy + 34);
-    ctx.fillStyle = "#E2E8F0";
-    ctx.font = "700 13px monospace";
-    ctx.fillText(IS_SUPER ? "STATUS: PARALLEL 120FPS" : "STATUS: TIMEOUT / BROKEN", n.x + 16, n.y + dy + 68);
-  });
-}
+    // Kahn's Algorithm for live topological ordering
+    function computeTopologicalSort() {
+      const inDegree = new Map();
+      const adj = new Map();
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        inDegree.set(n.id, 0);
+        adj.set(n.id, []);
+      }
+      for (let i = 0; i < cables.length; i++) {
+        const c = cables[i];
+        if (adj.has(c.fromNode) && inDegree.has(c.toNode)) {
+          adj.get(c.fromNode).push(c.toNode);
+          inDegree.set(c.toNode, inDegree.get(c.toNode) + 1);
+        }
+      }
 
-function renderChallenge6(t) {
-  // 06: MixiuhOS Desktop (4 simultaneous live mini-windows)
-  const wins = [
-    { x: 80, y: 120, w: 620, h: 370, title: "01 · SHADER CORE 3D (120 FPS)", col: "#22D3EE" },
-    { x: 730, y: 120, w: 660, h: 370, title: "02 · TERMINAL MIXIUH SUPERKIT", col: "#10B981" },
-    { x: 80, y: 515, w: 620, h: 380, title: "03 · SINTETIZADOR FM & ESPECTRO", col: "#F472B6" },
-    { x: 730, y: 515, w: 660, h: 380, title: "04 · MONITOR GPU & MEMORY.MD", col: "#A78BFA" },
-  ];
-  wins.forEach((w, idx) => {
-    const ox = !IS_SUPER && idx === 1 ? -190 : 0;
-    const oy = !IS_SUPER && idx === 1 ? 85 : 0;
-    const wx = w.x + ox, wy = w.y + oy;
-    ctx.fillStyle = "rgba(8, 15, 28, 0.94)";
-    ctx.fillRect(wx, wy, w.w, w.h);
-    ctx.strokeStyle = IS_SUPER ? w.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(wx, wy, w.w, w.h);
-    ctx.fillStyle = IS_SUPER ? "rgba(255,255,255,0.07)" : "rgba(244,63,94,0.22)";
-    ctx.fillRect(wx, wy, w.w, 38);
-    ctx.fillStyle = w.col;
-    ctx.font = "900 14px monospace";
-    ctx.fillText(w.title, wx + 16, wy + 24);
+      const queue = [];
+      inDegree.forEach((deg, id) => {
+        if (deg === 0) queue.push(id);
+      });
 
-    if (idx === 0) {
-      // Rotating 3D Plasma Rings inside Window 1
-      const cx = wx + w.w / 2, cy = wy + 205;
-      for (let r = 25; r <= 125; r += 25) {
-        ctx.strokeStyle = r % 50 === 0 ? "#22D3EE" : "#A78BFA";
-        ctx.lineWidth = 3;
+      const sortedIds = [];
+      while (queue.length > 0) {
+        const u = queue.shift();
+        sortedIds.push(u);
+        const neighbors = adj.get(u);
+        for (let i = 0; i < neighbors.length; i++) {
+          const v = neighbors[i];
+          const nextDeg = inDegree.get(v) - 1;
+          inDegree.set(v, nextDeg);
+          if (nextDeg === 0) queue.push(v);
+        }
+      }
+
+      topoOrder = [];
+      for (let i = 0; i < sortedIds.length; i++) {
+        const nodeObj = nodes.find(n => n.id === sortedIds[i]);
+        if (nodeObj) topoOrder.push(nodeObj);
+      }
+
+      // Render live topological chain in bottom banner
+      topoChainEl.innerHTML = '';
+      for (let i = 0; i < topoOrder.length; i++) {
+        const n = topoOrder[i];
+        const step = document.createElement('span');
+        step.className = 'topo-step';
+        step.style.borderColor = n.def.accent;
+        step.style.color = n.def.accent;
+        step.textContent = `${i + 1}.${n.def.shortName}#${n.id}`;
+        topoChainEl.appendChild(step);
+        if (i < topoOrder.length - 1) {
+          const arr = document.createElement('span');
+          arr.className = 'topo-arrow';
+          arr.textContent = '->';
+          topoChainEl.appendChild(arr);
+        }
+      }
+
+      document.getElementById('hudNodesCables').textContent = `${nodes.length} / ${cables.length}`;
+      updatePortConnectedClasses();
+      updateGLSLCodeDisplay();
+    }
+
+    function updatePortConnectedClasses() {
+      const allSockets = nodeWorld.querySelectorAll('.port-socket');
+      allSockets.forEach(s => s.classList.remove('connected'));
+      for (let i = 0; i < cables.length; i++) {
+        const c = cables[i];
+        const outEl = nodeWorld.querySelector(`.port-socket[data-node="${c.fromNode}"][data-port="${c.fromPort}"][data-dir="out"]`);
+        const inEl  = nodeWorld.querySelector(`.port-socket[data-node="${c.toNode}"][data-port="${c.toPort}"][data-dir="in"]`);
+        if (outEl) outEl.classList.add('connected');
+        if (inEl)  inEl.classList.add('connected');
+      }
+    }
+
+    // =========================================================================
+    // 4. NODE CREATION, DOM CARDS, INTERACTIVE CONTROLS & PORT COORDINATES
+    // =========================================================================
+    function createNode(type, x, y, customParams) {
+      const def = NODE_CATALOG[type];
+      if (!def) return null;
+
+      const id = nodeIdCounter++;
+      const params = {};
+      for (let i = 0; i < def.controls.length; i++) {
+        const ctrl = def.controls[i];
+        params[ctrl.key] = (customParams && customParams[ctrl.key] !== undefined)
+          ? customParams[ctrl.key]
+          : ctrl.default;
+      }
+
+      const node = {
+        id,
+        type,
+        def,
+        x,
+        y,
+        params,
+        outputsData: {
+          out: 0,
+          fft: 0,
+          bass: 0,
+          warp: [0, 0, 0],
+          field: 0,
+          sdf: 1,
+          sdfOut: 1,
+          colorOut: [0.2, 0.8, 1.0]
+        },
+        el: null,
+        previewCanvas: null,
+        previewCtx: null,
+        previewBadge: null,
+        portSockets: {}
+      };
+
+      const card = document.createElement('div');
+      card.className = 'node-card';
+      card.dataset.nodeId = String(id);
+      card.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'node-header';
+      header.style.background = def.headerBg;
+      header.innerHTML = `
+        <div class="node-title-wrap">
+          <span class="spawn-dot" style="background:${def.accent};box-shadow:0 0 6px ${def.accent}"></span>
+          <span>${def.title}</span>
+        </div>
+      `;
+
+      if (!def.undeletable) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'node-del-btn';
+        delBtn.type = 'button';
+        delBtn.title = 'Eliminar Nodo';
+        delBtn.textContent = 'X';
+        delBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+        delBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          removeNode(id);
+        });
+        header.appendChild(delBtn);
+      }
+      card.appendChild(header);
+
+      // Mini-Canvas Live Preview inside Node
+      const prevWrap = document.createElement('div');
+      prevWrap.className = 'node-preview-wrap';
+      const pCanvas = document.createElement('canvas');
+      pCanvas.className = 'node-preview-canvas';
+      pCanvas.width = 206;
+      pCanvas.height = 52;
+      const pBadge = document.createElement('div');
+      pBadge.className = 'node-preview-badge';
+      pBadge.textContent = def.shortName;
+      prevWrap.appendChild(pCanvas);
+      prevWrap.appendChild(pBadge);
+      card.appendChild(prevWrap);
+
+      node.previewCanvas = pCanvas;
+      node.previewCtx = pCanvas.getContext('2d');
+      node.previewBadge = pBadge;
+
+      // Ports container
+      const portsWrap = document.createElement('div');
+      portsWrap.className = 'node-ports';
+
+      const inCol = document.createElement('div');
+      inCol.className = 'ports-col inputs';
+      for (let i = 0; i < def.inputs.length; i++) {
+        const inp = def.inputs[i];
+        const row = document.createElement('div');
+        row.className = 'port-row';
+        const sock = document.createElement('div');
+        sock.className = `port-socket type-${inp.type}`;
+        sock.dataset.node = String(id);
+        sock.dataset.port = inp.id;
+        sock.dataset.dir = 'in';
+        sock.dataset.type = inp.type;
+        sock.title = `Entrada ${inp.label} (${inp.type.toUpperCase()}) - Clic para desconectar`;
+        const lbl = document.createElement('span');
+        lbl.textContent = inp.label;
+        row.appendChild(sock);
+        row.appendChild(lbl);
+        inCol.appendChild(row);
+        node.portSockets[`in:${inp.id}`] = sock;
+      }
+
+      const outCol = document.createElement('div');
+      outCol.className = 'ports-col outputs';
+      for (let i = 0; i < def.outputs.length; i++) {
+        const out = def.outputs[i];
+        const row = document.createElement('div');
+        row.className = 'port-row';
+        const lbl = document.createElement('span');
+        lbl.textContent = out.label;
+        const sock = document.createElement('div');
+        sock.className = `port-socket type-${out.type}`;
+        sock.dataset.node = String(id);
+        sock.dataset.port = out.id;
+        sock.dataset.dir = 'out';
+        sock.dataset.type = out.type;
+        sock.title = `Salida ${out.label} (${out.type.toUpperCase()}) - Arrastra para conectar`;
+        row.appendChild(lbl);
+        row.appendChild(sock);
+        outCol.appendChild(row);
+        node.portSockets[`out:${out.id}`] = sock;
+      }
+
+      portsWrap.appendChild(inCol);
+      portsWrap.appendChild(outCol);
+      card.appendChild(portsWrap);
+
+      // Controls container
+      const ctrlsWrap = document.createElement('div');
+      ctrlsWrap.className = 'node-controls';
+      for (let i = 0; i < def.controls.length; i++) {
+        const ctrl = def.controls[i];
+        const row = document.createElement('div');
+        row.className = 'ctrl-row';
+
+        if (ctrl.type === 'select') {
+          const head = document.createElement('div');
+          head.className = 'ctrl-head';
+          head.innerHTML = `<span>${ctrl.label}</span>`;
+          const sel = document.createElement('select');
+          sel.className = 'ctrl-select';
+          sel.dataset.key = ctrl.key;
+          ctrl.options.forEach((optText, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = optText;
+            if (idx === Number(node.params[ctrl.key])) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('mousedown', (ev) => ev.stopPropagation());
+          sel.addEventListener('change', () => {
+            node.params[ctrl.key] = Number(sel.value);
+            updateGLSLCodeDisplay();
+          });
+          row.appendChild(head);
+          row.appendChild(sel);
+        } else {
+          const valSpan = document.createElement('span');
+          valSpan.className = 'ctrl-val';
+          valSpan.textContent = Number(node.params[ctrl.key]).toFixed(ctrl.step >= 1 ? 0 : 2);
+          const head = document.createElement('div');
+          head.className = 'ctrl-head';
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = ctrl.label;
+          head.appendChild(nameSpan);
+          head.appendChild(valSpan);
+
+          const slider = document.createElement('input');
+          slider.type = 'range';
+          slider.className = 'ctrl-slider';
+          slider.dataset.key = ctrl.key;
+          slider.min = String(ctrl.min);
+          slider.max = String(ctrl.max);
+          slider.step = String(ctrl.step);
+          slider.value = String(node.params[ctrl.key]);
+          slider.addEventListener('mousedown', (ev) => ev.stopPropagation());
+          slider.addEventListener('input', () => {
+            const v = parseFloat(slider.value);
+            node.params[ctrl.key] = v;
+            valSpan.textContent = v.toFixed(ctrl.step >= 1 ? 0 : 2);
+          });
+
+          row.appendChild(head);
+          row.appendChild(slider);
+        }
+        ctrlsWrap.appendChild(row);
+      }
+
+      card.appendChild(ctrlsWrap);
+      nodeWorld.appendChild(card);
+      node.el = card;
+
+      // Dragging node via header
+      header.addEventListener('mousedown', (ev) => {
+        if (ev.button !== 0) return;
+        ev.stopPropagation();
+        selectNode(node.id);
+        const startMouseX = ev.clientX;
+        const startMouseY = ev.clientY;
+        const origX = node.x;
+        const origY = node.y;
+
+        function onMove(mev) {
+          const dx = (mev.clientX - startMouseX) / view.zoom;
+          const dy = (mev.clientY - startMouseY) / view.zoom;
+          node.x = Math.round(origX + dx);
+          node.y = Math.round(origY + dy);
+          node.el.style.transform = `translate3d(${node.x}px, ${node.y}px, 0)`;
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+
+      card.addEventListener('mousedown', () => selectNode(node.id));
+
+      nodes.push(node);
+      computeTopologicalSort();
+      return node;
+    }
+
+    function selectNode(nodeId) {
+      for (let i = 0; i < nodes.length; i++) {
+        nodes[i].el.classList.toggle('selected', nodes[i].id === nodeId);
+      }
+    }
+
+    function removeNode(nodeId) {
+      const idx = nodes.findIndex(n => n.id === nodeId);
+      if (idx === -1 || nodes[idx].def.undeletable) return;
+      const n = nodes[idx];
+      if (n.el && n.el.parentNode) n.el.parentNode.removeChild(n.el);
+      nodes.splice(idx, 1);
+      cables = cables.filter(c => c.fromNode !== nodeId && c.toNode !== nodeId);
+      computeTopologicalSort();
+    }
+
+    function connectNodes(fromNode, fromPort, toNode, toPort) {
+      const srcNode = nodes.find(n => n.id === fromNode);
+      const dstNode = nodes.find(n => n.id === toNode);
+      if (!srcNode || !dstNode) return false;
+
+      const outDef = srcNode.def.outputs.find(o => o.id === fromPort);
+      const inDef  = dstNode.def.inputs.find(inp => inp.id === toPort);
+      if (!outDef || !inDef) return false;
+
+      if (!areTypesCompatible(outDef.type, inDef.type)) {
+        showDagAlert(`TIPOS INCOMPATIBLES: ${outDef.type.toUpperCase()} -> ${inDef.type.toUpperCase()}`);
+        return false;
+      }
+
+      if (wouldCreateCycle(fromNode, toNode)) {
+        showDagAlert('CICLO DETECTADO EN EL GRAFO DAG: CONEXIÓN RECHAZADA');
+        return false;
+      }
+
+      // Remove existing cable on the destination input port
+      cables = cables.filter(c => !(c.toNode === toNode && c.toPort === toPort));
+
+      cables.push({
+        id: cableIdCounter++,
+        fromNode,
+        fromPort,
+        toNode,
+        toPort,
+        type: outDef.type
+      });
+
+      computeTopologicalSort();
+      return true;
+    }
+
+    // Get port position in graphPane pixel coordinates
+    function getPortScreenPos(nodeId, portId, dir) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return { x: 0, y: 0 };
+      const sock = node.portSockets[`${dir}:${portId}`];
+      if (!sock) return { x: 0, y: 0 };
+      const paneRect = graphPane.getBoundingClientRect();
+      const sockRect = sock.getBoundingClientRect();
+      return {
+        x: sockRect.left - paneRect.left + sockRect.width * 0.5,
+        y: sockRect.top - paneRect.top + sockRect.height * 0.5
+      };
+    }
+
+    // =========================================================================
+    // 5. INTERACTIVE CABLE DRAGGING, PAN & ZOOM & BEZIER SIGNAL RENDERER
+    // =========================================================================
+    let dragCable = null; // { fromNode, fromPort, type, startX, startY, currX, currY }
+
+    nodeWorld.addEventListener('mousedown', (ev) => {
+      const sock = ev.target.closest('.port-socket');
+      if (!sock) return;
+      ev.stopPropagation();
+
+      const nodeId = Number(sock.dataset.node);
+      const portId = sock.dataset.port;
+      const dir = sock.dataset.dir;
+      const type = sock.dataset.type;
+
+      if (dir === 'in') {
+        // If input port already has a cable, disconnect it and start dragging from its source!
+        const existingIdx = cables.findIndex(c => c.toNode === nodeId && c.toPort === portId);
+        if (existingIdx !== -1) {
+          const old = cables[existingIdx];
+          cables.splice(existingIdx, 1);
+          computeTopologicalSort();
+          const paneRect = graphPane.getBoundingClientRect();
+          const startPos = getPortScreenPos(old.fromNode, old.fromPort, 'out');
+          dragCable = {
+            fromNode: old.fromNode,
+            fromPort: old.fromPort,
+            type: old.type,
+            startX: startPos.x,
+            startY: startPos.y,
+            currX: ev.clientX - paneRect.left,
+            currY: ev.clientY - paneRect.top
+          };
+        }
+        return;
+      }
+
+      if (dir === 'out') {
+        const paneRect = graphPane.getBoundingClientRect();
+        const startPos = getPortScreenPos(nodeId, portId, 'out');
+        dragCable = {
+          fromNode: nodeId,
+          fromPort: portId,
+          type,
+          startX: startPos.x,
+          startY: startPos.y,
+          currX: ev.clientX - paneRect.left,
+          currY: ev.clientY - paneRect.top
+        };
+      }
+    });
+
+    window.addEventListener('mousemove', (ev) => {
+      if (dragCable) {
+        const paneRect = graphPane.getBoundingClientRect();
+        dragCable.currX = ev.clientX - paneRect.left;
+        dragCable.currY = ev.clientY - paneRect.top;
+      } else if (view.isPanning) {
+        view.x = view.panStartX + (ev.clientX - view.mouseStartX);
+        view.y = view.panStartY + (ev.clientY - view.mouseStartY);
+        updateWorldTransform();
+      }
+    });
+
+    window.addEventListener('mouseup', (ev) => {
+      if (dragCable) {
+        const targetSock = ev.target.closest('.port-socket');
+        if (targetSock && targetSock.dataset.dir === 'in') {
+          const toNode = Number(targetSock.dataset.node);
+          const toPort = targetSock.dataset.port;
+          connectNodes(dragCable.fromNode, dragCable.fromPort, toNode, toPort);
+        }
+        dragCable = null;
+      }
+      if (view.isPanning) {
+        view.isPanning = false;
+        graphPane.classList.remove('panning');
+      }
+    });
+
+    graphPane.addEventListener('mousedown', (ev) => {
+      if (ev.target.closest('.node-card') || ev.target.closest('.graph-toolbar') || ev.target.closest('.topo-banner')) {
+        return;
+      }
+      view.isPanning = true;
+      view.mouseStartX = ev.clientX;
+      view.mouseStartY = ev.clientY;
+      view.panStartX = view.x;
+      view.panStartY = view.y;
+      graphPane.classList.add('panning');
+    });
+
+    graphPane.addEventListener('wheel', (ev) => {
+      ev.preventDefault();
+      const paneRect = graphPane.getBoundingClientRect();
+      const mx = ev.clientX - paneRect.left;
+      const my = ev.clientY - paneRect.top;
+      const prevZoom = view.zoom;
+      const factor = ev.deltaY < 0 ? 1.08 : 0.92;
+      view.zoom = Math.min(1.65, Math.max(0.48, view.zoom * factor));
+      view.x = mx - (mx - view.x) * (view.zoom / prevZoom);
+      view.y = my - (my - view.y) * (view.zoom / prevZoom);
+      updateWorldTransform();
+    }, { passive: false });
+
+    document.getElementById('btnResetView').addEventListener('click', () => {
+      view.x = 24;
+      view.y = 52;
+      view.zoom = 1.0;
+      updateWorldTransform();
+    });
+
+    function resizeGraphCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = graphPane.getBoundingClientRect();
+      graphCanvas.width = Math.floor(rect.width * dpr);
+      graphCanvas.height = Math.floor(rect.height * dpr);
+      graphCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Evaluate Cubic Bezier point at t in [0,1]
+    function bezierPoint(t, x0, y0, cx1, cy1, cx2, cy2, x1, y1) {
+      const u = 1 - t;
+      const tt = t * t;
+      const uu = u * u;
+      const uuu = uu * u;
+      const ttt = tt * t;
+      return {
+        x: uuu * x0 + 3 * uu * t * cx1 + 3 * u * tt * cx2 + ttt * x1,
+        y: uuu * y0 + 3 * uu * t * cy1 + 3 * u * tt * cy2 + ttt * y1
+      };
+    }
+
+    function renderGraphCanvas(time) {
+      const w = graphPane.clientWidth;
+      const h = graphPane.clientHeight;
+      graphCtx.clearRect(0, 0, w, h);
+
+      // 1. Infinite Cyber Grid
+      const gridStep = 28 * view.zoom;
+      const offX = ((view.x % gridStep) + gridStep) % gridStep;
+      const offY = ((view.y % gridStep) + gridStep) % gridStep;
+
+      graphCtx.strokeStyle = 'rgba(56, 189, 248, 0.055)';
+      graphCtx.lineWidth = 1;
+      graphCtx.beginPath();
+      for (let x = offX; x < w; x += gridStep) {
+        graphCtx.moveTo(x, 0);
+        graphCtx.lineTo(x, h);
+      }
+      for (let y = offY; y < h; y += gridStep) {
+        graphCtx.moveTo(0, y);
+        graphCtx.lineTo(w, y);
+      }
+      graphCtx.stroke();
+
+      // Major grid lines
+      const majorStep = gridStep * 4;
+      const mOffX = ((view.x % majorStep) + majorStep) % majorStep;
+      const mOffY = ((view.y % majorStep) + majorStep) % majorStep;
+      graphCtx.strokeStyle = 'rgba(34, 211, 238, 0.11)';
+      graphCtx.beginPath();
+      for (let x = mOffX; x < w; x += majorStep) {
+        graphCtx.moveTo(x, 0);
+        graphCtx.lineTo(x, h);
+      }
+      for (let y = mOffY; y < h; y += majorStep) {
+        graphCtx.moveTo(0, y);
+        graphCtx.lineTo(w, y);
+      }
+      graphCtx.stroke();
+
+      // 2. Active Cubic Bezier Cables + Neon Signal Pulses
+      for (let i = 0; i < cables.length; i++) {
+        const c = cables[i];
+        const p0 = getPortScreenPos(c.fromNode, c.fromPort, 'out');
+        const p1 = getPortScreenPos(c.toNode, c.toPort, 'in');
+        const dx = Math.max(55, Math.abs(p1.x - p0.x) * 0.52);
+        const cx1 = p0.x + dx;
+        const cy1 = p0.y;
+        const cx2 = p1.x - dx;
+        const cy2 = p1.y;
+        const color = PORT_COLORS[c.type] || '#22d3ee';
+
+        // Outer neon halo
+        graphCtx.save();
+        graphCtx.strokeStyle = color;
+        graphCtx.globalAlpha = 0.24;
+        graphCtx.lineWidth = 6;
+        graphCtx.beginPath();
+        graphCtx.moveTo(p0.x, p0.y);
+        graphCtx.bezierCurveTo(cx1, cy1, cx2, cy2, p1.x, p1.y);
+        graphCtx.stroke();
+
+        // Crisp core wire
+        graphCtx.globalAlpha = 0.92;
+        graphCtx.lineWidth = 2.2;
+        graphCtx.beginPath();
+        graphCtx.moveTo(p0.x, p0.y);
+        graphCtx.bezierCurveTo(cx1, cy1, cx2, cy2, p1.x, p1.y);
+        graphCtx.stroke();
+
+        // Data-flow signal pulses traveling along the Bezier curve
+        const pulseSpeed = c.type === 'audio' ? (1.4 + audioEngine.energy * 1.6) : 0.85;
+        for (let p = 0; p < 3; p++) {
+          const t = ((time * pulseSpeed + p * 0.333 + i * 0.17) % 1.0);
+          const pt = bezierPoint(t, p0.x, p0.y, cx1, cy1, cx2, cy2, p1.x, p1.y);
+          graphCtx.fillStyle = '#ffffff';
+          graphCtx.shadowColor = color;
+          graphCtx.shadowBlur = 10;
+          graphCtx.beginPath();
+          graphCtx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
+          graphCtx.fill();
+        }
+        graphCtx.restore();
+      }
+
+      // 3. Interactive Cable Currently Being Dragged
+      if (dragCable) {
+        const p0 = getPortScreenPos(dragCable.fromNode, dragCable.fromPort, 'out');
+        const p1 = { x: dragCable.currX, y: dragCable.currY };
+        const dx = Math.max(45, Math.abs(p1.x - p0.x) * 0.5);
+        const color = PORT_COLORS[dragCable.type] || '#22d3ee';
+
+        graphCtx.save();
+        graphCtx.strokeStyle = color;
+        graphCtx.setLineDash([6, 4]);
+        graphCtx.lineWidth = 2.5;
+        graphCtx.beginPath();
+        graphCtx.moveTo(p0.x, p0.y);
+        graphCtx.bezierCurveTo(p0.x + dx, p0.y, p1.x - dx, p1.y, p1.x, p1.y);
+        graphCtx.stroke();
+        graphCtx.restore();
+      }
+    }
+
+    // =========================================================================
+    // 6. REAL-TIME DAG EVALUATOR & PER-NODE MINI-CANVAS RENDERER
+    // =========================================================================
+    // Compiled uniform state sent to WebGL Raymarching shader every frame
+    const shaderState = {
+      lfoVal: 0.0,
+      audioBass: 0.3,
+      audioMid: 0.2,
+      audioHigh: 0.15,
+      noiseScale: 1.75,
+      noiseOctaves: 3.0,
+      noiseLacunarity: 2.0,
+      noiseWarp: 0.85,
+      sdfShape: 0,
+      sdfPower: 8.0,
+      sdfRadius: 0.95,
+      sdfMorph: 0.35,
+      opMode: 1,
+      twist: 1.35,
+      repeat: 3.4,
+      smoothK: 0.35,
+      palPreset: 0,
+      palCycle: 1.2,
+      palIridescence: 1.15,
+      palSpecular: 1.45,
+      bloom: 1.3,
+      chromatic: 0.45,
+      tunnelSpeed: 1.25,
+      exposure: 1.15,
+      // Connection mask flags so disconnecting cables immediately alters the 3D shader!
+      connSdf: 1.0,
+      connOp: 1.0,
+      connWarp: 1.0,
+      connColor: 1.0,
+      connAudio: 1.0
+    };
+
+    function getInputData(nodeId, portId, fallback) {
+      for (let i = 0; i < cables.length; i++) {
+        const c = cables[i];
+        if (c.toNode === nodeId && c.toPort === portId) {
+          const src = nodes.find(n => n.id === c.fromNode);
+          if (src && src.outputsData[c.fromPort] !== undefined) {
+            return { connected: true, value: src.outputsData[c.fromPort], srcNode: src };
+          }
+        }
+      }
+      return { connected: false, value: fallback, srcNode: null };
+    }
+
+    function evaluateDAG(time) {
+      const t0 = performance.now();
+
+      // Default connection flags before evaluating Master Output
+      shaderState.connSdf = 0.0;
+      shaderState.connOp = 0.0;
+      shaderState.connWarp = 0.0;
+      shaderState.connColor = 0.0;
+      shaderState.connAudio = 0.0;
+
+      for (let i = 0; i < topoOrder.length; i++) {
+        const n = topoOrder[i];
+        const p = n.params;
+
+        if (n.type === 'LFO_TIME') {
+          const fmIn = getInputData(n.id, 'fm', 0.0);
+          const fmVal = typeof fmIn.value === 'number' ? fmIn.value : 0.0;
+          const phase = time * p.freq * Math.PI * 2.0 + p.phase + fmVal * 2.0;
+          let raw = 0;
+          if (p.waveform === 0) raw = Math.sin(phase);
+          else if (p.waveform === 1) raw = ((phase / (Math.PI * 2)) % 1 + 1) % 1 * 2 - 1;
+          else if (p.waveform === 2) raw = 2.0 * Math.abs(2.0 * ((phase / (Math.PI * 2)) - Math.floor((phase / (Math.PI * 2)) + 0.5))) - 1.0;
+          else raw = Math.sin(phase) > 0 ? 0.9 : -0.9;
+
+          n.outputsData.out = raw * p.amp;
+          n.previewBadge.textContent = `${n.outputsData.out >= 0 ? '+' : ''}${n.outputsData.out.toFixed(2)}`;
+        }
+        else if (n.type === 'AUDIO_FFT') {
+          const pitchIn = getInputData(n.id, 'pitchMod', 0.0);
+          const pitchMod = typeof pitchIn.value === 'number' ? pitchIn.value : 0.0;
+          audioEngine.update(time, p.bpm, p.cutoff, p.gain, p.synthMode, pitchMod);
+          n.outputsData.fft = audioEngine.energy;
+          n.outputsData.bass = audioEngine.bass;
+          n.previewBadge.textContent = `${Math.round(p.bpm)} BPM`;
+        }
+        else if (n.type === 'SIMPLEX_4D') {
+          const tIn = getInputData(n.id, 'timeIn', 0.0);
+          const tMod = typeof tIn.value === 'number' ? tIn.value : 0.0;
+          const wPhase = time * 0.8 + tMod * 0.6;
+          const fVal = Math.sin(wPhase * p.scale) * Math.cos(wPhase * 0.7 * p.lacunarity) * p.warpAmp;
+          n.outputsData.field = fVal;
+          n.outputsData.warp = [
+            Math.sin(wPhase * 1.1) * p.warpAmp,
+            Math.cos(wPhase * 0.9) * p.warpAmp,
+            Math.sin(wPhase * 1.4) * p.warpAmp
+          ];
+          n.previewBadge.textContent = `OCT:${p.octaves} S:${p.scale.toFixed(1)}`;
+        }
+        else if (n.type === 'SDF_GEOM') {
+          const morphIn = getInputData(n.id, 'morphIn', 0.0);
+          const warpIn  = getInputData(n.id, 'warpIn', null);
+          const modVal = typeof morphIn.value === 'number' ? morphIn.value : 0.0;
+
+          shaderState.sdfShape = p.shape;
+          shaderState.sdfPower = p.power;
+          shaderState.sdfRadius = p.radius;
+          shaderState.sdfMorph = Math.max(0.0, Math.min(2.0, p.morph + modVal * 0.35));
+
+          if (warpIn.connected && warpIn.srcNode) {
+            shaderState.connWarp = 1.0;
+            if (warpIn.srcNode.type === 'SIMPLEX_4D') {
+              shaderState.noiseScale = warpIn.srcNode.params.scale;
+              shaderState.noiseOctaves = warpIn.srcNode.params.octaves;
+              shaderState.noiseLacunarity = warpIn.srcNode.params.lacunarity;
+              shaderState.noiseWarp = warpIn.srcNode.params.warpAmp;
+            } else {
+              shaderState.noiseWarp = 0.65;
+            }
+          }
+
+          n.outputsData.sdf = 1.0;
+          const shapeNames = ['TORUS', 'OCTA', 'MANDEL', 'GYROID'];
+          n.previewBadge.textContent = shapeNames[p.shape] || 'SDF';
+        }
+        else if (n.type === 'SDF_OP') {
+          const sdfIn = getInputData(n.id, 'sdfIn', 0.0);
+          const modIn = getInputData(n.id, 'modIn', 0.0);
+          const modVal = typeof modIn.value === 'number' ? modIn.value : 0.0;
+
+          shaderState.opMode = p.opMode;
+          shaderState.twist = p.twist + modVal * 0.85;
+          shaderState.repeat = p.repeat;
+          shaderState.smoothK = p.smoothK;
+          n.outputsData.sdfOut = sdfIn.connected ? 2.0 : 0.5;
+          const opNames = ['TWIST', 'REPEAT', 'KIFS 4D', 'SMOOTH'];
+          n.previewBadge.textContent = opNames[p.opMode] || 'OP';
+        }
+        else if (n.type === 'COSINE_PAL') {
+          const shiftIn = getInputData(n.id, 'shiftIn', 0.0);
+          const tintIn  = getInputData(n.id, 'tintIn', null);
+          const shiftMod = typeof shiftIn.value === 'number' ? shiftIn.value : 0.0;
+          const tintMod = (tintIn.connected && Array.isArray(tintIn.value)) ? tintIn.value[0] * 0.3 : 0.0;
+
+          shaderState.palPreset = p.presetPal;
+          shaderState.palCycle = p.cycle + shiftMod * 0.25 + tintMod;
+          shaderState.palIridescence = p.iridescence;
+          shaderState.palSpecular = p.specular;
+          n.outputsData.colorOut = [p.cycle, p.iridescence, p.specular];
+          n.previewBadge.textContent = `PAL #${p.presetPal + 1}`;
+        }
+        else if (n.type === 'MASTER_OUT') {
+          const sdfConn   = getInputData(n.id, 'sdf', null);
+          const colorConn = getInputData(n.id, 'color', null);
+          const modConn   = getInputData(n.id, 'mod', 0.0);
+          const audioConn = getInputData(n.id, 'audio', 0.0);
+
+          if (sdfConn.connected && sdfConn.srcNode) {
+            shaderState.connSdf = 1.0;
+            if (sdfConn.srcNode.type === 'SDF_OP') {
+              shaderState.connOp = 1.0;
+            }
+          }
+          if (colorConn.connected) {
+            shaderState.connColor = 1.0;
+          }
+          if (modConn.connected) {
+            shaderState.lfoVal = typeof modConn.value === 'number' ? modConn.value : 0.5;
+          } else {
+            shaderState.lfoVal = 0.0;
+          }
+          if (audioConn.connected) {
+            shaderState.connAudio = 1.0;
+            shaderState.audioBass = audioEngine.bass;
+            shaderState.audioMid  = audioEngine.mid;
+            shaderState.audioHigh = audioEngine.high;
+          } else {
+            shaderState.audioBass = 0.0;
+            shaderState.audioMid  = 0.0;
+            shaderState.audioHigh = 0.0;
+          }
+
+          shaderState.bloom = p.bloom;
+          shaderState.chromatic = p.chromatic;
+          shaderState.tunnelSpeed = p.tunnelSpeed;
+          shaderState.exposure = p.exposure;
+          n.previewBadge.textContent = `BLOOM ${p.bloom.toFixed(1)}`;
+        }
+
+        renderNodeMiniCanvas(n, time);
+      }
+
+      const dtMs = performance.now() - t0;
+      document.getElementById('hudDagMs').textContent = `${dtMs.toFixed(2)} ms`;
+    }
+
+    // Draw real-time oscilloscope / spectrum / field / SDF slice / palette in each node's mini-canvas
+    function renderNodeMiniCanvas(node, time) {
+      const ctx = node.previewCtx;
+      if (!ctx) return;
+      const w = 206;
+      const h = 52;
+      ctx.fillStyle = '#04060b';
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle centerline
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.5);
+      ctx.lineTo(w, h * 0.5);
+      ctx.stroke();
+
+      const p = node.params;
+
+      if (node.type === 'LFO_TIME') {
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(cx, cy, r, t * 2 + r, t * 2 + r + Math.PI * 1.4);
+        for (let x = 0; x < w; x += 3) {
+          const t = (x / w) * Math.PI * 2 * Math.max(0.5, p.freq * 0.6) + time * p.freq * 3.0 + p.phase;
+          let yNorm = 0;
+          if (p.waveform === 0) yNorm = Math.sin(t);
+          else if (p.waveform === 1) yNorm = ((t / (Math.PI * 2)) % 1 + 1) % 1 * 2 - 1;
+          else if (p.waveform === 2) yNorm = 2.0 * Math.abs(2.0 * ((t / (Math.PI * 2)) - Math.floor((t / (Math.PI * 2)) + 0.5))) - 1.0;
+          else yNorm = Math.sin(t) > 0 ? 0.85 : -0.85;
+          const py = h * 0.5 - yNorm * Math.min(1.0, p.amp * 0.65) * (h * 0.4);
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
         ctx.stroke();
       }
-    } else if (idx === 1) {
-      ctx.fillStyle = "#10B981";
-      ctx.font = "700 14px monospace";
-      const lines = IS_SUPER ? [
-        "$ ./install.sh --target ./mixiuh-os",
-        "[OK] CLAUDE.md + GEMINI.md + MEMORY.md instalados",
-        "[OK] 01-memoria-infinita: ACTIVA",
-        "[OK] 02-auto-debugger-browser-mcp: 0 ERRORES",
-        "[OK] 03-arquitecto-senior-120fps: Float32Array ON",
-        "[OK] 04-auditor-seguridad: CSP + 0 LEAKS",
-        "[OK] 05-automatizador: AHORRO -75% TOKENS",
-      ] : [
-        "$ node start_os.js",
-        "ERROR: WindowManager z-index collision",
-        "WARN: AudioContext buffer underrun (21 FPS)",
-        "FATAL: Global state overwritten by Synth module",
-      ];
-      lines.forEach((ln, li) => ctx.fillText(ln, wx + 20, wy + 75 + li * 34));
-    } else if (idx === 2) {
-      // FM Spectrum Bars inside Window 3
-      for (let b = 0; b < 24; b++) {
-        const bh = 30 + Math.abs(Math.sin(t * 6 + b * 0.45)) * 220;
-        ctx.fillStyle = b % 2 === 0 ? "#F472B6" : "#22D3EE";
-        ctx.fillRect(wx + 32 + b * 23, wy + 340 - bh, 16, bh);
+      else if (node.type === 'AUDIO_FFT') {
+        const barCount = 32;
+        const barW = (w / barCount) - 1.5;
+        for (let i = 0; i < barCount; i++) {
+          const val = fftBins[i] / 255.0;
+          const bh = Math.max(2, val * (h - 6));
+          ctx.fillStyle = i < 6 ? '#f43f5e' : (i < 16 ? '#fbbf24' : '#22d3ee');
+          ctx.fillRect(i * (barW + 1.5) + 2, h - bh - 2, barW, bh);
+        }
       }
-    } else if (idx === 3) {
-      // Telemetry Wave inside Window 4
-      ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      for (let x = 0; x < 580; x += 10) {
-        const y = wy + 210 + Math.sin(t * 5 + x * 0.03) * (IS_SUPER ? 45 : 110);
-        if (x === 0) ctx.moveTo(wx + 40 + x, y); else ctx.lineTo(wx + 40 + x, y);
+      else if (node.type === 'SIMPLEX_4D') {
+        // Multi-band procedural 4D simplex contour strips
+        const cols = 26;
+        const rows = 6;
+        const cw = w / cols;
+        const ch = h / rows;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const nx = (c / cols) * p.scale;
+            const ny = (r / rows) * p.scale;
+            const v = 0.5 + 0.5 * Math.sin(nx * 3.2 + time * 1.7 + Math.cos(ny * 3.2 * p.lacunarity - time));
+            const alpha = Math.min(0.95, Math.max(0.08, v * (0.45 + p.warpAmp * 0.25)));
+            ctx.fillStyle = `rgba(167, 139, 250, ${alpha.toFixed(2)})`;
+            ctx.fillRect(c * cw, r * ch, cw - 1, ch - 1);
+          }
+        }
       }
-      ctx.stroke();
+      else if (node.type === 'SDF_GEOM' || node.type === 'SDF_OP') {
+        const isOp = node.type === 'SDF_OP';
+        const color = isOp ? '#fb923c' : '#10b981';
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.6;
+        const rings = 3;
+        for (let r = 1; r <= rings; r++) {
+          ctx.beginPath();
+          const baseR = r * 7.5 * (isOp ? 1.0 : Math.min(1.25, p.radius));
+          for (let a = 0; a <= 48; a++) {
+            const ang = (a / 48) * Math.PI * 2;
+            const lob = isOp
+              ? Math.sin(ang * (p.opMode + 2) + time * 2.0 + r * p.twist * 0.4) * 3.5
+              : Math.cos(ang * Math.round(p.power * 0.5) - time * 1.8) * (2.5 + p.morph * 2.2);
+            const rad = baseR + lob;
+            const px = cx + Math.cos(ang) * rad * 1.6;
+            const py = cy + Math.sin(ang) * rad * 0.85;
+            if (a === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+      }
+      else if (node.type === 'COSINE_PAL') {
+        // Render live IQ cosine spectral gradient
+        const steps = 40;
+        const sw = w / steps;
+        for (let i = 0; i < steps; i++) {
+          const t = (i / steps) * p.cycle + time * 0.25;
+          let r = 0.5 + 0.5 * Math.cos(6.283 * (t + 0.0));
+          let g = 0.5 + 0.5 * Math.cos(6.283 * (t + (p.presetPal === 1 ? 0.15 : 0.33)));
+          let b = 0.5 + 0.5 * Math.cos(6.283 * (t + (p.presetPal === 2 ? 0.5 : 0.67)));
+          ctx.fillStyle = `rgb(${Math.floor(r * 255)}, ${Math.floor(g * 255)}, ${Math.floor(b * 255)})`;
+          ctx.fillRect(i * sw, 4, sw + 1, h - 8);
+        }
+      }
+      else if (node.type === 'MASTER_OUT') {
+        // Composite radar + post-bloom energy waveform
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x += 4) {
+          const u = x / w;
+          const wave = Math.sin(u * 12.0 - time * 3.5) * Math.cos(u * 5.0 + time * 2.0);
+          const amp = (0.3 + shaderState.audioBass * 0.5 + Math.abs(shaderState.lfoVal) * 0.2) * p.bloom * 0.5;
+          const py = h * 0.5 - wave * Math.min(20, amp * 18);
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+      }
     }
-  });
+
+    // =========================================================================
+    // 7. WEBGL 3D RAYMARCHING ENGINE & LIVE GLSL COMPILER CONSOLE
+    // =========================================================================
+    const glCanvas = document.getElementById('glCanvas');
+    const gl = glCanvas.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: false });
+
+    const camera3D = {
+      yaw: 0.35,
+      pitch: 0.22,
+      dist: 3.6,
+      isDragging: false,
+      lastX: 0,
+      lastY: 0
+    };
+
+    glCanvas.addEventListener('mousedown', (ev) => {
+      camera3D.isDragging = true;
+      camera3D.lastX = ev.clientX;
+      camera3D.lastY = ev.clientY;
+    });
+    window.addEventListener('mousemove', (ev) => {
+      if (!camera3D.isDragging) return;
+      const dx = ev.clientX - camera3D.lastX;
+      const dy = ev.clientY - camera3D.lastY;
+      camera3D.lastX = ev.clientX;
+      camera3D.lastY = ev.clientY;
+      camera3D.yaw += dx * 0.0075;
+      camera3D.pitch = Math.max(-1.35, Math.min(1.35, camera3D.pitch + dy * 0.0075));
+    });
+    window.addEventListener('mouseup', () => {
+      camera3D.isDragging = false;
+    });
+    glCanvas.addEventListener('wheel', (ev) => {
+      ev.preventDefault();
+      camera3D.dist = Math.max(1.4, Math.min(8.5, camera3D.dist + (ev.deltaY > 0 ? 0.25 : -0.25)));
+    }, { passive: false });
+
+    document.getElementById('btnResetCam').addEventListener('click', () => {
+      camera3D.yaw = 0.35;
+      camera3D.pitch = 0.22;
+      camera3D.dist = 3.6;
+    });
+
+    document.getElementById('btnExpandVp').addEventListener('click', (ev) => {
+      const rp = document.getElementById('rightPane');
+      const expanded = rp.classList.toggle('expanded');
+      ev.currentTarget.textContent = expanded ? 'Dividir Vista' : 'Ampliar 3D';
+      setTimeout(() => {
+        resizeGraphCanvas();
+        resizeGLCanvas();
+      }, 240);
+    });
+
+    const VERT_SRC = `
+      attribute vec2 a_pos;
+      void main() {
+        gl_Position = vec4(a_pos, 0.0, 1.0);
+      }
+    `;
+
+    const FRAG_SRC = `
+      precision highp float;
+
+      uniform vec2  u_res;
+      uniform float u_time;
+      uniform vec3  u_cam; // yaw, pitch, dist
+
+      uniform float u_lfoVal;
+      uniform float u_audioBass;
+      uniform float u_audioMid;
+      uniform float u_audioHigh;
+
+      uniform float u_noiseScale;
+      uniform float u_noiseOctaves;
+      uniform float u_noiseLacunarity;
+      uniform float u_noiseWarp;
+
+      uniform float u_sdfShape;
+      uniform float u_sdfPower;
+      uniform float u_sdfRadius;
+      uniform float u_sdfMorph;
+
+      uniform float u_opMode;
+      uniform float u_twist;
+      uniform float u_repeat;
+      uniform float u_smoothK;
+
+      uniform float u_palPreset;
+      uniform float u_palCycle;
+      uniform float u_palIridescence;
+      uniform float u_palSpecular;
+
+      uniform float u_bloom;
+      uniform float u_chromatic;
+      uniform float u_tunnelSpeed;
+      uniform float u_exposure;
+
+      uniform float u_connSdf;
+      uniform float u_connOp;
+      uniform float u_connWarp;
+      uniform float u_connColor;
+      uniform float u_connAudio;
+
+      mat2 rot2D(float a) {
+        float s = sin(a), c = cos(a);
+        return mat2(c, -s, s, c);
+      }
+
+      // Smooth minimum for boolean SDF blending
+      float smin(float a, float b, float k) {
+        float h = clamp(0.5 + 0.5 * (b - a) / max(0.001, k), 0.0, 1.0);
+        return mix(b, a, h) - k * h * (1.0 - h);
+      }
+
+      // Fast 4D Gyroid-Simplex FBM field
+      float noiseField(vec3 p) {
+        vec3 q = p * u_noiseScale + vec3(u_time * 0.35, -u_time * 0.25, u_time * 0.4);
+        float v = dot(sin(q), cos(q.yzx * u_noiseLacunarity));
+        if (u_noiseOctaves > 1.5) {
+          q *= u_noiseLacunarity;
+          v += 0.5 * dot(sin(q + u_time * 0.5), cos(q.zxy));
+        }
+        if (u_noiseOctaves > 2.5) {
+          q *= u_noiseLacunarity;
+          v += 0.25 * dot(cos(q), sin(q.yzx));
+        }
+        return v * 0.25;
+      }
+
+      // SDF 0: Quantum Torus Knot + Energy Core
+      float sdTorusQuantum(vec3 p, float rMain, float morph) {
+        vec2 t = vec2(rMain, 0.22 + 0.08 * sin(u_time * 2.0 + p.z * 2.0));
+        vec2 q = vec2(length(p.xz) - t.x, p.y);
+        q *= rot2D(atan(p.x, p.z) * 1.5 + u_time * 0.8);
+        float d1 = length(max(abs(q) - vec2(t.y, t.y * (0.6 + morph * 0.4)), 0.0)) - 0.03;
+        float d2 = length(p) - (rMain * 0.48 + morph * 0.12);
+        return smin(d1, abs(d2) - 0.06, 0.22);
+      }
+
+      // SDF 1: Cyber Octahedron Crystal + Cage
+      float sdOctaCrystal(vec3 p, float s, float morph) {
+        vec3 ap = abs(p);
+        float m = ap.x + ap.y + ap.z - s * 1.35;
+        float oct = m * 0.57735027;
+        vec3 q = abs(ap - s * 0.55);
+        float cage = max(q.x, max(q.y, q.z)) - 0.08 - morph * 0.06;
+        return mix(oct, min(oct, -cage), clamp(morph * 0.7, 0.0, 0.85));
+      }
+
+      // SDF 2: 4D Mandelbulb Fractal
+      float sdMandelbulb(vec3 pos, float power, float scaleR, float morph) {
+        vec3 z = pos / max(0.3, scaleR);
+        float dr = 1.0;
+        float r = 0.0;
+        float pwr = clamp(power + morph * 1.5, 2.5, 12.0);
+        for (int i = 0; i < 6; i++) {
+          r = length(z);
+          if (r > 2.4) break;
+          float theta = acos(clamp(z.z / max(0.0001, r), -1.0, 1.0)) + u_time * 0.12 * morph;
+          float phi = atan(z.y, z.x);
+          dr = pow(r, pwr - 1.0) * pwr * dr + 1.0;
+          float zr = pow(r, pwr);
+          theta *= pwr;
+          phi *= pwr;
+          z = zr * vec3(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
+          z += pos / max(0.3, scaleR);
+        }
+        return 0.5 * log(max(0.0001, r)) * r / max(0.0001, dr) * scaleR;
+      }
+
+      // SDF 3: Iridescent Gyroid Metamaterial Shell
+      float sdGyroidMeta(vec3 p, float rScale, float morph) {
+        float sc = 3.2 + morph * 1.8;
+        vec3 gp = p * sc + vec3(0.0, 0.0, u_time * 0.6);
+        float g = abs(dot(sin(gp), cos(gp.zxy))) / sc - 0.055;
+        float bound = length(p) - rScale * 1.38;
+        float inner = -(length(p) - rScale * 0.42);
+        return max(max(bound, inner), g);
+      }
+
+      // Scene SDF Map coupled to DAG nodes
+      vec2 mapScene(vec3 p) {
+        if (u_connSdf < 0.5) {
+          // Disconnected SDF: show subtle quantum reference grid sphere
+          float ref = abs(length(p) - 0.85) - 0.02;
+          return vec2(ref, 0.1);
+        }
+
+        vec3 q = p;
+        float audioPulse = u_connAudio * (u_audioBass * 0.32 + u_audioMid * 0.18);
+        float modSignal = u_lfoVal * 0.25 + audioPulse;
+
+        // Apply Spatial Operator Node if connected
+        if (u_connOp > 0.5) {
+          if (u_opMode < 0.5) {
+            // Mode 0: Spatial Twist & Fold
+            float ang = q.y * (u_twist + modSignal) * 0.85;
+            q.xz *= rot2D(ang);
+          } else if (u_opMode < 1.5) {
+            // Mode 1: Infinite Quantum Wormhole Tunnel Repetition
+            float repZ = max(1.6, u_repeat);
+            q.z += u_time * u_tunnelSpeed * 1.8;
+            float cellZ = floor(q.z / repZ);
+            q.z = mod(q.z + repZ * 0.5, repZ) - repZ * 0.5;
+            q.xy *= rot2D(q.z * u_twist * 0.45 + cellZ * 0.55);
+          } else if (u_opMode < 2.5) {
+            // Mode 2: 4D Kaleidoscopic KIFS Folding
+            for (int k = 0; k < 3; k++) {
+              q = abs(q) - vec3(0.28 + 0.06 * modSignal);
+              q.xy *= rot2D(0.45 * u_twist + u_time * 0.15);
+              q.yz *= rot2D(0.35 * u_twist);
+            }
+          } else {
+            // Mode 3: Smooth Twist + Orbiting Satellites
+            q.xz *= rot2D(q.y * u_twist * 0.5);
+          }
+        }
+
+        // Apply 4D Simplex Domain Warp if connected
+        float warpField = 0.0;
+        if (u_connWarp > 0.5) {
+          warpField = noiseField(q);
+          q += warpField * u_noiseWarp * 0.28;
+        }
+
+        float rad = u_sdfRadius * (1.0 + audioPulse * 0.38);
+        float morph = u_sdfMorph + u_lfoVal * 0.22 + u_audioMid * 0.25;
+
+        float d = 10.0;
+        if (u_sdfShape < 0.5) {
+          d = sdTorusQuantum(q, rad, morph);
+        } else if (u_sdfShape < 1.5) {
+          d = sdOctaCrystal(q, rad, morph);
+        } else if (u_sdfShape < 2.5) {
+          d = sdMandelbulb(q, u_sdfPower, rad, morph);
+        } else {
+          d = sdGyroidMeta(q, rad, morph);
+        }
+
+        // Smooth boolean union with orbiting energy spheres in OpMode 3 or Tunnel
+        if (u_connOp > 0.5 && (u_opMode > 2.5 || (u_opMode > 0.5 && u_opMode < 1.5))) {
+          vec3 orbPos = vec3(sin(u_time * 1.7) * 1.15, cos(u_time * 1.3) * 0.75, sin(u_time * 1.1) * 0.85);
+          float dOrb = length(q - orbPos) - (0.24 + audioPulse * 0.18);
+          d = smin(d, dOrb, max(0.08, u_smoothK));
+        }
+
+        float matPhase = length(q) * 0.45 + warpField * 1.4 + audioPulse;
+        return vec2(d * 0.75, matPhase);
+      }
+
+      vec3 calcNormal(vec3 p) {
+        vec2 e = vec2(0.0022, -0.0022);
+        return normalize(
+          e.xyy * mapScene(p + e.xyy).x +
+          e.yyx * mapScene(p + e.yyx).x +
+          e.yxy * mapScene(p + e.yxy).x +
+          e.xxx * mapScene(p + e.xxx).x
+        );
+      }
+
+      // IQ Cosine Spectral Palette
+      vec3 cosinePalette(float t) {
+        if (u_connColor < 0.5) {
+          return vec3(0.45 + 0.35 * cos(t * 3.0), 0.55 + 0.35 * sin(t * 3.0), 0.75);
+        }
+        vec3 a = vec3(0.5, 0.5, 0.5);
+        vec3 b = vec3(0.5, 0.5, 0.5);
+        vec3 c = vec3(1.0, 1.0, 1.0);
+        vec3 d = vec3(0.00, 0.33, 0.67);
+
+        if (u_palPreset > 0.5 && u_palPreset < 1.5) {
+          d = vec3(0.0, 0.15, 0.45);
+        } else if (u_palPreset >= 1.5 && u_palPreset < 2.5) {
+          d = vec3(0.25, 0.52, 0.78);
+        } else if (u_palPreset >= 2.5) {
+          c = vec3(1.0, 0.8, 0.5);
+          d = vec3(0.80, 0.90, 0.30);
+        }
+        return a + b * cos(6.28318 * (c * (t * u_palCycle + u_time * 0.08) + d));
+      }
+
+      vec3 renderRay(vec3 ro, vec3 rd) {
+        float t = 0.0;
+        float glowAcc = 0.0;
+        float matId = 0.0;
+        bool hit = false;
+
+        for (int i = 0; i < 76; i++) {
+          vec3 p = ro + rd * t;
+          vec2 res = mapScene(p);
+          float d = res.x;
+          matId = res.y;
+
+          // Volumetric neon glow accumulation
+          glowAcc += 0.012 / (0.025 + abs(d) * 5.5);
+
+          if (abs(d) < 0.0022) {
+            hit = true;
+            break;
+          }
+          if (t > 16.0) break;
+          t += max(0.012, abs(d) * 0.82);
+        }
+
+        // Deep space quantum background
+        vec3 bg = vec3(0.015, 0.022, 0.045) + 0.03 * cosinePalette(rd.y * 0.8 + rd.x * 0.5);
+        vec3 col = bg;
+
+        if (hit) {
+          vec3 p = ro + rd * t;
+          vec3 n = calcNormal(p);
+          vec3 lightDir1 = normalize(vec3(1.2, 1.6, -1.3));
+          vec3 lightDir2 = normalize(vec3(-1.4, -0.8, 1.1));
+
+          float diff1 = max(dot(n, lightDir1), 0.0);
+          float diff2 = max(dot(n, lightDir2), 0.0) * 0.45;
+          float fresnel = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+
+          vec3 baseAlbedo = cosinePalette(matId + fresnel * u_palIridescence * 0.55);
+          vec3 refl = reflect(rd, n);
+          float spec = pow(max(dot(refl, lightDir1), 0.0), 28.0) * u_palSpecular;
+
+          // Fake AO from step distance
+          float ao = clamp(mapScene(p + n * 0.12).x / 0.12, 0.15, 1.0);
+
+          col = baseAlbedo * (0.22 + diff1 * 0.85 + diff2) * ao;
+          col += cosinePalette(matId + 0.35) * fresnel * u_palIridescence * 0.9;
+          col += vec3(0.85, 0.96, 1.0) * spec;
+
+          // Distance fog
+          float fog = exp(-0.018 * t * t);
+          col = mix(bg, col, fog);
+        }
+
+        // Add volumetric post-bloom glow
+        vec3 glowCol = cosinePalette(matId + u_time * 0.15 + u_audioHigh * 0.5);
+        col += glowCol * glowAcc * (0.55 + u_bloom * 0.65 + u_audioBass * 0.45);
+
+        return col;
+      }
+
+      vec3 acesToneMap(vec3 x) {
+        return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+      }
+
+      void main() {
+        vec2 uv = (gl_FragCoord.xy - 0.5 * u_res) / u_res.y;
+
+        // Camera matrix
+        float yaw = u_cam.x + u_time * 0.12 * u_tunnelSpeed;
+        float pitch = u_cam.y;
+        float dist = u_cam.z;
+
+        vec3 ro = vec3(
+          sin(yaw) * cos(pitch) * dist,
+          sin(pitch) * dist,
+          cos(yaw) * cos(pitch) * dist
+        );
+        vec3 ta = vec3(0.0, 0.0, 0.0);
+        vec3 fw = normalize(ta - ro);
+        vec3 rt = normalize(cross(fw, vec3(0.0, 1.0, 0.0)));
+        vec3 up = cross(rt, fw);
+
+        vec3 rd = normalize(uv.x * rt + uv.y * up + 1.35 * fw);
+
+        vec3 col = renderRay(ro, rd);
+
+        // Radial Chromatic Aberration coupled to Master Output
+        if (u_chromatic > 0.02) {
+          float caShift = length(uv) * 0.016 * u_chromatic * (1.0 + u_audioBass * 0.6);
+          vec3 rdR = normalize((uv.x + caShift) * rt + uv.y * up + 1.35 * fw);
+          vec3 rdB = normalize((uv.x - caShift) * rt + uv.y * up + 1.35 * fw);
+          col.r = mix(col.r, renderRay(ro, rdR).r, 0.55);
+          col.b = mix(col.b, renderRay(ro, rdB).b, 0.55);
+        }
+
+        col *= u_exposure;
+        col = acesToneMap(col);
+        col = pow(col, vec3(0.4545)); // Gamma correction
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    let glProgram = null;
+    const glUniforms = {};
+
+    function compileShader(type, source) {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, source);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        const err = gl.getShaderInfoLog(sh);
+        console.error('GLSL Compile Error:', err);
+        document.getElementById('compilerDot').style.background = '#f43f5e';
+        document.getElementById('compilerStatusText').textContent = `GLSL ERROR: ${err}`;
+        return null;
+      }
+      return sh;
+    }
+
+    function initWebGL() {
+      if (!gl) return;
+      const tStart = performance.now();
+      const vs = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+      const fs = compileShader(gl.FRAGMENT_SHADER, FRAG_SRC);
+      if (!vs || !fs) return;
+
+      glProgram = gl.createProgram();
+      gl.attachShader(glProgram, vs);
+      gl.attachShader(glProgram, fs);
+      gl.linkProgram(glProgram);
+
+      if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+        console.error('GLSL Link Error:', gl.getProgramInfoLog(glProgram));
+        return;
+      }
+
+      gl.useProgram(glProgram);
+
+      const quadVerts = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+      const posLoc = gl.getAttribLocation(glProgram, 'a_pos');
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+      const uNames = [
+        'u_res', 'u_time', 'u_cam', 'u_lfoVal', 'u_audioBass', 'u_audioMid', 'u_audioHigh',
+        'u_noiseScale', 'u_noiseOctaves', 'u_noiseLacunarity', 'u_noiseWarp',
+        'u_sdfShape', 'u_sdfPower', 'u_sdfRadius', 'u_sdfMorph',
+        'u_opMode', 'u_twist', 'u_repeat', 'u_smoothK',
+        'u_palPreset', 'u_palCycle', 'u_palIridescence', 'u_palSpecular',
+        'u_bloom', 'u_chromatic', 'u_tunnelSpeed', 'u_exposure',
+        'u_connSdf', 'u_connOp', 'u_connWarp', 'u_connColor', 'u_connAudio'
+      ];
+      for (let i = 0; i < uNames.length; i++) {
+        glUniforms[uNames[i]] = gl.getUniformLocation(glProgram, uNames[i]);
+      }
+
+      const compileMs = (performance.now() - tStart).toFixed(2);
+      document.getElementById('glslCompileTime').textContent = `COMPILE: ${compileMs} ms`;
+    }
+
+    function resizeGLCanvas() {
+      if (!gl) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const rect = glCanvas.getBoundingClientRect();
+      glCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      glCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+    }
+
+    function renderWebGL(time) {
+      if (!gl || !glProgram) return;
+      gl.useProgram(glProgram);
+      gl.uniform2f(glUniforms.u_res, glCanvas.width, glCanvas.height);
+      gl.uniform1f(glUniforms.u_time, time);
+      gl.uniform3f(glUniforms.u_cam, camera3D.yaw, camera3D.pitch, camera3D.dist);
+
+      gl.uniform1f(glUniforms.u_lfoVal, shaderState.lfoVal);
+      gl.uniform1f(glUniforms.u_audioBass, shaderState.audioBass);
+      gl.uniform1f(glUniforms.u_audioMid, shaderState.audioMid);
+      gl.uniform1f(glUniforms.u_audioHigh, shaderState.audioHigh);
+
+      gl.uniform1f(glUniforms.u_noiseScale, shaderState.noiseScale);
+      gl.uniform1f(glUniforms.u_noiseOctaves, shaderState.noiseOctaves);
+      gl.uniform1f(glUniforms.u_noiseLacunarity, shaderState.noiseLacunarity);
+      gl.uniform1f(glUniforms.u_noiseWarp, shaderState.noiseWarp);
+
+      gl.uniform1f(glUniforms.u_sdfShape, shaderState.sdfShape);
+      gl.uniform1f(glUniforms.u_sdfPower, shaderState.sdfPower);
+      gl.uniform1f(glUniforms.u_sdfRadius, shaderState.sdfRadius);
+      gl.uniform1f(glUniforms.u_sdfMorph, shaderState.sdfMorph);
+
+      gl.uniform1f(glUniforms.u_opMode, shaderState.opMode);
+      gl.uniform1f(glUniforms.u_twist, shaderState.twist);
+      gl.uniform1f(glUniforms.u_repeat, shaderState.repeat);
+      gl.uniform1f(glUniforms.u_smoothK, shaderState.smoothK);
+
+      gl.uniform1f(glUniforms.u_palPreset, shaderState.palPreset);
+      gl.uniform1f(glUniforms.u_palCycle, shaderState.palCycle);
+      gl.uniform1f(glUniforms.u_palIridescence, shaderState.palIridescence);
+      gl.uniform1f(glUniforms.u_palSpecular, shaderState.palSpecular);
+
+      gl.uniform1f(glUniforms.u_bloom, shaderState.bloom);
+      gl.uniform1f(glUniforms.u_chromatic, shaderState.chromatic);
+      gl.uniform1f(glUniforms.u_tunnelSpeed, shaderState.tunnelSpeed);
+      gl.uniform1f(glUniforms.u_exposure, shaderState.exposure);
+
+      gl.uniform1f(glUniforms.u_connSdf, shaderState.connSdf);
+      gl.uniform1f(glUniforms.u_connOp, shaderState.connOp);
+      gl.uniform1f(glUniforms.u_connWarp, shaderState.connWarp);
+      gl.uniform1f(glUniforms.u_connColor, shaderState.connColor);
+      gl.uniform1f(glUniforms.u_connAudio, shaderState.connAudio);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    // Update Live GLSL Compiler Code Box based on current DAG nodes & connections
+    function updateGLSLCodeDisplay() {
+      const codeBox = document.getElementById('glslCodeBox');
+      const vpInfo = document.getElementById('vpShaderInfo');
+      if (!codeBox) return;
+
+      const sdfNode = nodes.find(n => n.type === 'SDF_GEOM');
+      const opNode  = nodes.find(n => n.type === 'SDF_OP');
+      const palNode = nodes.find(n => n.type === 'COSINE_PAL');
+
+      const sdfNames = ['sdTorusQuantum', 'sdOctaCrystal', 'sdMandelbulb4D', 'sdGyroidMetamaterial'];
+      const opNames  = ['opTwistFold', 'opInfiniteTunnelRep', 'opKaleidoscopeKIFS4D', 'opSmoothUnionOrb'];
+      const palNames = ['CyberNeon_IQ', 'SolarPlasma_IQ', 'BioEmerald_IQ', 'QuantumIridescent_IQ'];
+
+      const fnSdf = sdfNode ? sdfNames[sdfNode.params.shape] : 'sdVoidField';
+      const fnOp  = opNode  ? opNames[opNode.params.opMode]  : 'opIdentity';
+      const fnPal = palNode ? palNames[palNode.params.presetPal] : 'DefaultNormalRGB';
+
+      vpInfo.textContent = `STEPS: 76 // SDF: ${fnSdf} // OP: ${fnOp}`;
+
+      codeBox.textContent =
+`// [DAG->GLSL AUTO-GENERATED PIPELINE // ${topoOrder.length} NODOS, ${cables.length} CABLES]
+vec2 mapScene(vec3 p) {
+  vec3 q = ${fnOp}(p, u_twist, u_repeat);
+  q += noiseField4D(q * ${shaderState.noiseScale.toFixed(2)}) * u_noiseWarp;
+  float d = ${fnSdf}(q, u_sdfPower, u_sdfRadius, u_sdfMorph);
+  return vec2(d * 0.75, length(q) + u_audioBass * 0.32);
 }
+vec3 shadeSurface(vec3 p, vec3 rd, vec3 n, float matId) {
+  vec3 col = ${fnPal}(matId, u_palCycle) * calcAO(p, n);
+  col += fresnelIridescence(n, rd, ${shaderState.palIridescence.toFixed(2)}) + bloom(u_bloom);
+  return acesToneMap(chromaticAberration(col, u_chromatic));
+}`;
+    }
 
-function stepSimulation(dtMs, subSteps, fnIndex) {
-  simTime += (dtMs / 1000);
-  frameNum = fnIndex || (frameNum + 1);
-  if (burstTimer > 0) burstTimer = Math.max(0, burstTimer - dtMs / 1000);
+    function updateDSPTelemetry() {
+      const box = document.getElementById('dspTelemetryBox');
+      if (!box) return;
+      box.innerHTML = `
+        <div class="dsp-row"><span>AUDIO BASS / SUB</span><span style="color:var(--amber)">${(shaderState.audioBass * 100).toFixed(0)}%</span></div>
+        <div class="dsp-row"><span>AUDIO MID / ARP</span><span style="color:var(--cyan)">${(shaderState.audioMid * 100).toFixed(0)}%</span></div>
+        <div class="dsp-row"><span>LFO MODULATION</span><span style="color:var(--emerald)">${shaderState.lfoVal >= 0 ? '+' : ''}${shaderState.lfoVal.toFixed(2)}</span></div>
+        <div class="dsp-row"><span>DOMAIN WARP 4D</span><span style="color:var(--violet)">${shaderState.connWarp > 0.5 ? shaderState.noiseWarp.toFixed(2) : 'OFF'}</span></div>
+        <div class="dsp-row"><span>POST-BLOOM / CA</span><span style="color:var(--magenta)">${shaderState.bloom.toFixed(2)} / ${shaderState.chromatic.toFixed(2)}</span></div>
+      `;
+    }
 
-  ctx.clearRect(0, 0, 1920, 1080);
-  drawGrid();
+    // =========================================================================
+    // 8. 1-CLICK PRESETS, AUTO-LAYOUT (SUGIYAMA DAG) & PROCEDURAL MUTATION
+    // =========================================================================
+    function clearGraph() {
+      nodes = [];
+      cables = [];
+      topoOrder = [];
+      nodeIdCounter = 1;
+      cableIdCounter = 1;
+      nodeWorld.innerHTML = '';
+    }
 
-  if (CHALLENGE_NUM === 1) renderChallenge1(simTime);
-  else if (CHALLENGE_NUM === 2) renderChallenge2(simTime);
-  else if (CHALLENGE_NUM === 3) renderChallenge3(simTime);
-  else if (CHALLENGE_NUM === 4) renderChallenge4(simTime);
-  else if (CHALLENGE_NUM === 5) renderChallenge5(simTime);
-  else renderChallenge6(simTime);
+    function setActivePresetButton(btnId) {
+      ['btnPreset1', 'btnPreset2', 'btnPreset3'].forEach(id => {
+        document.getElementById(id).classList.toggle('active', id === btnId);
+      });
+    }
 
-  const fc = document.getElementById("frame-counter");
-  if (fc) fc.textContent = "FRAME " + String(frameNum).padStart(4, "0");
-}
+    // PRESET 1: Agujero de Gusano Raymarching
+    function loadPreset1() {
+      setActivePresetButton('btnPreset1');
+      clearGraph();
+      const nLfo  = createNode('LFO_TIME',   24,  28,  { waveform: 0, freq: 1.15, amp: 1.1, phase: 0.0 });
+      const nSimp = createNode('SIMPLEX_4D', 24,  275, { scale: 1.85, octaves: 3, lacunarity: 2.1, warpAmp: 0.95 });
+      const nAud  = createNode('AUDIO_FFT',  24,  525, { synthMode: 0, bpm: 128, cutoff: 1650, gain: 1.25 });
+      const nSdf  = createNode('SDF_GEOM',   295, 65,  { shape: 0, power: 8.0, radius: 0.95, morph: 0.42 });
+      const nOp   = createNode('SDF_OP',     560, 45,  { opMode: 1, twist: 1.55, repeat: 3.2, smoothK: 0.38 });
+      const nPal  = createNode('COSINE_PAL', 560, 325, { presetPal: 0, cycle: 1.35, iridescence: 1.25, specular: 1.55 });
+      const nOut  = createNode('MASTER_OUT', 835, 165, { bloom: 1.45, chromatic: 0.52, tunnelSpeed: 1.45, exposure: 1.18 });
 
-// Deterministic hook for Playwright 60fps capture
-window.__stepFrame = function(dtMs, subSteps, fnIndex) {
-  stepSimulation(dtMs || 16.6667, subSteps || 1, fnIndex);
-};
+      connectNodes(nLfo.id,  'out',      nSimp.id, 'timeIn');
+      connectNodes(nLfo.id,  'out',      nSdf.id,  'morphIn');
+      connectNodes(nSimp.id, 'warp',     nSdf.id,  'warpIn');
+      connectNodes(nSdf.id,  'sdf',      nOp.id,   'sdfIn');
+      connectNodes(nAud.id,  'bass',     nOp.id,   'modIn');
+      connectNodes(nSimp.id, 'field',    nPal.id,  'shiftIn');
+      connectNodes(nOp.id,   'sdfOut',   nOut.id,  'sdf');
+      connectNodes(nPal.id,  'colorOut', nOut.id,  'color');
+      connectNodes(nLfo.id,  'out',      nOut.id,  'mod');
+      connectNodes(nAud.id,  'fft',      nOut.id,  'audio');
 
-// Live browser loop when opened by a human in labs.mixiuh.online
-let lastTs = performance.now();
-function loop(ts) {
-  const dt = Math.min(50, ts - lastTs);
-  lastTs = ts;
-  if (!window.__recordingMode) {
-    stepSimulation(dt, 1);
-  }
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-</script>
+      camera3D.yaw = 0.25;
+      camera3D.pitch = 0.14;
+      camera3D.dist = 3.3;
+      autoLayoutGraph();
+    }
+
+    // PRESET 2: Fractal Ciber-Cristal 4D
+    function loadPreset2() {
+      setActivePresetButton('btnPreset2');
+      clearGraph();
+      const nLfo  = createNode('LFO_TIME',   24,  30,  { waveform: 2, freq: 0.75, amp: 1.35, phase: 1.2 });
+      const nSimp = createNode('SIMPLEX_4D', 24,  285, { scale: 2.4, octaves: 4, lacunarity: 2.3, warpAmp: 0.55 });
+      const nAud  = createNode('AUDIO_FFT',  24,  530, { synthMode: 1, bpm: 118, cutoff: 2200, gain: 1.15 });
+      const nSdf  = createNode('SDF_GEOM',   295, 70,  { shape: 2, power: 8.4, radius: 1.05, morph: 0.52 });
+      const nOp   = createNode('SDF_OP',     560, 50,  { opMode: 2, twist: 0.95, repeat: 3.8, smoothK: 0.28 });
+      const nPal  = createNode('COSINE_PAL', 560, 325, { presetPal: 3, cycle: 1.65, iridescence: 1.65, specular: 2.05 });
+      const nOut  = createNode('MASTER_OUT', 835, 165, { bloom: 1.55, chromatic: 0.68, tunnelSpeed: 0.45, exposure: 1.22 });
+
+      connectNodes(nLfo.id,  'out',      nSdf.id,  'morphIn');
+      connectNodes(nSimp.id, 'warp',     nSdf.id,  'warpIn');
+      connectNodes(nSdf.id,  'sdf',      nOp.id,   'sdfIn');
+      connectNodes(nLfo.id,  'out',      nOp.id,   'modIn');
+      connectNodes(nSimp.id, 'warp',     nPal.id,  'tintIn');
+      connectNodes(nAud.id,  'bass',     nPal.id,  'shiftIn');
+      connectNodes(nOp.id,   'sdfOut',   nOut.id,  'sdf');
+      connectNodes(nPal.id,  'colorOut', nOut.id,  'color');
+      connectNodes(nLfo.id,  'out',      nOut.id,  'mod');
+      connectNodes(nAud.id,  'fft',      nOut.id,  'audio');
+
+      camera3D.yaw = 0.62;
+      camera3D.pitch = 0.28;
+      camera3D.dist = 3.15;
+      autoLayoutGraph();
+    }
+
+    // PRESET 3: Pulso Audio-Reactivo Synth
+    function loadPreset3() {
+      setActivePresetButton('btnPreset3');
+      clearGraph();
+      const nAud  = createNode('AUDIO_FFT',  24,  30,  { synthMode: 2, bpm: 138, cutoff: 2650, gain: 1.65 });
+      const nLfo  = createNode('LFO_TIME',   24,  295, { waveform: 3, freq: 2.3, amp: 1.4, phase: 0.5 });
+      const nSimp = createNode('SIMPLEX_4D', 24,  535, { scale: 1.5, octaves: 3, lacunarity: 1.95, warpAmp: 1.15 });
+      const nSdf  = createNode('SDF_GEOM',   295, 70,  { shape: 3, power: 6.0, radius: 1.08, morph: 0.65 });
+      const nOp   = createNode('SDF_OP',     560, 50,  { opMode: 3, twist: 1.85, repeat: 2.8, smoothK: 0.48 });
+      const nPal  = createNode('COSINE_PAL', 560, 325, { presetPal: 1, cycle: 1.85, iridescence: 1.4, specular: 1.75 });
+      const nOut  = createNode('MASTER_OUT', 835, 165, { bloom: 1.75, chromatic: 0.78, tunnelSpeed: 1.65, exposure: 1.25 });
+
+      connectNodes(nLfo.id,  'out',      nAud.id,  'pitchMod');
+      connectNodes(nAud.id,  'bass',     nSdf.id,  'morphIn');
+      connectNodes(nSimp.id, 'warp',     nSdf.id,  'warpIn');
+      connectNodes(nSdf.id,  'sdf',      nOp.id,   'sdfIn');
+      connectNodes(nAud.id,  'bass',     nOp.id,   'modIn');
+      connectNodes(nAud.id,  'bass',     nPal.id,  'shiftIn');
+      connectNodes(nOp.id,   'sdfOut',   nOut.id,  'sdf');
+      connectNodes(nPal.id,  'colorOut', nOut.id,  'color');
+      connectNodes(nAud.id,  'bass',     nOut.id,  'mod');
+      connectNodes(nAud.id,  'fft',      nOut.id,  'audio');
+
+      camera3D.yaw = -0.35;
+      camera3D.pitch = 0.18;
+      camera3D.dist = 3.45;
+      autoLayoutGraph();
+    }
+
+    // Layered Topological DAG Auto-Layout (Sugiyama-style Depth Assignment)
+    function autoLayoutGraph() {
+      computeTopologicalSort();
+      const depthMap = new Map();
+      for (let i = 0; i < topoOrder.length; i++) {
+        depthMap.set(topoOrder[i].id, 0);
+      }
+      for (let i = 0; i < topoOrder.length; i++) {
+        const u = topoOrder[i];
+        const uDepth = depthMap.get(u.id) || 0;
+        for (let j = 0; j < cables.length; j++) {
+          const c = cables[j];
+          if (c.fromNode === u.id) {
+            const prev = depthMap.get(c.toNode) || 0;
+            if (uDepth + 1 > prev) {
+              depthMap.set(c.toNode, uDepth + 1);
+            }
+          }
+        }
+      }
+
+      // Pin MASTER_OUT to rightmost column
+      let maxDepth = 0;
+      depthMap.forEach((d) => { if (d > maxDepth) maxDepth = d; });
+      for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].type === 'MASTER_OUT') {
+          depthMap.set(nodes[i].id, Math.max(maxDepth, 3));
+        }
+      }
+
+      const columns = new Map();
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        const d = depthMap.get(n.id) || 0;
+        if (!columns.has(d)) columns.set(d, []);
+        columns.get(d).push(n);
+      }
+
+      const sortedCols = Array.from(columns.keys()).sort((a, b) => a - b);
+      const colSpacing = 252;
+      const rowSpacing = 248;
+
+      sortedCols.forEach((colKey, colIdx) => {
+        const colNodes = columns.get(colKey);
+        for (let r = 0; r < colNodes.length; r++) {
+          const n = colNodes[r];
+          n.x = 18 + colIdx * colSpacing;
+          n.y = 14 + r * rowSpacing;
+          n.el.style.transform = `translate3d(${n.x}px, ${n.y}px, 0)`;
+        }
+      });
+
+      // Fit view nicely inside graphPane
+      const paneW = graphPane.clientWidth;
+      const paneH = graphPane.clientHeight;
+      const totalW = sortedCols.length * colSpacing + 30;
+      const fitZoom = Math.min(1.0, Math.max(0.62, (paneW - 36) / totalW));
+      view.zoom = fitZoom;
+      view.x = 16;
+      view.y = Math.max(46, Math.round((paneH - 520 * fitZoom) * 0.35));
+      updateWorldTransform();
+    }
+
+    // Procedural Mutation: mutates node parameters + modes and updates UI controls in real-time
+    function injectProceduralMutation() {
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        for (let j = 0; j < n.def.controls.length; j++) {
+          const ctrl = n.def.controls[j];
+          if (ctrl.type === 'select') {
+            const nextIdx = (n.params[ctrl.key] + 1 + Math.floor(Math.random() * (ctrl.options.length - 1))) % ctrl.options.length;
+            n.params[ctrl.key] = nextIdx;
+            const selEl = n.el.querySelector(`select[data-key="${ctrl.key}"]`);
+            if (selEl) selEl.value = String(nextIdx);
+          } else {
+            const span = ctrl.max - ctrl.min;
+            const jitter = (Math.random() - 0.5) * span * 0.45;
+            let nextVal = Math.max(ctrl.min, Math.min(ctrl.max, n.params[ctrl.key] + jitter));
+            if (ctrl.step >= 1) nextVal = Math.round(nextVal);
+            else nextVal = Math.round(nextVal / ctrl.step) * ctrl.step;
+            n.params[ctrl.key] = nextVal;
+
+            const sliderEl = n.el.querySelector(`input[data-key="${ctrl.key}"]`);
+            if (sliderEl) {
+              sliderEl.value = String(nextVal);
+              const valLabel = sliderEl.parentElement.querySelector('.ctrl-val');
+              if (valLabel) valLabel.textContent = nextVal.toFixed(ctrl.step >= 1 ? 0 : 2);
+            }
+          }
+        }
+      }
+      updateGLSLCodeDisplay();
+    }
+
+    // Bind Preset & Toolbar Buttons
+    document.getElementById('btnPreset1').addEventListener('click', loadPreset1);
+    document.getElementById('btnPreset2').addEventListener('click', loadPreset2);
+    document.getElementById('btnPreset3').addEventListener('click', loadPreset3);
+    document.getElementById('btnAutoLayout').addEventListener('click', autoLayoutGraph);
+    document.getElementById('btnMutate').addEventListener('click', injectProceduralMutation);
+    document.getElementById('btnAudioToggle').addEventListener('click', () => audioEngine.toggleLiveAudio());
+
+    document.querySelectorAll('[data-spawn]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.spawn;
+        const spawnX = Math.round((140 - view.x) / view.zoom + (Math.random() * 80));
+        const spawnY = Math.round((110 - view.y) / view.zoom + (Math.random() * 80));
+        const newNode = createNode(type, spawnX, spawnY);
+        if (newNode) selectNode(newNode.id);
+      });
+    });
+
+    // =========================================================================
+    // 9. INITIALIZATION & ZERO-GC 60-120 FPS ANIMATION LOOP
+    // =========================================================================
+    window.addEventListener('resize', () => {
+      resizeGraphCanvas();
+      resizeGLCanvas();
+    });
+
+    initWebGL();
+    resizeGraphCanvas();
+    resizeGLCanvas();
+    loadPreset1();
+
+    let lastTime = performance.now();
+    let simTime = 0.0;
+    let frameCount = 0;
+    let fpsAccum = 0.0;
+
+    function mainLoop(now) {
+      const rawDt = (now - lastTime) * 0.001;
+      lastTime = now;
+      const dt = Math.min(rawDt, 0.033); // Clamped dt per 120FPS architecture skill
+      simTime += dt;
+
+      frameCount++;
+      fpsAccum += rawDt;
+      if (fpsAccum >= 0.4) {
+        const fps = Math.min(120, Math.round(frameCount / fpsAccum));
+        const fpsEl = document.getElementById('hudFps');
+        fpsEl.textContent = `${fps} FPS`;
+        fpsEl.className = `metric-val ${fps >= 50 ? 'ok' : 'warn'}`;
+        updateDSPTelemetry();
+        frameCount = 0;
+        fpsAccum = 0.0;
+      }
+
+      evaluateDAG(simTime);
+      renderGraphCanvas(simTime);
+      renderWebGL(simTime);
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    requestAnimationFrame(mainLoop);
+  })();
+  </script>
 </body>
 </html>

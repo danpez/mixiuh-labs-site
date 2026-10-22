@@ -10,6 +10,7 @@ import {
 } from "@/data/forumData";
 import { CHALLENGES } from "@/data/labsData";
 import { EP02_CHALLENGES } from "@/data/ep02Data";
+import { EP03_CHALLENGES } from "@/data/ep03Data";
 import {
   MessageSquare,
   ArrowUp,
@@ -24,7 +25,7 @@ import {
 
 interface Props {
   lang: "es" | "en";
-  onJumpToArena: (episode: "ep02" | "ep01", challengeN: number) => void;
+  onJumpToArena: (episode: "ep03" | "ep02" | "ep01", challengeN: number) => void;
 }
 
 function formatInlineCode(text: string): React.ReactNode {
@@ -45,8 +46,49 @@ function formatInlineCode(text: string): React.ReactNode {
 }
 
 export default function ForumSection({ lang, onJumpToArena }: Props) {
-  // Combine curated threads with individual prompt/audit threads for all 6 EP02 challenges + 10 EP01 challenges
+  // Combine curated threads with individual prompt/audit threads for all 6 EP03 + 6 EP02 + 10 EP01 challenges
   const defaultThreads = useMemo<ForumThread[]>(() => {
+    const ep03Threads: ForumThread[] = EP03_CHALLENGES.map((ch) => ({
+      id: `thread-ep03-challenge-${ch.n}`,
+      slug: `ep03-reto-${ch.n}-${ch.dir}`,
+      category: "prompts",
+      episode: "ep03",
+      badge_es: `EP03 PROMPT Y AUDITORIA · RETO 0${ch.n}`,
+      badge_en: `EP03 PROMPT & AUDIT · CHALLENGE 0${ch.n}`,
+      title_es: `EP03 Reto 0${ch.n} (${ch.name_es}): Prompt, Tokens (${ch.superkit_tok} vs ${ch.vanilla_tok}) y Costo ($${ch.superkit_usd.toFixed(2)} vs $${ch.vanilla_usd.toFixed(2)} USD)`,
+      title_en: `EP03 Challenge 0${ch.n} (${ch.name_en}): Prompt, Tokens (${ch.superkit_tok} vs ${ch.vanilla_tok}) & Cost ($${ch.superkit_usd.toFixed(2)} vs $${ch.vanilla_usd.toFixed(2)} USD)`,
+      excerpt_es: ch.verdict_es,
+      excerpt_en: ch.verdict_en,
+      author: "Kevin Gonzalez",
+      authorRole_es: "Arbitro · Mixiuh Labs",
+      authorRole_en: "Referee · Mixiuh Labs",
+      createdAt: "2026-10-22",
+      readTime: "4 min",
+      upvotes: 118 + (7 - ch.n) * 11,
+      views: 840 + ch.n * 75,
+      relatedChallengeN: ch.n,
+      tags: [
+        "EP03",
+        `Reto 0${ch.n}`,
+        ch.dir,
+        ch.winner === "superkit" ? "Ganador: Superpowers Kit" : "Ganador: IA Sin Kit",
+        ch.skill,
+      ],
+      content_es: [
+        `Skill evaluado en el reto: ${ch.skill} (${ch.tech}).`,
+        `Reloj y rendimiento en Antigravity CLI (Gemini 4 Argon High): Con el Superpowers Kit tardo ${ch.superkit_min} minutos (${ch.superkit_lines} lineas / ${ch.superkit_kb} KB · ${ch.superkit_fps}) contra ${ch.vanilla_min} minutos de Gemini 4 Argon High Sin Kit (${ch.vanilla_lines} lineas / ${ch.vanilla_kb} KB · ${ch.vanilla_fps}).`,
+        `Telemetria de tokens y factura API: Superpowers Kit consumio ${ch.superkit_tok} tokens (${ch.superkit_steps} pasos de agente) por $${ch.superkit_usd.toFixed(2)} USD. IA Sin Kit consumio ${ch.vanilla_tok} tokens (${ch.vanilla_steps} pasos de agente) por $${ch.vanilla_usd.toFixed(2)} USD.`,
+        `Veredicto del arbitro (Kevin Gonzalez): ${ch.verdict_es}`,
+      ],
+      content_en: [
+        `Evaluated Skill: ${ch.skill} (${ch.tech}).`,
+        `Clock & performance in Antigravity CLI (Gemini 4 Argon High): With the Superpowers Kit it took ${ch.superkit_min} minutes (${ch.superkit_lines} lines / ${ch.superkit_kb} KB · ${ch.superkit_fps}) versus ${ch.vanilla_min} minutes for Raw Gemini 4 Argon High (${ch.vanilla_lines} lines / ${ch.vanilla_kb} KB · ${ch.vanilla_fps}).`,
+        `Token telemetry & API bill: Superpowers Kit consumed ${ch.superkit_tok} tokens (${ch.superkit_steps} agent steps) for $${ch.superkit_usd.toFixed(2)} USD. Raw AI consumed ${ch.vanilla_tok} tokens (${ch.vanilla_steps} agent steps) for $${ch.vanilla_usd.toFixed(2)} USD.`,
+        `Referee verdict (Kevin Gonzalez): ${ch.verdict_en}`,
+      ],
+      comments: [],
+    }));
+
     const ep02Threads: ForumThread[] = EP02_CHALLENGES.map((ch) => ({
       id: `thread-ep02-challenge-${ch.n}`,
       slug: `ep02-reto-${ch.n}-${ch.dir}`,
@@ -128,7 +170,7 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       ],
       comments: [],
     }));
-    return [...INITIAL_FORUM_THREADS, ...ep02Threads, ...ep01Threads];
+    return [...INITIAL_FORUM_THREADS, ...ep03Threads, ...ep02Threads, ...ep01Threads];
   }, []);
 
   const [threads, setThreads] = useState<ForumThread[]>(defaultThreads);
@@ -199,11 +241,19 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
     filteredThreads[0] ||
     threads[0];
 
-  const activeThreadEpisode: "ep02" | "ep01" =
-    activeThread?.episode === "ep01" ? "ep01" : "ep02";
+  const activeThreadEpisode: "ep03" | "ep02" | "ep01" =
+    activeThread?.episode === "ep01"
+      ? "ep01"
+      : activeThread?.episode === "ep03"
+      ? "ep03"
+      : "ep02";
 
   const linkedPromptVerbatim = useMemo(() => {
     if (!activeThread?.relatedChallengeN) return undefined;
+    if (activeThreadEpisode === "ep03") {
+      return EP03_CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
+        ?.prompt_verbatim;
+    }
     if (activeThreadEpisode === "ep02") {
       return EP02_CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
         ?.prompt_verbatim;
@@ -327,8 +377,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       },
       {
         id: "benchmarks",
-        label_es: "Dossiers y Benchmarks (EP01/EP02)",
-        label_en: "Dossiers & Benchmarks (EP01/EP02)",
+        label_es: "Dossiers y Benchmarks (EP01/EP02/EP03)",
+        label_en: "Dossiers & Benchmarks (EP01/EP02/EP03)",
       },
       {
         id: "autopsias",
@@ -337,8 +387,8 @@ export default function ForumSection({ lang, onJumpToArena }: Props) {
       },
       {
         id: "prompts",
-        label_es: "Los 16 Prompts Zero-Shot",
-        label_en: "All 16 Zero-Shot Prompts",
+        label_es: "Los 22 Prompts Zero-Shot",
+        label_en: "All 22 Zero-Shot Prompts",
       },
       {
         id: "pipeline",

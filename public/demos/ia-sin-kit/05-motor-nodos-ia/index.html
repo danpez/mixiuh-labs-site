@@ -1,636 +1,3162 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ESTUDIO DE NODOS IA & PIPELINE DAG — IA SIN KIT (BASE)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS // NODE SHADER &amp; DSP STUDIO</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  :root {
+    --bg-void: #06080d;
+    --bg-panel: rgba(11, 15, 24, 0.92);
+    --bg-panel-solid: #0b0f18;
+    --bg-elevated: #121826;
+    --bg-node: rgba(13, 18, 29, 0.94);
+    --border-dim: rgba(148, 163, 184, 0.14);
+    --border-bright: rgba(56, 189, 248, 0.45);
+    --text-main: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --cyan: #22d3ee;
+    --emerald: #10b981;
+    --magenta: #f472b6;
+    --amber: #fbbf24;
+    --orange: #fb923c;
+    --violet: #a78bfa;
+    --red: #f43f5e;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, monospace;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   html, body {
-    width: 100vw; height: 100vh; overflow: hidden;
-    background: #050912; color: #F5F7FA;
-    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg-void);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    -webkit-font-smoothing: antialiased;
   }
-  #stage {
-    position: relative; width: 100vw; height: 100vh; overflow: hidden;
-    background: radial-gradient(circle at 38% 48%, #0C192C 0%, #050912 75%);
+
+  /* Layout Shell */
+  #app {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    position: relative;
   }
-  canvas#sim {
-    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+
+  /* Top Command & Telemetry Header */
+  #topbar {
+    height: 54px;
+    background: linear-gradient(180deg, rgba(16, 22, 35, 0.98) 0%, rgba(9, 13, 21, 0.96) 100%);
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    gap: 10px;
+    z-index: 40;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
   }
-  /* Top Header Bar */
-  .topbar {
-    position: absolute; top: 18px; left: 22px; right: 22px; height: 64px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid #F43F5E;
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 24px rgba(244, 63, 94, 0.28);
-    backdrop-filter: blur(10px);
+
+  .brand-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 245px;
+  }
+
+  .brand-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    background: radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.28), rgba(167, 139, 250, 0.12));
+    border: 1px solid rgba(34, 211, 238, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.25);
+    flex-shrink: 0;
+  }
+
+  .brand-title {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .brand-title span.slash {
+    color: var(--cyan);
+  }
+
+  .brand-sub {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+
+  /* Presets & Actions Bar */
+  .preset-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .btn {
+    height: 31px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(20, 28, 44, 0.85);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: rgba(34, 211, 238, 0.14);
+    border-color: var(--cyan);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+  }
+
+  .btn.active-preset {
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(167, 139, 250, 0.22));
+    border-color: var(--cyan);
+    color: #ffffff;
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.28);
+  }
+
+  .btn-accent-amber {
+    border-color: rgba(251, 191, 36, 0.4);
+    background: rgba(251, 191, 36, 0.1);
+    color: #fde68a;
+  }
+  .btn-accent-amber:hover {
+    background: rgba(251, 191, 36, 0.22);
+    border-color: var(--amber);
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.28);
+  }
+
+  .btn-accent-magenta {
+    border-color: rgba(244, 114, 182, 0.42);
+    background: rgba(244, 114, 182, 0.11);
+    color: #fbcfe8;
+  }
+  .btn-accent-magenta:hover {
+    background: rgba(244, 114, 182, 0.24);
+    border-color: var(--magenta);
+    box-shadow: 0 0 14px rgba(244, 114, 182, 0.3);
+  }
+
+  .btn-accent-emerald {
+    border-color: rgba(16, 185, 129, 0.45);
+    background: rgba(16, 185, 129, 0.12);
+    color: #a7f3d0;
+  }
+  .btn-accent-emerald.synth-on {
+    background: rgba(16, 185, 129, 0.28);
+    border-color: #34d399;
+    color: #ecfdf5;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+  }
+
+  .toolbar-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border-dim);
+    margin: 0 2px;
+  }
+
+  /* Telemetry Cluster */
+  .telemetry-cluster {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .metric-pill {
+    background: rgba(8, 12, 20, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    min-width: 72px;
+  }
+
+  .metric-label {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .metric-val {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--cyan);
+    margin-top: 1px;
+  }
+
+  /* Subbar: Topological Order & Node Spawner */
+  #subbar {
+    height: 36px;
+    background: rgba(8, 11, 18, 0.94);
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    gap: 12px;
+    z-index: 35;
+  }
+
+  .spawner-bar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow-x: auto;
+  }
+
+  .spawner-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-right: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .spawn-chip {
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(17, 24, 39, 0.85);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+
+  .spawn-chip:hover {
+    border-color: var(--cyan);
+    background: rgba(34, 211, 238, 0.12);
+  }
+
+  .dot-cat {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .topo-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    max-width: 48vw;
+  }
+
+  .topo-title {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .topo-chain {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  .topo-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: #e2e8f0;
+    font-size: 9.5px;
+    white-space: nowrap;
+  }
+
+  .topo-arrow {
+    color: var(--cyan);
+    font-size: 10px;
+  }
+
+  /* Main Split Workspace */
+  #workspace {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Left/Center: Infinite DAG Node Canvas */
+  #graph-pane {
+    flex: 1.35;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, #0b111e 0%, #05070c 100%);
+    cursor: grab;
+  }
+
+  #graph-pane.panning {
+    cursor: grabbing;
+  }
+
+  /* Background Grid & Cable Canvas */
+  #cable-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* Transform World Layer for DOM Nodes */
+  #node-world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
     z-index: 10;
   }
-  .topbar-left { display: flex; align-items: center; gap: 16px; }
-  .badge-mode {
-    padding: 7px 14px; border-radius: 10px; font-weight: 900; font-size: 15px;
-    letter-spacing: 1.5px; background: #FBBF24; color: #1A0A04;
-    border: 1.5px solid #F43F5E;
-  }
-  .challenge-title {
-    font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #FFFFFF;
-  }
-  .skill-pill {
-    font-size: 13px; font-weight: 700; color: #F43F5E;
-    background: rgba(255,255,255,0.06); padding: 6px 12px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.14);
-  }
-  .topbar-right { display: flex; align-items: center; gap: 14px; }
-  .stat-chip {
-    padding: 7px 14px; border-radius: 10px; background: rgba(4, 9, 18, 0.9);
-    border: 1.5px solid rgba(255,255,255,0.15); font-size: 15px; font-weight: 800;
-  }
-  .stat-fps {
-    padding: 7px 16px; border-radius: 10px; font-size: 18px; font-weight: 900;
-    background: rgba(244, 63, 94, 0.25); color: #FF8FA3; border: 2px solid #F43F5E;
+
+  /* Node Card Styling */
+  .nexus-node {
+    position: absolute;
+    width: 238px;
+    background: var(--bg-node);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 9px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    backdrop-filter: blur(10px);
+    transition: box-shadow 0.15s, border-color 0.15s;
+    pointer-events: auto;
   }
 
-  /* Right Telemetry & Controls Sidebar */
-  .sidebar {
-    position: absolute; top: 98px; right: 22px; width: 430px; bottom: 150px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid rgba(255,255,255,0.14);
-    border-radius: 18px; padding: 18px;
-    display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.65);
-    backdrop-filter: blur(10px);
+  .nexus-node.selected {
+    border-color: var(--cyan);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75), 0 0 18px rgba(34, 211, 238, 0.32);
+  }
+
+  .nexus-node.bypassed {
+    opacity: 0.55;
+    filter: grayscale(0.6);
+  }
+
+  .node-header {
+    height: 30px;
+    padding: 0 9px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: move;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .node-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .node-id-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .node-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+  }
+
+  .node-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .node-icon-btn {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: none;
+    background: rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.75);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+  }
+
+  .node-icon-btn:hover {
+    background: rgba(244, 63, 94, 0.8);
+    color: #fff;
+  }
+
+  /* Live Mini Preview Canvas inside Every Node */
+  .node-preview-wrap {
+    position: relative;
+    width: 100%;
+    height: 56px;
+    background: #050811;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    overflow: hidden;
+  }
+
+  .node-preview-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .node-preview-overlay {
+    position: absolute;
+    bottom: 3px;
+    right: 6px;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    color: rgba(226, 232, 240, 0.72);
+    background: rgba(5, 8, 17, 0.75);
+    padding: 1px 4px;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+
+  /* Ports Section */
+  .node-ports-grid {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    background: rgba(9, 13, 22, 0.55);
+  }
+
+  .ports-col {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .ports-col.inputs {
+    align-items: flex-start;
+  }
+
+  .ports-col.outputs {
+    align-items: flex-end;
+  }
+
+  .port-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 18px;
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-muted);
+  }
+
+  .port-socket {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: #090d16;
+    cursor: crosshair;
+    position: relative;
+    transition: transform 0.12s, box-shadow 0.12s;
+    z-index: 20;
+  }
+
+  .ports-col.inputs .port-socket {
+    margin-left: -7px;
+  }
+
+  .ports-col.outputs .port-socket {
+    margin-right: -7px;
+  }
+
+  .port-socket:hover, .port-socket.magnetic {
+    transform: scale(1.38);
+    box-shadow: 0 0 10px currentColor;
+  }
+
+  .port-socket.connected {
+    background: currentColor;
+  }
+
+  /* Port Type Colors */
+  .port-type-float { color: var(--cyan); border-color: var(--cyan); }
+  .port-type-vec3  { color: var(--magenta); border-color: var(--magenta); }
+  .port-type-sdf   { color: var(--emerald); border-color: var(--emerald); }
+  .port-type-audio { color: var(--amber); border-color: var(--amber); }
+
+  /* Node Controls / Sliders */
+  .node-controls {
+    padding: 7px 9px 9px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ctrl-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ctrl-head {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-muted);
+  }
+
+  .ctrl-val {
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .ctrl-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(30, 41, 59, 0.95);
+    outline: none;
+    cursor: ew-resize;
+  }
+
+  .ctrl-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--cyan);
+    border: 1.5px solid #fff;
+    cursor: ew-resize;
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.8);
+  }
+
+  .ctrl-select {
+    width: 100%;
+    height: 22px;
+    background: rgba(15, 23, 42, 0.95);
+    color: var(--text-main);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    padding: 0 5px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Graph HUD Overlay */
+  .graph-hud-bottom {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 25;
+    pointer-events: auto;
+  }
+
+  .hud-pill {
+    background: rgba(8, 12, 20, 0.88);
+    border: 1px solid var(--border-dim);
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(6px);
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9.5px;
+  }
+
+  /* Toast Banner for Cycle Detection & Mutations */
+  #dag-toast {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--cyan);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #fff;
+    z-index: 60;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.65);
+  }
+
+  #dag-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  #dag-toast.error {
+    border-color: var(--red);
+    background: rgba(69, 10, 26, 0.95);
+    color: #fecdd3;
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.45);
+  }
+
+  /* Right Pane: WebGL 3D Raymarching Viewport + GLSL Compiler Inspector */
+  #right-pane {
+    width: 44%;
+    min-width: 420px;
+    max-width: 780px;
+    border-left: 1px solid var(--border-dim);
+    background: var(--bg-panel-solid);
+    display: flex;
+    flex-direction: column;
+    z-index: 30;
+    transition: width 0.22s ease;
+  }
+
+  #right-pane.expanded {
+    width: 66%;
+    max-width: none;
+  }
+
+  /* Viewport Container */
+  #viewport-wrap {
+    flex: 1.35;
+    position: relative;
+    background: #020408;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border-dim);
+  }
+
+  #gl-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+
+  #gl-canvas:active {
+    cursor: grabbing;
+  }
+
+  .viewport-topbar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
     z-index: 10;
   }
-  .sec-head {
-    font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #F43F5E;
-    border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 6px;
-    display: flex; justify-content: space-between;
-  }
-  .metric-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  }
-  .metric-card {
-    background: rgba(4, 8, 16, 0.92); border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 10px 12px;
-  }
-  .metric-lbl { font-size: 11px; color: #8FA3B8; font-weight: 700; letter-spacing: 1px; }
-  .metric-val { font-size: 15px; font-weight: 900; margin-top: 4px; }
 
-  .log-box {
-    flex: 1; background: rgba(3, 6, 12, 0.95); border: 1.5px solid #F43F5E;
-    border-radius: 12px; padding: 12px; font-size: 12.5px; line-height: 1.55;
-    overflow: hidden; display: flex; flex-direction: column; gap: 8px;
-  }
-  .log-item {
-    padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);
-    border-left: 3px solid #F43F5E; font-weight: 700;
+  .vp-badge {
+    pointer-events: auto;
+    background: rgba(6, 10, 18, 0.82);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: #e2e8f0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
   }
 
-  .btn-row { display: flex; gap: 8px; }
-  .ctrl-btn {
-    flex: 1; padding: 10px 8px; border-radius: 10px; border: 1.5px solid #F43F5E;
-    background: rgba(255,255,255,0.06); color: #FFF; font-family: inherit;
-    font-size: 12.5px; font-weight: 800; cursor: pointer; transition: 0.15s;
-    text-align: center;
-  }
-  .ctrl-btn:hover, .ctrl-btn.active {
-    background: #FBBF24; color: #1A0A04;
+  .vp-controls {
+    pointer-events: auto;
+    display: flex;
+    gap: 5px;
   }
 
-  /* Bottom Error Console (only visible in vanilla mode) */
-  .error-drawer {
-    position: absolute; left: 22px; right: 22px; bottom: 18px; height: 118px;
-    background: rgba(28, 6, 14, 0.94); border: 2px solid #F43F5E;
-    border-radius: 14px; padding: 12px 18px;
-    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45);
-    z-index: 12; display: block;
-  }
-  .err-title {
-    color: #FF8FA3; font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
-    margin-bottom: 6px; display: flex; justify-content: space-between;
-  }
-  .err-line {
-    color: #FFE1E7; font-size: 13px; font-weight: 700; margin-bottom: 4px;
-    font-family: monospace;
+  .vp-btn {
+    height: 25px;
+    padding: 0 8px;
+    border-radius: 5px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(8, 12, 22, 0.85);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    cursor: pointer;
+    transition: all 0.12s;
   }
 
-  /* Floating Status Banner Bottom-Left for Superkit */
-  .super-banner {
-    position: absolute; left: 22px; bottom: 22px; width: 920px; height: 74px;
-    background: rgba(6, 22, 34, 0.92); border: 2px solid #10B981;
-    border-radius: 16px; padding: 0 22px;
-    display: none; align-items: center; justify-content: space-between;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 22px rgba(16, 185, 129, 0.3);
-    z-index: 11;
+  .vp-btn:hover, .vp-btn.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(34, 211, 238, 0.15);
   }
+
+  .viewport-bottombar {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #audio-hud-canvas {
+    width: 170px;
+    height: 40px;
+    border-radius: 5px;
+    background: rgba(6, 10, 18, 0.82);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    pointer-events: auto;
+  }
+
+  /* Bottom-Right: GLSL Compiler & DAG Telemetry Console */
+  #inspector-pane {
+    height: 235px;
+    display: flex;
+    flex-direction: column;
+    background: #070a12;
+  }
+
+  .inspector-header {
+    height: 30px;
+    padding: 0 12px;
+    background: rgba(15, 23, 42, 0.9);
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  .status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    color: var(--emerald);
+  }
+
+  .status-indicator.error {
+    color: var(--red);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  .inspector-tabs {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .tab-btn.active {
+    background: rgba(34, 211, 238, 0.16);
+    color: var(--cyan);
+  }
+
+  .inspector-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.45;
+    color: #cbd5e1;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  #glsl-code-view {
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #93c5fd;
+  }
+
+  .log-entry {
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    display: flex;
+    gap: 8px;
+  }
+  .log-time { color: var(--text-dim); }
+  .log-ok { color: var(--emerald); }
+  .log-warn { color: var(--amber); }
+  .log-err { color: var(--red); }
 </style>
 </head>
 <body>
-<div id="stage">
-  <canvas id="sim" width="1920" height="1080"></canvas>
-
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="badge-mode">IA SIN KIT (BASE)</div>
-      <div class="challenge-title">PRUEBA 05/06 · ESTUDIO DE NODOS IA & PIPELINE DAG</div>
-      <div class="skill-pill">SKILL 05: AUTOMATIZADOR DE PRODUCTIVIDAD</div>
-    </div>
-    <div class="topbar-right">
-      <div class="stat-chip">TIEMPO: <span style="color:#F43F5E">25 MIN</span></div>
-      <div class="stat-chip">COSTO: <span style="color:#FBBF24">$2.60 USD</span> (2.2M TOK)</div>
-      <div class="stat-fps" id="fps-box">22 FPS</div>
-    </div>
-  </div>
-
-  <div class="sidebar">
-    <div class="sec-head">
-      <span>TELEMETRIA DE EJECUCION</span>
-      <span>650 LINEAS</span>
-    </div>
-    <div class="metric-grid">
-      <div class="metric-card"><div class="metric-lbl">ESTADO DEL GRAFO</div><div class="metric-val" style="color:#F43F5E">CABLES ROTOS AL MOVER</div></div>
-<div class="metric-card"><div class="metric-lbl">EJECUCION PIPELINE</div><div class="metric-val" style="color:#F43F5E">BLOQUEADA EN PASO 2/8</div></div>
-<div class="metric-card"><div class="metric-lbl">DESPERDICIO TOKENS</div><div class="metric-val" style="color:#FBBF24">+210% (SIN CACHE DAG)</div></div>
-<div class="metric-card"><div class="metric-lbl">AUTO-LAYOUT</div><div class="metric-val" style="color:#8FA3B8">NO DISPONIBLE</div></div>
-    </div>
-    <div class="sec-head" style="margin-top:4px;">
-      <span>REGISTRO DE FALLOS Y CUELLOS</span>
-      <span id="frame-counter">FRAME 0000</span>
-    </div>
-    <div class="log-box" id="log-box">
-      <div class="log-item" style="color:#FFE1E7">[GRAPH] Bezier spline anchor NaN when dragging node #3 (port offset lost)</div>
-<div class="log-item" style="color:#FFE1E7">[PIPE] Sequential execution bottleneck: waiting 28s on single blocking worker</div>
-<div class="log-item" style="color:#FFE1E7">[EXPORT] Circular dependency not detected -> JSON serialize stack overflow</div>
-    </div>
-    <div class="btn-row">
-      <button class="ctrl-btn active" id="btn-mode1" onclick="setMode(0)">MODO 1: INTERACTIVO</button>
-      <button class="ctrl-btn" id="btn-mode2" onclick="setMode(1)">MODO 2: ESTRES / PULSO</button>
-      <button class="ctrl-btn" id="btn-burst" onclick="triggerBurst()">IMPULSO</button>
-    </div>
-  </div>
-
-  <div class="error-drawer">
-    <div class="err-title">
-      <span>CONSOLA SIN VERIFICAR (FALTA SKILL AUTO-DEBUGGER & ARQUITECTO 120FPS)</span>
-      <span>STATUS: DEGRADED (22 FPS)</span>
-    </div>
-    <div class="err-line">[GRAPH] Bezier spline anchor NaN when dragging node #3 (port offset lost)</div>
-<div class="err-line">[PIPE] Sequential execution bottleneck: waiting 28s on single blocking worker</div>
-<div class="err-line">[EXPORT] Circular dependency not detected -> JSON serialize stack overflow</div>
-  </div>
-
-  <div class="super-banner">
-    <div>
-      <div style="font-size:12px; font-weight:800; color:#10B981; letter-spacing:1.5px;">
-        MIXIUH SUPERPOWERS KIT v1.0 ACTIVO · CLAUDE.MD + MEMORY.MD + 5 SKILLS
+<div id="app">
+  <!-- TOPBAR: BRAND, 1-CLICK PRESETS & LIVE TELEMETRY -->
+  <header id="topbar">
+    <div class="brand-block">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+          <line x1="12" y1="22" x2="12" y2="15.5"/>
+          <polyline points="22 8.5 12 15.5 2 8.5"/>
+          <circle cx="12" cy="8.5" r="2" fill="#f472b6" stroke="none"/>
+        </svg>
       </div>
-      <div style="font-size:16px; font-weight:900; color:#FFFFFF; margin-top:3px;">
-        CABLES DESCONECTADOS · CUELLO SECUENCIAL
+      <div>
+        <div class="brand-title">NEXUS <span class="slash">//</span> NODE SHADER &amp; DSP</div>
+        <div class="brand-sub">DAG COMPILER &middot; 3D RAYMARCHING &middot; FFT SYNTH</div>
       </div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:12px; color:#5EEAD4; font-weight:800;">VERIFICADO CON CHROME DEVTOOLS MCP</div>
-      <div style="font-size:18px; font-weight:900; color:#10B981;">120.0 FPS · 0 ERRORES · -75% COSTO</div>
+
+    <div class="preset-toolbar">
+      <button class="btn active-preset" id="btn-preset-1" onclick="Studio.loadPreset(1)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3c4 3 4 15 0 18"/></svg>
+        1. Agujero de Gusano Raymarching
+      </button>
+      <button class="btn" id="btn-preset-2" onclick="Studio.loadPreset(2)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 19 9 12 22 5 9"/></svg>
+        2. Fractal Ciber-Cristal 4D
+      </button>
+      <button class="btn" id="btn-preset-3" onclick="Studio.loadPreset(3)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12h3l3-8 4 16 3-8h7"/></svg>
+        3. Pulso Audio-Reactivo Synth
+      </button>
+      <div class="toolbar-sep"></div>
+      <button class="btn btn-accent-amber" onclick="Studio.autoLayoutGraph()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="6" height="6"/><rect x="15" y="3" width="6" height="6"/><rect x="9" y="15" width="6" height="6"/><path d="M6 9v3h12V9M12 12v3"/></svg>
+        Auto-Ordenar Grafo (Layout)
+      </button>
+      <button class="btn btn-accent-magenta" onclick="Studio.injectProceduralMutation()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Inyectar Mutacion Procedural
+      </button>
+      <button class="btn btn-accent-emerald" id="btn-audio-toggle" onclick="Studio.toggleSynthAudio()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        <span id="audio-btn-label">DSP Synth: AUTO</span>
+      </button>
     </div>
+
+    <div class="telemetry-cluster">
+      <div class="metric-pill">
+        <span class="metric-label">SHADER FPS</span>
+        <span class="metric-val" id="metric-fps">60 FPS</span>
+      </div>
+      <div class="metric-pill">
+        <span class="metric-label">DAG EVAL</span>
+        <span class="metric-val" id="metric-dag-ms" style="color:var(--emerald)">0.12 ms</span>
+      </div>
+      <div class="metric-pill">
+        <span class="metric-label">NODOS / CABLES</span>
+        <span class="metric-val" id="metric-counts" style="color:var(--amber)">6 / 6</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- SUBBAR: SPAWN NODES & LIVE TOPOLOGICAL ORDER -->
+  <div id="subbar">
+    <div class="spawner-bar">
+      <span class="spawner-label">+ NODO:</span>
+      <button class="spawn-chip" onclick="Studio.spawnNode('lfo')"><span class="dot-cat" style="background:var(--cyan)"></span>LFO / Tiempo</button>
+      <button class="spawn-chip" onclick="Studio.spawnNode('audio')"><span class="dot-cat" style="background:var(--amber)"></span>Audio FFT / Synth</button>
+      <button class="spawn-chip" onclick="Studio.spawnNode('noise')"><span class="dot-cat" style="background:var(--violet)"></span>Ruido Simplex 4D</button>
+      <button class="spawn-chip" onclick="Studio.spawnNode('sdf')"><span class="dot-cat" style="background:var(--emerald)"></span>Geometria SDF</button>
+      <button class="spawn-chip" onclick="Studio.spawnNode('op')"><span class="dot-cat" style="background:var(--orange)"></span>Operador / Twist / Rep</button>
+      <button class="spawn-chip" onclick="Studio.spawnNode('palette')"><span class="dot-cat" style="background:var(--magenta)"></span>Paleta Coseno</button>
+    </div>
+    <div class="topo-strip">
+      <span class="topo-title">ORDEN TOPOLOGICO DAG:</span>
+      <div class="topo-chain" id="topo-chain-view"></div>
+    </div>
+  </div>
+
+  <!-- WORKSPACE: GRAPH CANVAS + 3D RAYMARCHING VIEWPORT -->
+  <div id="workspace">
+    <!-- LEFT: INFINITE DAG CANVAS -->
+    <div id="graph-pane">
+      <canvas id="cable-canvas"></canvas>
+      <div id="node-world"></div>
+
+      <div id="dag-toast"></div>
+
+      <div class="graph-hud-bottom">
+        <div class="hud-pill">
+          <span class="legend-item"><span class="dot-cat" style="background:var(--cyan)"></span>Float</span>
+          <span class="legend-item"><span class="dot-cat" style="background:var(--magenta)"></span>Vec3/Color</span>
+          <span class="legend-item"><span class="dot-cat" style="background:var(--emerald)"></span>SDF Geometry</span>
+          <span class="legend-item"><span class="dot-cat" style="background:var(--amber)"></span>Audio FFT</span>
+        </div>
+        <div class="hud-pill">
+          <span id="zoom-readout">ZOOM: 100%</span>
+          <button class="vp-btn" onclick="Studio.resetView()">Centrar Vista</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: WEBGL 3D RAYMARCHING + GLSL COMPILER CONSOLE -->
+    <aside id="right-pane">
+      <div id="viewport-wrap">
+        <canvas id="gl-canvas"></canvas>
+        <div class="viewport-topbar">
+          <div class="vp-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            <span id="vp-shader-title">WEBGL2 RAYMARCHER // LIVE</span>
+          </div>
+          <div class="vp-controls">
+            <button class="vp-btn active" id="btn-render-shaded" onclick="Studio.setRenderMode(0)">Iridiscente</button>
+            <button class="vp-btn" id="btn-render-normals" onclick="Studio.setRenderMode(1)">Normales</button>
+            <button class="vp-btn" id="btn-render-isolines" onclick="Studio.setRenderMode(2)">Campo SDF</button>
+            <button class="vp-btn" id="btn-expand-vp" onclick="Studio.toggleExpandViewport()">Ampliar</button>
+          </div>
+        </div>
+        <div class="viewport-bottombar">
+          <div class="vp-badge" style="border-color:rgba(148,163,184,0.25); font-size:9px; color:var(--text-muted);">
+            ARRASTRAR: Orbitar Camara 3D &middot; RUEDA: Zoom
+          </div>
+          <canvas id="audio-hud-canvas" width="170" height="40" title="Espectro FFT en Vivo"></canvas>
+        </div>
+      </div>
+
+      <!-- COMPILER & TELEMETRY INSPECTOR -->
+      <div id="inspector-pane">
+        <div class="inspector-header">
+          <div class="status-indicator" id="compiler-status">
+            <span class="status-dot"></span>
+            <span id="compiler-status-text">GLSL COMPILER: OK (0 WARNINGS)</span>
+          </div>
+          <div class="inspector-tabs">
+            <button class="tab-btn active" id="tab-btn-glsl" onclick="Studio.switchInspectorTab('glsl')">GLSL Generado</button>
+            <button class="tab-btn" id="tab-btn-log" onclick="Studio.switchInspectorTab('log')">Consola DAG (<span id="log-count">0</span>)</button>
+          </div>
+        </div>
+        <div class="inspector-body">
+          <div id="glsl-code-view"></div>
+          <div id="dag-log-view" style="display:none"></div>
+        </div>
+      </div>
+    </aside>
   </div>
 </div>
-
 <script>
-const CHALLENGE_NUM = 5;
-const IS_SUPER = false;
-const TARGET_FPS = 22;
-const ACCENT = "#F43F5E";
+(() => {
+  'use strict';
 
-const canvas = document.getElementById("sim");
-const ctx = canvas.getContext("2d");
-let simTime = 0;
-let frameNum = 0;
-let curMode = 0;
-let burstTimer = 0;
-let pointer = { x: 680, y: 540, down: false };
+  // ============================================================================
+  // 1. PORT TYPES & CATEGORY DEFINITIONS
+  // ============================================================================
+  const PORT_TYPES = {
+    float: { label: 'Float', color: '#22d3ee', className: 'port-type-float' },
+    vec3:  { label: 'Vec3/Color', color: '#f472b6', className: 'port-type-vec3' },
+    sdf:   { label: 'SDF Geometry', color: '#10b981', className: 'port-type-sdf' },
+    audio: { label: 'Audio FFT', color: '#fbbf24', className: 'port-type-audio' }
+  };
 
-function setMode(m) {
-  curMode = m;
-  document.getElementById("btn-mode1").classList.toggle("active", m === 0);
-  document.getElementById("btn-mode2").classList.toggle("active", m === 1);
-  triggerBurst();
-}
-function triggerBurst() { burstTimer = 1.0; }
-
-window.addEventListener("mousemove", (e) => {
-  const r = canvas.getBoundingClientRect();
-  pointer.x = (e.clientX - r.left) * (1920 / r.width);
-  pointer.y = (e.clientY - r.top) * (1080 / r.height);
-});
-window.addEventListener("mousedown", () => { pointer.down = true; triggerBurst(); });
-window.addEventListener("mouseup", () => { pointer.down = false; });
-
-// Pre-seeded deterministic PRNG
-let seed = 1337 + CHALLENGE_NUM * 97;
-function rand() {
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967296;
-}
-
-// Pre-allocated state for the 6 challenges
-const STARS = [];
-for (let i = 0; i < (IS_SUPER ? 3200 : 520); i++) {
-  const arm = i % 3;
-  const dist = 45 + Math.pow(rand(), 0.72) * 430;
-  const ang = (i / (IS_SUPER ? 3200 : 520)) * Math.PI * 12 + (arm * Math.PI * 2 / 3) + (rand() - 0.5) * 0.45;
-  STARS.push({
-    r: dist,
-    a: ang,
-    spd: (180 / (dist + 35)) * (0.85 + rand() * 0.3),
-    z: (rand() - 0.5) * 80,
-    sz: 1.2 + rand() * (IS_SUPER ? 2.6 : 1.5),
-    hue: arm === 0 ? "#22D3EE" : (arm === 1 ? "#A78BFA" : "#F472B6")
-  });
-}
-
-const CANDLES = [];
-let price = 96400;
-for (let i = 0; i < 48; i++) {
-  const o = price;
-  const c = o + (rand() - 0.46) * 420;
-  const h = Math.max(o, c) + rand() * 220;
-  const l = Math.min(o, c) - rand() * 220;
-  price = c;
-  CANDLES.push({ o, c, h, l, v: 40 + rand() * 120 });
-}
-
-function drawGrid() {
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.055)";
-  ctx.lineWidth = 1;
-  const step = 60;
-  for (let x = 0; x < 1920; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke();
-  }
-  for (let y = 0; y < 1080; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke();
-  }
-}
-
-function renderChallenge1(t) {
-  // 01: Galaxy N-Body & Black Hole Gravitational Lensing
-  const cx = 710 + Math.sin(t * 0.6) * 35;
-  const cy = 540 + Math.cos(t * 0.5) * 25;
-
-  if (IS_SUPER) {
-    // Einstein Gravitational Lensing Ring + Relativistic Accretion Halo
-    const grad = ctx.createRadialGradient(cx, cy, 24, cx, cy, 380);
-    grad.addColorStop(0, "#000000");
-    grad.addColorStop(0.11, "#000000");
-    grad.addColorStop(0.14, "#FFF4C2");
-    grad.addColorStop(0.24, "rgba(34, 211, 238, 0.65)");
-    grad.addColorStop(0.48, "rgba(167, 139, 250, 0.25)");
-    grad.addColorStop(1, "rgba(5, 9, 18, 0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 380, 0, Math.PI * 2); ctx.fill();
+  function canConnectTypes(outType, inType) {
+    if (outType === inType) return true;
+    // Allow Float <-> Audio FFT seamless modulation, and Float/Audio -> Vec3 broadcast
+    if ((outType === 'float' && inType === 'audio') || (outType === 'audio' && inType === 'float')) return true;
+    if ((outType === 'float' || outType === 'audio') && inType === 'vec3') return true;
+    return false;
   }
 
-  for (let i = 0; i < STARS.length; i++) {
-    const s = STARS[i];
-    const a = s.a + t * s.spd * (IS_SUPER ? 1.0 : 0.35) * (1 + curMode * 0.6);
-    const r = s.r * (1.0 + 0.08 * Math.sin(t * 2.0 + i * 0.01) + burstTimer * 0.18);
-    const x = cx + Math.cos(a) * r;
-    const y = cy + Math.sin(a) * r * (IS_SUPER ? 0.68 : 0.85) + (IS_SUPER ? Math.sin(a * 2) * 18 : 0);
-    ctx.fillStyle = IS_SUPER ? s.hue : (i % 5 === 0 ? "#F43F5E" : "#8FA3B8");
-    ctx.fillRect(x, y, s.sz, s.sz);
+  // ============================================================================
+  // 2. WEBAUDIO DSP SYNTHESIZER & REAL-TIME FFT ANALYZER
+  // ============================================================================
+  class SynthAudioEngine {
+    constructor() {
+      this.ctx = null;
+      this.analyser = null;
+      this.isPlaying = false;
+      this.freqData = new Uint8Array(64);
+      this.timeData = new Uint8Array(64);
+      this.sub = 0.25;
+      this.mid = 0.2;
+      this.high = 0.15;
+      this.stepIndex = 0;
+      this.lastStepTime = 0;
+      this.masterGain = null;
+      this.filterNode = null;
+    }
+
+    toggle() {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return false;
+        this.ctx = new AudioCtx();
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 128;
+        this.analyser.smoothingTimeConstant = 0.78;
+
+        this.filterNode = this.ctx.createBiquadFilter();
+        this.filterNode.type = 'lowpass';
+        this.filterNode.frequency.value = 1200;
+        this.filterNode.Q.value = 5.5;
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.22;
+
+        this.filterNode.connect(this.masterGain);
+        this.masterGain.connect(this.analyser);
+        this.analyser.connect(this.ctx.destination);
+      }
+
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+
+      this.isPlaying = !this.isPlaying;
+      if (this.masterGain && this.ctx) {
+        this.masterGain.gain.setTargetAtTime(this.isPlaying ? 0.22 : 0.0, this.ctx.currentTime, 0.04);
+      }
+      return this.isPlaying;
+    }
+
+    triggerNote(freq, cutoff, resonance, nowSec) {
+      if (!this.ctx || !this.isPlaying) return;
+      const t = this.ctx.currentTime;
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'square';
+      osc1.frequency.setValueAtTime(freq, t);
+      osc2.frequency.setValueAtTime(freq * 0.5, t);
+      osc2.detune.setValueAtTime(8, t);
+
+      this.filterNode.frequency.setValueAtTime(Math.max(120, cutoff), t);
+      this.filterNode.frequency.exponentialRampToValueAtTime(Math.max(80, cutoff * 0.22), t + 0.16);
+      this.filterNode.Q.setValueAtTime(Math.min(18, resonance), t);
+
+      env.gain.setValueAtTime(0.001, t);
+      env.gain.linearRampToValueAtTime(0.45, t + 0.012);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+      osc1.connect(env);
+      osc2.connect(env);
+      env.connect(this.filterNode);
+
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + 0.19);
+      osc2.stop(t + 0.19);
+    }
+
+    update(timeSec, bpm = 128, cutoff = 1400, drive = 1.2) {
+      const stepDur = 60 / Math.max(60, bpm) / 4;
+      const notes = [55, 55, 110, 82.41, 65.41, 110, 98.0, 73.42];
+      if (timeSec - this.lastStepTime >= stepDur) {
+        this.lastStepTime = timeSec;
+        const note = notes[this.stepIndex % notes.length];
+        this.stepIndex++;
+        if (this.isPlaying) {
+          this.triggerNote(note, cutoff, 4.0 + drive * 3.0, timeSec);
+        }
+      }
+
+      if (this.isPlaying && this.analyser) {
+        this.analyser.getByteFrequencyData(this.freqData);
+        this.analyser.getByteTimeDomainData(this.timeData);
+        let s = 0, m = 0, h = 0;
+        for (let i = 0; i < 6; i++) s += this.freqData[i];
+        for (let i = 6; i < 22; i++) m += this.freqData[i];
+        for (let i = 22; i < 48; i++) h += this.freqData[i];
+        this.sub = Math.min(1.5, (s / (6 * 255)) * drive * 1.4);
+        this.mid = Math.min(1.5, (m / (16 * 255)) * drive * 1.35);
+        this.high = Math.min(1.5, (h / (26 * 255)) * drive * 1.5);
+      } else {
+        // Procedural harmonic synth envelope when speakers are muted so visuals + FFT are always alive
+        const beat = (timeSec * (bpm / 60)) % 1.0;
+        const kick = Math.pow(Math.max(0, 1.0 - beat * 2.6), 2.4);
+        const arp = 0.5 + 0.5 * Math.sin(timeSec * (bpm / 60) * Math.PI * 2.0);
+        const hihat = Math.pow(Math.abs(Math.sin(timeSec * (bpm / 60) * Math.PI * 4.0)), 6.0);
+
+        this.sub = (0.18 + 0.78 * kick) * (drive * 0.85);
+        this.mid = (0.15 + 0.65 * arp * (cutoff / 2400)) * (drive * 0.8);
+        this.high = (0.10 + 0.72 * hihat) * (drive * 0.8);
+
+        for (let i = 0; i < 64; i++) {
+          const norm = i / 64;
+          const bandEnergy =
+            norm < 0.2 ? this.sub * (1.0 - norm * 2.2) :
+            norm < 0.6 ? this.mid * (0.7 + 0.3 * Math.sin(i * 0.6 + timeSec * 7.0)) :
+                         this.high * (0.6 + 0.4 * Math.cos(i * 0.9 - timeSec * 11.0));
+          this.freqData[i] = Math.min(255, Math.max(4, Math.floor(bandEnergy * 215)));
+          const wave =
+            Math.sin(i * 0.28 + timeSec * 14) * this.sub * 0.55 +
+            Math.sin(i * 0.85 - timeSec * 23) * this.mid * 0.35;
+          this.timeData[i] = Math.min(255, Math.max(0, Math.floor(128 + wave * 110)));
+        }
+      }
+    }
   }
 
-  // Event Horizon Core
-  ctx.fillStyle = "#020408";
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 48 : 34, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 4 : 2;
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 52 + Math.sin(t * 8) * 3 : 36, 0, Math.PI * 2); ctx.stroke();
+  // ============================================================================
+  // 3. NODE CATALOG SPECIFICATIONS
+  // ============================================================================
+  const NODE_SPECS = {
+    lfo: {
+      title: 'GENERADOR LFO / TIEMPO',
+      category: 'MODULATOR',
+      headerBg: 'linear-gradient(90deg, rgba(8,145,178,0.85), rgba(15,23,42,0.9))',
+      accent: '#22d3ee',
+      inputs: [
+        { id: 'fm', label: 'FM Mod', type: 'float' }
+      ],
+      outputs: [
+        { id: 'out', label: 'Signal', type: 'float' }
+      ],
+      params: [
+        { id: 'wave', label: 'Forma de Onda', type: 'select', options: ['Seno Armonico', 'Sierra (Saw)', 'Pulso Cuantico', 'Caos Lorenz'], default: 0 },
+        { id: 'freq', label: 'Frecuencia Hz', type: 'range', min: 0.05, max: 4.0, step: 0.01, default: 0.65 },
+        { id: 'amp',  label: 'Amplitud', type: 'range', min: 0.0, max: 2.5, step: 0.01, default: 1.0 },
+        { id: 'bias', label: 'Offset Fase', type: 'range', min: -1.5, max: 1.5, step: 0.01, default: 0.2 }
+      ]
+    },
+    audio: {
+      title: 'AUDIO FFT / SYNTH DSP',
+      category: 'AUDIO DSP',
+      headerBg: 'linear-gradient(90deg, rgba(217,119,6,0.88), rgba(15,23,42,0.9))',
+      accent: '#fbbf24',
+      inputs: [],
+      outputs: [
+        { id: 'sub',  label: 'Sub Bass', type: 'audio' },
+        { id: 'mid',  label: 'Mid Synth', type: 'audio' },
+        { id: 'high', label: 'High Air', type: 'float' }
+      ],
+      params: [
+        { id: 'bpm',    label: 'Tempo BPM', type: 'range', min: 70, max: 175, step: 1, default: 128 },
+        { id: 'cutoff', label: 'Filtro Cutoff', type: 'range', min: 200, max: 3200, step: 10, default: 1550 },
+        { id: 'drive',  label: 'Ganancia FFT', type: 'range', min: 0.3, max: 2.2, step: 0.02, default: 1.15 }
+      ]
+    },
+    noise: {
+      title: 'RUIDO FRACTAL SIMPLEX 4D',
+      category: 'FIELD 4D',
+      headerBg: 'linear-gradient(90deg, rgba(124,58,237,0.85), rgba(15,23,42,0.9))',
+      accent: '#a78bfa',
+      inputs: [
+        { id: 'phase', label: 'Tiempo W', type: 'float' }
+      ],
+      outputs: [
+        { id: 'field', label: 'Campo 4D', type: 'float' },
+        { id: 'warp',  label: 'Vec3 Warp', type: 'vec3' }
+      ],
+      params: [
+        { id: 'scale',   label: 'Escala Espacial', type: 'range', min: 0.3, max: 5.0, step: 0.05, default: 1.85 },
+        { id: 'octaves', label: 'Octavas FBM', type: 'range', min: 1, max: 5, step: 1, default: 3 },
+        { id: 'amp',     label: 'Intensidad', type: 'range', min: 0.0, max: 1.5, step: 0.01, default: 0.42 },
+        { id: 'speed',   label: 'Evolucion 4D', type: 'range', min: 0.0, max: 2.5, step: 0.02, default: 0.75 }
+      ]
+    },
+    sdf: {
+      title: 'GEOMETRIA SDF 3D/4D',
+      category: 'GEOMETRY',
+      headerBg: 'linear-gradient(90deg, rgba(5,150,105,0.88), rgba(15,23,42,0.9))',
+      accent: '#10b981',
+      inputs: [
+        { id: 'mod', label: 'Morph / Mod', type: 'float' },
+        { id: 'disp', label: 'Displace', type: 'float' }
+      ],
+      outputs: [
+        { id: 'sdf', label: 'SDF Out', type: 'sdf' }
+      ],
+      params: [
+        { id: 'shape', label: 'Primitiva / Fractal', type: 'select', options: ['Toroide Cuantico', 'Octaedro Ciber-Cristal', 'Mandelbulb Fractal 4D', 'Giroide Metamaterial'], default: 0 },
+        { id: 'size',  label: 'Radio / Escala', type: 'range', min: 0.35, max: 2.2, step: 0.02, default: 1.05 },
+        { id: 'power', label: 'Potencia / Detalle', type: 'range', min: 1.5, max: 10.0, step: 0.1, default: 6.0 },
+        { id: 'morph', label: 'Plegado (Fold)', type: 'range', min: 0.0, max: 1.5, step: 0.02, default: 0.35 }
+      ]
+    },
+    op: {
+      title: 'OPERADOR BOOLEANO / TWIST',
+      category: 'DOMAIN OP',
+      headerBg: 'linear-gradient(90deg, rgba(234,88,12,0.88), rgba(15,23,42,0.9))',
+      accent: '#fb923c',
+      inputs: [
+        { id: 'sdfA', label: 'SDF Primaria', type: 'sdf' },
+        { id: 'sdfB', label: 'SDF Secundaria', type: 'sdf' },
+        { id: 'mod',  label: 'Mod Twist', type: 'float' }
+      ],
+      outputs: [
+        { id: 'sdf', label: 'SDF Operada', type: 'sdf' }
+      ],
+      params: [
+        { id: 'mode',   label: 'Modo Operador', type: 'select', options: ['Smooth Union + Twist', 'Sustraccion Booleana', 'Repeticion Infinita', 'Plegado Caleidoscopico'], default: 0 },
+        { id: 'twist',  label: 'Torsion (Twist)', type: 'range', min: -3.5, max: 3.5, step: 0.05, default: 1.15 },
+        { id: 'smooth', label: 'Fusión Suave (k)', type: 'range', min: 0.02, max: 1.2, step: 0.02, default: 0.38 },
+        { id: 'rep',    label: 'Periodo Celda', type: 'range', min: 1.6, max: 7.0, step: 0.1, default: 3.6 }
+      ]
+    },
+    palette: {
+      title: 'PALETA ESPECTRAL COSENO',
+      category: 'COLOR LUT',
+      headerBg: 'linear-gradient(90deg, rgba(219,39,119,0.86), rgba(15,23,42,0.9))',
+      accent: '#f472b6',
+      inputs: [
+        { id: 'shift', label: 'Fase Mod', type: 'float' }
+      ],
+      outputs: [
+        { id: 'color', label: 'Espectro RGB', type: 'vec3' }
+      ],
+      params: [
+        { id: 'preset', label: 'Espectro Base', type: 'select', options: ['Ciberpunk Neon', 'Plasma Solar', 'Bioluminiscente', 'Cristal Cuantico'], default: 0 },
+        { id: 'freq',   label: 'Frecuencia Color', type: 'range', min: 0.3, max: 3.0, step: 0.05, default: 1.2 },
+        { id: 'phase',  label: 'Desfase Espectral', type: 'range', min: 0.0, max: 6.28, step: 0.05, default: 0.6 },
+        { id: 'irid',   label: 'Iridiscencia', type: 'range', min: 0.0, max: 2.0, step: 0.05, default: 1.15 }
+      ]
+    },
+    master: {
+      title: 'MASTER OUTPUT WEBGL + BLOOM',
+      category: 'MASTER SINK',
+      headerBg: 'linear-gradient(90deg, rgba(225,29,72,0.92), rgba(88,28,135,0.92))',
+      accent: '#f43f5e',
+      undeletable: true,
+      inputs: [
+        { id: 'sdf',   label: 'SDF Escena', type: 'sdf' },
+        { id: 'color', label: 'Paleta Color', type: 'vec3' },
+        { id: 'disp',  label: 'Displace 4D', type: 'float' },
+        { id: 'bloom', label: 'Audio / Glow', type: 'audio' }
+      ],
+      outputs: [],
+      params: [
+        { id: 'wormhole', label: 'Curvatura Tunel', type: 'range', min: 0.0, max: 1.8, step: 0.02, default: 0.65 },
+        { id: 'glow',     label: 'Post-Bloom Neon', type: 'range', min: 0.1, max: 2.5, step: 0.02, default: 1.25 },
+        { id: 'chroma',   label: 'Aberracion Crom.', type: 'range', min: 0.0, max: 2.0, step: 0.02, default: 0.75 },
+        { id: 'reflect',  label: 'Especularidad', type: 'range', min: 0.1, max: 2.0, step: 0.05, default: 1.2 }
+      ]
+    }
+  };
 
-  if (IS_SUPER) {
-    // Relativistic Jets
-    ctx.strokeStyle = "rgba(34, 211, 238, 0.55)";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 52); ctx.lineTo(cx - 40 * Math.sin(t * 3), cy - 360);
-    ctx.moveTo(cx, cy + 52); ctx.lineTo(cx + 40 * Math.sin(t * 3), cy + 360);
-    ctx.stroke();
+  // Cosine palette helper in JS for live node preview & cable pulses
+  function evalCosinePaletteJS(t, presetIdx, freq, phase) {
+    const presets = [
+      { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.00, 0.33, 0.67] },
+      { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 0.7, 0.4], d: [0.00, 0.15, 0.20] },
+      { a: [0.4, 0.6, 0.5], b: [0.4, 0.5, 0.4], c: [1.0, 1.0, 0.5], d: [0.80, 0.90, 0.30] },
+      { a: [0.5, 0.5, 0.6], b: [0.5, 0.5, 0.4], c: [0.8, 1.0, 1.0], d: [0.20, 0.45, 0.75] }
+    ];
+    const p = presets[presetIdx % presets.length];
+    const r = p.a[0] + p.b[0] * Math.cos(6.28318 * (p.c[0] * t * freq + p.d[0] + phase * 0.159));
+    const g = p.a[1] + p.b[1] * Math.cos(6.28318 * (p.c[1] * t * freq + p.d[1] + phase * 0.159));
+    const b = p.a[2] + p.b[2] * Math.cos(6.28318 * (p.c[2] * t * freq + p.d[2] + phase * 0.159));
+    return [
+      Math.max(0, Math.min(255, Math.floor(r * 255))),
+      Math.max(0, Math.min(255, Math.floor(g * 255))),
+      Math.max(0, Math.min(255, Math.floor(b * 255)))
+    ];
+  }
+
+  window.__NEXUS_CORE__ = {
+    PORT_TYPES,
+    canConnectTypes,
+    SynthAudioEngine,
+    NODE_SPECS,
+    evalCosinePaletteJS
+  };
+})();
+</script>
+<script>
+(() => {
+  'use strict';
+  const { PORT_TYPES, canConnectTypes, SynthAudioEngine, NODE_SPECS, evalCosinePaletteJS } = window.__NEXUS_CORE__;
+
+  // ============================================================================
+  // 4. WEBGL 3D RAYMARCHING COMPILER & GPU ENGINE
+  // ============================================================================
+  class RaymarchWebGLEngine {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.gl = canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: false }) ||
+                canvas.getContext('experimental-webgl');
+      this.program = null;
+      this.uniformLocations = {};
+      this.renderMode = 0; // 0: Iridescent, 1: Normals, 2: SDF Field Isolines
+      this.camYaw = 0.45;
+      this.camPitch = 0.24;
+      this.camDist = 3.8;
+      this.isDraggingCam = false;
+      this.lastMouse = { x: 0, y: 0 };
+      this.currentGLSLSource = '';
+
+      this.initQuad();
+      this.initCameraControls();
+    }
+
+    initQuad() {
+      const gl = this.gl;
+      if (!gl) return;
+      const verts = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
+      this.vbo = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    }
+
+    initCameraControls() {
+      this.canvas.addEventListener('mousedown', (e) => {
+        this.isDraggingCam = true;
+        this.lastMouse.x = e.clientX;
+        this.lastMouse.y = e.clientY;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!this.isDraggingCam) return;
+        const dx = e.clientX - this.lastMouse.x;
+        const dy = e.clientY - this.lastMouse.y;
+        this.lastMouse.x = e.clientX;
+        this.lastMouse.y = e.clientY;
+        this.camYaw -= dx * 0.0075;
+        this.camPitch = Math.max(-1.35, Math.min(1.35, this.camPitch + dy * 0.0075));
+      });
+      window.addEventListener('mouseup', () => {
+        this.isDraggingCam = false;
+      });
+      this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        this.camDist = Math.max(1.6, Math.min(9.0, this.camDist + e.deltaY * 0.003));
+      }, { passive: false });
+    }
+
+    resize() {
+      if (!this.gl) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const w = Math.max(1, Math.floor(this.canvas.clientWidth * dpr));
+      const h = Math.max(1, Math.floor(this.canvas.clientHeight * dpr));
+      if (this.canvas.width !== w || this.canvas.height !== h) {
+        this.canvas.width = w;
+        this.canvas.height = h;
+        this.gl.viewport(0, 0, w, h);
+      }
+    }
+
+    buildDynamicFragmentShader(astDesc) {
+      // Generates a real GLSL fragment shader reflecting active DAG topology & comments
+      return `precision highp float;
+uniform vec2 u_res;
+uniform float u_time;
+uniform vec3 u_cam;
+uniform int u_renderMode;
+
+// --- DYNAMIC DAG UNIFORMS (${astDesc.topoSummary}) ---
+uniform float u_sdfShapeA;
+uniform float u_sdfSizeA;
+uniform float u_sdfPowerA;
+uniform float u_sdfMorphA;
+
+uniform float u_hasSecondarySDF;
+uniform float u_sdfShapeB;
+uniform float u_sdfSizeB;
+uniform float u_sdfPowerB;
+
+uniform float u_opActive;
+uniform float u_opMode;
+uniform float u_opTwist;
+uniform float u_opSmooth;
+uniform float u_opRep;
+
+uniform float u_noiseAmp;
+uniform float u_noiseScale;
+uniform float u_noiseSpeed;
+uniform float u_noiseOctaves;
+
+uniform float u_palPreset;
+uniform float u_palFreq;
+uniform float u_palPhase;
+uniform float u_palIrid;
+
+uniform float u_wormhole;
+uniform float u_glow;
+uniform float u_chroma;
+uniform float u_reflect;
+uniform float u_audioPulse;
+
+mat2 rot2(float a) {
+  float c = cos(a), s = sin(a);
+  return mat2(c, -s, s, c);
+}
+
+// 4D-projected Simplex / Gyroid FBM Field
+float hash31(vec3 p) {
+  p = fract(p * 0.1031);
+  p += dot(p, p.yzx + 33.33);
+  return fract((p.x + p.y) * p.z);
+}
+
+float noise4D(vec3 p, float w) {
+  vec3 q = p + vec3(sin(w * 0.7), cos(w * 0.5), sin(w * 0.3));
+  float g1 = dot(sin(q), cos(q.yzx));
+  float g2 = dot(sin(q * 2.07 + w), cos(q.zxy * 2.07 - w));
+  return (g1 * 0.65 + g2 * 0.35) * 0.35;
+}
+
+float fbmField(vec3 p, float w) {
+  float v = 0.0;
+  float a = 0.5;
+  vec3 shift = vec3(1.7, -1.2, 0.9);
+  for (int i = 0; i < 4; i++) {
+    if (float(i) >= u_noiseOctaves) break;
+    v += a * noise4D(p, w);
+    p = p * 2.02 + shift;
+    a *= 0.5;
+  }
+  return v;
+}
+
+// Smooth Boolean Operators
+float smin(float a, float b, float k) {
+  float h = clamp(0.5 + 0.5 * (b - a) / max(0.001, k), 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+float smax(float a, float b, float k) {
+  return -smin(-a, -b, k);
+}
+
+// SDF Primitives & Fractals
+float evalPrimitive(vec3 p, float shape, float size, float power, float morph) {
+  // Subtle KIFS fold when morph > 0
+  if (morph > 0.01) {
+    p = mix(p, abs(p) - vec3(morph * 0.35), clamp(morph * 0.5, 0.0, 0.85));
+  }
+
+  if (shape < 0.5) {
+    // 0: Quantum Torus + Inner Core Ring
+    vec2 t = vec2(size, size * 0.32);
+    vec2 q = vec2(length(p.xz) - t.x, p.y);
+    float dTorus = length(q) - t.y;
+    vec3 p2 = p;
+    p2.xy *= rot2(u_time * 0.6);
+    vec2 q2 = vec2(length(p2.xy) - size * 0.58, p2.z);
+    float dRing = length(q2) - size * 0.14;
+    return smin(dTorus, dRing, 0.22);
+  } else if (shape < 1.5) {
+    // 1: Cyber-Crystal Octahedron + Faceted Shell
+    vec3 ap = abs(p);
+    float oct = (ap.x + ap.y + ap.z - size * 1.35) * 0.57735027;
+    float box = length(max(ap - vec3(size * 0.68), 0.0)) - 0.06;
+    return mix(oct, box, 0.32);
+  } else if (shape < 2.5) {
+    // 2: 4D Mandelbulb / Julia Hybrid Fractal
+    vec3 z = p / max(0.35, size * 0.88);
+    float dr = 1.0;
+    float r = 0.0;
+    float pw = clamp(power, 2.0, 9.0);
+    for (int i = 0; i < 6; i++) {
+      r = length(z);
+      if (r > 2.2) break;
+      float theta = acos(clamp(z.z / max(0.0001, r), -1.0, 1.0));
+      float phi = atan(z.y, z.x);
+      dr = pow(r, pw - 1.0) * pw * dr + 1.0;
+      float zr = pow(r, pw);
+      theta = theta * pw + u_time * 0.25;
+      phi = phi * pw;
+      z = zr * vec3(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
+      z += p / max(0.35, size * 0.88);
+    }
+    return 0.5 * log(max(0.0001, r)) * r / max(0.001, dr) * size * 0.88;
   } else {
-    // Stutter / GC Freeze indicator on canvas
-    if (Math.floor(t * 4) % 2 === 0) {
-      ctx.strokeStyle = "#F43F5E";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(120, 140, 1180, 740);
-      ctx.fillStyle = "rgba(244, 63, 94, 0.16)";
-      ctx.fillRect(120, 140, 1180, 54);
-      ctx.fillStyle = "#FF8FA3";
-      ctx.font = "900 22px monospace";
-      ctx.fillText("ALERTA GC: 50,000 OBJETOS RE-CREADOS EN MEMORIA -> CAIDA A 19 FPS", 145, 175);
+    // 3: Gyroid Metamaterial Sphere
+    float sphere = length(p) - size * 1.25;
+    float scale = 3.2 + power * 0.45;
+    vec3 gp = p * scale + vec3(u_time * 0.4);
+    float gyr = abs(dot(sin(gp), cos(gp.zxy))) / scale - 0.055;
+    return smax(sphere, gyr, 0.08);
+  }
+}
+
+// Master DAG Scene Distance Field
+vec2 mapScene(vec3 p) {
+  vec3 q = p;
+
+  // Wormhole Space Curvature
+  if (u_wormhole > 0.01) {
+    float r2 = dot(q.xy, q.xy);
+    q.xy *= rot2(u_wormhole * 0.45 / (r2 + 0.65) + u_time * 0.12 * u_wormhole);
+    q.z += sin(r2 * 1.5 - u_time * 1.4) * 0.16 * u_wormhole;
+  }
+
+  // Domain Operator Node (Twist / Infinite Repetition / Kaleidoscopic Fold)
+  if (u_opActive > 0.5) {
+    if (u_opMode > 1.5 && u_opMode < 2.5) {
+      // Infinite Repetition Tunnel
+      float rep = max(2.0, u_opRep);
+      q.xz = mod(q.xz + 0.5 * rep, rep) - 0.5 * rep;
+    } else if (u_opMode >= 2.5) {
+      // Kaleidoscopic KIFS Fold
+      q = abs(q);
+      if (q.x < q.y) q.xy = q.yx;
+      if (q.x < q.z) q.xz = q.zx;
+      q -= vec3(0.32, 0.18, 0.12);
+    }
+    if (abs(u_opTwist) > 0.01) {
+      q.xz *= rot2(q.y * u_opTwist * 0.65);
     }
   }
-}
 
-function renderChallenge2(t) {
-  // 02: 3D Algorithmic Trading Terminal & OrderBook Depth
-  const x0 = 70, y0 = 125, w = 1340, h = 790;
-  ctx.fillStyle = "rgba(7, 14, 26, 0.85)";
-  ctx.fillRect(x0, y0, w, h);
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x0, y0, w, h);
+  float dA = evalPrimitive(q, u_sdfShapeA, u_sdfSizeA, u_sdfPowerA, u_sdfMorphA);
+  float matId = 1.0;
 
-  // Candlestick chart
-  const cw = 20;
-  for (let i = 0; i < CANDLES.length; i++) {
-    const c = CANDLES[i];
-    const wave = Math.sin(t * 3.2 + i * 0.28) * (IS_SUPER ? 180 : 60);
-    const open = c.o + wave;
-    const close = c.c + wave + (i === CANDLES.length - 1 ? Math.sin(t * 9) * 260 : 0);
-    const high = Math.max(open, close) + 140;
-    const low = Math.min(open, close) - 140;
-    const bull = close >= open;
-    const cx = x0 + 48 + i * 26;
-    const mapY = (v) => y0 + 460 - ((v - 95800) / 2600) * 320;
-    ctx.strokeStyle = bull ? "#10B981" : "#F43F5E";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx, mapY(high)); ctx.lineTo(cx, mapY(low)); ctx.stroke();
-    ctx.fillStyle = bull ? "#10B981" : "#F43F5E";
-    const topY = mapY(Math.max(open, close));
-    const botY = mapY(Math.min(open, close));
-    ctx.fillRect(cx - 8, topY, 16, Math.max(4, botY - topY));
-  }
-
-  if (IS_SUPER) {
-    // 3D Volumetric Orderbook Depth canyon at bottom of chart
-    ctx.beginPath();
-    ctx.moveTo(x0 + 40, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 40 + i * 25;
-      const py = y0 + 620 - Math.pow(24 - i, 1.35) * 2.1 - Math.sin(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
+  if (u_opActive > 0.5 && u_hasSecondarySDF > 0.5) {
+    vec3 qB = q;
+    qB.xy *= rot2(u_time * 0.45);
+    float dB = evalPrimitive(qB, u_sdfShapeB, u_sdfSizeB, u_sdfPowerB, 0.15);
+    if (u_opMode < 0.5) {
+      if (dB < dA) matId = 2.0;
+      dA = smin(dA, dB, u_opSmooth);
+    } else if (u_opMode < 1.5) {
+      dA = smax(dA, -dB, u_opSmooth * 0.65);
+    } else {
+      dA = smin(dA, dB, u_opSmooth);
     }
-    ctx.lineTo(x0 + 640, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(16, 185, 129, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#10B981"; ctx.lineWidth = 3; ctx.stroke();
+  } else if (u_opActive > 0.5 && u_opMode >= 0.5 && u_opMode < 1.5) {
+    // Boolean carving shell when no secondary SDF is wired
+    float carve = length(q.xz) - u_sdfSizeA * 0.42;
+    dA = smax(dA, -carve, u_opSmooth * 0.5);
+  }
 
-    ctx.beginPath();
-    ctx.moveTo(x0 + 680, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 680 + i * 25;
-      const py = y0 + 620 - Math.pow(i, 1.35) * 2.1 - Math.cos(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
+  // 4D Simplex FBM Displacement
+  if (u_noiseAmp > 0.005) {
+    float n = fbmField(q * u_noiseScale, u_time * u_noiseSpeed);
+    dA += n * u_noiseAmp * 0.45;
+  }
+
+  return vec2(dA * 0.78, matId);
+}
+
+vec3 calcNormal(vec3 p) {
+  vec2 e = vec2(0.0025, -0.0025);
+  return normalize(
+    e.xyy * mapScene(p + e.xyy).x +
+    e.yyx * mapScene(p + e.yyx).x +
+    e.yxy * mapScene(p + e.yxy).x +
+    e.xxx * mapScene(p + e.xxx).x
+  );
+}
+
+vec3 cosinePalette(float t) {
+  vec3 a = vec3(0.5);
+  vec3 b = vec3(0.5);
+  vec3 c = vec3(1.0);
+  vec3 d = vec3(0.00, 0.33, 0.67);
+  if (u_palPreset > 0.5 && u_palPreset < 1.5) {
+    c = vec3(1.0, 0.7, 0.4); d = vec3(0.00, 0.15, 0.20);
+  } else if (u_palPreset >= 1.5 && u_palPreset < 2.5) {
+    a = vec3(0.4, 0.6, 0.5); b = vec3(0.4, 0.5, 0.4); c = vec3(1.0, 1.0, 0.5); d = vec3(0.80, 0.90, 0.30);
+  } else if (u_palPreset >= 2.5) {
+    a = vec3(0.5, 0.5, 0.6); b = vec3(0.5, 0.5, 0.4); c = vec3(0.8, 1.0, 1.0); d = vec3(0.20, 0.45, 0.75);
+  }
+  return a + b * cos(6.28318 * (c * (t * u_palFreq) + d + u_palPhase * 0.15915));
+}
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y);
+
+  // Orbit Camera Setup
+  float yaw = u_cam.x + u_time * 0.12;
+  float pitch = u_cam.y;
+  float dist = u_cam.z;
+  vec3 ro = vec3(
+    dist * cos(pitch) * sin(yaw),
+    dist * sin(pitch),
+    dist * cos(pitch) * cos(yaw)
+  );
+  vec3 ta = vec3(0.0, 0.0, 0.0);
+  vec3 ww = normalize(ta - ro);
+  vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
+  vec3 vv = normalize(cross(uu, ww));
+
+  // Subtle lens distortion from wormhole & audio pulse
+  vec2 lensUV = uv * (1.0 + dot(uv, uv) * 0.12 * (u_wormhole + u_audioPulse * 0.3));
+  vec3 rd = normalize(lensUV.x * uu + lensUV.y * vv + 1.45 * ww);
+
+  // SDF Field Isoline Slice Mode (Render Mode 2)
+  if (u_renderMode == 2) {
+    vec3 slicePos = vec3(uv * dist * 0.95, sin(u_time * 0.5) * 0.35);
+    float d = mapScene(slicePos).x;
+    vec3 col = (d > 0.0) ? cosinePalette(d * 1.4) * 0.65 : vec3(0.08, 0.92, 0.75);
+    col *= 1.0 - exp(-6.0 * abs(d));
+    col *= 0.78 + 0.22 * cos(110.0 * d - u_time * 4.0);
+    col = mix(col, vec3(1.0), 1.0 - smoothstep(0.0, 0.015, abs(d)));
+    gl_FragColor = vec4(col, 1.0);
+    return;
+  }
+
+  // 3D Raymarching Loop with Volumetric Glow Accumulation
+  float t = 0.0;
+  float glowAcc = 0.0;
+  float hitMat = 0.0;
+  bool hit = false;
+  float minStepD = 10.0;
+
+  for (int i = 0; i < 76; i++) {
+    vec3 p = ro + rd * t;
+    vec2 res = mapScene(p);
+    float d = res.x;
+    minStepD = min(minStepD, abs(d));
+    glowAcc += 0.016 / (0.025 + d * d * 7.5);
+    if (abs(d) < 0.0022) {
+      hit = true;
+      hitMat = res.y;
+      break;
     }
-    ctx.lineTo(x0 + 1280, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(244, 63, 94, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3; ctx.stroke();
-  } else {
-    // Broken overlapping cards & NaN ticker in Vanilla mode
-    ctx.fillStyle = "rgba(244, 63, 94, 0.22)";
-    ctx.fillRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3;
-    ctx.strokeRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "900 46px monospace";
-    ctx.fillText("BTC/USDT: $NaN (VWAP UNDEFINED)", x0 + 300, y0 + 275);
-    ctx.fillStyle = "#FF8FA3";
-    ctx.font = "700 22px monospace";
-    ctx.fillText("Uncaught TypeError: orderBook.bids[0].vwap is undefined", x0 + 300, y0 + 335);
-  }
-}
-
-function renderChallenge3(t) {
-  // 03: Cyberpunk Bullet-Hell Boss Rush
-  const bx = 720 + Math.sin(t * 1.5) * 220;
-  const by = 290 + Math.cos(t * 2.2) * 45;
-  const px = 720 + Math.cos(t * 2.4) * 290;
-  const py = 770 + Math.sin(t * 3.1) * 35;
-
-  // Bullet-Hell Spiral Curtains
-  const rings = IS_SUPER ? 72 : 18;
-  for (let i = 0; i < rings; i++) {
-    const ang = (i / rings) * Math.PI * 2 + t * (IS_SUPER ? 1.8 : 0.5);
-    const waveR = ((t * 220 + (i % 6) * 95) % 560);
-    const x = bx + Math.cos(ang) * waveR;
-    const y = by + Math.sin(ang) * waveR;
-    ctx.fillStyle = i % 2 === 0 ? "#F472B6" : "#22D3EE";
-    ctx.beginPath(); ctx.arc(x, y, IS_SUPER ? 6.5 : 5, 0, Math.PI * 2); ctx.fill();
+    t += d;
+    if (t > 16.0) break;
   }
 
-  // Boss Mech Core
-  ctx.fillStyle = IS_SUPER ? "#F472B6" : "#64748B";
-  ctx.beginPath(); ctx.arc(bx, by, 68, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.stroke();
+  // Deep Quantum Space Background
+  vec3 bgCol = vec3(0.018, 0.025, 0.05) + 0.08 * cosinePalette(length(uv) * 0.8 - u_time * 0.1);
+  float grid = smoothstep(0.96, 1.0, max(cos(uv.x * 38.0), cos(uv.y * 38.0))) * 0.05;
+  vec3 col = bgCol + vec3(grid);
 
-  // Player Ship + Laser Stream
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "rgba(244,63,94,0.4)";
-  ctx.lineWidth = IS_SUPER ? 6 : 2;
-  ctx.beginPath(); ctx.moveTo(px, py - 24); ctx.lineTo(IS_SUPER ? bx : px, by + 60); ctx.stroke();
+  if (hit) {
+    vec3 p = ro + rd * t;
+    vec3 n = calcNormal(p);
 
-  ctx.fillStyle = "#22D3EE";
-  ctx.beginPath();
-  ctx.moveTo(px, py - 28); ctx.lineTo(px - 24, py + 22); ctx.lineTo(px + 24, py + 22);
-  ctx.closePath(); ctx.fill();
+    if (u_renderMode == 1) {
+      // Normal Vector Inspection Mode
+      col = n * 0.5 + 0.5;
+    } else {
+      vec3 lig1 = normalize(vec3(0.8, 0.9, 0.6));
+      vec3 lig2 = normalize(vec3(-0.7, -0.4, -0.6));
+      vec3 hal = normalize(lig1 - rd);
 
-  if (!IS_SUPER) {
-    ctx.fillStyle = "rgba(244, 63, 94, 0.88)";
-    ctx.fillRect(360, 460, 720, 74);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = "900 25px monospace";
-    ctx.fillText("AMNESIA TURNO 2: COLISIONES ROTAS · DAMAGE = 0", 388, 506);
-  }
-}
+      float dif1 = max(0.0, dot(n, lig1));
+      float dif2 = max(0.0, dot(n, lig2)) * 0.35;
+      float fre = pow(clamp(1.0 + dot(n, rd), 0.0, 1.0), 2.6);
+      float spe = pow(max(0.0, dot(n, hal)), 28.0) * u_reflect;
 
-function renderChallenge4(t) {
-  // 04: Zero-Trust 3D Geodesic Shield vs DDoS/XSS Attack Vectors
-  const cx = 720, cy = 530;
-  const shieldR = 195 + Math.sin(t * 4) * 8;
+      // Ambient Occlusion (2-tap fast AO)
+      float ao = clamp(0.5 + 0.5 * mapScene(p + n * 0.18).x / 0.18, 0.15, 1.0);
 
-  // Shield Hexagonal Core
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 5 : 2;
-  ctx.beginPath();
-  for (let i = 0; i <= 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + t * (IS_SUPER ? 0.8 : 0.1);
-    const x = cx + Math.cos(a) * shieldR;
-    const y = cy + Math.sin(a) * shieldR;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
+      // Iridescent Spectral Material
+      float palCoord = dot(p, n) * 0.45 + fre * u_palIrid * 0.75 + hitMat * 0.25 - u_time * 0.08;
+      vec3 albedo = cosinePalette(palCoord);
 
-  // Incoming Attack Vectors
-  for (let i = 0; i < 36; i++) {
-    const a = (i / 36) * Math.PI * 2 + i * 0.3;
-    const rawD = 540 - ((t * 240 + i * 37) % 520);
-    const blocked = IS_SUPER && rawD <= shieldR + 12;
-    const d = blocked ? shieldR + 12 : rawD;
-    const x = cx + Math.cos(a) * d;
-    const y = cy + Math.sin(a) * d;
-    ctx.fillStyle = blocked ? "#10B981" : "#F43F5E";
-    ctx.beginPath(); ctx.arc(x, y, blocked ? 9 : 6, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-function renderChallenge5(t) {
-  // 05: Visual AI Agent DAG Node Workflow Studio
-  const nodes = [
-    { x: 160, y: 280, title: "PROMPT ROUTER", col: "#22D3EE" },
-    { x: 160, y: 620, title: "MEMORY.MD CACHE", col: "#A78BFA" },
-    { x: 540, y: 220, title: "ARQUITECTO 120FPS", col: "#10B981" },
-    { x: 540, y: 460, title: "BROWSER MCP", col: "#FBBF24" },
-    { x: 540, y: 700, title: "AUDITOR OWASP", col: "#F472B6" },
-    { x: 960, y: 450, title: "DEPLOY 4K60 BUILD", col: "#FB923C" },
-  ];
-  const edges = [[0,2],[0,3],[1,3],[1,4],[2,5],[3,5],[4,5]];
-
-  edges.forEach(([u, v], idx) => {
-    const a = nodes[u], b = nodes[v];
-    const x1 = a.x + 250, y1 = a.y + 52;
-    const x2 = b.x, y2 = b.y + 52 + (IS_SUPER ? 0 : (idx % 2 === 0 ? 130 : -110));
-    ctx.strokeStyle = IS_SUPER ? a.col : "rgba(244,63,94,0.45)";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.bezierCurveTo(x1 + 120, y1, x2 - 120, y2, x2, y2);
-    ctx.stroke();
-
-    if (IS_SUPER) {
-      const p = (t * 0.9 + idx * 0.17) % 1;
-      const px = (1 - p) * x1 + p * x2;
-      const py = (1 - p) * y1 + p * y2;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
+      col = albedo * (0.22 + dif1 * 0.78 + dif2) * ao;
+      col += cosinePalette(palCoord + 0.35) * fre * (0.65 + u_palIrid * 0.55);
+      col += vec3(0.95, 0.98, 1.0) * spe * 0.85;
     }
-  });
+  }
 
-  nodes.forEach((n, idx) => {
-    const dy = Math.sin(t * 2.2 + idx) * (IS_SUPER ? 8 : 0);
-    ctx.fillStyle = "rgba(10, 19, 34, 0.95)";
-    ctx.strokeStyle = IS_SUPER ? n.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.fillRect(n.x, n.y + dy, 250, 104);
-    ctx.strokeRect(n.x, n.y + dy, 250, 104);
-    ctx.fillStyle = n.col;
-    ctx.font = "900 15px monospace";
-    ctx.fillText(n.title, n.x + 16, n.y + dy + 34);
-    ctx.fillStyle = "#E2E8F0";
-    ctx.font = "700 13px monospace";
-    ctx.fillText(IS_SUPER ? "STATUS: PARALLEL 120FPS" : "STATUS: TIMEOUT / BROKEN", n.x + 16, n.y + dy + 68);
-  });
-}
+  // Volumetric Post-Bloom & Audio Pulse Energy
+  vec3 glowColor = cosinePalette(length(uv) * 0.6 + u_time * 0.18 + 0.25);
+  float totalGlow = glowAcc * u_glow * (0.55 + u_audioPulse * 0.65);
+  col += glowColor * totalGlow * 0.24;
 
-function renderChallenge6(t) {
-  // 06: MixiuhOS Desktop (4 simultaneous live mini-windows)
-  const wins = [
-    { x: 80, y: 120, w: 620, h: 370, title: "01 · SHADER CORE 3D (120 FPS)", col: "#22D3EE" },
-    { x: 730, y: 120, w: 660, h: 370, title: "02 · TERMINAL MIXIUH SUPERKIT", col: "#10B981" },
-    { x: 80, y: 515, w: 620, h: 380, title: "03 · SINTETIZADOR FM & ESPECTRO", col: "#F472B6" },
-    { x: 730, y: 515, w: 660, h: 380, title: "04 · MONITOR GPU & MEMORY.MD", col: "#A78BFA" },
-  ];
-  wins.forEach((w, idx) => {
-    const ox = !IS_SUPER && idx === 1 ? -190 : 0;
-    const oy = !IS_SUPER && idx === 1 ? 85 : 0;
-    const wx = w.x + ox, wy = w.y + oy;
-    ctx.fillStyle = "rgba(8, 15, 28, 0.94)";
-    ctx.fillRect(wx, wy, w.w, w.h);
-    ctx.strokeStyle = IS_SUPER ? w.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(wx, wy, w.w, w.h);
-    ctx.fillStyle = IS_SUPER ? "rgba(255,255,255,0.07)" : "rgba(244,63,94,0.22)";
-    ctx.fillRect(wx, wy, w.w, 38);
-    ctx.fillStyle = w.col;
-    ctx.font = "900 14px monospace";
-    ctx.fillText(w.title, wx + 16, wy + 24);
+  // Chromatic Aberration Edge Fringe
+  if (u_chroma > 0.02) {
+    float fringe = length(uv) * u_chroma * (0.12 + u_audioPulse * 0.15);
+    col.r += glowColor.r * fringe * totalGlow * 0.18;
+    col.b += glowColor.b * fringe * totalGlow * 0.22;
+  }
 
-    if (idx === 0) {
-      // Rotating 3D Plasma Rings inside Window 1
-      const cx = wx + w.w / 2, cy = wy + 205;
-      for (let r = 25; r <= 125; r += 25) {
-        ctx.strokeStyle = r % 50 === 0 ? "#22D3EE" : "#A78BFA";
-        ctx.lineWidth = 3;
+  // ACES Filmic Tonemapping & Gamma
+  col = (col * (2.51 * col + 0.03)) / (col * (2.43 * col + 0.59) + 0.14);
+  col = pow(clamp(col, 0.0, 1.0), vec3(0.9));
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+    }
+
+    compileShader(astDesc) {
+      const gl = this.gl;
+      if (!gl) return { ok: false, error: 'WebGL no disponible en este navegador' };
+
+      const vsSource = `attribute vec2 a_pos; void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+      const fsSource = this.buildDynamicFragmentShader(astDesc);
+      this.currentGLSLSource = fsSource;
+
+      const compile = (type, src) => {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(s);
+          gl.deleteShader(s);
+          throw new Error(info);
+        }
+        return s;
+      };
+
+      try {
+        const vs = compile(gl.VERTEX_SHADER, vsSource);
+        const fs = compile(gl.FRAGMENT_SHADER, fsSource);
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs);
+        gl.attachShader(prog, fs);
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+          throw new Error(gl.getProgramInfoLog(prog));
+        }
+        if (this.program) gl.deleteProgram(this.program);
+        this.program = prog;
+        gl.useProgram(this.program);
+
+        const posLoc = gl.getAttribLocation(this.program, 'a_pos');
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        const uniformNames = [
+          'u_res', 'u_time', 'u_cam', 'u_renderMode',
+          'u_sdfShapeA', 'u_sdfSizeA', 'u_sdfPowerA', 'u_sdfMorphA',
+          'u_hasSecondarySDF', 'u_sdfShapeB', 'u_sdfSizeB', 'u_sdfPowerB',
+          'u_opActive', 'u_opMode', 'u_opTwist', 'u_opSmooth', 'u_opRep',
+          'u_noiseAmp', 'u_noiseScale', 'u_noiseSpeed', 'u_noiseOctaves',
+          'u_palPreset', 'u_palFreq', 'u_palPhase', 'u_palIrid',
+          'u_wormhole', 'u_glow', 'u_chroma', 'u_reflect', 'u_audioPulse'
+        ];
+        this.uniformLocations = {};
+        for (const name of uniformNames) {
+          this.uniformLocations[name] = gl.getUniformLocation(this.program, name);
+        }
+        return { ok: true, code: fsSource };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    }
+
+    render(timeSec, uniforms) {
+      const gl = this.gl;
+      if (!gl || !this.program) return;
+      this.resize();
+      gl.useProgram(this.program);
+
+      const u = this.uniformLocations;
+      gl.uniform2f(u.u_res, this.canvas.width, this.canvas.height);
+      gl.uniform1f(u.u_time, timeSec);
+      gl.uniform3f(u.u_cam, this.camYaw, this.camPitch, this.camDist);
+      gl.uniform1i(u.u_renderMode, this.renderMode);
+
+      gl.uniform1f(u.u_sdfShapeA, uniforms.sdfShapeA);
+      gl.uniform1f(u.u_sdfSizeA, uniforms.sdfSizeA);
+      gl.uniform1f(u.u_sdfPowerA, uniforms.sdfPowerA);
+      gl.uniform1f(u.u_sdfMorphA, uniforms.sdfMorphA);
+
+      gl.uniform1f(u.u_hasSecondarySDF, uniforms.hasSecondarySDF);
+      gl.uniform1f(u.u_sdfShapeB, uniforms.sdfShapeB);
+      gl.uniform1f(u.u_sdfSizeB, uniforms.sdfSizeB);
+      gl.uniform1f(u.u_sdfPowerB, uniforms.sdfPowerB);
+
+      gl.uniform1f(u.u_opActive, uniforms.opActive);
+      gl.uniform1f(u.u_opMode, uniforms.opMode);
+      gl.uniform1f(u.u_opTwist, uniforms.opTwist);
+      gl.uniform1f(u.u_opSmooth, uniforms.opSmooth);
+      gl.uniform1f(u.u_opRep, uniforms.opRep);
+
+      gl.uniform1f(u.u_noiseAmp, uniforms.noiseAmp);
+      gl.uniform1f(u.u_noiseScale, uniforms.noiseScale);
+      gl.uniform1f(u.u_noiseSpeed, uniforms.noiseSpeed);
+      gl.uniform1f(u.u_noiseOctaves, uniforms.noiseOctaves);
+
+      gl.uniform1f(u.u_palPreset, uniforms.palPreset);
+      gl.uniform1f(u.u_palFreq, uniforms.palFreq);
+      gl.uniform1f(u.u_palPhase, uniforms.palPhase);
+      gl.uniform1f(u.u_palIrid, uniforms.palIrid);
+
+      gl.uniform1f(u.u_wormhole, uniforms.wormhole);
+      gl.uniform1f(u.u_glow, uniforms.glow);
+      gl.uniform1f(u.u_chroma, uniforms.chroma);
+      gl.uniform1f(u.u_reflect, uniforms.reflect);
+      gl.uniform1f(u.u_audioPulse, uniforms.audioPulse);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+  }
+
+  window.__NEXUS_CORE__.RaymarchWebGLEngine = RaymarchWebGLEngine;
+})();
+</script>
+<script>
+(() => {
+  'use strict';
+  const {
+    PORT_TYPES,
+    canConnectTypes,
+    SynthAudioEngine,
+    NODE_SPECS,
+    evalCosinePaletteJS,
+    RaymarchWebGLEngine
+  } = window.__NEXUS_CORE__;
+
+  // ============================================================================
+  // 5. STUDIO DAG CONTROLLER, MINI-CANVAS RENDERERS & INTERACTIVE WORKSPACE
+  // ============================================================================
+  class NexusStudio {
+    constructor() {
+      this.nodes = [];
+      this.cables = [];
+      this.topoOrder = [];
+      this.nodeSeq = 1;
+      this.selectedNodeId = null;
+
+      // Infinite Canvas Pan & Zoom
+      this.panX = 36;
+      this.panY = 42;
+      this.zoom = 0.92;
+      this.isPanning = false;
+      this.panStart = { x: 0, y: 0 };
+
+      // Node Dragging
+      this.draggingNode = null;
+      this.dragOffset = { x: 0, y: 0 };
+
+      // Interactive Cable Dragging
+      this.activeWire = null; // { fromNodeId, fromPortId, type, curX, curY }
+      this.hoveredSocket = null;
+
+      // Smooth Layout Animation targets
+      this.layoutTargets = new Map();
+
+      // Subsystems
+      this.audio = new SynthAudioEngine();
+      this.glEngine = new RaymarchWebGLEngine(document.getElementById('gl-canvas'));
+
+      // DOM Refs
+      this.graphPane = document.getElementById('graph-pane');
+      this.cableCanvas = document.getElementById('cable-canvas');
+      this.cableCtx = this.cableCanvas.getContext('2d');
+      this.nodeWorld = document.getElementById('node-world');
+      this.audioHudCanvas = document.getElementById('audio-hud-canvas');
+      this.audioHudCtx = this.audioHudCanvas.getContext('2d');
+
+      // Telemetry state
+      this.logs = [];
+      this.inspectorTab = 'glsl';
+      this.fpsFrames = 0;
+      this.fpsLastTime = performance.now();
+      this.displayedFps = 60;
+      this.lastDagEvalMs = 0.12;
+
+      this.bindWorkspaceEvents();
+      this.loadPreset(1);
+      requestAnimationFrame((t) => this.tick(t));
+    }
+
+    // --------------------------------------------------------------------------
+    // Logging & Toast Diagnostics
+    // --------------------------------------------------------------------------
+    log(msg, level = 'ok') {
+      const now = new Date();
+      const stamp = now.toTimeString().split(' ')[0];
+      this.logs.unshift({ stamp, msg, level });
+      if (this.logs.length > 40) this.logs.pop();
+      const countEl = document.getElementById('log-count');
+      if (countEl) countEl.textContent = String(this.logs.length);
+      this.renderLogView();
+    }
+
+    renderLogView() {
+      const container = document.getElementById('dag-log-view');
+      if (!container) return;
+      container.innerHTML = this.logs.map(item => {
+        const cls = item.level === 'err' ? 'log-err' : (item.level === 'warn' ? 'log-warn' : 'log-ok');
+        return `<div class="log-entry"><span class="log-time">[${item.stamp}]</span><span class="${cls}">${item.msg}</span></div>`;
+      }).join('');
+    }
+
+    showToast(text, isError = false) {
+      const toast = document.getElementById('dag-toast');
+      if (!toast) return;
+      toast.textContent = text;
+      toast.className = isError ? 'show error' : 'show';
+      clearTimeout(this._toastTimer);
+      this._toastTimer = setTimeout(() => {
+        toast.className = '';
+      }, 2400);
+    }
+
+    switchInspectorTab(tab) {
+      this.inspectorTab = tab;
+      document.getElementById('tab-btn-glsl').classList.toggle('active', tab === 'glsl');
+      document.getElementById('tab-btn-log').classList.toggle('active', tab === 'log');
+      document.getElementById('glsl-code-view').style.display = tab === 'glsl' ? 'block' : 'none';
+      document.getElementById('dag-log-view').style.display = tab === 'log' ? 'block' : 'none';
+    }
+
+    // --------------------------------------------------------------------------
+    // Workspace Pan / Zoom / Cable Interaction
+    // --------------------------------------------------------------------------
+    bindWorkspaceEvents() {
+      this.graphPane.addEventListener('mousedown', (e) => {
+        if (e.target === this.graphPane || e.target === this.cableCanvas || e.target === this.nodeWorld) {
+          this.isPanning = true;
+          this.graphPane.classList.add('panning');
+          this.panStart.x = e.clientX - this.panX;
+          this.panStart.y = e.clientY - this.panY;
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = this.graphPane.getBoundingClientRect();
+        const worldX = (e.clientX - rect.left - this.panX) / this.zoom;
+        const worldY = (e.clientY - rect.top - this.panY) / this.zoom;
+
+        if (this.isPanning) {
+          this.panX = e.clientX - this.panStart.x;
+          this.panY = e.clientY - this.panStart.y;
+          this.updateWorldTransform();
+        } else if (this.draggingNode) {
+          this.draggingNode.x = Math.round(worldX - this.dragOffset.x);
+          this.draggingNode.y = Math.round(worldY - this.dragOffset.y);
+          this.layoutTargets.delete(this.draggingNode.id);
+          if (this.draggingNode.el) {
+            this.draggingNode.el.style.transform = `translate(${this.draggingNode.x}px, ${this.draggingNode.y}px)`;
+          }
+        } else if (this.activeWire) {
+          this.activeWire.curX = worldX;
+          this.activeWire.curY = worldY;
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (this.isPanning) {
+          this.isPanning = false;
+          this.graphPane.classList.remove('panning');
+        }
+        if (this.draggingNode) {
+          this.draggingNode = null;
+        }
+        if (this.activeWire) {
+          if (this.hoveredSocket && this.hoveredSocket.dir === 'in') {
+            this.tryConnect(
+              this.activeWire.fromNodeId,
+              this.activeWire.fromPortId,
+              this.hoveredSocket.nodeId,
+              this.hoveredSocket.portId
+            );
+          }
+          this.activeWire = null;
+        }
+      });
+
+      this.graphPane.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = this.graphPane.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const wx = (mx - this.panX) / this.zoom;
+        const wy = (my - this.panY) / this.zoom;
+
+        const factor = e.deltaY < 0 ? 1.08 : 0.92;
+        this.zoom = Math.max(0.45, Math.min(1.65, this.zoom * factor));
+        this.panX = mx - wx * this.zoom;
+        this.panY = my - wy * this.zoom;
+        this.updateWorldTransform();
+      }, { passive: false });
+    }
+
+    updateWorldTransform() {
+      this.nodeWorld.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+      const zr = document.getElementById('zoom-readout');
+      if (zr) zr.textContent = `ZOOM: ${Math.round(this.zoom * 100)}%`;
+    }
+
+    resetView() {
+      this.panX = 36;
+      this.panY = 42;
+      this.zoom = 0.92;
+      this.updateWorldTransform();
+      this.showToast('Vista del lienzo centrada (92%)');
+    }
+
+    // --------------------------------------------------------------------------
+    // Node Creation & DOM Binding
+    // --------------------------------------------------------------------------
+    createNode(type, x, y, paramOverrides = {}, customId = null) {
+      const spec = NODE_SPECS[type];
+      if (!spec) return null;
+
+      const id = customId || `N${String(this.nodeSeq++).padStart(2, '0')}`;
+      const params = {};
+      for (const p of spec.params) {
+        params[p.id] = paramOverrides[p.id] !== undefined ? paramOverrides[p.id] : p.default;
+      }
+
+      const node = {
+        id,
+        type,
+        spec,
+        x,
+        y,
+        params,
+        inputValues: {},
+        outputValues: {},
+        el: null,
+        previewCanvas: null,
+        previewCtx: null,
+        previewLabelEl: null,
+        socketEls: { in: {}, out: {} }
+      };
+
+      this.buildNodeDOM(node);
+      this.nodes.push(node);
+      return node;
+    }
+
+    buildNodeDOM(node) {
+      const { spec, id } = node;
+      const el = document.createElement('div');
+      el.className = 'nexus-node';
+      el.dataset.nodeId = id;
+      el.style.transform = `translate(${node.x}px, ${node.y}px)`;
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'node-header';
+      header.style.background = spec.headerBg;
+      header.innerHTML = `
+        <div class="node-header-left">
+          <span class="node-id-tag">${id}</span>
+          <span class="node-title-text">${spec.title}</span>
+        </div>
+        <div class="node-header-actions">
+          ${spec.undeletable ? '' : `<button class="node-icon-btn" title="Eliminar Nodo">&times;</button>`}
+        </div>
+      `;
+
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.node-icon-btn')) return;
+        e.stopPropagation();
+        this.selectNode(node.id);
+        const rect = this.graphPane.getBoundingClientRect();
+        const wx = (e.clientX - rect.left - this.panX) / this.zoom;
+        const wy = (e.clientY - rect.top - this.panY) / this.zoom;
+        this.draggingNode = node;
+        this.dragOffset.x = wx - node.x;
+        this.dragOffset.y = wy - node.y;
+      });
+
+      const delBtn = header.querySelector('.node-icon-btn');
+      if (delBtn) {
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.removeNode(node.id);
+        });
+      }
+      el.appendChild(header);
+
+      // Live Mini-Canvas Preview inside EVERY Node
+      const prevWrap = document.createElement('div');
+      prevWrap.className = 'node-preview-wrap';
+      const pCanvas = document.createElement('canvas');
+      pCanvas.className = 'node-preview-canvas';
+      pCanvas.width = 220;
+      pCanvas.height = 54;
+      const pOverlay = document.createElement('div');
+      pOverlay.className = 'node-preview-overlay';
+      pOverlay.textContent = spec.category;
+      prevWrap.appendChild(pCanvas);
+      prevWrap.appendChild(pOverlay);
+      el.appendChild(prevWrap);
+
+      node.previewCanvas = pCanvas;
+      node.previewCtx = pCanvas.getContext('2d');
+      node.previewLabelEl = pOverlay;
+
+      // Input & Output Typed Ports
+      const portsGrid = document.createElement('div');
+      portsGrid.className = 'node-ports-grid';
+
+      const inCol = document.createElement('div');
+      inCol.className = 'ports-col inputs';
+      for (const inp of spec.inputs) {
+        const pType = PORT_TYPES[inp.type];
+        const row = document.createElement('div');
+        row.className = 'port-row';
+        const sock = document.createElement('div');
+        sock.className = `port-socket ${pType.className}`;
+        sock.title = `${inp.label} (${pType.label}) - Clic para desconectar`;
+
+        sock.addEventListener('mouseenter', () => {
+          this.hoveredSocket = { nodeId: node.id, portId: inp.id, dir: 'in', type: inp.type };
+          sock.classList.add('magnetic');
+        });
+        sock.addEventListener('mouseleave', () => {
+          if (this.hoveredSocket && this.hoveredSocket.nodeId === node.id && this.hoveredSocket.portId === inp.id) {
+            this.hoveredSocket = null;
+          }
+          sock.classList.remove('magnetic');
+        });
+        sock.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          // If an incoming cable exists on this port, unplug it and start re-dragging from its source!
+          const existingIdx = this.cables.findIndex(c => c.toNode === node.id && c.toPort === inp.id);
+          if (existingIdx !== -1) {
+            const old = this.cables[existingIdx];
+            this.cables.splice(existingIdx, 1);
+            this.rebuildDAG('Cable desconectado de ' + node.id + '.' + inp.id);
+            const rect = this.graphPane.getBoundingClientRect();
+            this.activeWire = {
+              fromNodeId: old.fromNode,
+              fromPortId: old.fromPort,
+              type: old.type,
+              curX: (e.clientX - rect.left - this.panX) / this.zoom,
+              curY: (e.clientY - rect.top - this.panY) / this.zoom
+            };
+          }
+        });
+
+        const lbl = document.createElement('span');
+        lbl.textContent = inp.label;
+        row.appendChild(sock);
+        row.appendChild(lbl);
+        inCol.appendChild(row);
+        node.socketEls.in[inp.id] = sock;
+      }
+
+      const outCol = document.createElement('div');
+      outCol.className = 'ports-col outputs';
+      for (const out of spec.outputs) {
+        const pType = PORT_TYPES[out.type];
+        const row = document.createElement('div');
+        row.className = 'port-row';
+        const lbl = document.createElement('span');
+        lbl.textContent = out.label;
+        const sock = document.createElement('div');
+        sock.className = `port-socket ${pType.className}`;
+        sock.title = `Arrastrar para conectar ${out.label} (${pType.label})`;
+
+        sock.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          const pos = this.getSocketWorldPos(node.id, out.id, 'out');
+          this.activeWire = {
+            fromNodeId: node.id,
+            fromPortId: out.id,
+            type: out.type,
+            curX: pos.x,
+            curY: pos.y
+          };
+        });
+
+        row.appendChild(lbl);
+        row.appendChild(sock);
+        outCol.appendChild(row);
+        node.socketEls.out[out.id] = sock;
+      }
+
+      portsGrid.appendChild(inCol);
+      portsGrid.appendChild(outCol);
+      el.appendChild(portsGrid);
+
+      // Controls Section
+      const ctrls = document.createElement('div');
+      ctrls.className = 'node-controls';
+      for (const p of spec.params) {
+        const row = document.createElement('div');
+        row.className = 'ctrl-row';
+
+        if (p.type === 'select') {
+          const head = document.createElement('div');
+          head.className = 'ctrl-head';
+          head.innerHTML = `<span>${p.label}</span>`;
+          const sel = document.createElement('select');
+          sel.className = 'ctrl-select';
+          p.options.forEach((optText, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = optText;
+            if (Number(node.params[p.id]) === idx) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', () => {
+            node.params[p.id] = Number(sel.value);
+            this.rebuildDAG(`Modo actualizado en ${node.id}: ${p.options[node.params[p.id]]}`);
+          });
+          row.appendChild(head);
+          row.appendChild(sel);
+        } else {
+          const head = document.createElement('div');
+          head.className = 'ctrl-head';
+          const valSpan = document.createElement('span');
+          valSpan.className = 'ctrl-val';
+          valSpan.textContent = Number(node.params[p.id]).toFixed(2);
+          head.innerHTML = `<span>${p.label}</span>`;
+          head.appendChild(valSpan);
+
+          const inp = document.createElement('input');
+          inp.type = 'range';
+          inp.className = 'ctrl-slider';
+          inp.min = String(p.min);
+          inp.max = String(p.max);
+          inp.step = String(p.step);
+          inp.value = String(node.params[p.id]);
+          inp.addEventListener('input', () => {
+            node.params[p.id] = Number(inp.value);
+            valSpan.textContent = Number(node.params[p.id]).toFixed(2);
+          });
+
+          row.appendChild(head);
+          row.appendChild(inp);
+          node._paramUI = node._paramUI || {};
+          node._paramUI[p.id] = { slider: inp, valSpan };
+        }
+        ctrls.appendChild(row);
+      }
+      el.appendChild(ctrls);
+
+      el.addEventListener('mousedown', () => this.selectNode(node.id));
+      this.nodeWorld.appendChild(el);
+      node.el = el;
+    }
+
+    selectNode(nodeId) {
+      this.selectedNodeId = nodeId;
+      for (const n of this.nodes) {
+        if (n.el) n.el.classList.toggle('selected', n.id === nodeId);
+      }
+    }
+
+    removeNode(nodeId) {
+      const idx = this.nodes.findIndex(n => n.id === nodeId);
+      if (idx === -1) return;
+      const node = this.nodes[idx];
+      if (node.spec.undeletable) {
+        this.showToast('El nodo Master Output no puede eliminarse', true);
+        return;
+      }
+      if (node.el && node.el.parentNode) node.el.parentNode.removeChild(node.el);
+      this.nodes.splice(idx, 1);
+      this.cables = this.cables.filter(c => c.fromNode !== nodeId && c.toNode !== nodeId);
+      this.rebuildDAG(`Nodo ${nodeId} eliminado`);
+    }
+
+    spawnNode(type) {
+      const rect = this.graphPane.getBoundingClientRect();
+      const cx = (rect.width * 0.42 - this.panX) / this.zoom + (Math.random() - 0.5) * 90;
+      const cy = (rect.height * 0.35 - this.panY) / this.zoom + (Math.random() - 0.5) * 90;
+      const n = this.createNode(type, Math.round(cx), Math.round(cy));
+      this.selectNode(n.id);
+      this.rebuildDAG(`Nodo ${n.id} (${n.spec.title}) instanciado`);
+      this.showToast(`+ Nodo creado: ${n.id} (${n.spec.title})`);
+    }
+
+    // --------------------------------------------------------------------------
+    // DAG Cycle Detection, Topological Sort (Kahn's Algorithm) & GLSL Compile
+    // --------------------------------------------------------------------------
+    wouldCreateCycle(fromNodeId, toNodeId) {
+      if (fromNodeId === toNodeId) return true;
+      // DFS from toNodeId to see if fromNodeId is reachable
+      const visited = new Set();
+      const stack = [toNodeId];
+      while (stack.length > 0) {
+        const curr = stack.pop();
+        if (curr === fromNodeId) return true;
+        if (visited.has(curr)) continue;
+        visited.add(curr);
+        for (const c of this.cables) {
+          if (c.fromNode === curr) {
+            stack.push(c.toNode);
+          }
+        }
+      }
+      return false;
+    }
+
+    tryConnect(fromNodeId, fromPortId, toNodeId, toPortId) {
+      const fromNode = this.nodes.find(n => n.id === fromNodeId);
+      const toNode = this.nodes.find(n => n.id === toNodeId);
+      if (!fromNode || !toNode) return false;
+
+      const outSpec = fromNode.spec.outputs.find(o => o.id === fromPortId);
+      const inSpec = toNode.spec.inputs.find(i => i.id === toPortId);
+      if (!outSpec || !inSpec) return false;
+
+      if (!canConnectTypes(outSpec.type, inSpec.type)) {
+        const msg = `Tipos incompatibles: ${PORT_TYPES[outSpec.type].label} -> ${PORT_TYPES[inSpec.type].label}`;
+        this.showToast(msg, true);
+        this.log(msg, 'err');
+        return false;
+      }
+
+      if (this.wouldCreateCycle(fromNodeId, toNodeId)) {
+        const msg = `Ciclo DAG invalido bloqueado: ${fromNodeId} -> ${toNodeId}`;
+        this.showToast(msg, true);
+        this.log(msg, 'err');
+        return false;
+      }
+
+      // Replace existing cable on that input port
+      this.cables = this.cables.filter(c => !(c.toNode === toNodeId && c.toPort === toPortId));
+      this.cables.push({
+        id: `${fromNodeId}.${fromPortId}->${toNodeId}.${toPortId}`,
+        fromNode: fromNodeId,
+        fromPort: fromPortId,
+        toNode: toNodeId,
+        toPort: toPortId,
+        type: outSpec.type,
+        signalStrength: 0.5
+      });
+
+      this.rebuildDAG(`Conectado ${fromNodeId}.${fromPortId} -> ${toNodeId}.${toPortId}`);
+      return true;
+    }
+
+    computeTopologicalOrder() {
+      const inDegree = new Map();
+      const adj = new Map();
+      for (const n of this.nodes) {
+        inDegree.set(n.id, 0);
+        adj.set(n.id, []);
+      }
+      for (const c of this.cables) {
+        if (adj.has(c.fromNode) && inDegree.has(c.toNode)) {
+          adj.get(c.fromNode).push(c.toNode);
+          inDegree.set(c.toNode, inDegree.get(c.toNode) + 1);
+        }
+      }
+      const queue = [];
+      for (const [id, deg] of inDegree.entries()) {
+        if (deg === 0) queue.push(id);
+      }
+      const order = [];
+      while (queue.length > 0) {
+        const u = queue.shift();
+        order.push(u);
+        for (const v of adj.get(u)) {
+          inDegree.set(v, inDegree.get(v) - 1);
+          if (inDegree.get(v) === 0) queue.push(v);
+        }
+      }
+      this.topoOrder = order;
+      return order;
+    }
+
+    updatePortSocketHighlights() {
+      for (const n of this.nodes) {
+        for (const k of Object.keys(n.socketEls.in)) {
+          const connected = this.cables.some(c => c.toNode === n.id && c.toPort === k);
+          n.socketEls.in[k].classList.toggle('connected', connected);
+        }
+        for (const k of Object.keys(n.socketEls.out)) {
+          const connected = this.cables.some(c => c.fromNode === n.id && c.fromPort === k);
+          n.socketEls.out[k].classList.toggle('connected', connected);
+        }
+      }
+    }
+
+    rebuildDAG(reason = 'DAG actualizado') {
+      const order = this.computeTopologicalOrder();
+      this.updatePortSocketHighlights();
+
+      // Update Topological Order UI strip
+      const chainEl = document.getElementById('topo-chain-view');
+      if (chainEl) {
+        chainEl.innerHTML = order.map((id, idx) => {
+          const n = this.nodes.find(x => x.id === id);
+          const shortType = n ? n.type.toUpperCase() : '';
+          const badge = `<span class="topo-badge" style="border-color:${n ? n.spec.accent : '#64748b'}">${id}:${shortType}</span>`;
+          return idx < order.length - 1 ? `${badge}<span class="topo-arrow">&rarr;</span>` : badge;
+        }).join('');
+      }
+
+      const countsEl = document.getElementById('metric-counts');
+      if (countsEl) {
+        countsEl.textContent = `${this.nodes.length} / ${this.cables.length}`;
+      }
+
+      // Compile GLSL shader with active topology metadata
+      const topoSummary = order.join(' -> ');
+      const res = this.glEngine.compileShader({ topoSummary });
+      const statusBox = document.getElementById('compiler-status');
+      const statusTxt = document.getElementById('compiler-status-text');
+      const glslView = document.getElementById('glsl-code-view');
+
+      if (res.ok) {
+        statusBox.classList.remove('error');
+        statusTxt.textContent = `GLSL COMPILER: OK (${order.length} NODOS EN DAG)`;
+        if (glslView) glslView.textContent = res.code;
+        this.log(`${reason} | Orden: ${topoSummary}`, 'ok');
+      } else {
+        statusBox.classList.add('error');
+        statusTxt.textContent = `GLSL ERROR: ${res.error}`;
+        this.log(`Error GLSL: ${res.error}`, 'err');
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // Real-Time Topological Evaluation & Per-Node Mini-Canvas Rendering
+    // --------------------------------------------------------------------------
+    evaluateDAG(timeSec) {
+      const t0 = performance.now();
+      const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+
+      // Default audio params if an audio node is present
+      const audioNode = this.nodes.find(n => n.type === 'audio');
+      if (audioNode) {
+        this.audio.update(timeSec, audioNode.params.bpm, audioNode.params.cutoff, audioNode.params.drive);
+      } else {
+        this.audio.update(timeSec, 128, 1400, 1.0);
+      }
+
+      // Evaluate nodes strictly in topological order
+      for (const id of this.topoOrder) {
+        const node = nodeMap.get(id);
+        if (!node) continue;
+
+        // Gather incoming values
+        node.inputValues = {};
+        for (const c of this.cables) {
+          if (c.toNode === node.id) {
+            const srcNode = nodeMap.get(c.fromNode);
+            if (srcNode && srcNode.outputValues[c.fromPort] !== undefined) {
+              node.inputValues[c.toPort] = srcNode.outputValues[c.fromPort];
+              c.signalStrength = Math.min(2.0, Math.abs(Number(srcNode.outputValues[c.fromPort]?.scalar ?? srcNode.outputValues[c.fromPort] ?? 0.6)));
+            }
+          }
+        }
+
+        switch (node.type) {
+          case 'lfo': {
+            const fm = Number(node.inputValues.fm?.scalar ?? node.inputValues.fm ?? 0.0);
+            const freq = node.params.freq * (1.0 + fm * 0.45);
+            const ph = timeSec * freq * Math.PI * 2.0 + node.params.bias;
+            let raw = 0;
+            const w = Math.round(node.params.wave);
+            if (w === 0) raw = Math.sin(ph);
+            else if (w === 1) raw = 2.0 * ((timeSec * freq) - Math.floor(0.5 + timeSec * freq));
+            else if (w === 2) raw = Math.sin(ph) > 0 ? 0.9 : -0.9;
+            else raw = Math.sin(ph) * Math.cos(ph * 1.618 + Math.sin(ph * 0.73));
+            const val = raw * node.params.amp;
+            node.outputValues.out = { scalar: val, freq, wave: w };
+            break;
+          }
+          case 'audio': {
+            node.outputValues.sub = { scalar: this.audio.sub };
+            node.outputValues.mid = { scalar: this.audio.mid };
+            node.outputValues.high = { scalar: this.audio.high };
+            break;
+          }
+          case 'noise': {
+            const modW = Number(node.inputValues.phase?.scalar ?? node.inputValues.phase ?? 0.0);
+            const speed = node.params.speed + Math.abs(modW) * 0.5;
+            const amp = Math.max(0, node.params.amp + modW * 0.18);
+            const fieldVal = {
+              scalar: amp,
+              scale: node.params.scale,
+              octaves: node.params.octaves,
+              speed,
+              amp
+            };
+            node.outputValues.field = fieldVal;
+            node.outputValues.warp = fieldVal;
+            break;
+          }
+          case 'sdf': {
+            const mod = Number(node.inputValues.mod?.scalar ?? node.inputValues.mod ?? 0.0);
+            const disp = Number(node.inputValues.disp?.scalar ?? node.inputValues.disp ?? 0.0);
+            node.outputValues.sdf = {
+              scalar: 0.8 + Math.abs(mod) * 0.4,
+              shape: node.params.shape,
+              size: Math.max(0.25, node.params.size + mod * 0.22),
+              power: Math.max(1.5, node.params.power + mod * 1.35),
+              morph: Math.max(0.0, node.params.morph + disp * 0.35)
+            };
+            break;
+          }
+          case 'op': {
+            const sdfA = node.inputValues.sdfA || { shape: 0, size: 1.0, power: 6.0, morph: 0.2 };
+            const sdfB = node.inputValues.sdfB || null;
+            const mod = Number(node.inputValues.mod?.scalar ?? node.inputValues.mod ?? 0.0);
+            node.outputValues.sdf = {
+              scalar: 1.1 + Math.abs(mod) * 0.5,
+              isOp: true,
+              sdfA,
+              sdfB,
+              mode: node.params.mode,
+              twist: node.params.twist + mod * 1.15,
+              smooth: node.params.smooth,
+              rep: node.params.rep
+            };
+            break;
+          }
+          case 'palette': {
+            const shift = Number(node.inputValues.shift?.scalar ?? node.inputValues.shift ?? 0.0);
+            node.outputValues.color = {
+              scalar: 0.9,
+              preset: node.params.preset,
+              freq: node.params.freq,
+              phase: node.params.phase + shift * 1.4,
+              irid: node.params.irid
+            };
+            break;
+          }
+          case 'master': {
+            break;
+          }
+        }
+      }
+
+      // Extract final uniforms from Master Node
+      const master = this.nodes.find(n => n.type === 'master');
+      const uniforms = {
+        sdfShapeA: 0, sdfSizeA: 1.0, sdfPowerA: 6.0, sdfMorphA: 0.25,
+        hasSecondarySDF: 0, sdfShapeB: 1, sdfSizeB: 0.85, sdfPowerB: 5.0,
+        opActive: 0, opMode: 0, opTwist: 0.0, opSmooth: 0.35, opRep: 3.5,
+        noiseAmp: 0.0, noiseScale: 1.8, noiseSpeed: 0.7, noiseOctaves: 3,
+        palPreset: 0, palFreq: 1.2, palPhase: 0.5, palIrid: 1.1,
+        wormhole: 0.5, glow: 1.2, chroma: 0.6, reflect: 1.2, audioPulse: this.audio.sub
+      };
+
+      if (master) {
+        const sdfIn = master.inputValues.sdf;
+        const colIn = master.inputValues.color;
+        const dispIn = master.inputValues.disp;
+        const bloomIn = master.inputValues.bloom;
+
+        if (sdfIn) {
+          if (sdfIn.isOp) {
+            uniforms.opActive = 1.0;
+            uniforms.opMode = sdfIn.mode;
+            uniforms.opTwist = sdfIn.twist;
+            uniforms.opSmooth = sdfIn.smooth;
+            uniforms.opRep = sdfIn.rep;
+            const a = sdfIn.sdfA || { shape: 0, size: 1.0, power: 6.0, morph: 0.2 };
+            uniforms.sdfShapeA = a.shape;
+            uniforms.sdfSizeA = a.size;
+            uniforms.sdfPowerA = a.power;
+            uniforms.sdfMorphA = a.morph;
+            if (sdfIn.sdfB) {
+              uniforms.hasSecondarySDF = 1.0;
+              uniforms.sdfShapeB = sdfIn.sdfB.shape ?? 1;
+              uniforms.sdfSizeB = sdfIn.sdfB.size ?? 0.85;
+              uniforms.sdfPowerB = sdfIn.sdfB.power ?? 5.0;
+            }
+          } else {
+            uniforms.sdfShapeA = sdfIn.shape ?? 0;
+            uniforms.sdfSizeA = sdfIn.size ?? 1.0;
+            uniforms.sdfPowerA = sdfIn.power ?? 6.0;
+            uniforms.sdfMorphA = sdfIn.morph ?? 0.2;
+          }
+        }
+
+        if (colIn) {
+          uniforms.palPreset = colIn.preset ?? 0;
+          uniforms.palFreq = colIn.freq ?? 1.2;
+          uniforms.palPhase = colIn.phase ?? 0.5;
+          uniforms.palIrid = colIn.irid ?? 1.1;
+        }
+
+        if (dispIn) {
+          uniforms.noiseAmp = dispIn.amp ?? Math.abs(dispIn.scalar ?? 0.35);
+          uniforms.noiseScale = dispIn.scale ?? 1.8;
+          uniforms.noiseSpeed = dispIn.speed ?? 0.8;
+          uniforms.noiseOctaves = dispIn.octaves ?? 3;
+        }
+
+        const audioMod = Number(bloomIn?.scalar ?? bloomIn ?? 0.0);
+        uniforms.audioPulse = audioMod;
+        uniforms.wormhole = master.params.wormhole;
+        uniforms.glow = master.params.glow + audioMod * 0.75;
+        uniforms.chroma = master.params.chroma + audioMod * 0.45;
+        uniforms.reflect = master.params.reflect;
+      }
+
+      this.lastDagEvalMs = performance.now() - t0;
+      return uniforms;
+    }
+
+    renderNodeMiniCanvases(timeSec, uniforms) {
+      for (const node of this.nodes) {
+        const ctx = node.previewCtx;
+        if (!ctx) continue;
+        const w = node.previewCanvas.width;
+        const h = node.previewCanvas.height;
+        ctx.fillStyle = '#050811';
+        ctx.fillRect(0, 0, w, h);
+
+        if (node.type === 'lfo') {
+          const out = node.outputValues.out || { scalar: 0, freq: 1, wave: 0 };
+          ctx.strokeStyle = 'rgba(34,211,238,0.18)';
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.5);
+          ctx.lineTo(w, h * 0.5);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#22d3ee';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let x = 0; x < w; x += 3) {
+            const t = timeSec - (w - x) * 0.012;
+            const ph = t * out.freq * Math.PI * 2.0 + node.params.bias;
+            let yVal = 0;
+            if (out.wave === 0) yVal = Math.sin(ph);
+            else if (out.wave === 1) yVal = 2.0 * ((t * out.freq) - Math.floor(0.5 + t * out.freq));
+            else if (out.wave === 2) yVal = Math.sin(ph) > 0 ? 0.85 : -0.85;
+            else yVal = Math.sin(ph) * Math.cos(ph * 1.618 + Math.sin(ph * 0.73));
+            const py = h * 0.5 - yVal * Math.min(1.2, node.params.amp * 0.55) * (h * 0.38);
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+          node.previewLabelEl.textContent = `SIG: ${out.scalar.toFixed(2)}`;
+        } else if (node.type === 'audio') {
+          const bars = 28;
+          const bw = w / bars;
+          for (let i = 0; i < bars; i++) {
+            const v = this.audio.freqData[i] / 255;
+            const bh = Math.max(2, v * (h - 8));
+            ctx.fillStyle = i < 6 ? '#fbbf24' : (i < 16 ? '#f472b6' : '#22d3ee');
+            ctx.fillRect(i * bw + 1, h - bh, bw - 2, bh);
+          }
+          node.previewLabelEl.textContent = `SUB:${this.audio.sub.toFixed(2)} MID:${this.audio.mid.toFixed(2)}`;
+        } else if (node.type === 'noise') {
+          const out = node.outputValues.field || { scale: 1.8, speed: 0.7, amp: 0.4 };
+          const cols = 28, rows = 7;
+          const cw = w / cols, ch = h / rows;
+          for (let gx = 0; gx < cols; gx++) {
+            for (let gy = 0; gy < rows; gy++) {
+              const nx = gx * 0.18 * out.scale + timeSec * out.speed;
+              const ny = gy * 0.25 * out.scale - timeSec * out.speed * 0.6;
+              const v = 0.5 + 0.5 * Math.sin(nx + Math.cos(ny * 1.7));
+              const alpha = 0.15 + v * 0.75 * Math.min(1.2, out.amp + 0.3);
+              ctx.fillStyle = `rgba(167, 139, 250, ${alpha.toFixed(2)})`;
+              ctx.fillRect(gx * cw, gy * ch, cw - 1, ch - 1);
+            }
+          }
+          node.previewLabelEl.textContent = `4D AMP: ${out.amp.toFixed(2)}`;
+        } else if (node.type === 'sdf' || node.type === 'op') {
+          // Draw 2D SDF cross-section contour rings
+          const cx = w * 0.5, cy = h * 0.5;
+          const shape = node.type === 'sdf' ? node.params.shape : (node.outputValues.sdf?.sdfA?.shape ?? 0);
+          const rings = 4;
+          for (let r = 1; r <= rings; r++) {
+            ctx.strokeStyle = r === 1 ? '#10b981' : `rgba(16, 185, 129, ${(0.75 / r).toFixed(2)})`;
+            ctx.lineWidth = r === 1 ? 2 : 1;
+            ctx.beginPath();
+            for (let a = 0; a <= 48; a++) {
+              const ang = (a / 48) * Math.PI * 2;
+              const twist = node.type === 'op' ? node.params.twist * 0.25 : 0;
+              let rad = 12 + r * 4.5;
+              if (shape === 1) rad *= 0.82 + 0.22 * Math.abs(Math.cos(ang * 2 + timeSec));
+              else if (shape === 2) rad *= 0.8 + 0.26 * Math.sin(ang * 5 + timeSec * 2);
+              else if (shape === 3) rad *= 0.85 + 0.2 * Math.cos(ang * 6 - timeSec * 1.5);
+              const px = cx + Math.cos(ang + twist) * rad * 1.4;
+              const py = cy + Math.sin(ang + twist) * rad * 0.78;
+              if (a === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+          }
+          node.previewLabelEl.textContent = node.type === 'sdf'
+            ? node.spec.params[0].options[node.params.shape]
+            : node.spec.params[0].options[node.params.mode];
+        } else if (node.type === 'palette') {
+          const out = node.outputValues.color || { preset: 0, freq: 1, phase: 0 };
+          const strips = 44;
+          const sw = w / strips;
+          for (let i = 0; i < strips; i++) {
+            const t = i / strips + timeSec * 0.08;
+            const [r, g, b] = evalCosinePaletteJS(t, out.preset, out.freq, out.phase);
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(i * sw, 0, sw + 1, h);
+          }
+          node.previewLabelEl.textContent = `LUT PHASE: ${out.phase.toFixed(2)}`;
+        } else if (node.type === 'master') {
+          // Master composite waveform + bloom energy bar
+          const [r, g, b] = evalCosinePaletteJS(timeSec * 0.15, uniforms.palPreset, uniforms.palFreq, uniforms.palPhase);
+          const grad = ctx.createLinearGradient(0, 0, w, 0);
+          grad.addColorStop(0, `rgba(${r},${g},${b},0.35)`);
+          grad.addColorStop(0.5, 'rgba(34,211,238,0.45)');
+          grad.addColorStop(1, 'rgba(244,63,94,0.45)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          for (let x = 0; x < w; x += 4) {
+            const v = Math.sin(x * 0.08 + timeSec * 6) * (0.3 + uniforms.audioPulse * 0.5);
+            const py = h * 0.5 - v * (h * 0.36);
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+          node.previewLabelEl.textContent = `BLOOM: ${uniforms.glow.toFixed(2)}x`;
+        }
+      }
+
+      // Render Viewport Audio HUD Mini Spectrum
+      if (this.audioHudCtx) {
+        const ctx = this.audioHudCtx;
+        const w = this.audioHudCanvas.width;
+        const h = this.audioHudCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const bars = 24;
+        const bw = w / bars;
+        for (let i = 0; i < bars; i++) {
+          const val = this.audio.freqData[i] / 255;
+          const bh = Math.max(2, val * (h - 6));
+          ctx.fillStyle = i < 6 ? '#fbbf24' : (i < 15 ? '#22d3ee' : '#f472b6');
+          ctx.fillRect(i * bw + 1, h - bh, bw - 2, bh);
+        }
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // Animated Cubic Bezier Cables & Signal Pulse Particles
+    // --------------------------------------------------------------------------
+    getSocketWorldPos(nodeId, portId, dir) {
+      const node = this.nodes.find(n => n.id === nodeId);
+      if (!node) return { x: 0, y: 0 };
+      const sock = node.socketEls[dir]?.[portId];
+      if (!sock) return { x: node.x + 115, y: node.y + 60 };
+
+      const paneRect = this.graphPane.getBoundingClientRect();
+      const sockRect = sock.getBoundingClientRect();
+      const cx = sockRect.left + sockRect.width * 0.5 - paneRect.left;
+      const cy = sockRect.top + sockRect.height * 0.5 - paneRect.top;
+      return {
+        x: (cx - this.panX) / this.zoom,
+        y: (cy - this.panY) / this.zoom
+      };
+    }
+
+    renderCablesAndGrid(timeSec) {
+      const canvas = this.cableCanvas;
+      const ctx = this.cableCtx;
+      const w = this.graphPane.clientWidth;
+      const h = this.graphPane.clientHeight;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Infinite Dot/Cross Grid
+      const step = 32 * this.zoom;
+      const ox = ((this.panX % step) + step) % step;
+      const oy = ((this.panY % step) + step) % step;
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.16)';
+      for (let x = ox; x < w; x += step) {
+        for (let y = oy; y < h; y += step) {
+          ctx.fillRect(x, y, 1.5, 1.5);
+        }
+      }
+
+      ctx.save();
+      ctx.translate(this.panX, this.panY);
+      ctx.scale(this.zoom, this.zoom);
+
+      const drawCubicCable = (x1, y1, x2, y2, color, strength, isTemp = false) => {
+        const dx = Math.max(55, Math.abs(x2 - x1) * 0.48);
+        const cp1x = x1 + dx;
+        const cp1y = y1;
+        const cp2x = x2 - dx;
+        const cp2y = y2;
+
+        // Outer neon glow
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = isTemp ? 0.45 : 0.26;
+        ctx.lineWidth = 6.5;
         ctx.beginPath();
-        ctx.arc(cx, cy, r, t * 2 + r, t * 2 + r + Math.PI * 1.4);
+        ctx.moveTo(x1, y1);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
         ctx.stroke();
+
+        // Core cable
+        ctx.globalAlpha = isTemp ? 0.9 : 0.88;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+        ctx.stroke();
+
+        // Animated luminous signal pulses along the cubic Bezier curve
+        if (!isTemp) {
+          const speed = 0.55 + Math.min(1.6, strength * 0.65);
+          const numPulses = 3;
+          for (let i = 0; i < numPulses; i++) {
+            const t = ((timeSec * speed + i / numPulses) % 1.0 + 1.0) % 1.0;
+            const mt = 1 - t;
+            const px = mt * mt * mt * x1 + 3 * mt * mt * t * cp1x + 3 * mt * t * t * cp2x + t * t * t * x2;
+            const py = mt * mt * mt * y1 + 3 * mt * mt * t * cp1y + 3 * mt * t * t * cp2y + t * t * t * y2;
+
+            ctx.globalAlpha = 0.95;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(px, py, 3.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(px, py, 6.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1.0;
+      };
+
+      for (const c of this.cables) {
+        const p1 = this.getSocketWorldPos(c.fromNode, c.fromPort, 'out');
+        const p2 = this.getSocketWorldPos(c.toNode, c.toPort, 'in');
+        const col = PORT_TYPES[c.type]?.color || '#22d3ee';
+        drawCubicCable(p1.x, p1.y, p2.x, p2.y, col, c.signalStrength || 0.6, false);
       }
-    } else if (idx === 1) {
-      ctx.fillStyle = "#10B981";
-      ctx.font = "700 14px monospace";
-      const lines = IS_SUPER ? [
-        "$ ./install.sh --target ./mixiuh-os",
-        "[OK] CLAUDE.md + GEMINI.md + MEMORY.md instalados",
-        "[OK] 01-memoria-infinita: ACTIVA",
-        "[OK] 02-auto-debugger-browser-mcp: 0 ERRORES",
-        "[OK] 03-arquitecto-senior-120fps: Float32Array ON",
-        "[OK] 04-auditor-seguridad: CSP + 0 LEAKS",
-        "[OK] 05-automatizador: AHORRO -75% TOKENS",
-      ] : [
-        "$ node start_os.js",
-        "ERROR: WindowManager z-index collision",
-        "WARN: AudioContext buffer underrun (21 FPS)",
-        "FATAL: Global state overwritten by Synth module",
-      ];
-      lines.forEach((ln, li) => ctx.fillText(ln, wx + 20, wy + 75 + li * 34));
-    } else if (idx === 2) {
-      // FM Spectrum Bars inside Window 3
-      for (let b = 0; b < 24; b++) {
-        const bh = 30 + Math.abs(Math.sin(t * 6 + b * 0.45)) * 220;
-        ctx.fillStyle = b % 2 === 0 ? "#F472B6" : "#22D3EE";
-        ctx.fillRect(wx + 32 + b * 23, wy + 340 - bh, 16, bh);
+
+      if (this.activeWire) {
+        const p1 = this.getSocketWorldPos(this.activeWire.fromNodeId, this.activeWire.fromPortId, 'out');
+        const col = PORT_TYPES[this.activeWire.type]?.color || '#22d3ee';
+        drawCubicCable(p1.x, p1.y, this.activeWire.curX, this.activeWire.curY, col, 1.0, true);
       }
-    } else if (idx === 3) {
-      // Telemetry Wave inside Window 4
-      ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      for (let x = 0; x < 580; x += 10) {
-        const y = wy + 210 + Math.sin(t * 5 + x * 0.03) * (IS_SUPER ? 45 : 110);
-        if (x === 0) ctx.moveTo(wx + 40 + x, y); else ctx.lineTo(wx + 40 + x, y);
-      }
-      ctx.stroke();
+
+      ctx.restore();
     }
-  });
-}
 
-function stepSimulation(dtMs, subSteps, fnIndex) {
-  simTime += (dtMs / 1000);
-  frameNum = fnIndex || (frameNum + 1);
-  if (burstTimer > 0) burstTimer = Math.max(0, burstTimer - dtMs / 1000);
+    // --------------------------------------------------------------------------
+    // 1-Click Presets, Auto-Layout & Procedural Mutation
+    // --------------------------------------------------------------------------
+    clearGraph() {
+      this.nodes = [];
+      this.cables = [];
+      this.nodeSeq = 1;
+      this.layoutTargets.clear();
+      this.nodeWorld.innerHTML = '';
+    }
 
-  ctx.clearRect(0, 0, 1920, 1080);
-  drawGrid();
+    loadPreset(presetNum) {
+      this.clearGraph();
+      for (let i = 1; i <= 3; i++) {
+        const b = document.getElementById(`btn-preset-${i}`);
+        if (b) b.classList.toggle('active-preset', i === presetNum);
+      }
 
-  if (CHALLENGE_NUM === 1) renderChallenge1(simTime);
-  else if (CHALLENGE_NUM === 2) renderChallenge2(simTime);
-  else if (CHALLENGE_NUM === 3) renderChallenge3(simTime);
-  else if (CHALLENGE_NUM === 4) renderChallenge4(simTime);
-  else if (CHALLENGE_NUM === 5) renderChallenge5(simTime);
-  else renderChallenge6(simTime);
+      if (presetNum === 1) {
+        // 1. Agujero de Gusano Raymarching
+        const nLfo = this.createNode('lfo', 20, 20, { wave: 0, freq: 0.55, amp: 1.15, bias: 0.0 });
+        const nAudio = this.createNode('audio', 20, 290, { bpm: 126, cutoff: 1650, drive: 1.25 });
+        const nNoise = this.createNode('noise', 295, 20, { scale: 2.1, octaves: 3, amp: 0.42, speed: 0.95 });
+        const nSdf = this.createNode('sdf', 295, 275, { shape: 0, size: 1.08, power: 6.0, morph: 0.28 });
+        const nOp = this.createNode('op', 570, 210, { mode: 2, twist: 1.45, smooth: 0.42, rep: 3.8 });
+        const nPal = this.createNode('palette', 570, 15, { preset: 0, freq: 1.35, phase: 0.4, irid: 1.35 });
+        const nMaster = this.createNode('master', 845, 130, { wormhole: 0.95, glow: 1.45, chroma: 0.85, reflect: 1.35 });
 
-  const fc = document.getElementById("frame-counter");
-  if (fc) fc.textContent = "FRAME " + String(frameNum).padStart(4, "0");
-}
+        this.tryConnect(nLfo.id, 'out', nNoise.id, 'phase');
+        this.tryConnect(nLfo.id, 'out', nOp.id, 'mod');
+        this.tryConnect(nAudio.id, 'mid', nSdf.id, 'mod');
+        this.tryConnect(nSdf.id, 'sdf', nOp.id, 'sdfA');
+        this.tryConnect(nOp.id, 'sdf', nMaster.id, 'sdf');
+        this.tryConnect(nPal.id, 'color', nMaster.id, 'color');
+        this.tryConnect(nNoise.id, 'field', nMaster.id, 'disp');
+        this.tryConnect(nAudio.id, 'sub', nMaster.id, 'bloom');
 
-// Deterministic hook for Playwright 60fps capture
-window.__stepFrame = function(dtMs, subSteps, fnIndex) {
-  stepSimulation(dtMs || 16.6667, subSteps || 1, fnIndex);
-};
+        this.glEngine.camYaw = 0.48;
+        this.glEngine.camPitch = 0.26;
+        this.glEngine.camDist = 3.7;
+        document.getElementById('vp-shader-title').textContent = 'PRESET 01 // AGUJERO DE GUSANO RAYMARCHING';
+        this.rebuildDAG('Preset 1 cargado: Agujero de Gusano Raymarching');
+        this.showToast('Preset 1: Agujero de Gusano Raymarching activo');
+      } else if (presetNum === 2) {
+        // 2. Fractal Ciber-Cristal 4D
+        const nLfo = this.createNode('lfo', 20, 25, { wave: 3, freq: 0.42, amp: 0.95, bias: 0.35 });
+        const nSdfA = this.createNode('sdf', 295, 15, { shape: 2, size: 1.15, power: 7.2, morph: 0.45 });
+        const nSdfB = this.createNode('sdf', 295, 295, { shape: 1, size: 0.92, power: 4.5, morph: 0.55 });
+        const nOp = this.createNode('op', 570, 185, { mode: 3, twist: 0.85, smooth: 0.32, rep: 4.2 });
+        const nPal = this.createNode('palette', 570, 10, { preset: 3, freq: 1.55, phase: 1.85, irid: 1.65 });
+        const nMaster = this.createNode('master', 845, 125, { wormhole: 0.25, glow: 1.35, chroma: 0.65, reflect: 1.75 });
 
-// Live browser loop when opened by a human in labs.mixiuh.online
-let lastTs = performance.now();
-function loop(ts) {
-  const dt = Math.min(50, ts - lastTs);
-  lastTs = ts;
-  if (!window.__recordingMode) {
-    stepSimulation(dt, 1);
+        this.tryConnect(nLfo.id, 'out', nSdfA.id, 'mod');
+        this.tryConnect(nLfo.id, 'out', nPal.id, 'shift');
+        this.tryConnect(nSdfA.id, 'sdf', nOp.id, 'sdfA');
+        this.tryConnect(nSdfB.id, 'sdf', nOp.id, 'sdfB');
+        this.tryConnect(nOp.id, 'sdf', nMaster.id, 'sdf');
+        this.tryConnect(nPal.id, 'color', nMaster.id, 'color');
+        this.tryConnect(nLfo.id, 'out', nMaster.id, 'bloom');
+
+        this.glEngine.camYaw = 0.72;
+        this.glEngine.camPitch = 0.18;
+        this.glEngine.camDist = 3.25;
+        document.getElementById('vp-shader-title').textContent = 'PRESET 02 // FRACTAL CIBER-CRISTAL 4D';
+        this.rebuildDAG('Preset 2 cargado: Fractal Ciber-Cristal 4D');
+        this.showToast('Preset 2: Fractal Ciber-Cristal 4D activo');
+      } else {
+        // 3. Pulso Audio-Reactivo Synth
+        const nAudio = this.createNode('audio', 20, 40, { bpm: 138, cutoff: 2250, drive: 1.55 });
+        const nLfo = this.createNode('lfo', 20, 290, { wave: 2, freq: 1.15, amp: 1.25, bias: 0.1 });
+        const nNoise = this.createNode('noise', 295, 25, { scale: 2.6, octaves: 4, amp: 0.58, speed: 1.35 });
+        const nSdf = this.createNode('sdf', 295, 285, { shape: 3, size: 1.18, power: 6.8, morph: 0.42 });
+        const nOp = this.createNode('op', 570, 220, { mode: 0, twist: 1.85, smooth: 0.45, rep: 3.4 });
+        const nPal = this.createNode('palette', 570, 15, { preset: 1, freq: 1.75, phase: 2.4, irid: 1.5 });
+        const nMaster = this.createNode('master', 845, 130, { wormhole: 0.55, glow: 1.85, chroma: 1.25, reflect: 1.45 });
+
+        this.tryConnect(nAudio.id, 'sub', nSdf.id, 'mod');
+        this.tryConnect(nAudio.id, 'mid', nNoise.id, 'phase');
+        this.tryConnect(nAudio.id, 'high', nPal.id, 'shift');
+        this.tryConnect(nLfo.id, 'out', nOp.id, 'mod');
+        this.tryConnect(nSdf.id, 'sdf', nOp.id, 'sdfA');
+        this.tryConnect(nOp.id, 'sdf', nMaster.id, 'sdf');
+        this.tryConnect(nPal.id, 'color', nMaster.id, 'color');
+        this.tryConnect(nNoise.id, 'field', nMaster.id, 'disp');
+        this.tryConnect(nAudio.id, 'sub', nMaster.id, 'bloom');
+
+        this.glEngine.camYaw = -0.35;
+        this.glEngine.camPitch = 0.22;
+        this.glEngine.camDist = 3.45;
+        document.getElementById('vp-shader-title').textContent = 'PRESET 03 // PULSO AUDIO-REACTIVO SYNTH';
+        this.rebuildDAG('Preset 3 cargado: Pulso Audio-Reactivo Synth');
+        this.showToast('Preset 3: Pulso Audio-Reactivo Synth activo');
+      }
+    }
+
+    autoLayoutGraph() {
+      // Compute longest-path topological depth for each node
+      const order = this.computeTopologicalOrder();
+      const depth = new Map();
+      for (const id of order) depth.set(id, 0);
+      for (const id of order) {
+        const d = depth.get(id) || 0;
+        for (const c of this.cables) {
+          if (c.fromNode === id) {
+            depth.set(c.toNode, Math.max(depth.get(c.toNode) || 0, d + 1));
+          }
+        }
+      }
+
+      // Group nodes by column depth
+      const columns = new Map();
+      for (const n of this.nodes) {
+        const col = n.type === 'master' ? Math.max(...depth.values(), 2) : (depth.get(n.id) || 0);
+        if (!columns.has(col)) columns.set(col, []);
+        columns.get(col).push(n);
+      }
+
+      const sortedCols = Array.from(columns.keys()).sort((a, b) => a - b);
+      sortedCols.forEach((colKey, colIdx) => {
+        const list = columns.get(colKey);
+        list.forEach((node, rowIdx) => {
+          const tx = 24 + colIdx * 275;
+          const ty = 24 + rowIdx * 265;
+          this.layoutTargets.set(node.id, { x: tx, y: ty });
+        });
+      });
+
+      this.resetView();
+      this.log('Auto-Ordenar Grafo (Sugiyama DAG Layout) ejecutado', 'ok');
+      this.showToast('Grafo auto-ordenado por capas topologicas');
+    }
+
+    injectProceduralMutation() {
+      // Mutate parameters of existing nodes + update sliders in real time
+      for (const n of this.nodes) {
+        for (const p of n.spec.params) {
+          if (p.type === 'select') {
+            n.params[p.id] = Math.floor(Math.random() * p.options.length);
+            const sel = n.el?.querySelector('.ctrl-select');
+            if (sel) sel.value = String(n.params[p.id]);
+          } else {
+            const span = p.max - p.min;
+            const mutated = p.min + (0.18 + Math.random() * 0.68) * span;
+            n.params[p.id] = Number(mutated.toFixed(2));
+            const ui = n._paramUI?.[p.id];
+            if (ui) {
+              ui.slider.value = String(n.params[p.id]);
+              ui.valSpan.textContent = Number(n.params[p.id]).toFixed(2);
+            }
+          }
+        }
+      }
+
+      // If fewer than 9 nodes, also inject an extra modulator node and wire it into an open port
+      if (this.nodes.length < 9) {
+        const modNode = this.createNode('lfo', 30, 520, {
+          wave: Math.floor(Math.random() * 4),
+          freq: Number((0.3 + Math.random() * 1.8).toFixed(2)),
+          amp: Number((0.6 + Math.random() * 1.2).toFixed(2)),
+          bias: 0.0
+        });
+        const targetSdf = this.nodes.find(n => n.type === 'sdf');
+        if (targetSdf) {
+          this.tryConnect(modNode.id, 'out', targetSdf.id, 'disp');
+        }
+        this.autoLayoutGraph();
+      }
+
+      this.rebuildDAG('Mutacion procedural inyectada en el grafo');
+      this.showToast('Mutacion Procedural: Parametros y topologia mutados');
+    }
+
+    toggleSynthAudio() {
+      const playing = this.audio.toggle();
+      const btn = document.getElementById('btn-audio-toggle');
+      const lbl = document.getElementById('audio-btn-label');
+      if (btn) btn.classList.toggle('synth-on', playing);
+      if (lbl) lbl.textContent = playing ? 'DSP Synth: LIVE ON' : 'DSP Synth: AUTO';
+      this.showToast(playing ? 'Sintetizador WebAudio FM/Acid Activado' : 'Sintetizador silenciado (FFT Procedural Activo)');
+      this.log(playing ? 'Motor WebAudio Synth activado en vivo' : 'Motor WebAudio en modo silencioso', 'ok');
+    }
+
+    setRenderMode(mode) {
+      this.glEngine.renderMode = mode;
+      document.getElementById('btn-render-shaded').classList.toggle('active', mode === 0);
+      document.getElementById('btn-render-normals').classList.toggle('active', mode === 1);
+      document.getElementById('btn-render-isolines').classList.toggle('active', mode === 2);
+    }
+
+    toggleExpandViewport() {
+      const pane = document.getElementById('right-pane');
+      const btn = document.getElementById('btn-expand-vp');
+      const expanded = pane.classList.toggle('expanded');
+      if (btn) btn.textContent = expanded ? 'Dividir' : 'Ampliar';
+    }
+
+    // --------------------------------------------------------------------------
+    // Master 60-120 FPS Animation Loop
+    // --------------------------------------------------------------------------
+    tick(nowMs) {
+      const timeSec = nowMs * 0.001;
+
+      // Smoothly animate nodes toward Auto-Layout targets if active
+      if (this.layoutTargets.size > 0) {
+        for (const [id, target] of this.layoutTargets.entries()) {
+          const n = this.nodes.find(x => x.id === id);
+          if (!n) {
+            this.layoutTargets.delete(id);
+            continue;
+          }
+          n.x += (target.x - n.x) * 0.18;
+          n.y += (target.y - n.y) * 0.18;
+          if (Math.abs(target.x - n.x) < 0.8 && Math.abs(target.y - n.y) < 0.8) {
+            n.x = target.x;
+            n.y = target.y;
+            this.layoutTargets.delete(id);
+          }
+          if (n.el) {
+            n.el.style.transform = `translate(${Math.round(n.x)}px, ${Math.round(n.y)}px)`;
+          }
+        }
+      }
+
+      // 1. Evaluate DAG Topologically
+      const uniforms = this.evaluateDAG(timeSec);
+
+      // 2. Render WebGL 3D Raymarching Viewport
+      this.glEngine.render(timeSec, uniforms);
+
+      // 3. Render Live Mini-Canvases inside Every Node
+      this.renderNodeMiniCanvases(timeSec, uniforms);
+
+      // 4. Render Cubic Bezier Cables + Signal Pulses
+      this.renderCablesAndGrid(timeSec);
+
+      // 5. Update FPS & DAG Evaluation Telemetry
+      this.fpsFrames++;
+      if (nowMs - this.fpsLastTime >= 450) {
+        this.displayedFps = Math.min(120, Math.round((this.fpsFrames * 1000) / (nowMs - this.fpsLastTime)));
+        this.fpsFrames = 0;
+        this.fpsLastTime = nowMs;
+        const fpsEl = document.getElementById('metric-fps');
+        const dagEl = document.getElementById('metric-dag-ms');
+        if (fpsEl) fpsEl.textContent = `${this.displayedFps} FPS`;
+        if (dagEl) dagEl.textContent = `${this.lastDagEvalMs.toFixed(2)} ms`;
+      }
+
+      requestAnimationFrame((t) => this.tick(t));
+    }
   }
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+
+  window.addEventListener('DOMContentLoaded', () => {
+    window.Studio = new NexusStudio();
+  });
+})();
 </script>
 </body>
 </html>

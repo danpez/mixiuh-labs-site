@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-const VALID_MODELS = new Set(["argon", "flash", "opus", "comunidad"]);
+const VALID_MODELS = new Set(["argon", "flash", "opus", "comunidad", "ia-sin-kit", "ia-superpowers-kit"]);
 const VALID_DIRS = new Set([
   // Del Comentario al Codigo
   "cc01-overfit-studio",
@@ -25,6 +25,13 @@ const VALID_DIRS = new Set([
   "04-voxel-minecraft",
   "05-sintetizador-fm",
   "06-pinball-ccd",
+  // Episode 03 (6 challenges: IA Sin Kit vs Mixiuh Superpowers Kit)
+  "01-galaxia-nbody",
+  "02-terminal-trading",
+  "03-arcade-boss-rush",
+  "04-red-zero-trust",
+  "05-motor-nodos-ia",
+  "06-mixiuh-os-desktop",
 ]);
 
 export async function GET(req: NextRequest) {

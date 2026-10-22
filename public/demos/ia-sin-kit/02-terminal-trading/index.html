@@ -2,635 +2,3898 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TERMINAL CUANTITATIVA 3D & ORDERBOOK — IA SIN KIT (BASE)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>QUANTUM-HFT // Terminal Institucional de Microestructura y Trading Cuantitativo</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  :root {
+    --bg-void: #04060a;
+    --bg-panel: #080c14;
+    --bg-panel-alt: #0b101b;
+    --bg-elevated: #101726;
+    --bg-glass: rgba(11, 16, 27, 0.88);
+    --border-dim: #162032;
+    --border-bright: #243552;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #52637a;
+    --bid-emerald: #10b981;
+    --bid-cyan: #06b6d4;
+    --bid-glow: rgba(16, 185, 129, 0.22);
+    --ask-crimson: #f43f5e;
+    --ask-amber: #f59e0b;
+    --ask-glow: rgba(244, 63, 94, 0.22);
+    --accent-violet: #8b5cf6;
+    --accent-blue: #3b82f6;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
   html, body {
-    width: 100vw; height: 100vh; overflow: hidden;
-    background: #050912; color: #F5F7FA;
-    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
-  }
-  #stage {
-    position: relative; width: 100vw; height: 100vh; overflow: hidden;
-    background: radial-gradient(circle at 38% 48%, #0C192C 0%, #050912 75%);
-  }
-  canvas#sim {
-    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
-  }
-  /* Top Header Bar */
-  .topbar {
-    position: absolute; top: 18px; left: 22px; right: 22px; height: 64px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid #F43F5E;
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 24px rgba(244, 63, 94, 0.28);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-  }
-  .topbar-left { display: flex; align-items: center; gap: 16px; }
-  .badge-mode {
-    padding: 7px 14px; border-radius: 10px; font-weight: 900; font-size: 15px;
-    letter-spacing: 1.5px; background: #FBBF24; color: #1A0A04;
-    border: 1.5px solid #F43F5E;
-  }
-  .challenge-title {
-    font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #FFFFFF;
-  }
-  .skill-pill {
-    font-size: 13px; font-weight: 700; color: #F43F5E;
-    background: rgba(255,255,255,0.06); padding: 6px 12px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.14);
-  }
-  .topbar-right { display: flex; align-items: center; gap: 14px; }
-  .stat-chip {
-    padding: 7px 14px; border-radius: 10px; background: rgba(4, 9, 18, 0.9);
-    border: 1.5px solid rgba(255,255,255,0.15); font-size: 15px; font-weight: 800;
-  }
-  .stat-fps {
-    padding: 7px 16px; border-radius: 10px; font-size: 18px; font-weight: 900;
-    background: rgba(244, 63, 94, 0.25); color: #FF8FA3; border: 2px solid #F43F5E;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.25;
   }
 
-  /* Right Telemetry & Controls Sidebar */
-  .sidebar {
-    position: absolute; top: 98px; right: 22px; width: 430px; bottom: 150px;
-    background: rgba(8, 15, 28, 0.88);
-    border: 2px solid rgba(255,255,255,0.14);
-    border-radius: 18px; padding: 18px;
-    display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.65);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-  }
-  .sec-head {
-    font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #F43F5E;
-    border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 6px;
-    display: flex; justify-content: space-between;
-  }
-  .metric-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  }
-  .metric-card {
-    background: rgba(4, 8, 16, 0.92); border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 10px 12px;
-  }
-  .metric-lbl { font-size: 11px; color: #8FA3B8; font-weight: 700; letter-spacing: 1px; }
-  .metric-val { font-size: 15px; font-weight: 900; margin-top: 4px; }
-
-  .log-box {
-    flex: 1; background: rgba(3, 6, 12, 0.95); border: 1.5px solid #F43F5E;
-    border-radius: 12px; padding: 12px; font-size: 12.5px; line-height: 1.55;
-    overflow: hidden; display: flex; flex-direction: column; gap: 8px;
-  }
-  .log-item {
-    padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);
-    border-left: 3px solid #F43F5E; font-weight: 700;
+  /* Main App Layout */
+  .terminal-shell {
+    display: grid;
+    grid-template-rows: 42px 38px 1fr 22px;
+    width: 100vw;
+    height: 100vh;
+    gap: 2px;
+    background-color: var(--border-dim);
   }
 
-  .btn-row { display: flex; gap: 8px; }
-  .ctrl-btn {
-    flex: 1; padding: 10px 8px; border-radius: 10px; border: 1.5px solid #F43F5E;
-    background: rgba(255,255,255,0.06); color: #FFF; font-family: inherit;
-    font-size: 12.5px; font-weight: 800; cursor: pointer; transition: 0.15s;
+  /* Top Bar 1: Brand, Asset Switcher & Telemetry HUD */
+  .topbar-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, #0c121e 0%, #070b12 100%);
+    padding: 0 10px;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .brand-cluster {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: #fff;
+    padding: 4px 8px;
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.18), rgba(16, 185, 129, 0.08));
+    border: 1px solid rgba(6, 182, 212, 0.45);
+    border-radius: 3px;
+  }
+
+  .brand-logo svg {
+    width: 14px;
+    height: 14px;
+    stroke: var(--bid-cyan);
+  }
+
+  .engine-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9.5px;
+    color: var(--bid-emerald);
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 3px 7px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bid-emerald);
+    box-shadow: 0 0 8px var(--bid-emerald);
+    animation: pulseGlow 1.2s infinite ease-in-out;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.82); }
+  }
+
+  /* Asset Selector Tabs */
+  .asset-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .asset-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 9px;
+    background: var(--bg-panel-alt);
+    border: 1px solid var(--border-dim);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+
+  .asset-tab:hover {
+    border-color: var(--border-bright);
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+  }
+
+  .asset-tab.active {
+    background: linear-gradient(180deg, rgba(6, 182, 212, 0.16) 0%, rgba(16, 185, 129, 0.06) 100%);
+    border-color: var(--bid-cyan);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.15);
+  }
+
+  .asset-sym {
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .asset-px {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .asset-chg {
+    font-size: 9.5px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-weight: 700;
+  }
+
+  .up-val { color: var(--bid-emerald); }
+  .dn-val { color: var(--ask-crimson); }
+  .cyan-val { color: var(--bid-cyan); }
+  .amber-val { color: var(--ask-amber); }
+
+  /* Telemetry HUD Strip */
+  .telemetry-hud {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
+    overflow: hidden;
+  }
+
+  .hud-metric {
+    display: flex;
+    flex-direction: column;
+    padding: 2px 8px;
+    background: rgba(11, 16, 27, 0.9);
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+    min-width: 78px;
+  }
+
+  .hud-label {
+    font-size: 8.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .hud-value {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  /* Top Bar 2: Stress Event Simulators & Regime Banner */
+  .topbar-stress {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #070a11;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .stress-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .stress-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--ask-amber);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+
+  .stress-label svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .stress-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    border: 1px solid transparent;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+  }
+
+  .stress-btn svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
+  .stress-btn.crash {
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fda4af;
+  }
+  .stress-btn.crash:hover {
+    background: rgba(244, 63, 94, 0.26);
+    border-color: var(--ask-crimson);
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .stress-btn.whale {
+    background: rgba(6, 182, 212, 0.12);
+    border-color: rgba(6, 182, 212, 0.45);
+    color: #67e8f9;
+  }
+  .stress-btn.whale:hover {
+    background: rgba(6, 182, 212, 0.25);
+    border-color: var(--bid-cyan);
+    box-shadow: 0 0 14px rgba(6, 182, 212, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .stress-btn.squeeze {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+  }
+  .stress-btn.squeeze:hover {
+    background: rgba(16, 185, 129, 0.25);
+    border-color: var(--bid-emerald);
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .stress-btn.cascade {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #fcd34d;
+  }
+  .stress-btn.cascade:hover {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: var(--ask-amber);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .stress-btn.calm {
+    background: rgba(139, 92, 246, 0.12);
+    border-color: rgba(139, 92, 246, 0.45);
+    color: #c4b5fd;
+  }
+  .stress-btn.calm:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: var(--accent-violet);
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .regime-status-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+  }
+
+  .regime-badge {
+    padding: 3px 8px;
+    border-radius: 2px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: var(--bid-emerald);
+  }
+
+  /* Main Workspace Grid */
+  .workspace-grid {
+    display: grid;
+    grid-template-columns: 1.48fr 1.05fr 310px 286px;
+    grid-template-rows: 1.38fr 0.92fr;
+    gap: 2px;
+    background: var(--border-dim);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .panel {
+    background: var(--bg-panel);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Grid Placement */
+  .panel-candles {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+  }
+
+  .panel-oscilloscope {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+  }
+
+  .panel-surface3d {
+    grid-column: 2 / 3;
+    grid-row: 1 / 3;
+  }
+
+  .panel-dom-tape {
+    grid-column: 3 / 4;
+    grid-row: 1 / 3;
+    display: grid;
+    grid-template-rows: 1.28fr 0.72fr;
+    gap: 2px;
+    background: var(--border-dim);
+  }
+
+  .panel-execution {
+    grid-column: 4 / 5;
+    grid-row: 1 / 3;
+  }
+
+  /* Panel Headers */
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 28px;
+    padding: 0 8px;
+    background: linear-gradient(180deg, #0d1422 0%, #090e17 100%);
+    border-bottom: 1px solid var(--border-dim);
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .panel-title svg {
+    width: 12px;
+    height: 12px;
+    stroke: var(--bid-cyan);
+    flex-shrink: 0;
+  }
+
+  .panel-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+
+  .mini-btn {
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-panel-alt);
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .mini-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-bright);
+  }
+
+  .mini-btn.active {
+    color: var(--bid-cyan);
+    background: rgba(6, 182, 212, 0.14);
+    border-color: rgba(6, 182, 212, 0.5);
+  }
+
+  .canvas-wrap {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .canvas-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Floating Overlay Legends inside Canvases */
+  .chart-overlay-info {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 4;
+  }
+
+  .ohlc-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(6, 10, 18, 0.82);
+    border: 1px solid rgba(36, 53, 82, 0.65);
+    padding: 3px 7px;
+    border-radius: 2px;
+    font-size: 9.5px;
+  }
+
+  .ind-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+    background: rgba(6, 10, 18, 0.75);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  /* DOM & Time & Sales */
+  .dom-imbalance-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: #060911;
+    border-bottom: 1px solid var(--border-dim);
+    font-size: 9.5px;
+    flex-shrink: 0;
+  }
+
+  .imb-bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(244, 63, 94, 0.35);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .imb-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bid-emerald), var(--bid-cyan));
+    transition: width 0.08s linear;
+  }
+
+  /* Tape list */
+  .tape-header-cols {
+    display: grid;
+    grid-template-columns: 58px 1fr 64px 54px;
+    padding: 3px 8px;
+    font-size: 8.5px;
+    color: var(--text-muted);
+    background: #060a12;
+    border-bottom: 1px solid var(--border-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tape-list {
+    flex: 1;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    font-size: 9.5px;
+    background: #05080f;
+  }
+
+  .tape-row {
+    display: grid;
+    grid-template-columns: 58px 1fr 64px 54px;
+    align-items: center;
+    padding: 2.5px 8px;
+    border-bottom: 1px solid rgba(22, 32, 50, 0.35);
+  }
+
+  .tape-row.whale-buy {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.24) 0%, rgba(6, 182, 212, 0.05) 100%);
+    border-left: 2px solid var(--bid-cyan);
+  }
+
+  .tape-row.whale-sell {
+    background: linear-gradient(90deg, rgba(244, 63, 94, 0.24) 0%, rgba(245, 158, 11, 0.05) 100%);
+    border-left: 2px solid var(--ask-crimson);
+  }
+
+  .tape-row.liq-row {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.28) 0%, rgba(244, 63, 94, 0.12) 100%);
+    border-left: 2px solid var(--ask-amber);
+  }
+
+  .tape-tag {
+    display: inline-block;
     text-align: center;
-  }
-  .ctrl-btn:hover, .ctrl-btn.active {
-    background: #FBBF24; color: #1A0A04;
-  }
-
-  /* Bottom Error Console (only visible in vanilla mode) */
-  .error-drawer {
-    position: absolute; left: 22px; right: 22px; bottom: 18px; height: 118px;
-    background: rgba(28, 6, 14, 0.94); border: 2px solid #F43F5E;
-    border-radius: 14px; padding: 12px 18px;
-    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45);
-    z-index: 12; display: block;
-  }
-  .err-title {
-    color: #FF8FA3; font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
-    margin-bottom: 6px; display: flex; justify-content: space-between;
-  }
-  .err-line {
-    color: #FFE1E7; font-size: 13px; font-weight: 700; margin-bottom: 4px;
-    font-family: monospace;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
   }
 
-  /* Floating Status Banner Bottom-Left for Superkit */
-  .super-banner {
-    position: absolute; left: 22px; bottom: 22px; width: 920px; height: 74px;
-    background: rgba(6, 22, 34, 0.92); border: 2px solid #10B981;
-    border-radius: 16px; padding: 0 22px;
-    display: none; align-items: center; justify-content: space-between;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 22px rgba(16, 185, 129, 0.3);
-    z-index: 11;
+  .tag-mkt-b { color: var(--bid-emerald); background: rgba(16, 185, 129, 0.12); }
+  .tag-mkt-s { color: var(--ask-crimson); background: rgba(244, 63, 94, 0.12); }
+  .tag-whale { color: #fff; background: var(--bid-cyan); }
+  .tag-whale-s { color: #fff; background: var(--ask-crimson); }
+  .tag-liq { color: #000; background: var(--ask-amber); }
+
+  /* Execution Dock */
+  .exec-body {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .order-type-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    background: #05080f;
+    padding: 3px;
+    border: 1px solid var(--border-dim);
+    border-radius: 3px;
+  }
+
+  .otype-btn {
+    padding: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .otype-btn.active {
+    background: var(--bg-elevated);
+    color: var(--bid-cyan);
+    border: 1px solid rgba(6, 182, 212, 0.4);
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  .input-box {
+    display: flex;
+    align-items: center;
+    background: #04070d;
+    border: 1px solid var(--border-dim);
+    border-radius: 3px;
+    padding: 0 7px;
+    height: 28px;
+  }
+
+  .input-box:focus-within {
+    border-color: var(--bid-cyan);
+  }
+
+  .input-box input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .input-unit {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-left: 4px;
+  }
+
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+  }
+
+  .preset-grid-5 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+  }
+
+  .preset-chip {
+    padding: 3px 2px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-align: center;
+    background: var(--bg-panel-alt);
+    border: 1px solid var(--border-dim);
+    color: var(--text-secondary);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .preset-chip:hover, .preset-chip.active {
+    border-color: var(--bid-cyan);
+    color: var(--text-primary);
+    background: rgba(6, 182, 212, 0.14);
+  }
+
+  .lev-slider {
+    width: 100%;
+    accent-color: var(--bid-cyan);
+    height: 5px;
+    cursor: pointer;
+  }
+
+  .exec-buttons-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .btn-exec {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.12s;
+    border: 1px solid transparent;
+  }
+
+  .btn-exec-main {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-exec-sub {
+    font-size: 8.5px;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+
+  .btn-long {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.28) 0%, rgba(16, 185, 129, 0.14) 100%);
+    border-color: var(--bid-emerald);
+    color: #ecfdf5;
+  }
+  .btn-long:hover {
+    background: rgba(16, 185, 129, 0.42);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
+  }
+
+  .btn-short {
+    background: linear-gradient(180deg, rgba(244, 63, 94, 0.28) 0%, rgba(244, 63, 94, 0.14) 100%);
+    border-color: var(--ask-crimson);
+    color: #fff1f2;
+  }
+  .btn-short:hover {
+    background: rgba(244, 63, 94, 0.42);
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.35);
+  }
+
+  .order-preview-card, .position-card {
+    background: #050810;
+    border: 1px solid var(--border-dim);
+    border-radius: 3px;
+    padding: 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9.5px;
+  }
+
+  .card-row-lbl {
+    color: var(--text-muted);
+  }
+
+  .card-row-val {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .pos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-dim);
+    margin-bottom: 2px;
+  }
+
+  .pos-side-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  .pos-actions-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .btn-util {
+    padding: 5px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-bright);
+    color: var(--text-primary);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .btn-util:hover {
+    border-color: var(--ask-amber);
+    color: var(--ask-amber);
+  }
+
+  .resting-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 92px;
+    overflow-y: auto;
+  }
+
+  .resting-order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 6px;
+    background: #070b14;
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+    font-size: 9px;
+  }
+
+  .cancel-x {
+    background: rgba(244, 63, 94, 0.16);
+    color: var(--ask-crimson);
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    border-radius: 2px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    cursor: pointer;
+  }
+
+  /* Bottom Status Footer */
+  .footer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    background: #05080f;
+    font-size: 9.5px;
+    color: var(--text-muted);
+  }
+
+  .footer-left, .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
   }
 </style>
 </head>
 <body>
-<div id="stage">
-  <canvas id="sim" width="1920" height="1080"></canvas>
-
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="badge-mode">IA SIN KIT (BASE)</div>
-      <div class="challenge-title">PRUEBA 02/06 · TERMINAL CUANTITATIVA 3D & ORDERBOOK</div>
-      <div class="skill-pill">SKILL 02: AUTO-DEBUGGER BROWSER MCP</div>
-    </div>
-    <div class="topbar-right">
-      <div class="stat-chip">TIEMPO: <span style="color:#F43F5E">24 MIN</span></div>
-      <div class="stat-chip">COSTO: <span style="color:#FBBF24">$2.45 USD</span> (2.1M TOK)</div>
-      <div class="stat-fps" id="fps-box">24 FPS</div>
-    </div>
-  </div>
-
-  <div class="sidebar">
-    <div class="sec-head">
-      <span>TELEMETRIA DE EJECUCION</span>
-      <span>740 LINEAS</span>
-    </div>
-    <div class="metric-grid">
-      <div class="metric-card"><div class="metric-lbl">PRECIO BTC/USD</div><div class="metric-val" style="color:#F43F5E">$NaN (DIVISION BY ZERO)</div></div>
-<div class="metric-card"><div class="metric-lbl">ERRORES EN CONSOLA</div><div class="metric-val" style="color:#F43F5E">14 UNCAUGHT EXCEPTIONS</div></div>
-<div class="metric-card"><div class="metric-lbl">LAYOUT DOM / CSS</div><div class="metric-val" style="color:#FBBF24">DESBORDADO (SIN VERIFICAR)</div></div>
-<div class="metric-card"><div class="metric-lbl">MOTOR 3D DEPTH</div><div class="metric-val" style="color:#8FA3B8">FALLO AL REDIMENSIONAR</div></div>
-    </div>
-    <div class="sec-head" style="margin-top:4px;">
-      <span>REGISTRO DE FALLOS Y CUELLOS</span>
-      <span id="frame-counter">FRAME 0000</span>
-    </div>
-    <div class="log-box" id="log-box">
-      <div class="log-item" style="color:#FFE1E7">Uncaught TypeError: Cannot read properties of undefined (reading 'vwap') at line 412</div>
-<div class="log-item" style="color:#FFE1E7">[LAYOUT] 3 HUD panels overflowing container bounding box (x > 1920px)</div>
-<div class="log-item" style="color:#FFE1E7">[DATA] OrderBook depth division by zero -> BTC/USD price = $NaN</div>
-    </div>
-    <div class="btn-row">
-      <button class="ctrl-btn active" id="btn-mode1" onclick="setMode(0)">MODO 1: INTERACTIVO</button>
-      <button class="ctrl-btn" id="btn-mode2" onclick="setMode(1)">MODO 2: ESTRES / PULSO</button>
-      <button class="ctrl-btn" id="btn-burst" onclick="triggerBurst()">IMPULSO</button>
-    </div>
-  </div>
-
-  <div class="error-drawer">
-    <div class="err-title">
-      <span>CONSOLA SIN VERIFICAR (FALTA SKILL AUTO-DEBUGGER & ARQUITECTO 120FPS)</span>
-      <span>STATUS: DEGRADED (24 FPS)</span>
-    </div>
-    <div class="err-line">Uncaught TypeError: Cannot read properties of undefined (reading 'vwap') at line 412</div>
-<div class="err-line">[LAYOUT] 3 HUD panels overflowing container bounding box (x > 1920px)</div>
-<div class="err-line">[DATA] OrderBook depth division by zero -> BTC/USD price = $NaN</div>
-  </div>
-
-  <div class="super-banner">
-    <div>
-      <div style="font-size:12px; font-weight:800; color:#10B981; letter-spacing:1.5px;">
-        MIXIUH SUPERPOWERS KIT v1.0 ACTIVO · CLAUDE.MD + MEMORY.MD + 5 SKILLS
+<div class="terminal-shell">
+  <!-- TOPBAR 1: BRAND + ASSET TABS + TELEMETRY HUD -->
+  <header class="topbar-main">
+    <div class="brand-cluster">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span>QUANTUM-HFT // L3</span>
       </div>
-      <div style="font-size:16px; font-weight:900; color:#FFFFFF; margin-top:3px;">
-        UNCAUGHT TYPEERROR · NaN TICKER · OVERFLOW
+      <div class="engine-pill">
+        <span class="pulse-dot"></span>
+        <span id="hud-engine-state">ENGINE: LOCKED 120Hz</span>
       </div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:12px; color:#5EEAD4; font-weight:800;">VERIFICADO CON CHROME DEVTOOLS MCP</div>
-      <div style="font-size:18px; font-weight:900; color:#10B981;">120.0 FPS · 0 ERRORES · -75% COSTO</div>
+
+    <!-- ASSET SWITCHER -->
+    <div class="asset-tabs" id="asset-tabs-container">
+      <button class="asset-tab active" data-symbol="BTC-PERP">
+        <span class="asset-sym">BTC-PERP</span>
+        <span class="asset-px" id="tab-px-BTC-PERP">94,250.0</span>
+        <span class="asset-chg up-val" id="tab-chg-BTC-PERP">+2.84%</span>
+      </button>
+      <button class="asset-tab" data-symbol="NVDA-AI">
+        <span class="asset-sym">NVDA-AI</span>
+        <span class="asset-px" id="tab-px-NVDA-AI">148.60</span>
+        <span class="asset-chg up-val" id="tab-chg-NVDA-AI">+4.12%</span>
+      </button>
+      <button class="asset-tab" data-symbol="ETH-PERP">
+        <span class="asset-sym">ETH-PERP</span>
+        <span class="asset-px" id="tab-px-ETH-PERP">3,420.5</span>
+        <span class="asset-chg up-val" id="tab-chg-ETH-PERP">+1.65%</span>
+      </button>
+      <button class="asset-tab" data-symbol="SOL-HFT">
+        <span class="asset-sym">SOL-HFT</span>
+        <span class="asset-px" id="tab-px-SOL-HFT">218.40</span>
+        <span class="asset-chg up-val" id="tab-chg-SOL-HFT">+5.90%</span>
+      </button>
     </div>
-  </div>
+
+    <!-- QUANTITATIVE TELEMETRY HUD -->
+    <div class="telemetry-hud">
+      <div class="hud-metric">
+        <span class="hud-label">FPS / FRAME</span>
+        <span class="hud-value cyan-val" id="hud-fps">60 FPS (4.2ms)</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">ORD / SEG</span>
+        <span class="hud-value up-val" id="hud-ops">8,420 /s</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">LATENCIA L3</span>
+        <span class="hud-value" id="hud-latency">11.8 us</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">SPREAD BBO</span>
+        <span class="hud-value amber-val" id="hud-spread">$0.50 (0.5bps)</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">DELTA CVD</span>
+        <span class="hud-value up-val" id="hud-cvd">+$12.40M</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">VPIN / VOL</span>
+        <span class="hud-value" id="hud-vpin">0.28 / 46.2%</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">PNL NO REALIZADO</span>
+        <span class="hud-value" id="hud-upnl">$0.00 (0.00%)</span>
+      </div>
+      <div class="hud-metric">
+        <span class="hud-label">PRECIO LIQ</span>
+        <span class="hud-value amber-val" id="hud-liq-px">--</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOPBAR 2: STRESS EVENT SIMULATORS -->
+  <section class="topbar-stress">
+    <div class="stress-group">
+      <div class="stress-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>SIMULADOR DE EVENTOS EXTREMOS:</span>
+      </div>
+
+      <button class="stress-btn crash" id="btn-flash-crash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
+          <polyline points="17 18 23 18 23 12"></polyline>
+        </svg>
+        <span>Disparar Flash Crash (-25%)</span>
+      </button>
+
+      <button class="stress-btn whale" id="btn-whale-wall">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        <span>Inyectar Ballena ($50M Buy Wall)</span>
+      </button>
+
+      <button class="stress-btn squeeze" id="btn-short-squeeze">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+          <polyline points="17 6 23 6 23 12"></polyline>
+        </svg>
+        <span>Short Squeeze Algoritmico</span>
+      </button>
+
+      <button class="stress-btn cascade" id="btn-liq-cascade">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>Cascada de Liquidaciones</span>
+      </button>
+
+      <button class="stress-btn calm" id="btn-calm-market">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="16 12 12 8 8 12"></polyline>
+          <line x1="12" y1="16" x2="12" y2="8"></line>
+        </svg>
+        <span>Calmar Mercado</span>
+      </button>
+    </div>
+
+    <div class="regime-status-box">
+      <span style="color:var(--text-muted)">MODELO ESTOCASTICO: <strong style="color:var(--text-secondary)">GBM + HESTON SV + POISSON JUMPS</strong></span>
+      <span class="regime-badge" id="regime-indicator">REGIMEN: EQUILIBRIO HFT</span>
+    </div>
+  </section>
+
+  <!-- MAIN 4-VISUALIZATION + EXECUTION WORKSPACE -->
+  <main class="workspace-grid">
+    <!-- VISUALIZATION A: JAPANESE CANDLESTICKS + LIQUIDITY HEATMAP + VOLUME PROFILE -->
+    <section class="panel panel-candles">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span id="chart-main-title">BTC-PERP // VELAS + MAPA DE CALOR DE LIQUIDEZ L3 + VPVR</span>
+        </div>
+        <div class="panel-controls">
+          <button class="mini-btn active" data-tf="1">1S</button>
+          <button class="mini-btn" data-tf="3">3S</button>
+          <button class="mini-btn" data-tf="5">5S</button>
+          <span style="color:var(--border-bright)">|</span>
+          <button class="mini-btn active" id="tog-heatmap">HEATMAP L3</button>
+          <button class="mini-btn active" id="tog-bb">BOLLINGER</button>
+          <button class="mini-btn active" id="tog-vwap">VWAP</button>
+          <button class="mini-btn active" id="tog-ema">EMA 9/21/50</button>
+          <button class="mini-btn active" id="tog-vpvr">VPVR</button>
+          <button class="mini-btn" id="btn-reset-chart">CENTRAR</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <div class="chart-overlay-info">
+          <div class="ohlc-strip" id="ohlc-readout">
+            <span>O: <strong id="lbl-o">--</strong></span>
+            <span>H: <strong id="lbl-h">--</strong></span>
+            <span>L: <strong id="lbl-l">--</strong></span>
+            <span>C: <strong id="lbl-c">--</strong></span>
+            <span>VOL: <strong id="lbl-v" class="cyan-val">--</strong></span>
+          </div>
+          <div class="ind-strip">
+            <span style="color:#f59e0b">VWAP: <strong id="lbl-vwap">--</strong></span>
+            <span style="color:#38bdf8">EMA9: <strong id="lbl-ema9">--</strong></span>
+            <span style="color:#a78bfa">EMA21: <strong id="lbl-ema21">--</strong></span>
+            <span style="color:#10b981">BB(20,2): <strong id="lbl-bb">--</strong></span>
+            <span style="color:#f43f5e">POC: <strong id="lbl-poc">--</strong></span>
+          </div>
+        </div>
+        <canvas id="canvas-candles"></canvas>
+      </div>
+    </section>
+
+    <!-- VISUALIZATION D: MICROSTRUCTURE OSCILLOSCOPE (VPIN / OFI / CVD / LATENCY) -->
+    <section class="panel panel-oscilloscope">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          <span>OSCILOSCOPIO DE MICROESTRUCTURA // FLUJO DE TOXICIDAD VPIN, OFI Y LATENCIA</span>
+        </div>
+        <div class="panel-controls">
+          <span style="font-size:9px;color:var(--bid-cyan)">OFI: <strong id="osc-ofi-val">+0.00</strong></span>
+          <span style="color:var(--border-bright)">|</span>
+          <span style="font-size:9px;color:var(--ask-crimson)">TOXICIDAD VPIN: <strong id="osc-vpin-val">0.24</strong></span>
+          <span style="color:var(--border-bright)">|</span>
+          <span style="font-size:9px;color:#a78bfa">HESTON SIGMA: <strong id="osc-sigma-val">45.0%</strong></span>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="canvas-oscilloscope"></canvas>
+      </div>
+    </section>
+
+    <!-- VISUALIZATION B: 3D INTERACTIVE VOLATILITY & ORDERBOOK DEPTH SURFACE -->
+    <section class="panel panel-surface3d">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span>SUPERFICIE 3D // VOLATILIDAD IMPLICITA Y TENSION DEL LIBRO</span>
+        </div>
+        <div class="panel-controls">
+          <button class="mini-btn active" data-s3d="hybrid">HIBRIDO 3D</button>
+          <button class="mini-btn" data-s3d="depth">PROFUNDIDAD L3</button>
+          <button class="mini-btn" data-s3d="smile">SONRISA IV</button>
+          <button class="mini-btn active" id="tog-3d-rot">GIRO AUTO</button>
+          <button class="mini-btn" id="btn-3d-reset">CAM</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="canvas-surface3d"></canvas>
+      </div>
+    </section>
+
+    <!-- VISUALIZATION C: DOM LADDER + TIME & SALES TAPE -->
+    <section class="panel-dom-tape">
+      <!-- Sub-panel C1: DOM Ladder -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            <span>ESCALERA DOM (DEPTH OF MARKET)</span>
+          </div>
+          <span style="font-size:8.5px;color:var(--text-muted)">CLIC PRECIO = LMT</span>
+        </div>
+        <div class="dom-imbalance-strip">
+          <span class="up-val" id="dom-bid-pct">BIDS 52%</span>
+          <div class="imb-bar-track">
+            <div class="imb-bar-fill" id="dom-imb-fill" style="width:52%"></div>
+          </div>
+          <span class="dn-val" id="dom-ask-pct">48% ASKS</span>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="canvas-dom"></canvas>
+        </div>
+      </div>
+
+      <!-- Sub-panel C2: Institutional Time & Sales Tape -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>TIME &amp; SALES // WHALE TAPE</span>
+          </div>
+          <span style="font-size:9px;color:var(--bid-cyan)" id="tape-liq-counter">LIQS: 0</span>
+        </div>
+        <div class="tape-header-cols">
+          <span>HORA</span>
+          <span>PRECIO</span>
+          <span style="text-align:right">VOL ($/CT)</span>
+          <span style="text-align:right">TIPO</span>
+        </div>
+        <div class="tape-list" id="tape-container"></div>
+      </div>
+    </section>
+
+    <!-- EXECUTION & PORTFOLIO DOCK -->
+    <aside class="panel panel-execution">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>EJECUCION MANUAL &amp; CARTERA</span>
+        </div>
+        <span style="font-size:9px;color:var(--bid-emerald)">DMA DIRECT</span>
+      </div>
+
+      <div class="exec-body">
+        <!-- Order Type Switcher -->
+        <div class="order-type-tabs">
+          <button class="otype-btn active" id="btn-mode-market" data-mode="MARKET">ORDEN MARKET</button>
+          <button class="otype-btn" id="btn-mode-limit" data-mode="LIMIT">ORDEN LIMIT</button>
+        </div>
+
+        <!-- Limit Price Input (shown/enabled in Limit mode, auto-updated in Market mode) -->
+        <div class="field-group" id="limit-price-group">
+          <div class="field-label-row">
+            <span>PRECIO DE EJECUCION</span>
+            <span id="lbl-px-mode-hint" style="color:var(--bid-cyan)">MEJOR LIBRO (MKT)</span>
+          </div>
+          <div class="input-box">
+            <input type="number" id="inp-order-price" step="0.1" value="94250.0" />
+            <span class="input-unit">USD</span>
+          </div>
+          <div class="preset-grid">
+            <button class="preset-chip" data-pxset="BID">MEJOR BID</button>
+            <button class="preset-chip" data-pxset="MID">MID PX</button>
+            <button class="preset-chip" data-pxset="ASK">MEJOR ASK</button>
+            <button class="preset-chip" data-pxset="M1">-0.25%</button>
+          </div>
+        </div>
+
+        <!-- Order Size Notional USD -->
+        <div class="field-group">
+          <div class="field-label-row">
+            <span>TAMANO NOCIONAL (IMPACTO L3)</span>
+            <span id="lbl-contracts-equiv">26.5 BTC</span>
+          </div>
+          <div class="input-box">
+            <input type="number" id="inp-order-notional" step="50000" value="2500000" />
+            <span class="input-unit">USD</span>
+          </div>
+          <div class="preset-grid">
+            <button class="preset-chip" data-sz="250000">$250K</button>
+            <button class="preset-chip" data-sz="1000000">$1.0M</button>
+            <button class="preset-chip active" data-sz="2500000">$2.5M</button>
+            <button class="preset-chip" data-sz="10000000">$10.0M</button>
+          </div>
+        </div>
+
+        <!-- Leverage Selector -->
+        <div class="field-group">
+          <div class="field-label-row">
+            <span>APALANCAMIENTO</span>
+            <strong class="cyan-val" id="lbl-leverage-val">20x</strong>
+          </div>
+          <input type="range" class="lev-slider" id="inp-leverage" min="1" max="100" value="20" />
+          <div class="preset-grid-5">
+            <button class="preset-chip" data-lev="5">5x</button>
+            <button class="preset-chip" data-lev="10">10x</button>
+            <button class="preset-chip active" data-lev="20">20x</button>
+            <button class="preset-chip" data-lev="50">50x</button>
+            <button class="preset-chip" data-lev="100">100x</button>
+          </div>
+        </div>
+
+        <!-- Pre-Trade Telemetry Preview -->
+        <div class="order-preview-card">
+          <div class="card-row">
+            <span class="card-row-lbl">MARGEN REQUERIDO:</span>
+            <span class="card-row-val" id="prev-margin">$125,000</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">IMPACTO EST. SLIPPAGE:</span>
+            <span class="card-row-val amber-val" id="prev-impact">4.2 bps</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">LIQ EST. (LONG / SHORT):</span>
+            <span class="card-row-val" id="prev-liq">89,720 / 98,780</span>
+          </div>
+        </div>
+
+        <!-- BUY / LONG & SELL / SHORT EXECUTION BUTTONS -->
+        <div class="exec-buttons-grid">
+          <button class="btn-exec btn-long" id="btn-exec-long">
+            <span class="btn-exec-main">COMPRAR / LONG</span>
+            <span class="btn-exec-sub" id="sub-long-px">ASK @ 94,250.5</span>
+          </button>
+          <button class="btn-exec btn-short" id="btn-exec-short">
+            <span class="btn-exec-main">VENDER / SHORT</span>
+            <span class="btn-exec-sub" id="sub-short-px">BID @ 94,249.5</span>
+          </button>
+        </div>
+
+        <!-- OPEN POSITION & PORTFOLIO MONITOR -->
+        <div class="position-card">
+          <div class="pos-header">
+            <span style="font-size:9.5px;font-weight:700;color:var(--text-secondary)">POSICION ABIERTA</span>
+            <span class="pos-side-badge" id="pos-badge" style="background:rgba(148,163,184,0.15);color:var(--text-secondary)">SIN POSICION (FLAT)</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">BALANCE EQUITY:</span>
+            <span class="card-row-val cyan-val" id="pos-equity">$10,000,000.00</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">TAMANO / CONTRATOS:</span>
+            <span class="card-row-val" id="pos-size">0.000</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">PRECIO ENTRADA / MARCA:</span>
+            <span class="card-row-val" id="pos-entry-mark">-- / --</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">PNL NO REALIZADO (ROE):</span>
+            <span class="card-row-val" id="pos-upnl">$0.00 (0.00%)</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">MARGEN USADO / LIQ PX:</span>
+            <span class="card-row-val amber-val" id="pos-margin-liq">$0 / --</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-lbl">PNL REALIZADO SESION:</span>
+            <span class="card-row-val" id="pos-rpnl">$0.00</span>
+          </div>
+          <div class="pos-actions-row">
+            <button class="btn-util" id="btn-close-pos">CERRAR POSICION</button>
+            <button class="btn-util" id="btn-reverse-pos">INVERTIR LADO</button>
+          </div>
+        </div>
+
+        <!-- ACTIVE RESTING LIMIT ORDERS -->
+        <div class="order-preview-card" style="flex:1;min-height:76px;">
+          <div class="pos-header">
+            <span style="font-size:9px;font-weight:700;color:var(--text-secondary)">ORDENES LIMIT EN LIBRO (<span id="lbl-open-orders-cnt">0</span>)</span>
+            <button class="cancel-x" id="btn-cancel-all">CANCELAR TODAS</button>
+          </div>
+          <div class="resting-orders-list" id="resting-orders-container">
+            <div style="color:var(--text-muted);font-size:9px;text-align:center;padding:10px 0;">No hay ordenes limit activas</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- FOOTER STATUS BAR -->
+  <footer class="footer-bar">
+    <div class="footer-left">
+      <span>MOTOR: <strong>MATCHING ENGINE L3 DETERMINISTA</strong></span>
+      <span>MATEMATICA: <strong>GBM + VOLATILIDAD ESTOCASTICA HESTON + SALTOS DE POISSON</strong></span>
+      <span>RENDER: <strong>HTML5 CANVAS 2D/3D HIGH-DPI</strong></span>
+    </div>
+    <div class="footer-right">
+      <span id="footer-last-event">ULTIMO EVENTO: INICIALIZACION DE LIQUIDEZ INSTITUCIONAL</span>
+      <span style="color:var(--bid-emerald)">CONSOLA: 0 ERRORES</span>
+    </div>
+  </footer>
 </div>
-
 <script>
-const CHALLENGE_NUM = 2;
-const IS_SUPER = false;
-const TARGET_FPS = 24;
-const ACCENT = "#F43F5E";
+(function() {
+  'use strict';
 
-const canvas = document.getElementById("sim");
-const ctx = canvas.getContext("2d");
-let simTime = 0;
-let frameNum = 0;
-let curMode = 0;
-let burstTimer = 0;
-let pointer = { x: 680, y: 540, down: false };
-
-function setMode(m) {
-  curMode = m;
-  document.getElementById("btn-mode1").classList.toggle("active", m === 0);
-  document.getElementById("btn-mode2").classList.toggle("active", m === 1);
-  triggerBurst();
-}
-function triggerBurst() { burstTimer = 1.0; }
-
-window.addEventListener("mousemove", (e) => {
-  const r = canvas.getBoundingClientRect();
-  pointer.x = (e.clientX - r.left) * (1920 / r.width);
-  pointer.y = (e.clientY - r.top) * (1080 / r.height);
-});
-window.addEventListener("mousedown", () => { pointer.down = true; triggerBurst(); });
-window.addEventListener("mouseup", () => { pointer.down = false; });
-
-// Pre-seeded deterministic PRNG
-let seed = 1337 + CHALLENGE_NUM * 97;
-function rand() {
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967296;
-}
-
-// Pre-allocated state for the 6 challenges
-const STARS = [];
-for (let i = 0; i < (IS_SUPER ? 3200 : 520); i++) {
-  const arm = i % 3;
-  const dist = 45 + Math.pow(rand(), 0.72) * 430;
-  const ang = (i / (IS_SUPER ? 3200 : 520)) * Math.PI * 12 + (arm * Math.PI * 2 / 3) + (rand() - 0.5) * 0.45;
-  STARS.push({
-    r: dist,
-    a: ang,
-    spd: (180 / (dist + 35)) * (0.85 + rand() * 0.3),
-    z: (rand() - 0.5) * 80,
-    sz: 1.2 + rand() * (IS_SUPER ? 2.6 : 1.5),
-    hue: arm === 0 ? "#22D3EE" : (arm === 1 ? "#A78BFA" : "#F472B6")
-  });
-}
-
-const CANDLES = [];
-let price = 96400;
-for (let i = 0; i < 48; i++) {
-  const o = price;
-  const c = o + (rand() - 0.46) * 420;
-  const h = Math.max(o, c) + rand() * 220;
-  const l = Math.min(o, c) - rand() * 220;
-  price = c;
-  CANDLES.push({ o, c, h, l, v: 40 + rand() * 120 });
-}
-
-function drawGrid() {
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.055)";
-  ctx.lineWidth = 1;
-  const step = 60;
-  for (let x = 0; x < 1920; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke();
-  }
-  for (let y = 0; y < 1080; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke();
-  }
-}
-
-function renderChallenge1(t) {
-  // 01: Galaxy N-Body & Black Hole Gravitational Lensing
-  const cx = 710 + Math.sin(t * 0.6) * 35;
-  const cy = 540 + Math.cos(t * 0.5) * 25;
-
-  if (IS_SUPER) {
-    // Einstein Gravitational Lensing Ring + Relativistic Accretion Halo
-    const grad = ctx.createRadialGradient(cx, cy, 24, cx, cy, 380);
-    grad.addColorStop(0, "#000000");
-    grad.addColorStop(0.11, "#000000");
-    grad.addColorStop(0.14, "#FFF4C2");
-    grad.addColorStop(0.24, "rgba(34, 211, 238, 0.65)");
-    grad.addColorStop(0.48, "rgba(167, 139, 250, 0.25)");
-    grad.addColorStop(1, "rgba(5, 9, 18, 0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 380, 0, Math.PI * 2); ctx.fill();
-  }
-
-  for (let i = 0; i < STARS.length; i++) {
-    const s = STARS[i];
-    const a = s.a + t * s.spd * (IS_SUPER ? 1.0 : 0.35) * (1 + curMode * 0.6);
-    const r = s.r * (1.0 + 0.08 * Math.sin(t * 2.0 + i * 0.01) + burstTimer * 0.18);
-    const x = cx + Math.cos(a) * r;
-    const y = cy + Math.sin(a) * r * (IS_SUPER ? 0.68 : 0.85) + (IS_SUPER ? Math.sin(a * 2) * 18 : 0);
-    ctx.fillStyle = IS_SUPER ? s.hue : (i % 5 === 0 ? "#F43F5E" : "#8FA3B8");
-    ctx.fillRect(x, y, s.sz, s.sz);
-  }
-
-  // Event Horizon Core
-  ctx.fillStyle = "#020408";
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 48 : 34, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 4 : 2;
-  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 52 + Math.sin(t * 8) * 3 : 36, 0, Math.PI * 2); ctx.stroke();
-
-  if (IS_SUPER) {
-    // Relativistic Jets
-    ctx.strokeStyle = "rgba(34, 211, 238, 0.55)";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 52); ctx.lineTo(cx - 40 * Math.sin(t * 3), cy - 360);
-    ctx.moveTo(cx, cy + 52); ctx.lineTo(cx + 40 * Math.sin(t * 3), cy + 360);
-    ctx.stroke();
-  } else {
-    // Stutter / GC Freeze indicator on canvas
-    if (Math.floor(t * 4) % 2 === 0) {
-      ctx.strokeStyle = "#F43F5E";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(120, 140, 1180, 740);
-      ctx.fillStyle = "rgba(244, 63, 94, 0.16)";
-      ctx.fillRect(120, 140, 1180, 54);
-      ctx.fillStyle = "#FF8FA3";
-      ctx.font = "900 22px monospace";
-      ctx.fillText("ALERTA GC: 50,000 OBJETOS RE-CREADOS EN MEMORIA -> CAIDA A 19 FPS", 145, 175);
+  // ============================================================================
+  // 1. CONFIGURACION DE ACTIVOS Y MOTOR ESTOCASTICO (GBM + HESTON + POISSON)
+  // ============================================================================
+  const ASSET_CONFIGS = {
+    'BTC-PERP': {
+      symbol: 'BTC-PERP',
+      unit: 'BTC',
+      basePrice: 94250.0,
+      tickSize: 0.5,
+      decimals: 1,
+      volDecimals: 2,
+      hestonTheta: 0.21,   // Varianza largo plazo (~45.8% vol anualizada)
+      hestonKappa: 3.4,    // Velocidad de reversion a la media
+      hestonXi: 0.68,      // Vol de vol
+      hestonRho: -0.65,    // Correlacion precio-volatilidad (efecto apalancamiento)
+      baseDepthUSD: 680000
+    },
+    'NVDA-AI': {
+      symbol: 'NVDA-AI',
+      unit: 'SHARES',
+      basePrice: 148.60,
+      tickSize: 0.02,
+      decimals: 2,
+      volDecimals: 0,
+      hestonTheta: 0.26,
+      hestonKappa: 3.0,
+      hestonXi: 0.75,
+      hestonRho: -0.58,
+      baseDepthUSD: 520000
+    },
+    'ETH-PERP': {
+      symbol: 'ETH-PERP',
+      symbolShort: 'ETH',
+      unit: 'ETH',
+      basePrice: 3420.5,
+      tickSize: 0.1,
+      decimals: 1,
+      volDecimals: 1,
+      hestonTheta: 0.25,
+      hestonKappa: 3.2,
+      hestonXi: 0.72,
+      hestonRho: -0.62,
+      baseDepthUSD: 540000
+    },
+    'SOL-HFT': {
+      symbol: 'SOL-HFT',
+      unit: 'SOL',
+      basePrice: 218.40,
+      tickSize: 0.05,
+      decimals: 2,
+      volDecimals: 0,
+      hestonTheta: 0.34,
+      hestonKappa: 2.8,
+      hestonXi: 0.85,
+      hestonRho: -0.60,
+      baseDepthUSD: 420000
     }
-  }
-}
+  };
 
-function renderChallenge2(t) {
-  // 02: 3D Algorithmic Trading Terminal & OrderBook Depth
-  const x0 = 70, y0 = 125, w = 1340, h = 790;
-  ctx.fillStyle = "rgba(7, 14, 26, 0.85)";
-  ctx.fillRect(x0, y0, w, h);
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x0, y0, w, h);
-
-  // Candlestick chart
-  const cw = 20;
-  for (let i = 0; i < CANDLES.length; i++) {
-    const c = CANDLES[i];
-    const wave = Math.sin(t * 3.2 + i * 0.28) * (IS_SUPER ? 180 : 60);
-    const open = c.o + wave;
-    const close = c.c + wave + (i === CANDLES.length - 1 ? Math.sin(t * 9) * 260 : 0);
-    const high = Math.max(open, close) + 140;
-    const low = Math.min(open, close) - 140;
-    const bull = close >= open;
-    const cx = x0 + 48 + i * 26;
-    const mapY = (v) => y0 + 460 - ((v - 95800) / 2600) * 320;
-    ctx.strokeStyle = bull ? "#10B981" : "#F43F5E";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx, mapY(high)); ctx.lineTo(cx, mapY(low)); ctx.stroke();
-    ctx.fillStyle = bull ? "#10B981" : "#F43F5E";
-    const topY = mapY(Math.max(open, close));
-    const botY = mapY(Math.min(open, close));
-    ctx.fillRect(cx - 8, topY, 16, Math.max(4, botY - topY));
+  // Generador Gaussiano Box-Muller
+  function randn() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   }
 
-  if (IS_SUPER) {
-    // 3D Volumetric Orderbook Depth canyon at bottom of chart
-    ctx.beginPath();
-    ctx.moveTo(x0 + 40, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 40 + i * 25;
-      const py = y0 + 620 - Math.pow(24 - i, 1.35) * 2.1 - Math.sin(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
-    }
-    ctx.lineTo(x0 + 640, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(16, 185, 129, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#10B981"; ctx.lineWidth = 3; ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(x0 + 680, y0 + 750);
-    for (let i = 0; i <= 24; i++) {
-      const px = x0 + 680 + i * 25;
-      const py = y0 + 620 - Math.pow(i, 1.35) * 2.1 - Math.cos(t * 5 + i * 0.4) * 14;
-      ctx.lineTo(px, py);
-    }
-    ctx.lineTo(x0 + 1280, y0 + 750);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(244, 63, 94, 0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3; ctx.stroke();
-  } else {
-    // Broken overlapping cards & NaN ticker in Vanilla mode
-    ctx.fillStyle = "rgba(244, 63, 94, 0.22)";
-    ctx.fillRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3;
-    ctx.strokeRect(x0 + 260, y0 + 180, 980, 240);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "900 46px monospace";
-    ctx.fillText("BTC/USDT: $NaN (VWAP UNDEFINED)", x0 + 300, y0 + 275);
-    ctx.fillStyle = "#FF8FA3";
-    ctx.font = "700 22px monospace";
-    ctx.fillText("Uncaught TypeError: orderBook.bids[0].vwap is undefined", x0 + 300, y0 + 335);
-  }
-}
-
-function renderChallenge3(t) {
-  // 03: Cyberpunk Bullet-Hell Boss Rush
-  const bx = 720 + Math.sin(t * 1.5) * 220;
-  const by = 290 + Math.cos(t * 2.2) * 45;
-  const px = 720 + Math.cos(t * 2.4) * 290;
-  const py = 770 + Math.sin(t * 3.1) * 35;
-
-  // Bullet-Hell Spiral Curtains
-  const rings = IS_SUPER ? 72 : 18;
-  for (let i = 0; i < rings; i++) {
-    const ang = (i / rings) * Math.PI * 2 + t * (IS_SUPER ? 1.8 : 0.5);
-    const waveR = ((t * 220 + (i % 6) * 95) % 560);
-    const x = bx + Math.cos(ang) * waveR;
-    const y = by + Math.sin(ang) * waveR;
-    ctx.fillStyle = i % 2 === 0 ? "#F472B6" : "#22D3EE";
-    ctx.beginPath(); ctx.arc(x, y, IS_SUPER ? 6.5 : 5, 0, Math.PI * 2); ctx.fill();
+  function formatNum(val, dec) {
+    if (!Number.isFinite(val)) return '--';
+    return val.toLocaleString('en-US', {
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec
+    });
   }
 
-  // Boss Mech Core
-  ctx.fillStyle = IS_SUPER ? "#F472B6" : "#64748B";
-  ctx.beginPath(); ctx.arc(bx, by, 68, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.stroke();
-
-  // Player Ship + Laser Stream
-  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "rgba(244,63,94,0.4)";
-  ctx.lineWidth = IS_SUPER ? 6 : 2;
-  ctx.beginPath(); ctx.moveTo(px, py - 24); ctx.lineTo(IS_SUPER ? bx : px, by + 60); ctx.stroke();
-
-  ctx.fillStyle = "#22D3EE";
-  ctx.beginPath();
-  ctx.moveTo(px, py - 28); ctx.lineTo(px - 24, py + 22); ctx.lineTo(px + 24, py + 22);
-  ctx.closePath(); ctx.fill();
-
-  if (!IS_SUPER) {
-    ctx.fillStyle = "rgba(244, 63, 94, 0.88)";
-    ctx.fillRect(360, 460, 720, 74);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = "900 25px monospace";
-    ctx.fillText("AMNESIA TURNO 2: COLISIONES ROTAS · DAMAGE = 0", 388, 506);
+  function formatCompactUSD(val) {
+    const abs = Math.abs(val);
+    const sign = val < 0 ? '-' : (val > 0 ? '+' : '');
+    if (abs >= 1e9) return sign + '$' + (abs / 1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
+    if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(1) + 'K';
+    return sign + '$' + abs.toFixed(0);
   }
-}
 
-function renderChallenge4(t) {
-  // 04: Zero-Trust 3D Geodesic Shield vs DDoS/XSS Attack Vectors
-  const cx = 720, cy = 530;
-  const shieldR = 195 + Math.sin(t * 4) * 8;
+  // ============================================================================
+  // 2. ESTADO GLOBAL DEL SISTEMA Y LIBRO DE ORDENES L3
+  // ============================================================================
+  const state = {
+    activeSymbol: 'BTC-PERP',
+    timeframeSec: 1,
+    orderMode: 'MARKET', // 'MARKET' | 'LIMIT'
+    leverage: 20,
+    notionalInput: 2500000,
+    equity: 10000000.0,
+    realizedPnL: 0.0,
 
-  // Shield Hexagonal Core
-  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-  ctx.lineWidth = IS_SUPER ? 5 : 2;
-  ctx.beginPath();
-  for (let i = 0; i <= 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + t * (IS_SUPER ? 0.8 : 0.1);
-    const x = cx + Math.cos(a) * shieldR;
-    const y = cy + Math.sin(a) * shieldR;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    // Toggles de visualizacion
+    showHeatmap: true,
+    showBB: true,
+    showVWAP: true,
+    showEMA: true,
+    showVPVR: true,
+    surfaceMode: 'hybrid', // 'hybrid' | 'depth' | 'smile'
+    autoRotate3D: true,
+
+    // Camara 3D interactiva
+    cam3D: {
+      yaw: -0.62,
+      pitch: 0.52,
+      zoom: 1.02,
+      dragging: false,
+      lastX: 0,
+      lastY: 0
+    },
+
+    // Interaccion del grafico de velas
+    chartView: {
+      zoomCandles: 76,
+      panOffset: 0,
+      mouseX: -1,
+      mouseY: -1,
+      isDragging: false,
+      dragStartX: 0,
+      dragStartPan: 0
+    },
+
+    // Telemetria de rendimiento
+    fps: 60,
+    frameTimeMs: 4.1,
+    ordersPerSec: 8640,
+    engineLatencyUs: 11.4,
+    totalLiquidationsCount: 0,
+
+    // Particulas visuales para liquidaciones / ballenas
+    particles: [],
+
+    // Estado por activo
+    assets: {}
+  };
+
+  const DOM_LEVELS = 24;
+  const MAX_CANDLES = 160;
+  const MAX_OSC_POINTS = 220;
+  const MAX_TAPE_ROWS = 28;
+
+  // Inicializar estructura completa para cada activo
+  function createAssetInstance(cfg) {
+    const p0 = cfg.basePrice;
+    const inst = {
+      cfg: cfg,
+      price: p0,
+      open24h: p0 * (1 - 0.018 - Math.random() * 0.02),
+      bestBid: p0 - cfg.tickSize * 0.5,
+      bestAsk: p0 + cfg.tickSize * 0.5,
+      spreadUSD: cfg.tickSize,
+      hestonVar: cfg.hestonTheta,
+      cvdUSD: 6500000,
+      ofi: 0.08,
+      vpin: 0.26,
+
+      // Estado de eventos de estres
+      regime: 'EQUILIBRIO HFT',
+      regimeColor: '#10b981',
+      stressDrift: 0.0,
+      stressVolMult: 1.0,
+      stressTimer: 0,
+      flashCrashRemainingDrop: 0,
+      squeezeRemainingBoost: 0,
+      cascadeActive: 0,
+      whaleWallPrice: null,
+      whaleWallRemainingUSD: 0,
+
+      // Libro de ordenes L3 (24 niveles Bid y 24 niveles Ask)
+      bids: [],
+      asks: [],
+
+      // Historial de velas + bandas de calor de liquidez por vela
+      candles: [],
+      currentCandle: null,
+      candleElapsedSec: 0,
+
+      // Perfil de volumen acumulado (mapa de bins de precio)
+      vpvrBins: new Map(),
+
+      // Cinta Time & Sales
+      tape: [],
+
+      // Historial para el Osciloscopio
+      oscHistory: [],
+
+      // Posicion del usuario en este activo
+      position: {
+        side: 0, // 0 = FLAT, 1 = LONG, -1 = SHORT
+        sizeContracts: 0,
+        entryPrice: 0,
+        leverage: 20,
+        marginUsed: 0,
+        liqPrice: 0,
+        unrealizedPnL: 0,
+        roePct: 0
+      },
+
+      // Ordenes Limit del usuario descansando en el libro
+      userLimitOrders: []
+    };
+
+    // Generar libro de ordenes inicial
+    rebuildOrderBook(inst, true);
+
+    // Sembrar historial de velas y osciloscopio con matematicas estocasticas
+    seedHistoricalData(inst);
+
+    return inst;
   }
-  ctx.stroke();
 
-  // Incoming Attack Vectors
-  for (let i = 0; i < 36; i++) {
-    const a = (i / 36) * Math.PI * 2 + i * 0.3;
-    const rawD = 540 - ((t * 240 + i * 37) % 520);
-    const blocked = IS_SUPER && rawD <= shieldR + 12;
-    const d = blocked ? shieldR + 12 : rawD;
-    const x = cx + Math.cos(a) * d;
-    const y = cy + Math.sin(a) * d;
-    ctx.fillStyle = blocked ? "#10B981" : "#F43F5E";
-    ctx.beginPath(); ctx.arc(x, y, blocked ? 9 : 6, 0, Math.PI * 2); ctx.fill();
-  }
-}
+  function rebuildOrderBook(inst, fullReset) {
+    const cfg = inst.cfg;
+    const tick = cfg.tickSize;
+    const mid = Math.round(inst.price / tick) * tick;
+    const spreadTicks = inst.stressVolMult > 2.0 ? 2 : 1;
 
-function renderChallenge5(t) {
-  // 05: Visual AI Agent DAG Node Workflow Studio
-  const nodes = [
-    { x: 160, y: 280, title: "PROMPT ROUTER", col: "#22D3EE" },
-    { x: 160, y: 620, title: "MEMORY.MD CACHE", col: "#A78BFA" },
-    { x: 540, y: 220, title: "ARQUITECTO 120FPS", col: "#10B981" },
-    { x: 540, y: 460, title: "BROWSER MCP", col: "#FBBF24" },
-    { x: 540, y: 700, title: "AUDITOR OWASP", col: "#F472B6" },
-    { x: 960, y: 450, title: "DEPLOY 4K60 BUILD", col: "#FB923C" },
-  ];
-  const edges = [[0,2],[0,3],[1,3],[1,4],[2,5],[3,5],[4,5]];
+    inst.bestBid = mid - (spreadTicks * tick * 0.5);
+    inst.bestAsk = mid + (spreadTicks * tick * 0.5);
+    inst.spreadUSD = Math.max(tick, inst.bestAsk - inst.bestBid);
 
-  edges.forEach(([u, v], idx) => {
-    const a = nodes[u], b = nodes[v];
-    const x1 = a.x + 250, y1 = a.y + 52;
-    const x2 = b.x, y2 = b.y + 52 + (IS_SUPER ? 0 : (idx % 2 === 0 ? 130 : -110));
-    ctx.strokeStyle = IS_SUPER ? a.col : "rgba(244,63,94,0.45)";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.bezierCurveTo(x1 + 120, y1, x2 - 120, y2, x2, y2);
-    ctx.stroke();
+    const newBids = [];
+    const newAsks = [];
+    let cumBid = 0;
+    let cumAsk = 0;
 
-    if (IS_SUPER) {
-      const p = (t * 0.9 + idx * 0.17) % 1;
-      const px = (1 - p) * x1 + p * x2;
-      const py = (1 - p) * y1 + p * y2;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
-    }
-  });
+    for (let i = 0; i < DOM_LEVELS; i++) {
+      const bidPx = +(inst.bestBid - i * tick).toFixed(cfg.decimals);
+      const askPx = +(inst.bestAsk + i * tick).toFixed(cfg.decimals);
 
-  nodes.forEach((n, idx) => {
-    const dy = Math.sin(t * 2.2 + idx) * (IS_SUPER ? 8 : 0);
-    ctx.fillStyle = "rgba(10, 19, 34, 0.95)";
-    ctx.strokeStyle = IS_SUPER ? n.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.fillRect(n.x, n.y + dy, 250, 104);
-    ctx.strokeRect(n.x, n.y + dy, 250, 104);
-    ctx.fillStyle = n.col;
-    ctx.font = "900 15px monospace";
-    ctx.fillText(n.title, n.x + 16, n.y + dy + 34);
-    ctx.fillStyle = "#E2E8F0";
-    ctx.font = "700 13px monospace";
-    ctx.fillText(IS_SUPER ? "STATUS: PARALLEL 120FPS" : "STATUS: TIMEOUT / BROKEN", n.x + 16, n.y + dy + 68);
-  });
-}
+      // Perfil realista de liquidez con picos institucionales cada 5-8 ticks
+      const clusterBid = (i % 6 === 3) ? 2.4 : 1.0;
+      const clusterAsk = (i % 7 === 4) ? 2.3 : 1.0;
 
-function renderChallenge6(t) {
-  // 06: MixiuhOS Desktop (4 simultaneous live mini-windows)
-  const wins = [
-    { x: 80, y: 120, w: 620, h: 370, title: "01 · SHADER CORE 3D (120 FPS)", col: "#22D3EE" },
-    { x: 730, y: 120, w: 660, h: 370, title: "02 · TERMINAL MIXIUH SUPERKIT", col: "#10B981" },
-    { x: 80, y: 515, w: 620, h: 380, title: "03 · SINTETIZADOR FM & ESPECTRO", col: "#F472B6" },
-    { x: 730, y: 515, w: 660, h: 380, title: "04 · MONITOR GPU & MEMORY.MD", col: "#A78BFA" },
-  ];
-  wins.forEach((w, idx) => {
-    const ox = !IS_SUPER && idx === 1 ? -190 : 0;
-    const oy = !IS_SUPER && idx === 1 ? 85 : 0;
-    const wx = w.x + ox, wy = w.y + oy;
-    ctx.fillStyle = "rgba(8, 15, 28, 0.94)";
-    ctx.fillRect(wx, wy, w.w, w.h);
-    ctx.strokeStyle = IS_SUPER ? w.col : "#F43F5E";
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(wx, wy, w.w, w.h);
-    ctx.fillStyle = IS_SUPER ? "rgba(255,255,255,0.07)" : "rgba(244,63,94,0.22)";
-    ctx.fillRect(wx, wy, w.w, 38);
-    ctx.fillStyle = w.col;
-    ctx.font = "900 14px monospace";
-    ctx.fillText(w.title, wx + 16, wy + 24);
+      // Si hay Flash Crash, los Bids se vacian; si hay Short Squeeze, los Asks se adelgazan
+      const bidStressFactor = inst.flashCrashRemainingDrop > 0 ? 0.28 : 1.0;
+      const askStressFactor = inst.squeezeRemainingBoost > 0 ? 0.32 : 1.0;
 
-    if (idx === 0) {
-      // Rotating 3D Plasma Rings inside Window 1
-      const cx = wx + w.w / 2, cy = wy + 205;
-      for (let r = 25; r <= 125; r += 25) {
-        ctx.strokeStyle = r % 50 === 0 ? "#22D3EE" : "#A78BFA";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, t * 2 + r, t * 2 + r + Math.PI * 1.4);
-        ctx.stroke();
+      let prevBidUSD = (!fullReset && inst.bids[i]) ? inst.bids[i].notionalUSD : cfg.baseDepthUSD * clusterBid;
+      let prevAskUSD = (!fullReset && inst.asks[i]) ? inst.asks[i].notionalUSD : cfg.baseDepthUSD * clusterAsk;
+
+      // Evolucion HFT de Market Makers en cada nivel
+      const targetBidUSD = cfg.baseDepthUSD * clusterBid * bidStressFactor * (0.55 + 0.9 * Math.random()) * (1 + i * 0.06);
+      const targetAskUSD = cfg.baseDepthUSD * clusterAsk * askStressFactor * (0.55 + 0.9 * Math.random()) * (1 + i * 0.06);
+
+      let bidUSD = prevBidUSD * 0.68 + targetBidUSD * 0.32;
+      let askUSD = prevAskUSD * 0.68 + targetAskUSD * 0.32;
+
+      // Si existe un Buy Wall de Ballena ($50M) cerca de este nivel Bid
+      let isWhaleWall = false;
+      if (inst.whaleWallRemainingUSD > 100000 && inst.whaleWallPrice !== null) {
+        if (Math.abs(bidPx - inst.whaleWallPrice) <= tick * 1.6 || (i === 1 && inst.whaleWallPrice >= inst.bestBid - tick * 3)) {
+          bidUSD += inst.whaleWallRemainingUSD * (i === 1 ? 0.65 : 0.35);
+          isWhaleWall = true;
+        }
       }
-    } else if (idx === 1) {
-      ctx.fillStyle = "#10B981";
-      ctx.font = "700 14px monospace";
-      const lines = IS_SUPER ? [
-        "$ ./install.sh --target ./mixiuh-os",
-        "[OK] CLAUDE.md + GEMINI.md + MEMORY.md instalados",
-        "[OK] 01-memoria-infinita: ACTIVA",
-        "[OK] 02-auto-debugger-browser-mcp: 0 ERRORES",
-        "[OK] 03-arquitecto-senior-120fps: Float32Array ON",
-        "[OK] 04-auditor-seguridad: CSP + 0 LEAKS",
-        "[OK] 05-automatizador: AHORRO -75% TOKENS",
-      ] : [
-        "$ node start_os.js",
-        "ERROR: WindowManager z-index collision",
-        "WARN: AudioContext buffer underrun (21 FPS)",
-        "FATAL: Global state overwritten by Synth module",
-      ];
-      lines.forEach((ln, li) => ctx.fillText(ln, wx + 20, wy + 75 + li * 34));
-    } else if (idx === 2) {
-      // FM Spectrum Bars inside Window 3
-      for (let b = 0; b < 24; b++) {
-        const bh = 30 + Math.abs(Math.sin(t * 6 + b * 0.45)) * 220;
-        ctx.fillStyle = b % 2 === 0 ? "#F472B6" : "#22D3EE";
-        ctx.fillRect(wx + 32 + b * 23, wy + 340 - bh, 16, bh);
+
+      // Sumar ordenes Limit del usuario en este nivel
+      let userBidUSD = 0;
+      let userAskUSD = 0;
+      for (let u = 0; u < inst.userLimitOrders.length; u++) {
+        const uo = inst.userLimitOrders[u];
+        if (uo.side === 1 && Math.abs(uo.price - bidPx) < tick * 0.6) {
+          userBidUSD += uo.notionalUSD;
+        } else if (uo.side === -1 && Math.abs(uo.price - askPx) < tick * 0.6) {
+          userAskUSD += uo.notionalUSD;
+        }
       }
-    } else if (idx === 3) {
-      // Telemetry Wave inside Window 4
-      ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
-      ctx.lineWidth = 3.5;
+
+      bidUSD += userBidUSD;
+      askUSD += userAskUSD;
+
+      cumBid += bidUSD;
+      cumAsk += askUSD;
+
+      newBids.push({
+        price: bidPx,
+        notionalUSD: bidUSD,
+        sizeContracts: bidUSD / bidPx,
+        cumUSD: cumBid,
+        isWhale: isWhaleWall || bidUSD > cfg.baseDepthUSD * 2.35,
+        hasUserOrder: userBidUSD > 0
+      });
+
+      newAsks.push({
+        price: askPx,
+        notionalUSD: askUSD,
+        sizeContracts: askUSD / askPx,
+        cumUSD: cumAsk,
+        isWhale: askUSD > cfg.baseDepthUSD * 2.35,
+        hasUserOrder: userAskUSD > 0
+      });
+    }
+
+    inst.bids = newBids;
+    inst.asks = newAsks;
+  }
+
+  function createHeatmapSnapshot(inst) {
+    // Captura 18 bandas verticales de intensidad de liquidez alrededor del precio actual para el Heatmap Bookmap
+    const bands = [];
+    const tick = inst.cfg.tickSize;
+    const step = tick * 3;
+    for (let k = -9; k <= 9; k++) {
+      if (k === 0) continue;
+      const px = inst.price + k * step;
+      let intensity = 0.2 + 0.55 * Math.abs(Math.sin(px * 0.13 + inst.candles.length * 0.25));
+      if (k < 0 && inst.whaleWallRemainingUSD > 0 && k >= -3) {
+        intensity = 0.98;
+      } else if (Math.abs(k) === 4 || Math.abs(k) === 7) {
+        intensity = Math.min(0.95, intensity + 0.35);
+      }
+      bands.push({ price: px, intensity: intensity, side: k < 0 ? 1 : -1 });
+    }
+    return bands;
+  }
+
+  function addVolumeToVPVR(inst, price, buyUSD, sellUSD) {
+    const bucketSize = inst.cfg.tickSize * 4;
+    const bucketPx = Math.round(price / bucketSize) * bucketSize;
+    const key = bucketPx.toFixed(inst.cfg.decimals);
+    let rec = inst.vpvrBins.get(key);
+    if (!rec) {
+      rec = { price: bucketPx, buyUSD: 0, sellUSD: 0, totalUSD: 0 };
+      inst.vpvrBins.set(key, rec);
+    }
+    rec.buyUSD += buyUSD;
+    rec.sellUSD += sellUSD;
+    rec.totalUSD += (buyUSD + sellUSD);
+
+    // Mantener tamano acotado de bins
+    if (inst.vpvrBins.size > 140) {
+      const firstKey = inst.vpvrBins.keys().next().value;
+      inst.vpvrBins.delete(firstKey);
+    }
+  }
+
+  function recalculateIndicators(inst) {
+    const candles = inst.candles;
+    const n = candles.length;
+    if (n === 0) return;
+
+    let cumPV = 0;
+    let cumV = 0;
+    let ema9 = candles[0].close;
+    let ema21 = candles[0].close;
+    let ema50 = candles[0].close;
+    const k9 = 2 / (9 + 1);
+    const k21 = 2 / (21 + 1);
+    const k50 = 2 / (50 + 1);
+
+    for (let i = 0; i < n; i++) {
+      const c = candles[i];
+      const typ = (c.high + c.low + c.close) / 3;
+      const vol = Math.max(1, c.volumeUSD);
+      cumPV += typ * vol;
+      cumV += vol;
+      c.vwap = cumPV / cumV;
+
+      ema9 = c.close * k9 + ema9 * (1 - k9);
+      ema21 = c.close * k21 + ema21 * (1 - k21);
+      ema50 = c.close * k50 + ema50 * (1 - k50);
+      c.ema9 = ema9;
+      c.ema21 = ema21;
+      c.ema50 = ema50;
+
+      // Bandas de Bollinger (20, 2)
+      const win = Math.min(20, i + 1);
+      let sum = 0;
+      for (let j = i - win + 1; j <= i; j++) sum += candles[j].close;
+      const mean = sum / win;
+      let sq = 0;
+      for (let j = i - win + 1; j <= i; j++) {
+        const d = candles[j].close - mean;
+        sq += d * d;
+      }
+      const std = Math.sqrt(sq / win);
+      c.bbMid = mean;
+      c.bbUpper = mean + 2.0 * std;
+      c.bbLower = mean - 2.0 * std;
+    }
+  }
+
+  function seedHistoricalData(inst) {
+    const cfg = inst.cfg;
+    let p = cfg.basePrice * 0.992;
+    let v = cfg.hestonTheta;
+    const now = Date.now();
+
+    for (let i = 95; i >= 1; i--) {
+      const open = p;
+      let high = open;
+      let low = open;
+      let buyVol = 0;
+      let sellVol = 0;
+
+      for (let step = 0; step < 8; step++) {
+        const z1 = randn();
+        const z2 = cfg.hestonRho * z1 + Math.sqrt(1 - cfg.hestonRho * cfg.hestonRho) * randn();
+        const dt = 0.0012;
+        v = Math.max(0.04, Math.min(1.8, v + cfg.hestonKappa * (cfg.hestonTheta - v) * dt + cfg.hestonXi * Math.sqrt(v * dt) * z2));
+        const jump = Math.random() < 0.03 ? randn() * 0.0025 : 0;
+        const ret = 0.00004 + Math.sqrt(v * dt) * z1 * 0.14 + jump;
+        p = Math.max(cfg.tickSize * 10, p * (1 + ret));
+        if (p > high) high = p;
+        if (p < low) low = p;
+        const tradeUSD = cfg.baseDepthUSD * (0.18 + Math.random() * 0.45);
+        if (ret >= 0) buyVol += tradeUSD;
+        else sellVol += tradeUSD;
+      }
+
+      const close = +(Math.round(p / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+      inst.price = close;
+      const cdl = {
+        time: now - i * 1000,
+        open: +(Math.round(open / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals),
+        high: +(Math.round(high / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals),
+        low: +(Math.round(low / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals),
+        close: close,
+        buyUSD: buyVol,
+        sellUSD: sellVol,
+        volumeUSD: buyVol + sellVol,
+        heatmapBands: createHeatmapSnapshot(inst),
+        hadLiquidation: Math.random() < 0.08
+      };
+      inst.candles.push(cdl);
+      addVolumeToVPVR(inst, close, buyVol, sellVol);
+
+      const ofiSample = (buyVol - sellVol) / Math.max(1, buyVol + sellVol);
+      inst.cvdUSD += (buyVol - sellVol) * 0.25;
+      inst.oscHistory.push({
+        vpin: Math.min(0.95, Math.max(0.12, 0.24 + Math.abs(ofiSample) * 0.42 + (v - cfg.hestonTheta) * 0.35)),
+        ofi: ofiSample,
+        cvd: inst.cvdUSD,
+        sigma: Math.sqrt(v) * 100,
+        latency: 10.5 + Math.random() * 6.5
+      });
+    }
+
+    inst.hestonVar = v;
+    const lastC = inst.candles[inst.candles.length - 1].close;
+    inst.price = lastC;
+    inst.currentCandle = {
+      time: now,
+      open: lastC,
+      high: lastC,
+      low: lastC,
+      close: lastC,
+      buyUSD: cfg.baseDepthUSD * 0.2,
+      sellUSD: cfg.baseDepthUSD * 0.18,
+      volumeUSD: cfg.baseDepthUSD * 0.38,
+      heatmapBands: createHeatmapSnapshot(inst),
+      hadLiquidation: false
+    };
+    inst.candles.push(inst.currentCandle);
+    recalculateIndicators(inst);
+    rebuildOrderBook(inst, true);
+
+    // Sembrar Time & Sales inicial
+    for (let t = 0; t < 16; t++) {
+      pushTapeRecord(inst, {
+        price: inst.price + (Math.random() > 0.5 ? 1 : -1) * cfg.tickSize,
+        notionalUSD: cfg.baseDepthUSD * (0.08 + Math.random() * 0.5),
+        side: Math.random() > 0.48 ? 1 : -1,
+        tag: Math.random() > 0.84 ? 'WHALE' : 'MKT'
+      });
+    }
+  }
+
+  function pushTapeRecord(inst, rec) {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    const ms = String(d.getMilliseconds()).padStart(3, '0').slice(0, 2);
+    inst.tape.unshift({
+      timeStr: hh + ':' + mm + ':' + ss + '.' + ms,
+      price: rec.price,
+      notionalUSD: rec.notionalUSD,
+      side: rec.side,
+      tag: rec.tag || 'MKT'
+    });
+    if (inst.tape.length > MAX_TAPE_ROWS) {
+      inst.tape.length = MAX_TAPE_ROWS;
+    }
+  }
+
+  function spawnLiquidationParticles(inst, price, side, count, isWhale) {
+    if (inst.cfg.symbol !== state.activeSymbol) return;
+    const total = Math.min(75, count || 28);
+    for (let i = 0; i < total; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 175;
+      let color = '#f43f5e';
+      if (isWhale) {
+        color = side > 0 ? '#06b6d4' : '#f59e0b';
+      } else {
+        color = side > 0 ? '#10b981' : '#f43f5e';
+      }
+      state.particles.push({
+        candleIndexOffset: 0,
+        price: price,
+        ox: 0,
+        oy: 0,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (side > 0 ? 35 : -35),
+        radius: 1.8 + Math.random() * 3.4,
+        alpha: 1.0,
+        decay: 0.75 + Math.random() * 0.85,
+        color: color
+      });
+    }
+  }
+
+  // Inicializar los 4 activos
+  Object.keys(ASSET_CONFIGS).forEach(function(sym) {
+    state.assets[sym] = createAssetInstance(ASSET_CONFIGS[sym]);
+  });
+
+  function getActiveAsset() {
+    return state.assets[state.activeSymbol];
+  }
+
+  // ============================================================================
+  // 3. MOTOR DE EMPAREJAMIENTO DE ORDENES Y GESTION DE POSICION / CARTERA
+  // ============================================================================
+  function computeLiquidationPrice(entryPx, side, leverage) {
+    if (!side || entryPx <= 0) return 0;
+    const maintMargin = 0.004; // 0.4% mantenimiento institucional
+    const maxLossFrac = Math.max(0.005, (1 / leverage) - maintMargin);
+    if (side === 1) {
+      return Math.max(0.01, entryPx * (1 - maxLossFrac));
+    } else {
+      return entryPx * (1 + maxLossFrac);
+    }
+  }
+
+  function updatePositionMetrics(inst) {
+    const pos = inst.position;
+    if (pos.side === 0 || pos.sizeContracts <= 0) {
+      pos.unrealizedPnL = 0;
+      pos.roePct = 0;
+      pos.liqPrice = 0;
+      pos.marginUsed = 0;
+      return;
+    }
+
+    const diff = (inst.price - pos.entryPrice) * pos.side;
+    pos.unrealizedPnL = diff * pos.sizeContracts;
+    pos.roePct = pos.marginUsed > 0 ? (pos.unrealizedPnL / pos.marginUsed) * 100 : 0;
+
+    // Verificar si el precio de marca cruzo el precio de liquidacion
+    const liquidated = (pos.side === 1 && inst.price <= pos.liqPrice) ||
+                       (pos.side === -1 && inst.price >= pos.liqPrice);
+    if (liquidated) {
+      const lostMargin = pos.marginUsed;
+      state.realizedPnL -= lostMargin;
+      state.equity = Math.max(100000, state.equity - lostMargin);
+      state.totalLiquidationsCount++;
+      pushTapeRecord(inst, {
+        price: inst.price,
+        notionalUSD: pos.sizeContracts * inst.price,
+        side: -pos.side,
+        tag: 'LIQ'
+      });
+      spawnLiquidationParticles(inst, inst.price, -pos.side, 65, false);
+      setFooterEvent('ALERTA DE RIESGO: POSICION LIQUIDADA EN ' + inst.cfg.symbol + ' @ ' + formatNum(inst.price, inst.cfg.decimals));
+      pos.side = 0;
+      pos.sizeContracts = 0;
+      pos.entryPrice = 0;
+      pos.marginUsed = 0;
+      pos.liqPrice = 0;
+      pos.unrealizedPnL = 0;
+      pos.roePct = 0;
+    }
+  }
+
+  function applyFillToPosition(inst, side, notionalUSD, fillPrice, leverage) {
+    const pos = inst.position;
+    const contracts = notionalUSD / fillPrice;
+
+    if (pos.side === 0) {
+      // Abrir nueva posicion
+      pos.side = side;
+      pos.sizeContracts = contracts;
+      pos.entryPrice = fillPrice;
+      pos.leverage = leverage;
+      pos.marginUsed = notionalUSD / leverage;
+      pos.liqPrice = computeLiquidationPrice(pos.entryPrice, pos.side, pos.leverage);
+    } else if (pos.side === side) {
+      // Incrementar posicion (promedio ponderado)
+      const oldNotional = pos.sizeContracts * pos.entryPrice;
+      const newTotalContracts = pos.sizeContracts + contracts;
+      pos.entryPrice = (oldNotional + notionalUSD) / newTotalContracts;
+      pos.sizeContracts = newTotalContracts;
+      pos.leverage = leverage;
+      pos.marginUsed += notionalUSD / leverage;
+      pos.liqPrice = computeLiquidationPrice(pos.entryPrice, pos.side, pos.leverage);
+    } else {
+      // Reducir, cerrar o invertir posicion
+      if (contracts < pos.sizeContracts) {
+        const closedContracts = contracts;
+        const pnl = (fillPrice - pos.entryPrice) * pos.side * closedContracts;
+        state.realizedPnL += pnl;
+        state.equity += pnl;
+        const remainFrac = (pos.sizeContracts - closedContracts) / pos.sizeContracts;
+        pos.sizeContracts -= closedContracts;
+        pos.marginUsed *= remainFrac;
+      } else {
+        // Cierra toda la posicion previa y abre el remanente del lado opuesto
+        const pnl = (fillPrice - pos.entryPrice) * pos.side * pos.sizeContracts;
+        state.realizedPnL += pnl;
+        state.equity += pnl;
+        const excessContracts = contracts - pos.sizeContracts;
+        if (excessContracts * fillPrice > 100) {
+          pos.side = side;
+          pos.sizeContracts = excessContracts;
+          pos.entryPrice = fillPrice;
+          pos.leverage = leverage;
+          pos.marginUsed = (excessContracts * fillPrice) / leverage;
+          pos.liqPrice = computeLiquidationPrice(pos.entryPrice, pos.side, pos.leverage);
+        } else {
+          pos.side = 0;
+          pos.sizeContracts = 0;
+          pos.entryPrice = 0;
+          pos.marginUsed = 0;
+          pos.liqPrice = 0;
+        }
+      }
+    }
+    updatePositionMetrics(inst);
+  }
+
+  // Ejecucion manual (Market o Limit)
+  function executeUserOrder(side) {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    const notionalUSD = Math.max(10000, Math.min(250000000, parseFloat(document.getElementById('inp-order-notional').value) || 2500000));
+    const lev = state.leverage;
+
+    if (state.orderMode === 'LIMIT') {
+      const limitPx = parseFloat(document.getElementById('inp-order-price').value) || inst.price;
+      // Si la orden Limit es inmediatamente cruzable (Marketable Limit), ejecutar como Market
+      const isMarketable = (side === 1 && limitPx >= inst.bestAsk) || (side === -1 && limitPx <= inst.bestBid);
+      if (!isMarketable) {
+        inst.userLimitOrders.push({
+          id: 'LMT-' + Math.floor(100000 + Math.random() * 900000),
+          side: side,
+          price: +(Math.round(limitPx / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals),
+          notionalUSD: notionalUSD,
+          leverage: lev
+        });
+        rebuildOrderBook(inst, false);
+        renderRestingOrdersUI();
+        setFooterEvent('ORDEN LIMIT ENVIADA AL LIBRO L3: ' + (side > 0 ? 'BUY ' : 'SELL ') + formatCompactUSD(notionalUSD) + ' @ ' + formatNum(limitPx, cfg.decimals));
+        return;
+      }
+    }
+
+    // Barrer el libro de ordenes real (Order Matching Engine Sweep)
+    const ladder = side === 1 ? inst.asks : inst.bids;
+    let remainingUSD = notionalUSD;
+    let weightedSum = 0;
+    let filledUSD = 0;
+    let levelsSwept = 0;
+
+    for (let i = 0; i < ladder.length && remainingUSD > 0; i++) {
+      const lvl = ladder[i];
+      const takeUSD = Math.min(remainingUSD, lvl.notionalUSD * 0.85);
+      weightedSum += takeUSD * lvl.price;
+      filledUSD += takeUSD;
+      remainingUSD -= takeUSD;
+      lvl.notionalUSD = Math.max(cfg.baseDepthUSD * 0.1, lvl.notionalUSD - takeUSD);
+      levelsSwept++;
+    }
+
+    if (remainingUSD > 0) {
+      const fallbackPx = inst.price * (1 + side * 0.0018);
+      weightedSum += remainingUSD * fallbackPx;
+      filledUSD += remainingUSD;
+    }
+
+    const avgFillPx = weightedSum / filledUSD;
+    // Impacto real en el precio del activo proporcional a la liquidez barrida
+    const depthRef = cfg.baseDepthUSD * 8.0;
+    const priceImpactFrac = side * Math.min(0.035, (notionalUSD / depthRef) * 0.0045);
+    inst.price = +(Math.round((inst.price * (1 + priceImpactFrac)) / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+
+    // Actualizar vela actual, CVD, OFI y VPVR
+    const c = inst.currentCandle;
+    if (c) {
+      c.close = inst.price;
+      if (inst.price > c.high) c.high = inst.price;
+      if (inst.price < c.low) c.low = inst.price;
+      if (side === 1) c.buyUSD += notionalUSD;
+      else c.sellUSD += notionalUSD;
+      c.volumeUSD += notionalUSD;
+    }
+
+    inst.cvdUSD += side * notionalUSD;
+    inst.ofi = Math.max(-1, Math.min(1, inst.ofi * 0.5 + side * 0.5));
+    addVolumeToVPVR(inst, avgFillPx, side === 1 ? notionalUSD : 0, side === -1 ? notionalUSD : 0);
+
+    applyFillToPosition(inst, side, notionalUSD, avgFillPx, lev);
+
+    pushTapeRecord(inst, {
+      price: avgFillPx,
+      notionalUSD: notionalUSD,
+      side: side,
+      tag: notionalUSD >= 2000000 ? 'WHALE' : 'MKT'
+    });
+
+    spawnLiquidationParticles(inst, inst.price, side, notionalUSD >= 2500000 ? 45 : 22, true);
+    rebuildOrderBook(inst, false);
+    recalculateIndicators(inst);
+    setFooterEvent('EJECUCION DMA ' + (side > 0 ? 'LONG ' : 'SHORT ') + formatCompactUSD(notionalUSD) + ' @ ' + formatNum(avgFillPx, cfg.decimals) + ' (' + levelsSwept + ' NIVELES BARRIDOS)');
+  }
+
+  function checkUserLimitOrderFills(inst) {
+    if (inst.userLimitOrders.length === 0) return;
+    let changed = false;
+    const remaining = [];
+    for (let i = 0; i < inst.userLimitOrders.length; i++) {
+      const ord = inst.userLimitOrders[i];
+      const triggered = (ord.side === 1 && inst.price <= ord.price) ||
+                        (ord.side === -1 && inst.price >= ord.price);
+      if (triggered) {
+        applyFillToPosition(inst, ord.side, ord.notionalUSD, ord.price, ord.leverage);
+        pushTapeRecord(inst, {
+          price: ord.price,
+          notionalUSD: ord.notionalUSD,
+          side: ord.side,
+          tag: 'LMT FILL'
+        });
+        spawnLiquidationParticles(inst, ord.price, ord.side, 30, true);
+        setFooterEvent('ORDEN LIMIT EJECUTADA (' + ord.id + ') @ ' + formatNum(ord.price, inst.cfg.decimals));
+        changed = true;
+      } else {
+        remaining.push(ord);
+      }
+    }
+    if (changed) {
+      inst.userLimitOrders = remaining;
+      if (inst.cfg.symbol === state.activeSymbol) {
+        renderRestingOrdersUI();
+      }
+    }
+  }
+
+  // ============================================================================
+  // 4. SIMULADORES DE EVENTOS EXTREMOS DE MERCADO (BOTONES EN VIVO)
+  // ============================================================================
+  function setFooterEvent(msg) {
+    const el = document.getElementById('footer-last-event');
+    if (el) el.textContent = 'ULTIMO EVENTO: ' + msg;
+  }
+
+  function updateRegimeBadge(inst, text, colorHex) {
+    inst.regime = text;
+    inst.regimeColor = colorHex;
+    if (inst.cfg.symbol === state.activeSymbol) {
+      const badge = document.getElementById('regime-indicator');
+      if (badge) {
+        badge.textContent = 'REGIMEN: ' + text;
+        badge.style.color = colorHex;
+        badge.style.borderColor = colorHex;
+        badge.style.background = colorHex + '22';
+      }
+    }
+  }
+
+  function triggerFlashCrash() {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    // Disparar colapso de -25% distribuido en choque inmediato + cascada de 3.2 segundos
+    const immediateDrop = 0.085;
+    inst.price = +(Math.round((inst.price * (1 - immediateDrop)) / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+    inst.flashCrashRemainingDrop = 0.165; // -16.5% adicional en ticks sucesivos (~ -25% total)
+    inst.squeezeRemainingBoost = 0;
+    inst.stressVolMult = 4.6;
+    inst.hestonVar = Math.min(2.2, cfg.hestonTheta * 5.2);
+    inst.vpin = 0.96;
+    inst.ofi = -0.94;
+    const crashSellVol = cfg.baseDepthUSD * 28;
+    inst.cvdUSD -= crashSellVol;
+
+    if (inst.currentCandle) {
+      inst.currentCandle.close = inst.price;
+      if (inst.price < inst.currentCandle.low) inst.currentCandle.low = inst.price;
+      inst.currentCandle.sellUSD += crashSellVol;
+      inst.currentCandle.volumeUSD += crashSellVol;
+      inst.currentCandle.hadLiquidation = true;
+    }
+
+    state.totalLiquidationsCount += 14;
+    for (let k = 0; k < 4; k++) {
+      pushTapeRecord(inst, {
+        price: inst.price * (1 + k * 0.004),
+        notionalUSD: cfg.baseDepthUSD * (6 + Math.random() * 12),
+        side: -1,
+        tag: 'LIQ'
+      });
+    }
+
+    spawnLiquidationParticles(inst, inst.price, -1, 70, false);
+    updateRegimeBadge(inst, 'FLASH CRASH (-25% CASCADE)', '#f43f5e');
+    setFooterEvent('DETONACION DE FLASH CRASH (-25%) EN ' + cfg.symbol + ' // RETIRO DE LIQUIDEZ BID');
+  }
+
+  function triggerWhaleWall() {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    const wallUSD = 50000000; // $50M Buy Wall
+    inst.whaleWallPrice = +(inst.bestBid - cfg.tickSize).toFixed(cfg.decimals);
+    inst.whaleWallRemainingUSD = wallUSD;
+    inst.flashCrashRemainingDrop = 0;
+    inst.squeezeRemainingBoost = 0.045;
+    inst.ofi = 0.88;
+    inst.cvdUSD += 18500000;
+
+    // Barrido inicial institucional hacia arriba
+    inst.price = +(Math.round((inst.price * 1.018) / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+    if (inst.currentCandle) {
+      inst.currentCandle.close = inst.price;
+      if (inst.price > inst.currentCandle.high) inst.currentCandle.high = inst.price;
+      inst.currentCandle.buyUSD += 22000000;
+      inst.currentCandle.volumeUSD += 22000000;
+    }
+
+    pushTapeRecord(inst, {
+      price: inst.price,
+      notionalUSD: 50000000,
+      side: 1,
+      tag: 'WHALE'
+    });
+
+    rebuildOrderBook(inst, false);
+    spawnLiquidationParticles(inst, inst.price, 1, 60, true);
+    updateRegimeBadge(inst, 'BALLENA INSTITUCIONAL ($50M BID WALL)', '#06b6d4');
+    setFooterEvent('INYECCION DE BALLENA ($50,000,000 BUY WALL) EN ' + cfg.symbol + ' @ ' + formatNum(inst.whaleWallPrice, cfg.decimals));
+  }
+
+  function triggerShortSqueeze() {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    inst.flashCrashRemainingDrop = 0;
+    inst.squeezeRemainingBoost = 0.16; // +16% impulsion algoritmica
+    inst.stressVolMult = 3.8;
+    inst.hestonVar = Math.min(1.9, cfg.hestonTheta * 4.0);
+    inst.ofi = 0.95;
+    inst.vpin = 0.89;
+
+    inst.price = +(Math.round((inst.price * 1.045) / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+    const squeezeVol = cfg.baseDepthUSD * 22;
+    inst.cvdUSD += squeezeVol;
+
+    if (inst.currentCandle) {
+      inst.currentCandle.close = inst.price;
+      if (inst.price > inst.currentCandle.high) inst.currentCandle.high = inst.price;
+      inst.currentCandle.buyUSD += squeezeVol;
+      inst.currentCandle.volumeUSD += squeezeVol;
+      inst.currentCandle.hadLiquidation = true;
+    }
+
+    state.totalLiquidationsCount += 11;
+    for (let k = 0; k < 3; k++) {
+      pushTapeRecord(inst, {
+        price: inst.price * (1 - k * 0.003),
+        notionalUSD: cfg.baseDepthUSD * (5 + Math.random() * 9),
+        side: 1,
+        tag: 'LIQ'
+      });
+    }
+
+    spawnLiquidationParticles(inst, inst.price, 1, 68, false);
+    updateRegimeBadge(inst, 'SHORT SQUEEZE ALGORITMICO', '#10b981');
+    setFooterEvent('SHORT SQUEEZE ALGORITMICO ACTIVADO EN ' + cfg.symbol + ' // LIQUIDACION DE CORTOS');
+  }
+
+  function triggerLiquidationCascade() {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    inst.cascadeActive = 4.5; // 4.5 segundos de turbulencia extrema y barridos de stops
+    inst.stressVolMult = 5.2;
+    inst.hestonVar = Math.min(2.4, cfg.hestonTheta * 5.8);
+    inst.vpin = 0.98;
+    state.totalLiquidationsCount += 19;
+
+    const dir = Math.random() > 0.45 ? -1 : 1;
+    inst.price = +(Math.round((inst.price * (1 + dir * 0.038)) / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+
+    if (inst.currentCandle) {
+      inst.currentCandle.close = inst.price;
+      if (inst.price > inst.currentCandle.high) inst.currentCandle.high = inst.price;
+      if (inst.price < inst.currentCandle.low) inst.currentCandle.low = inst.price;
+      inst.currentCandle.volumeUSD += cfg.baseDepthUSD * 30;
+      inst.currentCandle.hadLiquidation = true;
+    }
+
+    for (let k = 0; k < 5; k++) {
+      pushTapeRecord(inst, {
+        price: inst.price,
+        notionalUSD: cfg.baseDepthUSD * (7 + Math.random() * 14),
+        side: k % 2 === 0 ? -1 : 1,
+        tag: 'LIQ'
+      });
+    }
+
+    spawnLiquidationParticles(inst, inst.price, dir, 75, false);
+    updateRegimeBadge(inst, 'CASCADA DE LIQUIDACIONES (VPIN CRITICO)', '#f59e0b');
+    setFooterEvent('CASCADA MASIVA DE LIQUIDACIONES EN ' + cfg.symbol + ' // TOXICIDAD VPIN 0.98');
+  }
+
+  function triggerCalmMarket() {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    inst.flashCrashRemainingDrop = 0;
+    inst.squeezeRemainingBoost = 0;
+    inst.cascadeActive = 0;
+    inst.whaleWallRemainingUSD = 0;
+    inst.whaleWallPrice = null;
+    inst.stressVolMult = 1.0;
+    inst.hestonVar = cfg.hestonTheta;
+    inst.vpin = 0.22;
+    inst.ofi = 0.02;
+
+    rebuildOrderBook(inst, true);
+    updateRegimeBadge(inst, 'EQUILIBRIO HFT', '#10b981');
+    setFooterEvent('MERCADO ESTABILIZADO // LIQUIDEZ INSTITUCIONAL SIMETRICA RESTAURADA');
+  }
+
+  // ============================================================================
+  // 5. MOTOR DE SIMULACION CONTINUA HFT (STEP ESTOCASTICO POR FRAME)
+  // ============================================================================
+  let uiThrottleCounter = 0;
+
+  function stepAssetSimulation(inst, dt) {
+    const cfg = inst.cfg;
+    const isSelected = (cfg.symbol === state.activeSymbol);
+
+    // 1. Evolucionar varianza estocastica de Heston: dv = kappa*(theta - v)*dt + xi*sqrt(v)*dW_v
+    const z1 = randn();
+    const z2 = cfg.hestonRho * z1 + Math.sqrt(1 - cfg.hestonRho * cfg.hestonRho) * randn();
+
+    const targetVar = cfg.hestonTheta * inst.stressVolMult;
+    const dv = cfg.hestonKappa * (targetVar - inst.hestonVar) * dt + cfg.hestonXi * Math.sqrt(Math.max(0.01, inst.hestonVar) * dt) * z2 * 0.45;
+    inst.hestonVar = Math.max(0.03, Math.min(2.6, inst.hestonVar + dv));
+
+    // Decaimiento gradual de multiplicadores de estres
+    if (inst.stressVolMult > 1.0) {
+      inst.stressVolMult = Math.max(1.0, inst.stressVolMult - dt * 0.35);
+    }
+
+    // 2. Calcular drift por eventos extremos (Flash Crash / Short Squeeze / Whale Wall / Cascade)
+    let eventDrift = 0;
+    if (inst.flashCrashRemainingDrop > 0.0005) {
+      const stepDrop = Math.min(inst.flashCrashRemainingDrop, dt * 0.068);
+      eventDrift -= stepDrop;
+      inst.flashCrashRemainingDrop -= stepDrop;
+      if (Math.random() < 0.35) {
+        spawnLiquidationParticles(inst, inst.price, -1, 14, false);
+        state.totalLiquidationsCount++;
+      }
+    } else if (inst.squeezeRemainingBoost > 0.0005) {
+      const stepBoost = Math.min(inst.squeezeRemainingBoost, dt * 0.062);
+      eventDrift += stepBoost;
+      inst.squeezeRemainingBoost -= stepBoost;
+      if (Math.random() < 0.32) {
+        spawnLiquidationParticles(inst, inst.price, 1, 12, false);
+        state.totalLiquidationsCount++;
+      }
+    }
+
+    if (inst.cascadeActive > 0) {
+      inst.cascadeActive = Math.max(0, inst.cascadeActive - dt);
+      const oscJump = Math.sin(performance.now() * 0.018) * 0.0045 + randn() * 0.0035;
+      eventDrift += oscJump;
+      if (Math.random() < 0.4) {
+        const s = oscJump >= 0 ? 1 : -1;
+        spawnLiquidationParticles(inst, inst.price, s, 16, false);
+        state.totalLiquidationsCount++;
+      }
+    }
+
+    // Soporte de Ballena ($50M Buy Wall)
+    if (inst.whaleWallRemainingUSD > 100000 && inst.whaleWallPrice !== null) {
+      if (inst.price <= inst.whaleWallPrice + cfg.tickSize * 2) {
+        // Rebote institucional sobre el muro de compra
+        eventDrift += 0.0022;
+        inst.whaleWallRemainingUSD = Math.max(0, inst.whaleWallRemainingUSD - cfg.baseDepthUSD * dt * 2.5);
+      }
+    }
+
+    // 3. Saltos de Poisson (Merton Jump-Diffusion)
+    let poissonJump = 0;
+    const jumpLambda = 0.45 * inst.stressVolMult;
+    if (Math.random() < jumpLambda * dt) {
+      poissonJump = randn() * 0.0022 * Math.sqrt(inst.stressVolMult);
+    }
+
+    // 4. Movimiento Browniano Geometrico (GBM)
+    const sigmaStep = Math.sqrt(inst.hestonVar * dt) * 0.042;
+    const rawReturn = eventDrift + sigmaStep * z1 + poissonJump;
+    const nextPx = Math.max(cfg.tickSize * 20, inst.price * (1 + rawReturn));
+    inst.price = +(Math.round(nextPx / cfg.tickSize) * cfg.tickSize).toFixed(cfg.decimals);
+
+    // 5. Flujo HFT de ordenes de mercado y actualizacion de volumen
+    const flowIntensity = (0.35 + Math.abs(rawReturn) * 280) * inst.stressVolMult;
+    const buyBias = Math.max(0.08, Math.min(0.92, 0.5 + rawReturn * 95 + (inst.whaleWallRemainingUSD > 0 ? 0.14 : 0)));
+    const tickVolUSD = cfg.baseDepthUSD * flowIntensity * dt * 4.2;
+    const buyUSD = tickVolUSD * buyBias;
+    const sellUSD = tickVolUSD * (1 - buyBias);
+
+    inst.cvdUSD += (buyUSD - sellUSD);
+    const instantOFI = (buyUSD - sellUSD) / Math.max(1, buyUSD + sellUSD);
+    inst.ofi = inst.ofi * 0.82 + instantOFI * 0.18;
+
+    // Toxicidad VPIN sincronizada por volumen y volatilidad
+    const targetVPIN = Math.min(0.99, Math.max(0.11, 0.20 + Math.abs(inst.ofi) * 0.48 + (inst.hestonVar - cfg.hestonTheta) * 0.55));
+    inst.vpin = inst.vpin * 0.88 + targetVPIN * 0.12;
+
+    // Actualizar vela en formacion
+    const c = inst.currentCandle;
+    if (c) {
+      c.close = inst.price;
+      if (inst.price > c.high) c.high = inst.price;
+      if (inst.price < c.low) c.low = inst.price;
+      c.buyUSD += buyUSD;
+      c.sellUSD += sellUSD;
+      c.volumeUSD += (buyUSD + sellUSD);
+    }
+
+    addVolumeToVPVR(inst, inst.price, buyUSD, sellUSD);
+
+    // Cierre de vela segun timeframe seleccionado
+    inst.candleElapsedSec += dt;
+    if (inst.candleElapsedSec >= state.timeframeSec) {
+      inst.candleElapsedSec = 0;
+      const newC = {
+        time: Date.now(),
+        open: inst.price,
+        high: inst.price,
+        low: inst.price,
+        close: inst.price,
+        buyUSD: 0,
+        sellUSD: 0,
+        volumeUSD: 0,
+        heatmapBands: createHeatmapSnapshot(inst),
+        hadLiquidation: false
+      };
+      inst.candles.push(newC);
+      inst.currentCandle = newC;
+      if (inst.candles.length > MAX_CANDLES) {
+        inst.candles.shift();
+      }
+    }
+
+    recalculateIndicators(inst);
+    rebuildOrderBook(inst, false);
+    checkUserLimitOrderFills(inst);
+    updatePositionMetrics(inst);
+
+    // Generar ejecuciones en la cinta Time & Sales
+    if (isSelected && Math.random() < 0.58) {
+      const isWhaleTrade = Math.random() < (0.09 * inst.stressVolMult);
+      const tradeNotional = isWhaleTrade
+        ? cfg.baseDepthUSD * (2.5 + Math.random() * 6.5)
+        : cfg.baseDepthUSD * (0.05 + Math.random() * 0.45);
+      const side = Math.random() < buyBias ? 1 : -1;
+      let tag = 'MKT';
+      if (inst.vpin > 0.82 && Math.random() < 0.35) tag = 'LIQ';
+      else if (isWhaleTrade) tag = 'WHALE';
+
+      pushTapeRecord(inst, {
+        price: side > 0 ? inst.bestAsk : inst.bestBid,
+        notionalUSD: tradeNotional,
+        side: side,
+        tag: tag
+      });
+
+      if (tag === 'LIQ' || (isWhaleTrade && tradeNotional > cfg.baseDepthUSD * 4.5)) {
+        spawnLiquidationParticles(inst, inst.price, side, tag === 'LIQ' ? 24 : 16, tag === 'WHALE');
+        if (tag === 'LIQ') state.totalLiquidationsCount++;
+      }
+    }
+
+    // Agregar muestra al osciloscopio
+    if (uiThrottleCounter % 2 === 0) {
+      const lat = 9.8 + inst.stressVolMult * 4.2 + Math.abs(inst.ofi) * 6.5 + Math.random() * 3.2;
+      if (isSelected) state.engineLatencyUs = lat;
+      inst.oscHistory.push({
+        vpin: inst.vpin,
+        ofi: inst.ofi,
+        cvd: inst.cvdUSD,
+        sigma: Math.sqrt(inst.hestonVar) * 100,
+        latency: lat
+      });
+      if (inst.oscHistory.length > MAX_OSC_POINTS) {
+        inst.oscHistory.shift();
+      }
+    }
+  }
+
+  // Actualizar fisica de particulas de liquidacion
+  function updateParticles(dt) {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.ox += p.vx * dt;
+      p.oy += p.vy * dt;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.alpha -= p.decay * dt;
+      if (p.alpha <= 0.02) {
+        state.particles.splice(i, 1);
+      }
+    }
+  }
+
+  // ============================================================================
+  // 6. GESTION DE CANVASES HIGH-DPI Y REDIMENSIONAMIENTO
+  // ============================================================================
+  const canvases = {
+    candles: document.getElementById('canvas-candles'),
+    osc: document.getElementById('canvas-oscilloscope'),
+    s3d: document.getElementById('canvas-surface3d'),
+    dom: document.getElementById('canvas-dom')
+  };
+
+  const ctxs = {
+    candles: canvases.candles.getContext('2d'),
+    osc: canvases.osc.getContext('2d'),
+    s3d: canvases.s3d.getContext('2d'),
+    dom: canvases.dom.getContext('2d')
+  };
+
+  function resizeAllCanvases() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    Object.keys(canvases).forEach(function(key) {
+      const c = canvases[key];
+      const rect = c.parentElement.getBoundingClientRect();
+      const w = Math.max(10, Math.floor(rect.width));
+      const h = Math.max(10, Math.floor(rect.height));
+      if (c.width !== w * dpr || c.height !== h * dpr) {
+        c.width = w * dpr;
+        c.height = h * dpr;
+        c._logicalW = w;
+        c._logicalH = h;
+        c._dpr = dpr;
+      }
+    });
+  }
+
+  window.addEventListener('resize', resizeAllCanvases);
+
+  // ============================================================================
+  // 7. RENDERIZADOR A: GRAFICO DE VELAS + HEATMAP L3 + VPVR + PARTICULAS
+  // ============================================================================
+  function renderCandlesChart(inst) {
+    const canvas = canvases.candles;
+    const ctx = ctxs.candles;
+    const W = canvas._logicalW || 600;
+    const H = canvas._logicalH || 360;
+    const dpr = canvas._dpr || 1;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Fondo institucional oscuro
+    ctx.fillStyle = '#050811';
+    ctx.fillRect(0, 0, W, H);
+
+    const padRight = 66; // Eje de precio
+    const padBottom = 20;
+    const padTop = 14;
+    const chartW = Math.max(50, W - padRight);
+    const chartH = Math.max(40, H - padBottom - padTop);
+
+    const candles = inst.candles;
+    const total = candles.length;
+    if (total === 0) {
+      ctx.restore();
+      return;
+    }
+
+    const visCount = Math.min(total, Math.max(24, Math.floor(state.chartView.zoomCandles)));
+    const endIdx = Math.max(visCount, Math.min(total, total - Math.floor(state.chartView.panOffset)));
+    const startIdx = Math.max(0, endIdx - visCount);
+    const slice = candles.slice(startIdx, endIdx);
+
+    // Calcular rango de precios visible
+    let minPx = Infinity;
+    let maxPx = -Infinity;
+    let maxVol = 1;
+
+    for (let i = 0; i < slice.length; i++) {
+      const c = slice[i];
+      if (c.low < minPx) minPx = c.low;
+      if (c.high > maxPx) maxPx = c.high;
+      if (state.showBB && c.bbUpper && c.bbLower) {
+        if (c.bbLower < minPx) minPx = c.bbLower;
+        if (c.bbUpper > maxPx) maxPx = c.bbUpper;
+      }
+      if (c.volumeUSD > maxVol) maxVol = c.volumeUSD;
+    }
+
+    // Incluir ordenes limit o precio de entrada si estan cerca para visibilidad
+    if (inst.position.side !== 0 && inst.position.entryPrice > 0) {
+      minPx = Math.min(minPx, inst.position.entryPrice);
+      maxPx = Math.max(maxPx, inst.position.entryPrice);
+    }
+
+    const span = Math.max(inst.cfg.tickSize * 12, maxPx - minPx);
+    minPx -= span * 0.10;
+    maxPx += span * 0.10;
+    const pxRange = maxPx - minPx;
+
+    function priceToY(px) {
+      return padTop + chartH * (1 - (px - minPx) / pxRange);
+    }
+    function yToPrice(y) {
+      return minPx + (1 - (y - padTop) / chartH) * pxRange;
+    }
+
+    const stepX = chartW / Math.max(1, slice.length);
+    const bodyW = Math.max(2.5, Math.min(18, stepX * 0.68));
+
+    // 1. Cuadricula de fondo y niveles de precio
+    ctx.strokeStyle = 'rgba(26, 38, 62, 0.55)';
+    ctx.lineWidth = 1;
+    const gridRows = 6;
+    ctx.font = '9.5px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillStyle = '#64748b';
+
+    for (let r = 0; r <= gridRows; r++) {
+      const y = padTop + (chartH / gridRows) * r;
+      const px = yToPrice(y);
       ctx.beginPath();
-      for (let x = 0; x < 580; x += 10) {
-        const y = wy + 210 + Math.sin(t * 5 + x * 0.03) * (IS_SUPER ? 45 : 110);
-        if (x === 0) ctx.moveTo(wx + 40 + x, y); else ctx.lineTo(wx + 40 + x, y);
-      }
+      ctx.moveTo(0, y);
+      ctx.lineTo(chartW, y);
+      ctx.stroke();
+      ctx.fillText(formatNum(px, inst.cfg.decimals), chartW + 5, y + 3);
+    }
+
+    const gridCols = 6;
+    for (let c = 1; c < gridCols; c++) {
+      const x = (chartW / gridCols) * c;
+      ctx.beginPath();
+      ctx.moveTo(x, padTop);
+      ctx.lineTo(x, padTop + chartH);
       ctx.stroke();
     }
-  });
-}
 
-function stepSimulation(dtMs, subSteps, fnIndex) {
-  simTime += (dtMs / 1000);
-  frameNum = fnIndex || (frameNum + 1);
-  if (burstTimer > 0) burstTimer = Math.max(0, burstTimer - dtMs / 1000);
+    // 2. Mapa de Calor de Liquidez L3 (Bookmap Heatmap detras de las velas)
+    if (state.showHeatmap) {
+      const bandH = Math.max(2.5, (inst.cfg.tickSize * 3 / pxRange) * chartH);
+      for (let i = 0; i < slice.length; i++) {
+        const c = slice[i];
+        if (!c.heatmapBands) continue;
+        const x = i * stepX;
+        for (let b = 0; b < c.heatmapBands.length; b++) {
+          const hb = c.heatmapBands[b];
+          const y = priceToY(hb.price);
+          if (y < padTop || y > padTop + chartH) continue;
+          const inten = hb.intensity;
+          if (inten > 0.85) {
+            ctx.fillStyle = 'rgba(250, 204, 21, ' + (inten * 0.25).toFixed(2) + ')';
+          } else if (hb.side > 0) {
+            ctx.fillStyle = 'rgba(6, 182, 212, ' + (inten * 0.16).toFixed(2) + ')';
+          } else {
+            ctx.fillStyle = 'rgba(244, 63, 94, ' + (inten * 0.14).toFixed(2) + ')';
+          }
+          ctx.fillRect(x, y - bandH * 0.5, stepX + 0.8, bandH);
+        }
+      }
+    }
 
-  ctx.clearRect(0, 0, 1920, 1080);
-  drawGrid();
+    // 3. Bandas de Bollinger (20, 2)
+    if (state.showBB && slice.length > 1) {
+      ctx.beginPath();
+      for (let i = 0; i < slice.length; i++) {
+        const x = (i + 0.5) * stepX;
+        const y = priceToY(slice[i].bbUpper);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      for (let i = slice.length - 1; i >= 0; i--) {
+        const x = (i + 0.5) * stepX;
+        const y = priceToY(slice[i].bbLower);
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.055)';
+      ctx.fill();
 
-  if (CHALLENGE_NUM === 1) renderChallenge1(simTime);
-  else if (CHALLENGE_NUM === 2) renderChallenge2(simTime);
-  else if (CHALLENGE_NUM === 3) renderChallenge3(simTime);
-  else if (CHALLENGE_NUM === 4) renderChallenge4(simTime);
-  else if (CHALLENGE_NUM === 5) renderChallenge5(simTime);
-  else renderChallenge6(simTime);
+      // Linea superior e inferior BB
+      ['bbUpper', 'bbLower'].forEach(function(prop) {
+        ctx.beginPath();
+        for (let i = 0; i < slice.length; i++) {
+          const x = (i + 0.5) * stepX;
+          const y = priceToY(slice[i][prop]);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.42)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    }
 
-  const fc = document.getElementById("frame-counter");
-  if (fc) fc.textContent = "FRAME " + String(frameNum).padStart(4, "0");
-}
+    // 4. Curvas EMA (9, 21, 50) y VWAP Institucional
+    function drawCurve(prop, color, width, dashed) {
+      if (slice.length < 2) return;
+      ctx.save();
+      if (dashed) ctx.setLineDash(dashed);
+      ctx.beginPath();
+      for (let i = 0; i < slice.length; i++) {
+        const val = slice[i][prop];
+        if (!Number.isFinite(val)) continue;
+        const x = (i + 0.5) * stepX;
+        const y = priceToY(val);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.stroke();
+      ctx.restore();
+    }
 
-// Deterministic hook for Playwright 60fps capture
-window.__stepFrame = function(dtMs, subSteps, fnIndex) {
-  stepSimulation(dtMs || 16.6667, subSteps || 1, fnIndex);
-};
+    if (state.showEMA) {
+      drawCurve('ema50', 'rgba(59, 130, 246, 0.65)', 1.1, null);
+      drawCurve('ema21', 'rgba(167, 139, 250, 0.85)', 1.2, null);
+      drawCurve('ema9', 'rgba(56, 189, 248, 0.92)', 1.3, null);
+    }
 
-// Live browser loop when opened by a human in labs.mixiuh.online
-let lastTs = performance.now();
-function loop(ts) {
-  const dt = Math.min(50, ts - lastTs);
-  lastTs = ts;
-  if (!window.__recordingMode) {
-    stepSimulation(dt, 1);
+    if (state.showVWAP) {
+      drawCurve('vwap', '#f59e0b', 1.6, [4, 2]);
+    }
+
+    // 5. Histograma inferior de volumen + Velas Japonesas
+    const volMaxH = chartH * 0.16;
+    for (let i = 0; i < slice.length; i++) {
+      const c = slice[i];
+      const cx = (i + 0.5) * stepX;
+      const isUp = c.close >= c.open;
+      const mainColor = isUp ? '#10b981' : '#f43f5e';
+      const wickColor = isUp ? '#34d399' : '#fb7185';
+
+      // Barra de volumen inferior
+      const vH = (c.volumeUSD / maxVol) * volMaxH;
+      ctx.fillStyle = isUp ? 'rgba(16, 185, 129, 0.22)' : 'rgba(244, 63, 94, 0.22)';
+      ctx.fillRect(cx - bodyW * 0.5, padTop + chartH - vH, bodyW, vH);
+
+      // Mecha (High - Low)
+      const yHigh = priceToY(c.high);
+      const yLow = priceToY(c.low);
+      ctx.beginPath();
+      ctx.moveTo(cx, yHigh);
+      ctx.lineTo(cx, yLow);
+      ctx.strokeStyle = wickColor;
+      ctx.lineWidth = 1.15;
+      ctx.stroke();
+
+      // Cuerpo (Open - Close)
+      const yOpen = priceToY(c.open);
+      const yClose = priceToY(c.close);
+      const topY = Math.min(yOpen, yClose);
+      const bH = Math.max(1.8, Math.abs(yClose - yOpen));
+      ctx.fillStyle = mainColor;
+      ctx.fillRect(cx - bodyW * 0.5, topY, bodyW, bH);
+
+      // Marcador diamante vectorial si hubo liquidacion masiva en esta vela
+      if (c.hadLiquidation) {
+        const dy = isUp ? yHigh - 6 : yLow + 6;
+        ctx.save();
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(cx, dy - 3.5);
+        ctx.lineTo(cx + 3.5, dy);
+        ctx.lineTo(cx, dy + 3.5);
+        ctx.lineTo(cx - 3.5, dy);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // 6. Perfil de Volumen Lateral (Volume Profile Visible Range - VPVR + POC)
+    let pocPrice = inst.price;
+    if (state.showVPVR && inst.vpvrBins.size > 0) {
+      const binsArr = Array.from(inst.vpvrBins.values()).filter(function(b) {
+        return b.price >= minPx && b.price <= maxPx;
+      });
+      let maxBinUSD = 1;
+      for (let i = 0; i < binsArr.length; i++) {
+        if (binsArr[i].totalUSD > maxBinUSD) {
+          maxBinUSD = binsArr[i].totalUSD;
+          pocPrice = binsArr[i].price;
+        }
+      }
+
+      const maxBarW = chartW * 0.19;
+      const barH = Math.max(3, Math.min(10, chartH / 38));
+
+      for (let i = 0; i < binsArr.length; i++) {
+        const b = binsArr[i];
+        const y = priceToY(b.price);
+        const totalW = (b.totalUSD / maxBinUSD) * maxBarW;
+        const buyW = totalW * (b.buyUSD / Math.max(1, b.totalUSD));
+        const sellW = totalW - buyW;
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.42)';
+        ctx.fillRect(chartW - totalW, y - barH * 0.5, sellW, barH - 0.8);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.46)';
+        ctx.fillRect(chartW - buyW, y - barH * 0.5, buyW, barH - 0.8);
+      }
+
+      // Linea POC (Point of Control)
+      const yPOC = priceToY(pocPrice);
+      ctx.save();
+      ctx.setLineDash([2, 3]);
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.72)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(0, yPOC);
+      ctx.lineTo(chartW, yPOC);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 7. Lineas de Posicion Abierta del Usuario (Entrada + Liquidacion) y Ordenes Limit
+    if (inst.position.side !== 0 && inst.position.entryPrice > 0) {
+      const yEntry = priceToY(inst.position.entryPrice);
+      if (yEntry >= padTop && yEntry <= padTop + chartH) {
+        ctx.save();
+        ctx.setLineDash([5, 3]);
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(0, yEntry);
+        ctx.lineTo(chartW, yEntry);
+        ctx.stroke();
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillRect(6, yEntry - 8, 128, 15);
+        ctx.fillStyle = '#030712';
+        ctx.font = 'bold 9px ' + getComputedStyle(document.body).fontFamily;
+        ctx.fillText((inst.position.side > 0 ? 'LONG ' : 'SHORT ') + '@ ' + formatNum(inst.position.entryPrice, inst.cfg.decimals), 10, yEntry + 2.5);
+        ctx.restore();
+      }
+
+      const yLiq = priceToY(inst.position.liqPrice);
+      if (yLiq >= padTop && yLiq <= padTop + chartH) {
+        ctx.save();
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(0, yLiq);
+        ctx.lineTo(chartW, yLiq);
+        ctx.stroke();
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillRect(6, yLiq - 8, 118, 15);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px ' + getComputedStyle(document.body).fontFamily;
+        ctx.fillText('LIQ PX @ ' + formatNum(inst.position.liqPrice, inst.cfg.decimals), 10, yLiq + 2.5);
+        ctx.restore();
+      }
+    }
+
+    // Ordenes Limit del usuario en el grafico
+    for (let u = 0; u < inst.userLimitOrders.length; u++) {
+      const uo = inst.userLimitOrders[u];
+      const yOrd = priceToY(uo.price);
+      if (yOrd >= padTop && yOrd <= padTop + chartH) {
+        ctx.save();
+        ctx.setLineDash([2, 2]);
+        ctx.strokeStyle = uo.side > 0 ? '#10b981' : '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(0, yOrd);
+        ctx.lineTo(chartW, yOrd);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 8. Linea y Etiqueta de Precio Actual en Tiempo Real
+    const yCur = priceToY(inst.price);
+    const curUp = slice[slice.length - 1].close >= slice[slice.length - 1].open;
+    const curCol = curUp ? '#10b981' : '#f43f5e';
+    ctx.save();
+    ctx.setLineDash([2, 2]);
+    ctx.strokeStyle = curCol;
+    ctx.beginPath();
+    ctx.moveTo(0, yCur);
+    ctx.lineTo(chartW, yCur);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = curCol;
+    ctx.fillRect(chartW, yCur - 8.5, padRight, 17);
+    ctx.fillStyle = '#04070e';
+    ctx.font = 'bold 9.5px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatNum(inst.price, inst.cfg.decimals), chartW + 4, yCur + 3);
+
+    // 9. Sistema de Particulas Brillantes en cada Liquidacion Masiva
+    if (state.particles.length > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const anchorX = (slice.length - 0.5) * stepX;
+      for (let i = 0; i < state.particles.length; i++) {
+        const pt = state.particles[i];
+        const px = anchorX + pt.ox;
+        const py = priceToY(pt.price) + pt.oy;
+        if (px < 0 || px > chartW || py < padTop || py > padTop + chartH) continue;
+        ctx.globalAlpha = Math.max(0, Math.min(1, pt.alpha));
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(px, py, pt.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 10. Crosshair Interactivo y Readout Superior
+    let inspectCandle = slice[slice.length - 1];
+    const mx = state.chartView.mouseX;
+    const my = state.chartView.mouseY;
+    if (mx > 0 && mx < chartW && my > padTop && my < padTop + chartH) {
+      const idx = Math.min(slice.length - 1, Math.max(0, Math.floor(mx / stepX)));
+      inspectCandle = slice[idx];
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+      ctx.beginPath();
+      ctx.moveTo(mx, padTop);
+      ctx.lineTo(mx, padTop + chartH);
+      ctx.moveTo(0, my);
+      ctx.lineTo(chartW, my);
+      ctx.stroke();
+
+      const hoverPx = yToPrice(my);
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(chartW, my - 8, padRight, 16);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(formatNum(hoverPx, inst.cfg.decimals), chartW + 4, my + 3);
+      ctx.restore();
+    }
+
+    if (inspectCandle && uiThrottleCounter % 3 === 0) {
+      const dec = inst.cfg.decimals;
+      document.getElementById('lbl-o').textContent = formatNum(inspectCandle.open, dec);
+      document.getElementById('lbl-h').textContent = formatNum(inspectCandle.high, dec);
+      document.getElementById('lbl-l').textContent = formatNum(inspectCandle.low, dec);
+      document.getElementById('lbl-c').textContent = formatNum(inspectCandle.close, dec);
+      document.getElementById('lbl-v').textContent = formatCompactUSD(inspectCandle.volumeUSD);
+      document.getElementById('lbl-vwap').textContent = formatNum(inspectCandle.vwap, dec);
+      document.getElementById('lbl-ema9').textContent = formatNum(inspectCandle.ema9, dec);
+      document.getElementById('lbl-ema21').textContent = formatNum(inspectCandle.ema21, dec);
+      document.getElementById('lbl-bb').textContent = formatNum(inspectCandle.bbLower, dec) + ' - ' + formatNum(inspectCandle.bbUpper, dec);
+      document.getElementById('lbl-poc').textContent = formatNum(pocPrice, dec);
+    }
+
+    // Separador vertical derecho
+    ctx.strokeStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(chartW, 0);
+    ctx.lineTo(chartW, H);
+    ctx.stroke();
+
+    ctx.restore();
   }
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+
+  // ============================================================================
+  // 8. RENDERIZADOR B: SUPERFICIE 3D INTERACTIVA DE VOLATILIDAD Y PROFUNDIDAD
+  // ============================================================================
+  function renderSurface3D(inst, nowMs) {
+    const canvas = canvases.s3d;
+    const ctx = ctxs.s3d;
+    const W = canvas._logicalW || 420;
+    const H = canvas._logicalH || 420;
+    const dpr = canvas._dpr || 1;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Fondo espacial profundo con gradiente radial sutil
+    const grad = ctx.createRadialGradient(W * 0.5, H * 0.52, 10, W * 0.5, H * 0.52, Math.max(W, H) * 0.65);
+    grad.addColorStop(0, '#0a1222');
+    grad.addColorStop(1, '#04070e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    if (state.autoRotate3D && !state.cam3D.dragging) {
+      state.cam3D.yaw += 0.0045;
+    }
+
+    const yaw = state.cam3D.yaw;
+    const pitch = state.cam3D.pitch;
+    const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+    const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+
+    const scale = Math.min(W, H) * 0.35 * state.cam3D.zoom;
+    const cx = W * 0.5;
+    const cy = H * 0.56;
+    const fov = 3.4;
+
+    function project3D(x, y, z) {
+      // Rotacion Yaw (alrededor de eje vertical Y)
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+      // Rotacion Pitch (alrededor de eje X)
+      const y2 = y * cosP - z1 * sinP;
+      const z2 = y * sinP + z1 * cosP;
+      const persp = fov / Math.max(0.8, fov + z2 + 0.25);
+      return {
+        sx: cx + x1 * scale * persp,
+        sy: cy - y2 * scale * persp,
+        depth: z2
+      };
+    }
+
+    // Dibujar pedestal / caja de coordenadas 3D
+    const boxCorners = [
+      [-1, -0.45, -1], [1, -0.45, -1], [1, -0.45, 1], [-1, -0.45, 1],
+      [-1, 0.85, -1],  [1, 0.85, -1],  [1, 0.85, 1],  [-1, 0.85, 1]
+    ].map(function(pt) { return project3D(pt[0], pt[1], pt[2]); });
+
+    ctx.strokeStyle = 'rgba(36, 53, 82, 0.7)';
+    ctx.lineWidth = 1;
+    const baseEdges = [[0,1],[1,2],[2,3],[3,0],[0,4],[1,5],[2,6],[3,7]];
+    for (let e = 0; e < baseEdges.length; e++) {
+      const a = boxCorners[baseEdges[e][0]];
+      const b = boxCorners[baseEdges[e][1]];
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.stroke();
+    }
+
+    // Construir malla 3D (NX = Strike/Moneyness Delta, NZ = Madurez/Profundidad Temporal)
+    const NX = 22;
+    const NZ = 18;
+    const grid = [];
+
+    const baseSigma = Math.sqrt(inst.hestonVar);
+    const skew = -inst.ofi * 0.38 + (inst.flashCrashRemainingDrop > 0 ? 0.55 : 0) - (inst.squeezeRemainingBoost > 0 ? 0.45 : 0);
+    const whaleSpike = inst.whaleWallRemainingUSD > 0 ? 0.48 : 0;
+    const tWave = nowMs * 0.0028;
+
+    for (let ix = 0; ix <= NX; ix++) {
+      const row = [];
+      const u = (ix / NX) * 2 - 1; // [-1, +1] Moneyness: <0 Bids/Puts, >0 Asks/Calls
+      for (let iz = 0; iz <= NZ; iz++) {
+        const v = (iz / NZ) * 2 - 1; // [-1, +1] Maturity / Orderbook Horizon
+        const tau = (iz / NZ) + 0.15;
+
+        // 1. Componente Sonrisa y Skew de Volatilidad Implicita de Heston
+        const smileCurvature = 0.58 * (u * u) / Math.sqrt(tau);
+        const skewTerm = skew * u * (1.1 - 0.35 * (iz / NZ));
+        const termStructure = baseSigma * (0.65 + 0.25 * Math.exp(-1.4 * (iz / NZ)));
+
+        // 2. Componente Topografia de Profundidad del Libro de Ordenes (Canion BBO en u=0)
+        const orderBookWall = (1 - Math.exp(-6.5 * u * u)) * 0.42;
+        const whaleBump = (u < -0.12 && u > -0.55) ? whaleSpike * Math.exp(-18 * Math.pow(u + 0.32, 2)) : 0;
+        const microRipple = 0.04 * Math.sin(u * 7.0 + tWave) * Math.cos(v * 5.0 - tWave * 0.8);
+
+        let heightVal = 0;
+        if (state.surfaceMode === 'depth') {
+          heightVal = orderBookWall * 1.35 + whaleBump + Math.abs(u) * 0.3 + microRipple;
+        } else if (state.surfaceMode === 'smile') {
+          heightVal = termStructure * 0.85 + smileCurvature * 0.72 + skewTerm * 0.5 + microRipple;
+        } else {
+          // Modo Hibrido (Volatilidad Implicita + Tension de Liquidez L3)
+          heightVal = termStructure * 0.65 + smileCurvature * 0.52 + skewTerm * 0.42 + orderBookWall * 0.55 + whaleBump + microRipple;
+        }
+
+        const yNorm = Math.max(-0.42, Math.min(0.95, heightVal - 0.38));
+        const proj = project3D(u, yNorm, v);
+        row.push({
+          u: u,
+          v: v,
+          yNorm: yNorm,
+          rawH: heightVal,
+          sx: proj.sx,
+          sy: proj.sy,
+          depth: proj.depth
+        });
+      }
+      grid.push(row);
+    }
+
+    // Extraer caras cuadrangulares y ordenar de atras hacia adelante (Painter's Algorithm)
+    const quads = [];
+    for (let ix = 0; ix < NX; ix++) {
+      for (let iz = 0; iz < NZ; iz++) {
+        const p00 = grid[ix][iz];
+        const p10 = grid[ix + 1][iz];
+        const p11 = grid[ix + 1][iz + 1];
+        const p01 = grid[ix][iz + 1];
+        const avgDepth = (p00.depth + p10.depth + p11.depth + p01.depth) * 0.25;
+        const avgU = (p00.u + p10.u) * 0.5;
+        const avgH = (p00.rawH + p10.rawH + p11.rawH + p01.rawH) * 0.25;
+        quads.push({
+          p00: p00, p10: p10, p11: p11, p01: p01,
+          depth: avgDepth,
+          u: avgU,
+          h: avgH
+        });
+      }
+    }
+
+    quads.sort(function(a, b) { return b.depth - a.depth; });
+
+    for (let q = 0; q < quads.length; q++) {
+      const f = quads[q];
+      ctx.beginPath();
+      ctx.moveTo(f.p00.sx, f.p00.sy);
+      ctx.lineTo(f.p10.sx, f.p10.sy);
+      ctx.lineTo(f.p11.sx, f.p11.sy);
+      ctx.lineTo(f.p01.sx, f.p01.sy);
+      ctx.closePath();
+
+      // Colorizacion cuantitativa: Bids (Esmeralda/Cian), Centro BBO (Violeta), Asks (Carmesi/Ambar)
+      const hInt = Math.min(1, Math.max(0, f.h));
+      let fillCol, strokeCol;
+      if (f.u < -0.06) {
+        // Lado Bid / Put Wing
+        const g = Math.floor(140 + hInt * 95);
+        const b = Math.floor(165 + hInt * 85);
+        fillCol = 'rgba(10, ' + g + ', ' + b + ', 0.62)';
+        strokeCol = 'rgba(34, 211, 238, 0.48)';
+      } else if (f.u > 0.06) {
+        // Lado Ask / Call Wing
+        const r = Math.floor(185 + hInt * 68);
+        const g = Math.floor(45 + hInt * 90);
+        fillCol = 'rgba(' + r + ', ' + g + ', 88, 0.62)';
+        strokeCol = 'rgba(251, 113, 133, 0.48)';
+      } else {
+        // Canal central ATM / BBO Spread
+        fillCol = 'rgba(139, 92, 246, 0.55)';
+        strokeCol = 'rgba(196, 181, 253, 0.55)';
+      }
+
+      ctx.fillStyle = fillCol;
+      ctx.fill();
+      ctx.strokeStyle = strokeCol;
+      ctx.lineWidth = 0.75;
+      ctx.stroke();
+    }
+
+    // Etiquetas de ejes 3D y telemetria de superficie
+    ctx.font = 'bold 9.5px ' + getComputedStyle(document.body).fontFamily;
+    const lblBid = project3D(-0.85, -0.48, 1.05);
+    const lblAsk = project3D(0.85, -0.48, 1.05);
+    const lblMat = project3D(1.08, -0.48, 0.0);
+    const lblTop = project3D(-1.05, 0.88, -1.0);
+
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('BIDS / PUT DELTA (-15%)', lblBid.sx - 45, lblBid.sy + 12);
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillText('ASKS / CALL DELTA (+15%)', lblAsk.sx - 45, lblAsk.sy + 12);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('MADUREZ / PROFUNDIDAD T', lblMat.sx - 30, lblMat.sy);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('IV SIGMA / LIQUIDEZ L3', lblTop.sx, lblTop.sy - 4);
+
+    // Leyenda superior dentro del canvas 3D
+    ctx.fillStyle = 'rgba(6, 10, 18, 0.82)';
+    ctx.fillRect(8, 8, 255, 42);
+    ctx.strokeStyle = 'rgba(36, 53, 82, 0.75)';
+    ctx.strokeRect(8, 8, 255, 42);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '9.5px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillText('ATM IV (HESTON): ' + (baseSigma * 100).toFixed(1) + '%  |  SKEW 25D: ' + (skew * 100).toFixed(1) + '%', 14, 23);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('ARRASTRAR RATON: ORBITAR 3D | RUEDA: ZOOM', 14, 40);
+
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // 9. RENDERIZADOR C: ESCALERA DOM (DEPTH OF MARKET) Y CINTA TIME & SALES
+  // ============================================================================
+  let domClickRegions = [];
+
+  function renderDOMLadder(inst) {
+    const canvas = canvases.dom;
+    const ctx = ctxs.dom;
+    const W = canvas._logicalW || 300;
+    const H = canvas._logicalH || 360;
+    const dpr = canvas._dpr || 1;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#050810';
+    ctx.fillRect(0, 0, W, H);
+
+    const midBannerH = 22;
+    const availH = Math.max(40, H - midBannerH);
+    const rowsPerSide = Math.min(14, Math.max(6, Math.floor((availH * 0.5) / 15)));
+    const rowH = (availH * 0.5) / rowsPerSide;
+
+    const asksSlice = inst.asks.slice(0, rowsPerSide);
+    const bidsSlice = inst.bids.slice(0, rowsPerSide);
+
+    let maxCum = 1;
+    let maxLvl = 1;
+    let totalBidBook = 0;
+    let totalAskBook = 0;
+
+    for (let i = 0; i < asksSlice.length; i++) {
+      if (asksSlice[i].cumUSD > maxCum) maxCum = asksSlice[i].cumUSD;
+      if (asksSlice[i].notionalUSD > maxLvl) maxLvl = asksSlice[i].notionalUSD;
+      totalAskBook += asksSlice[i].notionalUSD;
+    }
+    for (let i = 0; i < bidsSlice.length; i++) {
+      if (bidsSlice[i].cumUSD > maxCum) maxCum = bidsSlice[i].cumUSD;
+      if (bidsSlice[i].notionalUSD > maxLvl) maxLvl = bidsSlice[i].notionalUSD;
+      totalBidBook += bidsSlice[i].notionalUSD;
+    }
+
+    // Actualizar barra superior de desequilibrio Bid/Ask
+    if (uiThrottleCounter % 3 === 0) {
+      const bidPct = Math.round((totalBidBook / Math.max(1, totalBidBook + totalAskBook)) * 100);
+      const askPct = 100 - bidPct;
+      document.getElementById('dom-bid-pct').textContent = 'BIDS ' + bidPct + '%';
+      document.getElementById('dom-ask-pct').textContent = askPct + '% ASKS';
+      document.getElementById('dom-imb-fill').style.width = bidPct + '%';
+    }
+
+    domClickRegions = [];
+    ctx.font = '9.5px ' + getComputedStyle(document.body).fontFamily;
+
+    // 1. Dibujar Asks (de mayor precio arriba hacia Best Ask junto al spread)
+    for (let i = 0; i < rowsPerSide; i++) {
+      const askIdx = rowsPerSide - 1 - i;
+      const item = asksSlice[askIdx];
+      if (!item) continue;
+      const y = i * rowH;
+
+      const cumW = (item.cumUSD / maxCum) * W;
+      const lvlW = (item.notionalUSD / maxLvl) * (W * 0.65);
+
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+      ctx.fillRect(W - cumW, y, cumW, rowH - 1);
+
+      ctx.fillStyle = item.isWhale ? 'rgba(245, 158, 11, 0.42)' : 'rgba(244, 63, 94, 0.30)';
+      ctx.fillRect(W - lvlW, y + 1, lvlW, rowH - 2.5);
+
+      if (item.hasUserOrder) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(1, y + 0.5, W - 2, rowH - 1.5);
+      }
+
+      ctx.fillStyle = item.isWhale ? '#fcd34d' : '#fb7185';
+      ctx.fillText(formatNum(item.price, inst.cfg.decimals), 8, y + rowH * 0.72);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(formatCompactUSD(item.notionalUSD).replace('+', ''), W * 0.44, y + rowH * 0.72);
+
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(formatCompactUSD(item.cumUSD).replace('+', ''), W - 58, y + rowH * 0.72);
+
+      domClickRegions.push({ y1: y, y2: y + rowH, price: item.price });
+    }
+
+    // 2. Banner Central de Spread BBO y Precio de Marca
+    const midY = rowsPerSide * rowH;
+    ctx.fillStyle = '#0d1526';
+    ctx.fillRect(0, midY, W, midBannerH);
+    ctx.strokeStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(W, midY);
+    ctx.moveTo(0, midY + midBannerH);
+    ctx.lineTo(W, midY + midBannerH);
+    ctx.stroke();
+
+    ctx.font = 'bold 10.5px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('MARK: ' + formatNum(inst.price, inst.cfg.decimals), 8, midY + 14.5);
+
+    const spreadBps = ((inst.spreadUSD / inst.price) * 10000).toFixed(1);
+    ctx.font = '9px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('SPREAD: $' + inst.spreadUSD.toFixed(inst.cfg.decimals) + ' (' + spreadBps + ' bps)', W - 138, midY + 14.5);
+
+    // 3. Dibujar Bids (de Best Bid hacia abajo)
+    const bidStartY = midY + midBannerH;
+    for (let i = 0; i < rowsPerSide; i++) {
+      const item = bidsSlice[i];
+      if (!item) continue;
+      const y = bidStartY + i * rowH;
+
+      const cumW = (item.cumUSD / maxCum) * W;
+      const lvlW = (item.notionalUSD / maxLvl) * (W * 0.65);
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+      ctx.fillRect(W - cumW, y, cumW, rowH - 1);
+
+      ctx.fillStyle = item.isWhale ? 'rgba(6, 182, 212, 0.48)' : 'rgba(16, 185, 129, 0.30)';
+      ctx.fillRect(W - lvlW, y + 1, lvlW, rowH - 2.5);
+
+      if (item.hasUserOrder) {
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(1, y + 0.5, W - 2, rowH - 1.5);
+      }
+
+      ctx.fillStyle = item.isWhale ? '#67e8f9' : '#34d399';
+      ctx.fillText(formatNum(item.price, inst.cfg.decimals), 8, y + rowH * 0.72);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(formatCompactUSD(item.notionalUSD).replace('+', ''), W * 0.44, y + rowH * 0.72);
+
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(formatCompactUSD(item.cumUSD).replace('+', ''), W - 58, y + rowH * 0.72);
+
+      domClickRegions.push({ y1: y, y2: y + rowH, price: item.price });
+    }
+
+    ctx.restore();
+  }
+
+  function renderTapeDOM(inst) {
+    if (uiThrottleCounter % 4 !== 0) return;
+    const container = document.getElementById('tape-container');
+    if (!container) return;
+
+    const dec = inst.cfg.decimals;
+    let html = '';
+    const rows = inst.tape.slice(0, 16);
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const isBuy = r.side > 0;
+      let rowCls = 'tape-row';
+      let tagCls = isBuy ? 'tag-mkt-b' : 'tag-mkt-s';
+      let tagTxt = isBuy ? 'BUY' : 'SELL';
+
+      if (r.tag === 'LIQ') {
+        rowCls += ' liq-row';
+        tagCls = 'tag-liq';
+        tagTxt = 'LIQ';
+      } else if (r.tag === 'WHALE') {
+        rowCls += isBuy ? ' whale-buy' : ' whale-sell';
+        tagCls = isBuy ? 'tag-whale' : 'tag-whale-s';
+        tagTxt = 'WHALE';
+      } else if (r.tag === 'LMT FILL') {
+        tagCls = 'tag-whale';
+        tagTxt = 'FILL';
+      }
+
+      const pxCol = isBuy ? 'up-val' : 'dn-val';
+      html += '<div class="' + rowCls + '">' +
+        '<span style="color:var(--text-muted)">' + r.timeStr + '</span>' +
+        '<span class="' + pxCol + '" style="font-weight:700">' + formatNum(r.price, dec) + '</span>' +
+        '<span style="text-align:right;color:var(--text-primary)">' + formatCompactUSD(r.notionalUSD).replace('+', '') + '</span>' +
+        '<span style="text-align:right"><span class="tape-tag ' + tagCls + '">' + tagTxt + '</span></span>' +
+      '</div>';
+    }
+
+    container.innerHTML = html;
+    document.getElementById('tape-liq-counter').textContent = 'LIQS: ' + state.totalLiquidationsCount;
+  }
+
+  // ============================================================================
+  // 10. RENDERIZADOR D: OSCILOSCOPIO DE MICROESTRUCTURA (VPIN / OFI / CVD)
+  // ============================================================================
+  function renderOscilloscope(inst) {
+    const canvas = canvases.osc;
+    const ctx = ctxs.osc;
+    const W = canvas._logicalW || 600;
+    const H = canvas._logicalH || 200;
+    const dpr = canvas._dpr || 1;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#04070e';
+    ctx.fillRect(0, 0, W, H);
+
+    const hist = inst.oscHistory;
+    const n = hist.length;
+    if (n < 2) {
+      ctx.restore();
+      return;
+    }
+
+    const midH = Math.floor(H * 0.52);
+    const padR = 64;
+    const plotW = Math.max(40, W - padR);
+
+    // Cuadricula de osciloscopio
+    ctx.strokeStyle = 'rgba(22, 32, 50, 0.65)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, midH);
+    ctx.lineTo(W, midH);
+    ctx.moveTo(plotW, 0);
+    ctx.lineTo(plotW, H);
+    ctx.stroke();
+
+    // CANAL SUPERIOR: VPIN TOXICITY (0..1) + ZONA CRITICA (>0.72) + HESTON SIGMA
+    const critY = midH * (1 - 0.72);
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
+    ctx.fillRect(0, 0, plotW, critY);
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(0, critY);
+    ctx.lineTo(plotW, critY);
+    ctx.stroke();
+    ctx.restore();
+
+    const stepX = plotW / (MAX_OSC_POINTS - 1);
+
+    // Traza Heston Sigma
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const sNorm = Math.min(1, Math.max(0, hist[i].sigma / 130));
+      const y = midH - 4 - sNorm * (midH - 10);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(167, 139, 250, 0.75)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Traza VPIN Toxicity
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const vpin = hist[i].vpin;
+      const y = midH - 4 - vpin * (midH - 10);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = inst.vpin > 0.72 ? '#f43f5e' : '#f59e0b';
+    ctx.lineWidth = 1.65;
+    ctx.stroke();
+
+    // CANAL INFERIOR: HISTOGRAMA OFI (ORDER FLOW IMBALANCE) + CURVA CVD
+    const botZeroY = midH + (H - midH) * 0.5;
+    const botHalfH = (H - midH) * 0.42;
+
+    let minCVD = Infinity, maxCVD = -Infinity;
+    for (let i = 0; i < n; i++) {
+      if (hist[i].cvd < minCVD) minCVD = hist[i].cvd;
+      if (hist[i].cvd > maxCVD) maxCVD = hist[i].cvd;
+    }
+    const cvdRange = Math.max(1000, maxCVD - minCVD);
+
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const ofi = hist[i].ofi;
+      const barH = ofi * botHalfH;
+      ctx.fillStyle = ofi >= 0 ? 'rgba(16, 185, 129, 0.55)' : 'rgba(244, 63, 94, 0.55)';
+      if (barH >= 0) {
+        ctx.fillRect(x, botZeroY - barH, Math.max(1.5, stepX - 0.8), barH);
+      } else {
+        ctx.fillRect(x, botZeroY, Math.max(1.5, stepX - 0.8), -barH);
+      }
+    }
+
+    // Curva CVD (Cumulative Volume Delta)
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const norm = (hist[i].cvd - minCVD) / cvdRange;
+      const y = H - 6 - norm * (H - midH - 12);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Etiquetas en el panel derecho del osciloscopio
+    ctx.font = 'bold 9px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('VPIN ' + inst.vpin.toFixed(2), plotW + 4, 18);
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillText('VOL ' + (Math.sqrt(inst.hestonVar) * 100).toFixed(0) + '%', plotW + 4, 34);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('CVD ' + formatCompactUSD(inst.cvdUSD), plotW + 4, midH + 18);
+    ctx.fillStyle = inst.ofi >= 0 ? '#10b981' : '#f43f5e';
+    ctx.fillText('OFI ' + (inst.ofi >= 0 ? '+' : '') + inst.ofi.toFixed(2), plotW + 4, midH + 34);
+
+    if (uiThrottleCounter % 3 === 0) {
+      document.getElementById('osc-ofi-val').textContent = (inst.ofi >= 0 ? '+' : '') + inst.ofi.toFixed(2);
+      document.getElementById('osc-vpin-val').textContent = inst.vpin.toFixed(2);
+      document.getElementById('osc-sigma-val').textContent = (Math.sqrt(inst.hestonVar) * 100).toFixed(1) + '%';
+    }
+
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // 11. ACTUALIZACION DE TELEMETRIA HUD Y PANEL DE EJECUCION / CARTERA
+  // ============================================================================
+  function renderRestingOrdersUI() {
+    const inst = getActiveAsset();
+    const listEl = document.getElementById('resting-orders-container');
+    const cntEl = document.getElementById('lbl-open-orders-cnt');
+    if (!listEl || !cntEl) return;
+
+    cntEl.textContent = String(inst.userLimitOrders.length);
+    if (inst.userLimitOrders.length === 0) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:9px;text-align:center;padding:10px 0;">No hay ordenes limit activas</div>';
+      return;
+    }
+
+    let html = '';
+    for (let i = 0; i < inst.userLimitOrders.length; i++) {
+      const o = inst.userLimitOrders[i];
+      const sideCol = o.side > 0 ? 'up-val' : 'dn-val';
+      const sideTxt = o.side > 0 ? 'BUY LMT' : 'SELL LMT';
+      html += '<div class="resting-order-item">' +
+        '<span class="' + sideCol + '" style="font-weight:700">' + sideTxt + ' @ ' + formatNum(o.price, inst.cfg.decimals) + '</span>' +
+        '<span>' + formatCompactUSD(o.notionalUSD).replace('+', '') + ' (' + o.leverage + 'x)</span>' +
+        '<button class="cancel-x" data-cancel-id="' + o.id + '">X</button>' +
+      '</div>';
+    }
+    listEl.innerHTML = html;
+  }
+
+  function updateHUDAndPortfolio() {
+    const inst = getActiveAsset();
+    const cfg = inst.cfg;
+    const dec = cfg.decimals;
+
+    // Actualizar pestanas de los 4 activos en vivo
+    Object.keys(state.assets).forEach(function(sym) {
+      const a = state.assets[sym];
+      const pxEl = document.getElementById('tab-px-' + sym);
+      const chgEl = document.getElementById('tab-chg-' + sym);
+      if (pxEl && chgEl) {
+        pxEl.textContent = formatNum(a.price, a.cfg.decimals);
+        const pct = ((a.price - a.open24h) / a.open24h) * 100;
+        chgEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+        chgEl.className = 'asset-chg ' + (pct >= 0 ? 'up-val' : 'dn-val');
+      }
+    });
+
+    // HUD Superior
+    document.getElementById('hud-fps').textContent = Math.round(state.fps) + ' FPS (' + state.frameTimeMs.toFixed(1) + 'ms)';
+    const ops = Math.floor(7800 + inst.stressVolMult * 3200 + Math.abs(inst.ofi) * 2400 + Math.random() * 650);
+    state.ordersPerSec = ops;
+    document.getElementById('hud-ops').textContent = ops.toLocaleString('en-US') + ' /s';
+    document.getElementById('hud-latency').textContent = state.engineLatencyUs.toFixed(1) + ' us';
+
+    const spreadBps = ((inst.spreadUSD / inst.price) * 10000).toFixed(1);
+    document.getElementById('hud-spread').textContent = '$' + inst.spreadUSD.toFixed(dec) + ' (' + spreadBps + 'bps)';
+
+    const cvdEl = document.getElementById('hud-cvd');
+    cvdEl.textContent = formatCompactUSD(inst.cvdUSD);
+    cvdEl.className = 'hud-value ' + (inst.cvdUSD >= 0 ? 'up-val' : 'dn-val');
+
+    const vpinEl = document.getElementById('hud-vpin');
+    vpinEl.textContent = inst.vpin.toFixed(2) + ' / ' + (Math.sqrt(inst.hestonVar) * 100).toFixed(1) + '%';
+    vpinEl.className = 'hud-value ' + (inst.vpin > 0.72 ? 'dn-val' : 'amber-val');
+
+    // Pre-trade preview y precios de botones
+    if (state.orderMode === 'MARKET') {
+      const inpPx = document.getElementById('inp-order-price');
+      if (document.activeElement !== inpPx) {
+        inpPx.value = inst.price.toFixed(dec);
+      }
+    }
+
+    const notional = Math.max(10000, parseFloat(document.getElementById('inp-order-notional').value) || 2500000);
+    const contractsEquiv = notional / inst.price;
+    document.getElementById('lbl-contracts-equiv').textContent = contractsEquiv.toFixed(cfg.volDecimals) + ' ' + cfg.unit;
+    document.getElementById('prev-margin').textContent = '$' + formatNum(notional / state.leverage, 0);
+
+    const estSlippageBps = ((notional / (cfg.baseDepthUSD * 8)) * 45).toFixed(1);
+    document.getElementById('prev-impact').textContent = estSlippageBps + ' bps';
+
+    const estLongLiq = computeLiquidationPrice(inst.bestAsk, 1, state.leverage);
+    const estShortLiq = computeLiquidationPrice(inst.bestBid, -1, state.leverage);
+    document.getElementById('prev-liq').textContent = formatNum(estLongLiq, dec) + ' / ' + formatNum(estShortLiq, dec);
+
+    document.getElementById('sub-long-px').textContent = (state.orderMode === 'LIMIT' ? 'LMT BUY @ ' : 'ASK @ ') + formatNum(state.orderMode === 'LIMIT' ? (parseFloat(document.getElementById('inp-order-price').value) || inst.price) : inst.bestAsk, dec);
+    document.getElementById('sub-short-px').textContent = (state.orderMode === 'LIMIT' ? 'LMT SELL @ ' : 'BID @ ') + formatNum(state.orderMode === 'LIMIT' ? (parseFloat(document.getElementById('inp-order-price').value) || inst.price) : inst.bestBid, dec);
+
+    // Estado de posicion abierta
+    const pos = inst.position;
+    const upnlHud = document.getElementById('hud-upnl');
+    const liqHud = document.getElementById('hud-liq-px');
+    const posBadge = document.getElementById('pos-badge');
+
+    document.getElementById('pos-equity').textContent = '$' + formatNum(state.equity + pos.unrealizedPnL, 2);
+    const rpnlEl = document.getElementById('pos-rpnl');
+    rpnlEl.textContent = (state.realizedPnL >= 0 ? '+$' : '-$') + formatNum(Math.abs(state.realizedPnL), 2);
+    rpnlEl.className = 'card-row-val ' + (state.realizedPnL >= 0 ? 'up-val' : 'dn-val');
+
+    if (pos.side === 0) {
+      upnlHud.textContent = '$0.00 (0.00%)';
+      upnlHud.className = 'hud-value';
+      liqHud.textContent = '--';
+      posBadge.textContent = 'SIN POSICION (FLAT)';
+      posBadge.style.background = 'rgba(148,163,184,0.15)';
+      posBadge.style.color = '#94a3b8';
+      document.getElementById('pos-size').textContent = '0.000 ' + cfg.unit;
+      document.getElementById('pos-entry-mark').textContent = '-- / ' + formatNum(inst.price, dec);
+      document.getElementById('pos-upnl').textContent = '$0.00 (0.00%)';
+      document.getElementById('pos-upnl').className = 'card-row-val';
+      document.getElementById('pos-margin-liq').textContent = '$0 / --';
+    } else {
+      const pnlSign = pos.unrealizedPnL >= 0 ? '+' : '-';
+      const pnlStr = pnlSign + '$' + formatNum(Math.abs(pos.unrealizedPnL), 2) + ' (' + (pos.roePct >= 0 ? '+' : '') + pos.roePct.toFixed(2) + '%)';
+      const pnlCls = pos.unrealizedPnL >= 0 ? 'up-val' : 'dn-val';
+
+      upnlHud.textContent = pnlStr;
+      upnlHud.className = 'hud-value ' + pnlCls;
+      liqHud.textContent = formatNum(pos.liqPrice, dec);
+
+      if (pos.side === 1) {
+        posBadge.textContent = 'LONG ' + pos.leverage + 'x';
+        posBadge.style.background = 'rgba(16, 185, 129, 0.22)';
+        posBadge.style.color = '#10b981';
+      } else {
+        posBadge.textContent = 'SHORT ' + pos.leverage + 'x';
+        posBadge.style.background = 'rgba(244, 63, 94, 0.22)';
+        posBadge.style.color = '#f43f5e';
+      }
+
+      document.getElementById('pos-size').textContent = pos.sizeContracts.toFixed(cfg.volDecimals) + ' ' + cfg.unit + ' (' + formatCompactUSD(pos.sizeContracts * inst.price).replace('+', '') + ')';
+      document.getElementById('pos-entry-mark').textContent = formatNum(pos.entryPrice, dec) + ' / ' + formatNum(inst.price, dec);
+      const posUpnlEl = document.getElementById('pos-upnl');
+      posUpnlEl.textContent = pnlStr;
+      posUpnlEl.className = 'card-row-val ' + pnlCls;
+      document.getElementById('pos-margin-liq').textContent = '$' + formatNum(pos.marginUsed, 0) + ' / ' + formatNum(pos.liqPrice, dec);
+    }
+  }
+
+  // ============================================================================
+  // 12. EVENT LISTENERS E INTERACCIONES DE USUARIO
+  // ============================================================================
+  // Cambio de activo
+  document.querySelectorAll('.asset-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const sym = btn.getAttribute('data-symbol');
+      if (!sym || !state.assets[sym]) return;
+      state.activeSymbol = sym;
+      document.querySelectorAll('.asset-tab').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+
+      const inst = getActiveAsset();
+      document.getElementById('chart-main-title').textContent = sym + ' // VELAS + MAPA DE CALOR DE LIQUIDEZ L3 + VPVR';
+      document.getElementById('inp-order-price').value = inst.price.toFixed(inst.cfg.decimals);
+      updateRegimeBadge(inst, inst.regime, inst.regimeColor);
+      renderRestingOrdersUI();
+      setFooterEvent('ACTIVO CAMBIADO A ' + sym + ' // LIBRO DE ORDENES L3 SINCRONIZADO');
+    });
+  });
+
+  // Botones de Eventos Extremos
+  document.getElementById('btn-flash-crash').addEventListener('click', triggerFlashCrash);
+  document.getElementById('btn-whale-wall').addEventListener('click', triggerWhaleWall);
+  document.getElementById('btn-short-squeeze').addEventListener('click', triggerShortSqueeze);
+  document.getElementById('btn-liq-cascade').addEventListener('click', triggerLiquidationCascade);
+  document.getElementById('btn-calm-market').addEventListener('click', triggerCalmMarket);
+
+  // Controles de Timeframe e Indicadores del Grafico de Velas
+  document.querySelectorAll('[data-tf]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      state.timeframeSec = parseInt(btn.getAttribute('data-tf'), 10) || 1;
+      document.querySelectorAll('[data-tf]').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+
+  function bindToggle(btnId, stateKey) {
+    const el = document.getElementById(btnId);
+    if (!el) return;
+    el.addEventListener('click', function() {
+      state[stateKey] = !state[stateKey];
+      el.classList.toggle('active', state[stateKey]);
+    });
+  }
+  bindToggle('tog-heatmap', 'showHeatmap');
+  bindToggle('tog-bb', 'showBB');
+  bindToggle('tog-vwap', 'showVWAP');
+  bindToggle('tog-ema', 'showEMA');
+  bindToggle('tog-vpvr', 'showVPVR');
+  bindToggle('tog-3d-rot', 'autoRotate3D');
+
+  document.getElementById('btn-reset-chart').addEventListener('click', function() {
+    state.chartView.zoomCandles = 76;
+    state.chartView.panOffset = 0;
+  });
+
+  // Controles de modo 3D
+  document.querySelectorAll('[data-s3d]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      state.surfaceMode = btn.getAttribute('data-s3d');
+      document.querySelectorAll('[data-s3d]').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+
+  document.getElementById('btn-3d-reset').addEventListener('click', function() {
+    state.cam3D.yaw = -0.62;
+    state.cam3D.pitch = 0.52;
+    state.cam3D.zoom = 1.02;
+  });
+
+  // Interaccion de Raton en Grafico de Velas (Zoom, Pan, Crosshair)
+  canvases.candles.addEventListener('mousemove', function(e) {
+    const rect = canvases.candles.getBoundingClientRect();
+    state.chartView.mouseX = e.clientX - rect.left;
+    state.chartView.mouseY = e.clientY - rect.top;
+    if (state.chartView.isDragging) {
+      const dx = e.clientX - state.chartView.dragStartX;
+      const candlesDelta = Math.round(dx / 8);
+      state.chartView.panOffset = Math.max(0, Math.min(80, state.chartView.dragStartPan + candlesDelta));
+    }
+  });
+
+  canvases.candles.addEventListener('mousedown', function(e) {
+    state.chartView.isDragging = true;
+    state.chartView.dragStartX = e.clientX;
+    state.chartView.dragStartPan = state.chartView.panOffset;
+  });
+
+  window.addEventListener('mouseup', function() {
+    state.chartView.isDragging = false;
+    state.cam3D.dragging = false;
+  });
+
+  canvases.candles.addEventListener('mouseleave', function() {
+    state.chartView.mouseX = -1;
+    state.chartView.mouseY = -1;
+  });
+
+  canvases.candles.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.12 : 0.88;
+    state.chartView.zoomCandles = Math.max(24, Math.min(140, state.chartView.zoomCandles * factor));
+  }, { passive: false });
+
+  // Interaccion de Raton en Superficie 3D (Orbitar + Zoom)
+  canvases.s3d.addEventListener('mousedown', function(e) {
+    state.cam3D.dragging = true;
+    state.cam3D.lastX = e.clientX;
+    state.cam3D.lastY = e.clientY;
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (!state.cam3D.dragging) return;
+    const dx = e.clientX - state.cam3D.lastX;
+    const dy = e.clientY - state.cam3D.lastY;
+    state.cam3D.lastX = e.clientX;
+    state.cam3D.lastY = e.clientY;
+    state.cam3D.yaw += dx * 0.0085;
+    state.cam3D.pitch = Math.max(0.15, Math.min(1.25, state.cam3D.pitch + dy * 0.0075));
+  });
+
+  canvases.s3d.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    state.cam3D.zoom = Math.max(0.65, Math.min(1.65, state.cam3D.zoom * factor));
+  }, { passive: false });
+
+  // Clic en Escalera DOM para fijar precio de Orden Limit
+  canvases.dom.addEventListener('click', function(e) {
+    const rect = canvases.dom.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    for (let i = 0; i < domClickRegions.length; i++) {
+      const reg = domClickRegions[i];
+      if (y >= reg.y1 && y <= reg.y2) {
+        const inst = getActiveAsset();
+        state.orderMode = 'LIMIT';
+        document.getElementById('btn-mode-limit').classList.add('active');
+        document.getElementById('btn-mode-market').classList.remove('active');
+        document.getElementById('lbl-px-mode-hint').textContent = 'PRECIO FIJADO DESDE DOM';
+        document.getElementById('inp-order-price').value = reg.price.toFixed(inst.cfg.decimals);
+        break;
+      }
+    }
+  });
+
+  // Controles de Ejecucion Manual (Market / Limit / Presets / Leverage)
+  document.getElementById('btn-mode-market').addEventListener('click', function() {
+    state.orderMode = 'MARKET';
+    document.getElementById('btn-mode-market').classList.add('active');
+    document.getElementById('btn-mode-limit').classList.remove('active');
+    document.getElementById('lbl-px-mode-hint').textContent = 'MEJOR LIBRO (MKT)';
+  });
+
+  document.getElementById('btn-mode-limit').addEventListener('click', function() {
+    state.orderMode = 'LIMIT';
+    document.getElementById('btn-mode-limit').classList.add('active');
+    document.getElementById('btn-mode-market').classList.remove('active');
+    document.getElementById('lbl-px-mode-hint').textContent = 'ORDEN LIMIT EN LIBRO';
+  });
+
+  document.querySelectorAll('[data-pxset]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const inst = getActiveAsset();
+      const mode = btn.getAttribute('data-pxset');
+      state.orderMode = 'LIMIT';
+      document.getElementById('btn-mode-limit').classList.add('active');
+      document.getElementById('btn-mode-market').classList.remove('active');
+      document.getElementById('lbl-px-mode-hint').textContent = 'ORDEN LIMIT (' + mode + ')';
+
+      let targetPx = inst.price;
+      if (mode === 'BID') targetPx = inst.bestBid;
+      else if (mode === 'ASK') targetPx = inst.bestAsk;
+      else if (mode === 'M1') targetPx = inst.price * 0.9975;
+      document.getElementById('inp-order-price').value = targetPx.toFixed(inst.cfg.decimals);
+    });
+  });
+
+  document.querySelectorAll('[data-sz]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const val = parseInt(btn.getAttribute('data-sz'), 10);
+      document.getElementById('inp-order-notional').value = val;
+      document.querySelectorAll('[data-sz]').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+
+  const levSlider = document.getElementById('inp-leverage');
+  levSlider.addEventListener('input', function() {
+    state.leverage = parseInt(levSlider.value, 10) || 20;
+    document.getElementById('lbl-leverage-val').textContent = state.leverage + 'x';
+    document.querySelectorAll('[data-lev]').forEach(function(b) {
+      b.classList.toggle('active', parseInt(b.getAttribute('data-lev'), 10) === state.leverage);
+    });
+  });
+
+  document.querySelectorAll('[data-lev]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const lv = parseInt(btn.getAttribute('data-lev'), 10) || 20;
+      state.leverage = lv;
+      levSlider.value = lv;
+      document.getElementById('lbl-leverage-val').textContent = lv + 'x';
+      document.querySelectorAll('[data-lev]').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+
+  document.getElementById('btn-exec-long').addEventListener('click', function() {
+    executeUserOrder(1);
+  });
+
+  document.getElementById('btn-exec-short').addEventListener('click', function() {
+    executeUserOrder(-1);
+  });
+
+  document.getElementById('btn-close-pos').addEventListener('click', function() {
+    const inst = getActiveAsset();
+    const pos = inst.position;
+    if (pos.side === 0 || pos.sizeContracts <= 0) return;
+    const prevMode = state.orderMode;
+    const prevNotional = document.getElementById('inp-order-notional').value;
+    state.orderMode = 'MARKET';
+    document.getElementById('inp-order-notional').value = (pos.sizeContracts * inst.price).toFixed(0);
+    executeUserOrder(-pos.side);
+    state.orderMode = prevMode;
+    document.getElementById('inp-order-notional').value = prevNotional;
+    setFooterEvent('POSICION CERRADA A MERCADO EN ' + inst.cfg.symbol);
+  });
+
+  document.getElementById('btn-reverse-pos').addEventListener('click', function() {
+    const inst = getActiveAsset();
+    const pos = inst.position;
+    if (pos.side === 0 || pos.sizeContracts <= 0) return;
+    const targetSide = -pos.side;
+    const prevMode = state.orderMode;
+    const prevNotional = document.getElementById('inp-order-notional').value;
+    state.orderMode = 'MARKET';
+    document.getElementById('inp-order-notional').value = (pos.sizeContracts * inst.price * 2).toFixed(0);
+    executeUserOrder(targetSide);
+    state.orderMode = prevMode;
+    document.getElementById('inp-order-notional').value = prevNotional;
+    setFooterEvent('POSICION INVERTIDA EN ' + inst.cfg.symbol);
+  });
+
+  document.getElementById('btn-cancel-all').addEventListener('click', function() {
+    const inst = getActiveAsset();
+    inst.userLimitOrders = [];
+    rebuildOrderBook(inst, false);
+    renderRestingOrdersUI();
+    setFooterEvent('TODAS LAS ORDENES LIMIT CANCELADAS EN ' + inst.cfg.symbol);
+  });
+
+  document.getElementById('resting-orders-container').addEventListener('click', function(e) {
+    const id = e.target.getAttribute('data-cancel-id');
+    if (!id) return;
+    const inst = getActiveAsset();
+    inst.userLimitOrders = inst.userLimitOrders.filter(function(o) { return o.id !== id; });
+    rebuildOrderBook(inst, false);
+    renderRestingOrdersUI();
+  });
+
+  // ============================================================================
+  // 13. BUCLE MAESTRO DE RENDERIZADO A 60-120 FPS
+  // ============================================================================
+  resizeAllCanvases();
+  renderRestingOrdersUI();
+
+  let lastFrameTime = performance.now();
+  let fpsSmooth = 60;
+
+  function masterLoop(now) {
+    const rawDt = (now - lastFrameTime) / 1000;
+    const dt = Math.min(0.05, Math.max(0.001, rawDt));
+    lastFrameTime = now;
+
+    const currentFps = 1 / Math.max(0.001, rawDt);
+    fpsSmooth = fpsSmooth * 0.92 + currentFps * 0.08;
+    state.fps = fpsSmooth;
+    state.frameTimeMs = rawDt * 1000;
+
+    uiThrottleCounter++;
+
+    // Evolucionar matematicas estocasticas y libros L3 de todos los activos
+    const symbols = Object.keys(state.assets);
+    for (let i = 0; i < symbols.length; i++) {
+      stepAssetSimulation(state.assets[symbols[i]], dt);
+    }
+
+    updateParticles(dt);
+
+    const activeInst = getActiveAsset();
+
+    // Renderizar las 4 visualizaciones sincronizadas
+    renderCandlesChart(activeInst);
+    renderSurface3D(activeInst, now);
+    renderDOMLadder(activeInst);
+    renderTapeDOM(activeInst);
+    renderOscilloscope(activeInst);
+
+    if (uiThrottleCounter % 3 === 0) {
+      updateHUDAndPortfolio();
+    }
+
+    requestAnimationFrame(masterLoop);
+  }
+
+  requestAnimationFrame(masterLoop);
+})();
 </script>
 </body>
 </html>
