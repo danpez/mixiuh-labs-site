@@ -71,6 +71,19 @@ export interface Ep02Proposal {
 
 export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
   {
+    id: "prop-cc01-overfit",
+    title_es: "COMPLETADO EN DEL COMENTARIO AL CODIGO #01 (@tenito03): OVERFIT Studio 3D — 10 Diseños IA + Mockups 300 GSM",
+    title_en: "COMPLETED IN COMMENT TO CODE #01 (@tenito03): OVERFIT Studio 3D — 10 AI Designs + 300 GSM Mockups",
+    models: "Reto de @tenito03 -> OVERFIT Studio 3D",
+    category_es: "Del Comentario al Codigo #01",
+    category_en: "Comment to Code #01",
+    description_es: "A partir del comentario de @tenito03 sobre la tela Verlet del EP02, esculpimos en Blender Cycles maniquies 3D de 300 GSM (Hombre, Mujer y Mesa) y lanzamos la coleccion satirica 'Guerra de Pesos' con 10 artes de IA y exportacion 4K.",
+    description_en: "Triggered by @tenito03's comment on the EP02 Verlet cloth, we sculpted 300 GSM 3D mannequins in Blender Cycles (Male, Female, Flat-Lay) and launched the satirical 'Weight War' collection with 10 AI designs and 4K export.",
+    votes: 296,
+    status_es: "En Vivo Arriba (/overfit)",
+    status_en: "Live Above (/overfit)",
+  },
+  {
     id: "prop-argon-vs-gpt5",
     title_es: "Gemini 4 Argon (High) vs. GPT-5.4 (High) — 6 Motores de Ingenieria y Factura de Tokens",
     title_en: "Gemini 4 Argon (High) vs. GPT-5.4 (High) — 6 Engineering Engines & Token Bill",
@@ -125,6 +138,51 @@ export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
 ];
 
 export const INITIAL_FORUM_THREADS: ForumThread[] = [
+  {
+    id: "thread-cc01-overfit-tenito03",
+    slug: "del-comentario-al-codigo-01-tenito03-overfit-studio-3d-marca-ropa-ia",
+    category: "propuestas",
+    pinned: true,
+    episode: "ep02",
+    badge_es: "DEL COMENTARIO AL CODIGO #01 · @TENITO03",
+    badge_en: "COMMENT TO CODE #01 · @TENITO03",
+    title_es: "De un Comentario a una Marca de Ropa IA en 3D (OVERFIT): Mockups 300 GSM en Blender Cycles y 10 Artes 'Guerra de Pesos'",
+    title_en: "From a Comment to a 3D AI Streetwear Brand (OVERFIT): Blender Cycles 300 GSM Mockups & 10 'Weight War' Prints",
+    excerpt_es: "@tenito03 nos pregunto en Instagram si con la textura de tela Verlet podiamos hacer una playera, un mockup en blanco editable y crear una marca de ropa. Construimos OVERFIT Studio 3D y lo abrimos gratis en el navegador.",
+    excerpt_en: "@tenito03 asked on Instagram if we could turn the Verlet cloth texture into a t-shirt, an editable blank mockup, and launch a clothing brand. We built OVERFIT Studio 3D and opened it free in the browser.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Director de Laboratorio · Mixiuh Labs",
+    authorRole_en: "Lab Director · Mixiuh Labs",
+    createdAt: "2026-10-22",
+    readTime: "6 min",
+    upvotes: 348,
+    views: 3120,
+    tags: ["Del Comentario al Codigo", "@tenito03", "OVERFIT", "Blender Cycles", "300 GSM", "Streetwear IA"],
+    content_es: [
+      "Todo empezo minutos despues de publicar el primer Reel del Episodio 02 con la tela fisica de Verlet a 120 FPS. El usuario @tenito03 dejo este comentario: 'Si ahora con esa textura le pides hacer una playera y tambien le pides que te de un mockup en blanco para editarlo, ¿ahora puedes crear una marca de ropa?'. La propuesta estuvo tan buena que estrenamos seccion oficial: Del Comentario al Codigo.",
+      "Etapa 1 — Mockups en Blanco 300 GSM en Blender Cycles: En lugar de usar una plantilla 2D plana, esculpimos tres siluetas reales en algodon peinado de 300 gramos: maniqui masculino de corte Boxy Oversize, maniqui femenino Street Fit y la prenda sola extendida sobre mesa de estudio (Flat-Lay), con seis tonos textiles (Blanco Puro 300g, Negro Obsidiana, Crema Vintage, Azul Cobalto, Verde Bosque y Burdeos Lab) y deformacion de pliegues por desplazamiento luminico.",
+      "Etapa 2 — Identidad de Marca 'OVERFIT by Mixiuh Labs' (Coleccion Guerra de Pesos): Creamos una marca satirica de streetwear para desarrolladores e ingenieros de IA bajo el lema '100% Alucinado · 0% Revisado por Pares' con 10 estampados vectoriales procedurales: #01 Contador de Fresas (99.8% Math Olympiad / 0% Strawberry R's), #02 Vibe Coding en Produccion, #03 Club CUDA Poor (OOM a los 4 segundos), #04 La Estafa del Benchmark, #05 Mafia Open Source, #06 Censura Estetica, #07 Tabla Nutricional de un LLM (128K Contexto, 40g Alucinaciones), #08 Hoy No Hay AGI, #09 Evolucion del Desarrollador y #10 El Dilema del Tranvia de los Tokens.",
+      "Etapa 3 — Vistas Frente + Espalda, Comparativa Hombre + Mujer y Exportacion 4K: Dentro del estudio puedes alternar entre Vista Frente, Zoom Pecho, Vista Espalda, Frente + Espalda (combinando tu arte frontal con la Tabla Nutricional LLM en el reverso) y Hombre + Mujer, subir tu propio logo PNG transparente y descargar al instante el poster 9:16 para Instagram Reels, el Lookbook Duo o el PNG transparente en 4K listo para imprenta."
+    ],
+    content_en: [
+      "It started minutes after posting the first Episode 02 Reel featuring the 120 FPS Verlet cloth simulation. User @tenito03 left this comment: 'If you ask it to turn that texture into a t-shirt and also give you an editable blank mockup, can you launch a clothing brand now?'. The idea was so strong that we launched a new series: From Comment to Code.",
+      "Stage 1 — Blender Cycles 300 GSM Blank Mockups: Instead of a flat 2D template, we sculpted three real 300 GSM combed-cotton silhouettes in Blender Cycles: Boxy Oversize Male mannequin, Street Fit Female mannequin, and Studio Flat-Lay garment, with six colorway dyes and real-time luminance fold displacement.",
+      "Stage 2 — Brand Identity 'OVERFIT by Mixiuh Labs' (Weight War Collection): We built a satirical AI/dev streetwear brand under the motto '100% Hallucinated · 0% Peer Reviewed' featuring 10 procedural vector prints: #01 Strawberry Counter, #02 Vibe Coding in Prod, #03 CUDA Poor Club, #04 Benchmark Scam, #05 Open Source Mafia, #06 Refusal Aesthetic, #07 LLM Nutrition Facts, #08 No AGI Today, #09 Dev Evolution, and #10 The Token Trolley Problem.",
+      "Stage 3 — Front + Back Views, Male + Female Comparison & 4K Export: Switch live between Front View, Chest Zoom, Back View, Front + Back (pairing your front print with the LLM Nutrition Facts back print), and Male + Female comparison, upload your own transparent PNG logo, and export 9:16 Instagram Story posters, Duo Lookbooks, or 4K print-ready PNGs."
+    ],
+    comments: [
+      {
+        id: "c-tenito03-1",
+        author: "tenito03",
+        role: "Autor del Reto Original · Instagram",
+        handle: "@tenito03",
+        createdAt: "hace 2 h",
+        body_es: "Si ahora con esa textura le pides hacer una playera y tambien le pides que te de un mockup en blanco para editarlo ahora puedes crear una marca de ropa ?",
+        body_en: "If you ask it to turn that texture into a t-shirt and also give you an editable blank mockup, can you create a clothing brand now?",
+        upvotes: 142,
+      },
+    ],
+  },
   {
     id: "thread-ep02-dossier",
     slug: "ep02-dossier-oficial-gemini-4-argon-vs-claude-opus-5-5-tokens",

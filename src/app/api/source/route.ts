@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-const VALID_MODELS = new Set(["argon", "flash", "opus"]);
+const VALID_MODELS = new Set(["argon", "flash", "opus", "comunidad"]);
 const VALID_DIRS = new Set([
+  // Del Comentario al Codigo
+  "cc01-overfit-studio",
   // Episode 01 (10 challenges + 1 bonus)
   "sistema-solar",
   "visualizador-adn",

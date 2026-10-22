@@ -91,6 +91,14 @@ export default function MixiuhLabsHomePage() {
 
           <nav className="hidden lg:flex items-center gap-4 text-xs font-mono-hud text-[#8FA3B8] whitespace-nowrap">
             <a
+              href="#comentario-al-codigo"
+              className="text-[#FBBF24] hover:text-white font-bold transition-colors"
+            >
+              {lang === "es"
+                ? "Comentario al Codigo #01 (OVERFIT)"
+                : "Comment to Code #01 (OVERFIT)"}
+            </a>
+            <a
               href="#dossier"
               onClick={() => handleEpisodeChange("ep02")}
               className={`transition-colors ${
@@ -241,7 +249,33 @@ export default function MixiuhLabsHomePage() {
             id="dossier"
             className="scroll-mt-24 mb-8 p-2 rounded-2xl bg-[#0B1D30]/90 border border-[#22A2DD]/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shadow-xl"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 flex-1">
+              <a
+                href="#comentario-al-codigo"
+                className="p-3 rounded-xl border bg-gradient-to-r from-[#11283F] to-[#0B1D30] border-[#FBBF24]/70 hover:border-[#FBBF24] shadow-[0_0_20px_rgba(251,191,36,0.18)] text-left transition flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-[#FBBF24]/20 border border-[#FBBF24]/50 font-mono-hud text-[10px] font-bold text-[#FBBF24]">
+                      {lang === "es"
+                        ? "ESTRENO · DEL COMENTARIO AL CODIGO #01"
+                        : "NEW · COMMENT TO CODE #01"}
+                    </span>
+                    <span className="font-mono-hud text-[11px] text-[#5EEAD4]">
+                      @tenito03
+                    </span>
+                  </div>
+                  <div className="font-display text-sm sm:text-base font-bold text-white mt-1">
+                    {lang === "es"
+                      ? "OVERFIT Studio 3D: 10 Artes IA + Mockups 300 GSM"
+                      : "OVERFIT Studio 3D: 10 AI Prints + 300 GSM Mockups"}
+                  </div>
+                </div>
+                <span className="font-mono-hud text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FBBF24] text-[#060B14] shrink-0">
+                  {lang === "es" ? "Abrir 3D" : "Open 3D"}
+                </span>
+              </a>
+
               <button
                 onClick={() => handleEpisodeChange("ep02")}
                 className={`p-3 rounded-xl border text-left transition flex items-center justify-between gap-3 cursor-pointer ${
@@ -929,6 +963,241 @@ export default function MixiuhLabsHomePage() {
                       })}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DEL COMENTARIO AL CODIGO #01 — OVERFIT STUDIO 3D (@TENITO03) */}
+      <section
+        id="comentario-al-codigo"
+        className="scroll-mt-20 py-14 border-t border-[#FBBF24]/30 bg-gradient-to-b from-[#081526] via-[#060B14] to-[#0B1D30]"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          {/* Header Row */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+            <div className="space-y-2 max-w-3xl">
+              <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/40 font-mono-hud text-xs font-bold text-[#FBBF24]">
+                <span>
+                  {lang === "es"
+                    ? "NUEVA SECCION · DEL COMENTARIO AL CODIGO #01 · RETO DE @TENITO03"
+                    : "NEW SERIES · FROM COMMENT TO CODE #01 · @TENITO03 CHALLENGE"}
+                </span>
+              </div>
+              <h2 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
+                {lang === "es" ? (
+                  <>
+                    De un Comentario a una Marca de Ropa IA en 3D:{" "}
+                    <span className="text-[#5EEAD4]">OVERFIT Studio 3D</span>{" "}
+                    <span className="text-[#B794F6]">
+                      (Coleccion Guerra de Pesos)
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    From a Comment to a 3D AI Streetwear Brand:{" "}
+                    <span className="text-[#5EEAD4]">OVERFIT Studio 3D</span>{" "}
+                    <span className="text-[#B794F6]">
+                      (Weight War Collection)
+                    </span>
+                  </>
+                )}
+              </h2>
+              <p className="text-sm sm:text-base text-[#8FA3B8] leading-relaxed">
+                {lang === "es"
+                  ? "Despues de publicar la tela fisica de Verlet del Episodio 02, @tenito03 nos reto en comentarios a convertir esa textura en una playera, un mockup en blanco editable y una marca de ropa completa. Esculpimos en Blender Cycles tres siluetas reales en algodon de 300 gramos (Hombre, Mujer y Mesa) y creamos los 10 artes satiricos de la coleccion Guerra de Pesos. Pruebalo en vivo aqui abajo o abrelo a pantalla completa."
+                  : "After posting the Episode 02 Verlet cloth simulation, @tenito03 challenged us in the comments to turn that texture into a t-shirt, an editable blank mockup, and a full clothing brand. We sculpted three real 300 GSM silhouettes in Blender Cycles (Male, Female, Flat-Lay) and designed 10 satirical AI prints for the Weight War collection. Try it live below or open it in full screen."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <a
+                href="/overfit/index.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-3 rounded-xl bg-[#FBBF24] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2 shadow-[0_0_25px_rgba(251,191,36,0.3)]"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>
+                  {lang === "es"
+                    ? "Abrir OVERFIT Studio 3D (Pantalla Completa)"
+                    : "Launch OVERFIT Studio 3D (Full Screen)"}
+                </span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              <a
+                href="/api/source?model=comunidad&dir=cc01-overfit-studio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-3 rounded-xl bg-[#0B1D30] hover:bg-[#11283F] border border-[#22A2DD]/40 text-[#5EEAD4] font-mono-hud text-xs sm:text-sm font-bold transition inline-flex items-center gap-2"
+              >
+                <Code2 className="w-4 h-4" />
+                <span>
+                  {lang === "es"
+                    ? "Auditar Codigo (JSON / HTML)"
+                    : "Audit Source (JSON / HTML)"}
+                </span>
+              </a>
+
+              <a
+                href="#foro"
+                className="px-4 py-3 rounded-xl bg-[#11283F] hover:bg-[#B794F6]/20 border border-[#B794F6]/40 text-white font-mono-hud text-xs sm:text-sm font-bold transition inline-flex items-center gap-2"
+              >
+                <Terminal className="w-4 h-4 text-[#B794F6]" />
+                <span>
+                  {lang === "es"
+                    ? "Proponer Reto para el Episodio #02"
+                    : "Propose Challenge for Episode #02"}
+                </span>
+              </a>
+            </div>
+          </div>
+
+          {/* 3-Column Overview: Original Comment + 3 Stages + Thumbnails */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            {/* Col 1: Original Comment Card */}
+            <div className="lg:col-span-4 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 p-4 flex flex-col justify-between gap-4">
+              <div>
+                <div className="font-mono-hud text-[11px] font-bold text-[#5EEAD4] uppercase mb-2">
+                  {lang === "es"
+                    ? "1. EL COMENTARIO ORIGINAL (@TENITO03)"
+                    : "1. THE ORIGINAL COMMENT (@TENITO03)"}
+                </div>
+                <div className="rounded-xl overflow-hidden border-2 border-[#22A2DD]/50 bg-white p-1 shadow-lg">
+                  <img
+                    src="/brand/thumbs/comentario_tenito03_ig.jpg"
+                    alt="Comentario de @tenito03 en Instagram"
+                    className="w-full h-auto rounded-lg object-contain"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 font-mono-hud text-[10px] text-center">
+                <div className="p-2 rounded-lg bg-[#060B14] border border-[#34D399]/40 text-[#34D399] font-bold">
+                  1. MOCKUP 300G
+                </div>
+                <div className="p-2 rounded-lg bg-[#060B14] border border-[#22A2DD]/40 text-[#5EEAD4] font-bold">
+                  2. 10 ARTES IA
+                </div>
+                <div className="p-2 rounded-lg bg-[#060B14] border border-[#FBBF24]/40 text-[#FBBF24] font-bold">
+                  3. PACK 4K
+                </div>
+              </div>
+            </div>
+
+            {/* Col 2: Architecture & 10 Designs Summary */}
+            <div className="lg:col-span-8 rounded-2xl bg-[#0B1D30] border border-[#B794F6]/30 p-5 flex flex-col justify-between gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-[#060B14] border border-white/10">
+                  <div className="font-mono-hud text-[11px] font-bold text-[#34D399]">
+                    {lang === "es"
+                      ? "ETAPA 1 · BLENDER CYCLES 300G"
+                      : "STAGE 1 · BLENDER CYCLES 300G"}
+                  </div>
+                  <div className="font-display text-sm font-bold text-white mt-1">
+                    {lang === "es"
+                      ? "Hombre, Mujer y Mesa Flat-Lay"
+                      : "Male, Female & Studio Flat-Lay"}
+                  </div>
+                  <p className="text-xs text-[#8FA3B8] mt-1 leading-relaxed">
+                    {lang === "es"
+                      ? "Mapas de iluminacion y pliegues reales en 300 GSM con 6 colores textiles, modo Mockup en Blanco y subida de tu propio logo PNG."
+                      : "Real 300 GSM lighting and fold displacement maps with 6 colorways, Blank Mockup mode, and custom PNG logo upload."}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#060B14] border border-white/10">
+                  <div className="font-mono-hud text-[11px] font-bold text-[#5EEAD4]">
+                    {lang === "es"
+                      ? "ETAPA 2 · 10 ARTES OVERFIT"
+                      : "STAGE 2 · 10 OVERFIT PRINTS"}
+                  </div>
+                  <div className="font-display text-sm font-bold text-white mt-1">
+                    {lang === "es"
+                      ? "Coleccion Guerra de Pesos"
+                      : "Weight War Collection"}
+                  </div>
+                  <p className="text-xs text-[#8FA3B8] mt-1 leading-relaxed">
+                    {lang === "es"
+                      ? "#01 Strawberry R's, #02 Vibe Coding en Prod, #03 CUDA Poor, #04 Benchmark, #05 Open Source, #06 Censura, #07 Tabla Nutricional LLM, #08 Sin AGI, #09 Dev Evolution y #10 Tranvia."
+                      : "#01 Strawberry R's, #02 Vibe Coding in Prod, #03 CUDA Poor, #04 Benchmark, #05 Open Source, #06 Refusal, #07 LLM Nutrition Facts, #08 No AGI, #09 Dev Evolution & #10 Token Trolley."}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#060B14] border border-white/10">
+                  <div className="font-mono-hud text-[11px] font-bold text-[#FBBF24]">
+                    {lang === "es"
+                      ? "ETAPA 3 · VISTAS Y SALIDA 4K"
+                      : "STAGE 3 · VIEWS & 4K EXPORT"}
+                  </div>
+                  <div className="font-display text-sm font-bold text-white mt-1">
+                    {lang === "es"
+                      ? "Frente + Espalda y Lookbook"
+                      : "Front + Back & Lookbook"}
+                  </div>
+                  <p className="text-xs text-[#8FA3B8] mt-1 leading-relaxed">
+                    {lang === "es"
+                      ? "Alterna entre Vista Frente, Zoom Pecho, Espalda, Frente + Espalda (#07 Tabla Nutricional) y Hombre + Mujer, y exporta posters 9:16 y PNG 4K."
+                      : "Switch between Front, Chest Zoom, Back, Front + Back (#07 LLM Nutrition Facts), and Male + Female views, and export 9:16 posters and 4K PNGs."}
+                  </p>
+                </div>
+              </div>
+
+              {/* 3 Episode Thumbnails Preview */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <img
+                  src="/brand/thumbs/cc01_thumb_A.jpg"
+                  alt="Miniatura A - De Comentario a Marca"
+                  className="w-full h-28 sm:h-32 object-cover rounded-xl border border-white/15"
+                />
+                <img
+                  src="/brand/thumbs/cc01_thumb_B.jpg"
+                  alt="Miniatura B - 10 Diseños IA 3D"
+                  className="w-full h-28 sm:h-32 object-cover rounded-xl border border-white/15"
+                />
+                <img
+                  src="/brand/thumbs/cc01_thumb_C.jpg"
+                  alt="Miniatura C - Mockups 300 GSM"
+                  className="w-full h-28 sm:h-32 object-cover rounded-xl border border-white/15"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Live Interactive Embedded OVERFIT Studio 3D */}
+          <div className="rounded-2xl bg-[#060B14] border-2 border-[#22A2DD]/40 overflow-hidden shadow-2xl">
+            <div className="px-4 py-3 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#34D399] animate-pulse" />
+                <span className="font-mono-hud text-xs sm:text-sm font-bold text-white">
+                  {lang === "es"
+                    ? "ESTUDIO INTERACTIVO EN VIVO · OVERFIT STUDIO 3D (PRUEBA LOS 10 ESTAMPADOS, SILUETAS Y VISTAS)"
+                    : "LIVE INTERACTIVE STUDIO · OVERFIT STUDIO 3D (TEST ALL 10 PRINTS, SILHOUETTES & VIEWS)"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/overfit/index.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 rounded-lg bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1"
+                >
+                  <span>
+                    {lang === "es"
+                      ? "Abrir en Nueva Pestaña"
+                      : "Open in New Tab"}
+                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+            <div className="w-full h-[780px] sm:h-[880px] bg-[#04060A]">
+              <iframe
+                src="/demos/comunidad/cc01-overfit-studio/index.html"
+                title="OVERFIT Studio 3D — Del Comentario al Codigo #01 (@tenito03)"
+                className="w-full h-full border-0"
+                loading="lazy"
+              />
             </div>
           </div>
         </div>
