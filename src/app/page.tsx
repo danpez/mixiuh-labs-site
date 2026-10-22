@@ -297,44 +297,44 @@ export default function MixiuhLabsHomePage() {
             </button>
 
             {/* Primary 5-View Portal Switcher (Desktop) */}
-            <nav className="hidden md:flex items-center gap-1.5 bg-[#0B1D30] p-1 rounded-xl border border-white/10 font-mono-hud text-xs">
+            <nav className="hidden md:flex items-center gap-1 bg-[#0B1D30] p-1 rounded-xl border border-white/10 font-mono-hud text-[11px] lg:text-xs">
               <button
                 onClick={() => navigateToView("blog")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "blog"
                     ? "bg-[#22A2DD] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>{lang === "es" ? "Inicio / Blog (4)" : "Home / Blog (4)"}</span>
+                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                <span>{lang === "es" ? "Blog (4)" : "Blog (4)"}</span>
               </button>
 
               <button
                 onClick={() => navigateToView("dossiers")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "dossiers"
                     ? "bg-[#34D399] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
-                <FileText className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   {lang === "es"
-                    ? "Dossiers (EP03 · EP02 · EP01)"
-                    : "Dossiers (EP03 · EP02 · EP01)"}
+                    ? "Dossiers (EP03·02·01)"
+                    : "Dossiers (EP03·02·01)"}
                 </span>
               </button>
 
               <button
                 onClick={() => navigateToView("comunidad")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "comunidad"
                     ? "bg-[#FBBF24] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   {lang === "es"
                     ? "OVERFIT 3D & SuperKit"
@@ -344,25 +344,25 @@ export default function MixiuhLabsHomePage() {
 
               <button
                 onClick={() => navigateToView("arena")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "arena"
                     ? "bg-[#B794F6] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
-                <Play className="w-3.5 h-3.5" />
+                <Play className="w-3.5 h-3.5 shrink-0" />
                 <span>{lang === "es" ? "Arena (45 Demos)" : "Arena (45 Demos)"}</span>
               </button>
 
               <button
                 onClick={() => navigateToView("foro")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "foro"
                     ? "bg-[#5EEAD4] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
-                <MessageSquare className="w-3.5 h-3.5" />
+                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   {lang === "es" ? "Foro & Glosario" : "Forum & Glossary"}
                 </span>
