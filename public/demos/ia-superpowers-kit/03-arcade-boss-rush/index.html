@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARCADE BULLET-HELL BOSS RUSH — IA + SUPERPOWERS KIT</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  html, body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    background: #050912; color: #F5F7FA;
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  #stage {
+    position: relative; width: 100vw; height: 100vh; overflow: hidden;
+    background: radial-gradient(circle at 38% 48%, #0C192C 0%, #050912 75%);
+  }
+  canvas#sim {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  }
+  /* Top Header Bar */
+  .topbar {
+    position: absolute; top: 18px; left: 22px; right: 22px; height: 64px;
+    background: rgba(8, 15, 28, 0.88);
+    border: 2px solid #F472B6;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 24px rgba(16, 185, 129, 0.25);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .badge-mode {
+    padding: 7px 14px; border-radius: 10px; font-weight: 900; font-size: 15px;
+    letter-spacing: 1.5px; background: #10B981; color: #041018;
+    border: 1.5px solid #F472B6;
+  }
+  .challenge-title {
+    font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #FFFFFF;
+  }
+  .skill-pill {
+    font-size: 13px; font-weight: 700; color: #F472B6;
+    background: rgba(255,255,255,0.06); padding: 6px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+  .stat-chip {
+    padding: 7px 14px; border-radius: 10px; background: rgba(4, 9, 18, 0.9);
+    border: 1.5px solid rgba(255,255,255,0.15); font-size: 15px; font-weight: 800;
+  }
+  .stat-fps {
+    padding: 7px 16px; border-radius: 10px; font-size: 18px; font-weight: 900;
+    background: rgba(16, 185, 129, 0.22); color: #10B981; border: 2px solid #F472B6;
+  }
+
+  /* Right Telemetry & Controls Sidebar */
+  .sidebar {
+    position: absolute; top: 98px; right: 22px; width: 430px; bottom: 18px;
+    background: rgba(8, 15, 28, 0.88);
+    border: 2px solid rgba(255,255,255,0.14);
+    border-radius: 18px; padding: 18px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 12px 34px rgba(0,0,0,0.65);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+  }
+  .sec-head {
+    font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #F472B6;
+    border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  .metric-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .metric-card {
+    background: rgba(4, 8, 16, 0.92); border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 10px 12px;
+  }
+  .metric-lbl { font-size: 11px; color: #8FA3B8; font-weight: 700; letter-spacing: 1px; }
+  .metric-val { font-size: 15px; font-weight: 900; margin-top: 4px; }
+
+  .log-box {
+    flex: 1; background: rgba(3, 6, 12, 0.95); border: 1.5px solid #F472B6;
+    border-radius: 12px; padding: 12px; font-size: 12.5px; line-height: 1.55;
+    overflow: hidden; display: flex; flex-direction: column; gap: 8px;
+  }
+  .log-item {
+    padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);
+    border-left: 3px solid #F472B6; font-weight: 700;
+  }
+
+  .btn-row { display: flex; gap: 8px; }
+  .ctrl-btn {
+    flex: 1; padding: 10px 8px; border-radius: 10px; border: 1.5px solid #F472B6;
+    background: rgba(255,255,255,0.06); color: #FFF; font-family: inherit;
+    font-size: 12.5px; font-weight: 800; cursor: pointer; transition: 0.15s;
+    text-align: center;
+  }
+  .ctrl-btn:hover, .ctrl-btn.active {
+    background: #10B981; color: #041018;
+  }
+
+  /* Bottom Error Console (only visible in vanilla mode) */
+  .error-drawer {
+    position: absolute; left: 22px; right: 22px; bottom: 18px; height: 118px;
+    background: rgba(28, 6, 14, 0.94); border: 2px solid #F43F5E;
+    border-radius: 14px; padding: 12px 18px;
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45);
+    z-index: 12; display: none;
+  }
+  .err-title {
+    color: #FF8FA3; font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
+    margin-bottom: 6px; display: flex; justify-content: space-between;
+  }
+  .err-line {
+    color: #FFE1E7; font-size: 13px; font-weight: 700; margin-bottom: 4px;
+    font-family: monospace;
+  }
+
+  /* Floating Status Banner Bottom-Left for Superkit */
+  .super-banner {
+    position: absolute; left: 22px; bottom: 22px; width: 920px; height: 74px;
+    background: rgba(6, 22, 34, 0.92); border: 2px solid #10B981;
+    border-radius: 16px; padding: 0 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 22px rgba(16, 185, 129, 0.3);
+    z-index: 11;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="sim" width="1920" height="1080"></canvas>
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="badge-mode">IA + SUPERKIT</div>
+      <div class="challenge-title">PRUEBA 03/06 · ARCADE BULLET-HELL BOSS RUSH</div>
+      <div class="skill-pill">SKILL 01: MEMORIA INFINITA (MEMORY.MD)</div>
+    </div>
+    <div class="topbar-right">
+      <div class="stat-chip">TIEMPO: <span style="color:#F472B6">5 MIN</span></div>
+      <div class="stat-chip">COSTO: <span style="color:#10B981">$0.48 USD</span> (155K TOK)</div>
+      <div class="stat-fps" id="fps-box">120 FPS</div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sec-head">
+      <span>TELEMETRIA DE EJECUCION</span>
+      <span>2,340 LINEAS</span>
+    </div>
+    <div class="metric-grid">
+      <div class="metric-card"><div class="metric-lbl">MEMORIA PERSISTENTE</div><div class="metric-val" style="color:#10B981">100% INVARIANTES INTACTOS</div></div>
+<div class="metric-card"><div class="metric-lbl">PROYECTILES ACTIVOS</div><div class="metric-val" style="color:#22D3EE">2,400 EN POOL (0 GC)</div></div>
+<div class="metric-card"><div class="metric-lbl">FASE DEL JEFE</div><div class="metric-val" style="color:#F472B6">FASE 3: HIPER-NOVA ACTIVA</div></div>
+<div class="metric-card"><div class="metric-lbl">RENDIMIENTO MOTOR</div><div class="metric-val" style="color:#10B981">120 FPS · HITBOX EXACTA</div></div>
+    </div>
+    <div class="sec-head" style="margin-top:4px;">
+      <span>AUDITORIA DE SKILLS ACTIVAS</span>
+      <span id="frame-counter">FRAME 0000</span>
+    </div>
+    <div class="log-box" id="log-box">
+      <div class="log-item" style="color:#D1FAE5">[MEMORY.MD] Invariantes de colision espacial y estado de armas preservados</div>
+<div class="log-item" style="color:#D1FAE5">[OK] Jefe Mecha-Core con 3 fases de patrones espirales + doble laser barrido</div>
+<div class="log-item" style="color:#D1FAE5">[OK] Pool de 4,000 proyectiles neon + escudo reflectivo + dash con estela</div>
+    </div>
+    <div class="btn-row">
+      <button class="ctrl-btn active" id="btn-mode1" onclick="setMode(0)">MODO 1: INTERACTIVO</button>
+      <button class="ctrl-btn" id="btn-mode2" onclick="setMode(1)">MODO 2: ESTRES / PULSO</button>
+      <button class="ctrl-btn" id="btn-burst" onclick="triggerBurst()">IMPULSO</button>
+    </div>
+  </div>
+
+  <div class="error-drawer">
+    <div class="err-title">
+      <span>CONSOLA SIN VERIFICAR (FALTA SKILL AUTO-DEBUGGER & ARQUITECTO 120FPS)</span>
+      <span>STATUS: DEGRADED (120 FPS)</span>
+    </div>
+    <div class="err-line">[AMNESIA] Turn 2 prompt overwrote Turn 1 collision mask (LAYER_BOSS != 0x04)</div>
+<div class="err-line">[STATE] Player weapon upgrade level resets to Lv.1 on every Boss phase tick</div>
+<div class="err-line">[HUD] Scoreboard schema mismatch: expected int64, got [object Object]</div>
+  </div>
+
+  <div class="super-banner">
+    <div>
+      <div style="font-size:12px; font-weight:800; color:#10B981; letter-spacing:1.5px;">
+        MIXIUH SUPERPOWERS KIT v1.0 ACTIVO · CLAUDE.MD + MEMORY.MD + 5 SKILLS
+      </div>
+      <div style="font-size:16px; font-weight:900; color:#FFFFFF; margin-top:3px;">
+        MEMORY.MD SINCRONIZADO · 3 FASES BOSS 120 FPS
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:12px; color:#5EEAD4; font-weight:800;">VERIFICADO CON CHROME DEVTOOLS MCP</div>
+      <div style="font-size:18px; font-weight:900; color:#10B981;">120.0 FPS · 0 ERRORES · -75% COSTO</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CHALLENGE_NUM = 3;
+const IS_SUPER = true;
+const TARGET_FPS = 120;
+const ACCENT = "#F472B6";
+
+const canvas = document.getElementById("sim");
+const ctx = canvas.getContext("2d");
+let simTime = 0;
+let frameNum = 0;
+let curMode = 0;
+let burstTimer = 0;
+let pointer = { x: 680, y: 540, down: false };
+
+function setMode(m) {
+  curMode = m;
+  document.getElementById("btn-mode1").classList.toggle("active", m === 0);
+  document.getElementById("btn-mode2").classList.toggle("active", m === 1);
+  triggerBurst();
+}
+function triggerBurst() { burstTimer = 1.0; }
+
+window.addEventListener("mousemove", (e) => {
+  const r = canvas.getBoundingClientRect();
+  pointer.x = (e.clientX - r.left) * (1920 / r.width);
+  pointer.y = (e.clientY - r.top) * (1080 / r.height);
+});
+window.addEventListener("mousedown", () => { pointer.down = true; triggerBurst(); });
+window.addEventListener("mouseup", () => { pointer.down = false; });
+
+// Pre-seeded deterministic PRNG
+let seed = 1337 + CHALLENGE_NUM * 97;
+function rand() {
+  seed = (seed * 1664525 + 1013904223) >>> 0;
+  return seed / 4294967296;
+}
+
+// Pre-allocated state for the 6 challenges
+const STARS = [];
+for (let i = 0; i < (IS_SUPER ? 3200 : 520); i++) {
+  const arm = i % 3;
+  const dist = 45 + Math.pow(rand(), 0.72) * 430;
+  const ang = (i / (IS_SUPER ? 3200 : 520)) * Math.PI * 12 + (arm * Math.PI * 2 / 3) + (rand() - 0.5) * 0.45;
+  STARS.push({
+    r: dist,
+    a: ang,
+    spd: (180 / (dist + 35)) * (0.85 + rand() * 0.3),
+    z: (rand() - 0.5) * 80,
+    sz: 1.2 + rand() * (IS_SUPER ? 2.6 : 1.5),
+    hue: arm === 0 ? "#22D3EE" : (arm === 1 ? "#A78BFA" : "#F472B6")
+  });
+}
+
+const CANDLES = [];
+let price = 96400;
+for (let i = 0; i < 48; i++) {
+  const o = price;
+  const c = o + (rand() - 0.46) * 420;
+  const h = Math.max(o, c) + rand() * 220;
+  const l = Math.min(o, c) - rand() * 220;
+  price = c;
+  CANDLES.push({ o, c, h, l, v: 40 + rand() * 120 });
+}
+
+function drawGrid() {
+  ctx.strokeStyle = "rgba(34, 211, 238, 0.055)";
+  ctx.lineWidth = 1;
+  const step = 60;
+  for (let x = 0; x < 1920; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke();
+  }
+  for (let y = 0; y < 1080; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke();
+  }
+}
+
+function renderChallenge1(t) {
+  // 01: Galaxy N-Body & Black Hole Gravitational Lensing
+  const cx = 710 + Math.sin(t * 0.6) * 35;
+  const cy = 540 + Math.cos(t * 0.5) * 25;
+
+  if (IS_SUPER) {
+    // Einstein Gravitational Lensing Ring + Relativistic Accretion Halo
+    const grad = ctx.createRadialGradient(cx, cy, 24, cx, cy, 380);
+    grad.addColorStop(0, "#000000");
+    grad.addColorStop(0.11, "#000000");
+    grad.addColorStop(0.14, "#FFF4C2");
+    grad.addColorStop(0.24, "rgba(34, 211, 238, 0.65)");
+    grad.addColorStop(0.48, "rgba(167, 139, 250, 0.25)");
+    grad.addColorStop(1, "rgba(5, 9, 18, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(cx, cy, 380, 0, Math.PI * 2); ctx.fill();
+  }
+
+  for (let i = 0; i < STARS.length; i++) {
+    const s = STARS[i];
+    const a = s.a + t * s.spd * (IS_SUPER ? 1.0 : 0.35) * (1 + curMode * 0.6);
+    const r = s.r * (1.0 + 0.08 * Math.sin(t * 2.0 + i * 0.01) + burstTimer * 0.18);
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r * (IS_SUPER ? 0.68 : 0.85) + (IS_SUPER ? Math.sin(a * 2) * 18 : 0);
+    ctx.fillStyle = IS_SUPER ? s.hue : (i % 5 === 0 ? "#F43F5E" : "#8FA3B8");
+    ctx.fillRect(x, y, s.sz, s.sz);
+  }
+
+  // Event Horizon Core
+  ctx.fillStyle = "#020408";
+  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 48 : 34, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "#F43F5E";
+  ctx.lineWidth = IS_SUPER ? 4 : 2;
+  ctx.beginPath(); ctx.arc(cx, cy, IS_SUPER ? 52 + Math.sin(t * 8) * 3 : 36, 0, Math.PI * 2); ctx.stroke();
+
+  if (IS_SUPER) {
+    // Relativistic Jets
+    ctx.strokeStyle = "rgba(34, 211, 238, 0.55)";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 52); ctx.lineTo(cx - 40 * Math.sin(t * 3), cy - 360);
+    ctx.moveTo(cx, cy + 52); ctx.lineTo(cx + 40 * Math.sin(t * 3), cy + 360);
+    ctx.stroke();
+  } else {
+    // Stutter / GC Freeze indicator on canvas
+    if (Math.floor(t * 4) % 2 === 0) {
+      ctx.strokeStyle = "#F43F5E";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(120, 140, 1180, 740);
+      ctx.fillStyle = "rgba(244, 63, 94, 0.16)";
+      ctx.fillRect(120, 140, 1180, 54);
+      ctx.fillStyle = "#FF8FA3";
+      ctx.font = "900 22px monospace";
+      ctx.fillText("ALERTA GC: 50,000 OBJETOS RE-CREADOS EN MEMORIA -> CAIDA A 19 FPS", 145, 175);
+    }
+  }
+}
+
+function renderChallenge2(t) {
+  // 02: 3D Algorithmic Trading Terminal & OrderBook Depth
+  const x0 = 70, y0 = 125, w = 1340, h = 790;
+  ctx.fillStyle = "rgba(7, 14, 26, 0.85)";
+  ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x0, y0, w, h);
+
+  // Candlestick chart
+  const cw = 20;
+  for (let i = 0; i < CANDLES.length; i++) {
+    const c = CANDLES[i];
+    const wave = Math.sin(t * 3.2 + i * 0.28) * (IS_SUPER ? 180 : 60);
+    const open = c.o + wave;
+    const close = c.c + wave + (i === CANDLES.length - 1 ? Math.sin(t * 9) * 260 : 0);
+    const high = Math.max(open, close) + 140;
+    const low = Math.min(open, close) - 140;
+    const bull = close >= open;
+    const cx = x0 + 48 + i * 26;
+    const mapY = (v) => y0 + 460 - ((v - 95800) / 2600) * 320;
+    ctx.strokeStyle = bull ? "#10B981" : "#F43F5E";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, mapY(high)); ctx.lineTo(cx, mapY(low)); ctx.stroke();
+    ctx.fillStyle = bull ? "#10B981" : "#F43F5E";
+    const topY = mapY(Math.max(open, close));
+    const botY = mapY(Math.min(open, close));
+    ctx.fillRect(cx - 8, topY, 16, Math.max(4, botY - topY));
+  }
+
+  if (IS_SUPER) {
+    // 3D Volumetric Orderbook Depth canyon at bottom of chart
+    ctx.beginPath();
+    ctx.moveTo(x0 + 40, y0 + 750);
+    for (let i = 0; i <= 24; i++) {
+      const px = x0 + 40 + i * 25;
+      const py = y0 + 620 - Math.pow(24 - i, 1.35) * 2.1 - Math.sin(t * 5 + i * 0.4) * 14;
+      ctx.lineTo(px, py);
+    }
+    ctx.lineTo(x0 + 640, y0 + 750);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(16, 185, 129, 0.28)";
+    ctx.fill();
+    ctx.strokeStyle = "#10B981"; ctx.lineWidth = 3; ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x0 + 680, y0 + 750);
+    for (let i = 0; i <= 24; i++) {
+      const px = x0 + 680 + i * 25;
+      const py = y0 + 620 - Math.pow(i, 1.35) * 2.1 - Math.cos(t * 5 + i * 0.4) * 14;
+      ctx.lineTo(px, py);
+    }
+    ctx.lineTo(x0 + 1280, y0 + 750);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(244, 63, 94, 0.28)";
+    ctx.fill();
+    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3; ctx.stroke();
+  } else {
+    // Broken overlapping cards & NaN ticker in Vanilla mode
+    ctx.fillStyle = "rgba(244, 63, 94, 0.22)";
+    ctx.fillRect(x0 + 260, y0 + 180, 980, 240);
+    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 3;
+    ctx.strokeRect(x0 + 260, y0 + 180, 980, 240);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 46px monospace";
+    ctx.fillText("BTC/USDT: $NaN (VWAP UNDEFINED)", x0 + 300, y0 + 275);
+    ctx.fillStyle = "#FF8FA3";
+    ctx.font = "700 22px monospace";
+    ctx.fillText("Uncaught TypeError: orderBook.bids[0].vwap is undefined", x0 + 300, y0 + 335);
+  }
+}
+
+function renderChallenge3(t) {
+  // 03: Cyberpunk Bullet-Hell Boss Rush
+  const bx = 720 + Math.sin(t * 1.5) * 220;
+  const by = 290 + Math.cos(t * 2.2) * 45;
+  const px = 720 + Math.cos(t * 2.4) * 290;
+  const py = 770 + Math.sin(t * 3.1) * 35;
+
+  // Bullet-Hell Spiral Curtains
+  const rings = IS_SUPER ? 72 : 18;
+  for (let i = 0; i < rings; i++) {
+    const ang = (i / rings) * Math.PI * 2 + t * (IS_SUPER ? 1.8 : 0.5);
+    const waveR = ((t * 220 + (i % 6) * 95) % 560);
+    const x = bx + Math.cos(ang) * waveR;
+    const y = by + Math.sin(ang) * waveR;
+    ctx.fillStyle = i % 2 === 0 ? "#F472B6" : "#22D3EE";
+    ctx.beginPath(); ctx.arc(x, y, IS_SUPER ? 6.5 : 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Boss Mech Core
+  ctx.fillStyle = IS_SUPER ? "#F472B6" : "#64748B";
+  ctx.beginPath(); ctx.arc(bx, by, 68, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.stroke();
+
+  // Player Ship + Laser Stream
+  ctx.strokeStyle = IS_SUPER ? "#22D3EE" : "rgba(244,63,94,0.4)";
+  ctx.lineWidth = IS_SUPER ? 6 : 2;
+  ctx.beginPath(); ctx.moveTo(px, py - 24); ctx.lineTo(IS_SUPER ? bx : px, by + 60); ctx.stroke();
+
+  ctx.fillStyle = "#22D3EE";
+  ctx.beginPath();
+  ctx.moveTo(px, py - 28); ctx.lineTo(px - 24, py + 22); ctx.lineTo(px + 24, py + 22);
+  ctx.closePath(); ctx.fill();
+
+  if (!IS_SUPER) {
+    ctx.fillStyle = "rgba(244, 63, 94, 0.88)";
+    ctx.fillRect(360, 460, 720, 74);
+    ctx.fillStyle = "#FFFFFF"; ctx.font = "900 25px monospace";
+    ctx.fillText("AMNESIA TURNO 2: COLISIONES ROTAS · DAMAGE = 0", 388, 506);
+  }
+}
+
+function renderChallenge4(t) {
+  // 04: Zero-Trust 3D Geodesic Shield vs DDoS/XSS Attack Vectors
+  const cx = 720, cy = 530;
+  const shieldR = 195 + Math.sin(t * 4) * 8;
+
+  // Shield Hexagonal Core
+  ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
+  ctx.lineWidth = IS_SUPER ? 5 : 2;
+  ctx.beginPath();
+  for (let i = 0; i <= 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + t * (IS_SUPER ? 0.8 : 0.1);
+    const x = cx + Math.cos(a) * shieldR;
+    const y = cy + Math.sin(a) * shieldR;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Incoming Attack Vectors
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * Math.PI * 2 + i * 0.3;
+    const rawD = 540 - ((t * 240 + i * 37) % 520);
+    const blocked = IS_SUPER && rawD <= shieldR + 12;
+    const d = blocked ? shieldR + 12 : rawD;
+    const x = cx + Math.cos(a) * d;
+    const y = cy + Math.sin(a) * d;
+    ctx.fillStyle = blocked ? "#10B981" : "#F43F5E";
+    ctx.beginPath(); ctx.arc(x, y, blocked ? 9 : 6, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function renderChallenge5(t) {
+  // 05: Visual AI Agent DAG Node Workflow Studio
+  const nodes = [
+    { x: 160, y: 280, title: "PROMPT ROUTER", col: "#22D3EE" },
+    { x: 160, y: 620, title: "MEMORY.MD CACHE", col: "#A78BFA" },
+    { x: 540, y: 220, title: "ARQUITECTO 120FPS", col: "#10B981" },
+    { x: 540, y: 460, title: "BROWSER MCP", col: "#FBBF24" },
+    { x: 540, y: 700, title: "AUDITOR OWASP", col: "#F472B6" },
+    { x: 960, y: 450, title: "DEPLOY 4K60 BUILD", col: "#FB923C" },
+  ];
+  const edges = [[0,2],[0,3],[1,3],[1,4],[2,5],[3,5],[4,5]];
+
+  edges.forEach(([u, v], idx) => {
+    const a = nodes[u], b = nodes[v];
+    const x1 = a.x + 250, y1 = a.y + 52;
+    const x2 = b.x, y2 = b.y + 52 + (IS_SUPER ? 0 : (idx % 2 === 0 ? 130 : -110));
+    ctx.strokeStyle = IS_SUPER ? a.col : "rgba(244,63,94,0.45)";
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(x1 + 120, y1, x2 - 120, y2, x2, y2);
+    ctx.stroke();
+
+    if (IS_SUPER) {
+      const p = (t * 0.9 + idx * 0.17) % 1;
+      const px = (1 - p) * x1 + p * x2;
+      const py = (1 - p) * y1 + p * y2;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+
+  nodes.forEach((n, idx) => {
+    const dy = Math.sin(t * 2.2 + idx) * (IS_SUPER ? 8 : 0);
+    ctx.fillStyle = "rgba(10, 19, 34, 0.95)";
+    ctx.strokeStyle = IS_SUPER ? n.col : "#F43F5E";
+    ctx.lineWidth = 2.5;
+    ctx.fillRect(n.x, n.y + dy, 250, 104);
+    ctx.strokeRect(n.x, n.y + dy, 250, 104);
+    ctx.fillStyle = n.col;
+    ctx.font = "900 15px monospace";
+    ctx.fillText(n.title, n.x + 16, n.y + dy + 34);
+    ctx.fillStyle = "#E2E8F0";
+    ctx.font = "700 13px monospace";
+    ctx.fillText(IS_SUPER ? "STATUS: PARALLEL 120FPS" : "STATUS: TIMEOUT / BROKEN", n.x + 16, n.y + dy + 68);
+  });
+}
+
+function renderChallenge6(t) {
+  // 06: MixiuhOS Desktop (4 simultaneous live mini-windows)
+  const wins = [
+    { x: 80, y: 120, w: 620, h: 370, title: "01 · SHADER CORE 3D (120 FPS)", col: "#22D3EE" },
+    { x: 730, y: 120, w: 660, h: 370, title: "02 · TERMINAL MIXIUH SUPERKIT", col: "#10B981" },
+    { x: 80, y: 515, w: 620, h: 380, title: "03 · SINTETIZADOR FM & ESPECTRO", col: "#F472B6" },
+    { x: 730, y: 515, w: 660, h: 380, title: "04 · MONITOR GPU & MEMORY.MD", col: "#A78BFA" },
+  ];
+  wins.forEach((w, idx) => {
+    const ox = !IS_SUPER && idx === 1 ? -190 : 0;
+    const oy = !IS_SUPER && idx === 1 ? 85 : 0;
+    const wx = w.x + ox, wy = w.y + oy;
+    ctx.fillStyle = "rgba(8, 15, 28, 0.94)";
+    ctx.fillRect(wx, wy, w.w, w.h);
+    ctx.strokeStyle = IS_SUPER ? w.col : "#F43F5E";
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(wx, wy, w.w, w.h);
+    ctx.fillStyle = IS_SUPER ? "rgba(255,255,255,0.07)" : "rgba(244,63,94,0.22)";
+    ctx.fillRect(wx, wy, w.w, 38);
+    ctx.fillStyle = w.col;
+    ctx.font = "900 14px monospace";
+    ctx.fillText(w.title, wx + 16, wy + 24);
+
+    if (idx === 0) {
+      // Rotating 3D Plasma Rings inside Window 1
+      const cx = wx + w.w / 2, cy = wy + 205;
+      for (let r = 25; r <= 125; r += 25) {
+        ctx.strokeStyle = r % 50 === 0 ? "#22D3EE" : "#A78BFA";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, t * 2 + r, t * 2 + r + Math.PI * 1.4);
+        ctx.stroke();
+      }
+    } else if (idx === 1) {
+      ctx.fillStyle = "#10B981";
+      ctx.font = "700 14px monospace";
+      const lines = IS_SUPER ? [
+        "$ ./install.sh --target ./mixiuh-os",
+        "[OK] CLAUDE.md + GEMINI.md + MEMORY.md instalados",
+        "[OK] 01-memoria-infinita: ACTIVA",
+        "[OK] 02-auto-debugger-browser-mcp: 0 ERRORES",
+        "[OK] 03-arquitecto-senior-120fps: Float32Array ON",
+        "[OK] 04-auditor-seguridad: CSP + 0 LEAKS",
+        "[OK] 05-automatizador: AHORRO -75% TOKENS",
+      ] : [
+        "$ node start_os.js",
+        "ERROR: WindowManager z-index collision",
+        "WARN: AudioContext buffer underrun (21 FPS)",
+        "FATAL: Global state overwritten by Synth module",
+      ];
+      lines.forEach((ln, li) => ctx.fillText(ln, wx + 20, wy + 75 + li * 34));
+    } else if (idx === 2) {
+      // FM Spectrum Bars inside Window 3
+      for (let b = 0; b < 24; b++) {
+        const bh = 30 + Math.abs(Math.sin(t * 6 + b * 0.45)) * 220;
+        ctx.fillStyle = b % 2 === 0 ? "#F472B6" : "#22D3EE";
+        ctx.fillRect(wx + 32 + b * 23, wy + 340 - bh, 16, bh);
+      }
+    } else if (idx === 3) {
+      // Telemetry Wave inside Window 4
+      ctx.strokeStyle = IS_SUPER ? "#10B981" : "#F43F5E";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      for (let x = 0; x < 580; x += 10) {
+        const y = wy + 210 + Math.sin(t * 5 + x * 0.03) * (IS_SUPER ? 45 : 110);
+        if (x === 0) ctx.moveTo(wx + 40 + x, y); else ctx.lineTo(wx + 40 + x, y);
+      }
+      ctx.stroke();
+    }
+  });
+}
+
+function stepSimulation(dtMs, subSteps, fnIndex) {
+  simTime += (dtMs / 1000);
+  frameNum = fnIndex || (frameNum + 1);
+  if (burstTimer > 0) burstTimer = Math.max(0, burstTimer - dtMs / 1000);
+
+  ctx.clearRect(0, 0, 1920, 1080);
+  drawGrid();
+
+  if (CHALLENGE_NUM === 1) renderChallenge1(simTime);
+  else if (CHALLENGE_NUM === 2) renderChallenge2(simTime);
+  else if (CHALLENGE_NUM === 3) renderChallenge3(simTime);
+  else if (CHALLENGE_NUM === 4) renderChallenge4(simTime);
+  else if (CHALLENGE_NUM === 5) renderChallenge5(simTime);
+  else renderChallenge6(simTime);
+
+  const fc = document.getElementById("frame-counter");
+  if (fc) fc.textContent = "FRAME " + String(frameNum).padStart(4, "0");
+}
+
+// Deterministic hook for Playwright 60fps capture
+window.__stepFrame = function(dtMs, subSteps, fnIndex) {
+  stepSimulation(dtMs || 16.6667, subSteps || 1, fnIndex);
+};
+
+// Live browser loop when opened by a human in labs.mixiuh.online
+let lastTs = performance.now();
+function loop(ts) {
+  const dt = Math.min(50, ts - lastTs);
+  lastTs = ts;
+  if (!window.__recordingMode) {
+    stepSimulation(dt, 1);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

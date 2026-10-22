@@ -89,14 +89,14 @@ export default function MixiuhLabsHomePage() {
             </div>
           </a>
 
-          <nav className="hidden lg:flex items-center gap-4 text-xs font-mono-hud text-[#8FA3B8] whitespace-nowrap">
+          <nav className="hidden lg:flex items-center gap-3 text-[11px] font-mono-hud text-[#8FA3B8] whitespace-nowrap">
             <a
               href="#comentario-al-codigo"
-              className="text-[#FBBF24] hover:text-white font-bold transition-colors"
+              className="px-2 py-1 rounded bg-[#FBBF24]/15 border border-[#FBBF24]/40 text-[#FBBF24] hover:text-white font-bold transition-colors"
             >
               {lang === "es"
-                ? "Comentario al Codigo #01 (OVERFIT)"
-                : "Comment to Code #01 (OVERFIT)"}
+                ? "OVERFIT 3D (#01)"
+                : "OVERFIT 3D (#01)"}
             </a>
             <a
               href="#dossier"
@@ -120,25 +120,25 @@ export default function MixiuhLabsHomePage() {
               href="#matriz"
               className="hover:text-[#5EEAD4] transition-colors"
             >
-              {lang === "es" ? "Matriz y Costos" : "Matrix & Costs"}
+              {lang === "es" ? "Matriz" : "Matrix"}
             </a>
             <a
               href="#arena"
               className="hover:text-[#B794F6] text-white font-bold transition-colors"
             >
-              {lang === "es" ? "Arena (32 Demos)" : "Live Arena (32 Demos)"}
+              {lang === "es" ? "Arena (32)" : "Arena (32)"}
             </a>
             <a
               href="#foro"
               className="hover:text-[#5EEAD4] transition-colors"
             >
-              {lang === "es" ? "Foro y Autopsias" : "Forum & Autopsies"}
+              {lang === "es" ? "Foro" : "Forum"}
             </a>
             <a
               href="#glosario"
               className="hover:text-[#5EEAD4] transition-colors"
             >
-              {lang === "es" ? "Glosario (53)" : "Glossary (53)"}
+              {lang === "es" ? "Glosario" : "Glossary"}
             </a>
           </nav>
 
@@ -1191,12 +1191,11 @@ export default function MixiuhLabsHomePage() {
                 </a>
               </div>
             </div>
-            <div className="w-full h-[780px] sm:h-[880px] bg-[#04060A]">
+            <div className="w-full h-[820px] sm:h-[860px] bg-[#04060A]">
               <iframe
-                src="/demos/comunidad/cc01-overfit-studio/index.html"
+                src="/overfit/index.html"
                 title="OVERFIT Studio 3D — Del Comentario al Codigo #01 (@tenito03)"
                 className="w-full h-full border-0"
-                loading="lazy"
               />
             </div>
           </div>
