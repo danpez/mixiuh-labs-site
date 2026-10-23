@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { isContentReleased } from "@/data/releaseSchedule";
 
 const VALID_MODELS = new Set(["argon", "flash", "opus", "comunidad", "ia-sin-kit", "ia-superpowers-kit"]);
 const VALID_DIRS = new Set([
@@ -41,6 +42,23 @@ export async function GET(req: NextRequest) {
 
   if (!VALID_MODELS.has(model) || !VALID_DIRS.has(dir)) {
     return NextResponse.json({ error: "Parametros invalidos" }, { status: 400 });
+  }
+
+  const previewAll = searchParams.get("preview") === "all";
+  if (model === "comunidad" && !isContentReleased("cc01", new Date(), previewAll)) {
+    return NextResponse.json(
+      { error: "Contenido programado — aun no publicado" },
+      { status: 403 }
+    );
+  }
+  if (
+    (model === "ia-sin-kit" || model === "ia-superpowers-kit") &&
+    !isContentReleased("ep03", new Date(), previewAll)
+  ) {
+    return NextResponse.json(
+      { error: "Contenido programado — aun no publicado" },
+      { status: 403 }
+    );
   }
 
   const filePath = path.join(process.cwd(), "public", "demos", model, dir, "index.html");

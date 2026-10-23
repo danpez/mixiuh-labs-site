@@ -201,7 +201,7 @@ function recordTickZeroGC(price, size, side, now) {
     slug: "del-comentario-al-codigo-01-tenito03-overfit-studio-3d-marca-ropa-ia",
     category: "propuestas",
     pinned: true,
-    episode: "ep02",
+    episode: "cc01",
     badge_es: "DEL COMENTARIO AL CODIGO #01 · @TENITO03",
     badge_en: "COMMENT TO CODE #01 · @TENITO03",
     title_es: "De un Comentario a una Marca de Ropa IA en 3D (OVERFIT): Mockups 300 GSM en Blender Cycles y 10 Artes 'Guerra de Pesos'",
