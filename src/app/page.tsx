@@ -265,7 +265,10 @@ export default function MixiuhLabsHomePage() {
   ];
 
   const filteredArticles = BLOG_ARTICLES.filter(
-    (a) => blogFilter === "all" || a.filter === blogFilter
+    (a) => {
+      const isPastOrPresent = new Date(a.date) <= new Date();
+      return isPastOrPresent && (blogFilter === "all" || a.filter === blogFilter);
+    }
   );
 
   return (
