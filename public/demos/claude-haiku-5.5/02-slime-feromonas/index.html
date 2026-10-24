@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Physarum Polycephalum · Laboratorio de Inteligencia de Enjambre</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #03060c; overflow: hidden; font-family: ui-monospace, Menlo, Consolas, monospace; color: #cde9ff; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  #hud { position: fixed; top: 12px; left: 12px; width: 296px; max-height: calc(100vh - 24px); overflow: auto; box-sizing: border-box; padding: 12px; background: rgba(6, 10, 18, .82); border: 1px solid rgba(110, 210, 255, .22); border-radius: 10px; backdrop-filter: blur(6px); font-size: 12px; line-height: 1.35; user-select: none; }
+  #hud h1 { font-size: 13px; margin: 0 0 2px; letter-spacing: .06em; color: #9fe9ff; }
+  #hud h2 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: #6d8aa3; margin: 12px 0 6px; padding-top: 8px; border-top: 1px solid rgba(110, 210, 255, .12); }
+  .sub { color: #6d8aa3; font-size: 10.5px; margin: 4px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .stack { display: flex; flex-direction: column; gap: 4px; }
+  button, select { background: rgba(30, 50, 70, .6); color: #cde9ff; border: 1px solid rgba(110, 210, 255, .25); border-radius: 5px; padding: 4px 7px; font: inherit; cursor: pointer; }
+  button:hover, select:hover { border-color: #6fe0ff; }
+  button.on { background: rgba(40, 140, 170, .55); border-color: #6fe0ff; color: #fff; }
+  .wide { width: 100%; text-align: left; }
+  .sl { display: grid; grid-template-columns: 1fr 44px; gap: 2px 6px; margin: 5px 0; }
+  .sl label { grid-column: 1 / -1; color: #9bb4c8; }
+  .sl input { width: 100%; accent-color: #5fe3ff; margin: 0; }
+  .sl span { text-align: right; color: #fff; }
+  .mx { display: grid; grid-template-columns: 62px repeat(3, 1fr); gap: 4px; align-items: center; }
+  .mx .hd { font-size: 10.5px; text-align: center; }
+  .mx .cell { padding: 5px 0; text-align: center; font-weight: 600; }
+  .stat { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; }
+  .stat b { color: #fff; font-weight: 600; text-align: right; }
+  #err { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #ffb4b4; background: #03060c; font-size: 14px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <h1>PHYSARUM · LABORATORIO</h1>
+  <div class="sub">Inteligencia de enjambre · 51 200 agentes · difusión 3×3 + evaporación</div>
+
+  <h2>Presets genéticos</h2>
+  <div class="stack" id="presets"></div>
+
+  <h2>Parámetros en vivo</h2>
+  <div id="sliders"></div>
+
+  <h2>Matriz atracción / repulsión</h2>
+  <div class="mx" id="matrix"></div>
+  <div class="sub">Fila: especie que percibe · Columna: químico que sensa. Clic en una celda para ciclar −1 · −½ · 0 · ½ · 1.</div>
+
+  <h2>Herramientas</h2>
+  <div class="stack" id="tools"></div>
+  <div class="row" style="margin-top:6px">
+    <span>Sembrar como</span>
+    <select id="seedSp">
+      <option value="0">Cian</option>
+      <option value="1">Magenta</option>
+      <option value="2">Ámbar</option>
+    </select>
+  </div>
+
+  <h2>Telemetría</h2>
+  <div class="stat">
+    <span>FPS</span><b id="fps">–</b>
+    <span>Agentes activos</span><b id="agents">–</b>
+    <span>Entropía química (norm.)</span><b id="ent">–</b>
+    <span>Preset</span><b id="pname">–</b>
+  </div>
+  <div class="row" style="margin-top:8px"><button id="reset">Reiniciar preset</button></div>
+  <div class="sub">Muro: arrastrar · Nutriente y Antibiótico: clic · Sembrar: mantener · Teclas 1–5: presets</div>
+</div>
+<div id="err" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const S = 512;             // resolución del campo químico (px)
+  const AW = 256, AH = 200;  // textura de agentes: cada texel = un agente
+  const N = AW * AH;         // 51 200 agentes (≈ 80 % activos al inicio)
+  const TAU = Math.PI * 2;
+  const DEPOSIT = 0.3;       // feromona depositada por agente y frame
+  const ANTI_DECAY = 0.985;  // persistencia del antibiótico por frame
+  const SPECIES = [
+    { name: 'Cian', c: [0.25, 1.0, 1.0] },
+    { name: 'Magenta', c: [1.0, 0.2, 0.9] },
+    { name: 'Ámbar', c: [1.0, 0.72, 0.15] }
+  ];
+  const ATTR_STEPS = [-1, -0.5, 0, 0.5, 1];
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('c');
+
+  const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: false });
+  if (!gl || !gl.getExtension('EXT_color_buffer_float')) {
+    const err = $('err');
+    err.textContent = 'Se requiere WebGL2 con EXT_color_buffer_float (Chrome, Edge, Firefox o Safari recientes).';
+    err.hidden = false;
+    return;
+  }
+
+  /* ---------- Utilidades ---------- */
+
+  function mulberry32(a) {
+    return function () {
+      let t = (a += 0x6D2B79F5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---------- Shaders ---------- */
+
+  const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
+
+  const VS_QUAD = HEAD + `
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+  // Agentes: sensado de 3 sensores, giro estocástico, avance, muerte por antibiótico y reclutamiento
+  const FS_AGENT = HEAD + `
+const float S = 512.0;
+const int SI = 512;
+const int AW = ${AW};
+const float PI = 3.14159265359;
+const float TAU = 6.28318530718;
+uniform sampler2D uState;
+uniform sampler2D uTrail;
+uniform sampler2D uEnv;
+uniform mat3 uA;
+uniform float uSA;
+uniform float uSD;
+uniform float uTurn;
+uniform float uMove;
+uniform float uFoodAttr;
+uniform float uChiral;
+uniform float uAntiRepel;
+uniform float uKill;
+uniform float uRevive;
+uniform float uTime;
+uniform float uFrame;
+uniform float uBurst;
+uniform float uBurstRate;
+uniform float uBurstR;
+uniform float uBurstSp;
+uniform vec2 uBurstPos;
+out vec4 outState;
+
+uint hash(uint x) {
+  x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; x ^= x >> 16u;
+  return x;
+}
+float rnd(inout uint st) {
+  st = hash(st);
+  return float(st) * (1.0 / 4294967295.0);
+}
+ivec2 cell(vec2 p) {
+  return clamp(ivec2(mod(p, S)), ivec2(0), ivec2(SI - 1));
+}
+float sense(vec2 p, float a, vec3 A, float pulse) {
+  vec2 q = p + vec2(cos(a), sin(a)) * uSD;
+  ivec2 c = cell(q);
+  vec4 e = texelFetch(uEnv, c, 0);
+  float v = dot(A, texelFetch(uTrail, c, 0).rgb);
+  v += uFoodAttr * pulse * e.g;
+  v -= uAntiRepel * e.b;
+  v -= 40.0 * step(0.5, e.r);
+  return v;
+}
+void main() {
+  ivec2 fc = ivec2(gl_FragCoord.xy);
+  vec4 s = texelFetch(uState, fc, 0);
+  uint id = uint(fc.y * AW + fc.x);
+  uint st = hash(id * 747796405u + uint(uFrame) * 2891336453u + 1013904223u);
+  float r0 = rnd(st); float r1 = rnd(st); float r2 = rnd(st); float r3 = rnd(st); float r4 = rnd(st);
+
+  float alive = step(4.0, s.w);
+  float sp = s.w - 4.0 * alive;
+  vec2 p = s.xy;
+  float th = s.z;
+
+  if (alive < 0.5) {
+    if (uBurst > 0.5 && r0 < uBurstRate) {
+      p = mod(uBurstPos + (vec2(r1, r2) * 2.0 - 1.0) * uBurstR, S);
+      th = r3 * TAU;
+      sp = uBurstSp;
+      alive = 1.0;
+    } else {
+      vec4 e = texelFetch(uEnv, cell(p), 0);
+      if (e.g > 0.2 && e.b < 0.05 && r1 < uRevive) alive = 1.0;
+    }
+  }
+
+  if (alive > 0.5) {
+    int spi = int(sp + 0.5);
+    vec3 A = uA[spi];
+    float pulse = 0.65 + 0.35 * sin(uTime * 3.0);
+    if (texelFetch(uEnv, cell(p), 0).b > 0.25 && r2 < uKill) {
+      alive = 0.0;
+    } else {
+      float vC = sense(p, th, A, pulse);
+      float vL = sense(p, th - uSA, A, pulse);
+      float vR = sense(p, th + uSA, A, pulse);
+      float turn = 0.0;
+      if (vC >= vL && vC >= vR) {
+        turn = 0.0;
+      } else if (vC < vL && vC < vR) {
+        turn = (r3 < 0.5 ? -1.0 : 1.0) * uTurn;
+      } else if (vL > vR) {
+        turn = -uTurn;
+      } else {
+        turn = uTurn;
+      }
+      th = mod(th + turn + uChiral * uTurn + (r4 - 0.5) * 0.1 * uTurn, TAU);
+      vec2 np = mod(p + vec2(cos(th), sin(th)) * uMove, S);
+      if (texelFetch(uEnv, cell(np), 0).r > 0.5) {
+        th = mod(th + PI + (r0 - 0.5) * 0.8, TAU);
+      } else {
+        p = np;
+      }
+    }
+  }
+  outState = vec4(p, th, sp + 4.0 * alive);
+}`;
+
+  // Deposición: cada agente vivo pinta su feromona de especie en el canal correspondiente (aditivo)
+  const VS_DEPOSIT = HEAD + `
+const float S = 512.0;
+const int AW = ${AW};
+uniform sampler2D uState;
+uniform float uDeposit;
+out vec4 vCol;
+void main() {
+  ivec2 c = ivec2(gl_VertexID % AW, gl_VertexID / AW);
+  vec4 s = texelFetch(uState, c, 0);
+  float alive = step(4.0, s.w);
+  int sp = int(s.w - 4.0 * alive + 0.5);
+  vec3 oh = vec3(float(sp == 0), float(sp == 1), float(sp == 2));
+  vCol = oh * alive * uDeposit;
+  gl_Position = vec4(s.xy / S * 2.0 - 1.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+}`;
+
+  const FS_DEPOSIT = HEAD + `
+in vec4 vCol;
+out vec4 fragColor;
+void main() { fragColor = vCol; }`;
+
+  // Difusión 3x3 (núcleo gaussiano) mezclada con el centro + evaporación
+  const FS_DIFFUSE = HEAD + `
+uniform sampler2D uTrail;
+uniform float uDiffuse;
+uniform float uDecay;
+out vec4 fragColor;
+int wrapI(int v) { return (v + 512) % 512; }
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 sum = vec4(0.0);
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      float w = (i == 0 ? 2.0 : 1.0) * (j == 0 ? 2.0 : 1.0);
+      sum += w * texelFetch(uTrail, ivec2(wrapI(c.x + i), wrapI(c.y + j)), 0);
+    }
+  }
+  vec4 center = texelFetch(uTrail, c, 0);
+  fragColor = mix(center, sum / 16.0, uDiffuse) * (1.0 - uDecay);
+}`;
+
+  // Campo de entorno: R = muro, G = nutriente, B = antibiótico (difunde y decae)
+  const FS_ENV = HEAD + `
+uniform sampler2D uEnv;
+uniform vec2 uSegA;
+uniform vec2 uSegB;
+uniform float uR;
+uniform int uTool;
+uniform float uAntiDecay;
+out vec4 fragColor;
+int wrapI(int v) { return (v + 512) % 512; }
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 e = texelFetch(uEnv, c, 0);
+  float acc = 0.0;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      float w = (i == 0 ? 2.0 : 1.0) * (j == 0 ? 2.0 : 1.0);
+      acc += w * texelFetch(uEnv, ivec2(wrapI(c.x + i), wrapI(c.y + j)), 0).b;
+    }
+  }
+  e.b = mix(e.b, acc / 16.0, 0.3) * uAntiDecay;
+  if (uTool > 0) {
+    vec2 p = gl_FragCoord.xy;
+    vec2 pa = p - uSegA;
+    vec2 ba = uSegB - uSegA;
+    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+    float d = length(pa - ba * h);
+    if (d < uR) {
+      if (uTool == 1) e.r = 1.0;
+      else if (uTool == 2) e = vec4(0.0);
+      else if (uTool == 3) e.g = 1.0;
+      else e.b = max(e.b, 1.0 - d / uR);
+    }
+  }
+  fragColor = e;
+}`;
+
+  // Render final: colores bioluminiscentes por especie + muros, nutrientes pulsantes y antibiótico
+  const FS_VIEW = HEAD + `
+uniform sampler2D uTrail;
+uniform sampler2D uEnv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec3 uC0;
+uniform vec3 uC1;
+uniform vec3 uC2;
+out vec4 fragColor;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 tr = texture(uTrail, uv).rgb;
+  ivec2 c = ivec2(clamp(uv * 512.0, 0.0, 511.0));
+  vec4 e = texelFetch(uEnv, c, 0);
+  vec3 glow = uC0 * tr.r + uC1 * tr.g + uC2 * tr.b;
+  vec3 bg = vec3(0.012, 0.018, 0.032) + vec3(0.02, 0.03, 0.05) * (1.0 - length(uv - 0.5));
+  vec3 col = bg + (1.0 - exp(-glow * 0.9));
+  col = mix(col, vec3(0.42, 0.45, 0.50), smoothstep(0.5, 0.9, e.r));
+  float pulse = 0.6 + 0.4 * sin(uTime * 3.0);
+  col += vec3(1.0, 0.9, 0.5) * e.g * (0.3 + 0.4 * pulse);
+  col = mix(col, vec3(0.9, 0.12, 0.3), clamp(e.b, 0.0, 1.0) * 0.4);
+  fragColor = vec4(pow(col, vec3(0.9)), 1.0);
+}`;
+
+  // Reducción 512² -> 64² (promedio por bloques) para medir entropía sin leer el mapa completo
+  const FS_DOWN = HEAD + `
+uniform sampler2D uTrail;
+out vec4 fragColor;
+void main() {
+  ivec2 o = ivec2(gl_FragCoord.xy);
+  vec4 sum = vec4(0.0);
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      sum += texelFetch(uTrail, o * 8 + ivec2(i, j), 0);
+    }
+  }
+  fragColor = sum / 64.0;
+}`;
+
+  /* ---------- Helpers WebGL ---------- */
+
+  function compile(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+
+  function makeProgram(vs, fs, uniforms) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {};
+    for (const n of uniforms) u[n] = gl.getUniformLocation(p, n);
+    return { p, u };
+  }
+
+  function makeTex(w, h, fmt, filter) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, fmt, w, h);
+    return t;
+  }
+
+  function makeFbo(t) {
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (st !== gl.FRAMEBUFFER_COMPLETE) throw new Error('FBO incompleto: ' + st);
+    return f;
+  }
+
+  function bindTex(unit, t) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+  }
+
+  function clearFbo(f, w, h) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  /* ---------- Programas ---------- */
+
+  const PA = makeProgram(VS_QUAD, FS_AGENT, ['uState', 'uTrail', 'uEnv', 'uA', 'uSA', 'uSD', 'uTurn', 'uMove', 'uFoodAttr', 'uChiral', 'uAntiRepel', 'uKill', 'uRevive', 'uTime', 'uFrame', 'uBurst', 'uBurstRate', 'uBurstR', 'uBurstSp', 'uBurstPos']);
+  const PP = makeProgram(VS_DEPOSIT, FS_DEPOSIT, ['uState', 'uDeposit']);
+  const PD = makeProgram(VS_QUAD, FS_DIFFUSE, ['uTrail', 'uDiffuse', 'uDecay']);
+  const PE = makeProgram(VS_QUAD, FS_ENV, ['uEnv', 'uSegA', 'uSegB', 'uR', 'uTool', 'uAntiDecay']);
+  const PV = makeProgram(VS_QUAD, FS_VIEW, ['uTrail', 'uEnv', 'uRes', 'uTime', 'uC0', 'uC1', 'uC2']);
+  const PS = makeProgram(VS_QUAD, FS_DOWN, ['uTrail']);
+
+  gl.useProgram(PA.p); gl.uniform1i(PA.u.uState, 0); gl.uniform1i(PA.u.uTrail, 1); gl.uniform1i(PA.u.uEnv, 2);
+  gl.useProgram(PP.p); gl.uniform1i(PP.u.uState, 0);
+  gl.useProgram(PD.p); gl.uniform1i(PD.u.uTrail, 0);
+  gl.useProgram(PE.p); gl.uniform1i(PE.u.uEnv, 0);
+  gl.useProgram(PV.p); gl.uniform1i(PV.u.uTrail, 0); gl.uniform1i(PV.u.uEnv, 1);
+  gl.useProgram(PS.p); gl.uniform1i(PS.u.uTrail, 0);
+  gl.useProgram(PV.p);
+  gl.uniform3fv(PV.u.uC0, SPECIES[0].c);
+  gl.uniform3fv(PV.u.uC1, SPECIES[1].c);
+  gl.uniform3fv(PV.u.uC2, SPECIES[2].c);
+
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+
+  /* ---------- Texturas y framebuffers ping-pong ---------- */
+
+  const stateTex = [makeTex(AW, AH, gl.RGBA32F, gl.NEAREST), makeTex(AW, AH, gl.RGBA32F, gl.NEAREST)];
+  const stateFbo = stateTex.map(makeFbo);
+  const trailTex = [makeTex(S, S, gl.RGBA16F, gl.LINEAR), makeTex(S, S, gl.RGBA16F, gl.LINEAR)];
+  const trailFbo = trailTex.map(makeFbo);
+  const envTex = [makeTex(S, S, gl.RGBA32F, gl.NEAREST), makeTex(S, S, gl.RGBA32F, gl.NEAREST)];
+  const envFbo = envTex.map(makeFbo);
+  const dsTex = makeTex(64, 64, gl.RGBA32F, gl.NEAREST);
+  const dsFbo = makeFbo(dsTex);
+
+  let si = 0, ti = 0, ei = 0; // índices de la textura "actual"
+  const agentBuf = new Float32Array(N * 4);
+  const dsBuf = new Float32Array(64 * 64 * 4);
+  const entropyVals = new Float64Array(64 * 64);
+
+  /* ---------- Estado de parámetros ---------- */
+
+  const params = { sensorAngle: 0.6, sensorDistance: 9, turnSpeed: 0.3, moveSpeed: 1.0, evaporationRate: 0.03, diffusion: 0.55 };
+  let A = [[1, 0, 0], [0, 0, 0], [0, 0, 0]];
+  let flatA = new Float32Array(9);
+  let foodAttr = 0, chiral = 0, antiRepel = 1;
+  let presetIndex = 0;
+
+  function refreshMatrixFlat() {
+    // Columna s = especie que percibe; fila j = químico j (orden column-major de mat3)
+    for (let s = 0; s < 3; s++) for (let j = 0; j < 3; j++) flatA[s * 3 + j] = A[s][j];
+  }
+
+  /* ---------- Presets ---------- */
+
+  const TOKYO = [[120, 380], [190, 430], [330, 440], [400, 380], [430, 260], [400, 140], [300, 70], [170, 90], [90, 190], [256, 330], [210, 200], [300, 180], [360, 300], [140, 280]];
+  const ring = (n, R) => Array.from({ length: n }, (_, i) => [256 + Math.cos(i / n * TAU) * R, 256 + Math.sin(i / n * TAU) * R]);
+  const rng = mulberry32(7);
+  const NEURONS = Array.from({ length: 28 }, () => [40 + rng() * 432, 40 + rng() * 432]);
+
+  const PRESETS = [
+    {
+      name: 'Red Ferroviaria de Tokio',
+      p: { sensorAngle: 0.6, sensorDistance: 9, turnSpeed: 0.35, moveSpeed: 1.0, evaporationRate: 0.03, diffusion: 0.55 },
+      A: [[1, 0, 0], [0, 0, 0], [0, 0, 0]], foodAttr: 6, chiral: 0, anti: 1.0,
+      food: TOKYO,
+      colonies: [{ x: 256, y: 256, r: 26, sp: 0 }], active: 0.8, species: [0]
+    },
+    {
+      name: 'Guerra de 3 Colonias',
+      p: { sensorAngle: 0.6, sensorDistance: 10, turnSpeed: 0.3, moveSpeed: 1.1, evaporationRate: 0.04, diffusion: 0.5 },
+      A: [[1, -0.9, -0.9], [-0.9, 1, -0.9], [-0.9, -0.9, 1]], foodAttr: 0, chiral: 0, anti: 1.2,
+      food: [],
+      colonies: [{ x: 150, y: 330, r: 30, sp: 0 }, { x: 362, y: 330, r: 30, sp: 1 }, { x: 256, y: 150, r: 30, sp: 2 }], active: 0.85, species: [0, 1, 2]
+    },
+    {
+      name: 'Mitosis Celular',
+      p: { sensorAngle: 0.35, sensorDistance: 6, turnSpeed: 0.35, moveSpeed: 0.8, evaporationRate: 0.02, diffusion: 0.35 },
+      A: [[1, 0.5, 0.5], [0.5, 1, 0.5], [0.5, 0.5, 1]], foodAttr: 3, chiral: 0, anti: 0.8,
+      food: ring(8, 170),
+      colonies: [{ x: 256, y: 256, r: 20, sp: 0 }, { x: 226, y: 256, r: 12, sp: 1 }, { x: 286, y: 256, r: 12, sp: 2 }], active: 0.8, species: [0, 1, 2]
+    },
+    {
+      name: 'Red Neuronal Sináptica',
+      p: { sensorAngle: 0.9, sensorDistance: 16, turnSpeed: 0.28, moveSpeed: 1.2, evaporationRate: 0.008, diffusion: 0.25 },
+      A: [[0.7, 0.9, -0.6], [0.9, 0.7, -0.6], [-0.6, -0.6, 0.9]], foodAttr: 3, chiral: 0, anti: 0.6,
+      food: NEURONS,
+      colonies: [{ x: 150, y: 200, r: 40, sp: 0 }, { x: 360, y: 200, r: 40, sp: 1 }, { x: 256, y: 340, r: 40, sp: 2 }], active: 0.7, species: [0, 1, 2]
+    },
+    {
+      name: 'Tormenta Quiral',
+      p: { sensorAngle: 0.5, sensorDistance: 10, turnSpeed: 0.3, moveSpeed: 1.4, evaporationRate: 0.015, diffusion: 0.7 },
+      A: [[-0.3, 1, -0.5], [-0.5, -0.3, 1], [1, -0.5, -0.3]], foodAttr: 0, chiral: 0.5, anti: 0.8,
+      food: [],
+      colonies: [{ x: 256, y: 150, r: 90, sp: 0 }, { x: 380, y: 350, r: 90, sp: 1 }, { x: 132, y: 350, r: 90, sp: 2 }], active: 0.85, species: [0, 1, 2]
+    }
+  ];
+
+  function buildAgents(pr) {
+    const data = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+      const o = i * 4;
+      const alive = Math.random() < pr.active;
+      let x, y, sp;
+      if (alive) {
+        const c = pr.colonies[(Math.random() * pr.colonies.length) | 0];
+        const a = Math.random() * TAU;
+        const rr = Math.sqrt(Math.random()) * c.r;
+        x = c.x + Math.cos(a) * rr;
+        y = c.y + Math.sin(a) * rr;
+        sp = c.sp;
+      } else {
+        x = Math.random() * S;
+        y = Math.random() * S;
+        sp = pr.species[(Math.random() * pr.species.length) | 0];
+      }
+      data[o] = ((x % S) + S) % S;
+      data[o + 1] = ((y % S) + S) % S;
+      data[o + 2] = Math.random() * TAU;
+      data[o + 3] = sp + (alive ? 4 : 0);
+    }
+    return data;
+  }
+
+  function buildEnv(pr) {
+    const d = new Float32Array(S * S * 4);
+    for (const [x, y] of pr.food) {
+      const R = 5;
+      for (let yy = Math.floor(y - R); yy <= Math.ceil(y + R); yy++) {
+        for (let xx = Math.floor(x - R); xx <= Math.ceil(x + R); xx++) {
+          if (Math.hypot(xx + 0.5 - x, yy + 0.5 - y) > R) continue;
+          const px = (xx + S) % S, py = (yy + S) % S;
+          d[(py * S + px) * 4 + 1] = 1;
+        }
+      }
+    }
+    return d;
+  }
+
+  function syncMatrixUI() {
+    const box = $('matrix');
+    box.innerHTML = '';
+    const blank = document.createElement('span');
+    box.append(blank);
+    SPECIES.forEach((sp) => {
+      const h = document.createElement('span');
+      h.className = 'hd';
+      h.style.color = `rgb(${sp.c.map((v) => Math.round(v * 255)).join(',')})`;
+      h.textContent = sp.name;
+      box.append(h);
+    });
+    for (let s = 0; s < 3; s++) {
+      const rowH = document.createElement('span');
+      rowH.className = 'hd';
+      rowH.style.color = `rgb(${SPECIES[s].c.map((v) => Math.round(v * 255)).join(',')})`;
+      rowH.textContent = SPECIES[s].name;
+      box.append(rowH);
+      for (let j = 0; j < 3; j++) {
+        const v = A[s][j];
+        const b = document.createElement('button');
+        b.className = 'cell';
+        const a = Math.min(Math.abs(v), 1) * 0.75;
+        b.style.background = v >= 0 ? `rgba(60,220,160,${a})` : `rgba(255,80,110,${a})`;
+        b.textContent = v.toFixed(1);
+        b.title = `${SPECIES[s].name} → ${SPECIES[j].name}`;
+        b.addEventListener('click', () => {
+          const idx = ATTR_STEPS.findIndex((x) => Math.abs(x - A[s][j]) < 1e-6);
+          A[s][j] = ATTR_STEPS[(idx + 1) % ATTR_STEPS.length];
+          refreshMatrixFlat();
+          syncMatrixUI();
+        });
+        box.append(b);
+      }
+    }
+  }
+
+  /* ---------- Sliders ---------- */
+
+  const SLIDERS = [
+    ['sensorAngle', 'sensorAngle (rad)', 0.1, 1.6, 0.01],
+    ['sensorDistance', 'sensorDistance (px)', 2, 30, 0.5],
+    ['turnSpeed', 'turnSpeed (rad)', 0.02, 0.8, 0.01],
+    ['moveSpeed', 'moveSpeed (px/paso)', 0.2, 3, 0.05],
+    ['evaporationRate', 'evaporationRate', 0, 0.1, 0.001],
+    ['diffusion', 'diffusion', 0, 1, 0.01]
+  ];
+  const sliderRefs = {};
+
+  (function buildSliders() {
+    const box = $('sliders');
+    for (const [key, label, min, max, step] of SLIDERS) {
+      const dec = step >= 0.5 ? 1 : step >= 0.01 ? 2 : 3;
+      const wrap = document.createElement('div');
+      wrap.className = 'sl';
+      const lb = document.createElement('label');
+      lb.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = 'range';
+      inp.min = min; inp.max = max; inp.step = step;
+      const out = document.createElement('span');
+      inp.addEventListener('input', () => {
+        params[key] = parseFloat(inp.value);
+        out.textContent = params[key].toFixed(dec);
+      });
+      wrap.append(lb, inp, out);
+      box.append(wrap);
+      sliderRefs[key] = { inp, out, dec };
+    }
+  })();
+
+  function syncSliders() {
+    for (const k in sliderRefs) {
+      const r = sliderRefs[k];
+      r.inp.value = params[k];
+      r.out.textContent = params[k].toFixed(r.dec);
+    }
+  }
+
+  /* ---------- Presets UI ---------- */
+
+  const presetBtns = PRESETS.map((pr, i) => {
+    const b = document.createElement('button');
+    b.className = 'wide';
+    b.textContent = `${i + 1}. ${pr.name}`;
+    b.addEventListener('click', () => loadPreset(i));
+    $('presets').append(b);
+    return b;
+  });
+
+  function loadPreset(i) {
+    const pr = PRESETS[i];
+    presetIndex = i;
+    Object.assign(params, pr.p);
+    foodAttr = pr.foodAttr;
+    chiral = pr.chiral;
+    antiRepel = pr.anti;
+    A = pr.A.map((r) => r.slice());
+    refreshMatrixFlat();
+    syncSliders();
+    syncMatrixUI();
+    presetBtns.forEach((b, k) => b.classList.toggle('on', k === i));
+    $('pname').textContent = pr.name;
+
+    gl.bindTexture(gl.TEXTURE_2D, stateTex[si]);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, AW, AH, gl.RGBA, gl.FLOAT, buildAgents(pr));
+    gl.bindTexture(gl.TEXTURE_2D, envTex[ei]);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, S, S, gl.RGBA, gl.FLOAT, buildEnv(pr));
+    clearFbo(trailFbo[0], S, S);
+    clearFbo(trailFbo[1], S, S);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  /* ---------- Herramientas y entrada ---------- */
+
+  const TOOLS = [
+    { id: 'wall', label: 'Muro (arrastrar)' },
+    { id: 'erase', label: 'Borrar (arrastrar)' },
+    { id: 'food', label: 'Nutriente pulsante (clic)' },
+    { id: 'anti', label: 'Pulso de antibiótico (clic)' },
+    { id: 'seed', label: 'Ráfaga de agentes (mantener)' }
+  ];
+  let mode = 'wall';
+  const toolBtns = TOOLS.map((t) => {
+    const b = document.createElement('button');
+    b.className = 'wide';
+    b.textContent = t.label;
+    b.addEventListener('click', () => setMode(t.id));
+    $('tools').append(b);
+    return b;
+  });
+  function setMode(id) {
+    mode = id;
+    TOOLS.forEach((t, k) => toolBtns[k].classList.toggle('on', t.id === id));
+  }
+  setMode('wall');
+
+  let seedSp = 0;
+  $('seedSp').addEventListener('change', (e) => { seedSp = parseInt(e.target.value, 10); });
+
+  const mouse = { down: false, x: 0, y: 0, px: 0, py: 0 };
+  let pending = null;
+
+  function toSim(e) {
+    const r = canvas.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width * S, (1 - (e.clientY - r.top) / r.height) * S];
+  }
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('pointerdown', (e) => {
+    const [x, y] = toSim(e);
+    mouse.down = true;
+    mouse.x = mouse.px = x;
+    mouse.y = mouse.py = y;
+    if (mode === 'food') pending = { tool: 3, R: 6, x, y };
+    else if (mode === 'anti') pending = { tool: 4, R: 42, x, y };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const [x, y] = toSim(e);
+    mouse.x = x;
+    mouse.y = y;
+  });
+  const release = () => { mouse.down = false; };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  $('reset').addEventListener('click', () => loadPreset(presetIndex));
+  window.addEventListener('keydown', (e) => {
+    if (e.key >= '1' && e.key <= '5') loadPreset(parseInt(e.key, 10) - 1);
+  });
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(window.innerWidth * dpr);
+    canvas.height = Math.round(window.innerHeight * dpr);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ---------- Simulación ---------- */
+
+  const hud = { fps: $('fps'), agents: $('agents'), ent: $('ent') };
+  let frameNo = 0, time = 0, last = performance.now();
+  let fpsFrames = 0, fpsStart = last;
+
+  function entropyOf(buf) {
+    let total = 0;
+    for (let i = 0; i < 64 * 64; i++) {
+      const t = buf[i * 4] + buf[i * 4 + 1] + buf[i * 4 + 2];
+      entropyVals[i] = t;
+      total += t;
+    }
+    if (total <= 0) return 0;
+    let H = 0;
+    for (let i = 0; i < 64 * 64; i++) {
+      const p = entropyVals[i] / total;
+      if (p > 0) H -= p * Math.log(p);
+    }
+    return H / Math.log(64 * 64);
+  }
+
+  function simulate() {
+    const P = params;
+
+    let tool = 0, R = 4;
+    let ax = mouse.x, ay = mouse.y, bx = mouse.x, by = mouse.y;
+    if (pending) {
+      tool = pending.tool; R = pending.R;
+      ax = bx = pending.x; ay = by = pending.y;
+      pending = null;
+    } else if (mouse.down && (mode === 'wall' || mode === 'erase')) {
+      tool = mode === 'wall' ? 1 : 2;
+      R = mode === 'wall' ? 4 : 10;
+      ax = mouse.px; ay = mouse.py;
+    }
+    mouse.px = mouse.x; mouse.py = mouse.y;
+    const burst = mouse.down && mode === 'seed';
+
+    // 1. Agentes: sensado, giro, avance, muerte y reclutamiento
+    gl.bindFramebuffer(gl.FRAMEBUFFER, stateFbo[1 - si]);
+    gl.viewport(0, 0, AW, AH);
+    gl.useProgram(PA.p);
+    bindTex(0, stateTex[si]); bindTex(1, trailTex[ti]); bindTex(2, envTex[ei]);
+    const ua = PA.u;
+    gl.uniformMatrix3fv(ua.uA, false, flatA);
+    gl.uniform1f(ua.uSA, P.sensorAngle);
+    gl.uniform1f(ua.uSD, P.sensorDistance);
+    gl.uniform1f(ua.uTurn, P.turnSpeed);
+    gl.uniform1f(ua.uMove, P.moveSpeed);
+    gl.uniform1f(ua.uFoodAttr, foodAttr);
+    gl.uniform1f(ua.uChiral, chiral);
+    gl.uniform1f(ua.uAntiRepel, antiRepel);
+    gl.uniform1f(ua.uKill, 0.04);
+    gl.uniform1f(ua.uRevive, 0.002);
+    gl.uniform1f(ua.uTime, time);
+    gl.uniform1f(ua.uFrame, frameNo);
+    gl.uniform1f(ua.uBurst, burst ? 1 : 0);
+    gl.uniform1f(ua.uBurstRate, 0.06);
+    gl.uniform1f(ua.uBurstR, 14);
+    gl.uniform1f(ua.uBurstSp, seedSp);
+    gl.uniform2f(ua.uBurstPos, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    si ^= 1;
+
+    // 2. Difusión 3x3 + evaporación
+    gl.bindFramebuffer(gl.FRAMEBUFFER, trailFbo[1 - ti]);
+    gl.viewport(0, 0, S, S);
+    gl.useProgram(PD.p);
+    bindTex(0, trailTex[ti]);
+    gl.uniform1f(PD.u.uDiffuse, P.diffusion);
+    gl.uniform1f(PD.u.uDecay, P.evaporationRate);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // 3. Deposición de feromona de cada especie (aditiva)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(PP.p);
+    bindTex(0, stateTex[si]);
+    gl.uniform1f(PP.u.uDeposit, DEPOSIT);
+    gl.drawArrays(gl.POINTS, 0, N);
+    gl.disable(gl.BLEND);
+    ti ^= 1;
+
+    // 4. Entorno: muros, nutrientes, antibiótico
+    gl.bindFramebuffer(gl.FRAMEBUFFER, envFbo[1 - ei]);
+    gl.viewport(0, 0, S, S);
+    gl.useProgram(PE.p);
+    bindTex(0, envTex[ei]);
+    gl.uniform2f(PE.u.uSegA, ax, ay);
+    gl.uniform2f(PE.u.uSegB, bx, by);
+    gl.uniform1f(PE.u.uR, R);
+    gl.uniform1i(PE.u.uTool, tool);
+    gl.uniform1f(PE.u.uAntiDecay, ANTI_DECAY);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    ei ^= 1;
+
+    // 5. Render a pantalla
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(PV.p);
+    bindTex(0, trailTex[ti]); bindTex(1, envTex[ei]);
+    gl.uniform2f(PV.u.uRes, canvas.width, canvas.height);
+    gl.uniform1f(PV.u.uTime, time);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // 6. Telemetría (lecturas espaciadas para no bloquear la GPU cada frame)
+    if (frameNo % 15 === 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dsFbo);
+      gl.viewport(0, 0, 64, 64);
+      gl.useProgram(PS.p);
+      bindTex(0, trailTex[ti]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.FLOAT, dsBuf);
+      hud.ent.textContent = entropyOf(dsBuf).toFixed(3);
+    }
+    if (frameNo % 30 === 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, stateFbo[si]);
+      gl.readPixels(0, 0, AW, AH, gl.RGBA, gl.FLOAT, agentBuf);
+      let alive = 0;
+      for (let i = 0; i < N; i++) if (agentBuf[i * 4 + 3] >= 4) alive++;
+      hud.agents.textContent = `${alive.toLocaleString('es-ES')} / ${N.toLocaleString('es-ES')}`;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  function frame(now) {
+    time += Math.min(now - last, 50) / 1000;
+    last = now;
+    frameNo++;
+    simulate();
+
+    fpsFrames++;
+    if (now - fpsStart >= 500) {
+      hud.fps.textContent = (fpsFrames * 1000 / (now - fpsStart)).toFixed(0);
+      fpsFrames = 0;
+      fpsStart = now;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  refreshMatrixFlat();
+  loadPreset(0);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -21,6 +21,10 @@ import {
   EPISODE_03_CHAPTERS,
   EP03_HONESTY_NOTES,
 } from "@/data/ep03Data";
+import {
+  EP04_BENCHMARK_TOTALS,
+  EP04_CHALLENGES,
+} from "@/data/ep04Data";
 import DemoArenaSection from "@/components/DemoArenaModal";
 import ForumSection from "@/components/ForumSection";
 import {
@@ -50,7 +54,7 @@ import {
 } from "lucide-react";
 
 type MainView = "blog" | "dossiers" | "comunidad" | "arena" | "foro";
-type DossierEpisode = "ep03" | "ep02" | "ep01";
+type DossierEpisode = "ep04" | "ep03" | "ep02" | "ep01";
 type BlogFilter = "all" | "torneos" | "kits" | "comunidad";
 
 export default function MixiuhLabsHomePage() {
@@ -60,9 +64,12 @@ export default function MixiuhLabsHomePage() {
   );
   const [mainView, setMainView] = useState<MainView>("blog");
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
-  const [dossierEp, setDossierEp] = useState<DossierEpisode>(() =>
-    getReleasedStatus().ep03 ? "ep03" : "ep02"
-  );
+  const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
+    const r = getReleasedStatus();
+    if (r.ep04) return "ep04";
+    if (r.ep03) return "ep03";
+    return "ep02";
+  });
 
   // Arena & Episode state
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
@@ -78,6 +85,13 @@ export default function MixiuhLabsHomePage() {
   >("split");
   const [copiedEp03Prompt, setCopiedEp03Prompt] = useState(false);
 
+  // EP04 interactive 3-way comparator state
+  const [ep04ChallengeN, setEp04ChallengeN] = useState<number>(4);
+  const [ep04Mode, setEp04Mode] = useState<
+    "triple" | "haiku" | "sonnet" | "opus" | "prompt"
+  >("triple");
+  const [copiedEp04Prompt, setCopiedEp04Prompt] = useState(false);
+
   // Video & Glossary state
   const [activeVideoClip, setActiveVideoClip] = useState<"hook" | "boss">(
     "hook"
@@ -92,15 +106,22 @@ export default function MixiuhLabsHomePage() {
     const rel = getReleasedStatus(new Date(), previewAll);
     setReleased(rel);
 
-    if (!rel.ep03) {
-      setDossierEp((prev) => (prev === "ep03" ? "ep02" : prev));
+    if (!rel.ep04 && !rel.ep03) {
+      setDossierEp((prev) =>
+        prev === "ep04" || prev === "ep03" ? "ep02" : prev
+      );
       setArenaMode("ep02_ep01");
+    } else if (!rel.ep04 && rel.ep03) {
+      setDossierEp((prev) => (prev === "ep04" ? "ep03" : prev));
     }
 
     const applyHash = () => {
       const h = window.location.hash.replace("#", "");
       if (!h || h === "top") return;
-      if (h === "ep03-superpowers-kit" && rel.ep03) {
+      if (h === "ep04-escalera-claude" && rel.ep04) {
+        setMainView("dossiers");
+        setDossierEp("ep04");
+      } else if (h === "ep03-superpowers-kit" && rel.ep03) {
         setMainView("dossiers");
         setDossierEp("ep03");
       } else if (h === "comentario-al-codigo" && rel.cc01) {
@@ -129,7 +150,14 @@ export default function MixiuhLabsHomePage() {
     }
     setMainView(view);
     if (subEp) {
-      const safeEp = subEp === "ep03" && !released.ep03 ? "ep02" : subEp;
+      const safeEp =
+        subEp === "ep04" && !released.ep04
+          ? released.ep03
+            ? "ep03"
+            : "ep02"
+          : subEp === "ep03" && !released.ep03
+          ? "ep02"
+          : subEp;
       setDossierEp(safeEp);
       if (safeEp === "ep02" || safeEp === "ep01") {
         setActiveEpisode(safeEp);
@@ -174,8 +202,36 @@ export default function MixiuhLabsHomePage() {
 
   const isEp02 = dossierEp === "ep02";
 
-  // Blog Cards Data (All 4 Productions, strictly gated by releaseSchedule.ts)
+  // Blog Cards Data (All 5 Productions, strictly gated by releaseSchedule.ts)
   const BLOG_ARTICLES = [
+    {
+      id: "ep04" as ReleaseKey,
+      filter: "torneos" as const,
+      date: "28 Oct 2026",
+      readTime: "08:15 Video · 18 Demos",
+      badge_es: "EPISODIO 04 · ESCALERA CLAUDE 5.5",
+      badge_en: "EPISODE 04 · CLAUDE 5.5 LADDER",
+      accentColor: "#22D3EE",
+      scoreBadge_es: "OPUS 3 · SONNET 2 · HAIKU 1",
+      scoreBadge_en: "OPUS 3 · SONNET 2 · HAIKU 1",
+      thumb: "/stills/ep04/ep04_vs_04_acido.png",
+      title_es:
+        "Claude Haiku 5.5 vs. Sonnet 5.5 vs. Opus 5.5: ¿En Que Nivel Conviene Gastar Tu Dinero? ($1.54 vs $12.22 vs $29.94)",
+      title_en:
+        "Claude Haiku 5.5 vs. Sonnet 5.5 vs. Opus 5.5: Which Tier Is Actually Worth Your Money? ($1.54 vs $12.22 vs $29.94)",
+      excerpt_es:
+        "Corrimos 18 pruebas aisladas en Claude Code CLI con los 3 niveles de Claude 5.5 en 6 retos extremos. Opus 5.5 gano los primeros 3 retos de fisica y shaders (3-0), pero Haiku 5.5 sorprendio construyendo el Estudio Acido 3D a 61 FPS por solo $0.21 USD (24x mas barato que Opus), y Sonnet 5.5 gano los ultimos 2 retos duplicando los FPS del Path Tracer (29 vs 15 FPS) y arrancando Pong en vivo en la consola CHIP-8.",
+      excerpt_en:
+        "We ran 18 isolated Claude Code CLI benchmarks across all 3 tiers of Claude 5.5 in 6 extreme challenges. Opus 5.5 swept the first 3 physics and shader rounds (3-0), but Haiku 5.5 stunned by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus), and Sonnet 5.5 won the final 2 challenges—doubling Path Tracer FPS (29 vs 15 FPS) and booting live Pong on the CHIP-8 console.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "3 - 2 - 1" },
+        { label_es: "HAIKU 5.5", label_en: "HAIKU 5.5", val: "$1.54 · 87m" },
+        { label_es: "SONNET 5.5", label_en: "SONNET 5.5", val: "$12.22 · 105m" },
+        { label_es: "OPUS 5.5", label_en: "OPUS 5.5", val: "$29.94 · 179m" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep04"),
+      onOpenArena: () => navigateToView("dossiers", "ep04"),
+    },
     {
       id: "ep03" as ReleaseKey,
       filter: "kits" as const,
@@ -301,10 +357,19 @@ export default function MixiuhLabsHomePage() {
   // Dynamic spoiler-free counters matching only what has been published
   const totalEpisodesCount = releasedArticles.length;
   const totalDemosCount =
-    20 + 12 + (released.cc01 ? 1 : 0) + (released.ep03 ? 12 : 0);
-  const totalPromptsCount = 10 + 6 + (released.ep03 ? 6 : 0);
+    20 +
+    12 +
+    (released.cc01 ? 1 : 0) +
+    (released.ep03 ? 12 : 0) +
+    (released.ep04 ? 18 : 0);
+  const totalPromptsCount =
+    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0);
   const totalForumThreadsCount =
-    totalPromptsCount + 5 + (released.cc01 ? 1 : 0) + (released.ep03 ? 1 : 0);
+    totalPromptsCount +
+    5 +
+    (released.cc01 ? 1 : 0) +
+    (released.ep03 ? 1 : 0) +
+    (released.ep04 ? 1 : 0);
 
   return (
     <div className="min-h-screen labs-grid-bg text-[#F5F7FA] flex flex-col">
@@ -1281,9 +1346,36 @@ export default function MixiuhLabsHomePage() {
 
               <div
                 className={`grid grid-cols-1 ${
-                  released.ep03 ? "sm:grid-cols-3" : "sm:grid-cols-2"
-                } gap-2 flex-1 max-w-4xl`}
+                  released.ep04
+                    ? "sm:grid-cols-2 lg:grid-cols-4"
+                    : released.ep03
+                    ? "sm:grid-cols-3"
+                    : "sm:grid-cols-2"
+                } gap-2 flex-1 max-w-5xl`}
               >
+                {released.ep04 && (
+                  <button
+                    onClick={() => setDossierEp("ep04")}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                      dossierEp === "ep04"
+                        ? "bg-[#11283F] border-[#22D3EE] shadow-[0_0_20px_rgba(34,211,238,0.25)]"
+                        : "bg-[#060B14]/70 border-white/10 hover:border-white/30"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                      <span className="text-[#22D3EE] font-bold">
+                        EPISODIO 04 · NUEVO
+                      </span>
+                      <span className="text-[#5EEAD4]">
+                        3-2-1 · $1.54 vs $29.94
+                      </span>
+                    </div>
+                    <div className="font-display text-xs sm:text-sm font-bold text-white mt-1 truncate">
+                      Escalera Claude: Haiku vs Sonnet vs Opus
+                    </div>
+                  </button>
+                )}
+
                 {released.ep03 && (
                   <button
                     onClick={() => setDossierEp("ep03")}
@@ -1295,7 +1387,7 @@ export default function MixiuhLabsHomePage() {
                   >
                     <div className="flex items-center justify-between font-mono-hud text-[10px]">
                       <span className="text-[#34D399] font-bold">
-                        EPISODIO 03 · NUEVO
+                        EPISODIO 03
                       </span>
                       <span className="text-[#5EEAD4]">4-2 · 276m vs 302m</span>
                     </div>
@@ -1342,6 +1434,371 @@ export default function MixiuhLabsHomePage() {
                 </button>
               </div>
             </div>
+
+            {/* -----------------------------------------------------------------
+                SUB-DOSSIER 0: EPISODIO 04 (GATED BY RELEASE SCHEDULE)
+               ----------------------------------------------------------------- */}
+            {released.ep04 && dossierEp === "ep04" && (
+              <div id="ep04-escalera-claude" className="space-y-10">
+                <div className="rounded-2xl bg-[#0B1D30] border border-[#22D3EE]/40 p-6 sm:p-8 shadow-2xl space-y-6">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#22D3EE]/15 border border-[#22D3EE]/50 font-mono-hud text-xs font-bold text-[#22D3EE]">
+                    {lang === "es"
+                      ? "DOSSIER OFICIAL EPISODIO 04 · 18 CORRIDAS REALES EN CLAUDE CODE CLI (HAIKU VS SONNET VS OPUS)"
+                      : "OFFICIAL EPISODE 04 DOSSIER · 18 REAL CLAUDE CODE CLI RUNS (HAIKU VS SONNET VS OPUS)"}
+                  </div>
+
+                  <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+                    {lang === "es" ? (
+                      <>
+                        La Escalera Completa de Claude 5.5:{" "}
+                        <span className="text-[#34D399]">Haiku ($1.54)</span> vs.{" "}
+                        <span className="text-[#FBBF24]">Sonnet ($12.22)</span>{" "}
+                        vs.{" "}
+                        <span className="text-[#B794F6]">Opus ($29.94)</span>
+                      </>
+                    ) : (
+                      <>
+                        The Full Claude 5.5 Ladder:{" "}
+                        <span className="text-[#34D399]">Haiku ($1.54)</span> vs.{" "}
+                        <span className="text-[#FBBF24]">Sonnet ($12.22)</span>{" "}
+                        vs.{" "}
+                        <span className="text-[#B794F6]">Opus ($29.94)</span>
+                      </>
+                    )}
+                  </h1>
+
+                  <p className="text-sm sm:text-base text-[#8FA3B8] leading-relaxed max-w-4xl">
+                    {lang === "es"
+                      ? "Enfrentamos a los 3 niveles de Claude 5.5 en 18 ejecuciones aisladas (6 retos extremos x 3 modelos). Opus 5.5 gano 3 puntos en fisica multicapa y shaders cientificos (Rover Verlet, Bio-Red Tokio GPU y Puente XPBD), Sonnet 5.5 gano 2 puntos en los retos finales (Path Tracer WebGL2 a 29 FPS vs 15 FPS de Opus y Consola Retro CHIP-8 con Pong en vivo mientras Opus olvido ensamblar la ROM), y Haiku 5.5 gano 1 punto historico al construir el Estudio Acido 3D a 61 FPS por solo $0.21 USD (24 veces mas barato que Opus)."
+                      : "We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 extreme challenges x 3 models). Opus 5.5 won 3 points on multi-pass physics and scientific shaders (Verlet Rover, Tokyo GPU Bio-Network, and XPBD Bridge), Sonnet 5.5 won 2 points in the final challenges (WebGL2 Path Tracer at 29 FPS vs Opus's 15 FPS and Retro CHIP-8 Console booting live Pong while Opus left a 0-byte ROM), and Haiku 5.5 won 1 historic ROI point by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus)."}
+                  </p>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#22D3EE]/40">
+                      <div className="font-mono-hud text-[11px] text-[#22D3EE] font-bold">
+                        {lang === "es" ? "MARCADOR TRIPLE" : "3-WAY SCOREBOARD"}
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        {EP04_BENCHMARK_TOTALS.score}
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#8FA3B8] mt-1">
+                        Opus 3 · Sonnet 2 · Haiku 1
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#34D399]/40">
+                      <div className="font-mono-hud text-[11px] text-[#34D399] font-bold">
+                        CLAUDE HAIKU 5.5 (6 RETOS)
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        ${EP04_BENCHMARK_TOTALS.haiku_usd.toFixed(2)}{" "}
+                        <span className="text-sm text-[#34D399]">
+                          ({EP04_BENCHMARK_TOTALS.haiku_min}m)
+                        </span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#8FA3B8] mt-1">
+                        19.4x mas barato que Opus · 5/6 OK
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#FBBF24]/40">
+                      <div className="font-mono-hud text-[11px] text-[#FBBF24] font-bold">
+                        CLAUDE SONNET 5.5 (6 RETOS)
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        ${EP04_BENCHMARK_TOTALS.sonnet_usd.toFixed(2)}{" "}
+                        <span className="text-sm text-[#FBBF24]">
+                          ({EP04_BENCHMARK_TOTALS.sonnet_min}m)
+                        </span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#8FA3B8] mt-1">
+                        2.45x mas barato que Opus · 5/6 OK
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[#060B14] border border-[#B794F6]/40">
+                      <div className="font-mono-hud text-[11px] text-[#B794F6] font-bold">
+                        CLAUDE OPUS 5.5 (6 RETOS)
+                      </div>
+                      <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                        ${EP04_BENCHMARK_TOTALS.opus_usd.toFixed(2)}{" "}
+                        <span className="text-sm text-[#B794F6]">
+                          ({EP04_BENCHMARK_TOTALS.opus_min}m)
+                        </span>
+                      </div>
+                      <div className="font-mono-hud text-xs text-[#8FA3B8] mt-1">
+                        8,900 lineas · 4.46M tokens · 5/6 OK
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* EP04 Interactive 18-Demo 3-Way Comparator */}
+                {(() => {
+                  const ch4 =
+                    EP04_CHALLENGES.find((c) => c.n === ep04ChallengeN) ||
+                    EP04_CHALLENGES[0];
+                  return (
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                        {EP04_CHALLENGES.map((ch) => {
+                          const active = ep04ChallengeN === ch.n;
+                          const winCol =
+                            ch.winner === "opus"
+                              ? "#B794F6"
+                              : ch.winner === "sonnet"
+                              ? "#FBBF24"
+                              : "#34D399";
+                          return (
+                            <button
+                              key={ch.n}
+                              onClick={() => setEp04ChallengeN(ch.n)}
+                              className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                                active
+                                  ? "bg-[#11283F] border-[#22D3EE] shadow-[0_0_20px_rgba(34,211,238,0.22)]"
+                                  : "bg-[#0B1D30]/80 border-white/10 hover:border-white/30"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                                <span className="text-[#5EEAD4] font-bold">
+                                  R0{ch.n}
+                                </span>
+                                <span
+                                  className="px-1.5 py-0.5 rounded font-bold text-[#060B14]"
+                                  style={{ backgroundColor: winCol }}
+                                >
+                                  {ch.winner.toUpperCase()} WIN
+                                </span>
+                              </div>
+                              <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                                {lang === "es" ? ch.name_es : ch.name_en}
+                              </div>
+                              <div className="font-mono-hud text-[10px] text-[#8FA3B8] mt-1">
+                                ${ch.haiku.usd.toFixed(2)} | $
+                                {ch.sonnet.usd.toFixed(2)} | $
+                                {ch.opus.usd.toFixed(2)}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="rounded-2xl bg-[#0B1D30] border border-[#22D3EE]/35 overflow-hidden shadow-2xl">
+                        <div className="p-4 sm:p-5 bg-[#11283F] border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div>
+                            <div className="font-mono-hud text-xs font-bold text-[#22D3EE]">
+                              {lang === "es" ? ch4.world_es : ch4.world_en} ·{" "}
+                              {lang === "es"
+                                ? ch4.winner_label_es
+                                : ch4.winner_label_en}
+                            </div>
+                            <h3 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
+                              0{ch4.n}.{" "}
+                              {lang === "es" ? ch4.name_es : ch4.name_en}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-[#8FA3B8] mt-1">
+                              {lang === "es" ? ch4.sub_es : ch4.sub_en}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5 font-mono-hud text-xs">
+                            {(
+                              [
+                                {
+                                  id: "triple" as const,
+                                  label:
+                                    lang === "es"
+                                      ? "Comparativa Triple"
+                                      : "3-Way Composite",
+                                },
+                                {
+                                  id: "haiku" as const,
+                                  label: `Haiku 5.5 ($${ch4.haiku.usd.toFixed(
+                                    2
+                                  )})`,
+                                },
+                                {
+                                  id: "sonnet" as const,
+                                  label: `Sonnet 5.5 ($${ch4.sonnet.usd.toFixed(
+                                    2
+                                  )})`,
+                                },
+                                {
+                                  id: "opus" as const,
+                                  label: `Opus 5.5 ($${ch4.opus.usd.toFixed(
+                                    2
+                                  )})`,
+                                },
+                                {
+                                  id: "prompt" as const,
+                                  label: "Prompt",
+                                },
+                              ]
+                            ).map((m) => (
+                              <button
+                                key={m.id}
+                                onClick={() => setEp04Mode(m.id)}
+                                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                                  ep04Mode === m.id
+                                    ? "bg-[#22D3EE] text-[#060B14]"
+                                    : "bg-[#060B14] text-[#8FA3B8] hover:text-white border border-white/10"
+                                }`}
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="p-4 sm:p-6 space-y-5">
+                          {ep04Mode === "triple" && (
+                            <div className="space-y-4">
+                              <img
+                                src={ch4.vs_still}
+                                alt={ch4.name_es}
+                                className="w-full rounded-xl border border-white/15 shadow-lg"
+                              />
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono-hud text-xs">
+                                {(
+                                  [
+                                    {
+                                      id: "haiku" as const,
+                                      title: "CLAUDE HAIKU 5.5",
+                                      col: "#34D399",
+                                      data: ch4.haiku,
+                                    },
+                                    {
+                                      id: "sonnet" as const,
+                                      title: "CLAUDE SONNET 5.5",
+                                      col: "#FBBF24",
+                                      data: ch4.sonnet,
+                                    },
+                                    {
+                                      id: "opus" as const,
+                                      title: "CLAUDE OPUS 5.5",
+                                      col: "#B794F6",
+                                      data: ch4.opus,
+                                    },
+                                  ]
+                                ).map((t) => (
+                                  <div
+                                    key={t.id}
+                                    className="p-4 rounded-xl bg-[#060B14] border border-white/10 flex flex-col justify-between gap-3"
+                                  >
+                                    <div>
+                                      <div
+                                        className="font-bold text-sm"
+                                        style={{ color: t.col }}
+                                      >
+                                        {t.title}
+                                      </div>
+                                      <div className="text-white font-bold mt-1">
+                                        {t.data.min} min · $
+                                        {t.data.usd.toFixed(2)} USD ·{" "}
+                                        {t.data.lines} loc
+                                      </div>
+                                      <div className="text-[#8FA3B8] mt-0.5">
+                                        {t.data.fps} · {t.data.tok} tok
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => setEp04Mode(t.id)}
+                                      className="w-full py-2 rounded-lg font-bold text-[#060B14] hover:brightness-110 transition cursor-pointer"
+                                      style={{ backgroundColor: t.col }}
+                                    >
+                                      {lang === "es"
+                                        ? `Ejecutar Demo ${t.title}`
+                                        : `Launch ${t.title} Demo`}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {(ep04Mode === "haiku" ||
+                            ep04Mode === "sonnet" ||
+                            ep04Mode === "opus") && (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between font-mono-hud text-xs bg-[#060B14] px-4 py-2.5 rounded-xl border border-white/10">
+                                <span className="text-[#5EEAD4] font-bold">
+                                  {ep04Mode.toUpperCase()} 5.5 ·{" "}
+                                  {ch4[ep04Mode].min} min · $
+                                  {ch4[ep04Mode].usd.toFixed(2)} USD ·{" "}
+                                  {ch4[ep04Mode].fps}
+                                </span>
+                                <a
+                                  href={ch4[ep04Mode].demoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-white hover:text-[#22D3EE] inline-flex items-center gap-1"
+                                >
+                                  <span>
+                                    {lang === "es"
+                                      ? "Abrir en pestaña completa"
+                                      : "Open in new tab"}
+                                  </span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                              <iframe
+                                src={ch4[ep04Mode].demoUrl}
+                                title={`${ch4.dir}-${ep04Mode}`}
+                                className="w-full h-[620px] rounded-xl border border-white/15 bg-black"
+                              />
+                            </div>
+                          )}
+
+                          {ep04Mode === "prompt" && (
+                            <div className="p-5 rounded-xl bg-[#060B14] border border-white/15 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono-hud text-xs font-bold text-[#22D3EE]">
+                                  PROMPT EXACTO (1 INTENTO · CLAUDE CODE CLI)
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(
+                                      ch4.prompt_verbatim
+                                    );
+                                    setCopiedEp04Prompt(true);
+                                    setTimeout(
+                                      () => setCopiedEp04Prompt(false),
+                                      2000
+                                    );
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-[#11283F] text-white font-mono-hud text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  {copiedEp04Prompt ? (
+                                    <Check className="w-3.5 h-3.5 text-[#34D399]" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                  <span>
+                                    {copiedEp04Prompt ? "Copiado" : "Copiar"}
+                                  </span>
+                                </button>
+                              </div>
+                              <pre className="text-xs sm:text-sm text-[#F5F7FA] whitespace-pre-wrap font-mono-hud leading-relaxed">
+                                {ch4.prompt_verbatim}
+                              </pre>
+                            </div>
+                          )}
+
+                          <div className="p-4 rounded-xl bg-[#060B14]/90 border border-[#22D3EE]/30 text-xs sm:text-sm text-[#F5F7FA] leading-relaxed">
+                            <span className="font-mono-hud font-bold text-[#22D3EE] mr-2">
+                              {lang === "es"
+                                ? "VEREDICTO FORENSE:"
+                                : "FORENSIC VERDICT:"}
+                            </span>
+                            {lang === "es" ? ch4.verdict_es : ch4.verdict_en}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* -----------------------------------------------------------------
                 SUB-DOSSIER A: EPISODIO 03 (GATED BY RELEASE SCHEDULE)

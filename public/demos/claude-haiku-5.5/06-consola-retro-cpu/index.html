@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYBER-8 · Consola Retro CHIP-8 Extendida</title>
+<style>
+:root{--bg:#050809;--panel:#0a1113;--line:#183532;--g:#39ff7a;--g2:#1c8a4a;--amber:#ffb640;--cy:#4fe3ff;--red:#ff4d6d;--txt:#b9e8cb;--dim:#5f8a78}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 25% 0,#0d211e,var(--bg) 60%);color:var(--txt);font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-height:100vh}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line)}
+header h1{margin:0;font-size:17px;letter-spacing:4px;color:var(--g);text-shadow:0 0 10px var(--g2)}
+#led{width:11px;height:11px;border-radius:50%;background:#2a3634}
+#led.on{background:var(--g);box-shadow:0 0 10px var(--g)}
+#led.fault{background:var(--red);box-shadow:0 0 10px var(--red)}
+#status{color:var(--dim)}
+main{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px;padding:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px}
+.panel h2{margin:0 0 10px;font-size:11px;letter-spacing:2px;color:var(--cy);text-transform:uppercase;font-weight:600}
+.crt{position:relative;width:100%;max-width:640px;margin:0 auto;padding:18px;background:#000;border-radius:18px;box-shadow:inset 0 0 40px #000,0 0 24px #1c8a4a33;transition:border-radius .3s,transform .3s}
+.crt.curve{border-radius:40px/28px;transform:perspective(900px) rotateX(3deg)}
+#screen{display:block;width:100%;height:auto;image-rendering:pixelated;filter:drop-shadow(0 0 4px rgba(57,255,122,.55))}
+.crt::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.35) 0 1px,transparent 1px 4px),radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.7) 100%)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+button{background:#0e2225;color:var(--g);border:1px solid var(--g2);border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+button:hover{background:#17383c}
+button.on{background:var(--g2);color:#021}
+select,textarea{background:#060c0d;color:var(--g);border:1px solid var(--g2);border-radius:5px;font:inherit}
+select{padding:5px}
+label{display:inline-flex;align-items:center;gap:8px}
+input[type=range]{accent-color:var(--g);width:220px}
+#keypad{display:grid;grid-template-columns:repeat(4,46px);gap:6px}
+#keypad div{height:34px;display:flex;align-items:center;justify-content:center;background:#071012;border:1px solid var(--line);border-radius:4px;cursor:pointer;user-select:none}
+#keypad div.on{background:var(--g2);color:#021;box-shadow:0 0 8px var(--g)}
+.regs{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+.reg{display:grid;grid-template-columns:30px 40px 34px 1fr;gap:6px;align-items:center}
+.reg .bar{height:8px;background:#041010;border:1px solid var(--line);position:relative}
+.reg .bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--g2),var(--g))}
+.reg.chg span{color:var(--amber)}
+.specials{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.specials div{background:#071012;border:1px solid var(--line);border-radius:4px;padding:4px;text-align:center}
+.specials b{display:block;color:var(--cy);font-size:10.5px}
+#disasm{background:#030807;border:1px solid var(--line);border-radius:5px;padding:6px 0}
+#disasm div{white-space:pre;padding:0 10px;color:var(--dim)}
+#disasm div.cur{background:#133a2c;color:var(--g)}
+#hex{position:relative;height:250px;overflow:auto;background:#030807;border:1px solid var(--line);border-radius:5px;padding:6px;font-size:11px;line-height:1.3}
+#hex .r{white-space:pre}
+#hex .ad{color:#3f6a58}
+#hex span.c{color:var(--txt)}
+#hex span.f{color:#d2b06a}
+#hex span.pc{background:var(--g2);color:#021}
+#hex span.ip{background:var(--amber);color:#201}
+.legend{font-size:11px;color:var(--dim);margin-bottom:6px}
+textarea#asm{width:100%;height:260px;padding:8px;resize:vertical;line-height:1.4;tab-size:4}
+#asmOut{margin:8px 0 0;max-height:170px;overflow:auto;white-space:pre;color:var(--dim);font-size:11px}
+#asmOut.err{color:var(--red)}
+@media (max-width:1000px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <span id="led"></span>
+  <h1>CYBER-8 // CHIP-8 EXTENDIDA</h1>
+  <span id="status">arrancando…</span>
+</header>
+<main>
+<section>
+  <div class="panel">
+    <h2>Pantalla CRT · 64 × 32 · fósforo verde</h2>
+    <div id="crt" class="crt"><canvas id="screen" width="64" height="32"></canvas></div>
+    <div class="btns">
+      <button id="btnRun">▶ RUN</button>
+      <button id="btnStep">⤼ STEP INTO</button>
+      <button id="btnFrame">⏭ STEP FRAME</button>
+      <button id="btnReset">⟲ RESET ROM</button>
+      <button id="btnAudio">♪ AUDIO OFF</button>
+      <button id="btnCurve">◐ CURVATURA</button>
+    </div>
+    <div class="btns">
+      <label>Clock Speed <input id="clock" type="range" min="10" max="1200" step="10" value="1200"> <b id="clockLbl"></b></label>
+      <span id="ipsLbl" style="color:var(--dim)"></span>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Inspector Hexadecimal de RAM · 4 KB</h2>
+    <div class="legend"><span style="color:#d2b06a">■ fuentes 0x000–0x1FF</span> · <span style="color:var(--txt)">■ ROM 0x200+</span> · <span style="color:var(--g)">■ PC</span> · <span style="color:var(--amber)">■ I</span></div>
+    <div id="hex"></div>
+  </div>
+  <div class="panel">
+    <h2>Teclado HEX (clic o teclado)</h2>
+    <div id="keypad"></div>
+    <div class="legend" style="margin-top:8px">1 2 3 4 → 1 2 3 C · Q W E R → 4 5 6 D · A S D F → 7 8 9 E · Z X C V → A 0 B F</div>
+  </div>
+</section>
+<section>
+  <div class="panel">
+    <h2>Registros CPU</h2>
+    <div id="regs" class="regs"></div>
+    <div id="specials" class="specials"></div>
+  </div>
+  <div class="panel">
+    <h2>Desensamblador · ventana en vivo</h2>
+    <div id="disasm"></div>
+  </div>
+  <div class="panel">
+    <h2>Ensamblador en vivo</h2>
+    <div class="btns">
+      <select id="romSel"></select>
+      <button id="btnAsm">ASSEMBLE &amp; FLASH TO RAM</button>
+    </div>
+    <textarea id="asm" spellcheck="false"></textarea>
+    <pre id="asmOut"></pre>
+  </div>
+</section>
+</main>
+<script>
+'use strict';
+// ===================== HARDWARE: CHIP-8 EXTENDIDA =====================
+const RAM_SIZE = 4096, ROM_BASE = 0x200, SCR_W = 64, SCR_H = 32, FONT_BASE = 0x000;
+const FONT = [
+  0xF0,0x90,0x90,0x90,0xF0, 0x20,0x60,0x20,0x20,0x70, 0xF0,0x10,0xF0,0x80,0xF0, 0xF0,0x10,0xF0,0x10,0xF0,
+  0x90,0x90,0xF0,0x10,0x10, 0xF0,0x80,0xF0,0x10,0xF0, 0xF0,0x80,0xF0,0x90,0xF0, 0xF0,0x10,0x20,0x40,0x40,
+  0xF0,0x90,0xF0,0x90,0xF0, 0xF0,0x90,0xF0,0x10,0xF0, 0xF0,0x90,0xF0,0x90,0x90, 0xE0,0x90,0xE0,0x90,0xE0,
+  0xF0,0x80,0x80,0x80,0xF0, 0xE0,0x90,0x90,0x90,0xE0, 0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80
+];
+const KEYMAP = { Digit1:0x1, Digit2:0x2, Digit3:0x3, Digit4:0xC, KeyQ:0x4, KeyW:0x5, KeyE:0x6, KeyR:0xD,
+                 KeyA:0x7, KeyS:0x8, KeyD:0x9, KeyF:0xE, KeyZ:0xA, KeyX:0x0, KeyC:0xB, KeyV:0xF };
+const KEY_ORDER = [0x1,0x2,0x3,0xC,0x4,0x5,0x6,0xD,0x7,0x8,0x9,0xE,0xA,0x0,0xB,0xF];
+const ALU_OPS = { 0:'LD', 1:'OR', 2:'AND', 3:'XOR', 4:'ADD', 5:'SUB', 6:'SHR', 7:'SUBN', 0xE:'SHL' };
+const hex = (v, w = 2) => v.toString(16).toUpperCase().padStart(w, '0');
+
+class Chip8 {
+  constructor() {
+    this.ram = new Uint8Array(RAM_SIZE);      // 4 KB de RAM
+    this.V = new Uint8Array(16);              // V0..VF
+    this.stack = new Uint16Array(16);         // pila de llamadas
+    this.gfx = new Uint8Array(SCR_W * SCR_H); // framebuffer 1 bit por píxel
+    this.keys = new Uint8Array(16);           // teclado hexadecimal
+    this.reset();
+  }
+  reset() {
+    this.ram.fill(0);
+    this.ram.set(FONT, FONT_BASE);
+    this.V.fill(0); this.stack.fill(0); this.gfx.fill(0); this.keys.fill(0);
+    this.I = 0; this.PC = ROM_BASE; this.SP = 0; this.DT = 0; this.ST = 0;
+    this.cycles = 0; this.fault = null; this.lastPC = ROM_BASE; this.lastOp = 0;
+  }
+  load(bytes, origin, entry) {
+    this.reset();
+    this.ram.set(bytes, origin);
+    this.PC = entry;
+  }
+  fetch() {
+    return (this.ram[this.PC] << 8) | this.ram[(this.PC + 1) & 0xFFF];
+  }
+  step() {
+    if (this.fault) return false;
+    const op = this.fetch();                       // FETCH
+    this.lastPC = this.PC; this.lastOp = op;
+    this.PC = (this.PC + 2) & 0xFFF;
+    try {
+      this.exec(op);                               // DECODE + EXECUTE
+    } catch (e) {
+      this.fault = `${e.message} @0x${hex(this.lastPC, 3)}`;
+      return false;
+    }
+    this.cycles++;
+    return true;
+  }
+  tick() { // 60 Hz: temporizadores
+    if (this.DT > 0) this.DT--;
+    if (this.ST > 0) this.ST--;
+  }
+  skip() { this.PC = (this.PC + 2) & 0xFFF; }
+  exec(op) {
+    const V = this.V;
+    const x = (op >> 8) & 0xF, y = (op >> 4) & 0xF, n = op & 0xF;
+    const kk = op & 0xFF, nnn = op & 0xFFF;
+    switch (op & 0xF000) {
+      case 0x0000:
+        if (op === 0x00E0) { this.gfx.fill(0); }
+        else if (op === 0x00EE) {
+          if (this.SP === 0) throw new Error('STACK UNDERFLOW');
+          this.PC = this.stack[--this.SP];
+        }
+        break;                                     // 0nnn (SYS) se ignora
+      case 0x1000: this.PC = nnn; break;
+      case 0x2000:
+        if (this.SP >= 16) throw new Error('STACK OVERFLOW');
+        this.stack[this.SP++] = this.PC; this.PC = nnn; break;
+      case 0x3000: if (V[x] === kk) this.skip(); break;
+      case 0x4000: if (V[x] !== kk) this.skip(); break;
+      case 0x5000: if (V[x] === V[y]) this.skip(); break;
+      case 0x6000: V[x] = kk; break;
+      case 0x7000: V[x] = (V[x] + kk) & 0xFF; break;
+      case 0x8000: this.alu(x, y, n, op); break;
+      case 0x9000: if (V[x] !== V[y]) this.skip(); break;
+      case 0xA000: this.I = nnn; break;
+      case 0xB000: this.PC = (nnn + V[0]) & 0xFFF; break;
+      case 0xC000: V[x] = Math.floor(Math.random() * 256) & kk; break;
+      case 0xD000: this.draw(x, y, n); break;
+      case 0xE000:
+        if (kk === 0x9E) { if (this.keys[V[x] & 0xF]) this.skip(); }
+        else if (kk === 0xA1) { if (!this.keys[V[x] & 0xF]) this.skip(); }
+        else throw new Error(`OPCODE ILEGAL ${hex(op, 4)}`);
+        break;
+      case 0xF000: this.misc(x, kk, op); break;
+      default: throw new Error(`OPCODE ILEGAL ${hex(op, 4)}`);
+    }
+  }
+  alu(x, y, n, op) {
+    const V = this.V;
+    switch (n) {
+      case 0x0: V[x] = V[y]; break;
+      case 0x1: V[x] |= V[y]; break;
+      case 0x2: V[x] &= V[y]; break;
+      case 0x3: V[x] ^= V[y]; break;
+      case 0x4: { const s = V[x] + V[y]; V[x] = s & 0xFF; V[15] = s > 0xFF ? 1 : 0; break; }
+      case 0x5: { const nb = V[x] >= V[y] ? 1 : 0; V[x] = (V[x] - V[y]) & 0xFF; V[15] = nb; break; }
+      case 0x6: { const src = V[y]; V[x] = src >> 1; V[15] = src & 1; break; }          // VX = VY >> 1
+      case 0x7: { const nb = V[y] >= V[x] ? 1 : 0; V[x] = (V[y] - V[x]) & 0xFF; V[15] = nb; break; }
+      case 0xE: { const src = V[y]; V[x] = (src << 1) & 0xFF; V[15] = (src >> 7) & 1; break; } // VX = VY << 1
+      default: throw new Error(`OPCODE ILEGAL ${hex(op, 4)}`);
+    }
+  }
+  draw(x, y, n) { // Dxyn: XOR de sprite 8×n, VF = colisión
+    const V = this.V;
+    const sx = V[x] % SCR_W, sy = V[y] % SCR_H;
+    V[15] = 0;
+    for (let row = 0; row < n; row++) {
+      const py = sy + row;
+      if (py >= SCR_H) break;                        // recorte, sin envolver
+      const bits = this.ram[(this.I + row) & 0xFFF];
+      for (let col = 0; col < 8; col++) {
+        if (!(bits & (0x80 >> col))) continue;
+        const px = sx + col;
+        if (px >= SCR_W) break;
+        const idx = py * SCR_W + px;
+        if (this.gfx[idx]) V[15] = 1;
+        this.gfx[idx] ^= 1;
+      }
+    }
+  }
+  misc(x, kk, op) {
+    const V = this.V, ram = this.ram;
+    switch (kk) {
+      case 0x07: V[x] = this.DT; break;
+      case 0x0A: { const k = this.keys.indexOf(1); if (k < 0) this.PC = this.lastPC; else V[x] = k; break; }
+      case 0x15: this.DT = V[x]; break;
+      case 0x18: this.ST = V[x]; break;
+      case 0x1E: this.I = (this.I + V[x]) & 0xFFF; break;
+      case 0x29: this.I = FONT_BASE + (V[x] & 0xF) * 5; break;
+      case 0x33: {                                   // BCD
+        const v = V[x];
+        ram[this.I] = (v / 100) | 0;
+        ram[(this.I + 1) & 0xFFF] = ((v / 10) | 0) % 10;
+        ram[(this.I + 2) & 0xFFF] = v % 10;
+        break;
+      }
+      case 0x55: for (let i = 0; i <= x; i++) ram[(this.I + i) & 0xFFF] = V[i];
+                 this.I = (this.I + x + 1) & 0xFFF; break;
+      case 0x65: for (let i = 0; i <= x; i++) V[i] = ram[(this.I + i) & 0xFFF];
+                 this.I = (this.I + x + 1) & 0xFFF; break;
+      default: throw new Error(`OPCODE ILEGAL ${hex(op, 4)}`);
+    }
+  }
+}
+
+// Desensamblador: opcode de 16 bits -> mnemónico legible
+function disasm(op) {
+  const x = (op >> 8) & 0xF, y = (op >> 4) & 0xF, n = op & 0xF;
+  const kk = op & 0xFF, nnn = op & 0xFFF;
+  const Vx = 'V' + x.toString(16).toUpperCase(), Vy = 'V' + y.toString(16).toUpperCase();
+  const a = '0x' + hex(nnn, 3), b = '0x' + hex(kk, 2);
+  const dw = `DW 0x${hex(op, 4)}`;
+  switch (op & 0xF000) {
+    case 0x0000: return op === 0x00E0 ? 'CLS' : op === 0x00EE ? 'RET' : `SYS ${a}`;
+    case 0x1000: return `JP ${a}`;
+    case 0x2000: return `CALL ${a}`;
+    case 0x3000: return `SE ${Vx}, ${b}`;
+    case 0x4000: return `SNE ${Vx}, ${b}`;
+    case 0x5000: return `SE ${Vx}, ${Vy}`;
+    case 0x6000: return `LD ${Vx}, ${b}`;
+    case 0x7000: return `ADD ${Vx}, ${b}`;
+    case 0x8000: return ALU_OPS[n] ? `${ALU_OPS[n]} ${Vx}, ${Vy}` : dw;
+    case 0x9000: return `SNE ${Vx}, ${Vy}`;
+    case 0xA000: return `LD I, ${a}`;
+    case 0xB000: return `JP V0, ${a}`;
+    case 0xC000: return `RND ${Vx}, ${b}`;
+    case 0xD000: return `DRW ${Vx}, ${Vy}, ${n}`;
+    case 0xE000: return kk === 0x9E ? `SKP ${Vx}` : kk === 0xA1 ? `SKNP ${Vx}` : dw;
+    case 0xF000: {
+      const F = { 0x07: `LD ${Vx}, DT`, 0x0A: `LD ${Vx}, K`, 0x15: `LD DT, ${Vx}`, 0x18: `LD ST, ${Vx}`,
+                  0x1E: `ADD I, ${Vx}`, 0x29: `LD F, ${Vx}`, 0x33: `LD B, ${Vx}`,
+                  0x55: `LD [I], ${Vx}`, 0x65: `LD ${Vx}, [I]` };
+      return F[kk] || dw;
+    }
+    default: return dw;
+  }
+}
+// ===================== ENSAMBLADOR (2 pasadas) =====================
+class AsmError extends Error {
+  constructor(line, msg) { super(`línea ${line}: ${msg}`); this.line = line; }
+}
+const ALU_CODE = { OR: 1, AND: 2, XOR: 3, SUB: 5, SHR: 6, SUBN: 7, SHL: 0xE };
+const isStr = (t) => /^".*"$/.test(t);
+
+function parseLiteral(t) {
+  if (/^0x[0-9a-f]+$/i.test(t)) return parseInt(t.slice(2), 16);
+  if (/^\$[0-9a-f]+$/i.test(t)) return parseInt(t.slice(1), 16);
+  if (/^%[01]+$/.test(t)) return parseInt(t.slice(1), 2);
+  if (/^-?\d+$/.test(t)) return parseInt(t, 10);
+  return null;
+}
+// Evalúa literales y símbolos separados por '+', p. ej. TABLA+2
+function evalExpr(text, syms, ln) {
+  let total = 0;
+  for (const raw of text.split('+')) {
+    const t = raw.trim();
+    if (!t) throw new AsmError(ln, `expresión incompleta '${text}'`);
+    let v = parseLiteral(t);
+    if (v === null) {
+      const key = t.toUpperCase();
+      if (!syms.has(key)) throw new AsmError(ln, `símbolo indefinido '${t}'`);
+      v = syms.get(key);
+    }
+    total += v;
+  }
+  return total;
+}
+function dbSize(ops) {
+  return ops.reduce((n, o) => n + (isStr(o) ? o.length - 2 : 1), 0);
+}
+
+function encode(mn, ops, syms, ln) {
+  const need = (k) => { if (ops.length !== k) throw new AsmError(ln, `${mn} necesita ${k} operando(s)`); };
+  const isReg = (t) => /^V[0-9A-F]$/i.test(t);
+  const reg = (t) => {
+    if (!isReg(t)) throw new AsmError(ln, `se esperaba registro Vx, se encontró '${t}'`);
+    return parseInt(t[1], 16);
+  };
+  const ev = (t) => evalExpr(t, syms, ln);
+  const byteOf = (t) => { const v = ev(t); if (v < -128 || v > 255) throw new AsmError(ln, `byte fuera de rango: ${t}`); return v & 0xFF; };
+  const addrOf = (t) => { const v = ev(t); if (v < 0 || v > 0xFFF) throw new AsmError(ln, `dirección fuera de rango: ${t}`); return v; };
+  const nib = (t) => { const v = ev(t); if (v < 0 || v > 15) throw new AsmError(ln, `nibble fuera de rango: ${t}`); return v; };
+  const U = (t) => t.toUpperCase();
+  const X = (r) => r << 8, Y = (r) => r << 4;
+
+  switch (mn) {
+    case 'CLS': need(0); return 0x00E0;
+    case 'RET': need(0); return 0x00EE;
+    case 'SYS': need(1); return addrOf(ops[0]);
+    case 'JP':
+      if (ops.length === 2) {
+        if (U(ops[0]) !== 'V0') throw new AsmError(ln, 'JP con dos operandos exige V0');
+        return 0xB000 | addrOf(ops[1]);
+      }
+      need(1); return 0x1000 | addrOf(ops[0]);
+    case 'CALL': need(1); return 0x2000 | addrOf(ops[0]);
+    case 'SE': case 'SNE': {
+      need(2);
+      const x = reg(ops[0]);
+      if (isReg(ops[1])) return (mn === 'SE' ? 0x5000 : 0x9000) | X(x) | Y(reg(ops[1]));
+      return (mn === 'SE' ? 0x3000 : 0x4000) | X(x) | byteOf(ops[1]);
+    }
+    case 'LD': {
+      need(2);
+      const a = U(ops[0]), b = U(ops[1]);
+      if (a === 'I') return 0xA000 | addrOf(ops[1]);
+      if (a === '[I]') return 0xF055 | X(reg(ops[1]));
+      if (b === '[I]') return 0xF065 | X(reg(ops[0]));
+      if (a === 'DT') return 0xF015 | X(reg(ops[1]));
+      if (a === 'ST') return 0xF018 | X(reg(ops[1]));
+      if (a === 'F') return 0xF029 | X(reg(ops[1]));
+      if (a === 'B') return 0xF033 | X(reg(ops[1]));
+      const x = reg(ops[0]);
+      if (b === 'DT') return 0xF007 | X(x);
+      if (b === 'K') return 0xF00A | X(x);
+      if (isReg(ops[1])) return 0x8000 | X(x) | Y(reg(ops[1]));
+      return 0x6000 | X(x) | byteOf(ops[1]);
+    }
+    case 'ADD': {
+      need(2);
+      if (U(ops[0]) === 'I') return 0xF01E | X(reg(ops[1]));
+      const x = reg(ops[0]);
+      if (isReg(ops[1])) return 0x8004 | X(x) | Y(reg(ops[1]));
+      return 0x7000 | X(x) | byteOf(ops[1]);
+    }
+    case 'OR': case 'AND': case 'XOR': case 'SUB': case 'SUBN': case 'SHR': case 'SHL': {
+      if (mn === 'SHR' || mn === 'SHL') {
+        if (ops.length < 1 || ops.length > 2) throw new AsmError(ln, `${mn} necesita 1 o 2 operandos`);
+        const x = reg(ops[0]);
+        const y = ops.length === 2 ? reg(ops[1]) : x;
+        return 0x8000 | X(x) | Y(y) | ALU_CODE[mn];
+      }
+      need(2);
+      return 0x8000 | X(reg(ops[0])) | Y(reg(ops[1])) | ALU_CODE[mn];
+    }
+    case 'RND': need(2); return 0xC000 | X(reg(ops[0])) | byteOf(ops[1]);
+    case 'DRW': need(3); return 0xD000 | X(reg(ops[0])) | Y(reg(ops[1])) | nib(ops[2]);
+    case 'SKP': need(1); return 0xE09E | X(reg(ops[0]));
+    case 'SKNP': need(1); return 0xE0A1 | X(reg(ops[0]));
+    default: throw new AsmError(ln, `mnemónico desconocido '${mn}'`);
+  }
+}
+
+function assemble(src) {
+  const syms = new Map();   // etiquetas y EQU (clave en mayúsculas)
+  const items = [];         // instrucciones y datos con su dirección
+  let addr = ROM_BASE;
+
+  // Pasada 1: direcciones, etiquetas y constantes
+  src.split(/\r?\n/).forEach((raw, i) => {
+    const ln = i + 1;
+    let s = raw.replace(/;.*$/, '').trim();
+    const lab = s.match(/^([A-Za-z_]\w*):\s*/);
+    if (lab) {
+      const key = lab[1].toUpperCase();
+      if (syms.has(key)) throw new AsmError(ln, `etiqueta duplicada '${lab[1]}'`);
+      syms.set(key, addr);
+      s = s.slice(lab[0].length).trim();
+    }
+    if (!s) return;
+    const eq = s.match(/^([A-Za-z_]\w*)\s+EQU\s+(.+)$/i);
+    if (eq) { syms.set(eq[1].toUpperCase(), evalExpr(eq[2], syms, ln)); return; }
+    const head = s.split(/\s+/)[0];
+    const mn = head.toUpperCase();
+    const argText = s.slice(head.length).trim();
+    const ops = argText ? argText.split(',').map((t) => t.trim()) : [];
+    if (mn === 'ORG') {
+      addr = evalExpr(argText, syms, ln);
+      if (addr < ROM_BASE || addr >= RAM_SIZE) throw new AsmError(ln, `ORG fuera de 0x200–0xFFF`);
+      return;
+    }
+    if (mn === 'DB') { items.push({ ln, mn, ops, addr, src: s }); addr += dbSize(ops); return; }
+    if (mn === 'DW') { items.push({ ln, mn, ops, addr, src: s }); addr += 2 * ops.length; return; }
+    items.push({ ln, mn, ops, addr, src: s });
+    addr += 2;
+  });
+
+  // Pasada 2: codificación a bytecode
+  const image = new Uint8Array(RAM_SIZE);
+  const listing = [];
+  let lo = RAM_SIZE, hi = -1;
+  const put = (a, v, ln) => {
+    if (a < ROM_BASE || a >= RAM_SIZE) throw new AsmError(ln, `dirección fuera de RAM: 0x${hex(a, 3)}`);
+    image[a] = v & 0xFF;
+    if (a < lo) lo = a;
+    if (a > hi) hi = a;
+  };
+  for (const it of items) {
+    if (it.mn === 'DB' || it.mn === 'DW') {
+      const bytes = [];
+      for (const o of it.ops) {
+        if (it.mn === 'DB' && isStr(o)) { for (const ch of o.slice(1, -1)) bytes.push(ch.charCodeAt(0)); continue; }
+        const v = evalExpr(o, syms, it.ln);
+        if (it.mn === 'DB') bytes.push(v & 0xFF);
+        else bytes.push((v >> 8) & 0xFF, v & 0xFF);
+      }
+      bytes.forEach((b, k) => put(it.addr + k, b, it.ln));
+      listing.push({ addr: it.addr, code: bytes.map((b) => hex(b)).join(' '), src: it.src });
+    } else {
+      const op = encode(it.mn, it.ops, syms, it.ln);
+      put(it.addr, op >> 8, it.ln);
+      put(it.addr + 1, op & 0xFF, it.ln);
+      listing.push({ addr: it.addr, code: hex(op, 4), src: it.src });
+    }
+  }
+  if (hi < 0) throw new AsmError(0, 'el programa está vacío');
+  const entry = syms.has('START') ? syms.get('START') : items[0].addr;
+  return { image, lo, hi, entry, listing };
+}
+// ===================== BIBLIOTECA DE ROMs (ASM fuente) =====================
+const ROMS = {
+  pong: { name: 'ROM 1 · CYBER PONG (2 jugadores)', src: `; ==================================================
+;  CYBER PONG · 2 jugadores · marcador BCD
+;  J1: 1 arriba · 4 abajo      J2: C arriba · D abajo
+; ==================================================
+PMAX    EQU 26              ; y máxima de la paleta (32 - alto 6)
+PX1     EQU 2               ; columna paleta izquierda
+PX2     EQU 60              ; columna paleta derecha
+SCBCD   EQU 0xE00           ; búfer BCD de trabajo
+
+START:
+    LD V1, 32               ; bx
+    LD V2, 16               ; by
+    LD V3, 1                ; dx
+    LD V4, 1                ; dy
+    LD V5, 13               ; paleta J1
+    LD V6, 13               ; paleta J2
+    LD V7, 0                ; puntos J1
+    LD V8, 0                ; puntos J2
+
+FRAME:
+    CALL WAITFRAME
+    CLS
+
+    ; ---- entrada ----
+    LD V0, 1
+    SKNP V0
+    CALL P1UP
+    LD V0, 4
+    SKNP V0
+    CALL P1DN
+    LD V0, 0xC
+    SKNP V0
+    CALL P2UP
+    LD V0, 0xD
+    SKNP V0
+    CALL P2DN
+
+    ; ---- paletas (se dibujan antes que la pelota) ----
+    LD I, PADDLE
+    LD V0, PX1
+    DRW V0, V5, 6
+    LD V0, PX2
+    DRW V0, V6, 6
+
+    ; ---- pelota: calcular candidato ----
+    LD V9, V1
+    ADD V9, V3
+    LD VA, V2
+    ADD VA, V4
+    SNE VA, 0
+    JP BOUNCEY
+    SNE VA, 30
+    JP BOUNCEY
+    JP NOBOUNCE
+BOUNCEY:
+    CALL NEGDY
+    LD VA, V2
+    ADD VA, V4
+NOBOUNCE:
+    LD I, BALL
+    LD V0, V9
+    DRW V0, VA, 2
+    SNE VF, 1               ; VF = 1 → el candidato tocó una paleta
+    JP COLL
+    LD V1, V9               ; aceptar movimiento
+    LD V2, VA
+    SNE V1, 0
+    JP SCORE2
+    SNE V1, 62
+    JP SCORE1
+    JP SHOWSCORE
+
+COLL:
+    LD I, BALL              ; deshacer el dibujo candidato (XOR)
+    LD V0, V9
+    DRW V0, VA, 2
+    CALL NEGDX              ; rebote horizontal
+    LD I, BALL              ; redibujar en la posición anterior
+    LD V0, V1
+    DRW V0, V2, 2
+    JP SHOWSCORE
+
+SCORE1:
+    ADD V7, 1
+    CALL RESETBALL
+    JP SHOWSCORE
+SCORE2:
+    ADD V8, 1
+    CALL RESETBALL
+
+SHOWSCORE:                  ; marcador: BCD → sprites de fuente
+    LD I, SCBCD
+    LD V0, V7
+    LD B, V0
+    LD I, SCBCD + 1
+    LD V0, [I]
+    LD F, V0
+    LD V9, 22
+    LD VA, 1
+    DRW V9, VA, 5
+    LD I, SCBCD + 2
+    LD V0, [I]
+    LD F, V0
+    LD V9, 27
+    DRW V9, VA, 5
+    LD I, SCBCD
+    LD V0, V8
+    LD B, V0
+    LD I, SCBCD + 1
+    LD V0, [I]
+    LD F, V0
+    LD V9, 34
+    DRW V9, VA, 5
+    LD I, SCBCD + 2
+    LD V0, [I]
+    LD F, V0
+    LD V9, 39
+    DRW V9, VA, 5
+
+    LD I, NET               ; red central punteada
+    LD V0, 31
+    LD VA, 0
+    DRW V0, VA, 15
+    LD VA, 15
+    DRW V0, VA, 15
+    JP FRAME
+
+; ---- paletas ----
+P1UP:
+    SNE V5, 0
+    RET
+    ADD V5, 0xFF
+    RET
+P1DN:
+    SNE V5, PMAX
+    RET
+    ADD V5, 1
+    RET
+P2UP:
+    SNE V6, 0
+    RET
+    ADD V6, 0xFF
+    RET
+P2DN:
+    SNE V6, PMAX
+    RET
+    ADD V6, 1
+    RET
+
+; ---- utilidades ----
+NEGDX:
+    LD V0, 0
+    SUB V0, V3
+    LD V3, V0
+    RET
+NEGDY:
+    LD V0, 0
+    SUB V0, V4
+    LD V4, V0
+    RET
+RESETBALL:
+    LD V1, 32
+    LD V2, 16
+    LD V3, 1
+    LD V4, 1
+    RET
+WAITFRAME:                  ; espera 1/60 s usando el temporizador DT
+    LD V0, 1
+    LD DT, V0
+WF:
+    LD V0, DT
+    SNE V0, 0
+    RET
+    JP WF
+
+; ---- datos de sprites ----
+PADDLE: DB 0xC0,0xC0,0xC0,0xC0,0xC0,0xC0
+BALL:   DB 0xC0,0xC0
+NET:    DB 0x80,0x80,0x00,0x80,0x80,0x00,0x80,0x80,0x00,0x80,0x80,0x00,0x80,0x80,0x00
+` },
+  invaders: { name: 'ROM 2 · STAR INVADERS · LASER DEFENSE', src: `; ==================================================
+;  STAR INVADERS · LASER DEFENSE
+;  4 = izquierda · 6 = derecha · 5 = disparo
+;  V9 nave · VA/VB bala X/Y · VC dir · VD FX · VE FY
+; ==================================================
+ALN     EQU 12              ; aliens por oleada
+FYEND   EQU 16              ; si la formación baja hasta aquí, reinicio
+WAVEV   EQU 0xE20           ; contador de oleadas (RAM)
+MOVCNT  EQU 0xE21           ; reloj de movimiento de la formación
+ALIVE   EQU 0xE30           ; 12 banderas de vida (1 = vivo)
+
+START:
+    LD V9, 28
+    LD I, WAVEV
+    LD V0, 0
+    LD [I], V0
+    LD I, MOVCNT
+    LD V0, 1
+    LD [I], V0
+    JP NEWWAVE
+
+NEWWAVE:                    ; nueva oleada: todos vivos, formación arriba
+    LD I, WAVEV
+    LD V0, [I]
+    ADD V0, 1
+    LD [I], V0
+    LD V7, 0
+    LD V0, 1
+NW:
+    LD I, ALIVE
+    ADD I, V7
+    LD [I], V0
+    ADD V7, 1
+    SE V7, ALN
+    JP NW
+    LD VD, 0
+    LD VE, 2
+    LD VC, 1
+    LD VB, 0
+    JP FRAME
+
+FRAME:
+    CALL WAITFRAME
+    CLS
+
+    ; ---- nave ----
+    LD V0, 4
+    SKP V0
+    JP CHKRIGHT
+    SE V9, 0
+    ADD V9, 0xFF
+CHKRIGHT:
+    LD V0, 6
+    SKP V0
+    JP MOVED
+    SE V9, 56
+    ADD V9, 1
+MOVED:
+
+    ; ---- disparo (una bala a la vez) ----
+    LD V0, 5
+    SKP V0
+    JP NOFIRE
+    SE VB, 0
+    JP NOFIRE
+    LD VA, V9
+    ADD VA, 3
+    LD VB, 26               ; y par: 26, 24, ... 2, 0 → llega exacto a 0 (inactiva)
+NOFIRE:
+    SNE VB, 0
+    JP BULDONE
+    ADD VB, 0xFE            ; la bala sube 2 px por cuadro
+BULDONE:
+
+    ; ---- reloj de la formación ----
+    LD I, MOVCNT
+    LD V0, [I]
+    ADD V0, 0xFF
+    LD [I], V0
+    SNE V0, 0
+    CALL FORMMOVE
+
+    ; ---- ¿la formación llegó a la nave? ----
+    SNE VE, FYEND
+    JP RESTART
+
+    ; ---- dibujar formación y contar vivos ----
+    LD V6, 0
+    LD V7, 0
+DRAWA:
+    LD I, ALIVE
+    ADD I, V7
+    LD V0, [I]
+    ADD V6, V0
+    SNE V0, 0
+    JP NEXTA
+    LD I, ALX
+    ADD I, V7
+    LD V0, [I]
+    ADD V0, VD
+    LD V1, V0
+    LD I, ALY
+    ADD I, V7
+    LD V0, [I]
+    ADD V0, VE
+    LD V2, V0
+    LD I, SPR_ALIEN
+    DRW V1, V2, 5
+NEXTA:
+    ADD V7, 1
+    SE V7, ALN
+    JP DRAWA
+
+    SNE V6, 0               ; sin aliens → siguiente oleada
+    JP NEWWAVE
+
+    ; ---- disparo: XOR contra la formación (VF = impacto) ----
+    SNE VB, 0
+    JP NOSHOT
+    LD I, SPR_BULLET
+    LD V1, VA
+    LD V2, VB
+    DRW V1, V2, 1
+    SNE VF, 1
+    JP HIT
+NOSHOT:
+    LD I, SPR_SHIP
+    LD V1, V9
+    LD V2, 27
+    DRW V1, V2, 4
+    LD I, WAVEV             ; número de oleada en la esquina
+    LD V0, [I]
+    LD F, V0
+    LD V1, 0
+    LD V2, 0
+    DRW V1, V2, 5
+    JP FRAME
+
+RESTART:
+    LD I, WAVEV
+    LD V0, 0
+    LD [I], V0
+    JP NEWWAVE
+
+; ---- formación: mueve 1 px, baja al tocar un borde ----
+FORMMOVE:
+    LD I, MOVCNT
+    LD V0, 4
+    LD [I], V0
+    SNE VC, 1
+    JP FMRIGHT
+    SNE VD, 0
+    JP FMBOUNCE
+    ADD VD, 0xFF
+    RET
+FMRIGHT:
+    SNE VD, 11
+    JP FMBOUNCE
+    ADD VD, 1
+    RET
+FMBOUNCE:
+    LD V0, 0
+    SUB V0, VC
+    LD VC, V0
+    ADD VE, 1
+    RET
+
+; ---- INRANGE: V4 = 1 si V2 <= V1 < V2+V8 (sin comparadores) ----
+INRANGE:
+    LD V3, V1
+    SUB V3, V2
+    LD V4, VF
+    LD V5, V3
+    SUB V5, V8
+    LD V6, VF
+    SUB V4, V6
+    RET
+
+WAITFRAME:
+    LD V0, 1
+    LD DT, V0
+WF:
+    LD V0, DT
+    SNE V0, 0
+    RET
+    JP WF
+
+; ---- impacto: localizar el alien golpeado y matarlo ----
+HIT:
+    LD I, SPR_BULLET
+    DRW V1, V2, 1           ; borra la bala
+    LD V7, 0
+HL:
+    LD I, ALIVE
+    ADD I, V7
+    LD V0, [I]
+    SNE V0, 0
+    JP HLNEXT
+    LD I, ALX
+    ADD I, V7
+    LD V0, [I]
+    ADD V0, VD
+    LD V2, V0
+    LD V1, VA
+    LD V8, 8
+    CALL INRANGE
+    SE V4, 1
+    JP HLNEXT
+    LD I, ALY
+    ADD I, V7
+    LD V0, [I]
+    ADD V0, VE
+    LD V2, V0
+    LD V1, VB
+    LD V8, 5
+    CALL INRANGE
+    SE V4, 1
+    JP HLNEXT
+    LD I, ALIVE
+    ADD I, V7
+    LD V0, 0
+    LD [I], V0
+    JP HLDONE
+HLNEXT:
+    ADD V7, 1
+    SE V7, ALN
+    JP HL
+HLDONE:
+    LD VB, 0
+    JP NOSHOT
+
+; ---- datos ----
+ALX:        DB 0,9,18,27,36,45,0,9,18,27,36,45
+ALY:        DB 0,0,0,0,0,0,6,6,6,6,6,6
+SPR_ALIEN:  DB 0x24,0x7E,0xDB,0xFF,0xA5
+SPR_SHIP:   DB 0x18,0x3C,0x7E,0xC3
+SPR_BULLET: DB 0x80
+` },
+  matrix: { name: 'ROM 3 · MATRIX PLASMA / MAZE GENERATOR', src: `; ==================================================
+;  MATRIX PLASMA / MAZE GENERATOR
+;  Laberinto Truchet: cada celda 8x8 recibe '\\' o '/' al azar.
+;  Al completarse, un barrido de fósforo revela el resultado.
+; ==================================================
+CELLS   EQU 32              ; 8 columnas x 4 filas
+
+START:
+    LD V1, 0                ; x de la celda
+    LD V2, 0                ; y de la celda
+    LD V7, 0                ; celdas generadas
+    LD V3, 0                ; columna del barrido
+
+FRAME:
+    CALL WAITFRAME
+    SNE V7, CELLS
+    JP WIPE
+    CALL CELLGEN            ; 2 celdas por cuadro = alta velocidad
+    CALL CELLGEN
+    JP FRAME
+
+WIPE:                       ; barrido vertical de 15+15 px
+    LD I, SCAN
+    LD V6, 0
+    DRW V3, V6, 15
+    LD V6, 15
+    DRW V3, V6, 15
+    ADD V3, 1
+    SE V3, 64
+    JP FRAME
+    CLS
+    LD V3, 0
+    LD V7, 0
+    LD V1, 0
+    LD V2, 0
+    JP FRAME
+
+CELLGEN:                    ; dibuja una celda y avanza el cursor
+    RND V0, 1
+    ADD V0, V0
+    ADD V0, V0
+    ADD V0, V0              ; V0 = 0 u 8 (offset de TILE_B)
+    LD I, TILE_A
+    ADD I, V0
+    DRW V1, V2, 8
+    ADD V1, 8
+    SE V1, 64
+    JP CGNEXT
+    LD V1, 0
+    ADD V2, 8
+CGNEXT:
+    ADD V7, 1
+    RET
+
+WAITFRAME:
+    LD V0, 1
+    LD DT, V0
+WF:
+    LD V0, DT
+    SNE V0, 0
+    RET
+    JP WF
+
+TILE_A: DB 0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01
+TILE_B: DB 0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80
+SCAN:   DB 0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80
+` }
+};
+// ===================== INTERFAZ, RENDERIZADO Y BUCLE PRINCIPAL =====================
+const $ = (id) => document.getElementById(id);
+const chip = new Chip8();
+const ui = { running: false, clockHz: 1200, audioOn: false, romKey: 'pong', res: null,
+             budget: 0, tbudget: 0, last: performance.now(), ipsT: performance.now(), ipsC: 0, ips: 0 };
+const phosphor = new Float32Array(SCR_W * SCR_H);           // intensidad residual de cada píxel
+const scrCtx = $('screen').getContext('2d');
+const scrImg = scrCtx.createImageData(SCR_W, SCR_H);
+let audio = null;
+
+// ---- CRT: fósforo con persistencia + color verde ----
+function drawScreen() {
+  const px = scrImg.data, gfx = chip.gfx;
+  for (let i = 0; i < gfx.length; i++) {
+    const p = (phosphor[i] = Math.max(gfx[i], phosphor[i] * 0.72));
+    const j = i * 4;
+    px[j] = 2 + 22 * p;
+    px[j + 1] = 6 + 249 * p;
+    px[j + 2] = 4 + 110 * p;
+    px[j + 3] = 255;
+  }
+  scrCtx.putImageData(scrImg, 0, 0);
+}
+
+// ---- Registros CPU ----
+const regRows = [], lastV = new Uint8Array(16);
+for (let i = 0; i < 16; i++) {
+  const row = document.createElement('div');
+  row.className = 'reg';
+  row.innerHTML = `<span>V${hex(i, 1)}</span><span></span><span></span><div class="bar"><i></i></div>`;
+  $('regs').appendChild(row);
+  regRows.push({ row, hx: row.children[1], dc: row.children[2], bar: row.querySelector('i') });
+}
+const specialEls = {};
+for (const name of ['I', 'PC', 'SP', 'DT', 'ST']) {
+  const d = document.createElement('div');
+  d.innerHTML = `<b>${name}</b><span></span>`;
+  $('specials').appendChild(d);
+  specialEls[name] = d.querySelector('span');
+}
+function renderRegs() {
+  for (let i = 0; i < 16; i++) {
+    const v = chip.V[i], r = regRows[i];
+    r.row.classList.toggle('chg', v !== lastV[i]);
+    lastV[i] = v;
+    r.hx.textContent = '0x' + hex(v);
+    r.dc.textContent = String(v).padStart(3, '0');
+    r.bar.style.width = (v / 255 * 100).toFixed(1) + '%';
+  }
+  specialEls.I.textContent = '0x' + hex(chip.I, 3);
+  specialEls.PC.textContent = '0x' + hex(chip.PC, 3);
+  specialEls.SP.textContent = chip.SP;
+  specialEls.DT.textContent = chip.DT;
+  specialEls.ST.textContent = chip.ST;
+}
+
+// ---- Desensamblador en ventana deslizante ----
+let lastDis = '';
+function renderDisasm() {
+  const pc = chip.PC, start = Math.max(0, pc - 8) & ~1;
+  let html = '';
+  for (let i = 0; i < 12; i++) {
+    const a = start + i * 2;
+    if (a >= RAM_SIZE - 1) break;
+    const op = (chip.ram[a] << 8) | chip.ram[a + 1];
+    const cur = a === pc;
+    html += `<div class="${cur ? 'cur' : ''}">${cur ? '▶' : ' '} 0x${hex(a, 4)}: ${hex(op, 4)} -> ${disasm(op)}</div>`;
+  }
+  if (html !== lastDis) { $('disasm').innerHTML = html; lastDis = html; }
+}
+
+// ---- Inspector hexadecimal de los 4 KB ----
+const hexEl = $('hex'), cellEls = new Array(RAM_SIZE), cellVal = new Int16Array(RAM_SIZE).fill(-1);
+const cellCls = new Array(RAM_SIZE).fill(null), rowEls = [];
+for (let r = 0; r < RAM_SIZE; r += 16) {
+  const row = document.createElement('div');
+  row.className = 'r';
+  row.innerHTML = `<span class="ad">0x${hex(r, 3)}  </span>`;
+  for (let c = 0; c < 16; c++) {
+    const s = document.createElement('span');
+    s.textContent = '00';
+    row.appendChild(s);
+    cellEls[r + c] = s;
+    row.appendChild(document.createTextNode(c < 15 ? ' ' : ''));
+  }
+  hexEl.appendChild(row);
+  rowEls.push(row);
+}
+function renderHex() {
+  const pc = chip.PC, pc1 = (pc + 1) & 0xFFF, ip = chip.I, ip1 = (ip + 1) & 0xFFF;
+  for (let a = 0; a < RAM_SIZE; a++) {
+    const v = chip.ram[a];
+    let cls = a < ROM_BASE ? 'f' : '';
+    if (a === pc || a === pc1) cls = 'pc';
+    else if (a === ip || a === ip1) cls = 'ip';
+    if (v === cellVal[a] && cls === cellCls[a]) continue;
+    cellVal[a] = v; cellCls[a] = cls;
+    cellEls[a].textContent = hex(v);
+    cellEls[a].className = cls;
+  }
+}
+let lastFollow = -1;
+function followPC() { // en pausa, el inspector sigue al PC
+  if (ui.running || chip.PC === lastFollow) return;
+  lastFollow = chip.PC;
+  hexEl.scrollTop = rowEls[chip.PC >> 4].offsetTop - hexEl.clientHeight / 2;
+}
+
+// ---- Teclado HEX (ratón/táctil y teclado físico) ----
+const keyEls = {};
+for (const k of KEY_ORDER) {
+  const d = document.createElement('div');
+  d.textContent = hex(k, 1);
+  d.addEventListener('pointerdown', (e) => { e.preventDefault(); chip.keys[k] = 1; });
+  for (const evt of ['pointerup', 'pointerleave', 'pointercancel']) {
+    d.addEventListener(evt, () => { chip.keys[k] = 0; });
+  }
+  $('keypad').appendChild(d);
+  keyEls[k] = d;
+}
+function renderKeys() {
+  for (const k of KEY_ORDER) keyEls[k].classList.toggle('on', !!chip.keys[k]);
+}
+const isTyping = (e) => ['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName);
+window.addEventListener('keydown', (e) => {
+  if (isTyping(e) || !Object.prototype.hasOwnProperty.call(KEYMAP, e.code)) return;
+  e.preventDefault();
+  chip.keys[KEYMAP[e.code]] = 1;
+});
+window.addEventListener('keyup', (e) => {
+  if (Object.prototype.hasOwnProperty.call(KEYMAP, e.code)) chip.keys[KEYMAP[e.code]] = 0;
+});
+window.addEventListener('blur', () => chip.keys.fill(0));
+
+// ---- Controles de depuración ----
+function setRunning(on) {
+  ui.running = on && !chip.fault;
+  ui.budget = 0; ui.tbudget = 0;
+  const b = $('btnRun');
+  b.textContent = ui.running ? '❚❚ PAUSE' : '▶ RUN';
+  b.classList.toggle('on', ui.running);
+}
+$('btnRun').onclick = () => setRunning(!ui.running);
+$('btnStep').onclick = () => { setRunning(false); chip.step(); };
+$('btnFrame').onclick = () => {                 // 1/60 s de instrucciones + 1 tick de timers
+  setRunning(false);
+  const n = Math.max(1, Math.round(ui.clockHz / 60));
+  for (let i = 0; i < n && !chip.fault; i++) chip.step();
+  chip.tick();
+};
+$('btnReset').onclick = () => { if (ui.res) loadRes(ui.res); };
+const clockEl = $('clock');
+const showClock = () => { $('clockLbl').textContent = ui.clockHz + ' Hz'; };
+clockEl.oninput = () => { ui.clockHz = +clockEl.value; showClock(); };
+showClock();
+$('btnCurve').onclick = () => $('crt').classList.toggle('curve');
+
+// ---- Beeper WebAudio (se activa con el Sound Timer) ----
+function startAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!audio) {
+    const ctx = new AC();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'square'; osc.frequency.value = 660;
+    gain.gain.value = 0;
+    osc.connect(gain); gain.connect(ctx.destination); osc.start();
+    audio = { ctx, gain };
+  }
+  if (audio.ctx.state === 'suspended') audio.ctx.resume();
+}
+$('btnAudio').onclick = () => {
+  ui.audioOn = !ui.audioOn;
+  if (ui.audioOn) startAudio();
+  $('btnAudio').textContent = ui.audioOn ? '♪ AUDIO ON' : '♪ AUDIO OFF';
+  $('btnAudio').classList.toggle('on', ui.audioOn);
+};
+function updateBeep() {
+  if (!audio) return;
+  const on = ui.audioOn && ui.running && chip.ST > 0;
+  audio.gain.gain.setTargetAtTime(on ? 0.04 : 0, audio.ctx.currentTime, 0.01);
+}
+
+// ---- Biblioteca de ROMs: ensamblar, cargar en RAM y ejecutar ----
+const romSel = $('romSel'), asmEl = $('asm'), asmOut = $('asmOut');
+const sources = {};
+for (const key of Object.keys(ROMS)) {
+  sources[key] = ROMS[key].src;
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = ROMS[key].name;
+  romSel.appendChild(opt);
+}
+function loadRes(res) {
+  chip.load(res.image.subarray(res.lo, res.hi + 1), res.lo, res.entry);
+  phosphor.fill(0);
+  ui.ipsC = 0; ui.ipsT = performance.now();
+  setRunning(true);
+}
+function flash(key, text) {
+  try {
+    const res = assemble(text);
+    sources[key] = text;
+    ui.romKey = key; ui.res = res;
+    romSel.value = key; asmEl.value = text;
+    loadRes(res);
+    asmOut.className = '';
+    asmOut.textContent = `OK · ${res.hi - res.lo + 1} bytes en 0x${hex(res.lo, 3)}–0x${hex(res.hi, 3)} · entry 0x${hex(res.entry, 3)}\n` +
+      res.listing.map((l) => `0x${hex(l.addr, 3)}  ${l.code.padEnd(9)}  ${l.src}`).join('\n');
+  } catch (e) {
+    asmOut.className = 'err';
+    asmOut.textContent = `ERROR ${e.message}`;
+  }
+}
+romSel.onchange = () => { sources[ui.romKey] = asmEl.value; flash(romSel.value, sources[romSel.value]); };
+$('btnAsm').onclick = () => flash(ui.romKey, asmEl.value);
+
+// ---- Encabezado de estado ----
+function updateHeader(now) {
+  if (now - ui.ipsT >= 500) {
+    ui.ips = Math.max(0, Math.round((chip.cycles - ui.ipsC) * 1000 / (now - ui.ipsT)));
+    ui.ipsC = chip.cycles; ui.ipsT = now;
+    $('ipsLbl').textContent = `${ui.ips} instr/s`;
+  }
+  $('led').className = chip.fault ? 'fault' : (ui.running ? 'on' : '');
+  $('status').textContent = chip.fault
+    ? `FAULT · ${chip.fault}`
+    : `${ui.running ? 'RUN' : 'PAUSE'} · PC=0x${hex(chip.PC, 3)} · I=0x${hex(chip.I, 3)} · ciclos ${chip.cycles}`;
+}
+
+// ---- Bucle principal: ciclos según Clock Speed, timers a 60 Hz ----
+function frame(now) {
+  const dt = Math.min(0.1, Math.max(0, (now - ui.last) / 1000));
+  ui.last = now;
+  if (ui.running) {
+    ui.budget += ui.clockHz * dt;
+    ui.tbudget += 60 * dt;
+    while (ui.budget >= 1 && !chip.fault) { chip.step(); ui.budget -= 1; }
+    while (ui.tbudget >= 1) { chip.tick(); ui.tbudget -= 1; }
+    if (chip.fault) setRunning(false);
+  }
+  drawScreen();
+  renderRegs();
+  renderDisasm();
+  renderHex();
+  followPC();
+  renderKeys();
+  updateBeep();
+  updateHeader(now);
+  requestAnimationFrame(frame);
+}
+
+// ---- Arranque: la ROM 1 corre de inmediato ----
+flash('pong', sources.pong);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

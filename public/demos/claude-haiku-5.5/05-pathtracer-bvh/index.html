@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Path Tracer Monte Carlo en Tiempo Real · WebGL2</title>
+<style>
+  :root {
+    --neon-a: #ff2bd6;
+    --neon-b: #00f0ff;
+    --panel-bg: rgba(8, 6, 16, 0.82);
+    --text: #d8f6ff;
+    --muted: #7d8aa6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #000; color: var(--text);
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    user-select: none;
+  }
+  #gl {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    display: block; cursor: grab; touch-action: none;
+  }
+  #gl:active { cursor: grabbing; }
+
+  #panel {
+    position: fixed; top: 12px; left: 12px; width: 268px;
+    max-height: calc(100vh - 24px); overflow-y: auto;
+    background: var(--panel-bg);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    box-shadow: 0 0 22px rgba(255, 43, 214, 0.18), inset 0 0 18px rgba(0, 240, 255, 0.05);
+    border-radius: 6px; padding: 12px 14px;
+    backdrop-filter: blur(6px);
+  }
+  #panel h1 {
+    font-size: 13px; margin: 0 0 2px; letter-spacing: 0.08em;
+    color: var(--neon-b); text-transform: uppercase;
+  }
+  #panel .sub { color: var(--muted); margin-bottom: 10px; font-size: 10.5px; }
+  #panel h2 {
+    font-size: 10.5px; margin: 12px 0 6px; color: var(--neon-a);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 43, 214, 0.25); padding-bottom: 3px;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0; }
+  .row label { color: var(--text); flex: 0 0 auto; }
+  .row output { color: var(--neon-b); min-width: 42px; text-align: right; }
+  .row.col { flex-direction: column; align-items: stretch; }
+  input[type="range"] { flex: 1; accent-color: var(--neon-a); }
+  input[type="checkbox"] { accent-color: var(--neon-b); }
+  select, button {
+    background: #120e22; color: var(--text);
+    border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 4px;
+    padding: 4px 6px; font: inherit; cursor: pointer;
+  }
+  select { width: 100%; }
+  button:hover { border-color: var(--neon-a); color: #fff; }
+  .btns { display: flex; gap: 6px; margin-top: 6px; }
+  .btns button { flex: 1; }
+
+  #hud {
+    position: fixed; top: 12px; right: 12px;
+    background: var(--panel-bg); border: 1px solid rgba(0, 240, 255, 0.35);
+    border-radius: 6px; padding: 8px 12px; min-width: 210px;
+    pointer-events: none; backdrop-filter: blur(6px);
+  }
+  #hud .k { color: var(--muted); }
+  #hud .v { color: var(--neon-b); float: right; }
+  #hud .line { display: flex; justify-content: space-between; gap: 12px; line-height: 1.6; }
+  #hint {
+    position: fixed; bottom: 10px; right: 12px; color: var(--muted);
+    font-size: 10.5px; pointer-events: none; text-align: right;
+  }
+  #error {
+    display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92);
+    color: #ff7a9c; padding: 40px; white-space: pre-wrap; overflow: auto; z-index: 10;
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="panel">
+  <h1>Path Tracer · WebGL2</h1>
+  <div class="sub">Monte Carlo progresivo · GLSL ES 3.0 · 100% GPU</div>
+
+  <h2>Escena</h2>
+  <div class="row col">
+    <select id="scene">
+      <option value="0">Cornell Box Cyberpunk · Cristal + Espejo</option>
+      <option value="1">Laboratorio de Lentes Ópticos · Dispersión</option>
+      <option value="2">Anillo de Metales · Luces Volumétricas</option>
+    </select>
+  </div>
+
+  <h2>Trazado</h2>
+  <div class="row"><label for="bounces">Max Bounces</label><output id="bounces-out">6</output></div>
+  <input id="bounces" type="range" min="2" max="10" step="1" value="6">
+  <div class="row"><label for="spf">SPP / frame</label><output id="spf-out">1</output></div>
+  <input id="spf" type="range" min="1" max="4" step="1" value="1">
+  <div class="row"><label for="res">Resolución</label><output id="res-out">75%</output></div>
+  <input id="res" type="range" min="25" max="100" step="5" value="75">
+
+  <h2>Materiales</h2>
+  <div class="row"><label for="rough">Rugosidad metal</label><output id="rough-out">0.15</output></div>
+  <input id="rough" type="range" min="0" max="1" step="0.01" value="0.15">
+  <div class="row"><label for="ior">IOR vidrio</label><output id="ior-out">1.50</output></div>
+  <input id="ior" type="range" min="1" max="2.5" step="0.01" value="1.5">
+  <div class="row"><label for="disp">Dispersión RGB</label><output id="disp-out">0.60</output></div>
+  <input id="disp" type="range" min="0" max="1" step="0.01" value="0.6">
+
+  <h2>Lente & Cámara</h2>
+  <div class="row"><label for="aperture">Apertura (Bokeh)</label><output id="aperture-out">0.010</output></div>
+  <input id="aperture" type="range" min="0" max="0.15" step="0.001" value="0.01">
+  <div class="row"><label for="focus">Distancia focal</label><output id="focus-out">2.30</output></div>
+  <input id="focus" type="range" min="0.5" max="8" step="0.01" value="2.3">
+  <div class="row"><label for="exposure">Exposición</label><output id="exposure-out">1.00</output></div>
+  <input id="exposure" type="range" min="0.2" max="3" step="0.01" value="1">
+  <div class="row"><label for="autorot">Rotación automática</label><input id="autorot" type="checkbox"></div>
+  <div class="row"><label for="rotspeed">Velocidad</label><output id="rotspeed-out">0.20</output></div>
+  <input id="rotspeed" type="range" min="0.02" max="1" step="0.01" value="0.2">
+
+  <h2>Denoiser & Vista</h2>
+  <div class="row"><label for="denoise">Filtro À-Trous</label><input id="denoise" type="checkbox" checked></div>
+  <div class="row col">
+    <select id="view">
+      <option value="0">Filtrada</option>
+      <option value="1">Cruda (sin filtro)</option>
+      <option value="2">Dividida: cruda | filtrada</option>
+    </select>
+  </div>
+
+  <div class="btns">
+    <button id="reset">Reiniciar</button>
+    <button id="pause">Pausar</button>
+  </div>
+</div>
+
+<div id="hud">
+  <div class="line"><span class="k">FPS</span><span class="v" id="t-fps">--</span></div>
+  <div class="line"><span class="k">Frame</span><span class="v" id="t-ms">--</span></div>
+  <div class="line"><span class="k">SPP acumulados</span><span class="v" id="t-spp">0</span></div>
+  <div class="line"><span class="k">MRays/s (est.)</span><span class="v" id="t-mrays">0.0</span></div>
+  <div class="line"><span class="k">Resolución</span><span class="v" id="t-res">--</span></div>
+  <div class="line"><span class="k">Estado</span><span class="v" id="t-state">--</span></div>
+</div>
+
+<div id="hint">Arrastrar: orbitar · Rueda: zoom<br>R reinicia · D filtro · V vista · P pausa</div>
+<div id="error"></div>
+
+<script>
+"use strict";
+
+// ───────────────────────── Shaders ─────────────────────────
+
+const VERT_SRC = `#version 300 es
+in vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+// Integrador: un muestreo por draw. Acumula la media en el canal RGB y el
+// número de muestras en alpha (ping-pong RGBA32F).
+const TRACE_FS = `#version 300 es
+precision highp float;
+precision highp int;
+
+out vec4 fragColor;
+
+const float PI  = 3.14159265359;
+const float EPS = 1e-3;
+const float INF = 1e30;
+
+const int M_DIFF  = 0;
+const int M_METAL = 1;
+const int M_GLASS = 2;
+const int M_EMIT  = 3;
+
+uniform sampler2D uPrev;
+uniform vec2  uRes;
+uniform int   uCount;
+uniform int   uSeed;
+uniform int   uMaxBounces;
+uniform int   uScene;
+uniform float uRough;
+uniform float uIOR;
+uniform float uDisp;
+uniform float uAperture;
+uniform float uFocus;
+uniform vec3  uCamPos;
+uniform vec3  uCamFwd;
+uniform vec3  uCamRight;
+uniform vec3  uCamUp;
+uniform float uTanHalf;
+
+// ── RNG: Wang hash para semilla, PCG-XSH-RR para la secuencia ──
+uint rs;
+
+uint wang(uint s) {
+  s = (s ^ 61u) ^ (s >> 16u);
+  s *= 9u;
+  s ^= s >> 4u;
+  s *= 0x27d4eb2du;
+  s ^= s >> 15u;
+  return s;
+}
+
+float rnd() {
+  rs = rs * 747796405u + 2891336453u;
+  uint w = ((rs >> ((rs >> 28u) + 4u)) ^ rs) * 277803737u;
+  w = (w >> 22u) ^ w;
+  return float(w) * (1.0 / 4294967295.0);
+}
+
+vec2 rnd2() { return vec2(rnd(), rnd()); }
+
+// ── Geometría básica ──
+struct Ray { vec3 o; vec3 d; };
+struct Hit { float t; vec3 p; vec3 n; int id; };
+struct Mat { int type; vec3 alb; vec3 emit; float rough; };
+
+Hit newHit() {
+  Hit h;
+  h.t = INF; h.p = vec3(0.0); h.n = vec3(0.0, 1.0, 0.0); h.id = -1;
+  return h;
+}
+
+void hitSphere(Ray r, vec3 c, float rad, int id, inout Hit h) {
+  vec3 oc = r.o - c;
+  float b = dot(oc, r.d);
+  float cc = dot(oc, oc) - rad * rad;
+  float disc = b * b - cc;
+  if (disc < 0.0) return;
+  float s = sqrt(disc);
+  float t = -b - s;
+  if (t < EPS) t = -b + s;
+  if (t < EPS || t >= h.t) return;
+  h.t = t;
+  h.p = r.o + r.d * t;
+  h.n = (h.p - c) / rad;
+  h.id = id;
+}
+
+// Caja rotada alrededor del eje Y (volumen delimitador analítico).
+void hitBox(Ray r, vec3 c, vec3 hs, float ang, int id, inout Hit h) {
+  float cs = cos(ang), sn = sin(ang);
+  vec3 o = r.o - c;
+  o = vec3(cs * o.x - sn * o.z, o.y, sn * o.x + cs * o.z);
+  vec3 d = vec3(cs * r.d.x - sn * r.d.z, r.d.y, sn * r.d.x + cs * r.d.z);
+  vec3 dd = mix(d, vec3(1e-7), lessThan(abs(d), vec3(1e-7)));
+  vec3 inv = 1.0 / dd;
+  vec3 t0 = (-hs - o) * inv;
+  vec3 t1 = (hs - o) * inv;
+  vec3 tmn = min(t0, t1);
+  vec3 tmx = max(t0, t1);
+  float tN = max(max(tmn.x, tmn.y), tmn.z);
+  float tF = min(min(tmx.x, tmx.y), tmx.z);
+  if (tN > tF || tF < EPS) return;
+  bool entering = tN > EPS;
+  float t = entering ? tN : tF;
+  if (t >= h.t) return;
+  vec3 m = entering ? tmn : tmx;
+  vec3 mask = step(abs(m - t), vec3(1e-5));
+  vec3 nl = (entering ? -1.0 : 1.0) * sign(dd) * mask;
+  // Rotación local → mundo
+  vec3 nw = vec3(cs * nl.x + sn * nl.z, nl.y, -sn * nl.x + cs * nl.z);
+  h.t = t;
+  h.p = r.o + r.d * t;
+  h.n = normalize(nw);
+  h.id = id;
+}
+
+// Interior de una habitación (Cornell): el rayo siempre sale por dentro.
+void hitRoom(Ray r, vec3 c, vec3 hs, inout Hit h) {
+  vec3 dd = mix(r.d, vec3(1e-7), lessThan(abs(r.d), vec3(1e-7)));
+  vec3 inv = 1.0 / dd;
+  vec3 t0 = (c - hs - r.o) * inv;
+  vec3 t1 = (c + hs - r.o) * inv;
+  vec3 tmn = min(t0, t1);
+  vec3 tmx = max(t0, t1);
+  float tN = max(max(tmn.x, tmn.y), tmn.z);
+  float tF = min(min(tmx.x, tmx.y), tmx.z);
+  if (tN > tF || tF < EPS) return;
+  bool entering = tN > EPS;
+  float t = entering ? tN : tF;
+  if (t >= h.t) return;
+  vec3 m = entering ? tmn : tmx;
+  vec3 mask = step(abs(m - t), vec3(1e-5));
+  vec3 p = r.o + r.d * t;
+  vec3 nOut = (entering ? -1.0 : 1.0) * sign(dd) * mask;
+  // Normal hacia el rayo (interior de la sala)
+  h.t = t;
+  h.p = p;
+  h.n = -nOut;
+  h.id = 10;
+  if (mask.x > 0.5) h.id = p.x < c.x ? 11 : 12;   // paredes laterales coloreadas
+}
+
+void hitPlaneY(Ray r, float y, int id, inout Hit h) {
+  if (abs(r.d.y) < 1e-7) return;
+  float t = (y - r.o.y) / r.d.y;
+  if (t < EPS || t >= h.t) return;
+  h.t = t;
+  h.p = r.o + r.d * t;
+  h.n = vec3(0.0, 1.0, 0.0);
+  h.id = id;
+}
+
+// Disco/anillo horizontal con centro c (radio interior rin, exterior rout).
+// Emite sólo por la cara inferior: la normal apunta hacia abajo.
+void hitDiskY(Ray r, vec3 c, float rin, float rout, int id, inout Hit h) {
+  if (abs(r.d.y) < 1e-7) return;
+  float t = (c.y - r.o.y) / r.d.y;
+  if (t < EPS || t >= h.t) return;
+  vec3 p = r.o + r.d * t;
+  float rr = length(p.xz - c.xz);
+  if (rr < rin || rr > rout) return;
+  h.t = t;
+  h.p = p;
+  h.n = vec3(0.0, -1.0, 0.0);
+  h.id = id;
+}
+
+// Cilindro abierto de eje Y (tubos de neón emisivos).
+void hitCylY(Ray r, vec2 cxz, float rad, float y0, float y1, int id, inout Hit h) {
+  vec2 oc = r.o.xz - cxz;
+  vec2 dxz = r.d.xz;
+  float a = dot(dxz, dxz);
+  if (a < 1e-9) return;
+  float b = dot(oc, dxz);
+  float c = dot(oc, oc) - rad * rad;
+  float disc = b * b - a * c;
+  if (disc < 0.0) return;
+  float s = sqrt(disc);
+  float t = (-b - s) / a;
+  if (t < EPS) t = (-b + s) / a;
+  if (t < EPS || t >= h.t) return;
+  vec3 p = r.o + r.d * t;
+  if (p.y < y0 || p.y > y1) return;
+  h.t = t;
+  h.p = p;
+  h.n = normalize(vec3(p.x - cxz.x, 0.0, p.z - cxz.y));
+  h.id = id;
+}
+
+// ── Luz de área: disco/anillo en y = cy ──
+vec3  lightCenter() {
+  if (uScene == 0) return vec3(0.0, 1.97, 0.6);
+  if (uScene == 1) return vec3(0.0, 2.2, 0.0);
+  return vec3(0.0, 1.9, 0.0);
+}
+float lightOuter() {
+  if (uScene == 0) return 0.42;
+  if (uScene == 1) return 0.3;
+  return 0.8;
+}
+float lightInner() {
+  if (uScene == 2) return 0.55;
+  return 0.0;
+}
+float lightArea() {
+  float R = lightOuter(), ri = lightInner();
+  return PI * (R * R - ri * ri);
+}
+vec3 lightEmit() {
+  if (uScene == 0) return vec3(1.0, 0.92, 0.85) * 16.0;
+  if (uScene == 1) return vec3(1.0, 0.98, 0.95) * 24.0;
+  return vec3(0.35, 0.9, 1.0) * 10.0;
+}
+
+// ── Escena ──
+void sceneHit(Ray r, inout Hit h) {
+  if (uScene == 0) {
+    // Cornell cyberpunk: sala 2x2x4, cristal, espejo, caja rotada, luz de techo
+    hitRoom(r, vec3(0.0, 1.0, 1.0), vec3(1.0, 1.0, 2.0), h);
+    hitSphere(r, vec3(-0.42, 0.42, 0.0), 0.40, 20, h);
+    hitSphere(r, vec3( 0.42, 0.32, 0.25), 0.32, 21, h);
+    hitBox(r, vec3(0.05, 0.35, -0.45), vec3(0.28, 0.35, 0.28), 0.5, 22, h);
+    hitDiskY(r, lightCenter(), lightInner(), lightOuter(), 30, h);
+  } else if (uScene == 1) {
+    // Laboratorio óptico: suelo de tablero, lente, prisma de vidrio, espejo
+    hitPlaneY(r, 0.0, 50, h);
+    hitSphere(r, vec3(0.0, 0.55, 0.0), 0.50, 20, h);
+    hitBox(r, vec3(-0.85, 0.42, -0.45), vec3(0.42, 0.42, 0.42), 0.6, 20, h);
+    hitSphere(r, vec3(0.75, 0.25, -0.35), 0.25, 21, h);
+    hitDiskY(r, lightCenter(), lightInner(), lightOuter(), 30, h);
+  } else {
+    // Anillo de metales: 7 esferas en círculo, lente central y tubos de neón
+    hitPlaneY(r, 0.0, 50, h);
+    for (int i = 0; i < 7; i++) {
+      float a = 6.2831853 * float(i) / 7.0;
+      hitSphere(r, vec3(0.9 * cos(a), 0.3, 0.9 * sin(a)), 0.22, 40 + i, h);
+    }
+    hitSphere(r, vec3(0.0, 0.25, 0.0), 0.25, 20, h);
+    hitCylY(r, vec2(-1.7, -0.6), 0.07, 0.0, 2.0, 31, h);
+    hitCylY(r, vec2( 1.7, -0.6), 0.07, 0.0, 2.0, 31, h);
+    hitDiskY(r, lightCenter(), lightInner(), lightOuter(), 30, h);
+  }
+}
+
+vec3 env(vec3 d) {
+  if (uScene == 0) return vec3(0.0);
+  if (uScene == 1) return vec3(0.015, 0.018, 0.03) * (0.6 + 0.4 * d.y);
+  return vec3(0.05, 0.012, 0.09) * (0.5 + 0.5 * d.y);
+}
+
+vec3 palette(int i) {
+  if (i == 0) return vec3(1.00, 0.77, 0.34);  // oro
+  if (i == 1) return vec3(0.96, 0.64, 0.54);  // cobre
+  if (i == 2) return vec3(0.97, 0.96, 0.92);  // plata
+  if (i == 3) return vec3(0.55, 0.90, 1.00);  // cromo cian
+  if (i == 4) return vec3(1.00, 0.35, 0.80);  // magenta
+  if (i == 5) return vec3(0.91, 0.92, 0.93);  // aluminio
+  return vec3(0.70, 0.45, 1.00);              // púrpura
+}
+
+Mat getMat(Hit h) {
+  Mat m;
+  m.type = M_DIFF; m.alb = vec3(0.73); m.emit = vec3(0.0); m.rough = 0.0;
+  int id = h.id;
+  if (id == 10) { m.alb = vec3(0.73); }
+  else if (id == 11) { m.alb = vec3(0.85, 0.12, 0.62); }
+  else if (id == 12) { m.alb = vec3(0.08, 0.70, 0.90); }
+  else if (id == 20) { m.type = M_GLASS; m.alb = vec3(0.97); }
+  else if (id == 21) { m.type = M_METAL; m.alb = vec3(0.95, 0.93, 0.88); m.rough = uRough; }
+  else if (id == 22) { m.alb = vec3(0.80, 0.45, 0.22); }
+  else if (id == 30) { m.type = M_EMIT; m.emit = lightEmit(); }
+  else if (id == 31) { m.type = M_EMIT; m.emit = vec3(1.0, 0.15, 0.65) * 5.0; }
+  else if (id == 50) {
+    float c = mod(floor(h.p.x * 2.0) + floor(h.p.z * 2.0), 2.0);
+    vec3 a = uScene == 2 ? vec3(0.08) : vec3(0.75);
+    vec3 b = uScene == 2 ? vec3(0.02) : vec3(0.12);
+    m.alb = mix(a, b, c);
+  }
+  else if (id >= 40) { m.type = M_METAL; m.alb = palette(id - 40); m.rough = uRough; }
+  return m;
+}
+
+// ── Muestreo ──
+vec2 sampleDisk(vec2 u) {
+  vec2 o = 2.0 * u - 1.0;
+  if (abs(o.x) < 1e-6 && abs(o.y) < 1e-6) return vec2(0.0);
+  float r, th;
+  if (abs(o.x) > abs(o.y)) { r = o.x; th = (PI * 0.25) * (o.y / o.x); }
+  else { r = o.y; th = PI * 0.5 - (PI * 0.25) * (o.x / o.y); }
+  return r * vec2(cos(th), sin(th));
+}
+
+void basis(vec3 n, out vec3 t, out vec3 b) {
+  float s = n.z >= 0.0 ? 1.0 : -1.0;
+  float a = -1.0 / (s + n.z);
+  float bb = n.x * n.y * a;
+  t = vec3(1.0 + s * n.x * n.x * a, s * bb, -s * n.x);
+  b = vec3(bb, s + n.y * n.y * a, -n.y);
+}
+
+vec3 cosineSample(vec3 n) {
+  vec2 d = sampleDisk(rnd2());
+  float z = sqrt(max(0.0, 1.0 - dot(d, d)));
+  vec3 t, b;
+  basis(n, t, b);
+  return normalize(t * d.x + b * d.y + n * z);
+}
+
+// Normal microfacet GGX muestreada según D(h) (α = rugosidad²)
+vec3 ggxSample(vec3 n, float a) {
+  float u1 = rnd(), u2 = rnd();
+  float phi = 2.0 * PI * u2;
+  float ct = sqrt((1.0 - u1) / (1.0 + (a * a - 1.0) * u1));
+  float st = sqrt(max(0.0, 1.0 - ct * ct));
+  vec3 hl = vec3(st * cos(phi), st * sin(phi), ct);
+  vec3 t, b;
+  basis(n, t, b);
+  return normalize(t * hl.x + b * hl.y + n * hl.z);
+}
+
+float ggxD(float NoH, float a) {
+  float a2 = a * a;
+  float dd = NoH * NoH * (a2 - 1.0) + 1.0;
+  return a2 / (PI * dd * dd);
+}
+
+float smithG1(float x, float a) {
+  float a2 = a * a;
+  return 2.0 * x / (x + sqrt(a2 + (1.0 - a2) * x * x));
+}
+
+vec3 schlick(vec3 F0, float c) {
+  return F0 + (1.0 - F0) * pow(1.0 - clamp(c, 0.0, 1.0), 5.0);
+}
+
+float schlickS(float c, float F0) {
+  return F0 + (1.0 - F0) * pow(1.0 - clamp(c, 0.0, 1.0), 5.0);
+}
+
+// Evalúa f(wo,wl) y pdf de muestreo BSDF para materiales no especulares.
+void evalBSDF(Mat m, vec3 n, vec3 wo, vec3 wl, out vec3 f, out float pdf) {
+  if (m.type == M_DIFF) {
+    f = m.alb / PI;
+    pdf = max(dot(n, wl), 0.0) / PI;
+    return;
+  }
+  vec3 hv = normalize(wo + wl);
+  float NoL = dot(n, wl), NoV = dot(n, wo), NoH = dot(n, hv), VoH = dot(wo, hv);
+  float a = max(m.rough * m.rough, 1e-3);
+  float D = ggxD(NoH, a);
+  float G = smithG1(NoV, a) * smithG1(NoL, a);
+  vec3 F = schlick(m.alb, VoH);
+  f = D * G * F / max(4.0 * NoL * NoV, 1e-6);
+  pdf = D * NoH / max(4.0 * VoH, 1e-6);
+}
+
+// Next-Event Estimation hacia la luz de área, con MIS (heurística de potencia).
+vec3 directLight(vec3 p, vec3 n, vec3 wo, Mat m) {
+  vec3 C = lightCenter();
+  float R = lightOuter(), ri = lightInner();
+  float r2 = mix(ri * ri, R * R, rnd());
+  float phi = 2.0 * PI * rnd();
+  float rr = sqrt(r2);
+  vec3 pl = C + vec3(rr * cos(phi), 0.0, rr * sin(phi));
+  vec3 toL = pl - p;
+  float d2 = dot(toL, toL);
+  float d = sqrt(d2);
+  vec3 wl = toL / d;
+  float cosS = dot(n, wl);
+  float cosL = wl.y;                 // normal de la luz = (0,-1,0)
+  if (cosS <= 0.0 || cosL <= 0.0) return vec3(0.0);
+
+  Ray sr;
+  sr.o = p + n * EPS;
+  sr.d = wl;
+  Hit sh = newHit();
+  sh.t = d - 2.0 * EPS;
+  sceneHit(sr, sh);
+  if (sh.id >= 0) return vec3(0.0);
+
+  vec3 f;
+  float pdfB;
+  evalBSDF(m, n, wo, wl, f, pdfB);
+  float pdfL = d2 / (cosL * lightArea());
+  float w = pdfL * pdfL / (pdfL * pdfL + pdfB * pdfB);
+  return f * lightEmit() * cosS * w / pdfL;
+}
+
+// ── Integrador de caminos ──
+vec3 radiance(Ray r) {
+  vec3 L = vec3(0.0);
+  vec3 T = vec3(1.0);        // throughput
+  vec3 spec = vec3(1.0);     // máscara espectral (dispersión por canal)
+  int hero = -1;
+  float pdfPrev = 1.0;
+  bool prevSpec = true;
+
+  for (int b = 0; b < 10; b++) {
+    if (b > uMaxBounces) break;
+
+    Hit h = newHit();
+    sceneHit(r, h);
+    if (h.id < 0) {
+      L += T * spec * env(r.d);
+      break;
+    }
+
+    Mat m = getMat(h);
+    vec3 wo = -r.d;
+    float cosE = dot(h.n, wo);
+
+    // Emisores: sólo por la cara frontal
+    if (m.type == M_EMIT) {
+      if (cosE <= 0.0) break;
+      float w = 1.0;
+      if (h.id == 30 && !prevSpec) {
+        float pdfL = h.t * h.t / (cosE * lightArea());
+        w = pdfPrev * pdfPrev / (pdfPrev * pdfPrev + pdfL * pdfL);
+      }
+      L += T * spec * m.emit * w;
+      break;
+    }
+
+    vec3 n = dot(h.n, r.d) < 0.0 ? h.n : -h.n;
+
+    // Iluminación directa (sólo superficies con lóbulo difuso o rugoso)
+    if (m.type == M_DIFF || (m.type == M_METAL && m.rough >= 0.05)) {
+      L += T * spec * directLight(h.p, n, wo, m);
+    }
+
+    vec3 wi;
+    if (m.type == M_DIFF) {
+      wi = cosineSample(n);
+      T *= m.alb;                       // f·cos/pdf = albedo
+      pdfPrev = max(dot(n, wi), 0.0) / PI;
+      prevSpec = false;
+      r.o = h.p + n * EPS;
+    }
+    else if (m.type == M_METAL) {
+      if (m.rough < 0.05) {
+        // Espejo perfecto
+        wi = reflect(r.d, n);
+        if (dot(wi, n) <= 0.0) break;
+        T *= schlick(m.alb, dot(n, wo));
+        pdfPrev = 1.0;
+        prevSpec = true;
+      } else {
+        float a = max(m.rough * m.rough, 1e-3);
+        vec3 hv = ggxSample(n, a);
+        wi = reflect(r.d, hv);
+        float NoL = dot(n, wi), NoV = dot(n, wo), NoH = dot(n, hv), VoH = dot(wo, hv);
+        if (NoL <= 0.0 || NoV <= 0.0 || VoH <= 0.0) break;
+        vec3 F = schlick(m.alb, VoH);
+        float G2 = smithG1(NoV, a) * smithG1(NoL, a);
+        T *= F * G2 * VoH / (NoV * NoH);
+        pdfPrev = ggxD(NoH, a) * NoH / (4.0 * VoH);
+        prevSpec = false;
+      }
+      r.o = h.p + n * EPS;
+    }
+    else {
+      // Dieléctrico: Fresnel (Schlick) + Snell + reflexión interna total
+      bool entering = dot(h.n, r.d) < 0.0;
+      vec3 nf = entering ? h.n : -h.n;
+      if (uDisp > 0.0 && hero < 0) {
+        // Muestreo de "longitud de onda": un canal por camino
+        hero = min(int(rnd() * 3.0), 2);
+        spec = vec3(hero == 0 ? 3.0 : 0.0, hero == 1 ? 3.0 : 0.0, hero == 2 ? 3.0 : 0.0);
+      }
+      float etaIor = uIOR;
+      if (hero >= 0) etaIor += uDisp * 0.025 * (float(hero) - 1.0);
+      float eta = entering ? 1.0 / etaIor : etaIor;
+      float cosI = clamp(dot(-r.d, nf), 0.0, 1.0);
+      float sin2T = eta * eta * (1.0 - cosI * cosI);
+      float F0 = (etaIor - 1.0) / (etaIor + 1.0);
+      F0 *= F0;
+      float Fr = sin2T > 1.0 ? 1.0 : schlickS(cosI, F0);
+      bool refl = sin2T > 1.0 || rnd() < Fr;
+      if (refl) {
+        wi = reflect(r.d, nf);
+        r.o = h.p + nf * EPS;
+      } else {
+        wi = refract(r.d, nf, eta);
+        r.o = h.p - nf * EPS;
+        T *= m.alb;
+      }
+      pdfPrev = 1.0;
+      prevSpec = true;
+    }
+
+    r.d = normalize(wi);
+
+    // Ruleta rusa a partir del 3er rebote
+    if (b >= 3) {
+      float q = clamp(max(T.x, max(T.y, T.z)), 0.05, 0.95);
+      if (rnd() > q) break;
+      T /= q;
+    }
+  }
+  return L;
+}
+
+// ── Entrada del pase de trazado ──
+void main() {
+  rs = wang(uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + uint(uSeed) * 26699u) | 1u;
+
+  vec2 px = gl_FragCoord.xy + rnd2();
+  vec2 ndc = px / uRes * 2.0 - 1.0;
+  ndc.x *= uRes.x / uRes.y;
+  vec3 dir = normalize(uCamFwd + (ndc.x * uCamRight + ndc.y * uCamUp) * uTanHalf);
+
+  // Lente delgada: punto de enfoque en el plano de distancia focal
+  vec3 focusP = uCamPos + dir * (uFocus / dot(dir, uCamFwd));
+  vec2 lens = uAperture * sampleDisk(rnd2());
+  vec3 o = uCamPos + uCamRight * lens.x + uCamUp * lens.y;
+
+  Ray r;
+  r.o = o;
+  r.d = normalize(focusP - o);
+
+  vec3 Ln = radiance(r);
+  if (any(isnan(Ln)) || any(isinf(Ln))) Ln = vec3(0.0);
+  Ln = min(Ln, vec3(40.0));          // limitación de fireflies
+
+  vec4 prev = texelFetch(uPrev, ivec2(gl_FragCoord.xy), 0);
+  float n = float(uCount);
+  vec3 prevCol = uCount == 0 ? vec3(0.0) : prev.rgb;
+  vec3 mean = (prevCol * n + Ln) / (n + 1.0);
+  fragColor = vec4(mean, n + 1.0);
+}
+`;
+
+// Á-Trous (B3-spline, 5x5 dilatado) con pesos de borde por color.
+// Cada pasada duplica el paso: 1 → 2 → 4 (ancho de filtro efectivo ≈ 33 px).
+const DENOISE_FS = `#version 300 es
+precision highp float;
+precision highp int;
+
+out vec4 fragColor;
+
+uniform sampler2D uTex;
+uniform int   uStep;
+uniform float uSigma;
+
+float kern(int i) {
+  return i == 0 ? 1.0 : (i == 1 ? 2.0 / 3.0 : 1.0 / 6.0);
+}
+
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  ivec2 size = textureSize(uTex, 0);
+  vec4 c0 = texelFetch(uTex, p, 0);
+  vec3 sum = vec3(0.0);
+  float wsum = 0.0;
+  float inv2s = 1.0 / (uSigma * uSigma + 1e-8);
+  for (int j = -2; j <= 2; j++) {
+    for (int i = -2; i <= 2; i++) {
+      ivec2 q = p + ivec2(i, j) * uStep;
+      if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) continue;
+      vec4 c = texelFetch(uTex, q, 0);
+      vec3 dc = c.rgb - c0.rgb;
+      float w = kern(abs(i)) * kern(abs(j)) * exp(-dot(dc, dc) * inv2s);
+      sum += c.rgb * w;
+      wsum += w;
+    }
+  }
+  fragColor = vec4(sum / max(wsum, 1e-6), c0.a);
+}
+`;
+
+// Tone mapping ACES (ajuste de Narkowicz) + gamma 2.2 + vista cruda/filtrada/dividida.
+const DISPLAY_FS = `#version 300 es
+precision highp float;
+precision highp int;
+
+out vec4 fragColor;
+
+uniform sampler2D uFiltered;
+uniform sampler2D uRaw;
+uniform vec2  uRes;
+uniform int   uView;      // 0 filtrada · 1 cruda · 2 dividida
+uniform float uExposure;
+
+vec3 aces(vec3 x) {
+  const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+vec3 toDisplay(vec3 c) {
+  c = aces(max(c, vec3(0.0)) * uExposure);
+  return pow(c, vec3(1.0 / 2.2));
+}
+
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  float fx = gl_FragCoord.x / uRes.x;
+  vec3 col;
+  if (uView == 1) {
+    col = toDisplay(texelFetch(uRaw, p, 0).rgb);
+  } else if (uView == 2) {
+    col = fx < 0.5 ? toDisplay(texelFetch(uRaw, p, 0).rgb)
+                   : toDisplay(texelFetch(uFiltered, p, 0).rgb);
+    if (abs(fx - 0.5) < 1.5 / uRes.x) col = vec3(1.0);
+  } else {
+    col = toDisplay(texelFetch(uFiltered, p, 0).rgb);
+  }
+  fragColor = vec4(col, 1.0);
+}
+`;
+
+// ───────────────────────── Motor ─────────────────────────
+
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+const FOV = 40 * Math.PI / 180;
+const TAN_HALF = Math.tan(FOV / 2);
+const MAX_SPP = 100000;               // a partir de aquí se deja de acumular
+
+// Estado de la aplicación (sincronizado con el panel)
+const S = {
+  scene: 0, bounces: 6, spf: 1, resScale: 0.75,
+  rough: 0.15, ior: 1.5, disp: 0.6,
+  aperture: 0.01, focus: 2.3, exposure: 1.0,
+  autoRot: false, rotSpeed: 0.2,
+  denoise: true, view: 0, paused: false,
+};
+
+// Cámara orbital por escena (la de Cornell se mantiene dentro de la sala)
+const SCENE_CAM = [
+  { target: [0.0, 1.0, 0.5], dist: 1.6, yaw: 0.0, pitch: 0.0, focus: 1.6 },
+  { target: [0.0, 0.5, 0.0], dist: 4.0, yaw: 0.4, pitch: 0.22, focus: 4.0 },
+  { target: [0.0, 0.6, 0.0], dist: 4.2, yaw: 0.3, pitch: 0.30, focus: 4.2 },
+];
+const ROOM_MIN = [-0.92, 0.05, -0.92];
+const ROOM_MAX = [0.92, 1.95, 2.92];
+const cam = { target: [0, 1, 0.5], dist: 1.6, yaw: 0, pitch: 0 };
+
+// ───────────────────────── WebGL2 ─────────────────────────
+
+const canvas = $("gl");
+const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "high-performance" });
+if (!gl) throw fatal("Este navegador no soporta WebGL2.");
+if (!gl.getExtension("EXT_color_buffer_float")) throw fatal("Falta EXT_color_buffer_float (necesario para RGBA32F).");
+
+function fatal(msg) {
+  const box = $("error");
+  box.textContent = msg;
+  box.style.display = "block";
+  return new Error(msg);
+}
+
+function compile(type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw fatal("Error de shader:\n" + gl.getShaderInfoLog(sh));
+  return sh;
+}
+
+function makeProgram(fsSrc) {
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT_SRC));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
+  gl.bindAttribLocation(prog, 0, "aPos");
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw fatal("Error de link:\n" + gl.getProgramInfoLog(prog));
+  prog.u = {};
+  return prog;
+}
+
+// Caché de localizaciones de uniformes
+function U(prog, name) {
+  if (!(name in prog.u)) prog.u[name] = gl.getUniformLocation(prog, name);
+  return prog.u[name];
+}
+
+// Triángulo de pantalla completa (tira de 4 vértices)
+const quadVao = gl.createVertexArray();
+gl.bindVertexArray(quadVao);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+const progTrace = makeProgram(TRACE_FS);
+const progDenoise = makeProgram(DENOISE_FS);
+const progDisplay = makeProgram(DISPLAY_FS);
+
+function drawQuad() { gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+
+// Framebuffer RGBA32F de color único
+function makeTarget(w, h) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, w, h);
+  for (const [p, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST],
+    [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) {
+    gl.texParameteri(gl.TEXTURE_2D, p, v);
+  }
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (!ok) throw fatal("Framebuffer RGBA32F incompleto.");
+  return { tex, fb, w, h };
+}
+
+function freeTarget(t) {
+  gl.deleteTexture(t.tex);
+  gl.deleteFramebuffer(t.fb);
+}
+
+// Ping-pong de acumulación + ping-pong del denoiser
+let RT = null;
+let accRead = 0;     // índice del acumulador con la última media válida
+let accCount = 0;    // muestras por píxel acumuladas
+let drawsWindow = 0; // pases de trazado en la ventana de telemetría
+
+function resetAccum() { accCount = 0; }
+
+function resizeTargets() {
+  const w = Math.max(64, Math.round(innerWidth * S.resScale));
+  const h = Math.max(64, Math.round(innerHeight * S.resScale));
+  if (RT && RT.w === w && RT.h === h) return;
+  if (RT) { RT.acc.forEach(freeTarget); RT.tmp.forEach(freeTarget); }
+  RT = {
+    w, h,
+    acc: [makeTarget(w, h), makeTarget(w, h)],
+    tmp: [makeTarget(w, h), makeTarget(w, h)],
+  };
+  canvas.width = w;
+  canvas.height = h;
+  accRead = 0;
+  resetAccum();
+}
+
+// ───────────────────────── Cámara ─────────────────────────
+
+function camPos() {
+  const cp = Math.cos(cam.pitch);
+  let p = [
+    cam.target[0] + cam.dist * cp * Math.sin(cam.yaw),
+    cam.target[1] + cam.dist * Math.sin(cam.pitch),
+    cam.target[2] + cam.dist * cp * Math.cos(cam.yaw),
+  ];
+  if (S.scene === 0) p = p.map((v, i) => clamp(v, ROOM_MIN[i], ROOM_MAX[i]));
+  return p;
+}
+
+function cameraBasis() {
+  const p = camPos();
+  const f = norm(sub(cam.target, p));
+  const r = norm(cross(f, [0, 1, 0]));
+  const u = cross(r, f);
+  return { p, f, r, u };
+}
+
+function applySceneCamera(i) {
+  Object.assign(cam, SCENE_CAM[i]);
+  cam.target = SCENE_CAM[i].target.slice();
+  S.focus = SCENE_CAM[i].focus;
+  $("focus").value = S.focus;
+  $("focus-out").textContent = S.focus.toFixed(2);
+}
+
+// ───────────────────────── Pases ─────────────────────────
+
+let CB = null;      // base de cámara del frame actual
+let frameIdx = 0;
+
+function tracePass() {
+  const w = RT.w, h = RT.h;
+  const src = RT.acc[accRead];
+  const dst = RT.acc[1 - accRead];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+  gl.viewport(0, 0, w, h);
+  gl.useProgram(progTrace);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, src.tex);
+  gl.uniform1i(U(progTrace, "uPrev"), 0);
+  gl.uniform2f(U(progTrace, "uRes"), w, h);
+  gl.uniform1i(U(progTrace, "uCount"), accCount);
+  gl.uniform1i(U(progTrace, "uSeed"), (Math.random() * 2147483647) | 0);
+  gl.uniform1i(U(progTrace, "uMaxBounces"), S.bounces);
+  gl.uniform1i(U(progTrace, "uScene"), S.scene);
+  gl.uniform1f(U(progTrace, "uRough"), S.rough);
+  gl.uniform1f(U(progTrace, "uIOR"), S.ior);
+  gl.uniform1f(U(progTrace, "uDisp"), S.disp);
+  gl.uniform1f(U(progTrace, "uAperture"), S.aperture);
+  gl.uniform1f(U(progTrace, "uFocus"), S.focus);
+  gl.uniform3fv(U(progTrace, "uCamPos"), CB.p);
+  gl.uniform3fv(U(progTrace, "uCamFwd"), CB.f);
+  gl.uniform3fv(U(progTrace, "uCamRight"), CB.r);
+  gl.uniform3fv(U(progTrace, "uCamUp"), CB.u);
+  gl.uniform1f(U(progTrace, "uTanHalf"), TAN_HALF);
+  drawQuad();
+  accRead = 1 - accRead;
+  accCount++;
+  drawsWindow++;
+}
+
+// Á-Trous: 3 pasadas (paso 1, 2, 4) entre tmp[0] y tmp[1]. Devuelve la textura final.
+function denoisePass() {
+  const w = RT.w, h = RT.h;
+  const sigma = Math.max(0.04, 0.8 / Math.sqrt(Math.max(1, accCount)));
+  gl.useProgram(progDenoise);
+  gl.uniform1f(U(progDenoise, "uSigma"), sigma);
+  let src = RT.acc[accRead];
+  const steps = [1, 2, 4];
+  for (let i = 0; i < steps.length; i++) {
+    const dst = RT.tmp[i % 2];
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+    gl.viewport(0, 0, w, h);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.uniform1i(U(progDenoise, "uTex"), 0);
+    gl.uniform1i(U(progDenoise, "uStep"), steps[i]);
+    drawQuad();
+    src = dst;
+  }
+  return src;
+}
+
+function displayPass(finalTex) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.useProgram(progDisplay);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, finalTex.tex);
+  gl.uniform1i(U(progDisplay, "uFiltered"), 0);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, RT.acc[accRead].tex);
+  gl.uniform1i(U(progDisplay, "uRaw"), 1);
+  gl.uniform2f(U(progDisplay, "uRes"), canvas.width, canvas.height);
+  gl.uniform1i(U(progDisplay, "uView"), S.view);
+  gl.uniform1f(U(progDisplay, "uExposure"), S.exposure);
+  drawQuad();
+}
+
+// ───────────────────────── Interfaz ─────────────────────────
+
+// Enlaza un slider: actualiza la salida textual y, en 'input', llama a onChange
+function bindRange(id, outId, fmt, onChange) {
+  const el = $(id), out = $(outId);
+  const show = () => { out.textContent = fmt(parseFloat(el.value)); };
+  el.addEventListener("input", () => { show(); onChange(parseFloat(el.value)); });
+  show();
+}
+
+bindRange("bounces", "bounces-out", v => v | 0, v => { S.bounces = v | 0; resetAccum(); });
+bindRange("spf", "spf-out", v => v | 0, v => { S.spf = v | 0; });
+bindRange("res", "res-out", v => v + "%", v => { S.resScale = v / 100; resizeTargets(); });
+bindRange("rough", "rough-out", v => v.toFixed(2), v => { S.rough = v; resetAccum(); });
+bindRange("ior", "ior-out", v => v.toFixed(2), v => { S.ior = v; resetAccum(); });
+bindRange("disp", "disp-out", v => v.toFixed(2), v => { S.disp = v; resetAccum(); });
+bindRange("aperture", "aperture-out", v => v.toFixed(3), v => { S.aperture = v; resetAccum(); });
+bindRange("focus", "focus-out", v => v.toFixed(2), v => { S.focus = v; resetAccum(); });
+bindRange("exposure", "exposure-out", v => v.toFixed(2), v => { S.exposure = v; });
+bindRange("rotspeed", "rotspeed-out", v => v.toFixed(2), v => { S.rotSpeed = v; });
+
+$("scene").addEventListener("change", e => {
+  S.scene = parseInt(e.target.value, 10);
+  applySceneCamera(S.scene);
+  resetAccum();
+});
+$("autorot").addEventListener("change", e => { S.autoRot = e.target.checked; resetAccum(); });
+$("denoise").addEventListener("change", e => { S.denoise = e.target.checked; });
+$("view").addEventListener("change", e => { S.view = parseInt(e.target.value, 10); });
+$("reset").addEventListener("click", resetAccum);
+$("pause").addEventListener("click", togglePause);
+
+function togglePause() {
+  S.paused = !S.paused;
+  $("pause").textContent = S.paused ? "Reanudar" : "Pausar";
+}
+
+function toggleDenoise() {
+  S.denoise = !S.denoise;
+  $("denoise").checked = S.denoise;
+}
+
+function cycleView() {
+  S.view = (S.view + 1) % 3;
+  $("view").value = String(S.view);
+}
+
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (k === "r") resetAccum();
+  else if (k === "d") toggleDenoise();
+  else if (k === "v") cycleView();
+  else if (k === "p") togglePause();
+});
+
+// Orbitar (arrastrar) y zoom (rueda). Cualquier cambio de cámara reinicia la acumulación.
+let dragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener("pointerdown", e => {
+  dragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointerup", () => { dragging = false; });
+canvas.addEventListener("pointercancel", () => { dragging = false; });
+canvas.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  cam.yaw -= dx * 0.006;
+  cam.pitch = clamp(cam.pitch + dy * 0.006, -1.2, 1.2);
+  resetAccum();
+});
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  cam.dist = clamp(cam.dist * Math.exp(e.deltaY * 0.001), 0.8, 9);
+  resetAccum();
+}, { passive: false });
+
+window.addEventListener("resize", resizeTargets);
+
+// ───────────────────────── Bucle principal ─────────────────────────
+
+const tel = { last: performance.now(), frames: 0, frameMs: 0, t0: performance.now() };
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = clamp((now - tel.last) / 1000, 0, 0.1);
+  tel.frameMs = tel.frameMs * 0.9 + (now - tel.last) * 0.1;
+  tel.last = now;
+
+  if (!S.paused) {
+    if (S.autoRot) {
+      cam.yaw += S.rotSpeed * dt;
+      resetAccum();          // rotación = movimiento: sólo imagen en vivo
+    }
+    CB = cameraBasis();
+    if (accCount < MAX_SPP) {
+      for (let s = 0; s < S.spf && accCount < MAX_SPP; s++) tracePass();
+    }
+    const finalTex = S.denoise ? denoisePass() : RT.acc[accRead];
+    displayPass(finalTex);
+    tel.frames++;
+  }
+
+  if (now - tel.t0 > 250) {
+    const secs = (now - tel.t0) / 1000;
+    const fps = tel.frames / secs;
+    const mrays = RT.w * RT.h * drawsWindow * (1 + 2 * S.bounces) / secs / 1e6;
+    $("t-fps").textContent = fps.toFixed(0);
+    $("t-ms").textContent = tel.frameMs.toFixed(1) + " ms";
+    $("t-spp").textContent = accCount >= MAX_SPP ? MAX_SPP.toLocaleString() + " (límite)" : accCount.toLocaleString();
+    $("t-mrays").textContent = mrays.toFixed(1);
+    $("t-res").textContent = RT.w + "×" + RT.h;
+    $("t-state").textContent = S.paused ? "Pausado" : S.autoRot ? "Movimiento" : accCount >= MAX_SPP ? "Límite SPP" : "Acumulando";
+    tel.frames = 0;
+    drawsWindow = 0;
+    tel.t0 = now;
+  }
+}
+
+// ───────────────────────── Arranque ─────────────────────────
+
+try {
+  applySceneCamera(S.scene);
+  resizeTargets();
+  requestAnimationFrame(frame);
+} catch (err) {
+  console.error(err);
+}
+</script>
+</body>
+</html>

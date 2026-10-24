@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACID LAB 3D · TB-303 / TR-909 · Espectro Holográfico</title>
+<style>
+:root{--cy:#00f0ff;--mg:#ff1ec8;--yl:#ffe640;--gr:#7dff7a;--ln:#1d2342;--tx:#c8d0ff;--dim:#6f7aa8}
+*{box-sizing:border-box}
+html,body{margin:0;background:#060610;color:var(--tx);font:13px/1.4 ui-monospace,Menlo,Consolas,monospace}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 16px;border-bottom:1px solid var(--ln);background:linear-gradient(90deg,#0b0d1f,#170a22)}
+h1{margin:0;font-size:18px;letter-spacing:3px;color:var(--cy);text-shadow:0 0 10px var(--cy)}
+h1 b{color:var(--mg);text-shadow:0 0 10px var(--mg);font-weight:inherit}
+h1 small{margin-left:12px;font-size:10px;letter-spacing:1px;color:var(--dim);text-shadow:none}
+h2{margin:6px 0 8px;font-size:11px;letter-spacing:2px;color:var(--dim);text-transform:uppercase}
+.hud{display:flex;gap:18px;font-size:12px}
+#fps{color:var(--gr);min-width:72px;text-align:right}
+#status{color:var(--yl)}
+.stage{position:relative;height:46vh;min-height:320px;background:#020206;border-bottom:1px solid var(--ln);overflow:hidden}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#scope{position:absolute;right:12px;top:12px;width:280px;height:112px;border:1px solid var(--ln);border-radius:6px;background:#03050c}
+.bands{position:absolute;left:12px;bottom:12px;display:flex;gap:14px;pointer-events:none}
+.band{width:96px;font-size:10px;color:var(--dim)}
+.bar{height:6px;margin-top:4px;background:#14182c;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--c);box-shadow:0 0 8px var(--c)}
+.notice{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);pointer-events:none}
+.notice[hidden]{display:none}
+.panel{padding:12px 16px;border-bottom:1px solid var(--ln)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+button,select{font:inherit;color:var(--tx);background:#12163a;border:1px solid #2b3370;border-radius:6px;padding:6px 10px;cursor:pointer}
+button:hover,select:hover{border-color:var(--cy)}
+button.on{background:var(--cy);color:#00121a;border-color:var(--cy);box-shadow:0 0 10px var(--cy)}
+#audioBtn{font-size:15px;letter-spacing:2px;padding:10px 20px;border-color:var(--mg);color:var(--mg)}
+#audioBtn.live{background:var(--mg);color:#1a0016;box-shadow:0 0 16px var(--mg)}
+.sep{flex:1}
+.knobs{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
+.knob{width:100px;text-align:center;user-select:none;touch-action:none}
+.dial{position:relative;width:66px;height:66px;margin:0 auto;border-radius:50%;cursor:ns-resize;background:conic-gradient(from 225deg,var(--kc) calc(var(--p)*0.75%),#1a2038 0)}
+.dial::before{content:"";position:absolute;inset:7px;border-radius:50%;background:radial-gradient(circle at 40% 30%,#30396a,#0b0e1c)}
+.ind{position:absolute;inset:0;transform:rotate(var(--a))}
+.ind::after{content:"";position:absolute;left:50%;top:9px;width:3px;height:17px;margin-left:-1.5px;background:#fff;border-radius:2px;box-shadow:0 0 6px var(--kc)}
+.lbl{margin-top:6px;font-size:11px;color:var(--dim)}
+.val{font-size:12px;color:var(--kc);text-shadow:0 0 6px var(--kc)}
+.grid{display:grid;grid-template-columns:64px repeat(16,minmax(42px,1fr));gap:4px;margin-bottom:14px;overflow-x:auto}
+.lab{font-size:10px;color:var(--dim);align-self:center;cursor:pointer;white-space:nowrap}
+.c{width:100%;padding:4px 0;font-size:11px;text-align:center;min-width:0}
+.c.g{border-color:#3b4690}
+.c.pl{box-shadow:0 0 0 2px var(--yl) inset;color:var(--yl)}
+.c.on.pl{color:#00121a}
+.hint{color:var(--dim);font-size:11px;margin-top:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>ACID<b>LAB</b> 3D <small>TB-303 · TR-909 · ESPECTRO HOLOGRÁFICO</small></h1>
+  <div class="hud"><span id="fps">-- FPS</span><span id="status">MODO VISUAL · clic en cualquier parte = audio</span></div>
+</header>
+
+<section class="stage" id="stage">
+  <canvas id="gl"></canvas>
+  <canvas id="scope" width="520" height="208"></canvas>
+  <div class="bands">
+    <div class="band" style="--c:#00f0ff"><span>Sub-Bass</span><div class="bar"><i id="bSub"></i></div></div>
+    <div class="band" style="--c:#ff1ec8"><span>Acid Mid</span><div class="bar"><i id="bMid"></i></div></div>
+    <div class="band" style="--c:#ffe640"><span>Highs</span><div class="bar"><i id="bHi"></i></div></div>
+  </div>
+  <div class="notice" id="notice" hidden>WebGL2 no disponible · el audio y el secuenciador siguen activos</div>
+</section>
+
+<section class="panel">
+  <div class="row">
+    <button id="audioBtn">▶ PLAY / AUDIO</button>
+    <button id="muteBtn">MUTE</button>
+    <button id="wSaw">SAW</button>
+    <button id="wSqr">SQR</button>
+    <div class="sep"></div>
+    <div class="row" id="presets" style="margin:0"></div>
+  </div>
+  <div class="knobs" id="knobs"></div>
+  <div class="hint">Arrastra las perillas arriba/abajo (Shift = fino, rueda = ajuste, doble clic = valor del preset). Espacio = mute · Arrastra la escena 3D para orbitarla.</div>
+</section>
+
+<section class="panel">
+  <h2>TB-303 · línea ácida (16 pasos) · Nota / Octava / Accent / Slide / Gate</h2>
+  <div class="grid" id="acid"></div>
+  <h2>TR-909 · percusión (Kick · Snare · Hi-Hat C/O · Clap/Rim)</h2>
+  <div class="grid" id="drums"></div>
+</section>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Constantes y utilidades ================= */
+const NB = 64;                 // bandas espectrales (log 30 Hz – 12 kHz)
+const NH = 48;                 // filas de historial (cascada 3D)
+const STEPS = 16;
+const NP = 1600;               // partículas del túnel
+const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const HAT_F = [205.3, 304.4, 369.6, 522.7, 540, 812.8];   // osciladores metálicos tipo TR-808/909
+const PCOL = [[0, 0.9, 1], [1, 0.12, 0.8], [1, 0.9, 0.25]]; // sub / mid / highs
+
+const $ = (s) => document.querySelector(s);
+const tag = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const note = (n, o = 0, f = '') => ({ n, o, a: f.includes('a'), s: f.includes('s'), g: true });
+const rest = () => ({ n: 0, o: 0, a: false, s: false, g: false });
+const drum = (str) => Array.from({ length: STEPS }, (_, i) => Number(str[i] || 0));
+const noteHz = (s) => 440 * Math.pow(2, (36 + s.n + 12 * s.o - 69) / 12);
+const stepSec = () => 15 / cur.k.bpm;            // 16 pasos = 4 pulsos → 60/bpm/4
+
+const bandF  = Array.from({ length: NB }, (_, b) => 30 * Math.pow(400, (b + 0.5) / NB));
+const bandLo = Array.from({ length: NB }, (_, b) => 30 * Math.pow(400, b / NB));
+const bandHi = Array.from({ length: NB }, (_, b) => 30 * Math.pow(400, (b + 1) / NB));
+const GRP = { sub: [], mid: [], hi: [] };
+bandF.forEach((f, b) => (f < 120 ? GRP.sub : f < 2000 ? GRP.mid : GRP.hi).push(b));
+
+/* ================= Presets (4 patrones) ================= */
+const PRESETS = [
+  { name: 'Acid Warehouse 138 BPM', wave: 'saw',
+    k: { bpm: 138, cutoff: 620, res: 0.72, envMod: 0.62, decay: 0.32, dist: 0.35, delay: 0.22 },
+    acid: [note(9,0,'a'), rest(), note(9,0), note(9,1,'s'), note(0,0,'a'), rest(), note(7,0), note(9,0,'s'),
+           note(4,0,'a'), rest(), note(9,1), note(7,0,'s'), note(5,0,'a'), note(4,0), rest(), note(9,0,'s')],
+    kick: drum('1000100010001001'), snare: drum('0000100000001000'),
+    hat: drum('0101010101010102'), clap: drum('0000000010000000') },
+  { name: 'Cyberpunk Phonk 125 BPM', wave: 'sqr',
+    k: { bpm: 125, cutoff: 480, res: 0.8, envMod: 0.75, decay: 0.4, dist: 0.6, delay: 0.35 },
+    acid: [note(0,0,'a'), note(0,0,'s'), note(3,0), rest(), note(0,1,'a'), note(10,0,'s'), note(8,0), rest(),
+           note(3,0,'a'), note(0,0), note(7,-1,'s'), note(0,0,'a'), note(8,0,'s'), rest(), note(10,0), note(3,0,'a')],
+    kick: drum('1001000010010000'), snare: drum('0000100000001000'),
+    hat: drum('0010020010020010'), clap: drum('0000000000000001') },
+  { name: 'Hypnotic Modular 132 BPM', wave: 'saw',
+    k: { bpm: 132, cutoff: 380, res: 0.55, envMod: 0.4, decay: 0.55, dist: 0.2, delay: 0.4 },
+    acid: [note(4,0,'a'), note(4,0), note(4,1,'s'), note(4,0), note(7,0,'a'), note(4,0,'s'), note(11,0), rest(),
+           note(4,1,'a'), note(4,0), note(2,0,'s'), note(4,0), note(9,0,'a'), note(7,0), note(4,0,'s'), note(2,0)],
+    kick: drum('1000100010001000'), snare: drum('0000000000001000'),
+    hat: drum('0010001000100020'), clap: drum('0000010000000000') },
+  { name: 'Detroit Electro 140 BPM', wave: 'sqr',
+    k: { bpm: 140, cutoff: 900, res: 0.85, envMod: 0.7, decay: 0.22, dist: 0.5, delay: 0.3 },
+    acid: [note(2,0,'a'), rest(), note(2,0,'s'), note(5,0), note(2,1,'a'), note(9,0,'s'), note(5,0), note(0,0),
+           note(2,0,'a'), note(2,0,'s'), note(3,0), rest(), note(2,1,'a'), note(5,0,'s'), note(9,0), note(0,0)],
+    kick: drum('1000100010001000'), snare: drum('0000100000001001'),
+    hat: drum('1010102010101010'), clap: drum('0000001000000000') },
+];
+
+/* ================= Perillas ================= */
+const KDEF = [
+  { id: 'cutoff', label: 'Cutoff',     min: 80,   max: 5000, log: true, dec: 0, unit: ' Hz', color: '#00f0ff' },
+  { id: 'res',    label: 'Resonance',  min: 0,    max: 1,    mul: 100, dec: 0, unit: '%',  color: '#ff1ec8' },
+  { id: 'envMod', label: 'EnvMod',     min: 0,    max: 1,    mul: 100, dec: 0, unit: '%',  color: '#ffe640' },
+  { id: 'decay',  label: 'Decay',      min: 0.05, max: 1.2,  dec: 2, unit: ' s', color: '#7dff7a' },
+  { id: 'dist',   label: 'Distortion', min: 0,    max: 1,    mul: 100, dec: 0, unit: '%',  color: '#ff7a1a' },
+  { id: 'delay',  label: 'Delay Mix',  min: 0,    max: 1,    mul: 100, dec: 0, unit: '%',  color: '#b07cff' },
+  { id: 'bpm',    label: 'BPM',        min: 60,   max: 180,  dec: 0, unit: '', color: '#ffffff' },
+];
+const KD = Object.fromEntries(KDEF.map((d) => [d.id, d]));
+const toNorm = (d, v) => (d.log ? Math.log(v / d.min) / Math.log(d.max / d.min) : (v - d.min) / (d.max - d.min));
+const fromNorm = (d, n) => (d.log ? d.min * Math.pow(d.max / d.min, n) : d.min + (d.max - d.min) * n);
+
+/* ================= Estado ================= */
+const cur = { preset: 0, wave: 'saw', clapMode: 'clap', k: {}, acid: [], kick: [], snare: [], hat: [], clap: [] };
+const A = { ctx: null, on: false, muted: false };        // motor WebAudio
+const V = { kick: 0, snare: 0, hat: 0, hatTau: 0.05, clap: 0, hz: 110, hzCur: 110, fenv: 0, fAcc: 0,
+            gate: 0, lvl: 0.65, acid: 0, ph: 0 };        // envolventes sintéticas (modo visual)
+const T = { step: 0, next: 0, started: false, q: [] };   // secuenciador (reloj ms de performance.now)
+const TG = new Float32Array(NB);                          // objetivo espectral
+const SPEC = new Float32Array(NB);                        // espectro suavizado
+const H = new Float32Array(NB * NH);                      // historial (fila 0 = más reciente)
+const PB = new Float32Array(NP * 7);                      // buffer partículas: pos(3) col(3) size(1)
+const BV = { sub: 0, mid: 0, hi: 0, wave: 0 };
+const PA = { ang: new Float32Array(NP), rad: new Float32Array(NP), z: new Float32Array(NP),
+             ty: new Uint8Array(NP), sp: new Float32Array(NP) };
+for (let i = 0; i < NP; i++) {
+  PA.ang[i] = Math.random() * Math.PI * 2;
+  PA.rad[i] = 0.7 + Math.random() * 1.8;
+  PA.z[i] = -9 + Math.random() * 11.5;
+  PA.ty[i] = i % 3;
+  PA.sp[i] = 0.6 + Math.random() * 1.2;
+}
+
+let cells = [];          // celdas por paso (para el playhead)
+let plIdx = -1;
+const knobRef = {};
+const presetBtns = [];
+let camYaw = 0, camPitch = 0, drag = null;
+let time = 0, last = performance.now(), fpsN = 0, fpsT = last;
+let GLX = null;
+
+/* ================= DOM ================= */
+const glCanvas = $('#gl'), stageEl = $('#stage'), sc = $('#scope'), sx = sc.getContext('2d');
+const fpsEl = $('#fps'), statusEl = $('#status'), audioBtn = $('#audioBtn'), muteBtn = $('#muteBtn');
+const presetEl = $('#presets'), knobsEl = $('#knobs'), acidEl = $('#acid'), drumEl = $('#drums');
+const bEl = { sub: $('#bSub'), mid: $('#bMid'), hi: $('#bHi') };
+const noticeEl = $('#notice');
+
+/* ================= Motor de audio (WebAudio) ================= */
+function buildAudio() {
+  const c = new (window.AudioContext || window.webkitAudioContext)();
+  const master = c.createGain(); master.gain.value = A.muted ? 0 : 0.8;
+  const comp = c.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 4;
+  const an = c.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = 0.8;
+  master.connect(comp); comp.connect(c.destination); comp.connect(an);
+
+  const drumBus = c.createGain(); drumBus.gain.value = 0.85; drumBus.connect(master);
+
+  // Delay estéreo ping-pong con feedback cruzado, tiempo = punteada de 1/8 (3 pasos de 16)
+  const send = c.createGain();
+  const dL = c.createDelay(4), dR = c.createDelay(4);
+  const fbL = c.createGain(), fbR = c.createGain(); fbL.gain.value = fbR.gain.value = 0.42;
+  const merge = c.createChannelMerger(2);
+  const wet = c.createGain(); wet.gain.value = cur.k.delay * 0.9;
+  send.connect(dL); dL.connect(fbL); fbL.connect(dR); dR.connect(fbR); fbR.connect(dL);
+  dL.connect(merge, 0, 0); dR.connect(merge, 0, 1); merge.connect(wet); wet.connect(master);
+
+  // TB-303: osc → VCF (2 polos en cascada) → VCA → overdrive (WaveShaper tanh)
+  const osc = c.createOscillator(); osc.type = cur.wave === 'sqr' ? 'square' : 'sawtooth'; osc.frequency.value = 110;
+  const f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter(); f1.type = 'lowpass'; f2.type = 'lowpass';
+  const vca = c.createGain(); vca.gain.value = 0;
+  const drive = c.createGain();
+  const shaper = c.createWaveShaper(); shaper.oversample = '4x';
+  const acidOut = c.createGain(); acidOut.gain.value = 0.6;
+  osc.connect(f1); f1.connect(f2); f2.connect(vca); vca.connect(drive); drive.connect(shaper); shaper.connect(acidOut);
+  acidOut.connect(master); acidOut.connect(send); osc.start();
+
+  // Ruido blanco compartido para snare / clap / hats
+  const noise = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+  const nd = noise.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+
+  Object.assign(A, { ctx: c, master, drumBus, send, dL, dR, wet, osc, f1, f2, vca, drive, shaper, acidOut,
+                     an, noise, tbuf: new Uint8Array(an.fftSize), fbuf: new Uint8Array(an.frequencyBinCount) });
+  setDrive(); setRes(); setDelay();
+}
+
+function unlock() {
+  try {
+    if (!A.ctx) buildAudio();
+    if (A.ctx.state !== 'running') A.ctx.resume();
+    A.on = true;
+    setMuted(false);
+  } catch (err) {
+    console.warn('WebAudio no disponible:', err);
+  }
+}
+
+function setMuted(m) {
+  A.muted = m;
+  if (A.master) A.master.gain.setTargetAtTime(m ? 0 : 0.8, A.ctx.currentTime, 0.02);
+  updateStatus();
+}
+
+function updateStatus() {
+  audioBtn.classList.toggle('live', A.on && !A.muted);
+  audioBtn.textContent = !A.on ? '▶ PLAY / AUDIO' : (A.muted ? '▶ AUDIO (MUTE)' : '● AUDIO LIVE');
+  muteBtn.classList.toggle('on', A.muted);
+  statusEl.textContent = !A.on ? 'MODO VISUAL · clic en cualquier parte = audio'
+                       : (A.muted ? 'AUDIO SILENCIADO · visual activo' : 'AUDIO LIVE · síntesis WebAudio en tiempo real');
+}
+
+function setDrive() {
+  if (!A.ctx) return;
+  const d = cur.k.dist, k = 1 + d * 12, n = 2048, curve = new Float32Array(n), tk = Math.tanh(k);
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; curve[i] = Math.tanh(k * x) / tk; }
+  A.shaper.curve = curve;
+  A.drive.gain.setTargetAtTime(0.8 + d * 1.6, A.ctx.currentTime, 0.03);
+}
+
+function setRes() {
+  if (!A.ctx) return;
+  A.f1.Q.value = A.f2.Q.value = 0.7 + cur.k.res * 11;
+}
+
+function setDelay() {
+  if (!A.ctx) return;
+  const t = A.ctx.currentTime;
+  A.dL.delayTime.setTargetAtTime(3 * stepSec(), t, 0.05);
+  A.dR.delayTime.setTargetAtTime(3 * stepSec(), t, 0.05);
+  A.wet.gain.setTargetAtTime(cur.k.delay * 0.9, t, 0.02);
+}
+
+// Ruido filtrado: devuelve el nodo de ganancia para que el llamador le dé la envolvente
+function noiseSrc(t, dur, type, freq, q) {
+  const c = A.ctx, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = A.noise; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  src.connect(f); f.connect(g);
+  src.start(t, Math.random() * 1.5); src.stop(t + dur);
+  return g;
+}
+
+/* ---- TB-303 ---- */
+function scheduleAcid(i, t, dur) {
+  const s = cur.acid[i];
+  if (!s.g) return;
+  const prev = cur.acid[(i + STEPS - 1) % STEPS], next = cur.acid[(i + 1) % STEPS];
+  const glide = prev.g && prev.s;              // slide: portamento exponencial sin retrigger
+  const { osc, f1, f2, vca } = A, k = cur.k, hz = noteHz(s);
+
+  if (glide) {
+    osc.frequency.setValueAtTime(noteHz(prev), t);
+    osc.frequency.exponentialRampToValueAtTime(hz, t + Math.min(0.08, dur * 0.5));
+  } else {
+    osc.frequency.setValueAtTime(hz, t);
+  }
+
+  // VCA (gate con ataque/release cortos)
+  const lvl = s.a ? 0.95 : 0.6, holdNext = s.s && next.g;
+  vca.gain.cancelScheduledValues(t);
+  if (glide) {
+    vca.gain.setValueAtTime(lvl, t);
+  } else {
+    vca.gain.setValueAtTime(0.0001, t);
+    vca.gain.linearRampToValueAtTime(lvl, t + 0.004);
+  }
+  if (!holdNext) {
+    const off = t + dur * (s.s ? 0.98 : 0.55);
+    vca.gain.setValueAtTime(lvl, off);
+    vca.gain.exponentialRampToValueAtTime(0.0001, off + 0.03);
+  }
+
+  // Envolvente del filtro: EnvMod (+ Accent) con caída Decay
+  if (!glide || s.a) {
+    const base = k.cutoff, peak = Math.min(12000, base * Math.pow(2, k.envMod * 4 + (s.a ? 1.4 : 0)));
+    const tc = Math.max(0.02, k.decay * 0.28);
+    for (const f of [f1, f2]) {
+      f.frequency.cancelScheduledValues(t);
+      f.frequency.setValueAtTime(base, t);
+      f.frequency.exponentialRampToValueAtTime(peak, t + 0.003);
+      f.frequency.setTargetAtTime(base, t + 0.003, tc);
+    }
+  }
+}
+
+/* ---- TR-909 ---- */
+function kick(t) {
+  const c = A.ctx, o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(165, t);
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.07);       // barrido rápido = punch
+  g.gain.setValueAtTime(1, t);
+  g.gain.setTargetAtTime(0.0001, t + 0.01, 0.12);
+  o.connect(g); g.connect(A.drumBus); o.start(t); o.stop(t + 0.7);
+  const click = noiseSrc(t, 0.012, 'highpass', 2500, 0.7);
+  click.gain.setValueAtTime(0.7, t); click.gain.exponentialRampToValueAtTime(0.0001, t + 0.01);
+  click.connect(A.drumBus);
+}
+
+function snare(t) {
+  const c = A.ctx, o = c.createOscillator(), g = c.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(230, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.06);
+  g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g); g.connect(A.drumBus); o.start(t); o.stop(t + 0.2);
+  const n = noiseSrc(t, 0.22, 'bandpass', 1800, 0.6);
+  n.gain.setValueAtTime(0.9, t); n.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  n.connect(A.drumBus);
+}
+
+function hat(t, open) {
+  const c = A.ctx, dur = open ? 0.32 : 0.05;
+  const env = c.createGain(), hp = c.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 7000;
+  env.gain.setValueAtTime(0.035, t); env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  hp.connect(env); env.connect(A.drumBus);
+  for (const f of HAT_F) {
+    const o = c.createOscillator();
+    o.type = 'square'; o.frequency.value = f;
+    o.connect(hp); o.start(t); o.stop(t + dur + 0.02);
+  }
+}
+
+function clap(t) {
+  const g = noiseSrc(t, 0.3, 'bandpass', 1400, 0.9), e = g.gain;
+  e.setValueAtTime(0, t);
+  for (let k = 0; k < 3; k++) {            // 3 ráfagas rápidas
+    const s = t + k * 0.011;
+    e.setValueAtTime(1, s);
+    e.linearRampToValueAtTime(0, s + 0.008);
+  }
+  e.setValueAtTime(0.9, t + 0.033);       // cola
+  e.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  g.connect(A.drumBus); g.connect(A.send);
+}
+
+function rim(t) {
+  const c = A.ctx, o = c.createOscillator(), g = c.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(600, t + 0.02);
+  g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  o.connect(g); g.connect(A.drumBus); o.start(t); o.stop(t + 0.06);
+  const n = noiseSrc(t, 0.03, 'bandpass', 3200, 1.5);
+  n.gain.setValueAtTime(0.6, t); n.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+  n.connect(A.drumBus);
+}
+
+function scheduleDrums(i, t) {
+  if (cur.kick[i]) kick(t);
+  if (cur.snare[i]) snare(t);
+  if (cur.hat[i]) hat(t, cur.hat[i] === 2);
+  if (cur.clap[i]) (cur.clapMode === 'clap' ? clap(t) : rim(t));
+}
+
+/* ================= Secuenciador (siempre activo, visual desde 0.0 s) ================= */
+function tick() {
+  const now = performance.now();
+  if (!T.started || T.next < now - 200) { T.started = true; T.next = now + 60; }
+  while (T.next < now + 120) {
+    const i = T.step, dur = stepSec(), t = T.next;
+    T.q.push({ t, i });
+    if (T.q.length > 64) T.q.splice(0, 16);
+    if (A.on && A.ctx) {
+      const ct = A.ctx.currentTime + (t - now) / 1000;   // reloj de performance → reloj de audio
+      scheduleAcid(i, ct, dur);
+      scheduleDrums(i, ct);
+    }
+    T.step = (i + 1) % STEPS;
+    T.next = t + dur * 1000;
+  }
+}
+
+function setPlayhead(i) {
+  if (plIdx >= 0) cells[plIdx].forEach((c) => c.classList.remove('pl'));
+  cells[i].forEach((c) => c.classList.add('pl'));
+  plIdx = i;
+}
+
+// Evento visual: dispara las envolventes sintéticas en el instante exacto del paso
+function onVisualStep({ i }) {
+  const s = cur.acid[i], prev = cur.acid[(i + STEPS - 1) % STEPS], dur = stepSec();
+  setPlayhead(i);
+  if (cur.kick[i]) V.kick = 1;
+  if (cur.snare[i]) V.snare = 1;
+  if (cur.hat[i]) { V.hat = 1; V.hatTau = cur.hat[i] === 2 ? 0.32 : 0.05; }
+  if (cur.clap[i]) V.clap = 1;
+  if (s.g) {
+    const glide = prev.g && prev.s;
+    V.hz = noteHz(s);
+    if (!glide) V.hzCur = V.hz;
+    if (!glide || s.a) { V.fenv = 1; V.fAcc = s.a ? 1.4 : 0; }
+    V.lvl = s.a ? 1 : 0.65;
+    V.gate = dur * (s.s ? 0.98 : 0.55);
+  }
+}
+
+// Decaimientos de las envolventes sintéticas (cada frame)
+function stepVisuals(dt) {
+  V.kick *= Math.exp(-dt / 0.14);
+  V.snare *= Math.exp(-dt / 0.12);
+  V.hat *= Math.exp(-dt / V.hatTau);
+  V.clap *= Math.exp(-dt / 0.14);
+  V.fenv *= Math.exp(-dt / Math.max(0.03, cur.k.decay * 0.28));
+  V.gate -= dt;
+  V.acid += ((V.gate > 0 ? V.lvl : 0) - V.acid) * (1 - Math.exp(-dt * 60));
+  V.hzCur = Math.exp(Math.log(V.hzCur) + (Math.log(V.hz) - Math.log(V.hzCur)) * (1 - Math.exp(-dt * 25)));
+  V.ph = (V.ph + dt * (V.hzCur / 110) * 0.6) % 1;
+}
+
+/* ================= Espectro ================= */
+// Modo real: FFT del AnalyserNode
+function realSpectrum(out) {
+  const an = A.an, buf = A.fbuf;
+  an.getByteFrequencyData(buf);
+  const binHz = A.ctx.sampleRate / an.fftSize;
+  for (let b = 0; b < NB; b++) {
+    const lo = Math.max(1, Math.floor(bandLo[b] / binHz)), hi = Math.max(lo, Math.floor(bandHi[b] / binHz));
+    let s = 0, n = 0;
+    for (let j = lo; j <= hi && j < buf.length; j++) { s += buf[j]; n++; }
+    out[b] = n ? clamp((s / n - 60) / 190, 0, 1) : 0;
+  }
+}
+
+// Modo visual (siempre): espectro sintético derivado del patrón y de las perillas
+function synthSpectrum(out) {
+  const k = cur.k, fc = k.cutoff * Math.pow(2, V.fenv * (k.envMod * 4 + V.fAcc));
+  const sq = cur.wave === 'sqr', fa = V.hzCur;
+  out.fill(0);
+  // Armónicos de la línea ácida con LP de 4 polos + pico de resonancia en fc
+  for (let n = 1; n <= 40; n++) {
+    const f = n * fa;
+    if (f > 12000) break;
+    if (sq && n % 2 === 0) continue;
+    const b = Math.floor(Math.log(f / 30) / Math.log(400) * NB);
+    if (b < 0 || b >= NB) continue;
+    const x = f / fc;
+    const lp = 1 / Math.sqrt(1 + x * x * x * x);
+    const pk = 1 + k.res * 5 * Math.exp(-Math.pow(Math.log2(x), 2) * 6);
+    out[b] = Math.max(out[b], V.acid * (1 / n) * lp * pk * 1.6);
+  }
+  // Kick (sub), snare (cuerpo + ruido), hats (pasa-altos), clap (medios)
+  for (let b = 0; b < NB; b++) {
+    const f = bandF[b];
+    let v = out[b];
+    v = Math.max(v, V.kick * 1.1 * Math.exp(-Math.pow(Math.log2(f / 55), 2) * 2.2));
+    v = Math.max(v, V.snare * (0.55 * Math.exp(-Math.pow(Math.log2(f / 1900), 2) * 1.4) + 0.2 * Math.random()));
+    v = Math.max(v, V.hat * 0.7 * (f * f) / (f * f + 7000 * 7000) * (0.6 + 0.4 * Math.random()));
+    v = Math.max(v, V.clap * 0.6 * Math.exp(-Math.pow(Math.log2(f / 1300), 2) * 1.2));
+    out[b] = clamp(v + 0.02 * Math.random(), 0, 1);
+  }
+}
+
+const avg = (list) => { let s = 0; for (const b of list) s += SPEC[b]; return s / list.length; };
+
+/* ================= Osciloscopio ================= */
+function drawScope(dt, live) {
+  const w = sc.width, h = sc.height;
+  sx.fillStyle = '#03050c'; sx.fillRect(0, 0, w, h);
+  sx.strokeStyle = 'rgba(0,240,255,0.12)'; sx.lineWidth = 1; sx.beginPath();
+  for (let i = 1; i < 4; i++) { sx.moveTo(0, h * i / 4); sx.lineTo(w, h * i / 4); }
+  sx.stroke();
+
+  const N = 300;
+  if (live) A.an.getByteTimeDomainData(A.tbuf);
+  const cn = toNorm(KD.cutoff, cur.k.cutoff);
+  const a = clamp(0.08 + cn * 0.7 * (0.35 + V.fenv * 0.65), 0.05, 0.95);
+  let lp = 0, sum = 0;
+  sx.beginPath();
+  for (let i = 0; i < N; i++) {
+    let y;
+    if (live) {
+      y = (A.tbuf[Math.floor(i * A.tbuf.length * 0.5 / N)] - 128) / 128;
+    } else {
+      const ph = i / N * 2.5 + V.ph;
+      const x = cur.wave === 'sqr' ? (ph % 1 < 0.5 ? 1 : -1) : 2 * (ph % 1) - 1;
+      lp += a * (x - lp);
+      y = lp * V.acid;
+    }
+    sum += y * y;
+    const px = i / (N - 1) * w, py = h / 2 - y * h * 0.42;
+    if (i === 0) sx.moveTo(px, py); else sx.lineTo(px, py);
+  }
+  sx.strokeStyle = '#7dff7a'; sx.lineWidth = 2;
+  sx.shadowColor = '#7dff7a'; sx.shadowBlur = 10; sx.stroke(); sx.shadowBlur = 0;
+  BV.wave = Math.sqrt(sum / N);
+}
+
+/* ================= Matrices (column-major) ================= */
+function persp(fovy, asp, n, f) {
+  const t = 1 / Math.tan(fovy / 2), nf = 1 / (n - f);
+  return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) * nf, -1, 0, 0, 2 * f * n * nf, 0]);
+}
+function mul(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    let s = 0;
+    for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k];
+    o[c * 4 + r] = s;
+  }
+  return o;
+}
+const trans = (x, y, z) => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]);
+function rotY(a) { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]); }
+function rotX(a) { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]); }
+
+/* ================= WebGL2: cascada espectral + túnel de partículas ================= */
+const VS_TERRAIN = `#version 300 es
+precision highp float;
+precision highp int;
+uniform highp sampler2D uHist;
+uniform mat4 uMVP;
+uniform int uW;
+uniform int uH;
+out vec3 vBary;
+out float vH;
+out float vX;
+out float vD;
+void main() {
+  int quad = gl_VertexID / 6;
+  int c = gl_VertexID - quad * 6;
+  int qx = quad % (uW - 1);
+  int qy = quad / (uW - 1);
+  int gx = qx + ((c == 1 || c == 3 || c == 4) ? 1 : 0);
+  int gy = qy + ((c == 2 || c == 4 || c == 5) ? 1 : 0);
+  float h = texelFetch(uHist, ivec2(gx, gy), 0).r;
+  float x = float(gx) / float(uW - 1);
+  float z = -float(gy) * 0.11;
+  gl_Position = uMVP * vec4((x * 2.0 - 1.0) * 3.2, h * 1.3, z, 1.0);
+  int m = c % 3;
+  vBary = vec3(m == 0 ? 1.0 : 0.0, m == 1 ? 1.0 : 0.0, m == 2 ? 1.0 : 0.0);
+  vH = h;
+  vX = x;
+  vD = 1.0 - float(gy) / float(uH - 1);
+}`;
+
+const FS_TERRAIN = `#version 300 es
+precision highp float;
+in vec3 vBary;
+in float vH;
+in float vX;
+in float vD;
+out vec4 o;
+void main() {
+  float e = min(vBary.x, min(vBary.y, vBary.z));
+  float line = 1.0 - smoothstep(0.0, 0.04, e);
+  vec3 col = mix(vec3(0.0, 0.95, 1.0), vec3(1.0, 0.12, 0.75), vX);
+  col = mix(col, vec3(1.0, 0.92, 0.25), smoothstep(0.55, 1.0, vH));
+  float fade = smoothstep(0.0, 0.3, vD);
+  vec3 rgb = (col * line * (0.35 + 1.1 * vH) + col * (0.03 + 0.18 * vH)) * fade;
+  o = vec4(rgb, 1.0);
+}`;
+
+const VS_PART = `#version 300 es
+precision highp float;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aCol;
+layout(location = 2) in float aSize;
+uniform mat4 uMVP;
+uniform float uPx;
+out vec3 vCol;
+void main() {
+  vec4 p = uMVP * vec4(aPos, 1.0);
+  gl_Position = p;
+  gl_PointSize = min(aSize * uPx / max(p.w, 0.5), 48.0);
+  vCol = aCol;
+}`;
+
+const FS_PART = `#version 300 es
+precision mediump float;
+in vec3 vCol;
+out vec4 o;
+void main() {
+  float d = length(gl_PointCoord - vec2(0.5));
+  float a = 1.0 - smoothstep(0.0, 0.5, d);
+  o = vec4(vCol * a, 1.0);
+}`;
+
+function initGL() {
+  const gl = glCanvas.getContext('webgl2', { antialias: false, alpha: false });
+  if (!gl) return null;
+  const sh = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  };
+  const link = (vs, fs) => {
+    const p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  };
+  const terrain = link(VS_TERRAIN, FS_TERRAIN), points = link(VS_PART, FS_PART);
+
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, NB, NH, 0, gl.RED, gl.FLOAT, H);
+
+  const vaoEmpty = gl.createVertexArray();   // el terreno se genera con gl_VertexID
+  const vaoP = gl.createVertexArray();
+  const pbuf = gl.createBuffer();
+  gl.bindVertexArray(vaoP);
+  gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
+  gl.bufferData(gl.ARRAY_BUFFER, PB, gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
+  gl.bindVertexArray(null);
+
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);      // aditivo = neón
+
+  return {
+    gl, terrain, points, tex, vaoEmpty, vaoP, pbuf,
+    uT: { mvp: gl.getUniformLocation(terrain, 'uMVP'), w: gl.getUniformLocation(terrain, 'uW'), h: gl.getUniformLocation(terrain, 'uH') },
+    uP: { mvp: gl.getUniformLocation(points, 'uMVP'), px: gl.getUniformLocation(points, 'uPx') },
+  };
+}
+
+function updateParticles(dt) {
+  const vals = [BV.sub, BV.mid, BV.hi];
+  const spd = 0.5 + BV.hi * 3 + BV.mid * 0.5;
+  for (let i = 0; i < NP; i++) {
+    let z = PA.z[i] + PA.sp[i] * spd * dt * 3;
+    if (z > 2.5) z -= 11.5;
+    PA.z[i] = z;
+    const ty = PA.ty[i], v = vals[ty], c = PCOL[ty];
+    const r = PA.rad[i] * (1 + BV.sub * 0.9 + BV.wave * 0.5 + 0.1 * Math.sin(z * 1.7 + time * 2));
+    const a = PA.ang[i] + time * 0.15 * (0.5 + BV.mid);
+    const b = 0.25 + v * 1.6, j = i * 7;
+    PB[j] = Math.cos(a) * r;
+    PB[j + 1] = Math.sin(a) * r * 0.9 + 0.6;
+    PB[j + 2] = z;
+    PB[j + 3] = c[0] * b; PB[j + 4] = c[1] * b; PB[j + 5] = c[2] * b;
+    PB[j + 6] = 0.03 + 0.07 * v;
+  }
+}
+
+function renderGL() {
+  const { gl } = GLX;
+  const W = glCanvas.width, Hh = glCanvas.height;
+  gl.viewport(0, 0, W, Hh);
+  gl.clearColor(0, 0, 0.02, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  const proj = persp(0.96, W / Hh, 0.1, 60);
+  const yaw = Math.sin(time * 0.12) * 0.22 + camYaw;
+  const mvp = mul(proj, mul(trans(0, -1.1, -5.2), mul(rotX(0.14 + camPitch), rotY(yaw))));
+
+  // Terreno: historial espectral (fila 0 = frame más reciente, al frente)
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, GLX.tex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, NB, NH, gl.RED, gl.FLOAT, H);
+  gl.useProgram(GLX.terrain);
+  gl.uniformMatrix4fv(GLX.uT.mvp, false, mvp);
+  gl.uniform1i(GLX.uT.w, NB);
+  gl.uniform1i(GLX.uT.h, NH);
+  gl.bindVertexArray(GLX.vaoEmpty);
+  gl.drawArrays(gl.TRIANGLES, 0, (NB - 1) * (NH - 1) * 6);
+
+  // Túnel de partículas reactivas
+  gl.useProgram(GLX.points);
+  gl.uniformMatrix4fv(GLX.uP.mvp, false, mvp);
+  gl.uniform1f(GLX.uP.px, Hh * 0.8);
+  gl.bindVertexArray(GLX.vaoP);
+  gl.bindBuffer(gl.ARRAY_BUFFER, GLX.pbuf);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, PB);
+  gl.drawArrays(gl.POINTS, 0, NP);
+  gl.bindVertexArray(null);
+}
+
+function resize() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const r = stageEl.getBoundingClientRect();
+  glCanvas.width = Math.max(1, Math.round(r.width * dpr));
+  glCanvas.height = Math.max(1, Math.round(r.height * dpr));
+}
+
+/* ================= Interfaz: perillas, presets, secuenciador ================= */
+function paintKnob(id) {
+  const d = KD[id], r = knobRef[id], n = toNorm(d, cur.k[id]);
+  r.dial.style.setProperty('--p', (n * 100).toFixed(2));
+  r.dial.style.setProperty('--a', (n * 270 - 135).toFixed(1) + 'deg');
+  const v = d.mul ? cur.k[id] * d.mul : cur.k[id];
+  r.val.textContent = v.toFixed(d.dec) + d.unit;
+}
+
+function onKnob(id) {
+  if (id === 'dist') setDrive();
+  if (id === 'res') setRes();
+  if (id === 'bpm' || id === 'delay') setDelay();
+}
+
+function setVal(d, v) {
+  cur.k[d.id] = v;
+  paintKnob(d.id);
+  onKnob(d.id);
+}
+
+function buildKnobs() {
+  knobsEl.textContent = '';
+  KDEF.forEach((d) => {
+    const wrap = tag('div', 'knob');
+    wrap.style.setProperty('--kc', d.color);
+    const dial = tag('div', 'dial'), ind = tag('div', 'ind');
+    dial.append(ind);
+    wrap.append(dial, tag('div', 'lbl', d.label), tag('div', 'val'));
+    knobsEl.append(wrap);
+    knobRef[d.id] = { dial, val: wrap.querySelector('.val') };
+
+    let lastY = 0;
+    dial.addEventListener('pointerdown', (e) => { dial.setPointerCapture(e.pointerId); lastY = e.clientY; e.preventDefault(); });
+    dial.addEventListener('pointermove', (e) => {
+      if (!dial.hasPointerCapture(e.pointerId)) return;
+      const fine = e.shiftKey ? 0.2 : 1;
+      setVal(d, fromNorm(d, clamp(toNorm(d, cur.k[d.id]) + (lastY - e.clientY) / 180 * fine, 0, 1)));
+      lastY = e.clientY;
+    });
+    dial.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      setVal(d, fromNorm(d, clamp(toNorm(d, cur.k[d.id]) - e.deltaY / 1500, 0, 1)));
+    }, { passive: false });
+    dial.addEventListener('dblclick', () => setVal(d, PRESETS[cur.preset].k[d.id]));
+  });
+}
+
+function buildGrids() {
+  acidEl.textContent = '';
+  drumEl.textContent = '';
+  cells = Array.from({ length: STEPS }, () => []);
+  plIdx = -1;
+
+  // Línea ácida: NOTA, OCT, ACC, SLD, GATE
+  ['NOTA', 'OCT', 'ACC', 'SLD', 'GATE'].forEach((label, r) => {
+    acidEl.append(tag('div', 'lab', label));
+    for (let i = 0; i < STEPS; i++) {
+      const s = cur.acid[i], g = i % 4 === 0 ? ' g' : '';
+      let el;
+      if (r === 0) {
+        el = tag('select', 'c' + g);
+        NOTES.forEach((nm, n) => el.add(new Option(nm, n)));
+        el.value = s.n;
+        el.onchange = () => { s.n = +el.value; };
+      } else if (r === 1) {
+        el = tag('select', 'c' + g);
+        [[-1, '-1'], [0, '0'], [1, '+1']].forEach(([v, t]) => el.add(new Option(t, v)));
+        el.value = s.o;
+        el.onchange = () => { s.o = +el.value; };
+      } else {
+        const key = ['a', 's', 'g'][r - 2];
+        el = tag('button', 'c' + g + (s[key] ? ' on' : ''), ['ACC', 'SLD', 'GATE'][r - 2]);
+        el.onclick = () => { s[key] = !s[key]; el.classList.toggle('on', s[key]); };
+      }
+      acidEl.append(el);
+      cells[i].push(el);
+    }
+  });
+
+  // Percusión: KICK, SNARE, HAT (0 · C · O), CLAP / RIM
+  [['KICK', 'kick'], ['SNARE', 'snare'], ['HAT', 'hat'], ['CLAP', 'clap']].forEach(([label, key]) => {
+    const lab = tag('div', 'lab', label);
+    if (key === 'clap') {
+      lab.textContent = cur.clapMode === 'clap' ? 'CLAP' : 'RIM';
+      lab.onclick = () => {
+        cur.clapMode = cur.clapMode === 'clap' ? 'rim' : 'clap';
+        lab.textContent = cur.clapMode === 'clap' ? 'CLAP' : 'RIM';
+      };
+    }
+    drumEl.append(lab);
+    for (let i = 0; i < STEPS; i++) {
+      const b = tag('button', 'c' + (i % 4 === 0 ? ' g' : ''));
+      const paint = () => {
+        const x = cur[key][i];
+        b.classList.toggle('on', x > 0);
+        b.textContent = key === 'hat' ? ['', 'C', 'O'][x] : (x ? '●' : '');
+      };
+      b.onclick = () => {
+        cur[key][i] = key === 'hat' ? (cur[key][i] + 1) % 3 : 1 - cur[key][i];
+        paint();
+      };
+      paint();
+      drumEl.append(b);
+      cells[i].push(b);
+    }
+  });
+  if (plIdx < 0) setPlayhead(T.step === 0 ? STEPS - 1 : T.step - 1);
+}
+
+function syncWave() {
+  waveSaw.classList.toggle('on', cur.wave === 'saw');
+  waveSqr.classList.toggle('on', cur.wave === 'sqr');
+  if (A.osc) A.osc.type = cur.wave === 'sqr' ? 'square' : 'sawtooth';
+}
+
+function load(i) {
+  Object.assign(cur, JSON.parse(JSON.stringify(PRESETS[i])), { preset: i });
+  presetBtns.forEach((b, j) => b.classList.toggle('on', j === i));
+  KDEF.forEach((d) => { paintKnob(d.id); onKnob(d.id); });
+  syncWave();
+  buildGrids();
+}
+
+function buildPresets() {
+  presetEl.textContent = '';
+  PRESETS.forEach((p, i) => {
+    const b = tag('button', '', p.name);
+    b.onclick = () => load(i);
+    presetEl.append(b);
+    presetBtns.push(b);
+  });
+}
+
+const waveSaw = $('#wSaw'), waveSqr = $('#wSqr');
+waveSaw.onclick = () => { cur.wave = 'saw'; syncWave(); };
+waveSqr.onclick = () => { cur.wave = 'sqr'; syncWave(); };
+
+audioBtn.onclick = () => { unlock(); updateStatus(); };
+muteBtn.onclick = () => { if (!A.on) unlock(); else setMuted(!A.muted); };
+window.addEventListener('pointerdown', () => { unlock(); updateStatus(); }, { once: true, capture: true });
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.target !== document.body) return;
+  e.preventDefault();
+  if (!A.on) unlock(); else setMuted(!A.muted);
+});
+
+// Orbitar la escena arrastrando el canvas
+glCanvas.addEventListener('pointerdown', (e) => {
+  drag = { x: e.clientX, y: e.clientY };
+  glCanvas.setPointerCapture(e.pointerId);
+});
+glCanvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  camYaw += (e.clientX - drag.x) * 0.005;
+  camPitch = clamp(camPitch + (e.clientY - drag.y) * 0.003, -0.5, 0.6);
+  drag = { x: e.clientX, y: e.clientY };
+});
+glCanvas.addEventListener('pointerup', () => { drag = null; });
+window.addEventListener('resize', resize);
+
+/* ================= Bucle principal (60 FPS) ================= */
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  time += dt;
+
+  fpsN++;
+  if (now - fpsT >= 500) {
+    fpsEl.textContent = Math.round(fpsN * 1000 / (now - fpsT)) + ' FPS';
+    fpsN = 0; fpsT = now;
+  }
+
+  while (T.q.length && T.q[0].t <= now) onVisualStep(T.q.shift());
+  stepVisuals(dt);
+
+  const live = A.on && !A.muted && A.ctx && A.ctx.state === 'running' && A.an;
+  if (live) realSpectrum(TG); else synthSpectrum(TG);
+  for (let b = 0; b < NB; b++) {
+    const t = TG[b];
+    SPEC[b] = t > SPEC[b] ? SPEC[b] + (t - SPEC[b]) * 0.65 : SPEC[b] + (t - SPEC[b]) * 0.14;
+  }
+  H.copyWithin(NB, 0, NB * (NH - 1));
+  H.set(SPEC, 0);
+
+  BV.sub = avg(GRP.sub); BV.mid = avg(GRP.mid); BV.hi = avg(GRP.hi);
+  bEl.sub.style.width = Math.min(100, BV.sub * 160) + '%';
+  bEl.mid.style.width = Math.min(100, BV.mid * 160) + '%';
+  bEl.hi.style.width = Math.min(100, BV.hi * 160) + '%';
+
+  drawScope(dt, live);
+  if (GLX) {
+    updateParticles(dt);
+    renderGL();
+  }
+}
+
+/* ================= Arranque ================= */
+try {
+  GLX = initGL();
+} catch (err) {
+  console.error(err);
+  GLX = null;
+}
+if (!GLX) noticeEl.hidden = false;
+resize();
+buildKnobs();
+buildPresets();
+load(0);
+tick();
+setInterval(tick, 25);
+updateStatus();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

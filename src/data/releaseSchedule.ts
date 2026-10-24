@@ -6,7 +6,7 @@
  * exacta de publicacion en redes sociales (YouTube / Instagram / TikTok / X).
  */
 
-export type ReleaseKey = "ep01" | "ep02" | "cc01" | "ep03";
+export type ReleaseKey = "ep01" | "ep02" | "cc01" | "ep03" | "ep04";
 
 export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   // EP01: Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos) — Publicado Vie 16 Oct 2026 11:00 CST
@@ -17,6 +17,8 @@ export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   cc01: "2026-10-24T11:00:00-06:00",
   // EP03: Gemini 4 Argon High Sin Kit vs. Mixiuh Superpowers Kit — Dom 25 Oct 2026 11:00 CST
   ep03: "2026-10-25T11:00:00-06:00",
+  // EP04: Claude Haiku 5.5 vs. Sonnet 5.5 vs. Opus 5.5 (Escalera Claude) — Mie 28 Oct 2026 11:00 CST
+  ep04: "2026-10-28T11:00:00-06:00",
 };
 
 export interface ReleasedState {
@@ -24,6 +26,7 @@ export interface ReleasedState {
   ep02: boolean;
   cc01: boolean;
   ep03: boolean;
+  ep04: boolean;
 }
 
 export function isContentReleased(
@@ -45,5 +48,6 @@ export function getReleasedStatus(
     ep02: isContentReleased("ep02", now, previewAll),
     cc01: isContentReleased("cc01", now, previewAll),
     ep03: isContentReleased("ep03", now, previewAll),
+    ep04: isContentReleased("ep04", now, previewAll),
   };
 }

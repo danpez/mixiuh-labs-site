@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Structural Bridge Builder &amp; Stress Analyzer</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070d; color: #cbd5e1; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  #hud { position: fixed; top: 10px; right: 10px; width: 282px; max-height: calc(100vh - 20px); overflow-y: auto; box-sizing: border-box; padding: 12px; background: rgba(8, 12, 22, 0.88); border: 1px solid #1e3a5f; border-radius: 10px; font-size: 12px; backdrop-filter: blur(4px); }
+  #hud h1 { margin: 0 0 6px; font-size: 14px; color: #67e8f9; letter-spacing: 0.5px; }
+  #hud h2 { margin: 12px 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #64748b; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 4px 0; }
+  .stat { display: flex; justify-content: space-between; margin: 3px 0; }
+  .stat b { color: #f8fafc; font-variant-numeric: tabular-nums; text-align: right; }
+  .hint { margin: 6px 0 0; font-size: 10.5px; line-height: 1.4; color: #64748b; }
+  input[type=range] { width: 100%; margin: 2px 0 6px; accent-color: #22d3ee; }
+  input[type=number], select { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; padding: 3px 5px; font-size: 12px; }
+  input[type=number] { width: 120px; }
+  select { flex: 1; }
+  button { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 5px 8px; margin: 2px 0; font-size: 12px; cursor: pointer; flex: 1; }
+  button:hover { border-color: #22d3ee; }
+  button.on { background: #0e7490; border-color: #22d3ee; color: #fff; }
+  button.danger { color: #fecaca; border-color: #7f1d1d; }
+  button.btn-big { width: 100%; margin-top: 8px; padding: 9px; font-weight: 700; border: none; background: linear-gradient(90deg, #b91c1c, #ea580c); color: #fff; }
+  #legend { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; padding: 6px 12px; background: rgba(8, 12, 22, 0.8); border-radius: 8px; font-size: 11px; white-space: nowrap; }
+  .sw { display: inline-block; width: 16px; height: 6px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+  #msg { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: none; padding: 6px 14px; background: rgba(127, 29, 29, 0.92); color: #fff; border-radius: 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <h1>⚙ Structural Bridge Lab</h1>
+
+  <h2>Escenario</h2>
+  <div class="row">
+    <select id="preset">
+      <option value="0">1 · Truss Warren Estable</option>
+      <option value="1">2 · Colgante Al Límite</option>
+      <option value="2">3 · Arco de Acero Industrial</option>
+      <option value="3">4 · Sobrecargado — Fallo</option>
+    </select>
+    <button id="btnLoad">Cargar</button>
+  </div>
+  <div class="row"><button id="btnReset">↺ Reiniciar</button></div>
+
+  <h2>Modo</h2>
+  <div class="row"><button id="btnSim">▶ Simulación</button><button id="btnBuild">🛠 Constructor</button></div>
+  <div class="row"><button id="btnPause">⏸ Pausa</button><button id="btnSlow">🐢 Bullet 0.25×</button></div>
+
+  <h2>Constructor</h2>
+  <div class="row"><button data-tool="node">＋ Nodo</button><button data-tool="anchor">⚓ Anclaje</button><button data-tool="del" class="danger">✖ Borrar</button></div>
+  <div class="row"><button data-tool="road">Vía</button><button data-tool="steel">Acero</button><button data-tool="cable">Cable</button><button data-tool="concrete">Concreto</button></div>
+  <div class="row"><label for="budget">Presupuesto (USD)</label><input type="number" id="budget" value="3000000" step="50000" min="0"></div>
+  <div class="stat"><span>Saldo disponible</span><b id="left">—</b></div>
+  <p class="hint">Vigas: clic en un nodo y luego en otro (encadena). Clic derecho corta la cadena. Al salir del Constructor, el diseño queda como base para «Reiniciar».</p>
+
+  <h2>Cargas y entorno</h2>
+  <div class="row"><label for="wt">Peso del tren</label><span id="wtV"></span></div>
+  <input type="range" id="wt" min="5" max="80" step="1" value="20">
+  <div class="row"><label for="spd">Velocidad</label><span id="spdV"></span></div>
+  <input type="range" id="spd" min="5" max="120" step="1" value="25">
+  <div class="row"><label for="grav">Gravedad</label><span id="gravV"></span></div>
+  <input type="range" id="grav" min="0" max="20" step="0.1" value="9.8">
+  <div class="row"><label for="res">Resistencia materiales</label><span id="resV"></span></div>
+  <input type="range" id="res" min="0.3" max="2" step="0.05" value="1">
+  <div class="row"><label for="quake">Terremoto</label><span id="quakeV"></span></div>
+  <input type="range" id="quake" min="0" max="6" step="0.1" value="0">
+  <div class="row"><label for="wind">Viento lateral</label><span id="windV"></span></div>
+  <input type="range" id="wind" min="-3" max="3" step="0.1" value="0">
+  <button id="btnConvoy" class="btn-big">🚛 Lanzar Convoy Pesado</button>
+
+  <h2>Telemetría civil</h2>
+  <div class="stat"><span>FPS</span><b id="fps">—</b></div>
+  <div class="stat"><span>Tiempo de simulación</span><b id="tsim">0.0 s</b></div>
+  <div class="stat"><span>Tensión pico</span><b id="peak">0.0 %</b></div>
+  <div class="stat"><span>Vigas intactas</span><b id="intact">0</b></div>
+  <div class="stat"><span>Vigas fracturadas</span><b id="broken">0</b></div>
+  <div class="stat"><span>Costo estructural</span><b id="cost">$0</b></div>
+  <div class="stat"><span>Pérdida económica</span><b id="loss">$0</b></div>
+  <div class="stat"><span>Convoy</span><b id="conv">—</b></div>
+</div>
+
+<div id="legend">
+  <span><i class="sw" style="background:#3b82f6"></i>Compresión segura</span>
+  <span><i class="sw" style="background:#10b981"></i>Reposo</span>
+  <span><i class="sw" style="background:#f59e0b"></i>70 %</span>
+  <span><i class="sw" style="background:#ff1744"></i>90–100 % (fractura)</span>
+</div>
+<div id="msg"></div>
+
+<script>
+"use strict";
+
+/* ===================== CONSTANTES ===================== */
+const SUBSTEPS = 16;             // sub-pasos por frame (mínimo exigido: 12)
+const ITER = 3;                  // iteraciones de restricción por sub-paso (XPBD)
+const NODE_M = 250;              // masa de cada nodo libre (kg)
+const RIVER_BED = -12;           // lecho del cañón (m)
+const WATER = 0;                 // superficie del río (m)
+const LAND_Y = 10;               // cota de los acantilados (m)
+const WALL_L = 20, WALL_R = 60;  // bordes del cañón (m)
+const FAR_R = 88;                // fin de la escena (m)
+const NODE_COST = 350, ANCHOR_COST = 1200; // USD
+
+// eT / eC: límite elástico (yieldLimit) a tracción / compresión, como deformación unitaria.
+// EA: rigidez axial (N). Compliance XPBD por viga: α = L0 / EA.
+// Capacidad a tracción = EA · eT · factorResistencia.
+const MAT = {
+  road:     { name: "Plataforma de Vía", EA: 5.0e8, eT: 0.0016,  eC: 0.0016, lw: 6,   costM: 1400 },
+  steel:    { name: "Viga de Acero",     EA: 9.0e8, eT: 0.0021,  eC: 0.0016, lw: 4.5, costM: 2600 },
+  cable:    { name: "Cable Tensor",      EA: 2.5e8, eT: 0.0015,  eC: null,   lw: 2,   costM: 900 },   // solo tracción
+  concrete: { name: "Pilar de Concreto", EA: 1.4e9, eT: 0.00025, eC: 0.0032, lw: 8,   costM: 1800 }   // débil a tracción
+};
+
+const PRESETS = [
+  { name: "Puente Truss Warren Estable",                   wt: 20, res: 1.00, kmh: 25 },
+  { name: "Puente Colgante Al Límite — Colapso Dramático", wt: 48, res: 0.85, kmh: 25 },
+  { name: "Arco de Acero Industrial",                      wt: 25, res: 1.00, kmh: 25 },
+  { name: "Puente Sobrecargado — Prueba de Fallo",         wt: 55, res: 0.70, kmh: 25 }
+];
+
+/* ===================== ESTADO GLOBAL ===================== */
+let nodes = [], beams = [], parts = [], rings = [], truck = null;
+let simT = 0, running = true, mode = "sim", tool = "road", slow = false;
+let budget = 3000000, peakPct = 0, waveE = 0, shake = 0, msgT = 0;
+let curPreset = 0, snapshot = null, selNode = null, hoverNode = null, hoverBeam = null;
+let mouseW = { x: 0, y: 0 };
+let hSub = 0, gG = 9.8, gQ = 0, gW = 0, gR = 1;   // subpaso y entorno: gravedad, sismo, viento, resistencia
+const $ = (id) => document.getElementById(id);
+const el = { wt: $("wt"), spd: $("spd"), grav: $("grav"), res: $("res"), quake: $("quake"), wind: $("wind") };
+
+function readEnv() {
+  gG = +el.grav.value;
+  gQ = +el.quake.value;
+  gW = +el.wind.value;
+  gR = +el.res.value;
+}
+
+/* ===================== NODOS / VIGAS ===================== */
+function mkNode(x, y, fixed) {
+  const n = { x, y, ox: x, oy: y, vx: 0, vy: 0, ex: 0, ey: 0, m: NODE_M, fixed: !!fixed, sunk: false };
+  nodes.push(n);
+  return n;
+}
+
+function mkBeam(a, b, mat, deck) {
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  const bm = { a, b, mat, deck: !!deck, L0: L, alpha: L / MAT[mat].EA, lam: 0, strain: 0, pct: 0, broken: false, cost: L * MAT[mat].costM };
+  beams.push(bm);
+  return bm;
+}
+
+function nodeCost(n) { return n.fixed ? ANCHOR_COST : NODE_COST; }
+
+function structCost() {
+  let c = 0;
+  for (const n of nodes) if (!n.sunk) c += nodeCost(n);
+  for (const b of beams) if (!b.broken) c += b.cost;
+  return c;
+}
+
+function lossCost() {
+  let c = 0;
+  for (const n of nodes) if (n.sunk) c += nodeCost(n);
+  for (const b of beams) if (b.broken) c += b.cost;
+  return c;
+}
+
+function usd(v) { return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }); }
+
+/* ===================== PRESETS ===================== */
+function buildWarren() {
+  const bot = [], top = [];
+  for (let j = 0; j <= 10; j++) bot.push(mkNode(WALL_L + 4 * j, LAND_Y, j === 0 || j === 10));
+  for (let k = 0; k <= 10; k++) top.push(k === 0 || k === 10 ? null : mkNode(WALL_L + 4 * k, LAND_Y + 6));
+  for (let j = 0; j < 10; j++) mkBeam(bot[j], bot[j + 1], "road", true);
+  for (let k = 1; k < 9; k++) mkBeam(top[k], top[k + 1], "steel");
+  for (let j = 0; j < 10; j++) {
+    if (j % 2 === 0) mkBeam(bot[j], top[j + 1], "steel");
+    else mkBeam(top[j], bot[j + 1], "steel");
+  }
+  for (let k = 1; k <= 9; k++) mkBeam(top[k], bot[k], "steel");
+}
+
+function buildSuspension() {
+  const deck = [];
+  for (let j = 0; j <= 10; j++) deck.push(mkNode(WALL_L + 4 * j, LAND_Y, j === 0 || j === 10));
+  for (let j = 0; j < 10; j++) mkBeam(deck[j], deck[j + 1], "road", true);
+  // torres de concreto: base en el lecho, atraviesan la plataforma y terminan en la silla
+  const bedL = mkNode(24, RIVER_BED, true), topL = mkNode(24, 22);
+  const bedR = mkNode(56, RIVER_BED, true), topR = mkNode(56, 22);
+  mkBeam(bedL, deck[1], "concrete"); mkBeam(deck[1], topL, "concrete");
+  mkBeam(bedR, deck[9], "concrete"); mkBeam(deck[9], topR, "concrete");
+  // retenidas traseras anclando en tierra firme
+  const anL = mkNode(2, LAND_Y, true), anR = mkNode(78, LAND_Y, true);
+  mkBeam(topL, anL, "cable"); mkBeam(topR, anR, "cable");
+  // cable principal parabólico + péndolas
+  const cab = [topL];
+  for (let x = 28; x <= 52; x += 4) cab.push(mkNode(x, 22 - 8 * (1 - ((x - 40) / 16) ** 2)));
+  cab.push(topR);
+  for (let i = 0; i < cab.length - 1; i++) mkBeam(cab[i], cab[i + 1], "cable");
+  for (let i = 1; i <= 7; i++) mkBeam(cab[i], deck[i + 1], "cable");
+}
+
+function buildArch() {
+  const deck = [];
+  for (let j = 0; j <= 10; j++) deck.push(mkNode(WALL_L + 4 * j, LAND_Y, j === 0 || j === 10));
+  for (let j = 0; j < 10; j++) mkBeam(deck[j], deck[j + 1], "road", true);
+  // arco parabólico de acero: los extremos son los mismos anclajes del tablero (tirante)
+  const arc = [];
+  for (let j = 0; j <= 10; j++) arc.push(j === 0 || j === 10 ? deck[j] : mkNode(WALL_L + 4 * j, LAND_Y + 14 * Math.sin(Math.PI * j / 10)));
+  for (let j = 0; j < 10; j++) mkBeam(arc[j], arc[j + 1], "steel");
+  for (let j = 1; j <= 9; j++) mkBeam(arc[j], deck[j], "steel");
+}
+
+function takeSnapshot() {
+  const idx = new Map(nodes.map((n, i) => [n, i]));
+  return {
+    nodes: nodes.map((n) => ({ x: n.x, y: n.y, fixed: n.fixed })),
+    beams: beams.filter((b) => !b.broken).map((b) => ({ a: idx.get(b.a), b: idx.get(b.b), mat: b.mat, deck: b.deck }))
+  };
+}
+
+function restoreSnapshot() {
+  nodes = []; beams = []; parts = []; rings = []; truck = null;
+  simT = 0; peakPct = 0; waveE = 0; shake = 0; selNode = null;
+  for (const n of snapshot.nodes) mkNode(n.x, n.y, n.fixed);
+  for (const b of snapshot.beams) mkBeam(nodes[b.a], nodes[b.b], b.mat, b.deck);
+  if (mode === "sim") spawnTruck();
+}
+
+function hasDamage() { return beams.some((b) => b.broken) || nodes.some((n) => n.sunk); }
+
+function loadPreset(i) {
+  const p = PRESETS[i];
+  nodes = []; beams = []; parts = []; rings = []; truck = null;
+  simT = 0; peakPct = 0; waveE = 0; shake = 0; selNode = null;
+  if (i === 1) buildSuspension();
+  else if (i === 2) buildArch();
+  else buildWarren();
+  curPreset = i;
+  snapshot = takeSnapshot();
+  el.wt.value = p.wt; el.res.value = p.res; el.spd.value = p.kmh;
+  mode = "sim"; running = true;
+  syncLabels();
+  spawnTruck();
+  setButtons();
+}
+
+/* ===================== SOLVER XPBD (Verlet + restricciones) ===================== */
+// Restricción de distancia con compliance: tracción y compresión; cable solo tracción.
+function solveBeam(b) {
+  const a = b.a, c = b.b;
+  const dx = c.x - a.x, dy = c.y - a.y;
+  const L = Math.hypot(dx, dy);
+  if (L < 1e-9) return;
+  const C = L - b.L0;
+  if (C < 0 && MAT[b.mat].eC === null) return;    // cable flojo: sin rigidez a compresión
+  const al = b.alpha / (hSub * hSub);
+  const wa = a.fixed ? 0 : 1 / a.m, wc = c.fixed ? 0 : 1 / c.m;
+  const dl = (-C - al * b.lam) / (wa + wc + al);
+  b.lam += dl;
+  const nx = dx / L, ny = dy / L;
+  a.x -= wa * dl * nx; a.y -= wa * dl * ny;
+  c.x += wc * dl * nx; c.y += wc * dl * ny;
+}
+
+// Rotura instantánea: libera la energía elástica como impulso en los extremos
+function breakBeam(b) {
+  b.broken = true;
+  const a = b.a, c = b.b;
+  const L = Math.hypot(c.x - a.x, c.y - a.y) || 1;
+  const nx = (c.x - a.x) / L, ny = (c.y - a.y) / L;
+  const s = b.strain >= 0 ? 1 : -1;          // tracción: los extremos se recogen; compresión: salen disparados
+  const k = Math.min(7, 1.5 + 3 * b.pct);    // impulso (m/s)
+  if (!a.fixed) { a.vx += s * nx * k; a.vy += s * ny * k; }
+  if (!c.fixed) { c.vx -= s * nx * k; c.vy -= s * ny * k; }
+  const mx = (a.x + c.x) / 2, my = (a.y + c.y) / 2;
+  for (let i = 0; i < 16; i++) {
+    parts.push({ k: "s", x: mx, y: my, vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.2) * 12, life: 0.35 + Math.random() * 0.45 });
+  }
+  rings.push({ x: mx, y: my, r: 0.2, life: 0.8, water: false });
+  shake = Math.min(1, shake + 0.4);
+}
+
+// Nodo que cae al río: se hunde y arrastra consigo sus vigas
+function sinkNode(n) {
+  n.sunk = true; n.vx = 0; n.vy = 0;
+  for (const b of beams) if (!b.broken && (b.a === n || b.b === n)) b.broken = true;
+  splash(n.x, 2);
+}
+
+function splash(x, speed) {
+  const s = Math.min(3, Math.max(0.3, speed / 6));
+  for (let i = 0; i < 28; i++) {
+    parts.push({ k: "d", x, y: WATER, vx: (Math.random() - 0.5) * 9 * s, vy: (2 + Math.random() * 7) * s, life: 1.1 + Math.random() * 0.7 });
+  }
+  rings.push({ x, y: WATER, r: 0.3, life: 0.9, water: true });
+  waveE = Math.min(4, waveE + s);
+}
+
+function substep(t) {
+  const quake = gQ * Math.sin(2 * Math.PI * 1.7 * t);       // sismo: aceleración horizontal senoidal
+  for (const n of nodes) {
+    if (n.fixed || n.sunk) continue;
+    n.vx += (n.ex + quake + gW) * hSub;
+    n.vy += (n.ey - gG) * hSub;
+    if (n.y < WATER) {                                       // arrastre hidrodinámico + flotación
+      const k = Math.min(1, 3 * hSub);
+      n.vx *= 1 - k;
+      n.vy *= 1 - k;
+      n.vy += 0.45 * gG * hSub;
+    }
+    n.ox = n.x; n.oy = n.y;
+    n.x += n.vx * hSub;
+    n.y += n.vy * hSub;
+  }
+
+  for (const b of beams) b.lam = 0;
+  for (let it = 0; it < ITER; it++) for (const b of beams) if (!b.broken) solveBeam(b);
+
+  for (const n of nodes) {
+    if (n.fixed || n.sunk) continue;
+    n.vx = ((n.x - n.ox) / hSub) * 0.999;
+    n.vy = ((n.y - n.oy) / hSub) * 0.999;
+    if ((n.x < WALL_L || n.x > WALL_R) && n.y < LAND_Y) { n.y = LAND_Y; if (n.vy < 0) n.vy = 0; }   // terreno firme
+    if (n.oy >= WATER && n.y < WATER && n.x > WALL_L && n.x < WALL_R) splash(n.x, -n.vy);
+    if (n.y < RIVER_BED) sinkNode(n);
+  }
+
+  // Deformación porcentual frente al límite elástico (yieldLimit) y rotura
+  for (const b of beams) {
+    if (b.broken) continue;
+    const L = Math.hypot(b.b.x - b.a.x, b.b.y - b.a.y);
+    const st = (L - b.L0) / b.L0;
+    const M = MAT[b.mat];
+    b.strain = st;
+    b.pct = st >= 0 ? st / (M.eT * gR) : (M.eC === null ? 0 : -st / (M.eC * gR));
+    if (b.pct >= 1) breakBeam(b);
+  }
+}
+
+function simulate(dt) {
+  if (dt <= 0) return;
+  readEnv();
+  for (const n of nodes) { n.ex = 0; n.ey = 0; }
+  updateTruck(dt);
+  hSub = dt / SUBSTEPS;
+  for (let s = 0; s < SUBSTEPS; s++) substep(simT + s * hSub);
+  simT += dt;
+  waveE *= Math.exp(-dt * 0.6);
+  shake *= Math.exp(-dt * 6);
+  updateParts(dt);
+  peakPct = 0;
+  for (const b of beams) if (!b.broken && b.pct > peakPct) peakPct = b.pct;
+}
+
+function updateParts(dt) {
+  for (const p of parts) {
+    p.vy -= gG * dt * (p.k === "d" ? 1 : 0.6);
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    if (p.k === "d" && p.y < WATER && p.vy < 0) p.life = 0;
+  }
+  parts = parts.filter((p) => p.life > 0);
+  for (const r of rings) { r.r += dt * (r.water ? 6 : 14); r.life -= dt; }
+  rings = rings.filter((r) => r.life > 0);
+}
+
+/* ===================== CONVOY ===================== */
+function spawnTruck() {
+  truck = { x: -6, y: LAND_Y, pitch: 0, vy: 0, mode: "ride", splashed: false };
+}
+
+// Soporte de la plataforma bajo una coordenada x: segmento de vía intacto o null (vacío)
+function findSupport(xa) {
+  if (xa < WALL_L || xa > WALL_R) return { y: LAND_Y, nb: null };
+  for (const b of beams) {
+    if (b.broken || !b.deck) continue;
+    const a = b.a, c = b.b;
+    if (a.sunk || c.sunk) continue;
+    const x0 = Math.min(a.x, c.x), x1 = Math.max(a.x, c.x);
+    if (xa < x0 || xa > x1 || x1 - x0 < 1e-6) continue;
+    const t = (xa - a.x) / (c.x - a.x);
+    return { na: a, nb: c, t, y: a.y + (c.y - a.y) * t };
+  }
+  return null;
+}
+
+function updateTruck(dt) {
+  const t = truck;
+  if (!t || t.mode === "done" || t.mode === "gone") return;
+  const v = +el.spd.value / 3.6;
+  if (t.mode === "ride") {
+    t.x += v * dt;
+    const s1 = findSupport(t.x - 2.2), s2 = findSupport(t.x + 2.2);
+    if (!s1 || !s2 || s1.y < 0.5 || s2.y < 0.5) {
+      t.mode = "fall"; t.vy = 0;
+      return;
+    }
+    const F = (+el.wt.value * 1000 * gG) / 2;                // peso por eje (N)
+    for (const s of [s1, s2]) {
+      if (!s.nb) continue;
+      s.na.ey -= (F * (1 - s.t)) / s.na.m;
+      s.nb.ey -= (F * s.t) / s.nb.m;
+    }
+    t.y = (s1.y + s2.y) / 2;
+    t.pitch = Math.atan2(s2.y - s1.y, 4.4);
+    if (t.x > FAR_R) t.mode = "done";
+  } else if (t.mode === "fall") {
+    t.vy -= gG * dt;
+    t.y += t.vy * dt;
+    t.x += v * dt * 0.5;
+    t.pitch += dt * 1.5;
+    if (!t.splashed && t.y <= WATER + 1) { t.splashed = true; splash(t.x, -t.vy); }
+    if (t.y < RIVER_BED - 2) t.mode = "gone";
+  }
+}
+
+/* ===================== RENDER ===================== */
+const cv = $("c");
+const ctx = cv.getContext("2d");
+let CW = 0, CH = 0, SC = 20;      // tamaño del lienzo y píxeles por metro
+const VX = 40, VY = 4;            // centro de cámara (m)
+const sx = (x) => CW / 2 + (x - VX) * SC;
+const sy = (y) => CH / 2 - (y - VY) * SC;
+const wx = (px) => VX + (px - CW / 2) / SC;
+const wy = (py) => VY - (py - CH / 2) / SC;
+const C_BLUE = "#3b82f6", C_CYAN = "#22d3ee", C_EMER = "#10b981", C_AMBER = "#f59e0b", C_ROSE = "#ef4444", C_RED = "#ff1744";
+const stars = Array.from({ length: 70 }, () => [Math.random(), Math.random() * 0.8]);
+
+function resize() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  CW = window.innerWidth; CH = window.innerHeight;
+  cv.width = CW * dpr; cv.height = CH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  SC = Math.min(CW / 92, CH / 40);
+}
+window.addEventListener("resize", resize);
+
+function hexRGB(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+function mix(a, b, t) {
+  const A = hexRGB(a), B = hexRGB(b), u = Math.max(0, Math.min(1, t));
+  return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * u)).join(",")})`;
+}
+
+// Mapa de calor de ingeniería: azul/cian (compresión segura) → esmeralda (reposo) → ámbar (70 %) → rojo (90–100 %)
+function heatColor(b) {
+  const p = b.pct;
+  if (b.mat === "cable" && b.strain < 0) return "#475569";        // cable flojo: sin carga
+  if (b.strain < 0 && p < 0.7) return p < 0.25 ? C_BLUE : C_CYAN; // compresión segura
+  if (p < 0.05) return C_EMER;                                     // reposo
+  if (p < 0.7) return mix(C_EMER, C_AMBER, p / 0.7);
+  if (p < 0.9) return mix(C_AMBER, C_ROSE, (p - 0.7) / 0.2);
+  return mix(C_ROSE, C_RED, (p - 0.9) / 0.1);                      // rojo incandescente
+}
+
+function drawBackground() {
+  const g = ctx.createLinearGradient(0, 0, 0, CH);
+  g.addColorStop(0, "#050814"); g.addColorStop(0.6, "#152040"); g.addColorStop(1, "#2a1b3d");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, CW, CH);
+  ctx.fillStyle = "rgba(226,232,240,0.6)";
+  for (const [fx, fy] of stars) ctx.fillRect(fx * CW, fy * CH, 1.5, 1.5);
+  ctx.fillStyle = "#0b1020";                                       // cordillera lejana
+  ctx.beginPath();
+  ctx.moveTo(0, CH);
+  for (let px = 0; px <= CW; px += 20) ctx.lineTo(px, CH * 0.38 + 40 * Math.sin(px * 0.008) + 22 * Math.sin(px * 0.021 + 2));
+  ctx.lineTo(CW, CH);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawRocks() {
+  const top = sy(LAND_Y), bot = sy(RIVER_BED - 4);
+  const g = ctx.createLinearGradient(0, top, 0, bot);
+  g.addColorStop(0, "#64748b"); g.addColorStop(0.45, "#475569"); g.addColorStop(1, "#1e293b");
+  ctx.fillStyle = g;
+  ctx.fillRect(sx(-40), top, sx(WALL_L) - sx(-40), bot - top);     // acantilado izquierdo
+  ctx.fillRect(sx(WALL_R), top, sx(130) - sx(WALL_R), bot - top);  // acantilado derecho
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(sx(WALL_L), sy(RIVER_BED), sx(WALL_R) - sx(WALL_L), sy(RIVER_BED - 4) - sy(RIVER_BED)); // lecho
+  ctx.strokeStyle = "rgba(15,23,42,0.5)"; ctx.lineWidth = 1;
+  for (let y = LAND_Y - 2; y > RIVER_BED; y -= 2.5) {
+    ctx.beginPath();
+    ctx.moveTo(sx(-40), sy(y)); ctx.lineTo(sx(WALL_L), sy(y - 0.4));
+    ctx.moveTo(sx(WALL_R), sy(y - 0.3)); ctx.lineTo(sx(130), sy(y));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx(-40), top); ctx.lineTo(sx(WALL_L), top);
+  ctx.moveTo(sx(WALL_R), top); ctx.lineTo(sx(130), top);
+  ctx.stroke();
+}
+
+function waveY(x, t) {
+  return WATER + (0.12 + 0.3 * waveE) * (Math.sin(x * 1.1 + t * 2.2) + 0.5 * Math.sin(x * 2.7 - t * 3.3));
+}
+
+function drawWater(t) {
+  ctx.beginPath();
+  ctx.moveTo(sx(WALL_L), sy(RIVER_BED));
+  for (let x = WALL_L; x <= WALL_R; x += 0.5) ctx.lineTo(sx(x), sy(waveY(x, t)));
+  ctx.lineTo(sx(WALL_R), sy(RIVER_BED));
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, sy(WATER + 1), 0, sy(RIVER_BED));
+  g.addColorStop(0, "rgba(34,211,238,0.55)"); g.addColorStop(1, "rgba(8,47,73,0.9)");
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.beginPath();
+  for (let x = WALL_L; x <= WALL_R; x += 0.5) {
+    const px = sx(x), py = sy(waveY(x, t));
+    if (x === WALL_L) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = "rgba(186,230,253,0.7)"; ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawBeams() {
+  ctx.lineCap = "round";
+  ctx.font = "600 11px system-ui, sans-serif";
+  for (const b of beams) {
+    if (b.broken) continue;
+    const ax = sx(b.a.x), ay = sy(b.a.y), bx = sx(b.b.x), by = sy(b.b.y);
+    const hot = b.pct >= 0.9;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    ctx.strokeStyle = heatColor(b);
+    ctx.lineWidth = MAT[b.mat].lw + (hot ? 1.5 : 0);
+    ctx.shadowColor = C_RED;
+    ctx.shadowBlur = hot ? 14 : 0;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    if (b.pct >= 0.25) {
+      const txt = `${b.strain < 0 ? "C" : "T"} ${Math.round(b.pct * 100)}%`;
+      const tx = (ax + bx) / 2 + 6, ty = (ay + by) / 2 - 6;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(2,6,23,0.85)";
+      ctx.strokeText(txt, tx, ty);
+      ctx.fillStyle = hot ? "#fecaca" : "#f1f5f9";
+      ctx.fillText(txt, tx, ty);
+    }
+  }
+}
+
+function drawNodes() {
+  for (const n of nodes) {
+    if (n.sunk) continue;
+    const x = sx(n.x), y = sy(n.y);
+    if (n.fixed) {
+      ctx.fillStyle = "#334155"; ctx.fillRect(x - 6, y - 6, 12, 12);
+      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1.5; ctx.strokeRect(x - 6, y - 6, 12, 12);
+    } else {
+      ctx.fillStyle = "#e2e8f0";
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawParts() {
+  for (const p of parts) {
+    const a = Math.max(0, Math.min(1, p.life));
+    if (p.k === "s") {
+      ctx.strokeStyle = `rgba(253,224,71,${a})`; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx(p.x), sy(p.y));
+      ctx.lineTo(sx(p.x - p.vx * 0.04), sy(p.y - p.vy * 0.04));
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = `rgba(186,230,253,${a * 0.9})`;
+      ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawRings() {
+  for (const r of rings) {
+    const a = Math.max(0, Math.min(1, r.life / 0.9));
+    ctx.strokeStyle = r.water ? `rgba(125,211,252,${a})` : `rgba(251,146,60,${a})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sx(r.x), sy(r.y), r.r * SC, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+function drawTruck() {
+  const t = truck;
+  if (!t || t.mode === "done" || t.mode === "gone") return;
+  const u = SC;
+  ctx.save();
+  ctx.translate(sx(t.x), sy(t.y));
+  ctx.rotate(-t.pitch);
+  ctx.fillStyle = t.mode === "fall" ? "#fb923c" : "#f59e0b";
+  ctx.fillRect(-3 * u, -3.8 * u, 6 * u, 2.4 * u);     // caja
+  ctx.fillRect(1.6 * u, -5 * u, 1.4 * u, 1.2 * u);    // cabina
+  ctx.fillStyle = "#7c2d12";
+  ctx.fillRect(-2.7 * u, -3.6 * u, 3.4 * u, 0.4 * u); // carga
+  ctx.fillStyle = "#0b1120";
+  for (const xo of [-2.2, 2.2]) { ctx.beginPath(); ctx.arc(xo * u, -0.7 * u, 0.7 * u, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = "#fde68a";
+  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.fillText(`${(+el.wt.value).toFixed(0)} t`, -0.8 * u, -5.6 * u);
+  ctx.restore();
+}
+
+function ringAt(x, y, r, col) {
+  ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(sx(x), sy(y), r, 0, Math.PI * 2); ctx.stroke();
+}
+
+function drawBuildOverlay() {
+  if (mode !== "build") return;
+  ctx.fillStyle = "rgba(148,163,184,0.25)";
+  for (let gx = Math.ceil(wx(0)); gx <= Math.floor(wx(CW)); gx++) {
+    for (let gy = Math.ceil(wy(CH)); gy <= Math.floor(wy(0)); gy++) ctx.fillRect(sx(gx) - 1, sy(gy) - 1, 2, 2);
+  }
+  const snapP = { x: Math.round(mouseW.x), y: Math.round(mouseW.y) };
+  if (selNode) {
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx(selNode.x), sy(selNode.y)); ctx.lineTo(sx(snapP.x), sy(snapP.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ringAt(selNode.x, selNode.y, 9, "#67e8f9");
+  }
+  if (hoverNode) {
+    ringAt(hoverNode.x, hoverNode.y, 10, "#facc15");
+  } else if (hoverBeam) {
+    ctx.strokeStyle = "#facc15"; ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(sx(hoverBeam.a.x), sy(hoverBeam.a.y)); ctx.lineTo(sx(hoverBeam.b.x), sy(hoverBeam.b.y));
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = "rgba(250,204,21,0.8)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sx(snapP.x), sy(snapP.y), 5, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+function render(t) {
+  drawBackground();
+  ctx.save();
+  if (shake > 0) ctx.translate((Math.random() - 0.5) * shake * 10, (Math.random() - 0.5) * shake * 10);
+  drawRocks();
+  drawBeams();
+  drawNodes();
+  drawWater(t);                  // capa translúcida del río sobre las vigas sumergidas
+  drawParts();
+  drawRings();
+  drawTruck();
+  drawBuildOverlay();
+  ctx.restore();
+}
+
+/* ===================== UI / ENTRADA ===================== */
+function syncLabels() {
+  $("wtV").textContent = `${(+el.wt.value).toFixed(0)} t`;
+  $("spdV").textContent = `${(+el.spd.value).toFixed(0)} km/h`;
+  $("gravV").textContent = `${(+el.grav.value).toFixed(2)} m/s²`;
+  $("resV").textContent = `× ${(+el.res.value).toFixed(2)}`;
+  $("quakeV").textContent = `${(+el.quake.value).toFixed(1)} m/s²`;
+  $("windV").textContent = `${(+el.wind.value).toFixed(1)} m/s²`;
+}
+for (const k in el) el[k].addEventListener("input", syncLabels);
+
+function setButtons() {
+  $("btnSim").classList.toggle("on", mode === "sim");
+  $("btnBuild").classList.toggle("on", mode === "build");
+  $("btnPause").textContent = running ? "⏸ Pausa" : "▶ Reanudar";
+  $("btnSlow").classList.toggle("on", slow);
+  document.querySelectorAll("[data-tool]").forEach((b) => b.classList.toggle("on", mode === "build" && b.dataset.tool === tool));
+  $("preset").value = String(curPreset);
+}
+
+function showMsg(text) {
+  const m = $("msg");
+  m.textContent = text;
+  m.style.display = "block";
+  msgT = 2.2;
+}
+
+function setMode(m) {
+  if (m === mode) return;
+  if (m === "build") {
+    mode = "build";
+    running = false;
+    truck = null;
+    if (hasDamage()) restoreSnapshot();           // se edita el diseño, no una estructura colapsada
+    for (const n of nodes) { n.vx = 0; n.vy = 0; }
+    showMsg("Constructor: física pausada");
+  } else {
+    mode = "sim";
+    running = true;
+    snapshot = takeSnapshot();                    // el diseño editado pasa a ser la base de «Reiniciar»
+    for (const n of nodes) { n.vx = 0; n.vy = 0; }
+    spawnTruck();
+  }
+  setButtons();
+}
+
+function distSeg(p, a, b) {
+  const vx = b.x - a.x, vy = b.y - a.y;
+  const L2 = vx * vx + vy * vy || 1e-9;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / L2));
+  return Math.hypot(a.x + vx * t - p.x, a.y + vy * t - p.y);
+}
+
+function pickNode(p, r) {
+  let best = null, bd = r;
+  for (const n of nodes) {
+    if (n.sunk) continue;
+    const d = Math.hypot(n.x - p.x, n.y - p.y);
+    if (d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+
+function pickBeam(p, r) {
+  let best = null, bd = r;
+  for (const b of beams) {
+    if (b.broken) continue;
+    const d = distSeg(p, b.a, b.b);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+
+function addNodeAt(p, fixed) {
+  const c = fixed ? ANCHOR_COST : NODE_COST;
+  if (structCost() + c > budget) { showMsg("Presupuesto insuficiente"); return null; }
+  return mkNode(p.x, p.y, fixed);
+}
+
+function addBeam(a, b, mat) {
+  if (beams.some((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a))) return;
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < 0.5) return;
+  const cost = L * MAT[mat].costM;
+  if (structCost() + cost > budget) { showMsg("Presupuesto insuficiente para esta viga"); return; }
+  mkBeam(a, b, mat, mat === "road");
+}
+
+function deleteNode(n) {
+  beams = beams.filter((b) => b.a !== n && b.b !== n);
+  nodes = nodes.filter((x) => x !== n);
+  if (selNode === n) selNode = null;
+}
+
+function deleteBeam(bm) {
+  beams = beams.filter((b) => b !== bm);
+}
+
+function handleBuildClick() {
+  const p = { x: Math.round(mouseW.x), y: Math.round(mouseW.y) };
+  const hn = pickNode(mouseW, 0.9);
+  if (tool === "node") { if (!hn) addNodeAt(p, false); return; }
+  if (tool === "anchor") {
+    if (hn) { hn.fixed = !hn.fixed; hn.vx = 0; hn.vy = 0; }
+    else addNodeAt(p, true);
+    return;
+  }
+  if (tool === "del") {
+    if (hn) deleteNode(hn);
+    else {
+      const bm = pickBeam(mouseW, 0.45);
+      if (bm) deleteBeam(bm);
+    }
+    return;
+  }
+  // Material de viga activo: encadena nodos
+  const target = hn || addNodeAt(p, false);
+  if (!target) return;
+  if (selNode && selNode !== target) addBeam(selNode, target, tool);
+  selNode = target;
+}
+
+function updateHUD() {
+  const intact = beams.filter((b) => !b.broken).length;
+  const cost = structCost();
+  $("fps").textContent = fps;
+  $("tsim").textContent = `${simT.toFixed(1)} s`;
+  const pk = $("peak");
+  pk.textContent = `${(peakPct * 100).toFixed(1)} %`;
+  pk.style.color = peakPct >= 0.9 ? C_RED : peakPct >= 0.7 ? C_AMBER : "#f8fafc";
+  $("intact").textContent = intact;
+  $("broken").textContent = beams.length - intact;
+  $("cost").textContent = usd(cost);
+  $("loss").textContent = usd(lossCost());
+  $("left").textContent = usd(budget - cost);
+  $("conv").textContent = convoyText();
+}
+
+function convoyText() {
+  if (!truck) return "—";
+  switch (truck.mode) {
+    case "ride": return truck.x < WALL_L ? "Aproximación" : "Cruzando el puente";
+    case "fall": return "¡Colapso! En caída";
+    case "done": return "Cruzó ✔";
+    default: return "Hundido en el río";
+  }
+}
+
+/* --- Eventos --- */
+$("btnLoad").onclick = () => loadPreset(+$("preset").value);
+$("btnReset").onclick = () => { restoreSnapshot(); running = mode === "sim"; setButtons(); };
+$("btnSim").onclick = () => setMode("sim");
+$("btnBuild").onclick = () => setMode("build");
+$("btnPause").onclick = () => { if (mode === "sim") { running = !running; setButtons(); } };
+$("btnSlow").onclick = () => { slow = !slow; setButtons(); };
+$("btnConvoy").onclick = () => {
+  if (mode === "build") setMode("sim");
+  else { spawnTruck(); running = true; }
+  setButtons();
+};
+document.querySelectorAll("[data-tool]").forEach((b) => {
+  b.onclick = () => {
+    tool = b.dataset.tool;
+    selNode = null;
+    if (mode !== "build") setMode("build");
+    setButtons();
+  };
+});
+$("budget").addEventListener("change", () => {
+  budget = Math.max(0, +$("budget").value || 0);
+  if (structCost() > budget) showMsg("El costo actual supera el presupuesto");
+  updateHUD();
+});
+
+cv.addEventListener("mousemove", (e) => {
+  mouseW = { x: wx(e.clientX), y: wy(e.clientY) };
+  hoverNode = mode === "build" ? pickNode(mouseW, 0.9) : null;
+  hoverBeam = mode === "build" && !hoverNode ? pickBeam(mouseW, 0.45) : null;
+});
+cv.addEventListener("mousedown", (e) => {
+  if (mode !== "build") return;
+  if (e.button === 2) { selNode = null; return; }
+  if (e.button === 0) handleBuildClick();
+});
+cv.addEventListener("contextmenu", (e) => e.preventDefault());
+
+window.addEventListener("keydown", (e) => {
+  const tag = e.target.tagName;
+  if (tag === "INPUT" || tag === "SELECT") return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    if (mode === "sim") { running = !running; setButtons(); }
+  } else if (e.key === "b" || e.key === "B") {
+    slow = !slow; setButtons();
+  }
+});
+
+/* --- Bucle principal (60 FPS objetivo, paso fijo con sub-stepping) --- */
+let fps = 0, lastT = performance.now(), fpsN = 0, fpsT = 0, hudT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  fpsN++; fpsT += dt;
+  if (fpsT >= 0.5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
+  if (mode === "sim" && running) simulate(dt * (slow ? 0.25 : 1));
+  render(now / 1000);
+  hudT += dt;
+  if (hudT >= 0.2) { hudT = 0; updateHUD(); }
+  if (msgT > 0) { msgT -= dt; if (msgT <= 0) $("msg").style.display = "none"; }
+  requestAnimationFrame(frame);
+}
+
+resize();
+syncLabels();
+loadPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

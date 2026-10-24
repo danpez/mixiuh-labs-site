@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYBER-8 · Consola Retro Virtual (CHIP-8 Extendido)</title>
+<style>
+:root{--bg:#05070a;--panel:#0b1118;--panel2:#101a24;--line:#1c2d3d;--txt:#b8d4e6;--dim:#5c7a90;--acc:#39ff88;--acc2:#00e5ff;--warn:#ffb000;--err:#ff3b5c;--mag:#ff4fd8}
+*{box-sizing:border-box}
+html,body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#0d1b2a 0%,var(--bg) 60%) fixed;color:var(--txt);font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+body{padding:12px 14px 28px}
+button,select,input{font:inherit;color:inherit}
+.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(90deg,#0c1824,#0a1119)}
+.brand{font-size:18px;font-weight:700;letter-spacing:.14em;color:var(--acc);text-shadow:0 0 12px rgba(57,255,136,.55)}
+.brand small{font-size:11px;font-weight:400;letter-spacing:.04em;color:var(--dim);text-shadow:none;margin-left:8px}
+.leds{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.led{padding:2px 8px;border-radius:999px;border:1px solid #28404f;color:#43606f;font-size:11px;letter-spacing:.1em}
+.led.on{color:#031;background:var(--acc);border-color:var(--acc);box-shadow:0 0 10px var(--acc)}
+.led.amb.on{background:var(--warn);border-color:var(--warn);box-shadow:0 0 10px var(--warn)}
+.led.red.on{background:var(--err);border-color:var(--err);color:#fff;box-shadow:0 0 10px var(--err)}
+.grid{display:grid;grid-template-columns:minmax(420px,1.05fr) minmax(360px,.95fr) minmax(430px,1.15fr);gap:12px;align-items:start}
+.col{min-width:0}
+.panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px;position:relative}
+.panel>h2{margin:-2px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc2);display:flex;justify-content:space-between;align-items:center;font-weight:600;gap:8px}
+.panel>h2 em{font-style:normal;color:var(--dim);letter-spacing:.04em;text-transform:none;font-weight:400}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.btn{background:#0f2230;color:var(--txt);border:1px solid #25445c;border-radius:6px;padding:6px 10px;cursor:pointer;transition:.12s}
+.btn:hover{background:#15324a;border-color:var(--acc2)}
+.btn:active{transform:translateY(1px)}
+.btn.pri{border-color:var(--acc);color:var(--acc)}
+.btn.warn{border-color:var(--warn);color:var(--warn)}
+.btn.big{padding:9px 14px;font-weight:700;letter-spacing:.06em;background:#0d2a1c;border-color:var(--acc);color:var(--acc)}
+.btn.big:hover{background:#12402a}
+.btn.sel{background:var(--acc);color:#02130a;border-color:var(--acc)}
+.crtwrap{position:relative;background:#000;border-radius:16px;padding:10px;box-shadow:0 0 0 2px #17222d,0 0 34px rgba(57,255,136,.10) inset,0 0 24px rgba(0,229,255,.06)}
+#crt{width:100%;height:auto;display:block;border-radius:18px;aspect-ratio:2/1;background:#000}
+#overlayMsg{display:none;position:absolute;left:18px;right:18px;bottom:18px;padding:8px 10px;border-radius:8px;background:rgba(255,59,92,.9);color:#fff;font-weight:700}
+.row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.row label{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase;min-width:92px}
+.row input[type=range]{flex:1;min-width:120px;accent-color:var(--acc)}
+.row .val{min-width:70px;text-align:right;color:var(--acc)}
+.row select{background:#0b1821;border:1px solid #25445c;border-radius:5px;padding:3px 6px}
+.chk{display:flex;gap:5px;align-items:center;color:var(--txt);cursor:pointer;user-select:none}
+.chk input{accent-color:var(--acc)}
+.note{color:var(--dim);font-size:11px;margin-top:6px}
+#romDesc{margin-top:8px;color:var(--txt);min-height:50px}
+#romDesc b{color:var(--warn)}
+.keypad{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:300px}
+.key{background:#0d1c28;border:1px solid #24465e;border-radius:8px;padding:8px 0;text-align:center;cursor:pointer;user-select:none;touch-action:none}
+.key b{display:block;font-size:16px;color:var(--acc2)}
+.key small{color:var(--dim);font-size:10px}
+.key.on{background:var(--acc);border-color:var(--acc)}
+.key.on b,.key.on small{color:#02130a}
+.sregs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.sr{background:#08121a;border:1px solid #1c3446;border-radius:6px;padding:4px 6px;position:relative;overflow:hidden;background-image:linear-gradient(90deg,rgba(255,176,0,calc(var(--a,0)*.4)),rgba(255,176,0,calc(var(--a,0)*.4)))}
+.sr .n{color:var(--dim);font-size:10px;letter-spacing:.1em}
+.sr .h{display:block;color:var(--warn);font-size:14px;font-weight:700}
+.sr .d{color:var(--dim);font-size:10px}
+.vr{display:grid;grid-template-columns:28px 1fr 46px 34px;gap:8px;align-items:center;padding:1px 4px;border-radius:4px;background:linear-gradient(90deg,rgba(255,176,0,calc(var(--a,0)*.3)),transparent)}
+.vr .vn{color:var(--acc2);font-weight:700}
+.vr .vh{color:var(--warn)}
+.vr .vd{color:var(--dim);text-align:right}
+.bar{height:8px;background:#0a141c;border-radius:4px;overflow:hidden;border:1px solid #17293a}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc))}
+.stk{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.stk span{background:#08121a;border:1px solid #1c3446;border-radius:4px;padding:2px 3px;text-align:center;color:#3f5a6b;font-size:11px}
+.stk span.used{color:var(--acc);border-color:#1f6a43}
+.stk span.top{background:var(--acc);color:#02130a;border-color:var(--acc)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin-top:8px;color:var(--dim)}
+.stats b{color:var(--txt);font-weight:400}
+#dis{background:#060b10;border:1px solid #14232f;border-radius:6px;padding:4px 0;font-size:12px}
+.dl{padding:1px 6px;white-space:pre;cursor:pointer;border-left:3px solid transparent;color:#7f9bb0;overflow:hidden}
+.dl.dim{color:#3d5262}
+.dl.cur{background:rgba(255,176,0,.22);border-left-color:var(--warn);color:#fff}
+.dl .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;border:1px solid #2a3f50;vertical-align:-1px}
+.dl.bp .dot{background:var(--err);border-color:var(--err);box-shadow:0 0 6px var(--err)}
+.dl .ad{color:#4f7a96}
+.dl .oc{color:var(--warn)}
+.dl .ar{color:#34556b}
+.dl .mn{color:var(--acc)}
+.dl .lb{color:var(--mag)}
+.dl.cur .ad,.dl.cur .ar{color:#cfe}
+#hex{background:#060b10;border:1px solid #14232f;border-radius:6px;padding:6px 8px;font-size:12px;line-height:18px;white-space:pre;overflow:hidden;height:326px;cursor:ns-resize}
+#hex .ha{color:#4f7a96}
+#hex .zf{color:#37c8ff}
+#hex .zr{color:#46ff9a}
+#hex .zx{color:#33454f}
+#hex .hw{color:#fff;text-decoration:underline;text-decoration-color:var(--err)}
+#hex .pc{background:var(--warn);color:#000}
+#hex .ii{background:var(--mag);color:#000}
+#hex .as{color:#6c8798}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin-top:6px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.editor{display:flex;height:360px;background:#060b10;border:1px solid #14232f;border-radius:6px;overflow:hidden}
+.gutter{width:44px;flex:none;overflow:hidden;text-align:right;padding:8px 6px;color:#3d5a6e;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;background:#070e14;border-right:1px solid #14232f;user-select:none}
+.edwrap{position:relative;flex:1;min-width:0}
+.hl,#src{position:absolute;inset:0;margin:0;padding:8px 10px;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0;white-space:pre;tab-size:4;border:0;border-radius:0}
+.hl{overflow:hidden;pointer-events:none;color:#a9c3d4}
+#src{background:transparent;color:transparent;caret-color:#fff;resize:none;outline:none;overflow:auto}
+#src::selection{background:rgba(0,229,255,.28);color:transparent}
+.ln{display:block;height:18px;min-width:100%;width:max-content}
+.ln.cur{background:rgba(255,176,0,.2);box-shadow:inset 3px 0 0 var(--warn)}
+.ln.err{background:rgba(255,59,92,.22);box-shadow:inset 3px 0 0 var(--err)}
+.t-lbl{color:var(--mag)}.t-num{color:#ffcf6b}.t-mn{color:var(--acc);font-weight:700}.t-reg{color:var(--acc2)}.t-dir{color:#c792ff}.t-cmt{color:#4b6a7c;font-style:italic}
+#console{background:#050a0e;border:1px solid #14232f;border-radius:6px;height:130px;overflow:auto;padding:6px 8px;font-size:12px}
+#console div{white-space:pre-wrap}
+#console .ok{color:var(--acc)}#console .er{color:var(--err)}#console .in{color:var(--dim)}#console .wr{color:var(--warn)}
+.foot{margin-top:6px;color:var(--dim);font-size:11px;line-height:1.7}
+.foot kbd{background:#0f2230;border:1px solid #25445c;border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--txt)}
+@media (max-width:1300px){.grid{grid-template-columns:1fr 1fr}.col3{grid-column:1/-1}}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">▣ CYBER-8 <small>// CHIP-8 Extendido · RAM 4 KB · 16×Vx · Timers 60 Hz · Ensamblador integrado</small></div>
+  <div class="leds">
+    <span class="led" id="ledRun">RUN</span>
+    <span class="led amb" id="ledBeep">BEEP</span>
+    <span class="led red" id="ledFault">FAULT</span>
+    <span id="clockInfo" style="color:var(--dim)"></span>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- ============ COLUMNA 1: CRT + CONTROLES ============ -->
+  <section class="col">
+    <div class="panel">
+      <h2>Pantalla CRT <em>64×32 · fósforo P1</em></h2>
+      <div class="crtwrap">
+        <canvas id="crt" width="768" height="384"></canvas>
+        <div id="overlayMsg"></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn pri" id="btnRun">▶ RUN</button>
+        <button class="btn" id="btnStep" title="Ejecuta 1 instrucción (tecla N)">⤵ STEP INTO</button>
+        <button class="btn" id="btnFrame" title="Avanza 1/60 s (tecla M)">⏭ STEP FRAME</button>
+        <button class="btn warn" id="btnReset" title="Esc">⟲ RESET ROM</button>
+      </div>
+      <div class="row">
+        <label for="clock">Clock Speed</label>
+        <input type="range" id="clock" min="10" max="1200" step="10" value="1200">
+        <span class="val" id="clockVal">1200 Hz</span>
+      </div>
+      <div class="row">
+        <label for="turbo">Overclock</label>
+        <select id="turbo">
+          <option value="1">×1</option><option value="2">×2</option><option value="4">×4</option>
+          <option value="8" selected>×8</option><option value="16">×16</option>
+        </select>
+        <span id="ipsInfo" style="color:var(--dim)"></span>
+      </div>
+      <div class="note">Las ROMs de demostración ejecutan ~100 instrucciones por cuadro: con el slider en 1200 Hz usa ×8 (≈9600 IPS). Baja el reloj hacia 10 Hz para ver pensar a la CPU instrucción por instrucción.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Post-procesado CRT</h2>
+      <div class="row" style="margin-top:0">
+        <label class="chk"><input type="checkbox" id="fxCurve"> Curvatura</label>
+        <label class="chk"><input type="checkbox" id="fxScan" checked> Scanlines</label>
+        <label class="chk"><input type="checkbox" id="fxGlow" checked> Glow</label>
+        <select id="palette">
+          <option value="green">Fósforo verde</option><option value="amber">Ámbar</option>
+          <option value="cyan">Cian</option><option value="white">Blanco P4</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="persist">Persistencia</label>
+        <input type="range" id="persist" min="0" max="92" value="74">
+        <span class="val" id="persistVal">0.74</span>
+      </div>
+      <div class="row">
+        <label for="vol">Beeper</label>
+        <input type="range" id="vol" min="0" max="100" value="45">
+        <label class="chk"><input type="checkbox" id="mute"> Mute</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Cartuchos ROM <em>clic = ensamblar + flashear + ejecutar</em></h2>
+      <div class="btnrow" style="margin-top:0" id="romBtns"></div>
+      <div id="romDesc"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Teclado hexadecimal <em>1-2-3-4 / Q-W-E-R / A-S-D-F / Z-X-C-V</em></h2>
+      <div class="keypad" id="keypad"></div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="qShift"> Quirk: SHR/SHL usan Vy (COSMAC)</label>
+        <label class="chk"><input type="checkbox" id="qLS"> Quirk: Fx55/Fx65 incrementan I</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COLUMNA 2: CPU ============ -->
+  <section class="col">
+    <div class="panel">
+      <h2>Registros de CPU <em>8 bits · bus 12 bits</em></h2>
+      <div class="sregs" id="sregs"></div>
+      <div id="vregs"></div>
+    </div>
+    <div class="panel">
+      <h2>Pila de llamadas y telemetría <em>16 niveles</em></h2>
+      <div class="stk" id="stack"></div>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div class="panel">
+      <h2>Desensamblador en vivo <em>clic en una línea = breakpoint</em></h2>
+      <div id="dis"></div>
+    </div>
+  </section>
+
+  <!-- ============ COLUMNA 3: RAM + ASM ============ -->
+  <section class="col col3">
+    <div class="panel">
+      <h2>Inspector hexadecimal de RAM <em>4096 bytes · rueda del ratón para desplazar</em></h2>
+      <div class="row" style="margin:0 0 8px">
+        <label for="hexFollow" style="min-width:60px">Seguir</label>
+        <select id="hexFollow"><option value="pc">PC</option><option value="i">Registro I</option><option value="free">Libre</option></select>
+        <input type="range" id="hexScroll" min="0" max="240" value="0">
+      </div>
+      <div id="hex"></div>
+      <div class="legend">
+        <span><i style="background:#37c8ff"></i>Fuentes 0x000-0x1FF</span>
+        <span><i style="background:#46ff9a"></i>ROM 0x200+</span>
+        <span><i style="background:#33454f"></i>RAM libre</span>
+        <span><i style="background:var(--warn)"></i>PC</span>
+        <span><i style="background:var(--mag)"></i>I</span>
+        <span><i style="background:var(--err)"></i>escritura reciente</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Editor ASM <em>Ctrl/Cmd+Enter = ensamblar</em></h2>
+      <div class="editor">
+        <div class="gutter" id="gutter">1</div>
+        <div class="edwrap">
+          <pre class="hl" id="hl" aria-hidden="true"></pre>
+          <textarea id="src" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off"></textarea>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn big" id="btnAsm">⚡ ASSEMBLE &amp; FLASH TO RAM</button>
+        <button class="btn" id="btnRestore">Restaurar original</button>
+        <button class="btn" id="btnExport">Exportar .ch8</button>
+      </div>
+      <div class="note">Sintaxis: <b>label:</b> · <b>NOMBRE EQU expr</b> · <b>DEF alias Vx</b> · <b>ORG</b> · <b>DB/DW/DS</b> · números <b>0xFF</b>, <b>$FF</b>, <b>0b1010</b>, decimal · mnemónicos Cowgod (LD, ADD, DRW, SKP, ...). La línea en ejecución se ilumina.</div>
+    </div>
+    <div class="panel">
+      <h2>Consola del ensamblador</h2>
+      <div id="console"></div>
+      <div class="foot">Atajos: <kbd>P</kbd> run/pause · <kbd>N</kbd> step into · <kbd>M</kbd> step frame · <kbd>Esc</kbd> reset · flechas / <kbd>Espacio</kbd> mapeadas a las teclas 4-6-5-8 del keypad.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* ====================================================================
+ *  CYBER-8 · NÚCLEO DE LA MÁQUINA VIRTUAL
+ *  RAM Uint8Array(4096) · V[16] Uint8Array · PC / I / SP · pila de 16 niveles
+ *  Ciclo real: FETCH (2 bytes big-endian) → DECODE (nibbles) → EXECUTE
+ * ==================================================================== */
+const SCREEN_W = 64, SCREEN_H = 32, ROM_BASE = 0x200;
+const hx = (v, w) => v.toString(16).toUpperCase().padStart(w, '0');
+
+const FONT_SET = new Uint8Array([
+  0xF0,0x90,0x90,0x90,0xF0, 0x20,0x60,0x20,0x20,0x70, 0xF0,0x10,0xF0,0x80,0xF0, 0xF0,0x10,0xF0,0x10,0xF0,
+  0x90,0x90,0xF0,0x10,0x10, 0xF0,0x80,0xF0,0x10,0xF0, 0xF0,0x80,0xF0,0x90,0xF0, 0xF0,0x10,0x20,0x40,0x40,
+  0xF0,0x90,0xF0,0x90,0xF0, 0xF0,0x90,0xF0,0x10,0xF0, 0xF0,0x90,0xF0,0x90,0x90, 0xE0,0x90,0xE0,0x90,0xE0,
+  0xF0,0x80,0x80,0x80,0xF0, 0xE0,0x90,0x90,0x90,0xE0, 0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80
+]);
+
+class Chip8 {
+  constructor() {
+    this.mem = new Uint8Array(4096);          // RAM de 4 KB
+    this.V = new Uint8Array(16);              // registros de propósito general V0..VF
+    this.stack = new Uint16Array(16);         // pila de llamadas
+    this.gfx = new Uint8Array(SCREEN_W * SCREEN_H);
+    this.keys = new Uint8Array(16);           // teclado hexadecimal
+    this.heat = new Uint8Array(4096);         // "calor" de escrituras recientes (solo para el inspector)
+    this.rom = new Uint8Array(0);
+    this.quirks = { shiftVy: false, loadStoreInc: false };
+    this.reset();
+  }
+
+  loadRom(bytes) { this.rom = bytes; this.reset(); }
+
+  reset() {
+    this.mem.fill(0);
+    this.mem.set(FONT_SET, 0);                // fuentes en 0x000
+    this.mem.set(this.rom, ROM_BASE);         // programa en 0x200
+    this.romEnd = ROM_BASE + this.rom.length;
+    this.V.fill(0); this.stack.fill(0); this.gfx.fill(0); this.heat.fill(0);
+    this.I = 0; this.PC = ROM_BASE; this.SP = 0; this.DT = 0; this.ST = 0;
+    this.cycles = 0; this.fault = null; this.lastOp = 0; this.lastPC = ROM_BASE;
+  }
+
+  decayHeat() {
+    const h = this.heat;
+    for (let i = 0; i < 4096; i++) { const v = h[i]; if (v) h[i] = v > 10 ? v - 10 : 0; }
+  }
+
+  tick() { if (this.DT) this.DT--; if (this.ST) this.ST--; }   // temporizadores a 60 Hz
+
+  trap(msg, pc, op) {
+    this.fault = msg + ' @0x' + hx(pc, 3) + ' (op ' + hx(op, 4) + ')';
+    this.PC = pc;
+  }
+
+  wr(a, v) { a &= 0xFFF; this.mem[a] = v; this.heat[a] = 255; }
+
+  /* Un ciclo completo de CPU */
+  step() {
+    if (this.fault) return false;
+    const pc = this.PC & 0xFFF;
+    const op = (this.mem[pc] << 8) | this.mem[(pc + 1) & 0xFFF];   // FETCH
+    this.lastPC = pc; this.lastOp = op;
+    this.PC = (pc + 2) & 0xFFF;
+    this.execute(op, pc);                                          // DECODE + EXECUTE
+    this.cycles++;
+    return !this.fault;
+  }
+
+  execute(op, pc) {
+    const V = this.V;
+    const x = (op >> 8) & 0xF, y = (op >> 4) & 0xF, n = op & 0xF, kk = op & 0xFF, nnn = op & 0xFFF;
+    switch (op >> 12) {
+      case 0x0:
+        if (op === 0x00E0) { this.gfx.fill(0); }                                  // CLS
+        else if (op === 0x00EE) {                                                   // RET
+          if (this.SP === 0) return this.trap('STACK UNDERFLOW', pc, op);
+          this.PC = this.stack[--this.SP];
+        } else if (op === 0x0000) return this.trap('EJECUTANDO RAM VACIA', pc, op);
+        break;                                                                      // 0nnn SYS: ignorado
+      case 0x1: this.PC = nnn; break;                                               // JP nnn
+      case 0x2:                                                                     // CALL nnn
+        if (this.SP >= 16) return this.trap('STACK OVERFLOW', pc, op);
+        this.stack[this.SP++] = this.PC; this.PC = nnn; break;
+      case 0x3: if (V[x] === kk) this.PC = (this.PC + 2) & 0xFFF; break;            // SE Vx, kk
+      case 0x4: if (V[x] !== kk) this.PC = (this.PC + 2) & 0xFFF; break;            // SNE Vx, kk
+      case 0x5:                                                                     // SE Vx, Vy
+        if (n !== 0) return this.trap('OPCODE ILEGAL', pc, op);
+        if (V[x] === V[y]) this.PC = (this.PC + 2) & 0xFFF; break;
+      case 0x6: V[x] = kk; break;                                                   // LD Vx, kk
+      case 0x7: V[x] = V[x] + kk; break;                                            // ADD Vx, kk (wrap, sin acarreo)
+      case 0x8: {
+        const a = V[x], b = V[y];
+        switch (n) {
+          case 0x0: V[x] = b; break;
+          case 0x1: V[x] = a | b; break;
+          case 0x2: V[x] = a & b; break;
+          case 0x3: V[x] = a ^ b; break;
+          case 0x4: { const s = a + b; V[x] = s; V[0xF] = s > 0xFF ? 1 : 0; break; }      // ADD con acarreo
+          case 0x5: V[x] = a - b; V[0xF] = a >= b ? 1 : 0; break;                          // SUB (VF = no-borrow)
+          case 0x6: { const s = this.quirks.shiftVy ? b : a; V[x] = s >> 1; V[0xF] = s & 1; break; }
+          case 0x7: V[x] = b - a; V[0xF] = b >= a ? 1 : 0; break;                          // SUBN
+          case 0xE: { const s = this.quirks.shiftVy ? b : a; V[x] = s << 1; V[0xF] = (s >> 7) & 1; break; }
+          default: return this.trap('OPCODE ILEGAL', pc, op);
+        }
+        break;
+      }
+      case 0x9:                                                                     // SNE Vx, Vy
+        if (n !== 0) return this.trap('OPCODE ILEGAL', pc, op);
+        if (V[x] !== V[y]) this.PC = (this.PC + 2) & 0xFFF; break;
+      case 0xA: this.I = nnn; break;                                                // LD I, nnn
+      case 0xB: this.PC = (nnn + V[0]) & 0xFFF; break;                              // JP V0, nnn
+      case 0xC: V[x] = ((Math.random() * 256) & 0xFF) & kk; break;                  // RND Vx, kk
+      case 0xD: {                                                                   // DRW Vx, Vy, n
+        const px0 = V[x] % SCREEN_W, py0 = V[y] % SCREEN_H, g = this.gfx;
+        let hit = 0;
+        for (let r = 0; r < n; r++) {
+          const py = py0 + r; if (py >= SCREEN_H) break;
+          const sb = this.mem[(this.I + r) & 0xFFF];
+          if (!sb) continue;
+          for (let c = 0; c < 8; c++) {
+            if (!(sb & (0x80 >> c))) continue;
+            const px = px0 + c; if (px >= SCREEN_W) break;
+            const idx = py * SCREEN_W + px;
+            if (g[idx]) hit = 1;
+            g[idx] ^= 1;
+          }
+        }
+        V[0xF] = hit;
+        break;
+      }
+      case 0xE:
+        if (kk === 0x9E) { if (this.keys[V[x] & 0xF]) this.PC = (this.PC + 2) & 0xFFF; }       // SKP Vx
+        else if (kk === 0xA1) { if (!this.keys[V[x] & 0xF]) this.PC = (this.PC + 2) & 0xFFF; } // SKNP Vx
+        else return this.trap('OPCODE ILEGAL', pc, op);
+        break;
+      case 0xF:
+        switch (kk) {
+          case 0x07: V[x] = this.DT; break;
+          case 0x0A: {                                                              // LD Vx, K (bloqueante)
+            let k = -1;
+            for (let i = 0; i < 16; i++) if (this.keys[i]) { k = i; break; }
+            if (k < 0) this.PC = pc; else V[x] = k;
+            break;
+          }
+          case 0x15: this.DT = V[x]; break;
+          case 0x18: this.ST = V[x]; break;
+          case 0x1E: this.I = (this.I + V[x]) & 0xFFF; break;
+          case 0x29: this.I = (V[x] & 0xF) * 5; break;
+          case 0x33: { const v = V[x]; this.wr(this.I, (v / 100) | 0); this.wr(this.I + 1, ((v / 10) | 0) % 10); this.wr(this.I + 2, v % 10); break; }
+          case 0x55: for (let i = 0; i <= x; i++) this.wr(this.I + i, V[i]); if (this.quirks.loadStoreInc) this.I = (this.I + x + 1) & 0xFFF; break;
+          case 0x65: for (let i = 0; i <= x; i++) V[i] = this.mem[(this.I + i) & 0xFFF]; if (this.quirks.loadStoreInc) this.I = (this.I + x + 1) & 0xFFF; break;
+          default: return this.trap('OPCODE ILEGAL', pc, op);
+        }
+        break;
+    }
+  }
+}
+
+/* ====================== DESENSAMBLADOR ====================== */
+function disasm(op) {
+  const x = (op >> 8) & 0xF, y = (op >> 4) & 0xF, n = op & 0xF, kk = op & 0xFF, nnn = op & 0xFFF;
+  const R = r => 'V' + r.toString(16).toUpperCase();
+  const A = a => '0x' + hx(a, 3), B = b => '0x' + hx(b, 2);
+  const bad = 'DW 0x' + hx(op, 4);
+  switch (op >> 12) {
+    case 0x0: if (op === 0x00E0) return 'CLS'; if (op === 0x00EE) return 'RET'; return op === 0 ? 'DW 0x0000' : 'SYS ' + A(nnn);
+    case 0x1: return 'JP ' + A(nnn);
+    case 0x2: return 'CALL ' + A(nnn);
+    case 0x3: return 'SE ' + R(x) + ', ' + B(kk);
+    case 0x4: return 'SNE ' + R(x) + ', ' + B(kk);
+    case 0x5: return n === 0 ? 'SE ' + R(x) + ', ' + R(y) : bad;
+    case 0x6: return 'LD ' + R(x) + ', ' + B(kk);
+    case 0x7: return 'ADD ' + R(x) + ', ' + B(kk);
+    case 0x8:
+      switch (n) {
+        case 0x0: return 'LD ' + R(x) + ', ' + R(y);
+        case 0x1: return 'OR ' + R(x) + ', ' + R(y);
+        case 0x2: return 'AND ' + R(x) + ', ' + R(y);
+        case 0x3: return 'XOR ' + R(x) + ', ' + R(y);
+        case 0x4: return 'ADD ' + R(x) + ', ' + R(y);
+        case 0x5: return 'SUB ' + R(x) + ', ' + R(y);
+        case 0x6: return 'SHR ' + R(x) + (x === y ? '' : ', ' + R(y));
+        case 0x7: return 'SUBN ' + R(x) + ', ' + R(y);
+        case 0xE: return 'SHL ' + R(x) + (x === y ? '' : ', ' + R(y));
+        default: return bad;
+      }
+    case 0x9: return n === 0 ? 'SNE ' + R(x) + ', ' + R(y) : bad;
+    case 0xA: return 'LD I, ' + A(nnn);
+    case 0xB: return 'JP V0, ' + A(nnn);
+    case 0xC: return 'RND ' + R(x) + ', ' + B(kk);
+    case 0xD: return 'DRW ' + R(x) + ', ' + R(y) + ', ' + n;
+    case 0xE: return kk === 0x9E ? 'SKP ' + R(x) : kk === 0xA1 ? 'SKNP ' + R(x) : bad;
+    case 0xF:
+      switch (kk) {
+        case 0x07: return 'LD ' + R(x) + ', DT';
+        case 0x0A: return 'LD ' + R(x) + ', K';
+        case 0x15: return 'LD DT, ' + R(x);
+        case 0x18: return 'LD ST, ' + R(x);
+        case 0x1E: return 'ADD I, ' + R(x);
+        case 0x29: return 'LD F, ' + R(x);
+        case 0x33: return 'LD B, ' + R(x);
+        case 0x55: return 'LD [I], ' + R(x);
+        case 0x65: return 'LD ' + R(x) + ', [I]';
+        default: return bad;
+      }
+  }
+  return bad;
+}
+</script>
+<script>
+'use strict';
+/* ====================================================================
+ *  ENSAMBLADOR DE DOS PASADAS  (ASM con etiquetas → bytecode en RAM 0x200+)
+ *  Pasada 1: tamaños y direcciones de etiquetas · Pasada 2: codificación
+ * ==================================================================== */
+const ASM_RESERVED = new Set(['I', 'DT', 'ST', 'K', 'F', 'B']);
+
+function assemble(src) {
+  const lines = src.replace(/\r/g, '').split('\n');
+  const errors = [];
+  const symbols = new Map();     // NOMBRE -> {v} | {expr, line}
+  const aliases = new Map();     // alias de registro -> número
+  const labelNames = new Map();  // addr -> primera etiqueta
+  const stmts = [];
+  let pc = ROM_BASE;
+  const err = (ln, m) => errors.push({ line: ln, msg: m });
+
+  /* ---------- evaluador de expresiones ---------- */
+  function lookup(nm) {
+    const s = symbols.get(nm);
+    if (!s) throw new Error('símbolo no definido: ' + nm);
+    if (s.v !== undefined) return s.v;
+    if (s.busy) throw new Error('definición circular: ' + nm);
+    s.busy = true;
+    try { s.v = evalExpr(s.expr); } finally { s.busy = false; }
+    return s.v;
+  }
+  function evalExpr(text) {
+    text = String(text).trim();
+    if (!text) throw new Error('expresión vacía');
+    const re = /\s*(0x[0-9a-f]+|0b[01]+|\$[0-9a-f]+|\d+|[a-z_.][\w.]*|<<|>>|[-+*\/&|^()~])/iy;
+    const toks = [];
+    let p = 0;
+    while (p < text.length) {
+      re.lastIndex = p;
+      const m = re.exec(text);
+      if (!m) throw new Error('token inválido en "' + text.slice(p) + '"');
+      toks.push(m[1]);
+      p = re.lastIndex;
+    }
+    let i = 0;
+    const prec = { '|': 1, '^': 2, '&': 3, '<<': 4, '>>': 4, '+': 5, '-': 5, '*': 6, '/': 6 };
+    const atom = () => {
+      const t = toks[i++];
+      if (t === undefined) throw new Error('expresión incompleta');
+      if (t === '(') { const v = expr(1); if (toks[i++] !== ')') throw new Error('falta )'); return v; }
+      if (t === '-') return -atom();
+      if (t === '+') return atom();
+      if (t === '~') return ~atom();
+      if (/^0x/i.test(t)) return parseInt(t.slice(2), 16);
+      if (/^0b/i.test(t)) return parseInt(t.slice(2), 2);
+      if (t[0] === '$') return parseInt(t.slice(1), 16);
+      if (/^\d/.test(t)) return parseInt(t, 10);
+      return lookup(t.toUpperCase());
+    };
+    const expr = (minP) => {
+      let l = atom();
+      for (;;) {
+        const op = toks[i];
+        const pr = prec[op];
+        if (pr === undefined || pr < minP) break;
+        i++;
+        const r = expr(pr + 1);
+        switch (op) {
+          case '|': l = l | r; break;
+          case '^': l = l ^ r; break;
+          case '&': l = l & r; break;
+          case '<<': l = l << r; break;
+          case '>>': l = l >> r; break;
+          case '+': l = l + r; break;
+          case '-': l = l - r; break;
+          case '*': l = l * r; break;
+          case '/': if (r === 0) throw new Error('división por cero'); l = Math.trunc(l / r); break;
+        }
+      }
+      return l;
+    };
+    const v = expr(1);
+    if (i < toks.length) throw new Error('sobra "' + toks[i] + '" en la expresión');
+    return v;
+  }
+
+  const splitOps = (s) => {
+    const out = [];
+    let depth = 0, cur = '';
+    for (const ch of s) {
+      if (ch === '[' || ch === '(') depth++;
+      if (ch === ']' || ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim() !== '' || out.length) out.push(cur.trim());
+    return out;
+  };
+
+  /* ---------- PASADA 1: etiquetas, EQU, tamaños ---------- */
+  lines.forEach((raw, idx) => {
+    const ln = idx + 1;
+    let s = raw.replace(/;.*$/, '').trim();
+    if (!s) return;
+    let m;
+    while ((m = /^([A-Za-z_.][\w.]*)\s*:\s*/.exec(s))) {
+      const name = m[1].toUpperCase();
+      if (symbols.has(name)) err(ln, 'etiqueta duplicada: ' + m[1]);
+      else if (ASM_RESERVED.has(name) || /^V[0-9A-F]$/.test(name)) err(ln, 'nombre reservado: ' + m[1]);
+      else {
+        symbols.set(name, { v: pc });
+        if (!labelNames.has(pc)) labelNames.set(pc, m[1]);
+      }
+      s = s.slice(m[0].length);
+    }
+    if (!s) return;
+    if ((m = /^([A-Za-z_]\w*)\s+EQU\s+(.+)$/i.exec(s))) {
+      const name = m[1].toUpperCase();
+      if (symbols.has(name) || ASM_RESERVED.has(name) || /^V[0-9A-F]$/.test(name)) err(ln, 'símbolo duplicado/reservado: ' + m[1]);
+      else symbols.set(name, { expr: m[2] });
+      return;
+    }
+    if ((m = /^DEF\s+([A-Za-z_]\w*)\s+(V[0-9A-F])\s*$/i.exec(s))) {
+      aliases.set(m[1].toUpperCase(), parseInt(m[2].slice(1), 16));
+      return;
+    }
+    const mm = /^([A-Za-z_.][\w.]*)\s*(.*)$/.exec(s);
+    if (!mm) { err(ln, 'sintaxis inválida'); return; }
+    const mn = mm[1].toUpperCase();
+    const ops = splitOps(mm[2]);
+    let size = 2;
+    try {
+      if (mn === 'ORG') {
+        const a = evalExpr(ops[0] === undefined ? '' : ops[0]);
+        if (a < ROM_BASE || a > 0xFFF) throw new Error('ORG fuera de 0x200..0xFFF');
+        pc = a;
+        return;
+      } else if (mn === 'DB') size = ops.length;
+      else if (mn === 'DW') size = ops.length * 2;
+      else if (mn === 'DS') {
+        size = evalExpr(ops[0] === undefined ? '' : ops[0]);
+        if (size < 0 || pc + size > 0x1000) throw new Error('DS fuera de rango');
+      }
+    } catch (e) { err(ln, e.message); return; }
+    stmts.push({ ln, addr: pc, mn, ops, size });
+    pc += size;
+    if (pc > 0x1000) { err(ln, 'el programa excede los 4 KB de RAM'); pc = 0x1000; }
+  });
+
+  /* ---------- PASADA 2: codificación ---------- */
+  const reg = (s) => {
+    const u = s.toUpperCase();
+    if (/^V[0-9A-F]$/.test(u)) return parseInt(u[1], 16);
+    if (aliases.has(u)) return aliases.get(u);
+    return -1;
+  };
+  const key = (s) => s.toUpperCase().replace(/\s+/g, '');
+  function encode(mn, ops) {
+    const need = (k) => { if (ops.length !== k) throw new Error(mn + ' espera ' + k + ' operando(s)'); };
+    const R = (s) => { const r = reg(s); if (r < 0) throw new Error('se esperaba un registro, no "' + s + '"'); return r; };
+    const isReg = (s) => reg(s) >= 0;
+    const num = (s, lo, hi, what) => { const v = evalExpr(s); if (v < lo || v > hi) throw new Error(what + ' fuera de rango (' + v + ')'); return v; };
+    const byte = (s) => num(s, -128, 255, 'byte') & 0xFF;
+    const addr = (s) => num(s, 0, 0xFFF, 'dirección');
+    const alu = { OR: 1, AND: 2, XOR: 3, SUB: 5, SUBN: 7 };
+    switch (mn) {
+      case 'CLS': need(0); return 0x00E0;
+      case 'RET': need(0); return 0x00EE;
+      case 'SYS': need(1); return addr(ops[0]);
+      case 'JP':
+        if (ops.length === 2) { if (key(ops[0]) !== 'V0') throw new Error('JP con 2 operandos requiere V0'); return 0xB000 | addr(ops[1]); }
+        need(1); return 0x1000 | addr(ops[0]);
+      case 'CALL': need(1); return 0x2000 | addr(ops[0]);
+      case 'SE': case 'SNE': {
+        need(2);
+        const x = R(ops[0]);
+        const base = mn === 'SE' ? [0x3000, 0x5000] : [0x4000, 0x9000];
+        if (isReg(ops[1])) return base[1] | (x << 8) | (R(ops[1]) << 4);
+        return base[0] | (x << 8) | byte(ops[1]);
+      }
+      case 'LD': {
+        need(2);
+        const a = key(ops[0]), b = key(ops[1]);
+        if (a === 'I') return 0xA000 | addr(ops[1]);
+        if (a === 'DT') return 0xF015 | (R(ops[1]) << 8);
+        if (a === 'ST') return 0xF018 | (R(ops[1]) << 8);
+        if (a === 'F') return 0xF029 | (R(ops[1]) << 8);
+        if (a === 'B') return 0xF033 | (R(ops[1]) << 8);
+        if (a === '[I]') return 0xF055 | (R(ops[1]) << 8);
+        const x = R(ops[0]);
+        if (b === 'DT') return 0xF007 | (x << 8);
+        if (b === 'K') return 0xF00A | (x << 8);
+        if (b === '[I]') return 0xF065 | (x << 8);
+        if (isReg(ops[1])) return 0x8000 | (x << 8) | (R(ops[1]) << 4);
+        return 0x6000 | (x << 8) | byte(ops[1]);
+      }
+      case 'ADD': {
+        need(2);
+        if (key(ops[0]) === 'I') return 0xF01E | (R(ops[1]) << 8);
+        const x = R(ops[0]);
+        if (isReg(ops[1])) return 0x8004 | (x << 8) | (R(ops[1]) << 4);
+        return 0x7000 | (x << 8) | byte(ops[1]);
+      }
+      case 'OR': case 'AND': case 'XOR': case 'SUB': case 'SUBN':
+        need(2); return 0x8000 | (R(ops[0]) << 8) | (R(ops[1]) << 4) | alu[mn];
+      case 'SHR': case 'SHL': {
+        if (ops.length < 1 || ops.length > 2) throw new Error(mn + ' espera 1 o 2 operandos');
+        const x = R(ops[0]), y = ops.length > 1 ? R(ops[1]) : x;
+        return 0x8000 | (x << 8) | (y << 4) | (mn === 'SHR' ? 0x6 : 0xE);
+      }
+      case 'RND': need(2); return 0xC000 | (R(ops[0]) << 8) | byte(ops[1]);
+      case 'DRW': need(3); return 0xD000 | (R(ops[0]) << 8) | (R(ops[1]) << 4) | num(ops[2], 0, 15, 'n');
+      case 'SKP': need(1); return 0xE09E | (R(ops[0]) << 8);
+      case 'SKNP': need(1); return 0xE0A1 | (R(ops[0]) << 8);
+    }
+    throw new Error('mnemónico desconocido: ' + mn);
+  }
+
+  const img = new Uint8Array(4096);
+  let maxAddr = ROM_BASE;
+  const addrLine = new Map();
+  const listing = [];
+  for (const st of stmts) {
+    try {
+      let bytes = [];
+      if (st.mn === 'DB') {
+        if (!st.ops.length) throw new Error('DB sin datos');
+        bytes = st.ops.map((o) => { const v = evalExpr(o); if (v < -128 || v > 255) throw new Error('byte fuera de rango (' + v + ')'); return v & 0xFF; });
+      } else if (st.mn === 'DW') {
+        if (!st.ops.length) throw new Error('DW sin datos');
+        st.ops.forEach((o) => { const w = evalExpr(o) & 0xFFFF; bytes.push(w >> 8, w & 0xFF); });
+      } else if (st.mn === 'DS') {
+        bytes = new Array(st.size).fill(0);
+      } else {
+        const w = encode(st.mn, st.ops);
+        bytes = [(w >> 8) & 0xFF, w & 0xFF];
+      }
+      bytes.forEach((b, k) => { img[st.addr + k] = b; });
+      if (st.addr + bytes.length > maxAddr) maxAddr = st.addr + bytes.length;
+      addrLine.set(st.addr, st.ln);
+      listing.push({ addr: st.addr, bytes, ln: st.ln });
+    } catch (e) { err(st.ln, e.message); }
+  }
+  if (!stmts.length && !errors.length) err(1, 'programa vacío');
+  return {
+    ok: errors.length === 0,
+    errors,
+    bytes: img.slice(ROM_BASE, maxAddr),
+    labelNames,
+    addrLine,
+    listing,
+    labelCount: labelNames.size
+  };
+}
+</script>
+<script>
+'use strict';
+/* ====================================================================
+ *  CARTUCHOS: código fuente ASM (se ensambla en el arranque, no hay bytes pre-cocinados)
+ * ==================================================================== */
+const ROM_PONG = `; ============================================================
+;  CYBER PONG  ·  CPU (izquierda) vs JUGADOR (derecha)
+;  Jugador: W / S  (teclas hex 5 y 8)  o flechas arriba / abajo
+;  Arranca en modo ATTRACT (IA contra IA) hasta que pulses una tecla.
+;
+;  V3 bola x    V4 bola y    V5 dx    V6 dy     (8 bits con wrap: 0xFF = -1)
+;  V7 pala izq  V8 pala der  V9 puntos izq  VA puntos der
+;  VB demo (1 = attract)  VC/VD delta de palas  VE error de punteria IA
+;  V0-V2 temporales (el BCD de Fx33 usa V0..V2)
+; ============================================================
+start:
+  CLS
+  LD V9, 0
+  LD VA, 0
+  LD VB, 1
+  LD V7, 12
+  LD V8, 12
+  CALL walls
+  CALL showscore
+  LD I, pad
+  LD V0, 2
+  DRW V0, V7, 8
+  LD V0, 60
+  DRW V0, V8, 8
+  CALL serve
+
+main:
+  LD V0, DT            ; sincroniza el bucle a 30 pasos por segundo
+  SE V0, 0
+  JP main
+  LD V0, 2
+  LD DT, V0
+
+  LD V0, 5             ; si el humano toca W/S sale del modo demo
+  SKNP V0
+  LD VB, 0
+  LD V0, 8
+  SKNP V0
+  LD VB, 0
+
+  LD V0, V7            ; delta pala izquierda (siempre IA)
+  CALL ai
+  LD VC, V0
+  LD V0, V8            ; delta pala derecha (IA o jugador)
+  SE VB, 0
+  JP r_ai
+  CALL player
+  JP r_done
+r_ai:
+  CALL ai
+r_done:
+  LD VD, V0
+
+  LD I, pad            ; borrar + redibujar juntos para minimizar parpadeo
+  LD V0, 2
+  DRW V0, V7, 8
+  ADD V7, VC
+  DRW V0, V7, 8
+  LD V0, 60
+  DRW V0, V8, 8
+  ADD V8, VD
+  DRW V0, V8, 8
+  LD I, ball
+  DRW V3, V4, 2
+  ADD V3, V5
+  ADD V4, V6
+  DRW V3, V4, 2
+
+  SE V3, 4             ; plano de la pala izquierda
+  JP chk_r
+  LD V0, V4
+  ADD V0, 1
+  SUB V0, V7           ; V0 = by + 1 - pala
+  LD V1, 8
+  SUB V1, V0           ; VF = 1 si 0 <= V0 <= 8  (impacto)
+  SE VF, 1
+  JP chk_r
+  LD V5, 1
+  CALL rnddy
+  CALL blip
+chk_r:
+  SE V3, 58            ; plano de la pala derecha
+  JP chk_w
+  LD V0, V4
+  ADD V0, 1
+  SUB V0, V8
+  LD V1, 8
+  SUB V1, V0
+  SE VF, 1
+  JP chk_w
+  LD V5, 0xFF
+  CALL rnddy
+  CALL blip
+chk_w:
+  SNE V4, 8            ; rebote en techo y suelo (despues de las palas)
+  LD V6, 1
+  SNE V4, 29
+  LD V6, 0xFF
+chk_miss:
+  SE V3, 1             ; la bola pasó la pala izquierda
+  JP chk_miss2
+  LD I, ball
+  DRW V3, V4, 2
+  CALL showscore
+  ADD VA, 1
+  CALL showscore
+  CALL pointend
+  CALL serve
+  JP main
+chk_miss2:
+  SE V3, 62            ; la bola pasó la pala derecha
+  JP main
+  LD I, ball
+  DRW V3, V4, 2
+  CALL showscore
+  ADD V9, 1
+  CALL showscore
+  CALL pointend
+  CALL serve
+  JP main
+
+; ---- IA: in V0 = y de pala, out V0 = delta (0, +2, -2) ----
+ai:
+  LD V1, V0
+  ADD V0, VE
+  ADD V0, 0xFE
+  SUB V0, V4           ; VF = (pala + error - 2) >= by  -> subir
+  SE VF, 1
+  JP ai_dn
+  SE V1, 8
+  JP ai_up
+  LD V0, 0
+  RET
+ai_up:
+  LD V0, 0xFE
+  RET
+ai_dn:
+  LD V2, V1
+  ADD V2, VE
+  ADD V2, 1
+  LD V0, V4
+  SUB V0, V2           ; VF = by >= pala + error + 1  -> bajar
+  SE VF, 1
+  JP ai_none
+  SE V1, 22
+  JP ai_dn2
+ai_none:
+  LD V0, 0
+  RET
+ai_dn2:
+  LD V0, 2
+  RET
+
+; ---- jugador: in V0 = y de pala, out V0 = delta ----
+player:
+  LD V1, V0
+  LD V0, 0
+  LD V2, 5
+  SKNP V2
+  JP pl_up
+  LD V2, 8
+  SKNP V2
+  JP pl_dn
+  RET
+pl_up:
+  SE V1, 8
+  LD V0, 0xFE
+  RET
+pl_dn:
+  SE V1, 22
+  LD V0, 2
+  RET
+
+rnddy:
+  RND V0, 1
+  LD V6, 1
+  SE V0, 0
+  LD V6, 0xFF
+  RET
+
+blip:
+  LD V0, 3
+  LD ST, V0
+  RET
+
+pointend:
+  LD V0, 15
+  LD ST, V0
+  SNE V9, 15
+  JP resetsc
+  SNE VA, 15
+  JP resetsc
+  RET
+resetsc:
+  CALL showscore
+  LD V9, 0
+  LD VA, 0
+  CALL showscore
+  RET
+
+serve:
+  LD V3, 31
+  RND V4, 7
+  ADD V4, 12
+  RND V0, 1
+  LD V5, 1
+  SE V0, 0
+  LD V5, 0xFF
+  RND V0, 1
+  LD V6, 1
+  SE V0, 0
+  LD V6, 0xFF
+  RND VE, 7            ; error de punteria de la IA: 0..14
+  RND V0, 7
+  ADD VE, V0
+  LD I, ball
+  DRW V3, V4, 2
+  LD V0, 40
+  LD DT, V0
+sv_wait:
+  LD V0, DT
+  SE V0, 0
+  JP sv_wait
+  RET
+
+walls:
+  LD I, wall
+  LD V0, 0
+  LD V1, 7
+  LD V2, 31
+wl:
+  DRW V0, V1, 1
+  DRW V0, V2, 1
+  ADD V0, 8
+  SE V0, 64
+  JP wl
+  LD I, net
+  LD V0, 24
+  LD V1, 9
+  DRW V0, V1, 8
+  LD V1, 17
+  DRW V0, V1, 8
+  LD V1, 25
+  DRW V0, V1, 8
+  RET
+
+; marcador en BCD: Fx33 -> decenas/unidades -> Fx29 (fuente hexadecimal) -> DRW
+showscore:
+  LD I, bcd
+  LD B, V9
+  LD V2, [I]
+  LD F, V1
+  LD V0, 20
+  LD V1, 1
+  DRW V0, V1, 5
+  ADD V0, 5
+  LD F, V2
+  DRW V0, V1, 5
+  LD I, bcd
+  LD B, VA
+  LD V2, [I]
+  LD F, V1
+  LD V0, 40
+  LD V1, 1
+  DRW V0, V1, 5
+  ADD V0, 5
+  LD F, V2
+  DRW V0, V1, 5
+  RET
+
+wall: DB 0xFF
+net:  DB 0x01, 0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00
+ball: DB 0xC0, 0xC0
+pad:  DB 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0
+bcd:  DB 0, 0, 0
+`;
+
+const ROM_INVADERS = `; ============================================================
+;  STAR INVADERS / LASER DEFENSE
+;  Mover: flechas o Q / E (teclas hex 4 y 6)
+;  Disparar: W, flecha arriba o Espacio (tecla hex 5)
+;  15 aliens (5x3), bombas enemigas, oleadas infinitas y marcador BCD.
+;  La colision bala/alien usa la bandera VF de DRW (deteccion por pixel).
+;
+;  V3 nave x   V4/V5 bala x/y (y=0: inactiva)   V8/V9 rejilla x/y
+;  VA delta-x de la rejilla (+2 / -2)   VD muerte   VE contador de cuadros
+;  V0-V2, V6, V7, VB, VC temporales
+;  Variables en RAM: sc (puntos)  cnt (aliens vivos)  bomb (x,y)  alive[]
+; ============================================================
+CW EQU 9              ; ancho de celda de alien
+CH EQU 5              ; alto de celda de alien
+
+start:
+  CLS
+  LD V3, 28
+  LD V4, 0
+  LD V5, 0
+  LD VA, 2
+  LD VD, 0
+  LD VE, 0
+  LD V0, 0
+  LD V1, 0
+  LD I, bomb
+  LD [I], V1
+  LD I, sc
+  LD [I], V0
+  CALL ground
+  LD I, ship
+  LD V1, 28
+  DRW V3, V1, 3
+  CALL nextwave
+  CALL showscore
+
+frame:
+  LD V0, DT            ; 60 cuadros por segundo
+  SE V0, 0
+  JP frame
+  LD V0, 1
+  LD DT, V0
+  ADD VE, 1
+  LD V0, 4
+  SKNP V0
+  CALL ship_l
+  LD V0, 6
+  SKNP V0
+  CALL ship_r
+  LD V0, 5
+  SKNP V0
+  CALL fire
+  CALL bullet_step
+  CALL bomb_step
+
+  LD I, cnt            ; la rejilla se acelera cuando quedan pocos aliens
+  LD V0, [I]
+  LD V1, 3
+  LD VB, 4
+  LD V2, V0
+  SUB V2, VB
+  SNE VF, 1
+  LD V1, 7
+  LD VB, 8
+  LD V2, V0
+  SUB V2, VB
+  SNE VF, 1
+  LD V1, 15
+  LD V2, VE
+  AND V2, V1
+  SE V2, 0
+  JP chk_win
+  CALL stepgrid
+chk_win:
+  LD I, cnt
+  LD V0, [I]
+  SE V0, 0
+  JP chk_dead
+  CALL nextwave
+chk_dead:
+  SE VD, 1
+  JP frame
+  LD V0, 40            ; nave destruida: tono + pausa + reinicio
+  LD ST, V0
+  LD V0, 90
+  LD DT, V0
+dwait:
+  LD V0, DT
+  SE V0, 0
+  JP dwait
+  JP start
+
+ship_l:
+  SNE V3, 0
+  RET
+  LD I, ship
+  LD V1, 28
+  DRW V3, V1, 3
+  ADD V3, 0xFF
+  DRW V3, V1, 3
+  RET
+ship_r:
+  SNE V3, 56
+  RET
+  LD I, ship
+  LD V1, 28
+  DRW V3, V1, 3
+  ADD V3, 1
+  DRW V3, V1, 3
+  RET
+
+fire:
+  SE V5, 0
+  RET
+  LD V4, V3
+  ADD V4, 3
+  LD V5, 27
+  LD I, bul
+  DRW V4, V5, 1
+  LD V0, 4
+  LD ST, V0
+  RET
+
+bullet_step:
+  SNE V5, 0
+  RET
+  LD I, bul
+  DRW V4, V5, 1        ; borrar
+  ADD V5, 0xFE         ; sube 2 px por cuadro
+  LD V0, V5
+  LD V1, 7
+  SUB V0, V1
+  SE VF, 1             ; y < 7: sale de la zona de juego
+  JP bs_off
+  DRW V4, V5, 1        ; dibujar: VF = 1 si toco un pixel encendido
+  SNE VF, 1
+  CALL hit
+  RET
+bs_off:
+  LD V5, 0
+  RET
+
+; --- impacto: localiza el alien por division entera (celda CW x CH) ---
+hit:
+  LD V0, V5
+  SUB V0, V9           ; dy = by - gy
+  LD V2, 14
+  LD V1, V0
+  SUB V1, V2
+  SNE VF, 1            ; dy >= 14: debajo de la rejilla = bomba
+  JP hit_bomb
+  LD V1, 0
+  LD V2, CH
+ht_r:
+  LD VB, V0
+  SUB VB, V2
+  SE VF, 1
+  JP ht_rd
+  LD V0, VB
+  ADD V1, 1
+  JP ht_r
+ht_rd:                 ; V1 = fila, V0 = resto en y
+  LD V7, V5
+  SUB V7, V0           ; cy
+  LD V0, V4
+  SUB V0, V8           ; dx = bx - gx
+  LD V2, 0
+ht_c:
+  LD VB, V0
+  LD VC, CW
+  SUB VB, VC
+  SE VF, 1
+  JP ht_cd
+  LD V0, VB
+  ADD V2, 1
+  JP ht_c
+ht_cd:                 ; V2 = columna, V0 = resto en x
+  LD V6, V4
+  SUB V6, V0           ; cx
+  LD VB, V2
+  SNE V1, 0
+  JP ht_i
+  ADD VB, 5
+  SNE V1, 1
+  JP ht_i
+  ADD VB, 5
+ht_i:                  ; VB = fila*5 + columna
+  LD I, alive
+  ADD I, VB
+  LD V0, [I]
+  SE V0, 1
+  RET
+  LD I, alive
+  ADD I, VB
+  LD V0, 0
+  LD [I], V0
+  LD I, alien
+  DRW V6, V7, 4        ; borra el alien
+  LD I, bul
+  DRW V4, V5, 1        ; borra la bala
+  LD V5, 0
+  LD V0, 3
+  LD ST, V0
+  LD I, cnt
+  LD V0, [I]
+  ADD V0, 0xFF
+  LD I, cnt
+  LD [I], V0
+  CALL addscore
+  RET
+hit_bomb:
+  LD I, bul
+  DRW V4, V5, 1
+  LD V5, 0
+  RET
+
+; --- bomba enemiga (x,y en RAM; y=0 inactiva) ---
+bomb_step:
+  LD I, bomb
+  LD V1, [I]
+  SE V1, 0
+  JP bm_move
+  RND V2, 15
+  SE V2, 0
+  RET
+  RND V0, 7            ; nace bajo la rejilla, cerca de la nave
+  ADD V0, V3
+  LD V1, V9
+  ADD V1, 14
+  LD I, bomb
+  LD [I], V1
+  LD I, bmb
+  DRW V0, V1, 2
+  RET
+bm_move:
+  LD V2, 3
+  AND V2, VE
+  SE V2, 0
+  RET
+  LD I, bmb
+  DRW V0, V1, 2
+  ADD V1, 1
+  SNE V1, 30
+  JP bm_gone
+  DRW V0, V1, 2
+  SNE VF, 1
+  JP bm_hit
+bm_store:
+  LD I, bomb
+  LD [I], V1
+  RET
+bm_gone:
+  LD V1, 0
+  LD I, bomb
+  LD [I], V1
+  RET
+bm_hit:
+  LD V2, 26
+  LD VB, V1
+  SUB VB, V2
+  SE VF, 1             ; y >= 26: toco la nave
+  JP bm_store
+  LD VD, 1
+  JP bm_store
+
+; --- movimiento de la rejilla: borra y redibuja cada alien de forma consecutiva ---
+stepgrid:
+  LD VC, 0
+  LD VB, VA
+  SE VA, 2
+  JP sg_left
+  SE V8, 18
+  JP sg_go
+  JP sg_down
+sg_left:
+  SE V8, 2
+  JP sg_go
+sg_down:
+  LD VB, 0
+  LD VC, 1
+  LD V0, 0
+  SUB V0, VA
+  LD VA, V0
+sg_go:
+  CALL movegrid
+  ADD V8, VB
+  ADD V9, VC
+  LD V0, V9
+  LD V1, 14
+  SUB V0, V1
+  SNE VF, 1            ; gy >= 14: invasion completada
+  LD VD, 1
+  RET
+
+movegrid:
+  LD V1, 0
+  LD V2, 5
+  LD V6, V8
+  LD V7, V9
+mg_loop:
+  LD I, alive
+  ADD I, V1
+  LD V0, [I]
+  SE V0, 0
+  CALL mg_draw
+  ADD V6, CW
+  ADD V1, 1
+  ADD V2, 0xFF
+  SE V2, 0
+  JP mg_loop
+  LD V6, V8
+  ADD V7, CH
+  LD V2, 5
+  SE V1, 15
+  JP mg_loop
+  RET
+mg_draw:
+  LD I, alien
+  DRW V6, V7, 4
+  ADD V6, VB
+  ADD V7, VC
+  DRW V6, V7, 4
+  SUB V6, VB
+  SUB V7, VC
+  RET
+
+drawgrid:
+  LD V1, 0
+  LD V2, 5
+  LD V6, V8
+  LD V7, V9
+dg_loop:
+  LD I, alive
+  ADD I, V1
+  LD V0, [I]
+  SE V0, 0
+  CALL dg_draw
+  ADD V6, CW
+  ADD V1, 1
+  ADD V2, 0xFF
+  SE V2, 0
+  JP dg_loop
+  LD V6, V8
+  ADD V7, CH
+  LD V2, 5
+  SE V1, 15
+  JP dg_loop
+  RET
+dg_draw:
+  LD I, alien
+  DRW V6, V7, 4
+  RET
+
+nextwave:
+  LD V1, 0
+  LD V0, 1
+nw_l:
+  LD I, alive
+  ADD I, V1
+  LD [I], V0
+  ADD V1, 1
+  SE V1, 15
+  JP nw_l
+  LD V0, 15
+  LD I, cnt
+  LD [I], V0
+  LD V8, 10
+  LD V9, 7
+  LD VA, 2
+  CALL drawgrid
+  RET
+
+ground:
+  LD I, wall
+  LD V0, 0
+  LD V1, 31
+gr_l:
+  DRW V0, V1, 1
+  ADD V0, 8
+  SE V0, 64
+  JP gr_l
+  RET
+
+addscore:
+  CALL showscore       ; borra el marcador viejo (XOR)
+  LD I, sc
+  LD V0, [I]
+  ADD V0, 1
+  LD I, sc
+  LD [I], V0
+  CALL showscore       ; dibuja el nuevo
+  RET
+showscore:
+  LD I, sc
+  LD V0, [I]
+  LD I, bcd
+  LD B, V0             ; BCD en RAM
+  LD V2, [I]           ; V1 = decenas, V2 = unidades
+  LD F, V1
+  LD V0, 48
+  LD V1, 0
+  DRW V0, V1, 5
+  ADD V0, 5
+  LD F, V2
+  DRW V0, V1, 5
+  RET
+
+alien: DB 0x24, 0x7E, 0xDB, 0xA5
+ship:  DB 0x18, 0x3C, 0x7E
+bul:   DB 0x80
+bmb:   DB 0x80, 0x80
+wall:  DB 0xFF
+bcd:   DB 0, 0, 0
+sc:    DB 0
+cnt:   DB 15
+bomb:  DB 0, 0
+alive: DB 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+`;
+
+const ROM_MATRIX = `; ============================================================
+;  MATRIX RAIN + 10 PRINT MAZE  (demoscene)
+;  Fase A: generador de laberinto: baldosas diagonales aleatorias (4x4)
+;  Fase B: lluvia digital con glifos hexadecimales aleatorios; la
+;          estela la produce la persistencia del fosforo del CRT.
+;  Tecla hex 2 fuerza la lluvia; tecla hex 1 fuerza el laberinto.
+;
+;  V3/V4 cursor de baldosa   VB offset de tabla   VC x de columna
+;  VD cuadros restantes de lluvia   V0-V2 temporales
+; ============================================================
+maze_phase:
+  CLS
+  LD V3, 0
+  LD V4, 0
+mz_loop:
+  LD V0, DT            ; una baldosa por tic (60 Hz)
+  SE V0, 0
+  JP mz_loop
+  LD V0, 1
+  LD DT, V0
+  LD V0, 2
+  SKNP V0
+  JP rain_phase
+  RND V0, 1
+  LD I, tile_a
+  SE V0, 0
+  LD I, tile_b
+  DRW V3, V4, 4
+  ADD V3, 4
+  SE V3, 64
+  JP mz_loop
+  LD V3, 0
+  ADD V4, 4
+  SE V4, 32
+  JP mz_loop
+  LD V0, 150           ; contempla el laberinto 2.5 s
+  LD DT, V0
+mz_hold:
+  LD V0, DT
+  SE V0, 0
+  JP mz_hold
+
+rain_phase:
+  CLS
+  LD VB, 0
+  LD VC, 2
+ri_loop:               ; estado inicial de cada columna: y, glifo, velocidad
+  RND V0, 15
+  RND V1, 15
+  RND V2, 1
+  ADD V2, 1
+  LD F, V1
+  DRW VC, V0, 5
+  LD I, cols
+  ADD I, VB
+  LD [I], V2
+  ADD VB, 4
+  ADD VC, 5
+  SE VC, 62
+  JP ri_loop
+  LD VD, 120
+rn_wait:
+  LD V0, DT
+  SE V0, 0
+  JP rn_wait
+  LD V0, 3             ; 20 barridos por segundo
+  LD DT, V0
+  LD V0, 1
+  SKNP V0
+  JP maze_phase
+  LD VB, 0
+  LD VC, 2
+rn_col:
+  LD I, cols
+  ADD I, VB
+  LD V2, [I]           ; V0 = y, V1 = glifo, V2 = velocidad
+  LD F, V1
+  DRW VC, V0, 5        ; borra el glifo anterior
+  ADD V0, V2
+  LD V3, 27
+  LD V4, V0
+  SUB V4, V3
+  SNE VF, 1            ; y >= 27: reaparece arriba
+  LD V0, 0
+  RND V1, 15
+  LD F, V1
+  DRW VC, V0, 5        ; nuevo glifo aleatorio
+  LD I, cols
+  ADD I, VB
+  LD [I], V2
+  ADD VB, 4
+  ADD VC, 5
+  SE VC, 62
+  JP rn_col
+  ADD VD, 0xFF
+  SE VD, 0
+  JP rn_wait
+  JP maze_phase
+
+tile_a: DB 0x80, 0x40, 0x20, 0x10
+tile_b: DB 0x10, 0x20, 0x40, 0x80
+cols:   DS 64
+`;
+
+const ROMS = [
+  {
+    id: 'pong', name: '1 · CYBER PONG', turbo: 8, src: ROM_PONG,
+    desc: '<b>CYBER PONG / ATTRACT MODE</b> — rebote de bola, paletas y marcador BCD. Arranca solo (IA vs IA); pulsa <b>W/S</b> o <b>↑/↓</b> (teclas 5/8) para tomar la pala derecha.'
+  },
+  {
+    id: 'invaders', name: '2 · STAR INVADERS', turbo: 8, src: ROM_INVADERS,
+    desc: '<b>LASER DEFENSE</b> — mueve con <b>←/→</b> o <b>Q/E</b> (4/6), dispara con <b>W</b>, <b>↑</b> o <b>Espacio</b> (5). Oleadas de 15 aliens con bombas; colisión por pixel vía VF.'
+  },
+  {
+    id: 'matrix', name: '3 · MATRIX + MAZE', turbo: 8, src: ROM_MATRIX,
+    desc: '<b>DEMOSCENE</b> — generador de laberinto 10-PRINT y lluvia digital hexadecimal con estela de fósforo. Tecla <b>1</b>: laberinto · tecla <b>2</b>: lluvia.'
+  }
+];
+</script>
+<script>
+(() => {
+'use strict';
+/* ====================================================================
+ *  FRONT-END: CRT con fósforo, beeper WebAudio, depurador, inspector y editor
+ * ==================================================================== */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const cpu = new Chip8();
+const state = {
+  running: false, hz: 1200, turbo: 8, persist: 0.74, curve: false, scan: true, glow: true,
+  palette: 'green', vol: 0.45, mute: false, follow: 'pc', hexTop: 0, skipBp: false, romIdx: 0
+};
+const bps = new Set();
+let labelNames = new Map(), addrLine = new Map(), errLines = new Set();
+let lastT = performance.now(), tickAcc = 0, instrCarry = 0, vtimer = 0, uiDirty = true;
+let ipsLastT = lastT, ipsLastC = 0, ipsVal = 0;
+const resetTiming = () => { tickAcc = 0; instrCarry = 0; vtimer = 0; };
+
+/* ---------------- consola ---------------- */
+const con = $('console');
+function log(msg, cls) {
+  const d = document.createElement('div');
+  d.className = cls || 'in';
+  d.textContent = msg;
+  con.appendChild(d);
+  while (con.childNodes.length > 200) con.removeChild(con.firstChild);
+  con.scrollTop = con.scrollHeight;
+}
+
+/* ---------------- editor con resaltado ---------------- */
+const MNS = new Set(['CLS', 'RET', 'SYS', 'JP', 'CALL', 'SE', 'SNE', 'LD', 'ADD', 'OR', 'AND', 'XOR', 'SUB', 'SUBN', 'SHR', 'SHL', 'RND', 'DRW', 'SKP', 'SKNP']);
+const DIRS = new Set(['ORG', 'DB', 'DW', 'DS', 'EQU', 'DEF']);
+const SPECIAL = new Set(['I', 'DT', 'ST', 'K', 'F', 'B']);
+function hlLine(raw) {
+  const ci = raw.indexOf(';');
+  const code = ci >= 0 ? raw.slice(0, ci) : raw;
+  const cmt = ci >= 0 ? raw.slice(ci) : '';
+  const re = /([A-Za-z_.][\w.]*:)|(0x[0-9a-f]+|0b[01]+|\$[0-9a-f]+|\d+)|([A-Za-z_.][\w.]*)|([\s\S])/gi;
+  let first = true, out = '', m;
+  while ((m = re.exec(code))) {
+    if (m[1]) out += '<span class="t-lbl">' + esc(m[1]) + '</span>';
+    else if (m[2]) out += '<span class="t-num">' + m[2] + '</span>';
+    else if (m[3]) {
+      const u = m[3].toUpperCase();
+      if (DIRS.has(u)) out += '<span class="t-dir">' + esc(m[3]) + '</span>';
+      else if (first && MNS.has(u)) out += '<span class="t-mn">' + esc(m[3]) + '</span>';
+      else if (/^V[0-9A-F]$/.test(u) || SPECIAL.has(u)) out += '<span class="t-reg">' + esc(m[3]) + '</span>';
+      else out += esc(m[3]);
+      first = false;
+    } else out += esc(m[4]);
+  }
+  if (cmt) out += '<span class="t-cmt">' + esc(cmt) + '</span>';
+  return out;
+}
+const srcEl = $('src'), hlEl = $('hl'), gutEl = $('gutter');
+let lnEls = [], curLine = 0;
+function syncScroll() { hlEl.scrollTop = srcEl.scrollTop; hlEl.scrollLeft = srcEl.scrollLeft; gutEl.scrollTop = srcEl.scrollTop; }
+function renderHl() {
+  const lines = srcEl.value.split('\n');
+  hlEl.innerHTML = lines.map((l, i) => '<div class="ln' + (errLines.has(i + 1) ? ' err' : '') + '">' + hlLine(l) + '</div>').join('');
+  gutEl.textContent = lines.map((_, i) => i + 1).join('\n');
+  lnEls = hlEl.children;
+  curLine = 0;
+  uiDirty = true;
+  syncScroll();
+}
+function markPcLine() {
+  const ln = addrLine.get(cpu.PC) || 0;
+  if (ln === curLine) return;
+  if (curLine && lnEls[curLine - 1]) lnEls[curLine - 1].classList.remove('cur');
+  curLine = ln;
+  if (ln && lnEls[ln - 1]) {
+    lnEls[ln - 1].classList.add('cur');
+    if (!state.running && document.activeElement !== srcEl) {
+      const top = (ln - 1) * 18;
+      if (top < srcEl.scrollTop || top > srcEl.scrollTop + srcEl.clientHeight - 54) {
+        srcEl.scrollTop = Math.max(0, top - srcEl.clientHeight / 2);
+        syncScroll();
+      }
+    }
+  }
+}
+
+/* ---------------- ensamblar + flashear ---------------- */
+function assembleAndFlash(runAfter) {
+  const res = assemble(srcEl.value);
+  errLines = new Set(res.errors.map((e) => e.line));
+  renderHl();
+  if (!res.ok) {
+    log('✖ ' + res.errors.length + ' error(es) de ensamblado — la RAM no fue modificada', 'er');
+    res.errors.slice(0, 12).forEach((e) => log('   línea ' + e.line + ': ' + e.msg, 'er'));
+    return false;
+  }
+  cpu.loadRom(res.bytes);
+  labelNames = res.labelNames;
+  addrLine = res.addrLine;
+  bps.clear();
+  resetTiming();
+  log('✔ ASSEMBLE OK · ' + res.bytes.length + ' bytes → RAM 0x0200–0x' + hx(ROM_BASE + res.bytes.length - 1, 4) + ' · ' + res.labelCount + ' etiquetas', 'ok');
+  const syms = [];
+  labelNames.forEach((n, a) => { if (syms.length < 8) syms.push(n + '=0x' + hx(a, 3)); });
+  log('   ' + syms.join('  ') + (res.labelCount > 8 ? ' …' : ''), 'in');
+  setRunning(runAfter);
+  uiDirty = true;
+  return true;
+}
+
+/* ---------------- control de ejecución ---------------- */
+function setRunning(b) {
+  state.running = b;
+  if (b) { state.skipBp = true; lastT = performance.now(); }
+  $('btnRun').textContent = b ? '❚❚ PAUSE' : '▶ RUN';
+  $('ledRun').classList.toggle('on', b);
+  uiDirty = true;
+}
+function toggleRun() {
+  if (cpu.fault) { log('La CPU está en FAULT: usa RESET ROM', 'wr'); return; }
+  setRunning(!state.running);
+}
+function resetRom() {
+  cpu.reset();
+  resetTiming();
+  setRunning(true);
+  log('⟲ RESET: PC=0x200 · RAM restaurada desde la ROM flasheada', 'in');
+}
+function stepInto() {
+  if (state.running) setRunning(false);
+  if (cpu.fault) return;
+  if (!cpu.step()) log('⚠ ' + cpu.fault, 'er');
+  vtimer += 60 / (state.hz * state.turbo);
+  while (vtimer >= 1) { vtimer -= 1; cpu.tick(); }
+  uiDirty = true;
+}
+function stepFrame() {
+  if (state.running) setRunning(false);
+  if (cpu.fault) return;
+  const n = Math.max(1, Math.round(state.hz * state.turbo / 60));
+  for (let k = 0; k < n; k++) if (!cpu.step()) { log('⚠ ' + cpu.fault, 'er'); break; }
+  cpu.tick();
+  uiDirty = true;
+}
+function runTicks(nTicks) {
+  const ipt = state.hz * state.turbo / 60;
+  for (let t = 0; t < nTicks; t++) {
+    instrCarry += ipt;
+    const n = Math.floor(instrCarry);
+    instrCarry -= n;
+    for (let k = 0; k < n; k++) {
+      if (bps.size && !state.skipBp && bps.has(cpu.PC)) {
+        setRunning(false);
+        log('⏸ Breakpoint en 0x' + hx(cpu.PC, 4), 'wr');
+        return;
+      }
+      state.skipBp = false;
+      if (!cpu.step()) {
+        setRunning(false);
+        log('⚠ CPU FAULT: ' + cpu.fault, 'er');
+        return;
+      }
+    }
+    cpu.tick();
+  }
+}
+
+/* ---------------- ROMs ---------------- */
+function updateClockLabel() {
+  const eff = state.hz * state.turbo;
+  $('clockVal').textContent = state.hz + ' Hz';
+  $('ipsInfo').textContent = '= ' + eff + ' IPS · ' + (eff / 60).toFixed(1) + ' instr/cuadro';
+  $('clockInfo').textContent = 'CLK ' + eff + ' Hz';
+}
+function loadRomIdx(i) {
+  state.romIdx = i;
+  const r = ROMS[i];
+  ROMS.forEach((q, k) => q.btn.classList.toggle('sel', k === i));
+  $('romDesc').innerHTML = r.desc;
+  srcEl.value = r.src;
+  state.turbo = r.turbo; $('turbo').value = String(r.turbo);
+  state.hz = 1200; $('clock').value = 1200;
+  updateClockLabel();
+  log('▶ Cartucho: ' + r.name, 'in');
+  assembleAndFlash(true);
+}
+ROMS.forEach((r, i) => {
+  const b = document.createElement('button');
+  b.className = 'btn';
+  b.textContent = r.name;
+  b.addEventListener('click', () => loadRomIdx(i));
+  $('romBtns').appendChild(b);
+  r.btn = b;
+});
+
+/* ---------------- teclado ---------------- */
+const KEYMAP = {
+  Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 0xC, KeyQ: 4, KeyW: 5, KeyE: 6, KeyR: 0xD,
+  KeyA: 7, KeyS: 8, KeyD: 9, KeyF: 0xE, KeyZ: 0xA, KeyX: 0, KeyC: 0xB, KeyV: 0xF,
+  ArrowLeft: 4, ArrowRight: 6, ArrowUp: 5, ArrowDown: 8, Space: 5
+};
+const KP = [[1, '1'], [2, '2'], [3, '3'], [0xC, '4'], [4, 'Q'], [5, 'W'], [6, 'E'], [0xD, 'R'], [7, 'A'], [8, 'S'], [9, 'D'], [0xE, 'F'], [0xA, 'Z'], [0, 'X'], [0xB, 'C'], [0xF, 'V']];
+const keyEls = [], keyState = [];
+KP.forEach(([k, kb]) => {
+  const d = document.createElement('div');
+  d.className = 'key';
+  d.innerHTML = '<b>' + hx(k, 1) + '</b><small>' + kb + '</small>';
+  const up = () => { cpu.keys[k] = 0; };
+  d.addEventListener('pointerdown', (e) => { e.preventDefault(); cpu.keys[k] = 1; });
+  d.addEventListener('pointerup', up);
+  d.addEventListener('pointerleave', up);
+  d.addEventListener('pointercancel', up);
+  $('keypad').appendChild(d);
+  keyEls[k] = d; keyState[k] = false;
+});
+window.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = KEYMAP[e.code];
+  if (k !== undefined) { cpu.keys[k] = 1; e.preventDefault(); return; }
+  if (e.repeat) return;
+  if (e.code === 'KeyP') { toggleRun(); e.preventDefault(); }
+  else if (e.code === 'KeyN') { stepInto(); e.preventDefault(); }
+  else if (e.code === 'KeyM') { stepFrame(); e.preventDefault(); }
+  else if (e.code === 'Escape') { resetRom(); e.preventDefault(); }
+});
+window.addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k !== undefined) cpu.keys[k] = 0; });
+window.addEventListener('blur', () => cpu.keys.fill(0));
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button'); if (b) b.blur(); });
+
+/* ---------------- audio: beeper ligado a ST ---------------- */
+let actx = null, osc = null, gainN = null, beepLast = -1;
+function ensureAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  actx = new AC();
+  osc = actx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = 440;
+  const lp = actx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 2600;
+  gainN = actx.createGain();
+  gainN.gain.value = 0;
+  osc.connect(lp); lp.connect(gainN); gainN.connect(actx.destination);
+  osc.start();
+}
+window.addEventListener('pointerdown', ensureAudio, { passive: true });
+window.addEventListener('keydown', ensureAudio, { passive: true });
+function updateBeep() {
+  const on = state.running && cpu.ST > 0 && !state.mute;
+  const v = on ? state.vol * 0.14 : 0;
+  if (gainN && v !== beepLast) { gainN.gain.setTargetAtTime(v, actx.currentTime, 0.008); beepLast = v; }
+  $('ledBeep').classList.toggle('on', cpu.ST > 0);
+}
+
+/* ---------------- renderer CRT ---------------- */
+const crt = $('crt'), cctx = crt.getContext('2d');
+const W = crt.width, H = crt.height, CELL = W / SCREEN_W;
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const flat = mk(W, H), fctx = flat.getContext('2d');
+const lo = mk(SCREEN_W, SCREEN_H), lctx = lo.getContext('2d');
+const lImg = lctx.createImageData(SCREEN_W, SCREEN_H);
+const b1 = mk(16, 8), b1x = b1.getContext('2d');
+const b2 = mk(32, 16), b2x = b2.getContext('2d');
+b1x.imageSmoothingQuality = 'high'; b2x.imageSmoothingQuality = 'high';
+const phos = new Float32Array(SCREEN_W * SCREEN_H);
+const PALETTES = { green: [57, 255, 136], amber: [255, 176, 0], cyan: [64, 224, 255], white: [232, 240, 255] };
+const BG = [2, 7, 4];
+
+const gridC = mk(W, H);
+{ const g = gridC.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0.5)';
+  for (let x = 0; x <= SCREEN_W; x++) g.fillRect(x * CELL - 1, 0, 2, H);
+  for (let y = 0; y <= SCREEN_H; y++) g.fillRect(0, y * CELL - 1, W, 2); }
+const scanC = mk(W, H);
+{ const g = scanC.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0.30)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1); }
+const vigC = mk(W, H);
+{ const g = vigC.getContext('2d');
+  const gr = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.62);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.65)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+
+function renderScreen() {
+  const g = cpu.gfx, d = lImg.data, col = PALETTES[state.palette], decay = state.persist;
+  for (let i = 0; i < SCREEN_W * SCREEN_H; i++) {
+    let v = phos[i];
+    if (g[i]) v = 1; else v *= decay;
+    if (v < 0.01) v = 0;
+    phos[i] = v;
+    const j = i * 4;
+    d[j] = BG[0] + (col[0] - BG[0]) * v;
+    d[j + 1] = BG[1] + (col[1] - BG[1]) * v;
+    d[j + 2] = BG[2] + (col[2] - BG[2]) * v;
+    d[j + 3] = 255;
+  }
+  lctx.putImageData(lImg, 0, 0);
+  fctx.globalCompositeOperation = 'source-over';
+  fctx.globalAlpha = 1;
+  fctx.imageSmoothingEnabled = false;
+  fctx.drawImage(lo, 0, 0, W, H);
+  fctx.drawImage(gridC, 0, 0);
+  if (state.glow) {
+    b1x.drawImage(lo, 0, 0, 16, 8);
+    b2x.drawImage(lo, 0, 0, 32, 16);
+    fctx.imageSmoothingEnabled = true;
+    fctx.globalCompositeOperation = 'lighter';
+    fctx.globalAlpha = 0.85; fctx.drawImage(b1, 0, 0, W, H);
+    fctx.globalAlpha = 0.55; fctx.drawImage(b2, 0, 0, W, H);
+    fctx.globalCompositeOperation = 'source-over';
+    fctx.globalAlpha = 1;
+  }
+  cctx.fillStyle = '#000';
+  cctx.fillRect(0, 0, W, H);
+  if (state.curve) {
+    for (let ox = 0; ox < W; ox += 2) {
+      const u = (ox + 1) / W * 2 - 1;
+      const dh = H * (1 - 0.09 * u * u);
+      cctx.drawImage(flat, ox, 0, 2, H, ox, (H - dh) / 2, 2, dh);
+    }
+  } else cctx.drawImage(flat, 0, 0);
+  if (state.scan) cctx.drawImage(scanC, 0, 0);
+  cctx.drawImage(vigC, 0, 0);
+}
+
+/* ---------------- paneles de depuración ---------------- */
+const SREGS = [
+  { n: 'PC', get: () => cpu.PC, w: 3, max: 4095 }, { n: 'I', get: () => cpu.I, w: 3, max: 4095 },
+  { n: 'SP', get: () => cpu.SP, w: 2, max: 16 }, { n: 'DT', get: () => cpu.DT, w: 2, max: 255 },
+  { n: 'ST', get: () => cpu.ST, w: 2, max: 255 }
+];
+SREGS.forEach((r) => {
+  const d = document.createElement('div');
+  d.className = 'sr';
+  d.innerHTML = '<span class="n">' + r.n + '</span><span class="h"></span><span class="d"></span><span class="bar"><i></i></span>';
+  $('sregs').appendChild(d);
+  r.el = d; r.h = d.querySelector('.h'); r.d = d.querySelector('.d'); r.bar = d.querySelector('i');
+  r.last = -1; r.age = 0;
+});
+const vEls = [];
+for (let i = 0; i < 16; i++) {
+  const row = document.createElement('div');
+  row.className = 'vr';
+  row.innerHTML = '<span class="vn">V' + hx(i, 1) + '</span><span class="bar"><i></i></span><span class="vh"></span><span class="vd"></span>';
+  $('vregs').appendChild(row);
+  vEls.push({ row, bar: row.querySelector('i'), h: row.querySelector('.vh'), d: row.querySelector('.vd'), last: -1, age: 0 });
+}
+function updateRegs() {
+  SREGS.forEach((r) => {
+    const v = r.get();
+    if (v !== r.last) {
+      r.last = v; r.age = 14;
+      r.h.textContent = '0x' + hx(v, r.w);
+      r.d.textContent = String(v);
+      r.bar.style.width = (Math.min(v, r.max) / r.max * 100) + '%';
+    } else if (r.age > 0) r.age--;
+    r.el.style.setProperty('--a', r.age / 14);
+  });
+  for (let i = 0; i < 16; i++) {
+    const e = vEls[i], v = cpu.V[i];
+    if (v !== e.last) {
+      e.last = v; e.age = 14;
+      e.h.textContent = '0x' + hx(v, 2);
+      e.d.textContent = String(v).padStart(3, '0');
+      e.bar.style.width = (v / 255 * 100) + '%';
+    } else if (e.age > 0) e.age--;
+    e.row.style.setProperty('--a', e.age / 14);
+  }
+}
+const stkCells = [];
+for (let i = 0; i < 16; i++) { const s = document.createElement('span'); s.textContent = '···'; $('stack').appendChild(s); stkCells.push(s); }
+let lastStk = '';
+function updateStack() {
+  let key = cpu.SP + ':';
+  for (let i = 0; i < cpu.SP; i++) key += cpu.stack[i] + ',';
+  if (key === lastStk) return;
+  lastStk = key;
+  for (let i = 0; i < 16; i++) {
+    const used = i < cpu.SP;
+    stkCells[i].textContent = used ? hx(cpu.stack[i], 3) : '···';
+    stkCells[i].className = used ? (i === cpu.SP - 1 ? 'top' : 'used') : '';
+  }
+}
+const st = {};
+[['cycles', 'Ciclos'], ['ips', 'IPS reales'], ['dtst', 'DT / ST'], ['keys', 'Teclas'], ['rom', 'ROM'], ['bps', 'Breakpoints'], ['last', 'Último']].forEach(([k, l]) => {
+  const d = document.createElement('div');
+  if (k === 'last') d.style.gridColumn = '1 / -1';
+  d.innerHTML = l + ': <b></b>';
+  $('stats').appendChild(d);
+  st[k] = d.querySelector('b');
+});
+function updateStats(now) {
+  if (now - ipsLastT >= 500) {
+    ipsVal = (cpu.cycles - ipsLastC) * 1000 / (now - ipsLastT);
+    if (ipsVal < 0) ipsVal = 0;
+    ipsLastT = now; ipsLastC = cpu.cycles;
+  }
+  st.cycles.textContent = String(cpu.cycles);
+  st.ips.textContent = state.running ? Math.round(ipsVal) : '—';
+  st.dtst.textContent = cpu.DT + ' / ' + cpu.ST;
+  let ks = '';
+  for (let k = 0; k < 16; k++) if (cpu.keys[k]) ks += hx(k, 1);
+  st.keys.textContent = ks || '—';
+  st.rom.textContent = (cpu.romEnd - ROM_BASE) + ' B (0x200–0x' + hx(Math.max(ROM_BASE, cpu.romEnd - 1), 3) + ')';
+  st.bps.textContent = bps.size ? Array.from(bps).map((a) => '0x' + hx(a, 3)).join(' ') : 'ninguno';
+  st.last.textContent = '0x' + hx(cpu.lastPC, 4) + ': ' + hx(cpu.lastOp, 4) + ' -> ' + disasm(cpu.lastOp);
+}
+
+const disEl = $('dis');
+let lastDis = '';
+function renderDisasm() {
+  const pc = cpu.PC;
+  let start = pc - 12;
+  if (start < 0) start = pc & 1;
+  let html = '';
+  for (let k = 0; k < 15; k++) {
+    const a = start + 2 * k;
+    if (a > 0xFFE) break;
+    const op = (cpu.mem[a] << 8) | cpu.mem[a + 1];
+    let cls = 'dl';
+    if (a === pc) cls += ' cur';
+    if (bps.has(a)) cls += ' bp';
+    if (a < ROM_BASE || a >= cpu.romEnd) cls += ' dim';
+    const lb = labelNames.get(a);
+    html += '<div class="' + cls + '" data-a="' + a + '"><span class="dot"></span><span class="ad">0x' + hx(a, 4) + ':</span> <span class="oc">' + hx(op, 4) +
+      '</span> <span class="ar">-&gt;</span> <span class="mn">' + esc(disasm(op)) + '</span>' + (lb ? '<span class="lb">  ; ' + esc(lb) + '</span>' : '') + '</div>';
+  }
+  if (html !== lastDis) { disEl.innerHTML = html; lastDis = html; }
+}
+disEl.addEventListener('mousedown', (e) => {
+  const row = e.target.closest('.dl');
+  if (!row) return;
+  const a = parseInt(row.dataset.a, 10);
+  if (bps.has(a)) bps.delete(a); else bps.add(a);
+  uiDirty = true;
+});
+
+const hexEl = $('hex'), hexScroll = $('hexScroll');
+let lastHex = '';
+function renderHex() {
+  let top = state.hexTop;
+  if (state.follow === 'pc') top = (cpu.PC >> 4) - 5;
+  else if (state.follow === 'i') top = (cpu.I >> 4) - 5;
+  top = Math.max(0, Math.min(240, top));
+  state.hexTop = top;
+  hexScroll.value = top;
+  const pc = cpu.PC, ii = cpu.I, mem = cpu.mem, heat = cpu.heat, romEnd = cpu.romEnd;
+  let out = '    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n';
+  for (let r = 0; r < 16; r++) {
+    const base = (top + r) << 4;
+    out += '<span class="ha">' + hx(base, 3) + '</span> ';
+    let asc = '';
+    for (let c = 0; c < 16; c++) {
+      const a = base + c, v = mem[a];
+      let cls = a < 0x200 ? 'zf' : (a < romEnd ? 'zr' : 'zx');
+      if (heat[a]) cls += ' hw';
+      if (a === pc || a === pc + 1) cls = 'pc';
+      else if (a === ii) cls = 'ii';
+      out += '<span class="' + cls + '">' + hx(v, 2) + '</span> ';
+      asc += (v >= 32 && v < 127) ? String.fromCharCode(v) : '.';
+    }
+    out += ' <span class="as">' + esc(asc) + '</span>\n';
+  }
+  if (out !== lastHex) { hexEl.innerHTML = out; lastHex = out; }
+}
+hexEl.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  state.follow = 'free'; $('hexFollow').value = 'free';
+  state.hexTop = Math.max(0, Math.min(240, state.hexTop + (e.deltaY > 0 ? 2 : -2)));
+  uiDirty = true;
+}, { passive: false });
+hexScroll.addEventListener('input', () => {
+  state.follow = 'free'; $('hexFollow').value = 'free';
+  state.hexTop = parseInt(hexScroll.value, 10);
+  uiDirty = true;
+});
+$('hexFollow').addEventListener('change', (e) => { state.follow = e.target.value; uiDirty = true; });
+
+function updateKeys() {
+  for (let k = 0; k < 16; k++) {
+    const on = !!cpu.keys[k];
+    if (on !== keyState[k]) { keyState[k] = on; keyEls[k].classList.toggle('on', on); }
+  }
+}
+const ov = $('overlayMsg');
+let lastFault = null;
+function updateFault() {
+  if (cpu.fault === lastFault) return;
+  lastFault = cpu.fault;
+  ov.style.display = cpu.fault ? 'block' : 'none';
+  ov.textContent = cpu.fault ? '⚠ CPU FAULT: ' + cpu.fault + ' — pulsa RESET ROM' : '';
+  $('ledFault').classList.toggle('on', !!cpu.fault);
+}
+function updateUI(now) {
+  updateKeys();
+  updateFault();
+  if (!state.running && !uiDirty) return;
+  uiDirty = false;
+  updateRegs(); updateStack(); updateStats(now); renderDisasm(); renderHex(); markPcLine();
+}
+
+/* ---------------- bucle principal ---------------- */
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000));
+  lastT = now;
+  if (state.running) {
+    tickAcc += dt * 60;
+    let nt = Math.floor(tickAcc);
+    tickAcc -= nt;
+    if (nt > 6) nt = 6;
+    if (nt > 0) runTicks(nt);
+    cpu.decayHeat();
+  }
+  renderScreen();
+  updateBeep();
+  updateUI(now);
+}
+
+/* ---------------- cableado de controles ---------------- */
+$('btnRun').addEventListener('click', toggleRun);
+$('btnStep').addEventListener('click', stepInto);
+$('btnFrame').addEventListener('click', stepFrame);
+$('btnReset').addEventListener('click', resetRom);
+$('clock').addEventListener('input', (e) => { state.hz = parseInt(e.target.value, 10); updateClockLabel(); });
+$('turbo').addEventListener('change', (e) => { state.turbo = parseInt(e.target.value, 10); updateClockLabel(); });
+$('fxCurve').addEventListener('change', (e) => { state.curve = e.target.checked; });
+$('fxScan').addEventListener('change', (e) => { state.scan = e.target.checked; });
+$('fxGlow').addEventListener('change', (e) => { state.glow = e.target.checked; });
+$('palette').addEventListener('change', (e) => { state.palette = e.target.value; });
+$('persist').addEventListener('input', (e) => { state.persist = parseInt(e.target.value, 10) / 100; $('persistVal').textContent = state.persist.toFixed(2); });
+$('vol').addEventListener('input', (e) => { state.vol = parseInt(e.target.value, 10) / 100; beepLast = -1; });
+$('mute').addEventListener('change', (e) => { state.mute = e.target.checked; });
+$('qShift').addEventListener('change', (e) => { cpu.quirks.shiftVy = e.target.checked; });
+$('qLS').addEventListener('change', (e) => { cpu.quirks.loadStoreInc = e.target.checked; });
+$('btnAsm').addEventListener('click', () => assembleAndFlash(true));
+$('btnRestore').addEventListener('click', () => {
+  srcEl.value = ROMS[state.romIdx].src;
+  errLines = new Set();
+  renderHl();
+  log('↺ Código original de "' + ROMS[state.romIdx].name + '" restaurado en el editor (pulsa ASSEMBLE & FLASH para cargarlo)', 'in');
+});
+$('btnExport').addEventListener('click', () => {
+  const blob = new Blob([cpu.rom], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = ROMS[state.romIdx].id + '.ch8';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  log('⬇ Exportados ' + cpu.rom.length + ' bytes (.ch8)', 'in');
+});
+srcEl.addEventListener('input', () => { errLines = new Set(); renderHl(); });
+srcEl.addEventListener('scroll', syncScroll);
+srcEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    srcEl.setRangeText('    ', srcEl.selectionStart, srcEl.selectionEnd, 'end');
+    errLines = new Set();
+    renderHl();
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    assembleAndFlash(true);
+  }
+});
+
+/* ---------------- arranque: la ROM #1 corre desde el segundo 0.0 ---------------- */
+updateClockLabel();
+log('CYBER-8 listo · RAM 4096 B · fuentes 0x000–0x04F · programa 0x200+', 'in');
+loadRomIdx(0);
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEON-8 · Consola Retro Virtual CHIP-8 · Emulador + Debugger + Ensamblador</title>
+<style>
+:root{
+  --bg:#04050b; --panel:#0a0f1f; --panel2:#070a16; --line:#1a2346; --line2:#2a3870;
+  --cyan:#00f0ff; --mag:#ff2bd6; --yel:#ffe04a; --grn:#39ff88; --org:#ff8a2b; --red:#ff3b5c; --vio:#9b6bff;
+  --txt:#b9c4e6; --dim:#5b6690; --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:radial-gradient(1200px 600px at 15% -10%,#1a0c3a55,transparent),radial-gradient(900px 500px at 100% 0%,#00303f55,transparent),var(--bg);color:var(--txt);font:12px/1.45 var(--mono)}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 3px);z-index:0}
+header{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 16px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#0b0f22,#0b0716)}
+.logo{font-size:22px;font-weight:800;letter-spacing:4px;color:#fff;text-shadow:0 0 8px var(--cyan),0 0 22px #00f0ff88}
+.logo span{color:var(--mag);text-shadow:0 0 8px var(--mag),0 0 22px #ff2bd688}
+.subtitle{color:var(--dim);letter-spacing:2px;font-size:11px}
+.status{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:11px;letter-spacing:1px}
+.status .pill{padding:4px 10px;border-radius:20px;border:1px solid var(--line2);background:#070b18}
+.pill.run{color:var(--grn);border-color:#1f7a4a;box-shadow:0 0 10px #39ff8833}
+.pill.pause{color:var(--yel);border-color:#7a6a1f}
+.pill.wait{color:var(--cyan);border-color:#1f6a7a}
+.pill.fault{color:var(--red);border-color:#7a1f2f;box-shadow:0 0 10px #ff3b5c44}
+main.grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(500px,1fr) 370px 400px;gap:12px;padding:12px}
+@media (max-width:1420px){main.grid{grid-template-columns:1fr 1fr}.col-mem{grid-column:span 2}}
+@media (max-width:940px){main.grid{grid-template-columns:1fr}.col-mem{grid-column:auto}}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:linear-gradient(180deg,#0c1226,#070a16);border:1px solid var(--line);border-radius:8px;padding:10px 12px;position:relative;box-shadow:inset 0 1px 0 #ffffff08,0 10px 30px #0009}
+.panel h2{margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.panel h2 small{color:var(--dim);font-weight:400;letter-spacing:1px;text-transform:none}
+/* ---------- CRT ---------- */
+.crt-bezel{position:relative;padding:20px;border-radius:26px;background:linear-gradient(145deg,#1b1d27,#0b0c12 60%,#15161d);box-shadow:inset 0 0 0 2px #2a2c38,inset 0 0 40px #000,0 0 50px #00f0ff1c}
+.crt-bezel::after{content:"NEON-8";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:6px;color:#3a3f55}
+#screen{display:block;width:100%;height:auto;aspect-ratio:2/1;border-radius:18px/26px;background:#000;animation:flick .12s infinite alternate}
+@keyframes flick{from{opacity:.975}to{opacity:1}}
+.crt-glass{position:absolute;inset:20px;border-radius:18px/26px;pointer-events:none;background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.6) 100%),linear-gradient(160deg,rgba(255,255,255,.08),transparent 38%);box-shadow:inset 0 0 50px rgba(0,0,0,.85)}
+.crt-bezel.flat #screen,.crt-bezel.flat .crt-glass{border-radius:4px}
+.ledrow{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:10px;font-size:11px;color:var(--dim)}
+.led{display:inline-block;width:9px;height:9px;border-radius:50%;background:#222;margin-right:5px;vertical-align:-1px;box-shadow:inset 0 0 2px #000}
+.led.on.g{background:var(--grn);box-shadow:0 0 8px var(--grn)}
+.led.on.r{background:var(--red);box-shadow:0 0 8px var(--red)}
+.led.on.c{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.ledrow b{color:var(--txt);font-weight:600}
+/* ---------- controls ---------- */
+.btn{background:#0e1630;border:1px solid var(--line2);color:var(--txt);padding:7px 11px;border-radius:6px;cursor:pointer;font:inherit;font-size:11px;letter-spacing:1px;transition:.12s}
+.btn:hover{border-color:var(--cyan);color:#fff;box-shadow:0 0 12px #00f0ff40}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(90deg,#ff2bd6,#7a2bff);border-color:transparent;color:#fff;font-weight:700;box-shadow:0 0 14px #ff2bd655}
+.btn.primary:hover{box-shadow:0 0 22px #ff2bd699}
+.btn.run{color:var(--grn);border-color:#1f7a4a}
+.btn.paused{color:var(--yel);border-color:#7a6a1f}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row+.row{margin-top:9px}
+label.chk{display:inline-flex;gap:5px;align-items:center;cursor:pointer;color:var(--txt);font-size:11px}
+input[type=range]{accent-color:var(--mag);vertical-align:middle}
+select,input[type=text]{background:#070b18;color:var(--txt);border:1px solid var(--line2);border-radius:5px;padding:4px 6px;font:inherit;font-size:11px}
+.clockbox{flex:1;min-width:230px;display:flex;align-items:center;gap:8px}
+.clockbox input{flex:1}
+.hz{min-width:150px;color:var(--yel);font-weight:700}
+.carts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cart{position:relative;border:1px solid var(--line2);border-radius:8px 8px 3px 3px;padding:9px 9px 8px;cursor:pointer;background:linear-gradient(180deg,#141b38,#0a0e1e);transition:.15s;min-width:0}
+.cart::before{content:"";position:absolute;left:12%;right:12%;top:0;height:4px;border-radius:0 0 3px 3px;background:var(--line2)}
+.cart:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.cart.active{border-color:var(--mag);box-shadow:0 0 16px #ff2bd655;background:linear-gradient(180deg,#2a1240,#0e0a1e)}
+.cart.active::before{background:var(--mag)}
+.cart .t{display:block;color:#fff;font-weight:700;letter-spacing:1px;font-size:11px}
+.cart .d{display:block;color:var(--dim);font-size:10px;margin-top:3px;line-height:1.3}
+.cart .n{position:absolute;right:7px;top:6px;color:var(--mag);font-size:10px}
+.keypad-wrap{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.keypad{display:grid;grid-template-columns:repeat(4,46px);gap:6px}
+.key{height:40px;border-radius:7px;border:1px solid var(--line2);background:linear-gradient(180deg,#18214a,#0b1028);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;position:relative;user-select:none;touch-action:none}
+.key small{position:absolute;right:4px;bottom:2px;font-size:8px;color:var(--dim);font-weight:400}
+.key.on{background:var(--cyan);color:#001;box-shadow:0 0 14px var(--cyan)}
+.key.on small{color:#024}
+.help{flex:1;min-width:180px;color:var(--dim);font-size:11px;line-height:1.55}
+.help b{color:var(--txt)}
+.help kbd{background:#111832;border:1px solid var(--line2);border-radius:3px;padding:0 4px;color:#fff;font-size:10px}
+/* ---------- registers ---------- */
+.sregs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:9px}
+.sreg{background:#060a17;border:1px solid var(--line);border-radius:6px;padding:5px 6px;text-align:center}
+.sreg .l{display:block;font-size:9px;color:var(--dim);letter-spacing:2px}
+.sreg .v{display:block;font-size:14px;color:var(--yel);font-weight:700}
+.sreg .dd{display:block;font-size:9px;color:var(--dim)}
+.sreg.hot .v{color:var(--mag);text-shadow:0 0 8px var(--mag)}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px}
+.vr{display:grid;grid-template-columns:24px 24px 28px 1fr;align-items:center;gap:5px;height:17px}
+.vr .rn{color:var(--dim)}
+.vr .rh{color:var(--cyan);font-weight:700}
+.vr .rd{color:var(--dim);text-align:right;font-size:10px}
+.vr.chg .rh{color:var(--yel);text-shadow:0 0 6px var(--yel)}
+.vr.vf .rn{color:var(--mag)}
+.bar{height:6px;background:#0a1330;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--mag));transition:width .08s}
+.stack{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-top:9px}
+.stk{background:#060a17;border:1px solid var(--line);border-radius:4px;text-align:center;font-size:10px;padding:2px 0;color:#3a4670}
+.stk.used{color:var(--cyan);border-color:#1f4a7a}
+.stk.top{color:#fff;border-color:var(--mag);box-shadow:0 0 8px #ff2bd655}
+.opinfo{margin-top:9px;padding:7px 8px;border-radius:6px;background:#060a17;border:1px dashed var(--line2);min-height:48px;font-size:11px}
+.opinfo .stage{color:var(--mag)} .opinfo .mn{color:#fff;font-weight:700} .opinfo .ds{color:var(--dim)}
+/* ---------- disassembler ---------- */
+.dis{font-size:11.5px;background:#050814;border:1px solid var(--line);border-radius:6px;padding:4px 0;overflow:hidden}
+.dl{display:grid;grid-template-columns:14px 1fr;height:17px;line-height:17px;white-space:pre;padding:0 6px 0 2px;cursor:pointer;color:#7f8bb5;overflow:hidden}
+.dl:hover{background:#0f1736}
+.dl .bp{color:transparent;text-align:center}
+.dl.bpon .bp{color:var(--red);text-shadow:0 0 6px var(--red)}
+.dl .a{color:#4f5d8f} .dl .o{color:#c5a3ff} .dl .m{color:#dfe8ff} .dl .lb{color:var(--grn)} .dl .dt{color:#5c6a96;font-style:italic}
+.dl.cur{background:linear-gradient(90deg,#ff2bd640,#ff2bd608);box-shadow:inset 3px 0 0 var(--mag)}
+.dl.cur .m{color:#fff;font-weight:700} .dl.cur .a{color:var(--mag)}
+.dl.data .m{color:#56648f}
+/* ---------- hex dump ---------- */
+.hexhead{font-size:11px;color:#3e4b7a;white-space:pre;padding:0 6px 3px;border-bottom:1px solid var(--line)}
+#hexScroll{position:relative;height:640px;overflow:auto;background:#050814;border:1px solid var(--line);border-radius:6px}
+@media (max-width:1420px){#hexScroll{height:420px}}
+#hexSizer{width:1px}
+#hexRows{position:absolute;left:0;top:0;right:0;padding:0 6px;font-size:11px}
+.hr{height:16px;line-height:16px;white-space:pre}
+.hr .ad{color:#3e4b7a}
+.hr .ad.cur{color:var(--mag)}
+.b{padding:0 1px;border-radius:2px}
+.zs{color:#2b3458} .zf{color:var(--vio)} .zr{color:var(--cyan)} .z0{color:#252d4d} .zw{color:#93a3d1}
+.b.ht{color:#fff;background:#ff8a2b66}
+.b.ir{outline:1px solid var(--yel);color:var(--yel)}
+.b.pc{background:var(--mag);color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:10px;color:var(--dim)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* ---------- editor ---------- */
+.editor-panel{position:relative;z-index:1;margin:0 12px 14px}
+.edgrid{display:grid;grid-template-columns:1fr 330px;gap:12px}
+@media (max-width:1100px){.edgrid{grid-template-columns:1fr}}
+.editor-wrap{display:grid;grid-template-columns:46px 1fr;height:420px;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#050814}
+#gutter{margin:0;padding:8px 6px;text-align:right;color:#34406a;overflow:hidden;font:12px/18px var(--mono);user-select:none;background:#070b1a;border-right:1px solid var(--line)}
+#gutter .err{color:#fff;background:var(--red)}
+#editor{margin:0;padding:8px 10px;border:0;resize:none;outline:none;background:transparent;color:#d4e4ff;font:12px/18px var(--mono);white-space:pre;overflow:auto;tab-size:8;caret-color:var(--mag)}
+#editor::selection{background:#ff2bd655}
+#asmLog{height:300px;overflow:auto;background:#050814;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:11px;white-space:pre-wrap;margin:0}
+#asmLog .ok{color:var(--grn)} #asmLog .er{color:var(--red)} #asmLog .in{color:var(--cyan)} #asmLog .dm{color:var(--dim)}
+.isa{margin-top:8px;font-size:10px;color:var(--dim);line-height:1.5}
+.isa b{color:var(--txt)}
+footer{position:relative;z-index:1;text-align:center;color:#2e3860;font-size:10px;letter-spacing:2px;padding:0 0 16px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NEON<span>-8</span></div>
+  <div class="subtitle">CONSOLA RETRO VIRTUAL · CPU 8-BIT CHIP-8 EXTENDIDA · 4 KB RAM · 16 REGISTROS · PILA 16 NIVELES · CRT 64×32</div>
+  <div class="status">
+    <span id="stPill" class="pill pause">❚❚ PAUSA</span>
+    <span>IPS <b id="stIps" style="color:#fff">0</b></span>
+    <span>CICLOS <b id="stCyc" style="color:#fff">0</b></span>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- ======================= COLUMNA 1: PANTALLA + CONTROLES ======================= -->
+  <section class="col col-screen">
+    <div class="panel">
+      <div class="crt-bezel" id="bezel">
+        <canvas id="screen" width="768" height="384"></canvas>
+        <div class="crt-glass"></div>
+      </div>
+      <div class="ledrow">
+        <span><i class="led g" id="ledPow"></i>POWER</span>
+        <span><i class="led r" id="ledSnd"></i>SOUND (ST)</span>
+        <span><i class="led c" id="ledKey"></i>KEY WAIT</span>
+        <span>ROM: <b id="romName">—</b></span>
+        <span>TAMAÑO: <b id="romSize">0</b> B</span>
+        <span>FPS: <b id="fps">0</b></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Control de depuración <small>F8 run/pause · F10 step · F9 frame</small></h2>
+      <div class="row">
+        <button class="btn run" id="btnRun">❚❚ PAUSE</button>
+        <button class="btn" id="btnStep">⤵ STEP INTO</button>
+        <button class="btn" id="btnFrame">⏭ STEP FRAME (1/60s)</button>
+        <button class="btn" id="btnReset">⟲ RESET ROM</button>
+        <button class="btn" id="btnClrBp">✕ BREAKPOINTS</button>
+      </div>
+      <div class="row">
+        <div class="clockbox">
+          <span>CLOCK</span>
+          <input type="range" id="clock" min="0" max="1000" value="1000">
+          <span class="hz" id="clockVal">1200 Hz</span>
+        </div>
+        <label class="chk">TURBO
+          <select id="turbo">
+            <option value="1">×1</option>
+            <option value="2" selected>×2</option>
+            <option value="5">×5</option>
+            <option value="10">×10</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="optCurve" checked>Curvatura</label>
+        <label class="chk"><input type="checkbox" id="optScan" checked>Scanlines</label>
+        <label class="chk"><input type="checkbox" id="optGlow" checked>Glow fósforo</label>
+        <label class="chk"><input type="checkbox" id="optSound" checked>Beeper</label>
+        <label class="chk">Fósforo
+          <select id="phosColor">
+            <option value="green">P1 verde</option>
+            <option value="amber">P3 ámbar</option>
+            <option value="cyan" selected>Cian neón</option>
+            <option value="magenta">Magenta</option>
+            <option value="white">P4 blanco</option>
+          </select>
+        </label>
+        <label class="chk">Persistencia <input type="range" id="persist" min="0" max="92" value="72" style="width:80px"></label>
+      </div>
+      <div class="row">
+        <span style="color:var(--dim)">QUIRKS:</span>
+        <label class="chk" title="8xy6/8xyE desplazan Vy (COSMAC VIP)"><input type="checkbox" id="qShift">Shift usa Vy</label>
+        <label class="chk" title="Fx55/Fx65 incrementan I"><input type="checkbox" id="qMem">Fx55/65 I++</label>
+        <label class="chk" title="AND/OR/XOR ponen VF=0"><input type="checkbox" id="qVF">VF reset</label>
+        <label class="chk" title="Los sprites se envuelven en los bordes"><input type="checkbox" id="qWrap">Wrap sprites</label>
+        <label class="chk" title="Bnnn salta a nnn+Vx (SCHIP)"><input type="checkbox" id="qJump">BXNN</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Cartuchos ROM <small>clic = ensamblar + flashear + ejecutar</small></h2>
+      <div class="carts" id="carts"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Teclado hexadecimal 16 teclas</h2>
+      <div class="keypad-wrap">
+        <div class="keypad" id="keypad"></div>
+        <div class="help">
+          <b>Mapa:</b> <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> / <kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd> / <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd> / <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd><br>
+          Flechas = <kbd>5</kbd><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd> · Espacio = <kbd>6</kbd><br>
+          <b>PONG:</b> W/S o ↑/↓ (toca para salir del modo attract)<br>
+          <b>INVADERS:</b> A/D o ←/→ mover · W/E/Espacio disparar<br>
+          <b>DEMO:</b> E/Espacio salta al siguiente efecto
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= COLUMNA 2: CPU ======================= -->
+  <section class="col col-cpu">
+    <div class="panel">
+      <h2>Registros de CPU <small>hex · dec · barra</small></h2>
+      <div class="sregs" id="sregs"></div>
+      <div class="vgrid" id="vgrid"></div>
+      <div class="stack" id="stack"></div>
+      <div class="opinfo" id="opinfo"></div>
+    </div>
+    <div class="panel">
+      <h2>Desensamblador en vivo <small>clic = breakpoint</small></h2>
+      <div class="dis" id="dis"></div>
+    </div>
+  </section>
+
+  <!-- ======================= COLUMNA 3: MEMORIA ======================= -->
+  <section class="col col-mem">
+    <div class="panel">
+      <h2>RAM 4 KB · Hex dump
+        <span class="row" style="gap:6px">
+          <select id="hexFollow">
+            <option value="pc" selected>Seguir PC</option>
+            <option value="i">Seguir I</option>
+            <option value="none">Libre</option>
+          </select>
+          <input type="text" id="hexGoto" placeholder="ir a 0x…" size="7">
+        </span>
+      </h2>
+      <div class="hexhead">ADDR  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F</div>
+      <div id="hexScroll"><div id="hexSizer"></div><div id="hexRows"></div></div>
+      <div class="legend">
+        <span><i style="background:#2b3458"></i>Sistema 0x000-0x1FF</span>
+        <span><i style="background:var(--vio)"></i>Fuente 0x050-0x09F</span>
+        <span><i style="background:var(--cyan)"></i>ROM 0x200+</span>
+        <span><i style="background:var(--mag)"></i>PC</span>
+        <span><i style="background:transparent;outline:1px solid var(--yel)"></i>I</span>
+        <span><i style="background:#ff8a2b"></i>Escritura reciente</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= EDITOR ASM ======================= -->
+<section class="panel editor-panel">
+  <h2>Ensamblador en vivo · CHIP-8 ASM <small id="edInfo">—</small></h2>
+  <div class="edgrid">
+    <div>
+      <div class="editor-wrap">
+        <pre id="gutter"></pre>
+        <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="btn primary" id="btnAsm">⚡ ASSEMBLE &amp; FLASH TO RAM</button>
+        <button class="btn" id="btnRevert">↺ Restaurar fuente original</button>
+        <button class="btn" id="btnDl">⬇ Descargar .ch8</button>
+        <button class="btn" id="btnLoadBin">⬆ Cargar .ch8 externo</button>
+        <input type="file" id="fileIn" accept=".ch8,.c8,.rom,.bin,*/*" style="display:none">
+        <span style="color:var(--dim)">Ctrl/⌘ + Enter = ensamblar</span>
+      </div>
+    </div>
+    <div>
+      <pre id="asmLog"></pre>
+      <div class="isa">
+        <b>Sintaxis:</b> <b>etiqueta:</b> · <b>; comentario</b> · <b>NOMBRE EQU expr</b> · <b>DB</b> b,b… · <b>DW</b> w… · <b>DS</b> n · <b>ORG</b> addr · <b>ALIGN</b> n<br>
+        Números: 42 · 0x2A · $2A · 0b101010 · %101010 · expresiones + - * / &amp; | ^ &lt;&lt; &gt;&gt; ( ) con etiquetas.<br>
+        <b>ISA:</b> CLS RET SYS JP CALL SE SNE LD ADD OR AND XOR SUB SHR SUBN SHL RND DRW SKP SKNP · LD I/DT/ST/K/F/B/[I] · ADD I · JP V0 · <b>Ext.:</b> SCD n · SCR · SCL · EXIT
+      </div>
+    </div>
+  </div>
+</section>
+<footer>NEON-8 · MÁQUINA VIRTUAL CHIP-8 · FETCH → DECODE → EXECUTE · 100% JAVASCRIPT AUTOCONTENIDO</footer>
+
+<script>
+'use strict';
+/* =====================================================================
+ *  1) MÁQUINA VIRTUAL CHIP-8 — RAM 4 KB, 16 registros de 8 bits, pila,
+ *     ciclo FETCH → DECODE → EXECUTE sobre opcodes binarios de 16 bits.
+ * ===================================================================== */
+const W = 64, H = 32, FONT_ADDR = 0x050, ROM_ADDR = 0x200;
+const FONT = [
+  0xF0,0x90,0x90,0x90,0xF0, 0x20,0x60,0x20,0x20,0x70, 0xF0,0x10,0xF0,0x80,0xF0, 0xF0,0x10,0xF0,0x10,0xF0,
+  0x90,0x90,0xF0,0x10,0x10, 0xF0,0x80,0xF0,0x10,0xF0, 0xF0,0x80,0xF0,0x90,0xF0, 0xF0,0x10,0x20,0x40,0x40,
+  0xF0,0x90,0xF0,0x90,0xF0, 0xF0,0x90,0xF0,0x10,0xF0, 0xF0,0x90,0xF0,0x90,0x90, 0xE0,0x90,0xE0,0x90,0xE0,
+  0xF0,0x80,0x80,0x80,0xF0, 0xE0,0x90,0x90,0x90,0xE0, 0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80
+];
+const hex = (v, d) => (v >>> 0).toString(16).toUpperCase().padStart(d, '0');
+
+class CPU {
+  constructor() {
+    this.mem = new Uint8Array(4096);     // RAM
+    this.V = new Uint8Array(16);         // V0..VF
+    this.stack = new Uint16Array(16);    // pila de retorno
+    this.disp = new Uint8Array(W * H);   // framebuffer 1 bit/píxel
+    this.keys = new Uint8Array(16);      // estado del teclado hex
+    this.heat = new Uint8Array(4096);    // escrituras recientes (para el visor)
+    this.quirks = { shift: false, memInc: false, vfReset: false, wrap: false, jump: false };
+    this.rom = new Uint8Array(0);
+    this.reset();
+  }
+  reset() {
+    this.mem.fill(0);
+    const sig = 'NEON-8 BIOS v1.0 (c) VIRTUAL SILICON';
+    for (let i = 0; i < sig.length; i++) this.mem[i] = sig.charCodeAt(i);
+    this.mem.set(FONT, FONT_ADDR);
+    this.mem.set(this.rom, ROM_ADDR);
+    this.V.fill(0); this.stack.fill(0); this.disp.fill(0); this.heat.fill(0); this.keys.fill(0);
+    this.I = 0; this.PC = ROM_ADDR; this.SP = 0; this.DT = 0; this.ST = 0;
+    this.waitReg = -1; this.waitKey = -1;
+    this.fault = null; this.halted = false;
+    this.cycles = 0; this.lastPC = ROM_ADDR; this.lastOp = 0;
+  }
+  load(bytes) { this.rom = Uint8Array.from(bytes.slice(0, 4096 - ROM_ADDR)); this.reset(); }
+  tickTimers() { if (this.DT > 0) this.DT--; if (this.ST > 0) this.ST--; }
+  keyDown(k) { this.keys[k] = 1; if (this.waitReg >= 0 && this.waitKey < 0) this.waitKey = k; }
+  keyUp(k) {
+    this.keys[k] = 0;
+    if (this.waitReg >= 0 && this.waitKey === k) { this.V[this.waitReg] = k; this.waitReg = -1; this.waitKey = -1; }
+  }
+  write(a, v) { a &= 0xFFF; this.mem[a] = v; this.heat[a] = 255; }
+  trap(msg, pc) { this.fault = msg + ' @ 0x' + hex(pc, 3); this.PC = pc; return false; }
+  skip() { this.PC = (this.PC + 2) & 0xFFF; }
+
+  /* Ejecuta UNA instrucción. Devuelve false si la CPU se detiene (fault / EXIT). */
+  step() {
+    if (this.fault || this.halted) return false;
+    if (this.waitReg >= 0) return true;                       // Fx0A bloqueado esperando tecla
+    // ---------- FETCH ----------
+    const pc = this.PC, m = this.mem;
+    const op = (m[pc] << 8) | m[(pc + 1) & 0xFFF];
+    this.lastPC = pc; this.lastOp = op;
+    this.PC = (pc + 2) & 0xFFF;
+    this.cycles++;
+    // ---------- DECODE ----------
+    const x = (op >> 8) & 0xF, y = (op >> 4) & 0xF, n = op & 0xF, kk = op & 0xFF, nnn = op & 0xFFF, V = this.V;
+    // ---------- EXECUTE ----------
+    switch (op >> 12) {
+      case 0x0:
+        if (op === 0x00E0) this.disp.fill(0);
+        else if (op === 0x00EE) { if (this.SP === 0) return this.trap('STACK UNDERFLOW (RET sin CALL)', pc); this.PC = this.stack[--this.SP]; }
+        else if ((op & 0xFFF0) === 0x00C0) this.scroll(0, n);
+        else if (op === 0x00FB) this.scroll(4, 0);
+        else if (op === 0x00FC) this.scroll(-4, 0);
+        else if (op === 0x00FD) { this.halted = true; this.PC = pc; return false; }
+        break;                                                  // 0nnn SYS: ignorado
+      case 0x1: this.PC = nnn; break;
+      case 0x2:
+        if (this.SP >= 16) return this.trap('STACK OVERFLOW (>16 CALL anidados)', pc);
+        this.stack[this.SP++] = this.PC; this.PC = nnn; break;
+      case 0x3: if (V[x] === kk) this.skip(); break;
+      case 0x4: if (V[x] !== kk) this.skip(); break;
+      case 0x5: if (n !== 0) return this.trap('OPCODE ILEGAL ' + hex(op, 4), pc); if (V[x] === V[y]) this.skip(); break;
+      case 0x6: V[x] = kk; break;
+      case 0x7: V[x] = (V[x] + kk) & 0xFF; break;
+      case 0x8: {
+        const a = V[x], b = V[y], q = this.quirks;
+        switch (n) {
+          case 0x0: V[x] = b; break;
+          case 0x1: V[x] = a | b; if (q.vfReset) V[15] = 0; break;
+          case 0x2: V[x] = a & b; if (q.vfReset) V[15] = 0; break;
+          case 0x3: V[x] = a ^ b; if (q.vfReset) V[15] = 0; break;
+          case 0x4: { const r = a + b; V[x] = r & 0xFF; V[15] = r > 0xFF ? 1 : 0; break; }
+          case 0x5: V[x] = (a - b) & 0xFF; V[15] = a >= b ? 1 : 0; break;
+          case 0x6: { const s = q.shift ? b : a; V[x] = s >> 1; V[15] = s & 1; break; }
+          case 0x7: V[x] = (b - a) & 0xFF; V[15] = b >= a ? 1 : 0; break;
+          case 0xE: { const s = q.shift ? b : a; V[x] = (s << 1) & 0xFF; V[15] = (s >> 7) & 1; break; }
+          default: return this.trap('OPCODE ILEGAL ' + hex(op, 4), pc);
+        }
+        break;
+      }
+      case 0x9: if (n !== 0) return this.trap('OPCODE ILEGAL ' + hex(op, 4), pc); if (V[x] !== V[y]) this.skip(); break;
+      case 0xA: this.I = nnn; break;
+      case 0xB: this.PC = (nnn + V[this.quirks.jump ? x : 0]) & 0xFFF; break;
+      case 0xC: V[x] = (Math.random() * 256 | 0) & kk; break;
+      case 0xD: this.draw(V[x], V[y], n); break;
+      case 0xE:
+        if (kk === 0x9E) { if (this.keys[V[x] & 0xF]) this.skip(); }
+        else if (kk === 0xA1) { if (!this.keys[V[x] & 0xF]) this.skip(); }
+        else return this.trap('OPCODE ILEGAL ' + hex(op, 4), pc);
+        break;
+      case 0xF:
+        switch (kk) {
+          case 0x07: V[x] = this.DT; break;
+          case 0x0A: this.waitReg = x; this.waitKey = -1; break;
+          case 0x15: this.DT = V[x]; break;
+          case 0x18: this.ST = V[x]; break;
+          case 0x1E: this.I = (this.I + V[x]) & 0xFFF; break;
+          case 0x29: this.I = FONT_ADDR + (V[x] & 0xF) * 5; break;
+          case 0x33: this.write(this.I, (V[x] / 100) | 0); this.write(this.I + 1, ((V[x] / 10) | 0) % 10); this.write(this.I + 2, V[x] % 10); break;
+          case 0x55: for (let i = 0; i <= x; i++) this.write(this.I + i, V[i]); if (this.quirks.memInc) this.I = (this.I + x + 1) & 0xFFF; break;
+          case 0x65: for (let i = 0; i <= x; i++) V[i] = m[(this.I + i) & 0xFFF]; if (this.quirks.memInc) this.I = (this.I + x + 1) & 0xFFF; break;
+          default: return this.trap('OPCODE ILEGAL ' + hex(op, 4), pc);
+        }
+        break;
+    }
+    return true;
+  }
+  /* Dxyn: XOR de un sprite de n bytes desde I; VF = 1 si algún píxel se apagó (colisión) */
+  draw(vx, vy, n) {
+    const x0 = vx % W, y0 = vy % H, wrap = this.quirks.wrap, d = this.disp;
+    let hit = 0;
+    for (let r = 0; r < n; r++) {
+      let yy = y0 + r;
+      if (yy >= H) { if (wrap) yy %= H; else break; }
+      const bits = this.mem[(this.I + r) & 0xFFF];
+      if (!bits) continue;
+      for (let c = 0; c < 8; c++) {
+        if (!(bits & (0x80 >> c))) continue;
+        let xx = x0 + c;
+        if (xx >= W) { if (wrap) xx %= W; else break; }
+        const p = yy * W + xx;
+        if (d[p]) hit = 1;
+        d[p] ^= 1;
+      }
+    }
+    this.V[15] = hit;
+  }
+  /* Extensión: scroll de pantalla (00Cn abajo, 00FB derecha, 00FC izquierda) */
+  scroll(dx, dy) {
+    const s = this.disp.slice(), d = this.disp;
+    d.fill(0);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny < H) d[ny * W + nx] = s[y * W + x];
+    }
+  }
+}
+
+/* ---------- DESENSAMBLADOR: opcode de 16 bits → [mnemónico, descripción] ---------- */
+function disasm(op) {
+  const x = (op >> 8) & 0xF, y = (op >> 4) & 0xF, n = op & 0xF, kk = op & 0xFF, nnn = op & 0xFFF;
+  const X = 'V' + hex(x, 1), Y = 'V' + hex(y, 1), K = '0x' + hex(kk, 2), N = '0x' + hex(nnn, 3);
+  switch (op >> 12) {
+    case 0x0:
+      if (op === 0x00E0) return ['CLS', 'Borra el framebuffer 64×32'];
+      if (op === 0x00EE) return ['RET', 'PC ← pila[--SP] (retorno de subrutina)'];
+      if ((op & 0xFFF0) === 0x00C0) return ['SCD ' + n, 'Ext.: scroll abajo ' + n + ' líneas'];
+      if (op === 0x00FB) return ['SCR', 'Ext.: scroll derecha 4 px'];
+      if (op === 0x00FC) return ['SCL', 'Ext.: scroll izquierda 4 px'];
+      if (op === 0x00FD) return ['EXIT', 'Ext.: detiene la CPU'];
+      return ['SYS ' + N, 'Rutina máquina RCA 1802 (ignorada)'];
+    case 0x1: return ['JP ' + N, 'PC ← ' + N];
+    case 0x2: return ['CALL ' + N, 'pila[SP++] ← PC ; PC ← ' + N];
+    case 0x3: return [`SE ${X}, ${K}`, `Salta la siguiente si ${X} == ${kk}`];
+    case 0x4: return [`SNE ${X}, ${K}`, `Salta la siguiente si ${X} != ${kk}`];
+    case 0x5: if (n === 0) return [`SE ${X}, ${Y}`, `Salta si ${X} == ${Y}`]; break;
+    case 0x6: return [`LD ${X}, ${K}`, `${X} ← ${kk}`];
+    case 0x7: return [`ADD ${X}, ${K}`, `${X} ← ${X} + ${kk} (sin acarreo)`];
+    case 0x8:
+      switch (n) {
+        case 0x0: return [`LD ${X}, ${Y}`, `${X} ← ${Y}`];
+        case 0x1: return [`OR ${X}, ${Y}`, `${X} ← ${X} | ${Y}`];
+        case 0x2: return [`AND ${X}, ${Y}`, `${X} ← ${X} & ${Y}`];
+        case 0x3: return [`XOR ${X}, ${Y}`, `${X} ← ${X} ^ ${Y}`];
+        case 0x4: return [`ADD ${X}, ${Y}`, `${X} ← ${X} + ${Y} ; VF = acarreo`];
+        case 0x5: return [`SUB ${X}, ${Y}`, `${X} ← ${X} − ${Y} ; VF = NOT borrow`];
+        case 0x6: return [x === y ? `SHR ${X}` : `SHR ${X}, ${Y}`, `${X} ← ${X} >> 1 ; VF = bit 0`];
+        case 0x7: return [`SUBN ${X}, ${Y}`, `${X} ← ${Y} − ${X} ; VF = NOT borrow`];
+        case 0xE: return [x === y ? `SHL ${X}` : `SHL ${X}, ${Y}`, `${X} ← ${X} << 1 ; VF = bit 7`];
+      }
+      break;
+    case 0x9: if (n === 0) return [`SNE ${X}, ${Y}`, `Salta si ${X} != ${Y}`]; break;
+    case 0xA: return ['LD I, ' + N, 'I ← ' + N];
+    case 0xB: return ['JP V0, ' + N, 'PC ← ' + N + ' + V0'];
+    case 0xC: return [`RND ${X}, ${K}`, `${X} ← random & ${K}`];
+    case 0xD: return [`DRW ${X}, ${Y}, ${n}`, `Sprite 8×${n} desde I en (${X},${Y}) por XOR ; VF = colisión`];
+    case 0xE:
+      if (kk === 0x9E) return [`SKP ${X}`, `Salta si la tecla ${X} está pulsada`];
+      if (kk === 0xA1) return [`SKNP ${X}`, `Salta si la tecla ${X} NO está pulsada`];
+      break;
+    case 0xF:
+      switch (kk) {
+        case 0x07: return [`LD ${X}, DT`, `${X} ← Delay Timer`];
+        case 0x0A: return [`LD ${X}, K`, `Bloquea hasta pulsar/soltar tecla → ${X}`];
+        case 0x15: return [`LD DT, ${X}`, `Delay Timer ← ${X} (60 Hz)`];
+        case 0x18: return [`LD ST, ${X}`, `Sound Timer ← ${X} (beeper 60 Hz)`];
+        case 0x1E: return [`ADD I, ${X}`, `I ← I + ${X}`];
+        case 0x29: return [`LD F, ${X}`, `I ← glifo de fuente del dígito ${X}`];
+        case 0x33: return [`LD B, ${X}`, `BCD de ${X} → RAM[I], [I+1], [I+2]`];
+        case 0x55: return [`LD [I], ${X}`, `RAM[I..] ← V0..${X}`];
+        case 0x65: return [`LD ${X}, [I]`, `V0..${X} ← RAM[I..]`];
+      }
+      break;
+  }
+  return ['DW 0x' + hex(op, 4), 'Datos / opcode no válido'];
+}
+/* =====================================================================
+ *  2) ENSAMBLADOR DE DOS PASADAS: ASM con etiquetas → bytecode en 0x200
+ * ===================================================================== */
+const Assembler = (() => {
+  const KEYWORDS = new Set(['I', 'DT', 'ST', 'K', 'F', 'B']);
+  const regOf = s => { const m = /^V([0-9A-F])$/i.exec(s); return m ? parseInt(m[1], 16) : -1; };
+
+  /* Evaluador de expresiones: | ^ & << >> + - * / unarios - ~ y paréntesis */
+  function evalExpr(src, symbols, pass) {
+    const s = src.trim();
+    const toks = s.match(/0x[0-9a-f]+|\$[0-9a-f]+|0b[01]+|%[01]+|\d+|[A-Za-z_.][\w.]*|<<|>>|[-+*/()&|^~]/gi) || [];
+    if (toks.join('') !== s.replace(/\s+/g, '')) throw new Error('Expresión inválida: "' + s + '"');
+    let p = 0;
+    const peek = () => toks[p], next = () => toks[p++];
+    const bin = (sub, ops, fn) => () => { let v = sub(); while (ops.includes(peek())) { const o = next(); v = fn(o, v, sub()); } return v; };
+    const primary = () => {
+      const t = next();
+      if (t === undefined) throw new Error('Expresión incompleta: "' + s + '"');
+      if (t === '(') { const v = orE(); if (next() !== ')') throw new Error('Falta ")" en "' + s + '"'); return v; }
+      if (t === '-') return -primary();
+      if (t === '+') return primary();
+      if (t === '~') return ~primary();
+      if (/^0x/i.test(t)) return parseInt(t.slice(2), 16);
+      if (t[0] === '$') return parseInt(t.slice(1), 16);
+      if (/^0b/i.test(t)) return parseInt(t.slice(2), 2);
+      if (t[0] === '%') return parseInt(t.slice(1), 2);
+      if (/^\d/.test(t)) return parseInt(t, 10);
+      const k = t.toUpperCase();
+      if (symbols.has(k)) return symbols.get(k);
+      if (pass === 1) return 0;
+      throw new Error('Símbolo no definido: ' + t);
+    };
+    const mul = bin(primary, ['*', '/'], (o, a, b) => o === '*' ? a * b : (b ? Math.trunc(a / b) : 0));
+    const add = bin(mul, ['+', '-'], (o, a, b) => o === '+' ? a + b : a - b);
+    const sh = bin(add, ['<<', '>>'], (o, a, b) => o === '<<' ? a << b : a >> b);
+    const andE = bin(sh, ['&'], (o, a, b) => a & b);
+    const xorE = bin(andE, ['^'], (o, a, b) => a ^ b);
+    const orE = bin(xorE, ['|'], (o, a, b) => a | b);
+    const v = orE();
+    if (p !== toks.length) throw new Error('Token inesperado "' + toks[p] + '" en "' + s + '"');
+    return v;
+  }
+
+  /* Codifica un mnemónico + operandos en un opcode de 16 bits */
+  function encode(mn, ops, ev) {
+    const U = ops.map(o => o.toUpperCase().replace(/\s+/g, ''));
+    const rx = U.length > 0 ? regOf(U[0]) : -1, ry = U.length > 1 ? regOf(U[1]) : -1;
+    const need = c => { if (ops.length !== c) throw new Error(`${mn} espera ${c} operando(s), recibió ${ops.length}`); };
+    const reqX = () => { if (rx < 0) throw new Error(`${mn}: el primer operando debe ser un registro V0..VF`); };
+    const reqY = () => { if (ry < 0) throw new Error(`${mn}: el segundo operando debe ser un registro V0..VF`); };
+    const addr = s => { const v = ev(s); if (v < 0 || v > 0xFFF) throw new Error('Dirección fuera de rango (0..0xFFF): ' + s); return v; };
+    const byte = s => { const v = ev(s); if (v < -128 || v > 255) throw new Error('Byte fuera de rango (-128..255): ' + s); return v & 0xFF; };
+    const nib = s => { const v = ev(s); if (v < 0 || v > 15) throw new Error('Nibble fuera de rango (0..15): ' + s); return v; };
+    const XY = base => { need(2); reqX(); reqY(); return base | rx << 8 | ry << 4; };
+    switch (mn) {
+      case 'CLS': need(0); return 0x00E0;
+      case 'RET': need(0); return 0x00EE;
+      case 'EXIT': need(0); return 0x00FD;
+      case 'SCR': need(0); return 0x00FB;
+      case 'SCL': need(0); return 0x00FC;
+      case 'SCD': need(1); return 0x00C0 | nib(ops[0]);
+      case 'SYS': need(1); return addr(ops[0]);
+      case 'JP':
+        if (ops.length === 2) { if (U[0] !== 'V0') throw new Error('JP con 2 operandos requiere V0'); return 0xB000 | addr(ops[1]); }
+        need(1); return 0x1000 | addr(ops[0]);
+      case 'CALL': need(1); return 0x2000 | addr(ops[0]);
+      case 'SE': case 'SNE':
+        need(2); reqX();
+        if (ry >= 0) return (mn === 'SE' ? 0x5000 : 0x9000) | rx << 8 | ry << 4;
+        return (mn === 'SE' ? 0x3000 : 0x4000) | rx << 8 | byte(ops[1]);
+      case 'LD': {
+        need(2); const a = U[0], b = U[1];
+        if (a === 'I') return 0xA000 | addr(ops[1]);
+        if (ry >= 0) {
+          if (a === 'DT') return 0xF015 | ry << 8;
+          if (a === 'ST') return 0xF018 | ry << 8;
+          if (a === 'F') return 0xF029 | ry << 8;
+          if (a === 'B') return 0xF033 | ry << 8;
+          if (a === '[I]') return 0xF055 | ry << 8;
+        }
+        if (rx >= 0) {
+          if (b === 'DT') return 0xF007 | rx << 8;
+          if (b === 'K') return 0xF00A | rx << 8;
+          if (b === '[I]') return 0xF065 | rx << 8;
+          if (ry >= 0) return 0x8000 | rx << 8 | ry << 4;
+          return 0x6000 | rx << 8 | byte(ops[1]);
+        }
+        throw new Error('Combinación de operandos inválida para LD');
+      }
+      case 'ADD':
+        need(2);
+        if (U[0] === 'I') { reqY(); return 0xF01E | ry << 8; }
+        reqX();
+        if (ry >= 0) return 0x8004 | rx << 8 | ry << 4;
+        return 0x7000 | rx << 8 | byte(ops[1]);
+      case 'OR': return XY(0x8001);
+      case 'AND': return XY(0x8002);
+      case 'XOR': return XY(0x8003);
+      case 'SUB': return XY(0x8005);
+      case 'SUBN': return XY(0x8007);
+      case 'SHR': case 'SHL': {
+        if (ops.length < 1 || ops.length > 2) throw new Error(mn + ' espera 1 o 2 operandos');
+        reqX(); const yy = ops.length === 2 ? ry : rx; if (yy < 0) throw new Error(mn + ': operando inválido');
+        return (mn === 'SHR' ? 0x8006 : 0x800E) | rx << 8 | yy << 4;
+      }
+      case 'RND': need(2); reqX(); return 0xC000 | rx << 8 | byte(ops[1]);
+      case 'DRW': need(3); reqX(); reqY(); return 0xD000 | rx << 8 | ry << 4 | nib(ops[2]);
+      case 'SKP': need(1); reqX(); return 0xE09E | rx << 8;
+      case 'SKNP': need(1); reqX(); return 0xE0A1 | rx << 8;
+    }
+    throw new Error('Mnemónico desconocido: ' + mn);
+  }
+
+  function assemble(src) {
+    const lines = src.replace(/\r/g, '').split('\n');
+    const errors = [], symbols = new Map();
+    let out, labelsAt, lineAt, dataAt, instrCount;
+    for (let pass = 1; pass <= 2; pass++) {
+      let pc = ROM_ADDR;
+      out = []; labelsAt = new Map(); lineAt = new Map(); dataAt = new Set(); instrCount = 0;
+      const defined = new Set();
+      const emit = b => { out.push(b & 0xFF); pc++; };
+      for (let li = 0; li < lines.length; li++) {
+        const ev = e => evalExpr(e, symbols, pass);
+        try {
+          let line = lines[li];
+          const sc = line.indexOf(';'); if (sc >= 0) line = line.slice(0, sc);
+          line = line.trim();
+          if (!line) continue;
+          let m;
+          while ((m = /^([A-Za-z_.][\w.]*)\s*:/.exec(line))) {      // etiquetas (una o varias)
+            const name = m[1], key = name.toUpperCase();
+            if (regOf(key) >= 0 || KEYWORDS.has(key)) throw new Error('Nombre de etiqueta reservado: ' + name);
+            if (pass === 1) { if (defined.has(key)) throw new Error('Etiqueta duplicada: ' + name); defined.add(key); }
+            symbols.set(key, pc);
+            labelsAt.set(pc, (labelsAt.has(pc) ? labelsAt.get(pc) + ' ' : '') + name);
+            line = line.slice(m[0].length).trim();
+          }
+          if (!line) continue;
+          if ((m = /^([A-Za-z_][\w.]*)\s+(?:EQU\b|=)\s*(.+)$/i.exec(line)) || (m = /^DEFINE\s+([A-Za-z_][\w.]*)\s+(.+)$/i.exec(line))) {
+            symbols.set(m[1].toUpperCase(), ev(m[2]));
+            continue;
+          }
+          const sp = line.search(/\s/);
+          const mn = (sp < 0 ? line : line.slice(0, sp)).toUpperCase();
+          const rest = sp < 0 ? '' : line.slice(sp + 1).trim();
+          const ops = rest ? rest.split(',').map(t => t.trim()) : [];
+          if (ops.some(o => !o)) throw new Error('Operando vacío');
+          switch (mn) {
+            case 'ORG': { const a = ev(ops[0]); if (a < pc) throw new Error('ORG hacia atrás (0x' + hex(a, 3) + ')'); while (pc < a) emit(0); break; }
+            case 'ALIGN': { const a = ev(ops[0]) || 1; while ((pc % a) !== 0) emit(0); break; }
+            case 'DB': case 'BYTE':
+              for (const o of ops) { const v = ev(o); if (pass === 2 && (v < -128 || v > 255)) throw new Error('DB fuera de rango: ' + o); dataAt.add(pc); emit(v); }
+              break;
+            case 'DW': case 'WORD':
+              for (const o of ops) { const v = ev(o) & 0xFFFF; dataAt.add(pc); dataAt.add(pc + 1); emit(v >> 8); emit(v); }
+              break;
+            case 'DS': { const nB = ev(ops[0]); if (nB < 0 || nB > 4096) throw new Error('DS fuera de rango'); for (let i = 0; i < nB; i++) { dataAt.add(pc); emit(0); } break; }
+            default: {
+              let op = 0;
+              lineAt.set(pc, li + 1);
+              try { op = encode(mn, ops, ev); } catch (e) { if (pass === 2 || /Mnemónico|espera|debe ser|reservado|inválida/.test(e.message)) throw e; }
+              emit(op >> 8); emit(op); instrCount++;
+            }
+          }
+          if (pc > 0x1000) throw new Error('El programa excede la RAM (0x1000)');
+        } catch (e) {
+          if (pass === 2 || !errors.some(er => er.line === li + 1)) {
+            if (!errors.some(er => er.line === li + 1 && er.msg === e.message)) errors.push({ line: li + 1, msg: e.message });
+          }
+        }
+      }
+      if (pass === 1 && errors.length) break;
+    }
+    errors.sort((a, b) => a.line - b.line);
+    return { bytes: Uint8Array.from(out), errors, symbols, labelsAt, lineAt, dataAt, instrCount };
+  }
+  return { assemble, evalExpr };
+})();
+/* =====================================================================
+ *  3) ROMs EN CÓDIGO FUENTE ASM (se ensamblan al vuelo y se flashean)
+ * ===================================================================== */
+const ROM_PONG = `; ╔══════════════════════════════════════════════════════╗
+; ║  CYBER PONG  ·  NEON-8 ROM #1                         ║
+; ╚══════════════════════════════════════════════════════╝
+; Controles: W / S  (teclas hex 5 / 8) mueven la paleta izquierda.
+; Modo ATTRACT: la CPU juega contra sí misma hasta que pulses W o S.
+; Primer jugador en llegar a 10 puntos reinicia el partido.
+;
+; Mapa de registros:
+;   V0-V2 temporales / BCD     V3,V4 pelota X,Y      V5,V6 velocidad DX,DY
+;   V7 paleta izq. Y           V8 paleta der. Y      V9,VA marcadores
+;   VB modo demo (1=attract)   VC,VD temporales      VE contador de IA
+;   VF bandera de acarreo / colisión
+
+PADDLE_H  EQU 6
+LEFT_X    EQU 2
+RIGHT_X   EQU 61
+MAX_Y     EQU 32-PADDLE_H
+
+boot:
+        LD   VB, 1              ; arranca en modo attract
+start:
+        CLS
+        LD   V9, 0
+        LD   VA, 0
+        LD   V7, 13
+        LD   V8, 13
+        LD   VE, 0
+        CALL draw_net
+        CALL draw_scores
+        CALL draw_paddles
+
+serve:
+        LD   V3, 32
+        RND  V4, 15
+        ADD  V4, 8              ; Y inicial 8..23
+        RND  V5, 2
+        ADD  V5, 255            ; DX = -1 o +1
+        RND  V6, 2
+        ADD  V6, 255            ; DY = -1 o +1
+        LD   I, ball
+        DRW  V3, V4, 1
+
+loop:
+        LD   V0, DT             ; sincronía a 60 Hz con el Delay Timer
+        SE   V0, 0
+        JP   loop
+        LD   V0, 1
+        LD   DT, V0
+
+        CALL draw_paddles       ; borra paletas (XOR)
+
+        LD   V0, 5              ; ¿tocó W o S? -> sale del modo attract
+        SKNP V0
+        LD   VB, 0
+        LD   V0, 8
+        SKNP V0
+        LD   VB, 0
+        SE   VB, 0
+        JP   left_ai
+
+        LD   V0, 5              ; --- paleta izquierda: jugador humano
+        SKP  V0
+        JP   l_down
+        SE   V7, 0
+        ADD  V7, 255
+l_down:
+        LD   V0, 8
+        SKP  V0
+        JP   right_ai
+        SE   V7, MAX_Y
+        ADD  V7, 1
+        JP   right_ai
+
+left_ai:
+        LD   VC, V7
+        CALL ai_track
+        LD   V7, VC
+
+right_ai:
+        ADD  VE, 1              ; la IA derecha "parpadea" 1 de cada 4 ticks
+        LD   V0, 3
+        AND  V0, VE
+        SNE  V0, 0
+        JP   ball_move
+        LD   VC, V8
+        CALL ai_track
+        LD   V8, VC
+
+ball_move:
+        LD   I, ball
+        DRW  V3, V4, 1          ; borra la pelota
+        ADD  V3, V5
+        ADD  V4, V6
+        SNE  V4, 0              ; rebote en el techo
+        LD   V6, 1
+        SNE  V4, 31             ; rebote en el suelo
+        LD   V6, 255
+
+        SE   V3, 3              ; --- colisión con la paleta izquierda
+        JP   hit_r
+        SE   V5, 255
+        JP   hit_r
+        LD   VC, V7
+        CALL paddle_test
+        SE   VF, 1
+        JP   hit_r
+        LD   V5, 1
+        CALL english
+hit_r:
+        SE   V3, 60             ; --- colisión con la paleta derecha
+        JP   edges
+        SE   V5, 1
+        JP   edges
+        LD   VC, V8
+        CALL paddle_test
+        SE   VF, 1
+        JP   edges
+        LD   V5, 255
+        CALL english
+edges:
+        SNE  V3, 0
+        JP   point_r
+        SNE  V3, 63
+        JP   point_l
+        LD   I, ball
+        DRW  V3, V4, 1
+        CALL draw_paddles
+        JP   loop
+
+point_r:
+        CALL draw_scores        ; borra marcador viejo
+        ADD  VA, 1
+        JP   scored
+point_l:
+        CALL draw_scores
+        ADD  V9, 1
+scored:
+        CALL draw_scores        ; dibuja marcador nuevo (BCD)
+        CALL draw_paddles
+        LD   V0, 12
+        LD   ST, V0             ; beep largo
+        LD   V0, 40
+        LD   DT, V0
+sc_wait:
+        LD   V0, DT
+        SE   V0, 0
+        JP   sc_wait
+        SNE  V9, 10
+        JP   start
+        SNE  VA, 10
+        JP   start
+        JP   serve
+
+; ---- paddle_test: VC = Y paleta -> VF=1 si la pelota la toca, V0 = offset
+paddle_test:
+        LD   V0, V4
+        SUB  V0, VC             ; V0 = bola - paleta ; VF=1 si bola >= paleta
+        SE   VF, 1
+        RET
+        LD   V1, PADDLE_H-1
+        SUB  V1, V0             ; VF=1 si offset <= 5
+        RET
+
+; ---- english: cambia DY según la zona de impacto (V0 = offset 0..5)
+english:
+        LD   V1, V0
+        LD   V2, 2
+        SUB  V1, V2             ; VF=1 si offset >= 2
+        SE   VF, 1
+        LD   V6, 255            ; punta superior -> sube
+        LD   V1, 3
+        SUB  V1, V0             ; VF=1 si offset <= 3
+        SE   VF, 1
+        LD   V6, 1              ; punta inferior -> baja
+        LD   V0, 3
+        LD   ST, V0             ; "blip"
+        RET
+
+; ---- ai_track: mueve la paleta VC 1 píxel hacia la pelota
+ai_track:
+        LD   V0, VC
+        ADD  V0, 2              ; centro de la paleta
+        LD   V1, V4
+        SUB  V1, V0             ; VF=1 si bola >= centro
+        SE   VF, 1
+        JP   ai_up
+        LD   V0, VC
+        ADD  V0, 3
+        SUB  V0, V4             ; VF=1 si paleta+3 >= bola -> quieta
+        SE   VF, 0
+        RET
+        SE   VC, MAX_Y
+        ADD  VC, 1
+        RET
+ai_up:
+        SE   VC, 0
+        ADD  VC, 255
+        RET
+
+draw_paddles:
+        LD   I, paddle
+        LD   VC, LEFT_X
+        DRW  VC, V7, PADDLE_H
+        LD   VC, RIGHT_X
+        DRW  VC, V8, PADDLE_H
+        RET
+
+; ---- marcador: Fx33 convierte a BCD, Fx65 carga los dígitos, Fx29 apunta al glifo
+draw_scores:
+        LD   VD, 1
+        LD   I, bcd
+        LD   B, V9
+        LD   V2, [I]
+        LD   VC, 20
+        LD   F, V1
+        DRW  VC, VD, 5
+        LD   VC, 25
+        LD   F, V2
+        DRW  VC, VD, 5
+        LD   I, bcd
+        LD   B, VA
+        LD   V2, [I]
+        LD   VC, 35
+        LD   F, V1
+        DRW  VC, VD, 5
+        LD   VC, 40
+        LD   F, V2
+        DRW  VC, VD, 5
+        RET
+
+draw_net:
+        LD   I, net
+        LD   VC, 31
+        LD   VD, 0
+net_lp:
+        DRW  VC, VD, 8
+        ADD  VD, 8
+        SE   VD, 32
+        JP   net_lp
+        RET
+
+; ---------------- datos ----------------
+paddle: DB 0x80, 0x80, 0x80, 0x80, 0x80, 0x80
+ball:   DB 0x80
+net:    DB 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00
+bcd:    DS 3
+`;
+const ROM_INVADERS = `; ╔══════════════════════════════════════════════════════╗
+; ║  STAR INVADERS · LASER DEFENSE  ·  NEON-8 ROM #2      ║
+; ╚══════════════════════════════════════════════════════╝
+; Controles: A / D (hex 7 / 9) mover · W, E o ESPACIO (hex 5 / 6) disparar
+; Oleadas infinitas de 12 aliens. La formación acelera al morir aliens.
+; Los impactos se detectan con la bandera de colisión VF de DRW.
+;
+; Mapa de registros:
+;   V0-V2 temporales / BCD   V3 nave X           V4,V5 láser X,Y (V5=0 -> sin láser)
+;   V6,V7 formación X,Y      V8 dirección ±1     V9 temporizador de marcha
+;   VA aliens vivos          VB índice / temp    VC,VD bomba X,Y (VD=0 -> sin bomba)
+;   VE temporal              VF colisión / acarreo
+; Cada alien tiene un "slot" de 8 bytes en RAM (frame A + frame B).
+; Un slot a ceros = alien muerto (se dibuja vacío, sin ramas en el bucle).
+
+SHIP_Y  EQU 27
+
+start:
+        LD   V0, 0
+        LD   I, score
+        LD   [I], V0
+        LD   V0, 3
+        LD   I, lives
+        LD   [I], V0
+
+new_wave:
+        CLS
+        LD   VB, 0              ; copia plantillas a los 12 slots
+nw_fill:
+        LD   I, tmpl_top
+        LD   V0, 47
+        SUB  V0, VB             ; VF=1 -> fila superior
+        SE   VF, 1
+        LD   I, tmpl_bot
+        LD   V7, [I]            ; V0..V7 <- 8 bytes de plantilla
+        LD   I, slots
+        ADD  I, VB
+        LD   [I], V7            ; slot <- V0..V7
+        ADD  VB, 8
+        SE   VB, 96
+        JP   nw_fill
+
+        LD   V3, 29
+        LD   V5, 0
+        LD   V6, 0
+        LD   V7, 7
+        LD   V8, 1
+        LD   V9, 0
+        LD   VA, 12
+        LD   VD, 0
+        CALL draw_score
+        CALL draw_lives
+        CALL draw_ship
+        CALL draw_aliens
+
+main:
+        LD   V0, DT
+        SE   V0, 0
+        JP   main
+        LD   V0, 2
+        LD   DT, V0             ; 30 ticks/s
+
+        LD   V0, 7              ; --- izquierda
+        SKP  V0
+        JP   in_r
+        SE   V3, 0
+        CALL ship_left
+in_r:
+        LD   V0, 9              ; --- derecha
+        SKP  V0
+        JP   in_f
+        SE   V3, 59
+        CALL ship_right
+in_f:
+        LD   V0, 5              ; --- disparo (W o E)
+        SKNP V0
+        JP   do_fire
+        LD   V0, 6
+        SKP  V0
+        JP   in_done
+do_fire:
+        SNE  V5, 0
+        CALL fire
+in_done:
+        SE   V5, 0
+        CALL bullet_tick
+        SNE  VA, 0
+        JP   wave_clear
+        SE   VD, 0
+        CALL bomb_tick
+        SNE  VD, 255
+        JP   player_hit
+        SNE  VD, 0
+        CALL try_bomb
+
+        ADD  V9, 1              ; --- marcha: umbral = vivos/2 + 1 ticks
+        LD   V0, VA
+        SHR  V0
+        ADD  V0, 1
+        LD   V1, V9
+        SUB  V1, V0
+        SE   VF, 1
+        JP   main
+        LD   V9, 0
+        CALL march
+        LD   V0, 15
+        SUB  V0, V7             ; ¿la formación llegó abajo?
+        SE   VF, 1
+        JP   game_over
+        JP   main
+
+; ---------------- nave ----------------
+ship_left:
+        CALL draw_ship
+        ADD  V3, 255
+        JP   draw_ship
+ship_right:
+        CALL draw_ship
+        ADD  V3, 1
+draw_ship:
+        LD   I, ship
+        LD   V1, SHIP_Y
+        DRW  V3, V1, 3
+        RET
+
+fire:
+        LD   V4, V3
+        ADD  V4, 2
+        LD   V5, 24
+        LD   I, shot
+        DRW  V4, V5, 2
+        LD   V0, 2
+        LD   ST, V0
+        RET
+
+; ---------------- láser ----------------
+bullet_tick:
+        LD   I, shot
+        DRW  V4, V5, 2          ; borra
+        ADD  V5, 254            ; sube 2 px
+        LD   V0, 5
+        SUB  V0, V5
+        SE   VF, 0
+        JP   bt_kill            ; salió por arriba
+        DRW  V4, V5, 2
+        SE   VF, 0
+        JP   bt_hit             ; ¡colisión!
+        RET
+bt_kill:
+        LD   V5, 0
+        RET
+bt_hit:
+        DRW  V4, V5, 2          ; borra el láser
+        LD   V2, V5
+        ADD  V2, 1
+        SUB  V2, V7             ; V2 = Y relativa a la formación
+        SE   VF, 1
+        JP   bt_kill
+        LD   V0, 11
+        SUB  V0, V2
+        SE   VF, 1
+        JP   bt_kill
+        LD   V1, V4
+        SUB  V1, V6             ; V1 = X relativa
+        SE   VF, 1
+        JP   bt_kill
+        LD   V0, 7
+        AND  V0, V1
+        LD   VE, 5
+        SUB  VE, V0             ; ¿dentro de los 6 px del alien?
+        SE   VF, 1
+        JP   bt_kill
+        SHR  V1
+        SHR  V1
+        SHR  V1                 ; columna 0..5
+        LD   V0, 5
+        SUB  V0, V1
+        SE   VF, 1
+        JP   bt_kill
+        LD   VB, V1
+        SHL  VB
+        SHL  VB
+        SHL  VB                 ; VB = columna*8 (offset de slot)
+        LD   V1, VB
+        ADD  V1, V6             ; V1 = X del alien
+        LD   V0, 5
+        SUB  V0, V2             ; VF=1 -> fila 0
+        LD   V2, V7
+        SE   VF, 0
+        JP   bt_row0
+        ADD  V2, 6
+        ADD  VB, 48
+bt_row0:
+        LD   I, slots
+        ADD  I, VB
+        LD   V0, [I]
+        SNE  V0, 0
+        JP   bt_kill            ; slot vacío
+        LD   I, slots           ; borra el alien con su frame actual
+        ADD  I, VB
+        LD   V0, 1
+        AND  V0, V6
+        SHL  V0
+        SHL  V0
+        ADD  I, V0
+        DRW  V1, V2, 4
+        LD   V0, 0              ; vacía el slot (8 bytes)
+        LD   V1, 8
+bt_zero:
+        LD   I, slots
+        ADD  I, VB
+        LD   [I], V0
+        ADD  VB, 1
+        ADD  V1, 255
+        SE   V1, 0
+        JP   bt_zero
+        ADD  VA, 255
+        LD   V0, 6
+        LD   ST, V0
+        CALL draw_score         ; borra marcador
+        LD   I, score
+        LD   V0, [I]
+        ADD  V0, 1
+        LD   I, score
+        LD   [I], V0
+        CALL draw_score
+        JP   bt_kill
+
+; ---------------- bombas alienígenas ----------------
+bomb_tick:
+        LD   I, bomb
+        DRW  VC, VD, 3
+        ADD  VD, 1
+        SNE  VD, 29
+        JP   bomb_gone
+        DRW  VC, VD, 3
+        SE   VF, 1
+        RET
+        LD   V0, 24
+        SUB  V0, VD             ; VF=1 -> todavía arriba (chocó con el láser)
+        SE   VF, 0
+        RET
+        DRW  VC, VD, 3
+        LD   VD, 255            ; señal: ¡nave alcanzada!
+        RET
+bomb_gone:
+        LD   VD, 0
+        RET
+
+try_bomb:
+        RND  V0, 7
+        SE   V0, 0
+        RET
+        RND  V1, 7
+        LD   V0, 5
+        SUB  V0, V1
+        SE   VF, 1
+        RET
+        SHL  V1
+        SHL  V1
+        SHL  V1                 ; V1 = columna*8
+        LD   VD, V7
+        ADD  VD, 11
+        LD   V2, V1
+        ADD  V2, 48
+        LD   I, slots
+        ADD  I, V2
+        LD   V0, [I]
+        SE   V0, 0
+        JP   tb_drop            ; dispara el alien de abajo
+        LD   VD, V7
+        ADD  VD, 5
+        LD   I, slots
+        ADD  I, V1
+        LD   V0, [I]
+        SNE  V0, 0
+        JP   tb_none
+tb_drop:
+        LD   VC, V1
+        ADD  VC, V6
+        ADD  VC, 2
+        LD   I, bomb
+        DRW  VC, VD, 3
+        RET
+tb_none:
+        LD   VD, 0
+        RET
+
+; ---------------- formación ----------------
+march:
+        CALL draw_aliens        ; borra
+        LD   V0, V6
+        ADD  V0, V8
+        SNE  V0, 255
+        JP   m_down
+        SNE  V0, 19
+        JP   m_down
+        LD   V6, V0
+        JP   m_draw
+m_down:
+        ADD  V7, 2              ; baja e invierte dirección
+        LD   V0, 0
+        SUB  V0, V8
+        LD   V8, V0
+m_draw:
+        CALL draw_aliens
+        LD   V0, 1
+        LD   ST, V0
+        RET
+
+draw_aliens:
+        LD   VB, 0
+        LD   V0, 1
+        AND  V0, V6
+        SE   V0, 0
+        LD   VB, 4              ; frame B si X es impar (animación)
+        LD   V2, V7
+        LD   VE, V6
+        ADD  VE, 48
+da_row:
+        LD   V1, V6
+da_col:
+        LD   I, slots
+        ADD  I, VB
+        DRW  V1, V2, 4
+        ADD  VB, 8
+        ADD  V1, 8
+        SE   V1, VE
+        JP   da_col
+        ADD  V2, 6
+        LD   V0, V7
+        ADD  V0, 12
+        SE   V2, V0
+        JP   da_row
+        RET
+
+; ---------------- HUD ----------------
+draw_score:
+        LD   I, score
+        LD   V0, [I]
+        LD   I, bcd
+        LD   B, V0
+        LD   V2, [I]
+        LD   VB, 0
+        LD   VE, 0
+        LD   F, V0
+        DRW  VB, VE, 5
+        LD   VB, 5
+        LD   F, V1
+        DRW  VB, VE, 5
+        LD   VB, 10
+        LD   F, V2
+        DRW  VB, VE, 5
+        RET
+
+draw_lives:
+        LD   I, lives
+        LD   V0, [I]
+        LD   F, V0
+        LD   VB, 59
+        LD   VE, 0
+        DRW  VB, VE, 5
+        RET
+
+; ---------------- eventos ----------------
+player_hit:
+        LD   VD, 0
+        LD   V0, 25
+        LD   ST, V0
+        CALL draw_lives
+        LD   I, lives
+        LD   V0, [I]
+        ADD  V0, 255
+        LD   I, lives
+        LD   [I], V0
+        CALL draw_lives
+        LD   VB, 10
+ph_blink:
+        CALL draw_ship
+        LD   V0, 5
+        CALL wait
+        ADD  VB, 255
+        SE   VB, 0
+        JP   ph_blink
+        LD   I, lives
+        LD   V0, [I]
+        SE   V0, 0
+        JP   main
+        JP   game_over
+
+wave_clear:
+        LD   V0, 15
+        LD   ST, V0
+        LD   V0, 45
+        CALL wait
+        JP   new_wave
+
+game_over:
+        CLS
+        LD   V0, 40
+        LD   ST, V0
+        CALL draw_score
+        LD   VB, s_over-strings
+        LD   V1, 10
+        LD   V2, 13
+        CALL print
+        LD   V0, 90
+        CALL wait
+        LD   V0, K              ; espera cualquier tecla
+        JP   start
+
+wait:                           ; espera V0 frames con el Delay Timer
+        LD   DT, V0
+w_lp:
+        LD   V0, DT
+        SE   V0, 0
+        JP   w_lp
+        RET
+
+print:                          ; VB = offset de cadena, V1,V2 = X,Y
+        LD   I, strings
+        ADD  I, VB
+        LD   V0, [I]
+        SNE  V0, 255
+        RET
+        LD   I, glyphs
+        ADD  I, V0
+        DRW  V1, V2, 5
+        ADD  V1, 5
+        ADD  VB, 1
+        JP   print
+
+; ---------------- datos ----------------
+ship:     DB 0x20, 0x70, 0xF8
+shot:     DB 0x80, 0x80
+bomb:     DB 0x40, 0x80, 0x40
+tmpl_top: DB 0x30, 0x78, 0xFC, 0x48,  0x30, 0x78, 0xFC, 0x84   ; calamar A/B
+tmpl_bot: DB 0x48, 0xFC, 0xB4, 0x84,  0x48, 0xFC, 0xB4, 0x48   ; cangrejo A/B
+score:    DB 0
+lives:    DB 3
+bcd:      DS 3
+
+glyphs:
+gG:  DB 0x70, 0x80, 0xB0, 0x90, 0x70
+gA:  DB 0x60, 0x90, 0xF0, 0x90, 0x90
+gM:  DB 0x90, 0xF0, 0xF0, 0x90, 0x90
+gE:  DB 0xF0, 0x80, 0xE0, 0x80, 0xF0
+gO:  DB 0x60, 0x90, 0x90, 0x90, 0x60
+gV:  DB 0x90, 0x90, 0x90, 0x60, 0x60
+gR:  DB 0xE0, 0x90, 0xE0, 0xA0, 0x90
+gSP: DB 0, 0, 0, 0, 0
+
+strings:
+s_over: DB gG-glyphs, gA-glyphs, gM-glyphs, gE-glyphs, gSP-glyphs
+        DB gO-glyphs, gV-glyphs, gE-glyphs, gR-glyphs, 255
+
+slots:    DS 96                 ; 12 aliens × 8 bytes
+`;
+/* Tablas precalculadas de la demo (seno y textura de plasma con dithering) emitidas como líneas DB */
+const PLASMA_TABLES = (() => {
+  const dbLines = (arr) => {
+    const out = [];
+    for (let i = 0; i < arr.length; i += 8) out.push('        DB ' + arr.slice(i, i + 8).map(v => '0x' + hex(v, 2)).join(', '));
+    return out.join('\n');
+  };
+  const sin = [];
+  for (let i = 0; i < 32; i++) sin.push(Math.round(16 + 15 * Math.sin(i / 32 * Math.PI * 2)));
+  const DITHER = [[0x00, 0x00], [0x88, 0x22], [0xAA, 0x55], [0x77, 0xDD], [0xFF, 0xFF]];
+  const strip = [];
+  for (let i = 0; i < 72; i++) {
+    const t = (i % 64) / 64 * Math.PI * 2;
+    const v = 0.5 + 0.32 * Math.sin(t * 2) + 0.18 * Math.sin(t * 3 + 1.1);
+    const lvl = Math.max(0, Math.min(4, Math.round(v * 4)));
+    strip.push(DITHER[lvl][i & 1]);
+  }
+  return { sin: dbLines(sin), strip: dbLines(strip) };
+})();
+
+const ROM_DEMO = `; ╔══════════════════════════════════════════════════════╗
+; ║  MATRIX · PLASMA · MAZE  —  demoscene NEON-8 ROM #3   ║
+; ╚══════════════════════════════════════════════════════╝
+; Tres efectos en bucle infinito:
+;   1) Lluvia digital "Matrix" (rejilla 16×6 de glifos en RAM, borrado por XOR)
+;   2) Plasma por tiles: textura dithered + tabla de senos desplazada por columna
+;   3) Generador de laberintos perfectos (algoritmo Binary Tree) a toda velocidad
+; Tecla E / ESPACIO (hex 6): saltar al siguiente efecto.
+
+; ===================== PARTE 1: LLUVIA DIGITAL =====================
+start:
+        LD   VB, s_matrix-strings
+        LD   V1, 17
+        CALL title
+        CLS
+        LD   VB, 0              ; cabezas iniciales (11..14 -> ocultas)
+mx_init:
+        RND  V0, 3
+        ADD  V0, 11
+        LD   I, heads
+        ADD  I, VB
+        LD   [I], V0
+        ADD  VB, 1
+        SE   VB, 16
+        JP   mx_init
+        LD   VD, 96             ; 160 pasos (96 -> 256)
+mx_loop:
+        LD   V0, DT
+        SE   V0, 0
+        JP   mx_loop
+        LD   V0, 1
+        LD   DT, V0
+        RND  VC, 15             ; avanza 4 columnas al azar
+        CALL mx_col
+        RND  VC, 15
+        CALL mx_col
+        RND  VC, 15
+        CALL mx_col
+        RND  VC, 15
+        CALL mx_col
+        LD   V0, 6
+        SKNP V0
+        JP   part2
+        ADD  VD, 1
+        SE   VD, 0
+        JP   mx_loop
+        JP   part2
+
+; ---- mx_col: avanza la columna VC (cabeza nueva + borrado de la cola)
+mx_col:
+        LD   I, heads
+        ADD  I, VC
+        LD   V0, [I]
+        LD   V4, V0             ; V4 = h
+        ADD  V0, 1
+        LD   V1, 15
+        AND  V0, V1
+        LD   I, heads
+        ADD  I, VC
+        LD   [I], V0            ; heads[c] = (h+1) & 15
+        LD   V3, VC
+        SHL  V3
+        SHL  V3                 ; X = c*4
+        LD   V0, 5
+        SUB  V0, V4             ; ¿h <= 5? -> nuevo glifo en la fila h
+        SE   VF, 1
+        JP   mx_tail
+        RND  V0, 7
+        SHL  V0
+        SHL  V0                 ; offset de glifo (×4)
+        LD   V1, V4
+        CALL cell_ptr
+        LD   [I], V0            ; recuerda qué glifo hay en la celda
+        LD   V1, V4
+        CALL glyph_draw
+mx_tail:
+        LD   V1, V4
+        ADD  V1, 252            ; fila de cola t = h - 4
+        LD   V0, 5
+        SUB  V0, V1             ; ¿0 <= t <= 5?
+        SE   VF, 1
+        RET
+        CALL cell_ptr
+        LD   V0, [I]
+        JP   glyph_draw         ; borra por XOR (tail call)
+
+cell_ptr:                       ; I = grid + fila*16 + columna
+        LD   V2, V1
+        SHL  V2
+        SHL  V2
+        SHL  V2
+        SHL  V2
+        ADD  V2, VC
+        LD   I, grid
+        ADD  I, V2
+        RET
+
+glyph_draw:                     ; V0 = glifo×4, V1 = fila, V3 = X
+        LD   V2, V1
+        SHL  V2
+        SHL  V2
+        ADD  V2, V1             ; Y = fila*5
+        LD   I, kana
+        ADD  I, V0
+        DRW  V3, V2, 4
+        RET
+
+; ===================== PARTE 2: PLASMA =====================
+part2:
+        LD   VB, s_plasma-strings
+        LD   V1, 17
+        CALL title
+        LD   V6, 0              ; fase horizontal
+        LD   V7, 0              ; fase vertical
+        LD   VD, 90             ; cuadros
+pl_frame:
+        LD   V0, DT
+        SE   V0, 0
+        JP   pl_frame
+        LD   V0, 2
+        LD   DT, V0
+        CLS
+        LD   V5, 0              ; columna
+        LD   V3, 0              ; X
+pl_col:
+        LD   V0, V5
+        SHL  V0
+        SHL  V0
+        ADD  V0, V6
+        LD   V1, 31
+        AND  V0, V1
+        LD   I, sintab
+        ADD  I, V0
+        LD   V0, [I]            ; desplazamiento senoidal de la columna
+        ADD  V0, V7
+        LD   V4, 0              ; Y
+pl_row:
+        LD   V1, 63
+        AND  V0, V1
+        LD   I, strip
+        ADD  I, V0
+        DRW  V3, V4, 8          ; tile 8×8 de textura
+        ADD  V0, 8
+        ADD  V4, 8
+        SE   V4, 32
+        JP   pl_row
+        ADD  V3, 8
+        ADD  V5, 1
+        SE   V5, 8
+        JP   pl_col
+        ADD  V6, 1
+        ADD  V7, 3
+        LD   V0, 6
+        SKNP V0
+        JP   part3
+        ADD  VD, 255
+        SE   VD, 0
+        JP   pl_frame
+
+; ===================== PARTE 3: LABERINTO =====================
+part3:
+        LD   VB, s_maze-strings
+        LD   V1, 22
+        CALL title
+        CLS
+        LD   V2, 1              ; Y de celda
+mz_row:
+        LD   V1, 1              ; X de celda
+mz_cell:
+        SNE  V2, 1
+        JP   mz_top             ; fila superior: siempre al este
+        SNE  V1, 61
+        JP   mz_north           ; última columna: siempre al norte
+        RND  V0, 1
+        SE   V0, 0
+        JP   mz_north
+mz_east:
+        LD   I, spr_east
+        DRW  V1, V2, 1
+        JP   mz_next
+mz_top:
+        SE   V1, 61
+        JP   mz_east
+        LD   I, spr_dot         ; esquina NE
+        DRW  V1, V2, 1
+        JP   mz_next
+mz_north:
+        LD   I, spr_north
+        LD   V3, V2
+        ADD  V3, 255
+        DRW  V1, V3, 2
+mz_next:
+        ADD  V1, 2
+        SE   V1, 63
+        JP   mz_cell
+        LD   V0, 1
+        LD   ST, V0             ; tic por fila generada
+        LD   V0, 6
+        SKNP V0
+        JP   start
+        ADD  V2, 2
+        SE   V2, 31
+        JP   mz_row
+        LD   VD, 4              ; contempla el laberinto ~4 s
+mz_hold:
+        LD   V0, 60
+        CALL wait
+        LD   V0, 6
+        SKNP V0
+        JP   start
+        ADD  VD, 255
+        SE   VD, 0
+        JP   mz_hold
+        JP   start
+
+; ===================== RUTINAS COMUNES =====================
+title:                          ; VB = cadena, V1 = X ; cartela con barras animadas
+        CLS
+t_rel:
+        LD   V0, 6              ; espera a que se suelte la tecla de salto
+        SKNP V0
+        JP   t_rel
+        LD   V2, 13
+        CALL print
+        LD   V3, 0
+t_bar:
+        LD   I, bar
+        LD   V4, 7
+        DRW  V3, V4, 1
+        LD   V4, 21
+        DRW  V3, V4, 1
+        LD   V0, 1
+        LD   ST, V0
+        LD   V0, 3
+        CALL wait
+        ADD  V3, 8
+        SE   V3, 64
+        JP   t_bar
+        LD   V0, 30
+        CALL wait
+        RET
+
+wait:
+        LD   DT, V0
+w_lp:
+        LD   V0, DT
+        SE   V0, 0
+        JP   w_lp
+        RET
+
+print:                          ; VB = offset de cadena, V1,V2 = X,Y
+        LD   I, strings
+        ADD  I, VB
+        LD   V0, [I]
+        SNE  V0, 255
+        RET
+        LD   I, glyphs
+        ADD  I, V0
+        DRW  V1, V2, 5
+        ADD  V1, 5
+        ADD  VB, 1
+        JP   print
+
+; ===================== DATOS =====================
+spr_east:  DB 0xC0
+spr_north: DB 0x80, 0x80
+spr_dot:   DB 0x80
+bar:       DB 0xFF
+
+kana:                           ; 8 glifos "katakana" 3×4
+        DB 0xE0, 0x20, 0x60, 0x80
+        DB 0x40, 0xE0, 0x40, 0x80
+        DB 0xA0, 0xA0, 0x20, 0x40
+        DB 0xE0, 0x40, 0xE0, 0x40
+        DB 0x80, 0xE0, 0x80, 0x60
+        DB 0xE0, 0xA0, 0x20, 0xC0
+        DB 0x20, 0xE0, 0x20, 0x20
+        DB 0xC0, 0x20, 0xE0, 0x20
+
+glyphs:
+gM:  DB 0x90, 0xF0, 0xF0, 0x90, 0x90
+gA:  DB 0x60, 0x90, 0xF0, 0x90, 0x90
+gT:  DB 0xE0, 0x40, 0x40, 0x40, 0x40
+gR:  DB 0xE0, 0x90, 0xE0, 0xA0, 0x90
+gI:  DB 0xE0, 0x40, 0x40, 0x40, 0xE0
+gX:  DB 0x90, 0x90, 0x60, 0x90, 0x90
+gP:  DB 0xE0, 0x90, 0xE0, 0x80, 0x80
+gL:  DB 0x80, 0x80, 0x80, 0x80, 0xF0
+gS:  DB 0x70, 0x80, 0x60, 0x10, 0xE0
+gZ:  DB 0xF0, 0x10, 0x60, 0x80, 0xF0
+gE:  DB 0xF0, 0x80, 0xE0, 0x80, 0xF0
+
+strings:
+s_matrix: DB gM-glyphs, gA-glyphs, gT-glyphs, gR-glyphs, gI-glyphs, gX-glyphs, 255
+s_plasma: DB gP-glyphs, gL-glyphs, gA-glyphs, gS-glyphs, gM-glyphs, gA-glyphs, 255
+s_maze:   DB gM-glyphs, gA-glyphs, gZ-glyphs, gE-glyphs, 255
+
+sintab:                         ; 32 valores: 16 + 15·sin(2πi/32)
+${PLASMA_TABLES.sin}
+
+strip:                          ; 72 bytes de textura con dithering 5 niveles
+${PLASMA_TABLES.strip}
+
+heads:  DS 16                   ; fila de la cabeza de cada columna
+grid:   DS 96                   ; glifo dibujado en cada celda (6 filas × 16)
+`;
+/* =====================================================================
+ *  4) CONSOLA: render CRT, beeper, teclado, debugger, visor RAM, editor
+ * ===================================================================== */
+const $ = id => document.getElementById(id);
+const cpu = new CPU();
+const ROMS = [
+  { name: 'CYBER PONG', desc: 'Pong vs CPU · modo attract · marcador BCD', src: ROM_PONG },
+  { name: 'STAR INVADERS', desc: 'Oleadas alienígenas · láser · colisión VF', src: ROM_INVADERS },
+  { name: 'MATRIX PLASMA MAZE', desc: 'Lluvia digital · plasma · laberintos', src: ROM_DEMO }
+];
+const edited = ROMS.map(r => r.src);
+let cur = 0, running = false, asmInfo = null, bpHit = -1, lastErrors = [], dirtySrc = false;
+let hz = 1200, turbo = 2, tAcc = 0, cAcc = 0, stepTimerAcc = 0;
+const breakpoints = new Set();
+
+/* ---------------- reloj ---------------- */
+const hzFromSlider = v => Math.round(10 * Math.pow(120, v / 1000));
+function updClock() {
+  hz = hzFromSlider(+$('clock').value); turbo = +$('turbo').value;
+  $('clockVal').textContent = hz + ' Hz' + (turbo > 1 ? ' ×' + turbo + ' = ' + hz * turbo : '');
+}
+$('clock').addEventListener('input', updClock);
+$('turbo').addEventListener('change', updClock);
+
+/* ---------------- quirks ---------------- */
+[['qShift', 'shift'], ['qMem', 'memInc'], ['qVF', 'vfReset'], ['qWrap', 'wrap'], ['qJump', 'jump']].forEach(([id, k]) => {
+  $(id).addEventListener('change', e => { cpu.quirks[k] = e.target.checked; });
+});
+
+/* ---------------- beeper WebAudio ---------------- */
+let actx = null, gainNode = null, beepOn = false;
+function initAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume().catch(() => {}); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    actx = new AC();
+    const osc = actx.createOscillator(), lp = actx.createBiquadFilter();
+    gainNode = actx.createGain();
+    osc.type = 'square'; osc.frequency.value = 440;
+    lp.type = 'lowpass'; lp.frequency.value = 2600;
+    gainNode.gain.value = 0;
+    osc.connect(lp); lp.connect(gainNode); gainNode.connect(actx.destination);
+    osc.start();
+  } catch (e) { actx = null; }
+}
+function updAudio() {
+  const on = cpu.ST > 0 && running && $('optSound').checked;
+  $('ledSnd').classList.toggle('on', cpu.ST > 0);
+  if (!actx || on === beepOn) return;
+  beepOn = on;
+  gainNode.gain.setTargetAtTime(on ? 0.07 : 0, actx.currentTime, 0.004);
+}
+['pointerdown', 'keydown'].forEach(ev => window.addEventListener(ev, initAudio, { capture: true }));
+
+/* ---------------- render CRT con fósforo ---------------- */
+const scr = $('screen'), sctx = scr.getContext('2d');
+const SW = scr.width, SH = scr.height, PX = SW / W;
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const small = mk(W, H), smx = small.getContext('2d'), img = smx.createImageData(W, H);
+const bloom = mk(W / 2, H / 2), blx = bloom.getContext('2d');
+const buf = mk(SW, SH), bctx = buf.getContext('2d');
+const tmp = mk(SW, SH), tctx = tmp.getContext('2d');
+const scan = mk(SW, SH);
+(() => {
+  const c = scan.getContext('2d');
+  c.fillStyle = 'rgba(0,0,0,0.30)';
+  for (let y = 0; y < SH; y += 3) c.fillRect(0, y, SW, 1);
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  for (let x = 0; x < SW; x += PX) c.fillRect(x, 0, 1, SH);
+  for (let y = 0; y < SH; y += PX) c.fillRect(0, y, SW, 1);
+})();
+const phos = new Float32Array(W * H);
+const PAL = { green: [70, 255, 140], amber: [255, 170, 40], cyan: [40, 235, 255], magenta: [255, 70, 225], white: [225, 238, 255] };
+function warp() {
+  const k = 0.075, S = 4;
+  tctx.fillStyle = '#000'; tctx.fillRect(0, 0, SW, SH);
+  for (let x = 0; x < SW; x += S) {
+    const nx = (x + S / 2) / SW * 2 - 1, h = SH * (1 - k * nx * nx);
+    tctx.drawImage(buf, x, 0, S, SH, x, (SH - h) / 2, S + 0.6, h);
+  }
+  sctx.fillStyle = '#000'; sctx.fillRect(0, 0, SW, SH);
+  for (let y = 0; y < SH; y += S) {
+    const ny = (y + S / 2) / SH * 2 - 1, w = SW * (1 - k * 0.6 * ny * ny);
+    sctx.drawImage(tmp, 0, y, SW, S, (SW - w) / 2, y, w, S + 0.6);
+  }
+}
+function renderCRT() {
+  const col = PAL[$('phosColor').value] || PAL.cyan, decay = +$('persist').value / 100;
+  const d = cpu.disp, px = img.data;
+  for (let i = 0; i < W * H; i++) {
+    let v = d[i] ? 1 : phos[i] * decay;
+    if (v < 0.01) v = 0;
+    phos[i] = v;
+    const o = i << 2, g = v * v * (3 - 2 * v);
+    px[o] = 3 + col[0] * g; px[o + 1] = 7 + col[1] * g; px[o + 2] = 11 + col[2] * g; px[o + 3] = 255;
+  }
+  smx.putImageData(img, 0, 0);
+  bctx.globalCompositeOperation = 'source-over'; bctx.globalAlpha = 1;
+  bctx.imageSmoothingEnabled = false;
+  bctx.drawImage(small, 0, 0, SW, SH);
+  if ($('optGlow').checked) {
+    bctx.globalCompositeOperation = 'lighter';
+    bctx.imageSmoothingEnabled = true;
+    bctx.globalAlpha = 0.42;
+    bctx.drawImage(small, -PX / 2, -PX / 2, SW + PX, SH + PX);
+    blx.imageSmoothingEnabled = true;
+    blx.drawImage(small, 0, 0, W / 2, H / 2);
+    bctx.globalAlpha = 0.32;
+    bctx.drawImage(bloom, -PX * 2, -PX * 2, SW + PX * 4, SH + PX * 4);
+    bctx.globalCompositeOperation = 'source-over'; bctx.globalAlpha = 1;
+  }
+  if ($('optScan').checked) bctx.drawImage(scan, 0, 0);
+  if ($('optCurve').checked) warp(); else sctx.drawImage(buf, 0, 0);
+}
+$('optCurve').addEventListener('change', e => $('bezel').classList.toggle('flat', !e.target.checked));
+
+/* ---------------- teclado hexadecimal ---------------- */
+const KEYMAP = {
+  Digit1: 0x1, Digit2: 0x2, Digit3: 0x3, Digit4: 0xC, KeyQ: 0x4, KeyW: 0x5, KeyE: 0x6, KeyR: 0xD,
+  KeyA: 0x7, KeyS: 0x8, KeyD: 0x9, KeyF: 0xE, KeyZ: 0xA, KeyX: 0x0, KeyC: 0xB, KeyV: 0xF,
+  ArrowUp: 0x5, ArrowLeft: 0x7, ArrowDown: 0x8, ArrowRight: 0x9, Space: 0x6
+};
+const KEY_LAYOUT = [0x1, 0x2, 0x3, 0xC, 0x4, 0x5, 0x6, 0xD, 0x7, 0x8, 0x9, 0xE, 0xA, 0x0, 0xB, 0xF];
+const KEY_LABEL = ['1', '2', '3', '4', 'Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'];
+const pressCnt = new Uint8Array(16), keyEls = [], heldCodes = new Set();
+function hexDown(k) { if (pressCnt[k]++ === 0) { cpu.keyDown(k); keyEls[k].classList.add('on'); } }
+function hexUp(k) { if (!pressCnt[k]) return; if (--pressCnt[k] === 0) { cpu.keyUp(k); keyEls[k].classList.remove('on'); } }
+function releaseAll() {
+  heldCodes.clear();
+  for (let k = 0; k < 16; k++) { if (pressCnt[k]) { pressCnt[k] = 1; hexUp(k); } }
+  document.querySelectorAll('.key').forEach(b => { b.dataset.down = ''; });
+}
+KEY_LAYOUT.forEach((k, i) => {
+  const b = document.createElement('button');
+  b.className = 'key'; b.innerHTML = hex(k, 1) + '<small>' + KEY_LABEL[i] + '</small>';
+  const up = () => { if (b.dataset.down) { b.dataset.down = ''; hexUp(k); } };
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); if (!b.dataset.down) { b.dataset.down = '1'; hexDown(k); } });
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointercancel', up);
+  b.addEventListener('lostpointercapture', up);
+  keyEls[k] = b; $('keypad').appendChild(b);
+});
+const isTyping = t => t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || (t.tagName === 'INPUT' && t.type === 'text'));
+window.addEventListener('keydown', e => {
+  if (e.code === 'F8') { e.preventDefault(); toggleRun(); return; }
+  if (e.code === 'F10') { e.preventDefault(); stepInto(); return; }
+  if (e.code === 'F9') { e.preventDefault(); stepFrame(); return; }
+  if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = KEYMAP[e.code];
+  if (k === undefined) return;
+  e.preventDefault();
+  if (e.repeat || heldCodes.has(e.code)) return;
+  heldCodes.add(e.code); hexDown(k);
+});
+window.addEventListener('keyup', e => {
+  if (!heldCodes.has(e.code)) return;
+  e.preventDefault(); heldCodes.delete(e.code); hexUp(KEYMAP[e.code]);
+});
+window.addEventListener('blur', releaseAll);
+document.addEventListener('mouseup', e => { const b = e.target.closest && e.target.closest('button'); if (b && !b.classList.contains('key')) b.blur(); });
+
+/* ---------------- registros ---------------- */
+const SREGS = ['PC', 'I', 'SP', 'DT', 'ST'], sregEls = {};
+SREGS.forEach(n => {
+  const d = document.createElement('div');
+  d.className = 'sreg'; d.innerHTML = `<span class="l">${n}</span><span class="v">0</span><span class="dd">0</span>`;
+  $('sregs').appendChild(d); sregEls[n] = d;
+});
+const vEls = [], prevV = new Int16Array(16).fill(-1), chgT = new Float64Array(16);
+for (let i = 0; i < 16; i++) {
+  const d = document.createElement('div');
+  d.className = 'vr' + (i === 15 ? ' vf' : '');
+  d.innerHTML = `<span class="rn">V${hex(i, 1)}</span><span class="rh">00</span><span class="rd">0</span><div class="bar"><i></i></div>`;
+  $('vgrid').appendChild(d);
+  vEls.push({ d, h: d.children[1], dec: d.children[2], bar: d.children[3].firstChild });
+}
+const stkEls = [];
+for (let i = 0; i < 16; i++) { const s = document.createElement('div'); s.className = 'stk'; s.textContent = '---'; $('stack').appendChild(s); stkEls.push(s); }
+function setS(n, v, d, hot) {
+  const e = sregEls[n];
+  e.children[1].textContent = v; e.children[2].textContent = d;
+  e.classList.toggle('hot', !!hot);
+}
+function updRegs(now) {
+  setS('PC', '0x' + hex(cpu.PC, 3), cpu.PC);
+  setS('I', '0x' + hex(cpu.I, 3), cpu.I);
+  setS('SP', cpu.SP, cpu.SP + '/16');
+  setS('DT', '0x' + hex(cpu.DT, 2), cpu.DT, cpu.DT > 0);
+  setS('ST', '0x' + hex(cpu.ST, 2), cpu.ST, cpu.ST > 0);
+  for (let i = 0; i < 16; i++) {
+    const v = cpu.V[i], e = vEls[i];
+    if (v !== prevV[i]) {
+      if (prevV[i] >= 0) chgT[i] = now;
+      prevV[i] = v;
+      e.h.textContent = hex(v, 2); e.dec.textContent = v; e.bar.style.width = (v / 255 * 100).toFixed(1) + '%';
+    }
+    e.d.classList.toggle('chg', now - chgT[i] < 220);
+  }
+  for (let i = 0; i < 16; i++) {
+    const s = stkEls[i], used = i < cpu.SP;
+    s.textContent = used ? hex(cpu.stack[i], 3) : '---';
+    s.className = 'stk' + (used ? ' used' : '') + (used && i === cpu.SP - 1 ? ' top' : '');
+  }
+  const op = (cpu.mem[cpu.PC] << 8) | cpu.mem[(cpu.PC + 1) & 0xFFF], [mn, ds] = disasm(op);
+  const [lmn] = disasm(cpu.lastOp);
+  const html = `<span class="stage">FETCH</span> RAM[0x${hex(cpu.PC, 3)}] → <span class="mn">${hex(op, 4)}</span> · ` +
+    `<span class="stage">DECODE</span> → <span class="mn">${mn}</span><br><span class="stage">EXECUTE</span> <span class="ds">${ds}</span><br>` +
+    `<span class="ds">última: 0x${hex(cpu.lastPC, 3)}: ${hex(cpu.lastOp, 4)} -> ${lmn}</span>`;
+  if (html !== lastOpHtml) { lastOpHtml = html; $('opinfo').innerHTML = html; }
+}
+let lastOpHtml = '';
+
+/* ---------------- desensamblador en vivo ---------------- */
+const DIS_N = 25, disEls = [], disCache = [];
+for (let i = 0; i < DIS_N; i++) {
+  const d = document.createElement('div');
+  d.className = 'dl';
+  d.addEventListener('click', () => {
+    const a = +d.dataset.addr;
+    if (breakpoints.has(a)) breakpoints.delete(a); else breakpoints.add(a);
+    disCache.fill('');
+  });
+  $('dis').appendChild(d); disEls.push(d); disCache.push('');
+}
+function updDis() {
+  const pc = cpu.PC;
+  let start = pc - (DIS_N >> 1) * 2;
+  if (start < 0) start = pc & 1;
+  if (start + DIS_N * 2 > 4096) start = 4096 - DIS_N * 2;
+  for (let r = 0; r < DIS_N; r++) {
+    const a = start + r * 2, m = cpu.mem;
+    const op = (m[a] << 8) | m[(a + 1) & 0xFFF];
+    const isData = asmInfo && asmInfo.dataAt.has(a) && !asmInfo.lineAt.has(a);
+    const mn = isData ? `DB 0x${hex(m[a], 2)}, 0x${hex(m[(a + 1) & 0xFFF], 2)}` : disasm(op)[0];
+    const lab = asmInfo && (asmInfo.labelsAt.get(a) || asmInfo.labelsAt.get(a + 1));
+    const cls = 'dl' + (a === pc ? ' cur' : '') + (breakpoints.has(a) ? ' bpon' : '') + (isData ? ' data' : '');
+    const html = `<span class="bp">●</span><span><span class="a">0x${hex(a, 4)}:</span> <span class="o">${hex(op, 4)}</span> -> <span class="m">${mn.padEnd(16)}</span>${lab ? '<span class="lb"> ; ' + lab + '</span>' : ''}</span>`;
+    const key = cls + html;
+    if (disCache[r] !== key) {
+      disCache[r] = key;
+      const el = disEls[r];
+      el.className = cls; el.innerHTML = html; el.dataset.addr = a;
+    }
+  }
+}
+
+/* ---------------- visor hexadecimal de RAM (scroll virtual) ---------------- */
+const ROWH = 16, hexScroll = $('hexScroll'), hexRows = $('hexRows');
+$('hexSizer').style.height = (4096 / 16) * ROWH + 'px';
+function byteCls(a, pc, I, romEnd) {
+  let c;
+  if (a < 0x200) c = (a >= FONT_ADDR && a < FONT_ADDR + 80) ? 'zf' : 'zs';
+  else if (a < romEnd) c = 'zr';
+  else c = cpu.mem[a] ? 'zw' : 'z0';
+  if (cpu.heat[a]) c += ' ht';
+  if (a === I) c += ' ir';
+  if (a === pc || a === ((pc + 1) & 0xFFF)) c += ' pc';
+  return c;
+}
+function renderHex() {
+  const heat = cpu.heat;
+  for (let i = 0; i < 4096; i++) if (heat[i]) heat[i] = heat[i] > 20 ? heat[i] - 20 : 0;
+  const first = Math.max(0, Math.floor(hexScroll.scrollTop / ROWH) - 1);
+  const count = Math.min(256 - first, Math.ceil(hexScroll.clientHeight / ROWH) + 3);
+  const pc = cpu.PC, I = cpu.I, romEnd = ROM_ADDR + cpu.rom.length, m = cpu.mem;
+  let html = '';
+  for (let r = first; r < first + count; r++) {
+    const base = r * 16, hasCur = (pc >> 4) === r;
+    html += `<div class="hr"><span class="ad${hasCur ? ' cur' : ''}">0x${hex(base, 3)}</span> `;
+    for (let c = 0; c < 16; c++) { const a = base + c; html += `<span class="b ${byteCls(a, pc, I, romEnd)}">${hex(m[a], 2)}</span>`; }
+    html += '</div>';
+  }
+  hexRows.style.transform = `translateY(${first * ROWH}px)`;
+  hexRows.innerHTML = html;
+}
+function hexFollow() {
+  const mode = $('hexFollow').value;
+  if (mode === 'none') return;
+  const a = mode === 'pc' ? cpu.PC : cpu.I, y = (a >> 4) * ROWH;
+  const top = hexScroll.scrollTop, vis = hexScroll.clientHeight;
+  if (y < top + ROWH || y > top + vis - ROWH * 2) hexScroll.scrollTop = Math.max(0, y - vis / 2);
+}
+hexScroll.addEventListener('wheel', () => { $('hexFollow').value = 'none'; }, { passive: true });
+$('hexGoto').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const v = parseInt(e.target.value.replace(/^0x|^\$/i, ''), 16);
+  if (isNaN(v)) return;
+  $('hexFollow').value = 'none';
+  hexScroll.scrollTop = Math.max(0, ((v & 0xFFF) >> 4) * ROWH - ROWH * 2);
+  renderHex();
+});
+
+/* ---------------- estado ---------------- */
+function updStatus() {
+  const p = $('stPill');
+  let cls = 'pause', txt = '❚❚ PAUSA';
+  if (cpu.fault) { cls = 'fault'; txt = '⚠ FAULT: ' + cpu.fault; }
+  else if (cpu.halted) { cls = 'fault'; txt = '■ HALT (EXIT 00FD)'; }
+  else if (bpHit >= 0 && !running) { cls = 'pause'; txt = '⛔ BREAKPOINT 0x' + hex(bpHit, 3); }
+  else if (cpu.waitReg >= 0) { cls = 'wait'; txt = '⌨ ESPERANDO TECLA (Fx0A → V' + hex(cpu.waitReg, 1) + ')'; }
+  else if (running) { cls = 'run'; txt = '● RUNNING'; }
+  if (p.textContent !== txt) { p.textContent = txt; p.className = 'pill ' + cls; }
+  $('ledPow').classList.toggle('on', running);
+  $('ledKey').classList.toggle('on', cpu.waitReg >= 0);
+}
+
+/* ---------------- control de ejecución ---------------- */
+function setRunning(r) {
+  running = !!r && !cpu.fault && !cpu.halted;
+  if (running) bpHit = -1;
+  const b = $('btnRun');
+  b.textContent = running ? '❚❚ PAUSE' : '▶ RUN';
+  b.className = 'btn ' + (running ? 'run' : 'paused');
+  if (!running) updAudio();
+}
+function toggleRun() { setRunning(!running); }
+function stepInto() {
+  setRunning(false);
+  if (cpu.fault || cpu.halted) return;
+  cpu.step();
+  stepTimerAcc += 60 / Math.max(1, hz * turbo);
+  while (stepTimerAcc >= 1) { stepTimerAcc -= 1; cpu.tickTimers(); }
+  refreshUI(performance.now(), true);
+}
+function stepFrame() {
+  setRunning(false);
+  const n = Math.max(1, Math.round(hz * turbo / 60));
+  for (let i = 0; i < n; i++) {
+    if (!cpu.step() || cpu.waitReg >= 0) break;
+    if (breakpoints.has(cpu.PC)) { bpHit = cpu.PC; break; }
+  }
+  cpu.tickTimers();
+  refreshUI(performance.now(), true);
+}
+$('btnRun').addEventListener('click', toggleRun);
+$('btnStep').addEventListener('click', stepInto);
+$('btnFrame').addEventListener('click', stepFrame);
+$('btnReset').addEventListener('click', () => {
+  cpu.reset(); reapplyKeys(); phos.fill(0); bpHit = -1; setRunning(true);
+  log(`<span class="in">⟲ RESET: RAM reinicializada, ROM recargada en 0x200, PC=0x200</span>`);
+});
+$('btnClrBp').addEventListener('click', () => { breakpoints.clear(); disCache.fill(''); });
+
+/* ---------------- editor + ensamblador ---------------- */
+const editor = $('editor'), gutter = $('gutter');
+function log(html) {
+  const el = $('asmLog');
+  el.insertAdjacentHTML('beforeend', html + '\n');
+  while (el.childNodes.length > 400) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+function updateGutter() {
+  const n = editor.value.split('\n').length, errs = new Set(lastErrors.map(e => e.line));
+  let s = '';
+  for (let i = 1; i <= n; i++) s += errs.has(i) ? `<span class="err">${i}</span>\n` : i + '\n';
+  gutter.innerHTML = s;
+  gutter.scrollTop = editor.scrollTop;
+}
+function updEdInfo() {
+  const name = cur >= 0 ? `ROM #${cur + 1} · ${ROMS[cur].name}` : 'ROM externa (desensamblada)';
+  $('edInfo').textContent = `${name} · ${editor.value.split('\n').length} líneas${dirtySrc ? ' · ● modificado sin flashear' : ''}`;
+}
+editor.addEventListener('input', () => { dirtySrc = true; updateGutter(); updEdInfo(); });
+editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
+editor.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); assembleAndFlash(); return; }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    editor.setRangeText('        ', editor.selectionStart, editor.selectionEnd, 'end');
+    dirtySrc = true; updateGutter();
+  }
+});
+function reapplyKeys() { for (let k = 0; k < 16; k++) cpu.keys[k] = pressCnt[k] ? 1 : 0; }
+function flash(bytes, name, info) {
+  cpu.load(bytes); reapplyKeys();
+  asmInfo = info || null; bpHit = -1; tAcc = 0; cAcc = 0;
+  phos.fill(0); disCache.fill('');
+  $('romName').textContent = name; $('romSize').textContent = bytes.length;
+  $('hexFollow').value = 'pc';
+}
+function assembleAndFlash(run = true) {
+  const src = editor.value;
+  if (cur >= 0) edited[cur] = src;
+  const t0 = performance.now();
+  const res = Assembler.assemble(src);
+  const ms = (performance.now() - t0).toFixed(2);
+  lastErrors = res.errors; updateGutter();
+  if (res.errors.length) {
+    log(`<span class="er">✖ ${res.errors.length} error(es) de ensamblado — la RAM NO se modificó:</span>`);
+    res.errors.slice(0, 12).forEach(e => log(`<span class="er">  línea ${e.line}: ${e.msg}</span>`));
+    const first = res.errors[0].line, pos = src.split('\n').slice(0, first - 1).join('\n').length + (first > 1 ? 1 : 0);
+    editor.focus(); editor.setSelectionRange(pos, pos);
+    editor.scrollTop = Math.max(0, (first - 6) * 18);
+    return false;
+  }
+  if (!res.bytes.length) { log('<span class="er">✖ El programa está vacío.</span>'); return false; }
+  const name = cur >= 0 ? ROMS[cur].name : 'CUSTOM';
+  flash(res.bytes, name, res);
+  dirtySrc = false; updEdInfo();
+  const end = ROM_ADDR + res.bytes.length - 1;
+  const preview = Array.from(res.bytes.slice(0, 16), b => hex(b, 2)).join(' ');
+  log(`<span class="ok">✔ ${name}: ${res.bytes.length} bytes → RAM 0x200–0x${hex(end, 3)} · ${res.instrCount} instrucciones · ${res.symbols.size} símbolos · ${ms} ms</span>`);
+  log(`<span class="dm">  0x200: ${preview}${res.bytes.length > 16 ? ' …' : ''}</span>`);
+  setRunning(run);
+  return true;
+}
+function selectRom(i) {
+  if (cur >= 0) edited[cur] = editor.value;
+  cur = i;
+  editor.value = edited[i]; editor.scrollTop = 0;
+  lastErrors = []; dirtySrc = false;
+  document.querySelectorAll('.cart').forEach((c, j) => c.classList.toggle('active', j === i));
+  updateGutter(); updEdInfo();
+  log(`<span class="in">▶ Cartucho #${i + 1} insertado: ${ROMS[i].name}</span>`);
+  assembleAndFlash(true);
+}
+ROMS.forEach((r, i) => {
+  const c = document.createElement('div');
+  c.className = 'cart';
+  c.innerHTML = `<span class="n">#${i + 1}</span><span class="t">${r.name}</span><span class="d">${r.desc}</span>`;
+  c.addEventListener('click', () => selectRom(i));
+  $('carts').appendChild(c);
+});
+$('btnAsm').addEventListener('click', () => assembleAndFlash(true));
+$('btnRevert').addEventListener('click', () => {
+  if (cur < 0) { log('<span class="dm">La ROM externa no tiene fuente original.</span>'); return; }
+  edited[cur] = ROMS[cur].src; editor.value = ROMS[cur].src; lastErrors = []; dirtySrc = true;
+  updateGutter(); updEdInfo();
+  log(`<span class="in">↺ Fuente original de ${ROMS[cur].name} restaurada (pulsa ASSEMBLE para flashear).</span>`);
+});
+$('btnDl').addEventListener('click', () => {
+  if (!cpu.rom.length) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([cpu.rom], { type: 'application/octet-stream' }));
+  a.download = (cur >= 0 ? ROMS[cur].name : 'custom').toLowerCase().replace(/\s+/g, '_') + '.ch8';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('btnLoadBin').addEventListener('click', () => $('fileIn').click());
+$('fileIn').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  f.arrayBuffer().then(ab => {
+    const bytes = new Uint8Array(ab).slice(0, 4096 - ROM_ADDR);
+    if (cur >= 0) edited[cur] = editor.value;
+    cur = -1;
+    document.querySelectorAll('.cart').forEach(c => c.classList.remove('active'));
+    // desensamblado automático: el listado vuelve a ensamblar byte a byte
+    const L = [`; ROM externa: ${f.name} (${bytes.length} bytes) — desensamblado automático`, `; Edita y pulsa ASSEMBLE & FLASH TO RAM para reensamblar.`, ''];
+    for (let i = 0; i < bytes.length; i += 2) {
+      const a = ROM_ADDR + i;
+      if (i + 1 >= bytes.length) { L.push(`        DB 0x${hex(bytes[i], 2)}`.padEnd(34) + `; 0x${hex(a, 3)}`); break; }
+      const op = (bytes[i] << 8) | bytes[i + 1];
+      L.push(('        ' + disasm(op)[0]).padEnd(34) + `; 0x${hex(a, 3)}: ${hex(op, 4)}`);
+    }
+    editor.value = L.join('\n'); editor.scrollTop = 0; lastErrors = []; dirtySrc = false;
+    updateGutter(); updEdInfo();
+    flash(bytes, f.name.toUpperCase(), null);
+    log(`<span class="ok">✔ ROM externa ${f.name} cargada: ${bytes.length} bytes en 0x200</span>`);
+    setRunning(true);
+  });
+  e.target.value = '';
+});
+
+/* ---------------- bucle principal (rAF): CPU a N Hz + timers a 60 Hz ---------------- */
+let last = performance.now(), uiFrame = 0, fpsN = 0, fpsT = last, ipsT = last, ipsCyc = 0;
+function refreshUI(now, full) {
+  updRegs(now); updDis(); updStatus();
+  if (full || (uiFrame % 3) === 0) { hexFollow(); renderHex(); }
+}
+function frame(now) {
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 0.1) dt = 0.1;
+  if (running) {
+    tAcc += dt * 60;
+    let ticks = Math.floor(tAcc);
+    tAcc -= ticks;
+    if (ticks > 4) ticks = 4;
+    const perTick = hz * turbo / 60;
+    outer:
+    for (let t = 0; t < ticks; t++) {
+      cAcc += perTick;
+      while (cAcc >= 1) {
+        cAcc -= 1;
+        if (!cpu.step()) { setRunning(false); break outer; }
+        if (breakpoints.size && breakpoints.has(cpu.PC)) { bpHit = cpu.PC; setRunning(false); cAcc = 0; break outer; }
+        if (cpu.waitReg >= 0) { cAcc = 0; break; }
+      }
+      cpu.tickTimers();
+    }
+  }
+  updAudio();
+  renderCRT();
+  uiFrame++;
+  refreshUI(now, false);
+  fpsN++;
+  if (now - fpsT >= 500) {
+    $('fps').textContent = Math.round(fpsN * 1000 / (now - fpsT));
+    fpsN = 0; fpsT = now;
+  }
+  if (now - ipsT >= 500) {
+    const dc = cpu.cycles - ipsCyc;
+    $('stIps').textContent = dc >= 0 ? Math.round(dc * 1000 / (now - ipsT)).toLocaleString('es') : '0';
+    $('stCyc').textContent = cpu.cycles.toLocaleString('es');
+    ipsCyc = cpu.cycles; ipsT = now;
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- arranque: autotest de las 3 ROMs + ROM #1 corriendo ---------------- */
+updClock();
+log('<span class="in">NEON-8 BIOS v1.0 · RAM 4096 B · fuente en 0x050 · programa en 0x200</span>');
+ROMS.forEach((r, i) => {
+  const res = Assembler.assemble(r.src);
+  if (res.errors.length) log(`<span class="er">✖ Autotest ROM #${i + 1} ${r.name}: ${res.errors[0].msg} (línea ${res.errors[0].line})</span>`);
+  else log(`<span class="dm">  autotest ROM #${i + 1} ${r.name}: ${res.bytes.length} bytes OK</span>`);
+});
+selectRom(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

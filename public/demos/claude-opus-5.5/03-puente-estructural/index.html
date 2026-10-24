@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Structural Bridge Builder & Stress Analyzer — Simulador de Colapso de Puentes</title>
+<style>
+:root{
+  --bg:#060a13;--panel:rgba(9,14,28,.84);--line:rgba(120,170,255,.16);--txt:#dbe6ff;--dim:#7b8bb0;
+  --acc:#38bdf8;--warn:#f59e0b;--bad:#ef4444;--ok:#10b981;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+  font:12px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:default}
+body.building canvas{cursor:crosshair}
+#top{position:fixed;left:0;right:0;top:0;height:48px;display:flex;align-items:center;gap:12px;padding:0 14px;
+  background:linear-gradient(180deg,rgba(6,10,20,.95),rgba(6,10,20,.6));border-bottom:1px solid var(--line);z-index:5}
+#top h1{font-size:13.5px;letter-spacing:.06em;font-weight:700;white-space:nowrap}
+#top h1 span{color:var(--acc)}
+#top .sub{color:var(--dim);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .sp{flex:1}
+.pill{font:600 11px var(--mono);padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);white-space:nowrap}
+.pill.ok{color:#34d399;border-color:rgba(16,185,129,.45)}
+.pill.warn{color:#fbbf24;border-color:rgba(245,158,11,.5)}
+.pill.bad{color:#f87171;border-color:rgba(239,68,68,.6);animation:blink .7s infinite alternate}
+@keyframes blink{to{background:rgba(239,68,68,.22)}}
+.tbtn{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px}
+.tbtn:hover{border-color:var(--acc)}
+.panel{position:fixed;top:56px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px;max-height:calc(100% - 66px);overflow-y:auto;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:4}
+.panel::-webkit-scrollbar{width:6px}.panel::-webkit-scrollbar-thumb{background:rgba(120,170,255,.2);border-radius:3px}
+#left{left:10px;width:268px}
+#right{right:10px;width:258px}
+.hidden{display:none!important}
+.sec{margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:none;margin-bottom:0}
+.sec h3{font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--dim);margin-bottom:7px;font-weight:700}
+.preset{display:block;width:100%;text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--txt);
+  border-radius:9px;padding:7px 9px;margin-bottom:5px;cursor:pointer;transition:.15s}
+.preset b{display:block;font-size:11.5px}
+.preset small{color:var(--dim);font-size:10px}
+.preset:hover{border-color:rgba(56,189,248,.6);background:rgba(56,189,248,.06)}
+.preset.on{border-color:var(--acc);background:rgba(56,189,248,.12);box-shadow:inset 3px 0 0 var(--acc)}
+.row{margin:6px 0}
+.row label{display:flex;justify-content:space-between;color:#b5c3e4;font-size:11.2px;margin-bottom:2px}
+.row label b{font:600 11px var(--mono);color:#e6f0ff}
+input[type=range]{width:100%;accent-color:#38bdf8;height:16px;cursor:pointer}
+.seg{display:flex;gap:4px;margin:4px 0 6px}
+.seg button{flex:1;padding:5px 4px;border-radius:7px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--txt);cursor:pointer;font-size:11px}
+.seg button.on{background:rgba(56,189,248,.18);border-color:var(--acc)}
+.btn{display:block;width:100%;padding:8px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.05);
+  color:var(--txt);font-weight:600;cursor:pointer;margin-top:5px;font-size:11.5px;transition:.12s}
+.btn:hover{filter:brightness(1.25)}
+.btn.big{background:linear-gradient(135deg,#b45309,#f59e0b);border-color:#f59e0b;color:#1a0f00;font-size:12.5px;letter-spacing:.02em}
+.btn.on{background:rgba(168,85,247,.3);border-color:#a855f7}
+.btn.blue{background:linear-gradient(135deg,#0369a1,#0ea5e9);border-color:#38bdf8}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.grid2 .btn{margin-top:0}
+.chk{display:flex;align-items:center;gap:6px;margin:5px 0;color:#b5c3e4;font-size:11.2px;cursor:pointer}
+.chk input{accent-color:#38bdf8}
+.tele{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cell{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:5px 7px}
+.cell small{display:block;color:var(--dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em}
+.cell b{font:700 14px var(--mono)}
+.cell.w{grid-column:span 2}
+.bar{height:9px;border-radius:5px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#10b981,#f59e0b 70%,#ef4444);transition:width .1s}
+.legend{height:10px;border-radius:5px;background:linear-gradient(90deg,#3b6ef6 0%,#22d3ee 22%,#10b981 45%,#bedc3c 58%,#f59e0b 72%,#f96016 86%,#ff1c1c 100%)}
+.legend-l{display:flex;justify-content:space-between;color:var(--dim);font-size:9.5px;margin-top:3px}
+#log{font:10.5px/1.45 var(--mono);max-height:170px;overflow:hidden}
+#log div{padding:2px 0;border-bottom:1px dashed rgba(120,170,255,.08);color:#a9b8da}
+#log div.bad{color:#fca5a5}#log div.warn{color:#fcd34d}#log div.ok{color:#6ee7b7}
+#log div em{color:var(--dim);font-style:normal}
+#bbar{position:fixed;left:50%;transform:translateX(-50%);bottom:10px;display:none;align-items:center;gap:8px;padding:8px 10px;
+  background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:12px;z-index:6;box-shadow:0 12px 40px rgba(0,0,0,.5);flex-wrap:wrap;max-width:calc(100% - 20px)}
+body.building #bbar{display:flex}
+#bbar .g{display:flex;gap:4px;align-items:center}
+#bbar .sep{width:1px;height:28px;background:var(--line)}
+.mbtn{padding:6px 9px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--txt);cursor:pointer;font-size:11px;text-align:left;line-height:1.15}
+.mbtn small{display:block;color:var(--dim);font-size:9.5px}
+.mbtn.on{border-color:var(--acc);background:rgba(56,189,248,.16)}
+.mbtn i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+#budgetBox{min-width:170px}
+#budgetBox .bar i{background:linear-gradient(90deg,#10b981,#38bdf8)}
+#budgetBox.over .bar i{background:#ef4444}
+#budget{width:90px;background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:3px 5px;font:11px var(--mono)}
+#tip{position:fixed;pointer-events:none;z-index:9;background:rgba(5,9,18,.94);border:1px solid var(--line);border-radius:8px;padding:6px 8px;
+  font:11px/1.45 var(--mono);display:none;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+#toast{position:fixed;left:50%;top:62px;transform:translateX(-50%);background:rgba(239,68,68,.92);color:#fff;padding:7px 14px;border-radius:9px;
+  font-weight:600;z-index:10;opacity:0;transition:opacity .25s;pointer-events:none}
+#banner{position:fixed;left:50%;top:84px;transform:translateX(-50%);font:800 22px/1 system-ui;letter-spacing:.14em;color:#fff;
+  text-shadow:0 0 18px rgba(239,68,68,.9),0 0 40px rgba(239,68,68,.6);z-index:7;pointer-events:none;opacity:0;transition:opacity .4s;text-align:center;white-space:nowrap}
+#banner small{display:block;font:600 11px var(--mono);letter-spacing:.08em;margin-top:6px;color:#fecaca;text-shadow:none}
+#help{color:var(--dim);font-size:10px;line-height:1.5}
+kbd{font:10px var(--mono);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:4px;padding:0 4px;color:#cdd9f5}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="top">
+  <h1>STRUCTURAL <span>BRIDGE</span> BUILDER <span style="color:#f59e0b">&amp;</span> STRESS ANALYZER</h1>
+  <div class="sub">Solver Verlet posicional + XPBD · tensión axial · fractura progresiva</div>
+  <div class="sp"></div>
+  <div class="pill" id="p_time">t = 0.00 s</div>
+  <div class="pill" id="p_mode">SIMULACIÓN 1.00×</div>
+  <div class="pill ok" id="p_state">ESTABLE</div>
+  <button class="tbtn" id="tg_left">☰ Controles</button>
+  <button class="tbtn" id="tg_right">📊 Telemetría</button>
+</div>
+
+<aside id="left" class="panel">
+  <div class="sec">
+    <h3>Presets de Puentes</h3>
+    <div id="presets"></div>
+  </div>
+  <div class="sec">
+    <h3>Convoy de Prueba de Carga</h3>
+    <div class="seg" id="vtype">
+      <button data-v="train" class="on">🚂 Tren pesado</button>
+      <button data-v="trucks">🚛 Camiones</button>
+    </div>
+    <div class="row"><label>Peso por unidad <b id="v_weight"></b></label><input type="range" id="weight" min="4" max="50" step="1" value="15"></div>
+    <div class="row"><label>Velocidad <b id="v_speed"></b></label><input type="range" id="speed" min="10" max="120" step="1" value="50"></div>
+    <div class="row"><label>Unidades en convoy <b id="v_units"></b></label><input type="range" id="units" min="1" max="7" step="1" value="4"></div>
+    <label class="chk"><input type="checkbox" id="auto" checked> Relanzar convoy automáticamente</label>
+    <button class="btn big" id="b_launch">🚂 LANZAR CONVOY PESADO</button>
+  </div>
+  <div class="sec">
+    <h3>Entorno y Materiales</h3>
+    <div class="row"><label>Gravedad <b id="v_gravity"></b></label><input type="range" id="gravity" min="1" max="25" step="0.01" value="9.81"></div>
+    <div class="row"><label>Factor de resistencia <b id="v_matf"></b></label><input type="range" id="matf" min="0.3" max="2.5" step="0.05" value="1"></div>
+    <div class="row"><label>Terremoto (intensidad) <b id="v_quake"></b></label><input type="range" id="quake" min="0" max="10" step="0.1" value="0"></div>
+    <div class="row"><label>Viento lateral <b id="v_wind"></b></label><input type="range" id="wind" min="0" max="70" step="1" value="0"></div>
+    <div class="row"><label>Sub-pasos físicos / frame <b id="v_sub"></b></label><input type="range" id="sub" min="12" max="40" step="2" value="20"></div>
+  </div>
+  <div class="sec">
+    <h3>Simulación</h3>
+    <div class="grid2">
+      <button class="btn" id="b_slow">⏱ Cámara Lenta 0.25×</button>
+      <button class="btn" id="b_pause">⏸ Pausa</button>
+      <button class="btn" id="b_reset">↺ Reiniciar puente</button>
+      <button class="btn" id="b_view">⌖ Centrar vista</button>
+    </div>
+    <button class="btn blue" id="b_build">🛠 MODO CONSTRUCTOR</button>
+    <label class="chk"><input type="checkbox" id="labels" checked> Mostrar % de estrés sobre vigas</label>
+  </div>
+  <div class="sec" id="help">
+    <kbd>Espacio</kbd> pausa · <kbd>L</kbd> convoy · <kbd>T</kbd> cámara lenta · <kbd>B</kbd> constructor · <kbd>R</kbd> reiniciar · <kbd>V</kbd> vista<br>
+    Rueda: zoom · Botón derecho/central + arrastrar: mover cámara · Pasa el cursor sobre una viga para ver su fuerza axial.
+  </div>
+</aside>
+
+<aside id="right" class="panel">
+  <div class="sec">
+    <h3>Telemetría Civil</h3>
+    <div class="tele">
+      <div class="cell"><small>FPS</small><b id="t_fps">60</b></div>
+      <div class="cell"><small>Sub-pasos</small><b id="t_sub">20</b></div>
+      <div class="cell w"><small>Tensión pico actual</small><b id="t_peak">0%</b><div class="bar"><i id="t_peakbar"></i></div></div>
+      <div class="cell"><small>Pico registrado</small><b id="t_max">0%</b></div>
+      <div class="cell"><small>Fuerza pico</small><b id="t_force">0 kN</b></div>
+      <div class="cell"><small>Vigas intactas</small><b id="t_intact" style="color:#34d399">0</b></div>
+      <div class="cell"><small>Fracturadas</small><b id="t_broken" style="color:#f87171">0</b></div>
+      <div class="cell w"><small>Costo estructural</small><b id="t_cost">$0</b></div>
+      <div class="cell"><small>Masa estructura</small><b id="t_mass">0 t</b></div>
+      <div class="cell"><small>Carga viva</small><b id="t_load">0 t</b></div>
+      <div class="cell"><small>Deflexión máx.</small><b id="t_defl">0 cm</b></div>
+      <div class="cell"><small>Vehículos</small><b id="t_veh">0</b></div>
+    </div>
+  </div>
+  <div class="sec">
+    <h3>Mapa de Calor de Ingeniería</h3>
+    <div class="legend"></div>
+    <div class="legend-l"><span>Compresión</span><span>Reposo</span><span>70%</span><span>90-100%</span></div>
+    <div class="legend-l" style="margin-top:1px"><span style="color:#60a5fa">◀ comprime</span><span style="color:#fbbf24">tracciona ▶</span></div>
+  </div>
+  <div class="sec">
+    <h3>Registro de Eventos</h3>
+    <div id="log"></div>
+  </div>
+</aside>
+
+<div id="bbar">
+  <div class="g" id="mats"></div>
+  <div class="sep"></div>
+  <div class="g">
+    <button class="mbtn on" data-tool="beam">✚ Construir<small>clic-clic encadena</small></button>
+    <button class="mbtn" data-tool="delete">✖ Eliminar<small>nodo o viga</small></button>
+  </div>
+  <div class="sep"></div>
+  <div class="g">
+    <button class="mbtn" id="bb_snap">▦ Rejilla 1 m<small>activada</small></button>
+    <button class="mbtn" id="bb_undo">↶ Deshacer<small>Ctrl+Z</small></button>
+    <button class="mbtn" id="bb_clear">🗑 Limpiar<small>todo</small></button>
+  </div>
+  <div class="sep"></div>
+  <div class="g" id="budgetBox" style="display:block">
+    <div style="display:flex;justify-content:space-between;gap:6px;align-items:center">
+      <span style="color:var(--dim);font-size:10px">PRESUPUESTO $</span><input id="budget" type="number" step="10000" min="10000">
+    </div>
+    <div style="font:600 11px var(--mono);margin-top:3px" id="bb_cost">$0 / $0</div>
+    <div class="bar"><i id="bb_bar"></i></div>
+  </div>
+  <div class="sep"></div>
+  <button class="btn big" id="bb_test" style="width:auto;margin:0;padding:9px 16px">▶ PROBAR PUENTE</button>
+</div>
+
+<div id="tip"></div>
+<div id="toast"></div>
+<div id="banner"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   STRUCTURAL BRIDGE BUILDER & STRESS ANALYZER
+   Unidades SI: metros, kilogramos, segundos, Newtons. Eje Y hacia arriba.
+   Integración: Verlet posicional (x, x_prev) con sub-stepping + XPBD
+   (Extended Position Based Dynamics) con compliancia física α = L/(E·A)
+   y amortiguamiento axial de Rayleigh. Deformación ε = (L - L0)/L0.
+   ===================================================================== */
+
+// ---------------------------------------------------------------- Constantes
+const GAP = 60;             // ancho del cañón (m)
+const WATER_Y = -26;        // nivel medio del río
+const BED_Y = -36;          // lecho del río
+const ROCK_TOP = -23.5;     // cima de rocas en el río (anclajes para pilares)
+const ROCKS = [{x:20,hw:2.4},{x:40,hw:2.4}];
+const FIXED = 1/60;
+const JOINT_MASS = 120;     // masa de cada nudo/placa de unión (kg)
+const ROAD_HALF = 0.25;     // semi-espesor de la losa
+const WHEEL_R = 0.55;
+const ZETA = 0.07;          // razón de amortiguamiento axial de los elementos
+let SUB = 20;
+
+const MATS = {
+  road:    {key:'road',    name:'Carretera / Vía',  EA:2.0e8, epsT:0.012,  epsC:0.012, rho:500,  cost:420, maxLen:8.5,  width:0.5,  tOnly:false, base:'#94a3b8'},
+  steel:   {key:'steel',   name:'Viga de Acero',    EA:2.5e8, epsT:0.010,  epsC:0.010, rho:250,  cost:650, maxLen:12.5, width:0.34, tOnly:false, base:'#f97316'},
+  cable:   {key:'cable',   name:'Cable Tensor',     EA:6.0e7, epsT:0.025,  epsC:1,     rho:30,   cost:240, maxLen:40,   width:0.13, tOnly:true,  base:'#e5e7eb'},
+  concrete:{key:'concrete',name:'Pilar de Concreto',EA:1.2e9, epsT:0.0006, epsC:0.004, rho:1800, cost:300, maxLen:20,   width:0.8,  tOnly:false, base:'#a8a29e'}
+};
+const MAT_ORDER = ['road','steel','cable','concrete'];
+const GROUND = {ground:true};
+const COLORS = ['#2563eb','#dc2626','#059669','#7c3aed','#0891b2','#db2777','#ca8a04'];
+
+// ---------------------------------------------------------------- Utilidades
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp = (a,b,t) => a+(b-a)*t;
+let seed = 1337;
+const rnd = () => { seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; };
+const fmt$ = v => '$' + Math.round(v).toLocaleString('en-US');
+
+// ---------------------------------------------------------------- Mapa de calor (LUT)
+const EM=[16,185,129], CY=[34,211,238], BL=[59,110,246], LI=[190,220,60], AM=[245,158,11], OR=[249,96,22], RD=[255,28,28];
+function buildLUT(stops){
+  const out=[];
+  for(let i=0;i<=100;i++){
+    const u=i/100; let k=0;
+    while(k<stops.length-2 && u>stops[k+1][0]) k++;
+    const [u0,c0]=stops[k], [u1,c1]=stops[k+1];
+    const t=clamp((u-u0)/(u1-u0||1),0,1);
+    out.push(`rgb(${Math.round(lerp(c0[0],c1[0],t))},${Math.round(lerp(c0[1],c1[1],t))},${Math.round(lerp(c0[2],c1[2],t))})`);
+  }
+  return out;
+}
+const LUT_T = buildLUT([[0,EM],[0.45,LI],[0.7,AM],[0.88,OR],[1,RD]]);
+const LUT_C = buildLUT([[0,EM],[0.28,CY],[0.52,BL],[0.6,BL],[0.7,AM],[0.88,OR],[1,RD]]);
+const heat = r => { const i = Math.min(100, Math.round(Math.abs(r)*100)); return r<0 ? LUT_C[i] : LUT_T[i]; };
+
+// ---------------------------------------------------------------- Estado
+const S = {g:9.81, matF:1, quake:0, wind:0, quakeCur:0, windCur:0, weight:15, speed:50, units:4, vtype:'train',
+           auto:true, labels:true, slow:false, paused:false};
+let bp = {nodes:[], beams:[]}, presetIdx = 0, budget = 200000;
+let nodes=[], beams=[], roadBeams=[], vparts=[], vcons=[], vehicles=[];
+let sparks=[], rings=[], drops=[];
+let T=0, simTime=0, settling=false, settleG=1;
+let brokenCount=0, brokenRoad=0, maxEver=0, framePeak=0, peakBeam=null, beamId=0;
+let shake=0, firstBreak=false, relaunchT=0, convoySeq=0, exitedCount=0, structCost=0;
+let builder=false, tool='beam', curMat='road', snap=true, pending=null, undoStack=[];
+let logs=[], logDirty=true, hoverBeam=null;
+const quakeOff = {x:0,y:0};
+const mouse = {sx:0,sy:0,x:0,y:0,down:-1,dragged:0,lx:0,ly:0,in:false};
+const cam = {x:30,y:-7.5,s:10,cx:0,cy:0};
+let W=0,H=0,DPR=1, perfT=0;
+const cv=$('c'), ctx=cv.getContext('2d');
+
+// ---------------------------------------------------------------- Agua (campo de alturas 1D)
+const WN=160, WDX=GAP/(WN-1);
+const wh=new Float32Array(WN), wvel=new Float32Array(WN);
+const streaks=[]; for(let i=0;i<46;i++) streaks.push({x:rnd()*GAP, y:lerp(BED_Y+1,WATER_Y-0.6,rnd()), l:0.6+rnd()*2.2, s:0.8+rnd()*1.6});
+function waterLevel(x){ const i=clamp(Math.round(x/WDX),0,WN-1); return WATER_Y+wh[i]; }
+
+// ---------------------------------------------------------------- Partículas físicas
+function mkP(x,y,anchor){
+  return {x,y,px:x,py:y,vx:0,vy:0,m:1,w:anchor?0:1,anchor:!!anchor,ax:x,ay:y,area:0,wet:false,
+          orig:false,by:y,wheel:false,veh:null,cont:null,ct:0,ctx:1,cty:0,dead:false,deg:0};
+}
+function mkBeam(p1,p2,mat,str,frag,rest){
+  const M=MATS[mat];
+  const L = rest!==undefined ? rest : Math.hypot(p2.x-p1.x,p2.y-p1.y);
+  return {p1,p2,mat,M,str,rest:L,comp:L/(M.EA*str),broken:false,frag:!!frag,ratio:0,disp:0,abs:0,id:++beamId};
+}
+function recomputeMasses(){
+  for(const n of nodes){ n.m=JOINT_MASS; n.area=0; n.deg=0; }
+  for(const b of beams){
+    if(b.broken) continue;
+    const mm=b.M.rho*b.rest*0.5;
+    b.p1.m+=mm; b.p2.m+=mm;
+    const ar=b.rest*b.M.width*0.6;
+    b.p1.area+=ar; b.p2.area+=ar;
+    if(!b.frag){ b.p1.deg++; b.p2.deg++; }
+  }
+  for(const n of nodes) n.w = n.anchor ? 0 : 1/n.m;
+  roadBeams = beams.filter(b=>!b.broken && b.mat==='road');
+}
+
+function buildSim(p){
+  beamId=0;
+  nodes = p.nodes.map(n=>{ const q=mkP(n.x,n.y,n.anchor); q.orig=true; q.by=n.y; return q; });
+  beams = p.beams.map(b=>mkBeam(nodes[b.a],nodes[b.b],b.mat,b.str||1,false));
+  vparts=[]; vcons=[]; vehicles=[]; sparks=[]; rings=[]; drops=[];
+  brokenCount=0; brokenRoad=0; maxEver=0; framePeak=0; peakBeam=null; firstBreak=false; exitedCount=0; relaunchT=0;
+  structCost = blueprintCost(p);
+  recomputeMasses();
+}
+
+// ---------------------------------------------------------------- Solver XPBD de vigas
+function solveBeam(b,h){
+  const p1=b.p1, p2=b.p2;
+  const dx=p2.x-p1.x, dy=p2.y-p1.y;
+  const L=Math.sqrt(dx*dx+dy*dy); if(L<1e-6) return;
+  const C=L-b.rest;
+  if(b.M.tOnly && C<0) return;               // cable flojo: no resiste compresión
+  const ws=p1.w+p2.w; if(ws===0) return;
+  const nx=dx/L, ny=dy/L;
+  const at=b.comp/(h*h);                     // compliancia escalada α~
+  const gam=2*ZETA*Math.sqrt(b.comp/ws)/h;   // amortiguamiento axial γ = α·β/h
+  const vrel=nx*((p2.x-p2.px)-(p1.x-p1.px))+ny*((p2.y-p2.py)-(p1.y-p1.py));
+  const dl=(-C-gam*vrel)/((1+gam)*ws+at);
+  p1.x-=p1.w*dl*nx; p1.y-=p1.w*dl*ny;
+  p2.x+=p2.w*dl*nx; p2.y+=p2.w*dl*ny;
+}
+// Restricciones rígidas de vehículos (PBD, compliancia 0)
+function solveVC(c){
+  const a=c.a, b=c.b;
+  const dx=b.x-a.x, dy=b.y-a.y;
+  const L=Math.sqrt(dx*dx+dy*dy)||1e-9;
+  const C=L-c.rest;
+  if(c.kind==='min' && C>0) return;
+  const ws=a.w+b.w; if(!ws) return;
+  const s=C/(L*ws)*c.k;
+  a.x+=a.w*s*dx; a.y+=a.w*s*dy;
+  b.x-=b.w*s*dx; b.y-=b.w*s*dy;
+}
+// Contacto rueda ↔ losa (punto-segmento con reparto baricéntrico de masa)
+function wheelContact(w){
+  const R=WHEEL_R+ROAD_HALF;
+  for(let i=0;i<roadBeams.length;i++){
+    const b=roadBeams[i]; if(b.broken) continue;
+    const a=b.p1, c=b.p2;
+    if(w.x<Math.min(a.x,c.x)-R || w.x>Math.max(a.x,c.x)+R || w.y<Math.min(a.y,c.y)-R || w.y>Math.max(a.y,c.y)+R) continue;
+    const ex=c.x-a.x, ey=c.y-a.y, l2=ex*ex+ey*ey; if(l2<1e-6) continue;
+    let t=((w.x-a.x)*ex+(w.y-a.y)*ey)/l2; t=clamp(t,0,1);
+    const qx=a.x+ex*t, qy=a.y+ey*t;
+    const dx=w.x-qx, dy=w.y-qy, d=Math.sqrt(dx*dx+dy*dy);
+    if(d>=R) continue;
+    const il=1/Math.sqrt(l2);
+    let ux=-ey*il, uy=ex*il; if(uy<0){ux=-ux;uy=-uy;}
+    const s=dx*ux+dy*uy;
+    if(s<-0.35) continue;                    // la rueda está bajo la losa: no la "atrapa"
+    let nx,ny,pen;
+    if(s>0.05 && d>1e-5){ nx=dx/d; ny=dy/d; pen=R-d; } else { nx=ux; ny=uy; pen=R-s; }
+    pen=Math.min(pen,0.3);
+    const wa=a.w*(1-t)*(1-t), wc=c.w*t*t, den=w.w+wa+wc; if(den<=0) continue;
+    const lam=pen/den;
+    w.x+=w.w*lam*nx; w.y+=w.w*lam*ny;
+    a.x-=a.w*(1-t)*lam*nx; a.y-=a.w*(1-t)*lam*ny;
+    c.x-=c.w*t*lam*nx; c.y-=c.w*t*lam*ny;
+    let tx=ex*il, ty=ey*il; if(tx<0){tx=-tx;ty=-ty;}
+    w.cont=b; w.ct=t; w.ctx=tx; w.cty=ty;
+  }
+}
+function wheelDrive(w,h){
+  if(!w.cont) return;
+  const v=w.veh;
+  const target = v.driving ? S.speed/3.6 : 0;
+  const aMax = v.driving ? 3.5 : 6;
+  let bvx=0,bvy=0,a=null,c=null,t=0;
+  if(w.cont!==GROUND){ a=w.cont.p1; c=w.cont.p2; t=w.ct; bvx=a.vx*(1-t)+c.vx*t; bvy=a.vy*(1-t)+c.vy*t; }
+  const vr=(w.vx-bvx)*w.ctx+(w.vy-bvy)*w.cty;
+  const dv=clamp(target-vr,-aMax*h,aMax*h);
+  w.vx+=dv*w.ctx; w.vy+=dv*w.cty;
+  if(a){ // reacción de tracción/frenado sobre la losa (3ª ley de Newton)
+    const J=dv*w.m;
+    if(a.w>0){ a.vx-=J*(1-t)*w.ctx*a.w; a.vy-=J*(1-t)*w.cty*a.w; }
+    if(c.w>0){ c.vx-=J*t*w.ctx*c.w; c.vy-=J*t*w.cty*c.w; }
+  }
+}
+// ---------------------------------------------------------------- Terreno (acantilados, lecho, rocas)
+function push(p,nx,ny,d,fric){
+  p.x+=nx*d; p.y+=ny*d;
+  if(fric>0){
+    const dx=p.x-p.px, dy=p.y-p.py, dn=dx*nx+dy*ny;
+    p.px+=(dx-dn*nx)*fric; p.py+=(dy-dn*ny)*fric;
+  }
+  if(p.wheel && ny>0.6){ p.cont=GROUND; p.ctx=ny; p.cty=-nx; }
+}
+function terrain(p,r,fric){
+  // Bloque izquierdo: x<=0, y<=0
+  if(p.x<r && p.y<r){
+    if(p.x<=0){ const up=r-p.y, side=r-p.x; if(up<=side) push(p,0,1,up,fric); else push(p,1,0,side,fric); }
+    else if(p.y<=0) push(p,1,0,r-p.x,fric);
+    else { const d=Math.hypot(p.x,p.y); if(d<r && d>1e-6) push(p,p.x/d,p.y/d,r-d,fric); }
+  }
+  // Bloque derecho: x>=GAP, y<=0
+  if(p.x>GAP-r && p.y<r){
+    const q=GAP-p.x;
+    if(q<=0){ const up=r-p.y, side=r-q; if(up<=side) push(p,0,1,up,fric); else push(p,-1,0,side,fric); }
+    else if(p.y<=0) push(p,-1,0,r-q,fric);
+    else { const d=Math.hypot(q,p.y); if(d<r && d>1e-6) push(p,-q/d,p.y/d,r-d,fric); }
+  }
+  if(p.y<BED_Y+r) push(p,0,1,BED_Y+r-p.y,Math.max(fric,0.6));
+  for(const k of ROCKS){
+    const dx=p.x-k.x;
+    if(Math.abs(dx)<k.hw+r && p.y<ROCK_TOP+r && p.y>BED_Y){
+      const up=ROCK_TOP+r-p.y, side=k.hw+r-Math.abs(dx);
+      if(up<=side) push(p,0,1,up,fric); else push(p,dx>=0?1:-1,0,side,fric);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- Integración
+function integrateP(p,ax,ay,h,damp,buoy){
+  if(p.x>0 && p.x<GAP && p.y<waterLevel(p.x)){   // hidrodinámica: empuje + arrastre + corriente
+    ay+=S.g*buoy;
+    const k=Math.min(1,2.2*h);
+    p.vx+=(1.4-p.vx)*k; p.vy-=p.vy*k;
+  }
+  p.vx=(p.vx+ax*h)*damp; p.vy=(p.vy+ay*h)*damp;
+  p.px=p.x; p.py=p.y;
+  p.x+=p.vx*h; p.y+=p.vy*h;
+}
+
+function substep(h){
+  T+=h;
+  const g=S.g*(settling?settleG:1);
+  // Sismo: movimiento kinemático de los apoyos
+  let qx=0,qy=0; const q=settling?0:S.quakeCur;
+  if(q>0.001){
+    const A=q*0.05;
+    qx=A*(Math.sin(T*8.1)+0.6*Math.sin(T*14.7+1.3)+0.35*Math.sin(T*23.3+0.4));
+    qy=A*0.5*(Math.sin(T*10.9+2.1)+0.5*Math.sin(T*18.4));
+  }
+  quakeOff.x=qx; quakeOff.y=qy;
+  // Viento: presión dinámica q = ½ρ·Cd·v² con ráfagas + desprendimiento de vórtices vertical
+  const wv=settling?0:S.windCur;
+  const gust=0.8+0.2*Math.sin(T*0.83)+0.12*Math.sin(T*2.9+1.7);
+  const qd=0.84*wv*wv*gust;
+  const damp=settling?0.994:0.99997;
+
+  for(let i=0;i<nodes.length;i++){
+    const n=nodes[i];
+    if(n.anchor){ n.px=n.x; n.py=n.y; n.x=n.ax+qx; n.y=n.ay+qy; continue; }
+    let ax=0, ay=-g;
+    if(qd>0){ const f=qd*n.area*n.w; ax+=f; ay+=f*0.45*Math.sin(T*2.1-n.x*0.21); }
+    integrateP(n,ax,ay,h,damp,0.55);
+  }
+  for(let i=0;i<vparts.length;i++){
+    const p=vparts[i]; let ax=0, ay=-g;
+    if(qd>0) ax+=qd*6*p.w;
+    integrateP(p,ax,ay,h,damp,0.45);
+  }
+  // Restricciones
+  for(let i=0;i<beams.length;i++){ const b=beams[i]; if(!b.broken) solveBeam(b,h); }
+  for(let i=0;i<vcons.length;i++) solveVC(vcons[i]);
+  for(let i=0;i<vparts.length;i++){ const p=vparts[i]; if(p.wheel){ p.cont=null; wheelContact(p); } }
+  for(let i=0;i<vcons.length;i++) solveVC(vcons[i]);
+  for(let i=0;i<nodes.length;i++){ const n=nodes[i]; if(!n.anchor) terrain(n,0.06,0.5); }
+  for(let i=0;i<vparts.length;i++){
+    const p=vparts[i];
+    terrain(p, p.wheel?WHEEL_R+ROAD_HALF:0.3, p.wheel?(p.veh.driving?0:0.25):0.4);
+  }
+  // Velocidades (Verlet): v = (x - x_prev)/h
+  const ih=1/h;
+  for(let i=0;i<nodes.length;i++){ const n=nodes[i]; if(!n.anchor){ n.vx=(n.x-n.px)*ih; n.vy=(n.y-n.py)*ih; } }
+  for(let i=0;i<vparts.length;i++){
+    const p=vparts[i]; p.vx=(p.x-p.px)*ih; p.vy=(p.y-p.py)*ih;
+    if(p.wheel) wheelDrive(p,h);
+  }
+  measureAndBreak();
+}
+
+// ---------------------------------------------------------------- Deformación, estrés y fractura
+function measureAndBreak(){
+  const mf=S.matF;
+  let c1=null, c2=null;
+  for(let i=0;i<beams.length;i++){
+    const b=beams[i]; if(b.broken) continue;
+    const dx=b.p2.x-b.p1.x, dy=b.p2.y-b.p1.y;
+    const L=Math.sqrt(dx*dx+dy*dy);
+    let e=(L-b.rest)/b.rest;
+    if(b.M.tOnly && e<0) e=0;
+    const r=e/((e>=0?b.M.epsT:b.M.epsC)*mf*(b.frag?3:1));
+    b.ratio=r;
+    const a=r<0?-r:r; b.abs=a;
+    if(!b.frag && a>framePeak){ framePeak=a; peakBeam=b; }
+    if(a>=1 && !settling){
+      if(!c1 || a>c1.abs){ c2=c1; c1=b; } else if(!c2 || a>c2.abs) c2=b;
+    }
+  }
+  if(c1) breakBeam(c1);
+  if(c2 && !c2.broken) breakBeam(c2);
+}
+
+function breakBeam(b){
+  b.broken=true;
+  const p1=b.p1, p2=b.p2;
+  const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+  if(b.frag){ recomputeMasses(); emitSparks(mx,my,6,b.mat,0.5); return; }
+  brokenCount++; if(b.mat==='road') brokenRoad++;
+  const dx=p2.x-p1.x, dy=p2.y-p1.y, L=Math.hypot(dx,dy)||1;
+  const nx=dx/L, ny=dy/L;
+  const gp=Math.min(0.35,b.rest*0.06);
+  const half=Math.max(0.2,b.rest*0.5-gp);
+  const A=mkP(mx-nx*gp,my-ny*gp,false), B=mkP(mx+nx*gp,my+ny*gp,false);
+  A.vx=lerp(p1.vx,p2.vx,0.5); A.vy=lerp(p1.vy,p2.vy,0.5); B.vx=A.vx; B.vy=A.vy;
+  nodes.push(A,B);
+  beams.push(mkBeam(p1,A,b.mat,b.str,true,half));
+  beams.push(mkBeam(B,p2,b.mat,b.str,true,half));
+  recomputeMasses();
+  const tension=b.ratio>0;
+  const force=Math.abs(b.ratio)*(tension?b.M.epsT:b.M.epsC)*S.matF*b.M.EA*b.str;
+  const energy=clamp(force/1.5e6,0.3,2.5);
+  emitSparks(mx,my,b.mat==='cable'?20:34,b.mat,energy);
+  rings.push({x:mx,y:my,r:0.3,max:5+energy*5,life:1,flat:false});
+  shake=Math.min(1.6,shake+0.35+energy*0.15);
+  log(`✖ ${b.M.name} #${b.id} fracturó a ${Math.round(Math.abs(b.ratio)*100)}% (${tension?'tracción':'compresión'}) · ${(force/1000).toFixed(0)} kN`,'bad');
+  if(!firstBreak){ firstBreak=true; banner('⚠ FALLA ESTRUCTURAL', `Elemento ${b.M.name} #${b.id} superó su límite · redistribución de carga`); }
+  else if(brokenCount===5) banner('COLAPSO PROGRESIVO EN CADENA','La carga se redistribuye a los elementos vecinos');
+}
+
+function emitSparks(x,y,n,mat,energy){
+  const conc=mat==='concrete';
+  for(let i=0;i<n;i++){
+    const a=rnd()*Math.PI*2, sp=(conc?3:6)+rnd()*(conc?6:16)*Math.min(1.5,energy);
+    sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp+(conc?1:3),life:conc?1.4+rnd():0.45+rnd()*0.7,max:1.6,
+                 type:conc?1:(mat==='cable'?2:0),sz:conc?0.12+rnd()*0.25:0.05});
+  }
+  if(conc) for(let i=0;i<10;i++) sparks.push({x,y,vx:(rnd()-0.5)*8,vy:rnd()*6,life:1.2+rnd(),max:2,type:0,sz:0.05});
+  if(sparks.length>3500) sparks.splice(0,sparks.length-3500);
+}
+
+// ---------------------------------------------------------------- Asentamiento estático inicial
+function settle(){
+  settling=true;
+  const frames=150;
+  for(let f=0;f<frames;f++){
+    settleG=Math.min(1,f/60);
+    for(let s=0;s<SUB;s++) substep(FIXED/SUB);
+  }
+  settling=false;
+  for(const n of nodes){ n.vx=0; n.vy=0; n.px=n.x; n.py=n.y; }
+  for(const b of beams) b.disp=b.ratio;
+  T=0;
+}
+
+// ---------------------------------------------------------------- Vehículos
+function setVehicleMass(v){
+  const m=S.weight*1000*(v.lead && v.type==='train'?1.3:1);
+  v.mass=m;
+  const f=[0.4,0.4,0.1,0.1];
+  v.parts.forEach((p,i)=>{ p.m=m*f[i]; p.w=1/p.m; });
+}
+function spawnConvoy(){
+  const type=S.vtype, n=S.units|0;
+  const len=type==='train'?10:10.5, wb=type==='train'?6.6:7.0, gap=type==='train'?1.3:5.5;
+  let front=-0.5;
+  for(const p of vparts) if(p.x<6 && p.y>-2) front=Math.min(front,p.x-9);
+  const sp=S.speed/3.6, y0=ROAD_HALF+WHEEL_R;
+  convoySeq++;
+  let prev=null, total=0;
+  for(let i=0;i<n;i++){
+    const cx=front-len/2;
+    const v={type,lead:i===0,idx:i,len,wb,driving:true,fallen:false,wetT:0,rot:0,convoy:convoySeq,
+             color:COLORS[(i+convoySeq*2)%COLORS.length],
+             name:type==='train'?(i===0?'Locomotora':'Vagón '+i):'Camión '+(i+1)};
+    const w0=mkP(cx-wb/2,y0,false), w1=mkP(cx+wb/2,y0,false), t0=mkP(cx-wb/2,y0+2.4,false), t1=mkP(cx+wb/2,y0+2.4,false);
+    w0.wheel=w1.wheel=true;
+    v.parts=[w0,w1,t0,t1];
+    for(const p of v.parts){ p.vx=sp; p.veh=v; vparts.push(p); }
+    for(const [a,b] of [[w0,w1],[t0,t1],[w0,t0],[w1,t1],[w0,t1],[w1,t0]])
+      vcons.push({a,b,rest:Math.hypot(b.x-a.x,b.y-a.y),kind:'eq',k:1});
+    if(prev){
+      const a=prev.parts[0], b=w1, d=Math.hypot(a.x-b.x,a.y-b.y);
+      vcons.push(type==='train'?{a,b,rest:d,kind:'eq',k:0.6}:{a,b,rest:d*0.8,kind:'min',k:0.8});
+    }
+    setVehicleMass(v); total+=v.mass;
+    vehicles.push(v); prev=v; front-=len+gap;
+  }
+  log(`▶ Convoy #${convoySeq}: ${n} ${type==='train'?'unidades ferroviarias':'camiones'} · ${(total/1000).toFixed(1)} t · ${S.speed} km/h`,'warn');
+}
+function updateVehicles(dt){
+  let removed=false;
+  for(const v of vehicles){
+    const [w0,w1]=v.parts;
+    const inCanyon=w0.x>0 && w0.x<GAP;
+    if(!v.fallen && inCanyon && (w0.y<-4 || w1.y<-4)){
+      v.fallen=true; v.driving=false;
+      log(`🌊 ${v.name} (${(v.mass/1000).toFixed(1)} t) cayó al río`,'bad');
+    }
+    if(v.fallen && w0.y<WATER_Y) v.wetT+=dt;
+    const ang=Math.atan2(w1.y-w0.y,w1.x-w0.x);
+    v.rot-=(w0.vx*Math.cos(ang)+w0.vy*Math.sin(ang))*dt/WHEEL_R;
+    if(v.parts.every(p=>p.x>GAP+48)){ v.dead=true; exitedCount++; }
+    if(v.wetT>28) v.dead=true;
+  }
+  if(vehicles.some(v=>v.dead)){
+    for(const v of vehicles) if(v.dead) for(const p of v.parts) p.dead=true;
+    vehicles=vehicles.filter(v=>!v.dead);
+    vparts=vparts.filter(p=>!p.dead);
+    vcons=vcons.filter(c=>!c.a.dead && !c.b.dead);
+    removed=true;
+  }
+  return removed;
+}
+
+// ---------------------------------------------------------------- Efectos: chispas, ondas, agua
+function splash(x,vy,m){
+  const s=clamp(Math.abs(vy)/14*(0.35+Math.min(1.2,m/6000)),0.1,2.2);
+  const n=(6+s*26)|0;
+  for(let i=0;i<n;i++){
+    drops.push({x:x+(rnd()-0.5)*s*1.6,y:waterLevel(x)+0.1,vx:(rnd()-0.5)*7*s,vy:3+rnd()*10*s,life:1.2+rnd(),r:0.07+rnd()*0.16});
+  }
+  rings.push({x,y:WATER_Y,r:0.3,max:3+s*5,life:1,flat:true});
+  const i0=Math.round(x/WDX);
+  for(let k=-4;k<=4;k++){ const j=i0+k; if(j>=0 && j<WN) wvel[j]-=s*0.32*(1-Math.abs(k)/5); }
+  if(drops.length>2500) drops.splice(0,drops.length-2500);
+}
+function detectSplashes(){
+  let budgetS=10;
+  const chk=p=>{
+    if(p.x<=0 || p.x>=GAP){ p.wet=false; return; }
+    const wet=p.y<waterLevel(p.x);
+    if(wet && !p.wet && p.vy<-2.2 && budgetS>0){ budgetS--; splash(p.x,p.vy,p.m); }
+    p.wet=wet;
+  };
+  for(const n of nodes) if(!n.anchor) chk(n);
+  for(const p of vparts) chk(p);
+}
+function updateEffects(dt){
+  const k=dt*60;
+  // Ecuación de onda discreta con amortiguamiento
+  for(let it=0;it<2;it++){
+    for(let i=0;i<WN;i++){
+      const l=wh[i>0?i-1:0], r=wh[i<WN-1?i+1:WN-1];
+      wvel[i]+=((l+r-2*wh[i])*0.22-wh[i]*0.004)*k;
+      wvel[i]*=Math.pow(0.992,k);
+    }
+    for(let i=0;i<WN;i++) wh[i]+=wvel[i]*k*0.5;
+  }
+  for(const s of streaks){ s.x+=s.s*dt; if(s.x>GAP+2){ s.x=-2; s.y=lerp(BED_Y+1,WATER_Y-0.6,rnd()); } }
+  for(const p of sparks){
+    p.vy-=(p.type===1?6:9.8)*dt; const dr=Math.exp(-(p.type===1?1.6:0.9)*dt);
+    p.vx*=dr; p.vy*=dr; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+    if(p.x>0 && p.x<GAP && p.y<waterLevel(p.x)) p.life-=dt*4;
+  }
+  sparks=sparks.filter(p=>p.life>0);
+  for(const d of drops){
+    d.vy-=9.8*dt; d.x+=d.vx*dt; d.y+=d.vy*dt; d.life-=dt;
+    if(d.vy<0 && d.x>0 && d.x<GAP && d.y<waterLevel(d.x)) d.life=0;
+  }
+  drops=drops.filter(d=>d.life>0);
+  for(const r of rings){ r.r+=(r.max-r.r)*Math.min(1,dt*(r.flat?3:7)); r.life-=dt*(r.flat?0.9:1.6); }
+  rings=rings.filter(r=>r.life>0);
+}
+
+// ---------------------------------------------------------------- Paso de simulación por frame
+function stepFrame(dtF){
+  framePeak=0; peakBeam=null;
+  S.quakeCur+=(S.quake-S.quakeCur)*0.04;
+  S.windCur+=(S.wind-S.windCur)*0.04;
+  const h=dtF/SUB;
+  for(let s=0;s<SUB;s++) substep(h);
+  simTime+=dtF;
+  for(const b of beams) if(!b.broken) b.disp+=(b.ratio-b.disp)*0.45;
+  if(framePeak>maxEver) maxEver=framePeak;
+  detectSplashes();
+  updateVehicles(dtF);
+  // Relanzamiento automático
+  const anyDriving=vehicles.some(v=>v.driving);
+  if(!anyDriving && S.auto && !isCollapsed()){
+    relaunchT+=dtF;
+    if(relaunchT>1.6){ spawnConvoy(); relaunchT=0; }
+  } else relaunchT=0;
+}
+const isCollapsed = () => brokenRoad>0 || brokenCount>=4;
+
+// ---------------------------------------------------------------- Presets
+function mkBP(){
+  const p={nodes:[],beams:[]};
+  p.N=(x,y,a=false)=>{ p.nodes.push({x,y,anchor:a}); return p.nodes.length-1; };
+  p.B=(a,b,mat,str=1)=>{ p.beams.push({a,b,mat,str}); };
+  return p;
+}
+const PRESETS=[
+  {name:'Puente Truss Warren Estable', desc:'Celosía Warren de acero · margen de seguridad ~1.5',
+   cfg:{vtype:'train',units:4,weight:15,speed:50,wind:0,quake:0},
+   build(){
+     const p=mkBP(), d=[], t=[];
+     for(let i=0;i<=10;i++) d.push(p.N(6*i,0,i===0||i===10));
+     for(let i=0;i<10;i++) t.push(p.N(6*i+3,8));
+     for(let i=0;i<10;i++) p.B(d[i],d[i+1],'road',1.15);
+     for(let i=0;i<10;i++){ p.B(d[i],t[i],'steel'); p.B(t[i],d[i+1],'steel'); }
+     for(let i=0;i<9;i++) p.B(t[i],t[i+1],'steel',1.2);
+     return p;
+   }},
+  {name:'Puente Colgante Al Límite — Colapso Dramático', desc:'Péndolas subdimensionadas al centro del vano',
+   cfg:{vtype:'train',units:4,weight:18,speed:55,wind:10,quake:0},
+   build(){
+     const p=mkBP(), d=[], c=[];
+     for(let i=0;i<=10;i++) d.push(p.N(6*i,0,i===0||i===10));
+     const BL=p.N(-4,0,true), BR=p.N(64,0,true), SL=p.N(-16,0,true), SR=p.N(76,0,true);
+     const TL1=p.N(-0.5,9), TL2=p.N(-1,18), TR1=p.N(60.5,9), TR2=p.N(61,18);
+     p.B(d[0],TL1,'concrete'); p.B(BL,TL1,'concrete'); p.B(TL1,TL2,'concrete'); p.B(BL,TL2,'concrete');
+     p.B(d[10],TR1,'concrete'); p.B(BR,TR1,'concrete'); p.B(TR1,TR2,'concrete'); p.B(BR,TR2,'concrete');
+     for(let i=1;i<=9;i++){ const x=6*i; c.push(p.N(x,3+15*Math.pow((x-30)/31,2))); }
+     p.B(TL2,c[0],'cable',0.5);
+     for(let i=0;i<8;i++) p.B(c[i],c[i+1],'cable',0.5);
+     p.B(c[8],TR2,'cable',0.5);
+     for(let i=1;i<=9;i++){ const x=6*i; p.B(c[i-1],d[i],'cable',0.06+0.06*Math.abs(x-30)/24); }
+     p.B(TL2,SL,'cable',0.6); p.B(TR2,SR,'cable',0.6);
+     for(let i=0;i<10;i++) p.B(d[i],d[i+1],'road',0.35);
+     return p;
+   }},
+  {name:'Arco de Acero Industrial', desc:'Arco bajo tablero · trabaja a compresión pura',
+   cfg:{vtype:'trucks',units:5,weight:22,speed:65,wind:0,quake:0},
+   build(){
+     const p=mkBP(), d=[], a=[];
+     for(let i=0;i<=10;i++) d.push(p.N(6*i,0,i===0||i===10));
+     a.push(p.N(0,-12,true));
+     for(let i=1;i<=9;i++){ const x=6*i; a.push(p.N(x,-12+10.5*(1-Math.pow((x-30)/30,2)))); }
+     a.push(p.N(60,-12,true));
+     for(let i=0;i<10;i++) p.B(a[i],a[i+1],'steel',1.5);
+     for(let i=1;i<=9;i++) p.B(a[i],d[i],'steel');
+     for(let k=0;k<10;k++){ if(k<5) p.B(d[k],a[k+1],'steel'); else p.B(a[k],d[k+1],'steel'); }
+     for(let i=0;i<10;i++) p.B(d[i],d[i+1],'road');
+     return p;
+   }},
+  {name:'Puente Sobrecargado — Prueba de Fallo', desc:'Pratt de 3.5 m de peralte vs. convoy de 160 t',
+   cfg:{vtype:'trucks',units:5,weight:32,speed:45,wind:0,quake:0},
+   build(){
+     const p=mkBP(), d=[], t=[];
+     for(let i=0;i<=10;i++) d.push(p.N(6*i,0,i===0||i===10));
+     t[0]=null; for(let i=1;i<=9;i++) t[i]=p.N(6*i,3.5);
+     for(let i=0;i<10;i++) p.B(d[i],d[i+1],'road');
+     for(let i=1;i<=9;i++) p.B(d[i],t[i],'steel');
+     for(let i=1;i<9;i++) p.B(t[i],t[i+1],'steel');
+     p.B(d[0],t[1],'steel'); p.B(d[10],t[9],'steel');
+     for(let i=1;i<=4;i++) p.B(t[i],d[i+1],'steel');
+     for(let i=6;i<=9;i++) p.B(t[i],d[i-1],'steel');
+     return p;
+   }}
+];
+
+// ---------------------------------------------------------------- Costos
+const beamCost=(L,mat,str=1)=>MATS[mat].cost*L*(0.4+0.6*str);
+function blueprintCost(p){
+  let c=0; const used=new Set();
+  for(const b of p.beams){
+    const A=p.nodes[b.a], B=p.nodes[b.b];
+    c+=beamCost(Math.hypot(B.x-A.x,B.y-A.y),b.mat,b.str||1);
+    used.add(b.a); used.add(b.b);
+  }
+  for(const i of used) c+=p.nodes[i].anchor?1500:400;
+  return c;
+}
+
+// ---------------------------------------------------------------- Control de flujo
+function loadPreset(i){
+  presetIdx=i;
+  const P=PRESETS[i], p=P.build();
+  bp={nodes:p.nodes,beams:p.beams};
+  budget=Math.ceil(blueprintCost(bp)*1.3/10000)*10000;
+  $('budget').value=budget;
+  const c=P.cfg;
+  setVType(c.vtype);
+  setRange('units',c.units); setRange('weight',c.weight); setRange('speed',c.speed);
+  setRange('wind',c.wind); setRange('quake',c.quake); setRange('gravity',9.81); setRange('matf',1);
+  S.windCur=S.wind; S.quakeCur=0;
+  document.querySelectorAll('.preset').forEach((el,k)=>el.classList.toggle('on',k===i));
+  undoStack=[]; pending=null;
+  logs=[]; log(`Preset cargado: ${P.name}`,'ok');
+  if(builder) updateBudgetUI(); else startSim();
+}
+function startSim(){
+  buildSim(bp);
+  for(let i=0;i<WN;i++){ wh[i]=0; wvel[i]=0; }
+  settle();
+  simTime=0; maxEver=0; framePeak=0;
+  for(const b of beams) if(Math.abs(b.ratio)>maxEver && !b.frag) maxEver=Math.abs(b.ratio);
+  spawnConvoy();
+  log(`Asentamiento estático completado · σ pico peso propio ${Math.round(maxEver*100)}%`,'ok');
+}
+function setBuilder(on){
+  builder=on; pending=null;
+  document.body.classList.toggle('building',on);
+  $('b_build').textContent=on?'▶ SALIR Y PROBAR PUENTE':'🛠 MODO CONSTRUCTOR';
+  $('tip').style.display='none';
+  if(on){ updateBudgetUI(); log('Modo Constructor activo: diseña tu puente','warn'); }
+  else startSim();
+  fitCamera(false);
+}
+
+// ---------------------------------------------------------------- Constructor
+function pxToWorld(px){ return px/cam.s; }
+function pickNode(x,y){
+  let best=-1, bd=pxToWorld(14);
+  bp.nodes.forEach((n,i)=>{ const d=Math.hypot(n.x-x,n.y-y); if(d<bd){bd=d;best=i;} });
+  return best;
+}
+function segDist(px,py,ax,ay,bx,by){
+  const ex=bx-ax, ey=by-ay, l2=ex*ex+ey*ey||1e-9;
+  const t=clamp(((px-ax)*ex+(py-ay)*ey)/l2,0,1);
+  return Math.hypot(px-(ax+ex*t),py-(ay+ey*t));
+}
+function pickBPBeam(x,y){
+  let best=-1, bd=pxToWorld(9);
+  bp.beams.forEach((b,i)=>{ const A=bp.nodes[b.a],B=bp.nodes[b.b]; const d=segDist(x,y,A.x,A.y,B.x,B.y); if(d<bd){bd=d;best=i;} });
+  return best;
+}
+function terrainSnap(x,y){
+  const t=0.75;
+  if(x<=t && x>-70 && Math.abs(y)<t) return {x:Math.min(x,0),y:0};
+  if(x>=GAP-t && x<GAP+70 && Math.abs(y)<t) return {x:Math.max(x,GAP),y:0};
+  if(Math.abs(x)<t && y<0 && y>WATER_Y+1) return {x:0,y};
+  if(Math.abs(x-GAP)<t && y<0 && y>WATER_Y+1) return {x:GAP,y};
+  for(const r of ROCKS) if(Math.abs(x-r.x)<=r.hw && Math.abs(y-ROCK_TOP)<t) return {x,y:ROCK_TOP};
+  return null;
+}
+const insideSolid=(x,y)=>(x<0&&y<0)||(x>GAP&&y<0)||y<BED_Y||ROCKS.some(r=>Math.abs(x-r.x)<r.hw&&y<ROCK_TOP);
+function builderPoint(wx,wy){
+  const pk=pickNode(wx,wy);
+  if(pk>=0) return {idx:pk,x:bp.nodes[pk].x,y:bp.nodes[pk].y,anchor:bp.nodes[pk].anchor};
+  let x=wx, y=wy;
+  if(snap){ x=Math.round(x); y=Math.round(y); }
+  const ta=terrainSnap(x,y) || terrainSnap(wx,wy);
+  if(ta) return {idx:-1,x:ta.x,y:ta.y,anchor:true};
+  if(insideSolid(x,y)) return null;
+  return {idx:-1,x,y,anchor:false};
+}
+function pushUndo(){ undoStack.push(JSON.stringify(bp)); if(undoStack.length>80) undoStack.shift(); }
+function undo(){ if(!undoStack.length){ toast('Nada que deshacer'); return; } bp=JSON.parse(undoStack.pop()); pending=null; updateBudgetUI(); }
+function cleanupBP(){
+  const deg=new Array(bp.nodes.length).fill(0);
+  for(const b of bp.beams){ deg[b.a]++; deg[b.b]++; }
+  const map=[], nn=[];
+  bp.nodes.forEach((n,i)=>{ if(deg[i]>0){ map[i]=nn.length; nn.push(n); } else map[i]=-1; });
+  bp.beams=bp.beams.filter(b=>map[b.a]>=0&&map[b.b]>=0).map(b=>({a:map[b.a],b:map[b.b],mat:b.mat,str:b.str||1}));
+  bp.nodes=nn;
+}
+function builderClick(wx,wy){
+  if(tool==='delete'){
+    const pk=pickNode(wx,wy);
+    if(pk>=0){ pushUndo(); bp.beams=bp.beams.filter(b=>b.a!==pk&&b.b!==pk); cleanupBP(); updateBudgetUI(); return; }
+    const bi=pickBPBeam(wx,wy);
+    if(bi>=0){ pushUndo(); bp.beams.splice(bi,1); cleanupBP(); updateBudgetUI(); }
+    return;
+  }
+  const pt=builderPoint(wx,wy);
+  if(!pt){ toast('No se puede construir dentro de la roca'); return; }
+  if(!pending){ pending=pt; return; }
+  const L=Math.hypot(pt.x-pending.x,pt.y-pending.y);
+  if(L<0.8){ pending=null; return; }
+  const M=MATS[curMat];
+  if(L>M.maxLen){ toast(`Longitud máxima de ${M.name}: ${M.maxLen} m (actual ${L.toFixed(1)} m)`); return; }
+  let extra=beamCost(L,curMat);
+  if(pending.idx<0) extra+=pending.anchor?1500:400;
+  if(pt.idx<0) extra+=pt.anchor?1500:400;
+  const cur=blueprintCost(bp);
+  if(cur+extra>budget){ toast(`Presupuesto excedido: faltan ${fmt$(cur+extra-budget)}`); return; }
+  pushUndo();
+  const ia=pending.idx>=0?pending.idx:(bp.nodes.push({x:pending.x,y:pending.y,anchor:pending.anchor}),bp.nodes.length-1);
+  const ib=pt.idx>=0?pt.idx:(bp.nodes.push({x:pt.x,y:pt.y,anchor:pt.anchor}),bp.nodes.length-1);
+  if(bp.beams.some(b=>(b.a===ia&&b.b===ib)||(b.a===ib&&b.b===ia))){ toast('Ya existe un elemento entre esos nodos'); undoStack.pop(); return; }
+  bp.beams.push({a:ia,b:ib,mat:curMat,str:1});
+  pending={idx:ib,x:bp.nodes[ib].x,y:bp.nodes[ib].y,anchor:bp.nodes[ib].anchor};
+  updateBudgetUI();
+}
+function updateBudgetUI(){
+  budget=Math.max(10000,parseFloat($('budget').value)||budget);
+  const c=blueprintCost(bp);
+  $('bb_cost').textContent=`${fmt$(c)} / ${fmt$(budget)}`;
+  $('bb_bar').style.width=Math.min(100,c/budget*100)+'%';
+  $('budgetBox').classList.toggle('over',c>budget);
+}
+
+// ---------------------------------------------------------------- Cámara
+function fitCamera(reset=true){
+  const lv=!$('left').classList.contains('hidden') && W>760, rv=!$('right').classList.contains('hidden') && W>760;
+  const lw=lv?286:0, rw=rv?276:0;
+  const aw=Math.max(200,W-lw-rw), top=52, bot=builder?84:8, ah=Math.max(200,H-top-bot);
+  cam.cx=lw+aw/2; cam.cy=top+ah/2;
+  if(reset){ cam.s=Math.max(3,Math.min(aw/104,ah/64)); cam.x=30; cam.y=-7.5; }
+}
+const w2sx=x=>cam.cx+(x-cam.x)*cam.s;
+const w2sy=y=>cam.cy-(y-cam.y)*cam.s;
+const s2wx=sx=>cam.x+(sx-cam.cx)/cam.s;
+const s2wy=sy=>cam.y-(sy-cam.cy)/cam.s;
+let shx=0, shy=0;
+function setWorld(){
+  ctx.setTransform(DPR*cam.s,0,0,-DPR*cam.s,DPR*(cam.cx-cam.x*cam.s+shx),DPR*(cam.cy+cam.y*cam.s+shy));
+}
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  W=innerWidth; H=innerHeight;
+  cv.width=Math.floor(W*DPR); cv.height=Math.floor(H*DPR);
+  fitCamera(true);
+}
+
+// ---------------------------------------------------------------- Render: escenario
+const STARS=[]; for(let i=0;i<170;i++) STARS.push({x:rnd(),y:rnd()*0.6,r:0.4+rnd()*1.2,p:rnd()*6});
+const JAG_L=[], JAG_R=[]; for(let i=0;i<60;i++){ JAG_L.push(i<2?0:rnd()*0.9); JAG_R.push(i<2?0:rnd()*0.9); }
+const ROCK_SHAPES=ROCKS.map(r=>{ const pts=[]; const n=9; for(let i=0;i<=n;i++){ const t=i/n; pts.push([r.x-r.hw+t*2*r.hw, ROCK_TOP+(i===0||i===n?-0.6:rnd()*0.5-0.1)]); } return pts; });
+
+function viewBounds(){ return {x0:s2wx(0)-2, x1:s2wx(W)+2, y1:s2wy(0)+2, y0:s2wy(H)-2}; }
+
+function drawSky(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#03060f'); g.addColorStop(0.45,'#0c1631'); g.addColorStop(0.75,'#2a2147'); g.addColorStop(1,'#4a2a4a');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  for(const s of STARS){
+    const a=0.35+0.35*Math.sin(perfT*1.3+s.p);
+    ctx.fillStyle=`rgba(220,230,255,${a})`; ctx.fillRect(s.x*W,s.y*H,s.r,s.r);
+  }
+  const mx=W*0.74, my=H*0.15;
+  const mg=ctx.createRadialGradient(mx,my,10,mx,my,140);
+  mg.addColorStop(0,'rgba(255,240,210,0.35)'); mg.addColorStop(1,'rgba(255,240,210,0)');
+  ctx.fillStyle=mg; ctx.fillRect(mx-140,my-140,280,280);
+  ctx.fillStyle='#fff3dc'; ctx.beginPath(); ctx.arc(mx,my,22,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(200,180,150,0.25)'; ctx.beginPath(); ctx.arc(mx-6,my-4,5,0,7); ctx.arc(mx+7,my+6,3.5,0,7); ctx.fill();
+}
+function drawMountains(vb){
+  const layers=[
+    {c:'#111a35',f:x=>16+7*Math.sin(x*0.031+0.5)+4*Math.sin(x*0.083+2)+2*Math.sin(x*0.21)},
+    {c:'#18213f',f:x=>7+4*Math.sin(x*0.047+3)+2.5*Math.sin(x*0.11+1)+1.2*Math.sin(x*0.29)}
+  ];
+  for(const L of layers){
+    ctx.beginPath(); ctx.moveTo(vb.x0,-12);
+    const st=(vb.x1-vb.x0)/90;
+    for(let x=vb.x0;x<=vb.x1+st;x+=st) ctx.lineTo(x,L.f(x));
+    ctx.lineTo(vb.x1+st,-12); ctx.closePath(); ctx.fillStyle=L.c; ctx.fill();
+  }
+  // luces lejanas
+  ctx.fillStyle='rgba(255,200,120,0.5)';
+  for(let i=0;i<24;i++){ const x=-60+i*9.7+((i*37)%5); const y=L2(x); ctx.fillRect(x,y,0.18,0.18); }
+  function L2(x){ return 7+4*Math.sin(x*0.047+3)+2.5*Math.sin(x*0.11+1)+1.2*Math.sin(x*0.29)-1.2-((x*13)%3); }
+}
+function drawCanyon(vb){
+  // pared trasera del cañón
+  const g=ctx.createLinearGradient(0,0.25,0,BED_Y);
+  g.addColorStop(0,'#2a2238'); g.addColorStop(1,'#0e0b16');
+  ctx.fillStyle=g; ctx.fillRect(-1,BED_Y-2,GAP+2,BED_Y*-1+2.5);
+  ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=0.25;
+  for(let k=0;k<12;k++){
+    const y=-2-k*2.6; ctx.beginPath();
+    for(let x=0;x<=GAP;x+=3) ctx.lineTo(x,y+0.5*Math.sin(x*0.3+k));
+    ctx.stroke();
+  }
+  // lecho
+  ctx.fillStyle='#17130f'; ctx.fillRect(-1,BED_Y-40,GAP+2,40);
+  ctx.fillStyle='#2a221b';
+  for(let i=0;i<40;i++){ const x=(i*1.53)%GAP; ctx.beginPath(); ctx.ellipse(x,BED_Y+0.05,0.5+(i%3)*0.3,0.25,0,0,Math.PI*2); ctx.fill(); }
+  // rocas
+  ROCKS.forEach((r,ri)=>{
+    const pts=ROCK_SHAPES[ri];
+    ctx.beginPath(); ctx.moveTo(r.x-r.hw-0.8,BED_Y);
+    for(const p of pts) ctx.lineTo(p[0],p[1]);
+    ctx.lineTo(r.x+r.hw+0.8,BED_Y); ctx.closePath();
+    const rg=ctx.createLinearGradient(0,ROCK_TOP,0,BED_Y); rg.addColorStop(0,'#5b4a52'); rg.addColorStop(1,'#231b22');
+    ctx.fillStyle=rg; ctx.fill();
+    ctx.strokeStyle='rgba(255,220,200,0.12)'; ctx.lineWidth=0.12; ctx.stroke();
+  });
+  // acantilados
+  const drawCliff=(side)=>{
+    const L=side<0;
+    const edge=L?0:GAP, far=L?vb.x0-5:vb.x1+5, jag=L?JAG_L:JAG_R, dir=L?-1:1;
+    ctx.beginPath(); ctx.moveTo(far,0.25); ctx.lineTo(edge,0.25);
+    for(let i=0;i<jag.length;i++){ const y=0.25-i*1.4; ctx.lineTo(edge+dir*jag[i],y); }
+    ctx.lineTo(edge,BED_Y-45); ctx.lineTo(far,BED_Y-45); ctx.closePath();
+    const cg=ctx.createLinearGradient(0,0,0,BED_Y);
+    cg.addColorStop(0,'#5a4637'); cg.addColorStop(0.5,'#3c2e27'); cg.addColorStop(1,'#1d1613');
+    ctx.fillStyle=cg; ctx.fill();
+    ctx.save(); ctx.clip();
+    for(let k=0;k<18;k++){
+      const y=-1.2-k*2.3;
+      ctx.beginPath();
+      for(let x=Math.min(far,edge);x<=Math.max(far,edge)+1;x+=2.5) ctx.lineTo(x,y+0.35*Math.sin(x*0.21+k*1.7));
+      ctx.strokeStyle=k%2?'rgba(0,0,0,0.28)':'rgba(255,200,160,0.07)'; ctx.lineWidth=k%2?0.18:0.5; ctx.stroke();
+    }
+    ctx.restore();
+    // suelo superior
+    ctx.fillStyle='#24331f'; ctx.fillRect(Math.min(far,edge),-0.9,Math.abs(far-edge),1.15);
+    ctx.fillStyle='#3d5a2c'; ctx.fillRect(Math.min(far,edge),0.15,Math.abs(far-edge),0.12);
+    // calzada / vía en tierra firme
+    ctx.fillStyle='#262a33'; ctx.fillRect(Math.min(far,edge),-0.25,Math.abs(far-edge),0.5);
+    ctx.fillStyle='rgba(250,204,21,0.5)';
+    for(let x=Math.min(far,edge);x<Math.max(far,edge);x+=3) ctx.fillRect(x,0.02,1.4,0.07);
+  };
+  drawCliff(-1); drawCliff(1);
+}
+function drawWater(){
+  ctx.beginPath(); ctx.moveTo(0,BED_Y-0.5);
+  for(let i=0;i<WN;i++) ctx.lineTo(i*WDX,surfY(i));
+  ctx.lineTo(GAP,BED_Y-0.5); ctx.closePath();
+  const g=ctx.createLinearGradient(0,WATER_Y+1,0,BED_Y);
+  g.addColorStop(0,'rgba(36,140,190,0.58)'); g.addColorStop(0.35,'rgba(18,80,130,0.78)'); g.addColorStop(1,'rgba(5,20,45,0.93)');
+  ctx.fillStyle=g; ctx.fill();
+  // corrientes
+  ctx.lineWidth=0.08; ctx.strokeStyle='rgba(160,225,255,0.16)';
+  ctx.beginPath();
+  for(const s of streaks){ if(s.x<0||s.x>GAP) continue; const top=waterLevel(s.x)-0.3; if(s.y>top) continue; ctx.moveTo(s.x,s.y); ctx.lineTo(Math.min(GAP,s.x+s.l),s.y+0.05*Math.sin(perfT+s.x)); }
+  ctx.stroke();
+  // superficie
+  ctx.beginPath();
+  for(let i=0;i<WN;i++){ const y=surfY(i); if(i===0) ctx.moveTo(0,y); else ctx.lineTo(i*WDX,y); }
+  ctx.strokeStyle='rgba(170,235,255,0.85)'; ctx.lineWidth=0.13; ctx.stroke();
+  // espuma en paredes y rocas
+  ctx.fillStyle='rgba(235,250,255,0.35)';
+  const foam=(x)=>{ for(let k=0;k<5;k++){ const fx=x+Math.sin(perfT*2+k*1.7)*0.6+(k-2)*0.35; ctx.beginPath(); ctx.arc(fx,waterLevel(clamp(fx,0,GAP))+0.05,0.12+0.08*Math.sin(perfT*3+k),0,7); ctx.fill(); } };
+  foam(0.6); foam(GAP-0.6); for(const r of ROCKS){ foam(r.x-r.hw-0.3); foam(r.x+r.hw+0.3); }
+  // reflejo de la luna
+  ctx.fillStyle='rgba(255,240,210,0.12)';
+  for(let k=0;k<6;k++){ const x=44+Math.sin(perfT*1.4+k)*1.2; ctx.fillRect(x-1.5+k*0.2,WATER_Y-0.3-k*0.55,3-k*0.35,0.1); }
+}
+function surfY(i){ const x=i*WDX; return WATER_Y+wh[i]+0.12*Math.sin(x*0.7+perfT*2.2)+0.07*Math.sin(x*1.9-perfT*3.1); }
+
+// ---------------------------------------------------------------- Render: estructura
+function beamPath(b){ ctx.moveTo(b.p1.x,b.p1.y); ctx.lineTo(b.p2.x,b.p2.y); }
+function drawBeams(){
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  const pulse=0.65+0.35*Math.sin(perfT*16);
+  // halo incandescente (aditivo) para elementos críticos
+  ctx.globalCompositeOperation='lighter';
+  for(const b of beams){
+    if(b.broken) continue; const a=Math.abs(b.disp); if(a<0.82) continue;
+    const k=clamp((a-0.82)/0.18,0,1);
+    ctx.strokeStyle=`rgba(255,${(50+50*pulse)|0},25,${(0.12+0.32*k)*pulse})`;
+    ctx.lineWidth=b.M.width+0.7+1.1*k;
+    ctx.beginPath(); beamPath(b); ctx.stroke();
+  }
+  ctx.globalCompositeOperation='source-over';
+  // contorno oscuro por material
+  for(const mk of MAT_ORDER){
+    const M=MATS[mk]; ctx.beginPath(); let any=false;
+    for(const b of beams){ if(b.broken||b.mat!==mk) continue; beamPath(b); any=true; }
+    if(any){ ctx.strokeStyle='rgba(2,5,12,0.8)'; ctx.lineWidth=M.width+0.16; ctx.stroke(); }
+  }
+  // cuerpo coloreado por estrés
+  for(const b of beams){
+    if(b.broken) continue;
+    ctx.strokeStyle=b.frag?shade(heat(b.disp)):heat(b.disp);
+    ctx.lineWidth=b.M.width;
+    ctx.beginPath(); beamPath(b); ctx.stroke();
+  }
+  // detalles: alma de perfil I, eje de losa, núcleo blanco incandescente
+  ctx.beginPath();
+  for(const b of beams) if(!b.broken && b.mat==='steel') beamPath(b);
+  ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=0.09; ctx.stroke();
+  ctx.beginPath();
+  for(const b of beams) if(!b.broken && b.mat==='road') beamPath(b);
+  ctx.strokeStyle='rgba(15,20,30,0.55)'; ctx.lineWidth=0.2; ctx.stroke();
+  ctx.beginPath();
+  for(const b of beams) if(!b.broken && b.mat==='concrete') beamPath(b);
+  ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=0.3; ctx.stroke();
+  ctx.beginPath();
+  for(const b of beams) if(!b.broken && Math.abs(b.disp)>0.9) beamPath(b);
+  ctx.strokeStyle=`rgba(255,240,200,${0.55+0.4*pulse})`; ctx.lineWidth=0.07; ctx.stroke();
+}
+function shade(c){ return c.replace('rgb(','rgba(').replace(')',',0.7)'); }
+function drawNodes(){
+  ctx.fillStyle='#d7deea'; ctx.strokeStyle='#0b1020'; ctx.lineWidth=0.06;
+  ctx.beginPath();
+  for(const n of nodes){ if(n.anchor||n.deg===0) continue; ctx.moveTo(n.x+0.17,n.y); ctx.arc(n.x,n.y,0.17,0,Math.PI*2); }
+  ctx.fill(); ctx.stroke();
+  for(const n of nodes){ if(n.anchor && n.deg>0) drawAnchor(n.x,n.y); }
+}
+function drawAnchor(x,y){
+  ctx.fillStyle='#f59e0b'; ctx.strokeStyle='#3b1d00'; ctx.lineWidth=0.06;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-0.55,y-0.75); ctx.lineTo(x+0.55,y-0.75); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#1f2937'; ctx.beginPath(); ctx.arc(x,y,0.2,0,7); ctx.fill();
+  ctx.fillStyle='#fde68a'; ctx.beginPath(); ctx.arc(x,y,0.08,0,7); ctx.fill();
+}
+
+// ---------------------------------------------------------------- Render: vehículos
+function drawWheel(x,y,r,rot){
+  ctx.fillStyle='#0b0f17'; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#6b7280'; ctx.lineWidth=0.08; ctx.beginPath(); ctx.arc(x,y,r*0.62,0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle='#9ca3af'; ctx.lineWidth=0.06; ctx.beginPath();
+  for(let k=0;k<3;k++){ const a=rot+k*Math.PI/3; ctx.moveTo(x+Math.cos(a)*r*0.6,y+Math.sin(a)*r*0.6); ctx.lineTo(x-Math.cos(a)*r*0.6,y-Math.sin(a)*r*0.6); }
+  ctx.stroke();
+}
+function drawVehicle(v){
+  const [w0,w1]=v.parts;
+  const cx=(w0.x+w1.x)/2, cy=(w0.y+w1.y)/2, ang=Math.atan2(w1.y-w0.y,w1.x-w0.x);
+  const L=v.len, hl=L/2;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang);
+  ctx.lineWidth=0.07;
+  if(v.type==='train'){
+    ctx.fillStyle='#111827'; ctx.fillRect(-hl+0.2,0.25,L-0.4,0.55);
+    if(v.lead){
+      if(v.driving){ // haz del faro
+        ctx.globalCompositeOperation='lighter';
+        const lg=ctx.createLinearGradient(hl,0,hl+16,0); lg.addColorStop(0,'rgba(255,240,180,0.35)'); lg.addColorStop(1,'rgba(255,240,180,0)');
+        ctx.fillStyle=lg; ctx.beginPath(); ctx.moveTo(hl,1.55); ctx.lineTo(hl+16,3.6); ctx.lineTo(hl+16,-0.6); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation='source-over';
+      }
+      ctx.beginPath(); ctx.moveTo(-hl,0.75); ctx.lineTo(-hl,3.3); ctx.lineTo(hl-2.4,3.3); ctx.lineTo(hl-0.5,2.7); ctx.lineTo(hl,1.4); ctx.lineTo(hl,0.75); ctx.closePath();
+      ctx.fillStyle='#f59e0b'; ctx.fill(); ctx.strokeStyle='#78350f'; ctx.stroke();
+      ctx.fillStyle='#1f2937'; ctx.fillRect(-hl,1.2,L-0.25,0.38);
+      ctx.fillStyle='#0f172a'; for(let k=0;k<4;k++) ctx.fillRect(-hl+0.6+k*1.45,2.05,0.9,0.85);
+      ctx.fillStyle='#7dd3fc'; ctx.fillRect(hl-2.25,2.2,1.25,0.8);
+      ctx.fillStyle='#374151'; ctx.fillRect(-hl+1,3.3,4.2,0.35);
+      ctx.fillStyle='#fff7d6'; ctx.beginPath(); ctx.arc(hl-0.12,1.55,0.17,0,7); ctx.fill();
+      ctx.fillStyle='#ef4444'; ctx.fillRect(-hl,2.6,0.12,0.3);
+    } else {
+      ctx.fillStyle=v.color; ctx.fillRect(-hl+0.3,0.8,L-0.6,2.6);
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.06; ctx.beginPath();
+      for(let x=-hl+0.75;x<hl-0.4;x+=0.55){ ctx.moveTo(x,0.9); ctx.lineTo(x,3.3); }
+      ctx.stroke();
+      ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=0.08; ctx.strokeRect(-hl+0.3,0.8,L-0.6,2.6);
+      ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fillRect(-1.2,2.9,2.4,0.22);
+    }
+  } else {
+    ctx.fillStyle='#111827'; ctx.fillRect(-hl,0.3,L,0.55);
+    ctx.fillStyle=v.color; ctx.fillRect(-hl,0.85,L-3.3,3.0);
+    ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(-hl,2.9,L-3.3,0.3);
+    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.strokeRect(-hl,0.85,L-3.3,3.0);
+    ctx.beginPath(); ctx.moveTo(hl-3.1,0.6); ctx.lineTo(hl-3.1,3.2); ctx.lineTo(hl-1.1,3.2); ctx.lineTo(hl,2.0); ctx.lineTo(hl,0.6); ctx.closePath();
+    ctx.fillStyle='#e2e8f0'; ctx.fill(); ctx.strokeStyle='#334155'; ctx.stroke();
+    ctx.fillStyle='#7dd3fc'; ctx.beginPath(); ctx.moveTo(hl-2.0,2.2); ctx.lineTo(hl-2.0,2.95); ctx.lineTo(hl-1.2,2.95); ctx.lineTo(hl-0.6,2.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#fff7d6'; ctx.fillRect(hl-0.15,1.0,0.15,0.35);
+  }
+  ctx.restore();
+  const ca=Math.cos(ang), sa=Math.sin(ang);
+  if(v.type==='train'){
+    for(const w of [w0,w1]) for(const o of [-0.75,0.75]) drawWheel(w.x+ca*o,w.y+sa*o,0.45,v.rot);
+  } else {
+    drawWheel(w0.x,w0.y,WHEEL_R,v.rot); drawWheel(w0.x-ca*1.2,w0.y-sa*1.2,WHEEL_R,v.rot); drawWheel(w1.x,w1.y,WHEEL_R,v.rot);
+  }
+}
+
+// ---------------------------------------------------------------- Render: partículas
+function drawFX(){
+  ctx.globalCompositeOperation='lighter';
+  ctx.lineCap='round';
+  for(const p of sparks){
+    if(p.type===1) continue;
+    const a=clamp(p.life/0.8,0,1);
+    ctx.strokeStyle=p.type===2?`rgba(200,230,255,${a})`:`rgba(255,${(150+100*a)|0},${(60*a)|0},${a})`;
+    ctx.lineWidth=0.09;
+    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-p.vx*0.03,p.y-p.vy*0.03); ctx.stroke();
+  }
+  for(const r of rings){
+    if(r.flat) continue;
+    ctx.strokeStyle=`rgba(255,190,120,${r.life*0.7})`; ctx.lineWidth=0.25*r.life+0.05;
+    ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,Math.PI*2); ctx.stroke();
+    if(r.life>0.75){ ctx.fillStyle=`rgba(255,230,180,${(r.life-0.75)*2})`; ctx.beginPath(); ctx.arc(r.x,r.y,1.2,0,7); ctx.fill(); }
+  }
+  ctx.globalCompositeOperation='source-over';
+  for(const p of sparks){
+    if(p.type!==1) continue;
+    ctx.fillStyle=`rgba(170,160,150,${clamp(p.life/1.5,0,1)*0.75})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.sz,0,7); ctx.fill();
+  }
+  ctx.fillStyle='rgba(200,235,255,0.8)';
+  ctx.beginPath();
+  for(const d of drops){ ctx.moveTo(d.x+d.r,d.y); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); }
+  ctx.fill();
+  for(const r of rings){
+    if(!r.flat) continue;
+    ctx.strokeStyle=`rgba(220,245,255,${r.life*0.6})`; ctx.lineWidth=0.12;
+    ctx.beginPath(); ctx.ellipse(r.x,waterLevel(clamp(r.x,0,GAP))+0.05,r.r,r.r*0.18,0,0,Math.PI*2); ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------- Render: etiquetas (espacio de pantalla)
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawLabels(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='600 10px ui-monospace,Menlo,monospace';
+  if(S.labels){
+    let n=0;
+    for(const b of beams){
+      if(b.broken||b.frag) continue;
+      const a=Math.abs(b.disp); if(a<0.5 || b===peakBeam) continue;
+      if(++n>48) break;
+      const x=w2sx((b.p1.x+b.p2.x)/2)+shx, y=w2sy((b.p1.y+b.p2.y)/2)+shy;
+      const t=Math.round(a*100)+'%';
+      ctx.fillStyle='rgba(3,6,14,0.78)'; rrect(x-15,y-7,30,14,4); ctx.fill();
+      ctx.fillStyle=heat(b.disp); ctx.fillText(t,x,y+0.5);
+    }
+  }
+  if(peakBeam && !peakBeam.broken && framePeak>0.05){
+    const b=peakBeam, x=w2sx((b.p1.x+b.p2.x)/2)+shx, y=w2sy((b.p1.y+b.p2.y)/2)+shy;
+    const t=`MAX ${Math.round(framePeak*100)}% ${b.ratio<0?'C':'T'}`;
+    ctx.font='700 11px ui-monospace,Menlo,monospace';
+    const w=ctx.measureText(t).width+12;
+    ctx.fillStyle='rgba(3,6,14,0.9)'; rrect(x-w/2,y-27,w,17,5); ctx.fill();
+    ctx.strokeStyle=heat(b.ratio); ctx.lineWidth=1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y-10); ctx.lineTo(x,y-3); ctx.stroke();
+    ctx.fillStyle=heat(b.ratio); ctx.fillText(t,x,y-18);
+  }
+  // etiqueta del convoy
+  const lead=vehicles.find(v=>v.lead && v.driving);
+  if(lead){
+    const conv=vehicles.filter(v=>v.convoy===lead.convoy);
+    const tot=conv.reduce((s,v)=>s+v.mass,0)/1000;
+    const p=lead.parts[3], x=w2sx(p.x)+shx, y=w2sy(p.y+1.6)+shy;
+    ctx.font='600 10px ui-monospace,Menlo,monospace';
+    const t=`${lead.type==='train'?'🚂':'🚛'} ${tot.toFixed(0)} t · ${S.speed} km/h`;
+    const w=ctx.measureText(t).width+12;
+    ctx.fillStyle='rgba(3,6,14,0.75)'; rrect(x-w/2,y-9,w,17,5); ctx.fill();
+    ctx.fillStyle='#fde68a'; ctx.fillText(t,x,y);
+  }
+  if(S.slow && !builder){
+    ctx.font='800 13px system-ui'; ctx.fillStyle='rgba(196,181,253,0.9)';
+    ctx.fillText('◉ BULLET TIME 0.25×',cam.cx,66);
+  }
+  if(S.paused && !builder){
+    ctx.font='800 16px system-ui'; ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.fillText('⏸ PAUSA',cam.cx,88);
+  }
+}
+
+// ---------------------------------------------------------------- Render: constructor
+function drawBuilder(vb){
+  // rejilla
+  ctx.lineWidth=0.03;
+  ctx.strokeStyle='rgba(120,170,255,0.08)'; ctx.beginPath();
+  for(let x=Math.floor(vb.x0);x<=vb.x1;x++){ if(x%5===0) continue; ctx.moveTo(x,vb.y0); ctx.lineTo(x,vb.y1); }
+  for(let y=Math.floor(vb.y0);y<=vb.y1;y++){ if(y%5===0) continue; ctx.moveTo(vb.x0,y); ctx.lineTo(vb.x1,y); }
+  ctx.stroke();
+  ctx.strokeStyle='rgba(120,170,255,0.2)'; ctx.lineWidth=0.05; ctx.beginPath();
+  for(let x=Math.floor(vb.x0/5)*5;x<=vb.x1;x+=5){ ctx.moveTo(x,vb.y0); ctx.lineTo(x,vb.y1); }
+  for(let y=Math.floor(vb.y0/5)*5;y<=vb.y1;y+=5){ ctx.moveTo(vb.x0,y); ctx.lineTo(vb.x1,y); }
+  ctx.stroke();
+  // superficies de anclaje
+  ctx.strokeStyle='rgba(245,158,11,0.35)'; ctx.lineWidth=0.15; ctx.setLineDash([0.5,0.4]);
+  ctx.beginPath(); ctx.moveTo(-30,0); ctx.lineTo(0,0); ctx.lineTo(0,WATER_Y+1);
+  ctx.moveTo(GAP+30,0); ctx.lineTo(GAP,0); ctx.lineTo(GAP,WATER_Y+1);
+  for(const r of ROCKS){ ctx.moveTo(r.x-r.hw,ROCK_TOP); ctx.lineTo(r.x+r.hw,ROCK_TOP); }
+  ctx.stroke(); ctx.setLineDash([]);
+  // vigas del plano
+  const hb = tool==='delete' ? pickBPBeam(mouse.x,mouse.y) : -1;
+  const hn = pickNode(mouse.x,mouse.y);
+  ctx.lineCap='round';
+  bp.beams.forEach((b,i)=>{
+    const A=bp.nodes[b.a], B=bp.nodes[b.b], M=MATS[b.mat];
+    ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=M.width+0.16;
+    ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+    ctx.strokeStyle=(i===hb||(tool==='delete'&&(b.a===hn||b.b===hn)))?'#ef4444':M.base; ctx.lineWidth=M.width;
+    ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+  });
+  bp.nodes.forEach((n,i)=>{
+    if(n.anchor) drawAnchor(n.x,n.y);
+    else { ctx.fillStyle=i===hn?'#38bdf8':'#e5e7eb'; ctx.strokeStyle='#0b1020'; ctx.lineWidth=0.06; ctx.beginPath(); ctx.arc(n.x,n.y,0.22,0,7); ctx.fill(); ctx.stroke(); }
+    if(i===hn){ ctx.strokeStyle='#38bdf8'; ctx.lineWidth=0.08; ctx.beginPath(); ctx.arc(n.x,n.y,0.55,0,7); ctx.stroke(); }
+  });
+  [ [0,0],[GAP,0] ].forEach(([x,y])=>{ if(!bp.nodes.some(n=>n.x===x&&n.y===y)){ ctx.globalAlpha=0.45; drawAnchor(x,y); ctx.globalAlpha=1; } });
+  // cursor / línea elástica
+  if(tool==='beam' && mouse.in){
+    const pt=builderPoint(mouse.x,mouse.y);
+    if(pt){
+      if(pt.anchor && pt.idx<0){ ctx.globalAlpha=0.6; drawAnchor(pt.x,pt.y); ctx.globalAlpha=1; }
+      else if(pt.idx<0){ ctx.strokeStyle='rgba(56,189,248,0.8)'; ctx.lineWidth=0.07; ctx.beginPath(); ctx.arc(pt.x,pt.y,0.25,0,7); ctx.stroke(); }
+      if(pending){
+        const L=Math.hypot(pt.x-pending.x,pt.y-pending.y), M=MATS[curMat];
+        const ok=L<=M.maxLen && L>=0.8;
+        ctx.setLineDash([0.6,0.35]);
+        ctx.strokeStyle=ok?M.base:'#ef4444'; ctx.lineWidth=M.width*0.8;
+        ctx.beginPath(); ctx.moveTo(pending.x,pending.y); ctx.lineTo(pt.x,pt.y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle='#38bdf8'; ctx.lineWidth=0.09; ctx.beginPath(); ctx.arc(pending.x,pending.y,0.5,0,7); ctx.stroke();
+        ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0);
+        const sx=w2sx((pt.x+pending.x)/2), sy=w2sy((pt.y+pending.y)/2)-16;
+        const t=`${M.name} · ${L.toFixed(1)} m · ${fmt$(beamCost(L,curMat))}${ok?'':' · MUY LARGA'}`;
+        ctx.font='600 11px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        const w=ctx.measureText(t).width+14;
+        ctx.fillStyle='rgba(3,6,14,0.9)'; rrect(sx-w/2,sy-9,w,18,5); ctx.fill();
+        ctx.fillStyle=ok?'#e2e8f0':'#fca5a5'; ctx.fillText(t,sx,sy);
+        ctx.restore();
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- Render principal
+function render(){
+  const q=S.quakeCur;
+  shx=(rnd()-0.5)*(shake*16+q*2.2); shy=(rnd()-0.5)*(shake*16+q*2.2);
+  shake*=0.9;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  drawSky();
+  setWorld();
+  const vb=viewBounds();
+  drawMountains(vb);
+  drawCanyon(vb);
+  if(builder){
+    drawWater();
+    drawBuilder(vb);
+  } else {
+    for(const v of vehicles) drawVehicle(v);
+    drawBeams();
+    drawNodes();
+    drawWater();
+    drawFX();
+    if(hoverBeam && !hoverBeam.broken){
+      ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=0.08; ctx.setLineDash([0.4,0.3]);
+      ctx.beginPath(); beamPath(hoverBeam); ctx.stroke(); ctx.setLineDash([]);
+    }
+    drawLabels();
+  }
+  // viñeta
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(S.slow && !builder){
+    const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
+    vg.addColorStop(0,'rgba(60,20,120,0)'); vg.addColorStop(1,'rgba(60,20,120,0.35)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+  }
+}
+
+// ---------------------------------------------------------------- HUD
+function log(msg,cls=''){
+  logs.unshift({t:simTime,msg,cls}); if(logs.length>40) logs.pop(); logDirty=true;
+}
+let toastT=0;
+function toast(m){ const el=$('toast'); el.textContent=m; el.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity=0,2200); }
+let bannerT=0;
+function banner(t,s){ const el=$('banner'); el.innerHTML=`${t}<small>${s||''}</small>`; el.style.opacity=1; clearTimeout(bannerT); bannerT=setTimeout(()=>el.style.opacity=0,3200); }
+
+let fpsS=60, hudTick=0;
+function updateHUD(){
+  $('t_fps').textContent=fpsS.toFixed(0);
+  $('t_fps').style.color=fpsS>=55?'#34d399':fpsS>=40?'#fbbf24':'#f87171';
+  $('t_sub').textContent=SUB+'×';
+  $('p_time').textContent=`t = ${simTime.toFixed(2)} s`;
+  const pm=$('p_mode');
+  pm.textContent=builder?'MODO CONSTRUCTOR':S.paused?'EN PAUSA':S.slow?'BULLET TIME 0.25×':'SIMULACIÓN 1.00×';
+  if(builder){ updateBudgetUI(); }
+  let intact=0, mass=0;
+  for(const b of beams){ if(b.broken||b.frag) continue; intact++; mass+=b.M.rho*b.rest; }
+  const pk=Math.round(framePeak*100);
+  $('t_peak').textContent=pk+'%'; $('t_peak').style.color=heat(peakBeam?peakBeam.ratio:framePeak);
+  $('t_peakbar').style.width=Math.min(100,pk)+'%';
+  $('t_max').textContent=Math.round(maxEver*100)+'%';
+  if(peakBeam){
+    const b=peakBeam, e=b.ratio*(b.ratio>=0?b.M.epsT:b.M.epsC)*S.matF;
+    $('t_force').textContent=(Math.abs(e*b.M.EA*b.str)/1000).toFixed(0)+' kN';
+  }
+  $('t_intact').textContent=builder?bp.beams.length:intact;
+  $('t_broken').textContent=builder?0:brokenCount;
+  $('t_cost').textContent=fmt$(builder?blueprintCost(bp):structCost);
+  $('t_mass').textContent=(mass/1000).toFixed(1)+' t';
+  let load=0; for(const p of vparts) if(p.x>0&&p.x<GAP&&p.y>-4) load+=p.m;
+  $('t_load').textContent=(load/1000).toFixed(1)+' t';
+  let defl=0;
+  for(const n of nodes) if(n.orig && !n.anchor && n.deg>=2) defl=Math.max(defl,n.by-n.y);
+  $('t_defl').textContent=isCollapsed()?'—':(defl*100).toFixed(1)+' cm';
+  const fallen=vehicles.filter(v=>v.fallen).length, onb=vehicles.filter(v=>v.driving).length;
+  $('t_veh').innerHTML=`${onb}<small style="display:inline;font-size:10px;color:#7b8bb0"> ▶ · ${exitedCount}✓ · </small><span style="color:#f87171">${fallen}</span>`;
+  const st=$('p_state');
+  let txt='ESTABLE', cls='ok';
+  if(builder){ txt='DISEÑO'; cls='ok'; }
+  else if(isCollapsed()){ txt='COLAPSO ESTRUCTURAL'; cls='bad'; }
+  else if(brokenCount>0){ txt='DAÑO ESTRUCTURAL'; cls='bad'; }
+  else if(framePeak>=0.9){ txt='CRÍTICO '+pk+'%'; cls='bad'; }
+  else if(framePeak>=0.7){ txt='ALERTA '+pk+'%'; cls='warn'; }
+  st.textContent=txt; st.className='pill '+cls;
+  if(logDirty){
+    $('log').innerHTML=logs.slice(0,9).map(l=>`<div class="${l.cls}"><em>${l.t.toFixed(1)}s</em> ${l.msg}</div>`).join('');
+    logDirty=false;
+  }
+  // tooltip de viga
+  const tip=$('tip');
+  if(hoverBeam && !hoverBeam.broken && !builder){
+    const b=hoverBeam, L=Math.hypot(b.p2.x-b.p1.x,b.p2.y-b.p1.y);
+    let e=(L-b.rest)/b.rest; const slack=b.M.tOnly&&e<0; if(slack) e=0;
+    const F=e*b.M.EA*b.str, lim=(e>=0?b.M.epsT:b.M.epsC)*S.matF*b.M.EA*b.str*(b.frag?3:1);
+    tip.innerHTML=`<b style="color:${heat(b.ratio)}">${b.M.name} #${b.id}${b.frag?' (fragmento)':''}</b><br>`+
+      `Estado: ${slack?'flojo (sin carga)':e>=0?'TRACCIÓN':'COMPRESIÓN'}<br>`+
+      `Fuerza axial: ${(F/1000).toFixed(1)} kN<br>`+
+      `Capacidad: ${(lim/1000).toFixed(0)} kN<br>`+
+      `Deformación: ${(e*100).toFixed(3)} %<br>`+
+      `Estrés: <b style="color:${heat(b.ratio)}">${Math.round(Math.abs(b.ratio)*100)}%</b> · L0 ${b.rest.toFixed(2)} m`;
+    tip.style.display='block';
+    tip.style.left=Math.min(W-230,mouse.sx+16)+'px'; tip.style.top=Math.min(H-120,mouse.sy+14)+'px';
+  } else tip.style.display='none';
+}
+
+// ---------------------------------------------------------------- UI bindings
+function bindRange(id,key,fmt,cb){
+  const el=$(id), out=$('v_'+id);
+  const upd=()=>{ S[key]=parseFloat(el.value); out.textContent=fmt(S[key]); if(cb) cb(); };
+  el.addEventListener('input',upd); upd();
+}
+function setRange(id,v){ const el=$(id); el.value=v; el.dispatchEvent(new Event('input')); }
+bindRange('weight','weight',v=>v+' t',()=>{ for(const v of vehicles) setVehicleMass(v); });
+bindRange('speed','speed',v=>v+' km/h');
+bindRange('units','units',v=>v+'');
+bindRange('gravity','g',v=>v.toFixed(2)+' m/s²');
+bindRange('matf','matF',v=>'×'+v.toFixed(2));
+bindRange('quake','quake',v=>v<=0?'OFF':v.toFixed(1)+' ('+(v*0.05*1.9).toFixed(2)+' m)');
+bindRange('wind','wind',v=>v<=0?'OFF':v+' m/s ('+Math.round(v*3.6)+' km/h)');
+bindRange('sub','sub',v=>v+'',()=>{ SUB=S.sub|0; });
+function setVType(t){ S.vtype=t; document.querySelectorAll('#vtype button').forEach(b=>b.classList.toggle('on',b.dataset.v===t)); }
+document.querySelectorAll('#vtype button').forEach(b=>b.addEventListener('click',()=>setVType(b.dataset.v)));
+$('auto').addEventListener('change',e=>S.auto=e.target.checked);
+$('labels').addEventListener('change',e=>S.labels=e.target.checked);
+$('b_launch').addEventListener('click',()=>{ if(builder) setBuilder(false); else spawnConvoy(); });
+function toggleSlow(){ S.slow=!S.slow; $('b_slow').classList.toggle('on',S.slow); }
+function togglePause(){ S.paused=!S.paused; $('b_pause').textContent=S.paused?'▶ Reanudar':'⏸ Pausa'; $('b_pause').classList.toggle('on',S.paused); }
+$('b_slow').addEventListener('click',toggleSlow);
+$('b_pause').addEventListener('click',togglePause);
+$('b_reset').addEventListener('click',()=>{ if(builder) setBuilder(false); else { logs=[]; log('Puente reiniciado','ok'); startSim(); } });
+$('b_view').addEventListener('click',()=>fitCamera(true));
+$('b_build').addEventListener('click',()=>setBuilder(!builder));
+$('tg_left').addEventListener('click',()=>{ $('left').classList.toggle('hidden'); fitCamera(true); });
+$('tg_right').addEventListener('click',()=>{ $('right').classList.toggle('hidden'); fitCamera(true); });
+// presets
+PRESETS.forEach((P,i)=>{
+  const b=document.createElement('button'); b.className='preset';
+  b.innerHTML=`<b>${i+1}. ${P.name}</b><small>${P.desc}</small>`;
+  b.addEventListener('click',()=>loadPreset(i));
+  $('presets').appendChild(b);
+});
+// barra del constructor
+MAT_ORDER.forEach((k,i)=>{
+  const M=MATS[k], b=document.createElement('button'); b.className='mbtn'+(k===curMat?' on':''); b.dataset.mat=k;
+  b.innerHTML=`<i style="background:${M.base}"></i>${M.name.split(' ')[0]==='Viga'?'Acero':M.name.split(' ')[0].replace('/','')}<small>${fmt$(M.cost)}/m · máx ${M.maxLen} m</small>`;
+  b.title=`${M.name} [${i+1}] — EA=${(M.EA/1e6).toFixed(0)} MN, ε lím. ${(M.epsT*100).toFixed(2)}% tracción${M.tOnly?' (solo tracción)':', '+(M.epsC*100).toFixed(2)+'% compresión'}`;
+  b.addEventListener('click',()=>setMat(k));
+  $('mats').appendChild(b);
+});
+function setMat(k){ curMat=k; document.querySelectorAll('#mats .mbtn').forEach(b=>b.classList.toggle('on',b.dataset.mat===k)); if(tool!=='beam') setTool('beam'); }
+function setTool(t){ tool=t; pending=null; document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t)); }
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+$('bb_snap').addEventListener('click',()=>{ snap=!snap; $('bb_snap').classList.toggle('on',snap); $('bb_snap').querySelector('small').textContent=snap?'activada':'libre'; });
+$('bb_snap').classList.add('on');
+$('bb_undo').addEventListener('click',undo);
+$('bb_clear').addEventListener('click',()=>{ pushUndo(); bp={nodes:[],beams:[]}; pending=null; updateBudgetUI(); });
+$('bb_test').addEventListener('click',()=>setBuilder(false));
+$('budget').addEventListener('input',updateBudgetUI);
+
+// ---------------------------------------------------------------- Entrada de ratón
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  mouse.down=e.button; mouse.dragged=0; mouse.lx=e.clientX; mouse.ly=e.clientY;
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove',e=>{
+  mouse.sx=e.clientX; mouse.sy=e.clientY; mouse.in=true;
+  mouse.x=s2wx(e.clientX); mouse.y=s2wy(e.clientY);
+  if(mouse.down>=0){
+    const dx=e.clientX-mouse.lx, dy=e.clientY-mouse.ly;
+    mouse.dragged+=Math.abs(dx)+Math.abs(dy);
+    if(mouse.down===1||mouse.down===2||(mouse.down===0&&!builder)){ cam.x-=dx/cam.s; cam.y+=dy/cam.s; }
+    mouse.lx=e.clientX; mouse.ly=e.clientY;
+  }
+  if(!builder){
+    let best=null, bd=pxToWorld(9);
+    for(const b of beams){ if(b.broken) continue; const d=segDist(mouse.x,mouse.y,b.p1.x,b.p1.y,b.p2.x,b.p2.y); if(d<bd){bd=d;best=b;} }
+    hoverBeam=best;
+  }
+});
+cv.addEventListener('pointerup',e=>{
+  const btn=mouse.down; mouse.down=-1;
+  if(!builder) return;
+  if(btn===0 && mouse.dragged<6) builderClick(s2wx(e.clientX),s2wy(e.clientY));
+  if(btn===2 && mouse.dragged<6) pending=null;
+});
+cv.addEventListener('pointerleave',()=>{ mouse.in=false; hoverBeam=null; });
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const wx=s2wx(e.clientX), wy=s2wy(e.clientY);
+  cam.s=clamp(cam.s*Math.exp(-e.deltaY*0.0015),2.5,90);
+  cam.x=wx-(e.clientX-cam.cx)/cam.s; cam.y=wy+(e.clientY-cam.cy)/cam.s;
+},{passive:false});
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT' && e.target.type==='number') return;
+  const k=e.key.toLowerCase();
+  if(k===' '){ e.preventDefault(); togglePause(); }
+  else if(k==='l') builder?setBuilder(false):spawnConvoy();
+  else if(k==='t') toggleSlow();
+  else if(k==='b') setBuilder(!builder);
+  else if(k==='r'){ if(!builder){ logs=[]; startSim(); } }
+  else if(k==='v') fitCamera(true);
+  else if(k==='escape') pending=null;
+  else if(k==='z' && builder){ e.preventDefault(); undo(); }
+  else if((k==='x'||k==='delete'||k==='backspace') && builder){ e.preventDefault(); setTool('delete'); }
+  else if(k>='1' && k<='4'){ const i=+k-1; if(builder) setMat(MAT_ORDER[i]); else loadPreset(i); }
+});
+window.addEventListener('resize',resize);
+
+// ---------------------------------------------------------------- Bucle principal (paso fijo + acumulador)
+let last=performance.now(), acc=0;
+function loop(now){
+  const realDt=Math.min(0.1,(now-last)/1000); last=now;
+  perfT=now/1000;
+  if(realDt>0) fpsS=lerp(fpsS,1/realDt,0.06);
+  const ts=S.slow?0.25:1;
+  if(!builder && !S.paused){
+    acc+=realDt;
+    let steps=0;
+    while(acc>=FIXED && steps<2){ stepFrame(FIXED*ts); acc-=FIXED; steps++; }
+    if(steps>=2) acc=0;
+    updateEffects(realDt*ts);
+  } else if(builder) updateEffects(realDt);
+  render();
+  if(++hudTick%6===0) updateHUD();
+  requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- Arranque
+if(innerWidth<1000) $('right').classList.add('hidden');
+resize();
+loadPreset(0);
+updateHUD();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

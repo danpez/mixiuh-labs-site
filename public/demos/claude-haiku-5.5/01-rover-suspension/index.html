@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ROVER-01 · Laboratorio de Suspensión Planetaria</title>
+<style>
+  :root { --neon:#00f0ff; --mag:#ff2bd6; --amber:#ffb000; --panel:rgba(6,12,22,.86); }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#05070d; color:#bfefff; font:12px/1.4 Menlo, Consolas, "SF Mono", monospace; user-select:none; }
+  canvas#sim { position:fixed; inset:0; width:100%; height:100%; display:block; cursor:crosshair; }
+  #hud { position:fixed; top:12px; right:12px; width:300px; max-height:calc(100% - 24px); overflow-y:auto; padding:12px; background:var(--panel); border:1px solid var(--neon); box-shadow:0 0 18px rgba(0,240,255,.22); border-radius:6px; }
+  #hud::-webkit-scrollbar { width:6px; }
+  #hud::-webkit-scrollbar-thumb { background:var(--neon); }
+  h1 { margin:0 0 8px; font-size:13px; letter-spacing:2px; color:var(--neon); text-transform:uppercase; }
+  h2 { margin:14px 0 6px; font-size:11px; letter-spacing:1px; color:var(--mag); text-transform:uppercase; }
+  .tele { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; }
+  .tele span { color:#6a8aa0; }
+  .tele b { float:right; color:#fff; font-weight:normal; }
+  .row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .row label { flex:0 0 96px; }
+  .row input[type=range] { flex:1; accent-color:var(--neon); }
+  .row .val { flex:0 0 74px; text-align:right; color:#fff; }
+  button, select { font:inherit; color:var(--neon); background:#0a1a2c; border:1px solid var(--neon); border-radius:4px; padding:4px 7px; cursor:pointer; }
+  button:hover, select:hover { background:#123552; }
+  button.on { background:var(--neon); color:#00131c; }
+  .row button { flex:1; }
+  canvas#graph { width:100%; height:110px; display:block; margin-top:8px; border:1px solid #1d3550; background:#02060c; }
+  #badge { position:fixed; top:12px; left:12px; padding:6px 12px; border:1px solid var(--amber); color:var(--amber); background:rgba(24,14,0,.75); letter-spacing:2px; font-size:12px; }
+  #badge.manual { border-color:var(--neon); color:var(--neon); background:rgba(0,20,28,.75); }
+  #hint { position:fixed; left:12px; bottom:10px; color:#6a8aa0; font-size:11px; line-height:1.6; }
+</style>
+</head>
+<body>
+<canvas id="sim"></canvas>
+<div id="badge">PILOTO AUTOMÁTICO · ACTIVO</div>
+<aside id="hud">
+  <h1>ROVER-01 · Telemetría</h1>
+  <div class="tele">
+    <div><span>FPS</span><b id="tFps">--</b></div>
+    <div><span>Velocidad</span><b id="tSpeed">0 km/h</b></div>
+    <div><span>RPM</span><b id="tRpm">0</b></div>
+    <div><span>Inclinación</span><b id="tPitch">0°</b></div>
+    <div><span>G máx</span><b id="tGmax">0.00</b></div>
+    <div><span>Nitro</span><b id="tFuel">100%</b></div>
+  </div>
+  <canvas id="graph" width="560" height="220"></canvas>
+  <h2>Suspensión (Hooke + amortiguación)</h2>
+  <div class="row"><label>Rigidez k</label><input id="kSpring" type="range" min="20000" max="200000" step="1000" value="90000"><span class="val" id="vK"></span></div>
+  <div class="row"><label>Amortig. c</label><input id="cDamp" type="range" min="500" max="20000" step="100" value="4500"><span class="val" id="vC"></span></div>
+  <h2>Entorno y tren motriz</h2>
+  <div class="row"><label>Gravedad</label>
+    <select id="gravity" style="flex:1">
+      <option value="tierra">Tierra · 9.81 m/s²</option>
+      <option value="luna">Luna · 1.62 m/s²</option>
+      <option value="marte">Marte · 3.71 m/s²</option>
+      <option value="jupiter">Júpiter · 24.79 m/s²</option>
+    </select>
+  </div>
+  <div class="row"><label>Torque motor</label><input id="torque" type="range" min="500" max="6000" step="50" value="2800"><span class="val" id="vT"></span></div>
+  <div class="row"><label>Rueda</label><input id="wheelSize" type="range" min="0.4" max="1.2" step="0.05" value="0.7"><span class="val" id="vR"></span></div>
+  <h2>Acciones</h2>
+  <div class="row"><button id="btnAuto" class="on">Piloto auto</button><button id="btnVec">Vectores F</button></div>
+  <div class="row"><button id="btnObs">Desplegar obstáculos</button><button id="btnBoom">Explosión</button></div>
+  <div class="row"><button id="btnGun">Plasma (F)</button><button id="btnReset">Reiniciar (R)</button></div>
+</aside>
+<div id="hint">W/↑ acelerar · S/↓ frenar · A/D pitch en vuelo · Espacio nitro · F plasma · P piloto automático · clic izq. excava</div>
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+/* ---------- Constantes físicas ---------- */
+const PPM = 46;                       // píxeles por metro
+const DT = 1 / 480;                   // paso fijo de física (s)
+const MAX_STEPS = 10;                 // pasos máximos por fotograma
+const SEG = 140;                      // longitud de segmento de terreno (m)
+const COL = 0.25;                     // resolución de columnas del terreno (m)
+const REST = 0.95;                    // longitud de reposo del puntal (m)
+const TRAVEL = 0.38;                  // compresión máxima (m)
+const DROOP = 0.30;                   // extensión máxima (m)
+const MU = 1.15;                      // fricción neumático-suelo
+const K_TIRE = 2.5e5, C_TIRE = 1500;  // contacto neumático (N/m, N·s/m)
+const K_LAT = 2.2e5, C_LAT = 2500;    // casquillo lateral del brazo (N/m, N·s/m)
+const C_SLIP = 3000;                  // fricción longitudinal viscosa (N·s/m)
+const M_WHEEL = 40, M_CAR = 900, I_CAR = 1080;   // masas (kg) e inercia (kg·m²)
+const M_NODE = 120;                   // masa de cada tablón del puente (kg)
+const K_HULL = 6e5, C_HULL = 8000;    // contacto de la jaula antivuelco
+const HULL = [[-1.85, -0.45], [1.85, -0.45], [1.9, 0.35], [1.1, 1.25], [-1.1, 1.25], [-1.9, 0.35]];
+const PITCH_TQ = 9000;                // propulsores de giro (N·m)
+const NITRO_F = 9000;                 // empuje del cohete trasero (N)
+const NITRO_MAX = 100;
+const PLANETS = {
+  tierra:  { g: 9.81,  sky: '#0a1e33', hz: '#1f5f7a', dust: '#c9a27a' },
+  luna:    { g: 1.62,  sky: '#05060b', hz: '#2a2d3a', dust: '#b9b9c4' },
+  marte:   { g: 3.71,  sky: '#2a0d07', hz: '#7a2a14', dust: '#d0703f' },
+  jupiter: { g: 24.79, sky: '#1a1408', hz: '#6b4a1c', dust: '#e0b070' }
+};
+
+/* ---------- Parámetros en vivo (ajustados desde el HUD) ---------- */
+const P = { k: 90000, c: 4500, g: 9.81, planet: 'tierra', T: 2800, R: 0.7, brake: 2600 };
+
+/* ---------- Utilidades ---------- */
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const noise1 = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return hash(i) + (hash(i + 1) - hash(i)) * u; };
+const isCanyon = (s) => ((s % 3) + 3) % 3 === 1;   // segmentos con cañón + puente
+
+/* ---------- Terreno procedural destructible ----------
+   Altura = fBm (ruido de valor fractal) + rampas, rocas y cañones.
+   Las modificaciones (cráteres, obstáculos) se guardan por columna. */
+const colMap = new Map();
+function baseHeight(x) {
+  const s = Math.floor(x / SEG), t = x - s * SEG, sh = hash(s * 3.7 + 11.3);
+  let h = 6 * (noise1(x / 70) - 0.5) + 2.2 * (noise1(x / 19 + 40) - 0.5) + 0.45 * (noise1(x / 4.3 + 90) - 0.5);
+  if (isCanyon(s)) {
+    h -= 14 * Math.min(smooth(62, 66, t), 1 - smooth(84, 88, t));   // cañón de 26 m
+  } else {
+    const u = t - 30, jh = 3 + 2 * sh;                             // rampa de salto
+    if (u >= 0 && u < 12) h += jh * (u / 12) * (u / 12);
+    else if (u >= 12 && u < 13) h += jh * (13 - u);
+    for (let k = 0; k < 3; k++) {                                  // obstáculos rocosos
+      if (hash(s * 9.7 + k) < 0.35) continue;
+      const rr = 0.8 + 0.7 * hash(s * 5.3 + k), dx = t - (80 + k * 18);
+      if (Math.abs(dx) < rr) h += Math.sqrt(rr * rr - dx * dx) * 0.9;
+    }
+  }
+  return h;
+}
+const colH = (i) => { const v = colMap.get(i); return v !== undefined ? v : baseHeight(i * COL); };
+function terrainY(x) {
+  const f = x / COL, i = Math.floor(f), u = f - i;
+  return colH(i) + (colH(i + 1) - colH(i)) * u;
+}
+
+/* ---------- Puentes colgantes (tablones Verlet unidos por cuerdas) ---------- */
+const bridges = new Map();
+function makeBridge(s) {
+  const x0 = s * SEG + 62, x1 = s * SEG + 88, n = 11, nodes = [];
+  const yA = terrainY(x0) + 0.9, yB = terrainY(x1) + 0.9;
+  for (let k = 0; k < n; k++) {
+    const u = k / (n - 1), x = x0 + (x1 - x0) * u, y = yA + (yB - yA) * u;
+    nodes.push({ x, y, px: x, py: y, pin: k === 0 || k === n - 1, fy: 0 });
+  }
+  return { s, x0, x1, nodes, rest: ((x1 - x0) / (n - 1)) * 1.012 };
+}
+function ensureBridges(x) {
+  const s0 = Math.floor(x / SEG);
+  for (let s = s0 - 2; s <= s0 + 2; s++) {
+    if (isCanyon(s) && !bridges.has(s)) bridges.set(s, makeBridge(s));
+  }
+  for (const s of bridges.keys()) if (Math.abs(s - s0) > 4) bridges.delete(s);
+}
+function bridgeAt(x) {
+  const b = bridges.get(Math.floor(x / SEG));
+  return b && x >= b.x0 && x <= b.x1 ? b : null;
+}
+function deckY(b, x) {
+  const N = b.nodes;
+  for (let k = 0; k < N.length - 1; k++) {
+    const a = N[k], c = N[k + 1];
+    if (x >= a.x && x <= c.x) return a.y + (c.y - a.y) * ((x - a.x) / (c.x - a.x || 1));
+  }
+  return -Infinity;
+}
+// Superficie efectiva: el mayor entre terreno y tablones
+function surfaceY(x) {
+  const ty = terrainY(x), b = bridgeAt(x);
+  if (b) { const by = deckY(b, x); if (by > ty) return by; }
+  return ty;
+}
+function addDeckLoad(b, x, F) {
+  const N = b.nodes;
+  for (let k = 0; k < N.length - 1; k++) {
+    const a = N[k], c = N[k + 1];
+    if (x >= a.x && x <= c.x) {
+      const u = (x - a.x) / (c.x - a.x || 1);
+      a.fy += F * (1 - u); c.fy += F * u;
+      return;
+    }
+  }
+}
+function stepBridges(dt) {
+  for (const b of bridges.values()) {
+    const N = b.nodes;
+    for (const p of N) {
+      if (!p.pin) {                                  // Verlet con amortiguación ligera
+        const vx = (p.x - p.px) * 0.998, vy = (p.y - p.py) * 0.998;
+        p.px = p.x; p.py = p.y;
+        p.x += vx;
+        p.y += vy + (-P.g + p.fy / M_NODE) * dt * dt;
+      }
+      p.fy = 0;
+    }
+    for (let it = 0; it < 8; it++) {                 // restricciones de cuerda (sólo tracciona)
+      for (let k = 0; k < N.length - 1; k++) {
+        const a = N[k], c = N[k + 1];
+        const dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy) || 1e-6;
+        if (d <= b.rest) continue;
+        const f = (d - b.rest) / d;
+        const sa = a.pin ? 0 : 1, sc = c.pin ? 0 : 1, tot = sa + sc;
+        if (!tot) continue;
+        a.x += dx * f * sa / tot; a.y += dy * f * sa / tot;
+        c.x -= dx * f * sc / tot; c.y -= dy * f * sc / tot;
+      }
+    }
+    for (const p of N) {
+      if (!p.pin) { const gy = terrainY(p.x) + 0.2; if (p.y < gy) p.y = gy; }
+    }
+  }
+}
+
+/* ---------- Vehículo: chasis rígido + 4 unidades de rueda con puntal elástico ----------
+   Cada rueda es una masa puntual unida al anclaje del chasis por un puntal
+   (amortiguador vertical con Hooke + viscoso) y un casquillo lateral. */
+const car = {
+  x: -18, y: 0, vx: 0, vy: 0, a: 0, w: 0, wheels: [],
+  throttle: 0, brake: 0, boost: false, pitch: 0, fuel: NITRO_MAX,
+  contacts: 0, lastVy: 0, ax: 0, ay: 0, gNow: 0, gmax: 0, stuck: 0
+};
+
+function makeWheels() {
+  return [[1.5, -1], [1.5, 1], [-1.5, -1], [-1.5, 1]].map(([ax, z]) => ({
+    ax, ay: -0.05, z, x: 0, y: 0, vx: 0, vy: 0, w: 0, th: 0,
+    comp: 0, Fs: 0, Fn: 0, Ft: 0, Fl: 0, slip: 0, cy: 0, Ax: 0, Ay: 0,
+    contact: false, hit: false
+  }));
+}
+
+function resetCar(x = -18) {
+  const s = surfaceY(x);
+  car.x = x;
+  car.y = s + P.R + REST + 0.15;
+  Object.assign(car, { vx: 0, vy: 0, a: 0, w: 0, fuel: NITRO_MAX, gmax: 0, stuck: 0, contacts: 0 });
+  car.wheels = makeWheels();
+  for (const wh of car.wheels) { wh.x = car.x + wh.ax; wh.y = car.y - 0.05 - REST; }
+}
+
+// Busca un punto fuera del cañón para reaparecer tras una caída
+function safeSpawnX(x) {
+  let s = x;
+  for (let i = 0; i < 30 && isCanyon(Math.floor(s / SEG)) && ((s % SEG) + SEG) % SEG > 58; i++) s -= 6;
+  return s;
+}
+
+function physStep(dt) {
+  const cs = Math.cos(car.a), sn = Math.sin(car.a);
+  const dX = sn, dY = -cs;              // eje "abajo" del chasis (puntales)
+  const rX = cs, rY = sn;               // eje "derecha" del chasis
+  const R = P.R, Iw = 0.5 * M_WHEEL * R * R + 4, g = P.g;
+  let Fx = 0, Fy = -M_CAR * g, Tq = 0;
+  car.lastVy = car.vy;
+  car.contacts = 0;
+
+  for (const wh of car.wheels) {
+    // Anclaje del puntal en el chasis (coordenadas globales)
+    const Ax = car.x + wh.ax * cs - wh.ay * sn, Ay = car.y + wh.ax * sn + wh.ay * cs;
+    const rAx = Ax - car.x, rAy = Ay - car.y;
+    const vAx = car.vx - car.w * rAy, vAy = car.vy + car.w * rAx;
+    wh.Ax = Ax; wh.Ay = Ay;
+
+    // Geometría del puntal: L a lo largo del eje, lat = desplazamiento lateral
+    const dx = wh.x - Ax, dy = wh.y - Ay;
+    const L = dx * dX + dy * dY, lat = dx * rX + dy * rY;
+    const rvx = wh.vx - vAx, rvy = wh.vy - vAy;
+    const comp = REST - L;                          // compresión x (m)
+    const compRate = -(rvx * dX + rvy * dY);        // ẋ de compresión (m/s)
+    const latRate = rvx * rX + rvy * rY;
+
+    // Hooke + amortiguación viscosa: F = -k·x - c·v, con x = extensión (= -comp) y v = ẋ.
+    // Fuerza sobre la rueda a lo largo del eje; topes elásticos en los extremos.
+    let Fs = P.k * comp + P.c * compRate;
+    if (comp > TRAVEL) Fs += 4e5 * (comp - TRAVEL);
+    if (comp < -DROOP) Fs -= 4e5 * (-DROOP - comp);
+    const Fl = -K_LAT * lat - C_LAT * latRate;      // casquillo lateral
+
+    // Contacto neumático contra la superficie con pendiente (círculo vs. línea)
+    const sy = surfaceY(wh.x);
+    const sl = (surfaceY(wh.x + 0.05) - surfaceY(wh.x - 0.05)) * 10;
+    const nl = Math.sqrt(1 + sl * sl);
+    const nx = -sl / nl, ny = 1 / nl, tx = 1 / nl, ty = sl / nl;
+    const pen = R - (wh.y - sy) * ny;
+    let Fn = 0, Ft = 0, vs = 0;
+    wh.contact = pen > 0;
+    if (pen > 0) {
+      const vn = wh.vx * nx + wh.vy * ny;
+      Fn = Math.max(0, K_TIRE * pen - C_TIRE * vn);
+      vs = wh.vx * tx + wh.vy * ty + wh.w * R;      // deslizamiento longitudinal
+      Ft = clamp(-C_SLIP * vs, -MU * Fn, MU * Fn);  // fricción de Coulomb con tope
+      if (vn < -6) wh.hit = true;
+      car.contacts++;
+    }
+
+    // Tracción: motor con limitador de régimen + freno; reacción de la fricción
+    const aligned = Math.sign(wh.w) === -Math.sign(car.throttle);
+    const lim = aligned ? Math.max(0, 1 - Math.abs(wh.w) / (28 / R)) : 1;
+    const tau = -car.throttle * P.T * lim - Math.sign(wh.w) * car.brake * P.brake;
+    wh.w += ((tau + R * Ft) / Iw) * dt;
+    wh.th += wh.w * dt;
+
+    // Dinámica de la rueda y reacción sobre el chasis (puntal + casquillo)
+    const FWx = dX * Fs + rX * Fl + tx * Ft + nx * Fn;
+    const FWy = dY * Fs + rY * Fl + ty * Ft + ny * Fn - M_WHEEL * g;
+    const FCx = -(dX * Fs + rX * Fl), FCy = -(dY * Fs + rY * Fl);
+    Fx += FCx; Fy += FCy; Tq += rAx * FCy - rAy * FCx;
+
+    // Carga sobre tablones si la rueda apoya en el puente
+    const br = bridgeAt(wh.x);
+    if (br && pen > 0 && deckY(br, wh.x) >= terrainY(wh.x)) addDeckLoad(br, wh.x, -Fn * ny);
+
+    wh.vx += (FWx / M_WHEEL) * dt; wh.vy += (FWy / M_WHEEL) * dt;
+    wh.x += wh.vx * dt; wh.y += wh.vy * dt;
+    wh.Fs = Fs; wh.Fl = Fl; wh.Fn = Fn; wh.Ft = Ft; wh.comp = comp;
+    wh.slip = Math.abs(vs); wh.cy = sy;
+  }
+
+  // Jaula antivuelco y chasis: penalización vertical + fricción en los puntos de contacto
+  for (const [hx, hy] of HULL) {
+    const px = car.x + hx * cs - hy * sn, py = car.y + hx * sn + hy * cs;
+    const pen = surfaceY(px) - py;
+    if (pen <= 0) continue;
+    const rx = px - car.x, ry = py - car.y;
+    const f = Math.max(0, K_HULL * pen - C_HULL * (car.vy + car.w * rx));
+    const fr = clamp(-(car.vx - car.w * ry) * 2500, -0.6 * f, 0.6 * f);
+    Fy += f; Fx += fr; Tq += rx * f - ry * fr;
+  }
+
+  // Cohete trasero (Nitro Boost): empuje a lo largo del chasis en el punto de popa
+  if (car.boost && car.fuel > 0) {
+    const tx = rX * NITRO_F, ty = rY * NITRO_F;
+    Fx += tx; Fy += ty;
+    const qx = -1.85 * cs - 0.1 * sn, qy = -1.85 * sn + 0.1 * cs;
+    Tq += qx * ty - qy * tx;
+    car.fuel = Math.max(0, car.fuel - 18 * dt);
+  } else {
+    car.fuel = Math.min(NITRO_MAX, car.fuel + 3 * dt);
+  }
+
+  // Propulsores de giro (RCS) y amortiguación angular; en suelo su efecto se atenúa
+  const pitchGain = car.contacts && cs > 0 ? 0.3 : 1;
+  Tq += car.pitch * PITCH_TQ * pitchGain - 350 * car.w;
+  Fx -= 1.5 * car.vx * Math.abs(car.vx);          // resistencia aerodinámica
+
+  // Integración del chasis (semi-implícita)
+  car.ax = Fx / M_CAR; car.ay = Fy / M_CAR;
+  car.vx += car.ax * dt; car.vy += car.ay * dt; car.w += (Tq / I_CAR) * dt;
+  car.x += car.vx * dt; car.y += car.vy * dt; car.a += car.w * dt;
+
+  // Acelerómetro: aceleración propia menos gravedad, en unidades de g terrestre
+  car.gNow = Math.hypot(car.ax, car.ay + g) / 9.81;
+  if (car.gNow > car.gmax) car.gmax = car.gNow;
+}
+
+/* ---------- Controles y piloto automático ---------- */
+const keys = { up: false, down: false, left: false, right: false, boost: false };
+let auto = true, showVec = false;
+function setAuto(v) {
+  auto = v;
+  const b = $('badge');
+  b.textContent = auto ? 'PILOTO AUTOMÁTICO · ACTIVO' : 'CONTROL MANUAL';
+  b.classList.toggle('manual', !auto);
+  $('btnAuto').classList.toggle('on', auto);
+}
+function computeControls() {
+  if (auto) {
+    car.throttle = car.vx > 26 ? 0.25 : 1;                        // acelera y limita la punta
+    if (car.contacts >= 2 && car.lastVy < -7) car.throttle = 0.3; // amortigua aterrizajes duros
+    car.brake = 0;
+    car.boost = false;
+    car.pitch = clamp(-car.a * 5 - car.w * 1.6, -1, 1);           // nivela el chasis en vuelo
+  } else {
+    car.throttle = keys.up ? 1 : keys.down && car.vx < 1 ? -0.6 : 0;
+    car.brake = keys.down && car.vx > 1 ? 1 : 0;
+    car.boost = keys.boost && car.fuel > 0;
+    car.pitch = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+  }
+}
+
+/* ---------- Explosiones, cráteres, escombros y plasma ---------- */
+const debris = [], rings = [], projectiles = [], dust = [], sparks = [];
+
+// Excava un cráter parabólico con labio elevado (deformación en vivo de la malla)
+function carveCrater(cx, r, d) {
+  const i0 = Math.floor((cx - r * 1.4) / COL), i1 = Math.ceil((cx + r * 1.4) / COL);
+  for (let i = i0; i <= i1; i++) {
+    const dx = Math.abs(i * COL - cx), cur = colH(i);
+    if (dx < r) colMap.set(i, cur - d * (1 - (dx / r) * (dx / r)));
+    else if (dx < r * 1.4) colMap.set(i, cur + d * 0.28 * (1 - (dx - r) / (0.4 * r)));
+  }
+}
+
+function explode(cx, power = 1) {
+  const cy = surfaceY(cx), r = 3.2 * power, d = 2.6 * power, Rs = 11 * power;
+  carveCrater(cx, r, d);
+  rings.push({ x: cx, y: cy, r: 0.5, max: Rs, life: 0.7 });
+
+  // Onda de choque: impulso radial decreciente sobre chasis y ruedas
+  const push = (o, m, scale) => {
+    const ddx = o.x - cx, ddy = o.y - cy, dist = Math.hypot(ddx, ddy);
+    if (dist >= Rs) return;
+    const q = 1 - dist / Rs, f = q * q * 2600 * power * scale;
+    const ux = ddx / Math.max(dist, 0.3), uy = ddy / Math.max(dist, 0.3) + 0.35;
+    o.vx += (ux * f) / m; o.vy += (uy * f) / m;
+  };
+  push(car, M_CAR, 1);
+  for (const wh of car.wheels) push(wh, M_WHEEL, 0.06);
+
+  // Escombros físicos y nube de polvo
+  const n = Math.round(24 * power);
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * Math.PI, sp = (5 + Math.random() * 13) * Math.sqrt(power);
+    debris.push({
+      x: cx + (Math.random() - 0.5) * r, y: cy + 0.2,
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+      s: 0.12 + Math.random() * 0.3, a: 0, va: (Math.random() - 0.5) * 14,
+      life: 3 + Math.random() * 3
+    });
+  }
+  for (let i = 0; i < 26; i++) {
+    dust.push({
+      x: cx + (Math.random() - 0.5) * r * 2, y: cy + 0.3,
+      vx: (Math.random() - 0.5) * 9 * power, vy: 2 + Math.random() * 6 * power,
+      life: 1.4 + Math.random() * 1.2, size: 0.35 + Math.random() * 0.6
+    });
+  }
+}
+
+// Eleva un bulto gaussiano en el terreno (obstáculos desplegados)
+function addBump(cx, r, h) {
+  for (let i = Math.floor((cx - r) / COL); i <= Math.ceil((cx + r) / COL); i++) {
+    const dx = i * COL - cx;
+    if (Math.abs(dx) < r) colMap.set(i, colH(i) + Math.sqrt(r * r - dx * dx) * h);
+  }
+}
+function spawnObstacles() {
+  for (let i = 0; i < 7; i++) {
+    addBump(car.x + 24 + i * 7 + Math.random() * 2, 0.9 + Math.random() * 1.1, 0.9 + Math.random() * 0.6);
+  }
+}
+
+function fire() {
+  const cs = Math.cos(car.a), sn = Math.sin(car.a), ang = car.a + 0.35;
+  const sx = car.x + 2.2 * cs - 0.3 * sn, sy = car.y + 2.2 * sn + 0.3 * cs;
+  projectiles.push({ x: sx, y: sy, vx: car.vx + Math.cos(ang) * 60, vy: car.vy + Math.sin(ang) * 60, life: 4 });
+  car.vx -= Math.cos(ang) * 0.8; car.vy -= Math.sin(ang) * 0.8;   // retroceso
+}
+
+// Física de escombros y proyectiles (paso fijo)
+function stepParticles(dt) {
+  for (let i = debris.length - 1; i >= 0; i--) {
+    const q = debris[i];
+    q.vy -= P.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.a += q.va * dt; q.life -= dt;
+    const gy = surfaceY(q.x) + q.s * 0.5;
+    if (q.y < gy) { q.y = gy; q.vy = -q.vy * 0.35; q.vx *= 0.7; q.va *= 0.6; }
+    if (q.life <= 0) debris.splice(i, 1);
+  }
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.vy -= P.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+    const hit = p.y <= surfaceY(p.x);
+    if (hit || p.life <= 0) {
+      if (hit) explode(p.x, 0.8);
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+// Vigilancia: caídas fuera del mapa y atascos reinician el vehículo
+let stuckT = 0;
+function watchdog(dt) {
+  if (car.y < -40 || !Number.isFinite(car.y)) { resetCar(-18); return; }
+  if (car.contacts && Math.abs(car.vx) < 0.3 && Math.abs(car.throttle) > 0.5) stuckT += dt;
+  else stuckT = 0;
+  if (stuckT > 6) { stuckT = 0; resetCar(safeSpawnX(car.x)); }
+}
+
+// Emisión de polvo (deslizamiento) y chispas (impactos fuertes)
+function spawnFx() {
+  for (const wh of car.wheels) {
+    if (wh.contact && wh.slip > 2.5 && dust.length < 500 && Math.random() < 0.6) {
+      dust.push({
+        x: wh.x + (Math.random() - 0.5) * 0.4, y: wh.cy + 0.05,
+        vx: (Math.random() - 0.5) * 4 - car.vx * 0.2, vy: 1 + Math.random() * 2.5,
+        life: 0.8 + Math.random() * 0.6, size: 0.12 + Math.random() * 0.18
+      });
+    }
+    if (wh.hit) {
+      wh.hit = false;
+      for (let k = 0; k < 10; k++) {
+        sparks.push({ x: wh.x, y: wh.cy, vx: (Math.random() - 0.5) * 8, vy: Math.random() * 6, life: 0.4 + Math.random() * 0.3 });
+      }
+    }
+  }
+}
+
+function stepFx(dt) {
+  for (let i = dust.length - 1; i >= 0; i--) {
+    const d = dust[i];
+    d.life -= dt; d.x += d.vx * dt; d.y += d.vy * dt;
+    d.vy -= 0.8 * dt; d.vx *= 1 - 1.2 * dt;
+    if (d.life <= 0) dust.splice(i, 1);
+  }
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy -= P.g * dt;
+    if (s.life <= 0) sparks.splice(i, 1);
+  }
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const q = rings[i];
+    q.r += (q.max - q.r) * Math.min(1, 6 * dt); q.life -= dt;
+    if (q.life <= 0) rings.splice(i, 1);
+  }
+}
+
+/* ---------- Render procedural (Canvas 2D, sin recursos externos) ---------- */
+const cv = $('sim'), ctx = cv.getContext('2d');
+let W = 0, H = 0;
+function resize() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+let camX = 0, camY = 0;
+const toS = (x, y) => [W * 0.5 + (x - camX) * PPM, H * 0.64 - (y - camY) * PPM];
+const toW = (sx, sy) => [(sx - W * 0.5) / PPM + camX, (H * 0.64 - sy) / PPM + camY];
+const stars = Array.from({ length: 140 }, (_, i) => ({
+  x: hash(i * 1.7), y: hash(i * 3.1 + 7) * 0.7, z: 0.02 + hash(i * 5.3 + 1) * 0.12,
+  r: 0.6 + hash(i * 9.9) * 1.2, ph: hash(i) * 6
+}));
+
+// Color térmico de los amortiguadores: cian (reposo) → ámbar → rojo (compresión máxima)
+function heatColor(t) {
+  t = clamp(t, 0, 1);
+  const h = t < 0.5 ? 185 - (145 * t) / 0.5 : 40 - (40 * (t - 0.5)) / 0.5;
+  return `hsl(${h.toFixed(0)},100%,60%)`;
+}
+
+function arrow(x1, y1, x2, y2, col) {
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 9 * Math.cos(a - 0.4), y2 - 9 * Math.sin(a - 0.4));
+  ctx.lineTo(x2 - 9 * Math.cos(a + 0.4), y2 - 9 * Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+// Llama procedural: tres capas con parpadeo; (dx,dy) es la dirección unitaria de escape en pantalla
+function flame(x, y, dx, dy, s) {
+  const nx = -dy, ny = dx;
+  for (let i = 0; i < 3; i++) {
+    const L = (28 + Math.random() * 30) * s * (1 - i * 0.25), sp = (Math.random() - 0.5) * 9;
+    ctx.beginPath();
+    ctx.moveTo(x + nx * 5, y + ny * 5);
+    ctx.lineTo(x + dx * L + nx * sp, y + dy * L + ny * sp);
+    ctx.lineTo(x - nx * 5, y - ny * 5);
+    ctx.closePath();
+    ctx.fillStyle = i === 0 ? 'rgba(255,240,160,.95)' : i === 1 ? 'rgba(255,120,220,.7)' : 'rgba(0,240,255,.35)';
+    ctx.fill();
+  }
+}
+
+function drawSky(pl) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, pl.sky); g.addColorStop(0.65, pl.hz); g.addColorStop(1, '#05070d');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const t = performance.now() * 0.001;
+  ctx.fillStyle = '#e8f6ff';
+  for (const s of stars) {
+    const x = (((s.x * W - camX * PPM * s.z) % W) + W) % W;
+    ctx.globalAlpha = 0.45 + 0.4 * Math.sin(t * 2 + s.ph);
+    ctx.fillRect(x, s.y * H * 0.6, s.r, s.r);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Cordilleras con paralaje (fractal de valor)
+function drawRange(par, base, amp, seed, col) {
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let px = 0; px <= W + 12; px += 12) {
+    const u = (px + camX * PPM * par) / 220;
+    const y = H * base - (noise1(u + seed) * 0.6 + noise1(u * 2.7 + seed) * 0.3) * H * amp;
+    ctx.lineTo(px, y);
+  }
+  ctx.lineTo(W, H); ctx.closePath();
+  ctx.fillStyle = col; ctx.fill();
+}
+
+function drawTerrain(pl) {
+  ctx.beginPath();
+  for (let px = 0; px <= W + 4; px += 4) {
+    const x = camX + (px - W * 0.5) / PPM;
+    const sy = toS(x, surfaceY(x))[1];
+    if (px === 0) ctx.moveTo(px, sy); else ctx.lineTo(px, sy);
+  }
+  ctx.save();
+  ctx.lineWidth = 2; ctx.strokeStyle = '#00f0ff'; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 10;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.lineTo(W + 4, H); ctx.lineTo(0, H); ctx.closePath();
+  const g = ctx.createLinearGradient(0, H * 0.35, 0, H);
+  g.addColorStop(0, pl.dust + '55'); g.addColorStop(0.5, '#14121d'); g.addColorStop(1, '#07060b');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+
+  // Marcas de distancia sobre el suelo cada 10 m
+  ctx.font = '10px Menlo, Consolas, monospace';
+  ctx.fillStyle = '#4fd8e6'; ctx.strokeStyle = '#4fd8e6'; ctx.lineWidth = 1;
+  const xl = camX - W * 0.5 / PPM, xr = camX + W * 0.5 / PPM;
+  for (let m = Math.floor(xl / 10) * 10; m <= xr; m += 10) {
+    const [sx, sy] = toS(m, surfaceY(m));
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + 10); ctx.stroke();
+    ctx.fillText(m + ' m', sx + 3, sy + 22);
+  }
+}
+
+// Puentes colgantes: torres, cable principal con combadura, tirantes y tablones físicos
+function drawBridges() {
+  for (const b of bridges.values()) {
+    const N = b.nodes, n = N.length, A = N[0], Z = N[n - 1];
+    ctx.strokeStyle = '#ffb000'; ctx.lineWidth = 2;
+    const bA = toS(A.x, A.y), bZ = toS(Z.x, Z.y), tA = toS(A.x, A.y + 6), tZ = toS(Z.x, Z.y + 6);
+    ctx.beginPath();
+    ctx.moveTo(bA[0], bA[1]); ctx.lineTo(tA[0], tA[1]);
+    ctx.moveTo(bZ[0], bZ[1]); ctx.lineTo(tZ[0], tZ[1]);
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let i = 0; i <= 30; i++) {
+      const u = i / 30;
+      const cx = A.x + (Z.x - A.x) * u, cy = A.y + 6 + (Z.y - A.y) * u - 14 * u * (1 - u);
+      const [sx, sy] = toS(cx, cy);
+      if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,176,0,.5)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let k = 1; k < n - 1; k++) {
+      const u = k / (n - 1);
+      const [hx, hy] = toS(N[k].x, N[k].y);
+      const [cx, cy] = toS(A.x + (Z.x - A.x) * u, A.y + 6 + (Z.y - A.y) * u - 14 * u * (1 - u));
+      ctx.moveTo(hx, hy); ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    for (let k = 0; k < n - 1; k++) {
+      const [ax, ay] = toS(N[k].x, N[k].y), [bx, by] = toS(N[k + 1].x, N[k + 1].y);
+      ctx.strokeStyle = '#4a2f18'; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = '#c58a4e'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(ax, ay - 2); ctx.lineTo(bx, by - 2); ctx.stroke();
+    }
+  }
+}
+
+// Polígono en coordenadas locales del chasis
+function polyPath(pts, L) {
+  ctx.beginPath();
+  pts.forEach(([lx, ly], i) => {
+    const [x, y] = L(lx, ly);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+}
+
+function drawCar() {
+  const cs = Math.cos(car.a), sn = Math.sin(car.a);
+  const L = (lx, ly) => toS(car.x + lx * cs - ly * sn, car.y + lx * sn + ly * cs);
+  const dirS = (ex, ey) => [ex * cs - ey * sn, -(ex * sn + ey * cs)];   // dirección local → pantalla
+
+  // Propulsores de giro en vuelo (RCS)
+  if (!car.contacts && Math.abs(car.pitch) > 0.1) {
+    const sg = Math.sign(car.pitch), s = Math.abs(car.pitch) * 0.6;
+    for (const [lx, ly, ex, ey] of [[-1.9, 0.35, 0, -sg], [1.9, -0.45, 0, sg]]) {
+      const [px, py] = L(lx, ly), [dx, dy] = dirS(ex, ey);
+      flame(px, py, dx, dy, s);
+    }
+  }
+  // Cohete trasero (Nitro Boost)
+  if (car.boost) {
+    const [px, py] = L(-2.1, 0.1), [dx, dy] = dirS(-1, 0);
+    flame(px, py, dx, dy, 1.3);
+  }
+
+  // Puntales hidráulicos en zig-zag y ruedas
+  for (const wh of car.wheels) {
+    const [ax, ay] = toS(wh.Ax, wh.Ay), [wx, wy] = toS(wh.x, wh.y);
+    const vx = wx - ax, vy = wy - ay, len = Math.hypot(vx, vy) || 1;
+    const ux = vx / len, uy = vy / len, px = -uy, py = ux;
+    const col = heatColor(wh.comp / TRAVEL);
+    const cx = ax + ux * len * 0.5, cy = ay + uy * len * 0.5;
+
+    // Cilindro hidráulico (contornos) y vástago
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(ax + px * 4.5, ay + py * 4.5); ctx.lineTo(cx + px * 4.5, cy + py * 4.5);
+    ctx.moveTo(ax - px * 4.5, ay - py * 4.5); ctx.lineTo(cx - px * 4.5, cy - py * 4.5);
+    ctx.stroke();
+    ctx.strokeStyle = '#9fb4c8'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(wx, wy); ctx.stroke();
+
+    // Muelle en zig-zag: se acorta al comprimirse
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= 9; i++) {
+      const t = 0.5 + (0.42 * i) / 9, off = i === 0 || i === 9 ? 0 : (i % 2 ? 1 : -1) * 6;
+      const x = ax + ux * len * t + px * off, y = ay + uy * len * t + py * off;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Vectores de fuerza opcionales: muelle (amarillo) y normal de contacto (verde)
+    if (showVec) {
+      arrow(wx, wy, wx + ux * wh.Fs * 0.015, wy + uy * wh.Fs * 0.015, '#ffe66d');
+      const [cpx, cpy] = toS(wh.x, wh.cy);
+      if (wh.Fn > 0) arrow(cpx, cpy, cpx, cpy - wh.Fn * 0.015, '#7CFF6B');
+    }
+
+    // Neumático con radios (desfasado en profundidad según su lado)
+    const rp = P.R * PPM, dwx = wx + wh.z * 5;
+    ctx.beginPath(); ctx.arc(dwx, wy, rp, 0, Math.PI * 2);
+    ctx.fillStyle = wh.z > 0 ? '#121723' : '#07090e'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = wh.contact ? '#7CFF6B' : '#2c3e52'; ctx.stroke();
+    ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.5;
+    for (let s = 0; s < 4; s++) {
+      const an = -wh.th + (s * Math.PI) / 2;
+      ctx.beginPath(); ctx.moveTo(dwx, wy);
+      ctx.lineTo(dwx + Math.cos(an) * rp * 0.85, wy + Math.sin(an) * rp * 0.85);
+      ctx.stroke();
+    }
+  }
+
+  // Chasis, cabina y jaula antivuelco
+  polyPath([[-1.85, -0.45], [1.85, -0.45], [1.95, 0.1], [1.85, 0.35], [-1.9, 0.35], [-1.95, 0.1]], L);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10,26,44,.95)'; ctx.fill();
+  ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 2;
+  ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+
+  polyPath([[0.2, 0.4], [1.0, 0.4], [1.0, 1.1], [0.2, 1.1]], L);
+  ctx.closePath(); ctx.fillStyle = 'rgba(0,240,255,.18)'; ctx.fill();
+
+  const cage = [[-1.1, 0.35, -1.1, 1.25], [1.1, 0.35, 1.1, 1.25], [-1.1, 1.25, 1.1, 1.25],
+    [-1.1, 0.35, 1.1, 1.25], [1.1, 0.35, -1.1, 1.25], [0, 0.35, 0, 1.25]];
+  ctx.strokeStyle = '#ff2bd6'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (const [x1, y1, x2, y2] of cage) {
+    const [a1, b1] = L(x1, y1), [a2, b2] = L(x2, y2);
+    ctx.moveTo(a1, b1); ctx.lineTo(a2, b2);
+  }
+  ctx.stroke();
+
+  const [hx, hy] = L(1.95, 0.1);
+  ctx.fillStyle = '#fff3b0';
+  ctx.beginPath(); ctx.arc(hx, hy, 3.5, 0, Math.PI * 2); ctx.fill();
+  const [nx, ny] = L(-1.95, 0.1);
+  ctx.fillStyle = '#ff2bd6';
+  ctx.beginPath(); ctx.arc(nx, ny, 4, 0, Math.PI * 2); ctx.fill();
+}
+
+// Proyectiles, escombros, anillos de choque, polvo y chispas
+function drawFx(pl) {
+  for (const p of projectiles) {
+    const [x, y] = toS(p.x, p.y);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 9);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, '#ff2bd6'); g.addColorStop(1, 'rgba(255,43,214,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#6d6573';
+  for (const q of debris) {
+    const [x, y] = toS(q.x, q.y), sz = q.s * PPM;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-q.a);
+    ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+    ctx.restore();
+  }
+  ctx.lineWidth = 3;
+  for (const r of rings) {
+    const [x, y] = toS(r.x, r.y);
+    ctx.strokeStyle = `rgba(255,176,0,${Math.max(0, r.life / 0.7)})`;
+    ctx.beginPath(); ctx.arc(x, y, r.r * PPM, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.fillStyle = pl.dust;
+  for (const d of dust) {
+    const [x, y] = toS(d.x, d.y);
+    ctx.globalAlpha = Math.max(0, d.life) * 0.5;
+    ctx.beginPath(); ctx.arc(x, y, d.size * PPM, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#ffd166';
+  for (const s of sparks) {
+    const [x, y] = toS(s.x, s.y);
+    ctx.fillRect(x, y, 2, 2);
+  }
+}
+
+/* ---------- Gráfico en vivo de compresión de amortiguadores ---------- */
+const gc = $('graph'), gx = gc.getContext('2d'), HIST = 240, hist = [];
+function drawGraph() {
+  const w = gc.width, h = gc.height;
+  gx.fillStyle = '#02060c'; gx.fillRect(0, 0, w, h);
+  const yOf = (v) => h - ((v + DROOP) / (TRAVEL + DROOP)) * h;
+  gx.strokeStyle = '#12304a'; gx.lineWidth = 1;
+  gx.beginPath(); gx.moveTo(0, yOf(0)); gx.lineTo(w, yOf(0)); gx.stroke();   // reposo
+  const cols = ['#00f0ff', '#ff2bd6', '#ffb000', '#7CFF6B'];
+  gx.lineWidth = 1.5;
+  for (let k = 0; k < 4; k++) {
+    gx.strokeStyle = cols[k]; gx.beginPath();
+    for (let i = 0; i < hist.length; i++) {
+      const x = ((i + HIST - hist.length) / (HIST - 1)) * w, y = yOf(hist[i][k]);
+      if (i === 0) gx.moveTo(x, y); else gx.lineTo(x, y);
+    }
+    gx.stroke();
+  }
+  gx.fillStyle = '#6a8aa0'; gx.font = '11px Menlo, Consolas, monospace';
+  gx.fillText('compresión (m) · cian DI · magenta DD · ámbar TI · verde TD', 6, 14);
+}
+
+/* ---------- HUD de telemetría ---------- */
+let hudT = 0;
+function updateHUD(dt, fps) {
+  hudT += dt;
+  if (hudT < 0.1) return;
+  hudT = 0;
+  const v = Math.hypot(car.vx, car.vy) * 3.6;
+  const wAvg = car.wheels.reduce((s, wh) => s + Math.abs(wh.w), 0) / car.wheels.length;
+  const rpm = (wAvg * 60) / (2 * Math.PI) * 4.2;                  // relación de transmisión 4.2:1
+  const pitch = (((car.a * 180) / Math.PI) % 360 + 540) % 360 - 180;
+  $('tFps').textContent = fps.toFixed(0);
+  $('tSpeed').textContent = v.toFixed(0) + ' km/h';
+  $('tRpm').textContent = Math.round(rpm).toLocaleString('es-ES');
+  $('tPitch').textContent = pitch.toFixed(1) + '°';
+  $('tGmax').textContent = car.gmax.toFixed(2) + ' G';
+  $('tFuel').textContent = Math.round(car.fuel) + '%';
+}
+
+function bindRange(id, outId, fmt, apply) {
+  const el = $(id), out = $(outId);
+  const upd = () => { const v = parseFloat(el.value); apply(v); out.textContent = fmt(v); };
+  el.addEventListener('input', upd);
+  upd();
+}
+bindRange('kSpring', 'vK', (v) => (v / 1000).toFixed(0) + ' kN/m', (v) => { P.k = v; });
+bindRange('cDamp', 'vC', (v) => v.toFixed(0) + ' N·s/m', (v) => { P.c = v; });
+bindRange('torque', 'vT', (v) => v.toFixed(0) + ' N·m', (v) => { P.T = v; });
+bindRange('wheelSize', 'vR', (v) => v.toFixed(2) + ' m', (v) => { P.R = v; });
+
+const gsel = $('gravity');
+function applyPlanet() { P.planet = gsel.value; P.g = PLANETS[P.planet].g; }
+gsel.addEventListener('change', applyPlanet);
+applyPlanet();
+
+$('btnAuto').addEventListener('click', () => setAuto(!auto));
+$('btnVec').addEventListener('click', (e) => {
+  showVec = !showVec;
+  e.currentTarget.classList.toggle('on', showVec);
+});
+$('btnObs').addEventListener('click', spawnObstacles);
+$('btnBoom').addEventListener('click', () => explode(car.x + 18, 1.6));
+$('btnGun').addEventListener('click', fire);
+$('btnReset').addEventListener('click', () => resetCar(-18));
+for (const el of document.querySelectorAll('button, select, input')) {
+  el.addEventListener('pointerup', () => el.blur());   // el teclado sigue controlando el vehículo
+}
+
+// Clic izquierdo sobre el terreno: explosión con cráter en vivo
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const [wx] = toW(e.clientX, e.clientY);
+  explode(wx, 1);
+});
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ---------- Entrada: cualquier movimiento manual desactiva el piloto automático ---------- */
+const KEYS = {
+  KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down',
+  KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'boost'
+};
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyP') { if (!e.repeat) setAuto(!auto); return; }
+  if (e.code === 'KeyR') { resetCar(-18); return; }
+  if (e.code === 'KeyF') { if (!e.repeat) fire(); return; }
+  const k = KEYS[e.code];
+  if (k) {
+    e.preventDefault();
+    keys[k] = true;
+    if (auto) setAuto(false);
+  }
+});
+window.addEventListener('keyup', (e) => {
+  const k = KEYS[e.code];
+  if (k) keys[k] = false;
+});
+
+/* ---------- Bucle principal: física a paso fijo, render a fotograma ---------- */
+let last = performance.now(), acc = 0, fps = 60, fpsT = 0, fpsN = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  fpsN++; fpsT += dt;
+  if (fpsT >= 0.5) { fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
+
+  ensureBridges(car.x);
+  acc += dt;
+  let steps = 0;
+  while (acc >= DT && steps < MAX_STEPS) {
+    computeControls();
+    physStep(DT);
+    stepBridges(DT);
+    stepParticles(DT);
+    acc -= DT;
+    steps++;
+  }
+  if (steps === MAX_STEPS) acc = 0;
+
+  watchdog(dt);
+  spawnFx();
+  stepFx(dt);
+
+  // Cámara suave que anticipa la velocidad
+  camX += (car.x + car.vx * 0.3 - camX) * (1 - Math.exp(-dt * 3));
+  camY += (car.y + 1.2 - camY) * (1 - Math.exp(-dt * 2.5));
+
+  hist.push(car.wheels.map((wh) => wh.comp));
+  if (hist.length > HIST) hist.shift();
+
+  const pl = PLANETS[P.planet];
+  drawSky(pl);
+  drawRange(0.15, 0.62, 0.22, 3.1, '#101827');
+  drawRange(0.35, 0.7, 0.14, 7.7, '#0b1220');
+  drawTerrain(pl);
+  drawBridges();
+  drawFx(pl);
+  drawCar();
+  drawGraph();
+  updateHUD(dt, fps);
+  requestAnimationFrame(frame);
+}
+
+setAuto(true);
+resetCar(-18);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

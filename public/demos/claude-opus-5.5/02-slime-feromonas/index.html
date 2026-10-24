@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Φ PHYSARUM·LAB — Inteligencia de Enjambre y Slime Mold</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --c0:#19e6ff; --c1:#ff29b8; --c2:#ff9e1a;
+    --bg:rgba(7,11,19,.74); --line:rgba(120,200,255,.14); --txt:#cfe3f2; --dim:#7590a6; --acc:#7cf7c8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--txt);
+    font:11.5px/1.38 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;}
+  canvas#gl{position:fixed;inset:0;width:100vw;height:100vh;display:block;cursor:crosshair;touch-action:none}
+  .panel{position:fixed;background:var(--bg);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.55);}
+  #hud{left:12px;top:12px;width:300px;max-height:calc(100vh - 24px);overflow-y:auto;padding:12px 14px 10px;transition:transform .25s ease,opacity .25s}
+  #hud.hidden{transform:translateX(-330px);opacity:0;pointer-events:none}
+  #hud::-webkit-scrollbar{width:6px} #hud::-webkit-scrollbar-thumb{background:rgba(120,200,255,.2);border-radius:3px}
+  h1{margin:0;font-size:15px;letter-spacing:.14em;font-weight:700;
+    background:linear-gradient(90deg,var(--c0),var(--c1) 55%,var(--c2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:10.5px;margin:2px 0 8px}
+  .eq{color:#9fd8ff;font-size:10.5px;background:rgba(80,160,255,.07);border:1px solid var(--line);border-radius:6px;padding:4px 6px;margin-bottom:8px}
+  h3{margin:10px 0 6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);font-weight:600;
+    display:flex;align-items:center;gap:6px}
+  h3::after{content:"";flex:1;height:1px;background:var(--line)}
+  button,select{font:inherit;color:var(--txt);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;
+    padding:5px 7px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+  button:hover,select:hover{background:rgba(124,247,200,.08);border-color:rgba(124,247,200,.35)}
+  button.on{background:rgba(124,247,200,.14);border-color:var(--acc);color:#fff;box-shadow:0 0 12px rgba(124,247,200,.18) inset}
+  select option{background:#0b1220}
+  .presets{display:grid;grid-template-columns:1fr;gap:4px}
+  .presets button{text-align:left;display:flex;gap:8px;align-items:center}
+  .presets kbd,.tools kbd{font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:auto}
+  #pinfo{color:#a9bfd0;font-size:10.5px;margin:6px 0 0;min-height:42px}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .tools button{display:flex;align-items:center;gap:5px;font-size:11px}
+  .tools button:last-child{grid-column:span 2}
+  .chips{display:flex;gap:4px;margin-top:6px}
+  .chips button{flex:1;font-size:10.5px;padding:4px 2px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 8px currentColor;flex:none}
+  .d0{background:var(--c0);color:var(--c0)} .d1{background:var(--c1);color:var(--c1)} .d2{background:var(--c2);color:var(--c2)}
+  .dm{background:conic-gradient(var(--c0),var(--c1),var(--c2),var(--c0));color:#fff}
+  .sl{margin:5px 0}
+  .sl label{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+  .sl .k{color:#dbeaf6} .sl .k i{color:var(--dim);font-style:normal;font-size:10px;margin-left:4px}
+  .sl .v{color:var(--acc);font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;background:transparent;margin:1px 0 0}
+  input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(90deg,rgba(25,230,255,.5),rgba(255,41,184,.5))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;margin-top:-4.5px;background:#e9fbff;box-shadow:0 0 8px rgba(124,247,200,.8)}
+  input[type=range]::-moz-range-track{height:3px;border-radius:2px;background:linear-gradient(90deg,rgba(25,230,255,.5),rgba(255,41,184,.5))}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border:none;border-radius:50%;background:#e9fbff;box-shadow:0 0 8px rgba(124,247,200,.8)}
+  .matrix{display:grid;grid-template-columns:22px repeat(3,1fr);gap:3px;align-items:center}
+  .matrix .hd{display:flex;justify-content:center}
+  .matrix input{width:100%;font:inherit;color:#fff;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:5px;padding:3px 2px;text-align:center}
+  .mnote{color:var(--dim);font-size:10px;margin-top:4px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px}
+  .row2 select,.row2 button,.row3 button{width:100%;font-size:10.5px}
+  #stats{right:12px;top:12px;width:236px;padding:10px 12px}
+  .fps{display:flex;align-items:baseline;gap:6px}
+  .fps b{font-size:28px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 14px rgba(124,247,200,.5)}
+  .fps span{color:var(--acc);letter-spacing:.12em} .fps small{margin-left:auto;color:var(--dim)}
+  .st{display:flex;justify-content:space-between;margin:3px 0;gap:8px}
+  .st span{color:var(--dim)} .st b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+  .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;margin:2px 0 6px}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3cf,#7cf7c8,#ffd24a,#ff5a8a);transition:width .3s}
+  .sp{display:grid;grid-template-columns:10px 1fr auto 44px;align-items:center;gap:6px;margin:3px 0}
+  .sp b{font-variant-numeric:tabular-nums;color:#fff;font-weight:600} .sp small{color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+  #spark{width:100%;height:54px;display:block;margin:6px 0 4px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.25)}
+  #hint{left:50%;bottom:12px;transform:translateX(-50%);padding:6px 12px;color:#9db4c6;font-size:10.5px;white-space:nowrap;border-radius:20px}
+  #hint b{color:var(--acc);font-weight:600}
+  #toast{position:fixed;left:50%;top:18px;transform:translate(-50%,-10px);opacity:0;pointer-events:none;transition:all .4s;
+    font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#fff;text-shadow:0 0 18px rgba(124,247,200,.8)}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #paused{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;letter-spacing:.4em;color:rgba(255,255,255,.75);
+    display:none;pointer-events:none;text-shadow:0 0 20px #000}
+  #labels{position:fixed;inset:0;pointer-events:none}
+  .lbl{position:absolute;transform:translate(7px,-50%);font-size:9.5px;color:rgba(190,255,210,.62);text-shadow:0 0 4px #000,0 0 2px #000;white-space:nowrap}
+  #hudBtn{position:fixed;left:12px;bottom:12px;z-index:5;font-size:10.5px}
+  #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#05070c;color:#ffd0d0;z-index:99;padding:30px;text-align:center}
+  #err pre{white-space:pre-wrap;text-align:left;max-width:900px;max-height:60vh;overflow:auto;color:#ff9a9a;font-size:11px}
+  @media (max-width:820px){ #stats{display:none} #hint{display:none} }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+
+<div id="hud" class="panel">
+  <h1>Φ PHYSARUM·LAB</h1>
+  <div class="sub">Inteligencia de enjambre · <i>Physarum polycephalum</i> · GPU ping-pong</div>
+  <div class="eq">∂ρ/∂t = D·∇²ρ − λ·ρ + Σ depósitos(agentes) + nutrientes</div>
+
+  <h3>Presets genéticos</h3>
+  <div class="presets" id="presets"></div>
+  <div id="pinfo"></div>
+
+  <h3>Herramientas · ratón</h3>
+  <div class="tools" id="tools"></div>
+  <div class="chips" id="chips">
+    <button data-s="0"><i class="dot d0"></i>Cian</button>
+    <button data-s="1"><i class="dot d1"></i>Magenta</button>
+    <button data-s="2"><i class="dot d2"></i><span id="c2name">Ámbar</span></button>
+    <button data-s="-1"><i class="dot dm"></i>Mixta</button>
+  </div>
+  <div class="sl" id="brushRow"></div>
+
+  <h3>Genoma del agente</h3>
+  <div id="sliders"></div>
+
+  <h3>Matriz de quimiotaxis cruzada</h3>
+  <div class="matrix" id="matrix"></div>
+  <div class="mnote">Fila = especie que <b>siente</b> · columna = feromona. +atrae · −repele</div>
+
+  <h3>Población · vista · acciones</h3>
+  <div class="sl" id="popRow"></div>
+  <div class="row2">
+    <select id="view" title="Modo de visualización">
+      <option value="0">Vista: Bioluminiscente</option>
+      <option value="1">Vista: Térmica</option>
+      <option value="2">Vista: Química</option>
+    </select>
+    <select id="quality" title="Resolución del mapa químico">
+      <option value="0">Retícula: 0.35 MP</option>
+      <option value="1" selected>Retícula: 0.62 MP</option>
+      <option value="2">Retícula: 1.0 MP</option>
+    </select>
+  </div>
+  <div class="row3">
+    <button id="bPause">⏸ Pausa</button>
+    <button id="bReset">↻ Reiniciar</button>
+    <button id="bPal">Verde neón</button>
+  </div>
+  <div class="row3">
+    <button id="bClrTrail">Limpiar quím.</button>
+    <button id="bClrWall">Quitar muros</button>
+    <button id="bClrFood">Quitar comida</button>
+  </div>
+</div>
+
+<div id="stats" class="panel">
+  <div class="fps"><b id="fps">--</b><span>FPS</span><small id="ms"></small></div>
+  <div class="st"><span>Agentes activos</span><b id="agents">—</b></div>
+  <div class="st"><span>Entropía química H</span><b id="ent">—</b></div>
+  <div class="bar"><i id="entBar"></i></div>
+  <div class="st"><span>Shannon espacial</span><b id="bits">—</b></div>
+  <div class="sp"><i class="dot d0"></i><span>Cian</span><b id="p0">—</b><small id="t0"></small></div>
+  <div class="sp"><i class="dot d1"></i><span>Magenta</span><b id="p1">—</b><small id="t1"></small></div>
+  <div class="sp"><i class="dot d2"></i><span id="c2name2">Ámbar</span><b id="p2">—</b><small id="t2"></small></div>
+  <canvas id="spark" width="424" height="108"></canvas>
+  <div class="st"><span>Nodos nutrientes</span><b id="nfood">0</b></div>
+  <div class="st"><span>Retícula química</span><b id="res">—</b></div>
+  <div class="st"><span>Pasos simulados</span><b id="steps">0</b></div>
+  <div class="st"><span>Capacidad GPU</span><b id="cap">—</b></div>
+</div>
+
+<div id="hint" class="panel"><b>Click</b> herramienta · <b>Click der.</b> borra muro / quita comida · <b>Rueda</b> radio · <b>1-5</b> presets · <b>A F M E X</b> herramientas · <b>Espacio</b> pausa · <b>C</b> limpiar · <b>H</b> HUD</div>
+<button id="hudBtn">☰ HUD</button>
+<div id="toast"></div>
+<div id="paused">PAUSA</div>
+<div id="err"></div>
+
+<script>
+(() => {
+'use strict';
+
+const MAXF = 40;                 // nodos nutrientes máximos (uniform array)
+const AW = 512, AH = 512;        // textura de agentes: 262 144 slots
+const CAP = AW * AH;
+const RW = 192, RH = 80;         // destino de reducción GPU (población + entropía)
+
+const $ = (s) => document.querySelector(s);
+const errBox = $('#err');
+function fail(title, detail) {
+  errBox.style.display = 'flex';
+  const d = String(detail || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  errBox.innerHTML = '<div><h2>⚠ ' + title + '</h2>' + (d ? '<pre>' + d + '</pre>' : '') + '</div>';
+}
+
+const canvas = $('#gl');
+const gl = canvas.getContext('webgl2', {
+  antialias: false, alpha: false, depth: false, stencil: false,
+  premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance'
+});
+if (!gl) { fail('WebGL2 no disponible', 'Este laboratorio necesita un navegador con WebGL2 (Chrome, Edge, Firefox o Safari 15+).'); return; }
+if (!gl.getExtension('EXT_color_buffer_float')) { fail('Extensión EXT_color_buffer_float no disponible', 'La GPU no puede renderizar a texturas de punto flotante.'); return; }
+
+try { main(); } catch (e) { fail('Error de inicialización', e && e.message ? e.message : e); }
+
+function main() {
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  const DEG = Math.PI / 180;
+
+  // =====================================================================
+  //  SHADERS
+  // =====================================================================
+  const HDR = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
+
+  const HASH = `
+uint hsh(uint x){ x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; x ^= x >> 16u; return x; }
+float rnd(inout uint s){ s = hsh(s); return float(s >> 8u) * (1.0 / 16777216.0); }
+`;
+
+  // Triángulo a pantalla completa sin buffers (gl_VertexID)
+  const VS_QUAD = HDR + `
+out vec2 vUv;
+void main(){
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  vUv = p;
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+  // --- 1) Sensores químicos + actuadores (un texel = un agente) ---------
+  const FS_UPDATE = HDR + `
+uniform sampler2D uAgents;   // xy = posición, z = theta, w = especie (-1 vacío, >=10 muerto)
+uniform sampler2D uTrailA;   // rgb = feromona de cada especie
+uniform sampler2D uTrailB;   // r = aroma de nutriente, g = antibiótico
+uniform sampler2D uWall;
+uniform vec2 uSim;
+uniform float uSA, uSD, uTurn, uSpeed, uJitter;
+uniform uint uFrame;
+uniform mat3 uM;             // uM[s] = pesos de la especie s sobre los canales rgb
+uniform vec3 uSpMove, uSpTurn, uSpSA, uSpSD, uChiral;
+uniform float uFoodW, uRepel, uKill, uRespawn;
+uniform vec4 uFood[${MAXF}];
+uniform int uFoodN;
+uniform vec3 uDish;          // centro xy + radio (0 = toro sin placa)
+out vec4 o;
+${HASH}
+float wallAt(vec2 p){
+  float w = texture(uWall, p / uSim).r;
+  if (uDish.z > 0.0) w = max(w, step(uDish.z, length(p - uDish.xy)));
+  return w;
+}
+float sense(vec2 p, float a, float d, int s){
+  vec2 q = p + vec2(cos(a), sin(a)) * d;
+  vec2 uv = q / uSim;
+  vec3 A = texture(uTrailA, uv).rgb;
+  vec2 B = texture(uTrailB, uv).rg;
+  return dot(uM[s], A) + uFoodW * B.r - uRepel * B.g - 1000.0 * wallAt(q);
+}
+void main(){
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 ag = texelFetch(uAgents, c, 0);
+  if (ag.w < -0.5) { o = ag; return; }                       // slot vacío
+  uint seed = hsh(uint(c.x) + uint(c.y) * 512u + uFrame * 2654435761u);
+
+  if (ag.w > 9.5) {                                           // muerto por antibiótico
+    if (uFoodN > 0 && rnd(seed) < uRespawn) {                 // regeneración en un nodo nutriente
+      int k = min(int(rnd(seed) * float(uFoodN)), uFoodN - 1);
+      vec4 f = uFood[k];
+      float a = rnd(seed) * 6.2831853;
+      float r = sqrt(rnd(seed)) * f.z;
+      o = vec4(f.xy + vec2(cos(a), sin(a)) * r, a, ag.w - 10.0);
+    } else o = ag;
+    return;
+  }
+
+  int s = clamp(int(ag.w + 0.5), 0, 2);
+  vec2 p = ag.xy;
+  float th = ag.z;
+
+  // muerte probabilística dentro de una nube de antibiótico
+  float ab = texture(uTrailB, p / uSim).g;
+  if (ab > 0.6 && rnd(seed) < uKill * ab) { o = vec4(p, th, float(s) + 10.0); return; }
+
+  float sa = uSA * uSpSA[s];
+  float sd = uSD * uSpSD[s];
+  float tr = uTurn * uSpTurn[s];
+  float fL = sense(p, th - sa, sd, s);
+  float fC = sense(p, th,      sd, s);
+  float fR = sense(p, th + sa, sd, s);
+  float r = rnd(seed);
+  float amt = tr * mix(1.0, r, uJitter);
+  if (fC > fL && fC > fR)      th += (r - 0.5) * tr * uJitter;           // sigue recto (ruido leve)
+  else if (fC < fL && fC < fR) th += (rnd(seed) < 0.5 ? -1.0 : 1.0) * tr; // indeciso: giro aleatorio
+  else if (fL > fR)            th -= amt;                                 // gira a la izquierda
+  else if (fR > fL)            th += amt;                                 // gira a la derecha
+  th += uChiral[s] + (rnd(seed) - 0.5) * 0.06 * uJitter;
+
+  float sp = uSpeed * uSpMove[s];
+  vec2 np = p + vec2(cos(th), sin(th)) * sp;
+  bool outside = uDish.z > 0.0 && length(p - uDish.xy) > uDish.z - 0.5;
+  if (outside) {
+    th = atan(uDish.y - p.y, uDish.x - p.x);
+    np = p + vec2(cos(th), sin(th)) * sp;
+  } else if (wallAt(np) > 0.5 && wallAt(p) < 0.5) {         // choque con muro: rebote estocástico
+    th += 3.1415927 + (rnd(seed) - 0.5) * 1.6;
+    np = p;
+  }
+  np = mod(np, uSim);
+  th = mod(th, 6.2831853);
+  o = vec4(np, th, ag.w);
+}`;
+
+  // --- 2) Depósito: cada agente es un punto con blending aditivo --------
+  const VS_DEP = HDR + `
+uniform sampler2D uAgents;
+uniform vec2 uSim;
+uniform int uAW;
+flat out int vS;
+void main(){
+  ivec2 c = ivec2(gl_VertexID % uAW, gl_VertexID / uAW);
+  vec4 a = texelFetch(uAgents, c, 0);
+  gl_PointSize = 1.0;
+  if (a.w < -0.5 || a.w > 2.5) { vS = 0; gl_Position = vec4(-10.0, -10.0, 0.0, 1.0); return; }
+  vS = int(a.w + 0.5);
+  gl_Position = vec4(a.xy / uSim * 2.0 - 1.0, 0.0, 1.0);
+}`;
+  const FS_DEP = HDR + `
+flat in int vS;
+uniform float uDep;
+out vec4 o;
+void main(){
+  o = vec4(vS == 0 ? uDep : 0.0, vS == 1 ? uDep : 0.0, vS == 2 ? uDep : 0.0, 0.0);
+}`;
+
+  // --- 3) Difusión laplaciana 3x3 + evaporación + emisores (MRT) --------
+  const FS_DIFF = HDR + `
+uniform sampler2D uA, uB, uWall;
+uniform ivec2 uSimI;
+uniform float uDecay, uDiff, uFoodDecay, uAntiDecay, uFoodE, uTime;
+uniform vec4 uFood[${MAXF}];
+uniform int uFoodN;
+uniform vec4 uPulse;
+uniform vec3 uDish;
+layout(location = 0) out vec4 oA;
+layout(location = 1) out vec4 oB;
+void main(){
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  vec4 sA = vec4(0.0), sB = vec4(0.0);
+  for (int j = -1; j <= 1; j++)
+    for (int i = -1; i <= 1; i++) {
+      ivec2 q = (p + ivec2(i, j) + uSimI) % uSimI;
+      sA += texelFetch(uA, q, 0);
+      sB += texelFetch(uB, q, 0);
+    }
+  vec4 cA = texelFetch(uA, p, 0), cB = texelFetch(uB, p, 0);
+  // mix(c, media, D) = c + D·(media − c)  ≡  c + (D/9)·∇²c  (laplaciano de 8 vecinos)
+  vec4 A = mix(cA, sA / 9.0, uDiff);
+  vec4 B = mix(cB, sB / 9.0, 0.9);
+  A.rgb *= 1.0 - uDecay;
+  B.r *= 1.0 - uFoodDecay;
+  B.g *= 1.0 - uAntiDecay;
+  vec2 fp = vec2(p) + 0.5;
+  for (int k = 0; k < ${MAXF}; k++) {
+    if (k >= uFoodN) break;
+    vec4 f = uFood[k];
+    float d = distance(fp, f.xy);
+    if (d < f.z) {
+      float pulse = 0.7 + 0.3 * sin(uTime * 2.5 + float(k) * 1.7);
+      B.r += uFoodE * f.w * pulse * (1.0 - d / f.z);
+    }
+  }
+  if (uPulse.w > 0.0) {
+    float d = distance(fp, uPulse.xy);
+    if (d < uPulse.z) {
+      float k = 1.0 - d / uPulse.z;
+      B.g += uPulse.w * k;
+      A.rgb *= 1.0 - 0.85 * k;
+    }
+  }
+  float w = texelFetch(uWall, p, 0).r;
+  if (uDish.z > 0.0 && length(fp - uDish.xy) > uDish.z) w = 1.0;
+  A *= 1.0 - w;
+  B *= 1.0 - w;
+  oA = min(A, vec4(6.0e4));
+  oB = min(B, vec4(6.0e4));
+}`;
+
+  // --- 4) Render bioluminiscente ---------------------------------------
+  const FS_DISP = HDR + `
+uniform sampler2D uA, uB, uWall;
+uniform vec2 uSim;
+uniform float uExp, uTime;
+uniform vec3 uC0, uC1, uC2;
+uniform vec4 uFood[${MAXF}];
+uniform int uFoodN;
+uniform vec3 uDish;
+uniform vec4 uMouse;
+uniform vec3 uMouseCol;
+uniform int uView;
+in vec2 vUv;
+out vec4 o;
+vec3 heat(float t){
+  vec3 a = vec3(0.0, 0.0, 0.03), b = vec3(0.34, 0.05, 0.5), c = vec3(0.93, 0.3, 0.13), d = vec3(1.0, 0.85, 0.32);
+  if (t < 0.25) return mix(a, b, t * 4.0);
+  if (t < 0.55) return mix(b, c, (t - 0.25) / 0.3);
+  if (t < 0.85) return mix(c, d, (t - 0.55) / 0.3);
+  return mix(d, vec3(1.0), (t - 0.85) / 0.15);
+}
+void main(){
+  vec2 uv = vUv;
+  vec2 sp = uv * uSim;
+  vec2 px = 1.0 / uSim;
+  vec4 A = texture(uA, uv);
+  vec4 B = texture(uB, uv);
+  vec3 g = vec3(0.0);
+  for (int i = 0; i < 8; i++) {
+    float an = float(i) * 0.7853982 + 0.39;
+    vec2 d = vec2(cos(an), sin(an)) * px;
+    g += texture(uA, uv + d * 2.5).rgb + 0.55 * texture(uA, uv + d * 6.5).rgb;
+  }
+  g *= 1.0 / 12.4;
+  vec3 col;
+  if (uView == 0) {
+    vec3 a  = 1.0 - exp(-A.rgb * uExp);
+    vec3 ga = 1.0 - exp(-g * uExp * 0.8);
+    col = vec3(0.004, 0.008, 0.016) + vec3(0.0, 0.018, 0.032) * (1.0 - length(uv - 0.5));
+    col += uC0 * a.r + uC1 * a.g + uC2 * a.b;
+    col += (uC0 * ga.r + uC1 * ga.g + uC2 * ga.b) * 0.6;
+    float tot = a.r + a.g + a.b;
+    col += vec3(0.9, 0.95, 1.0) * pow(max(tot - 0.9, 0.0), 2.0) * 0.5;
+    col += vec3(0.25, 0.8, 0.4) * (1.0 - exp(-B.r * 0.015)) * 0.22;
+    float ab = 1.0 - exp(-B.g * 0.5);
+    col = mix(col, vec3(0.55, 0.95, 0.15) * 0.55 + col * 0.25, ab * 0.65);
+  } else if (uView == 1) {
+    float t = 1.0 - exp(-(A.r + A.g + A.b) * uExp * 0.6);
+    col = heat(t) + heat(1.0 - exp(-(g.r + g.g + g.b) * uExp * 0.5)) * 0.22;
+  } else {
+    col = vec3(1.0 - exp(-B.g * 0.6), 1.0 - exp(-B.r * 0.02), 1.0 - exp(-(A.r + A.g + A.b) * uExp * 0.5));
+    col = col * col * (3.0 - 2.0 * col);
+  }
+  // muros: vidrio de placa de Petri con borde iluminado
+  float w  = texture(uWall, uv).r;
+  float wx = texture(uWall, uv + vec2(px.x * 1.5, 0.0)).r - texture(uWall, uv - vec2(px.x * 1.5, 0.0)).r;
+  float wy = texture(uWall, uv + vec2(0.0, px.y * 1.5)).r - texture(uWall, uv - vec2(0.0, px.y * 1.5)).r;
+  float edge = clamp(length(vec2(wx, wy)), 0.0, 1.0);
+  vec3 wallCol = vec3(0.05, 0.075, 0.11) + vec3(0.02, 0.035, 0.05) * (0.5 + 0.5 * sin(sp.x * 0.12 + sp.y * 0.09));
+  col = mix(col, wallCol, w * 0.93);
+  col += vec3(0.45, 0.7, 0.95) * edge * 0.5;
+  // placa de Petri
+  if (uDish.z > 0.0) {
+    float d = length(sp - uDish.xy);
+    float outside = smoothstep(uDish.z - 1.0, uDish.z + 1.0, d);
+    col = mix(col, col * 0.1 + vec3(0.008, 0.012, 0.02), outside);
+    col += vec3(0.35, 0.55, 0.8) * exp(-pow((d - uDish.z) / 1.6, 2.0)) * 0.55;
+    col += vec3(0.2, 0.35, 0.6) * exp(-pow((d - uDish.z - 7.0) / 3.0, 2.0)) * 0.15;
+  }
+  // nodos nutrientes pulsantes
+  for (int k = 0; k < ${MAXF}; k++) {
+    if (k >= uFoodN) break;
+    vec4 f = uFood[k];
+    float d = distance(sp, f.xy);
+    float pl = 0.5 + 0.5 * sin(uTime * 2.5 + float(k) * 1.7);
+    float rr = f.z * (0.85 + 0.35 * pl);
+    col += vec3(0.55, 1.0, 0.65) * (exp(-pow((d - rr) / 1.1, 2.0)) * 0.7 + exp(-d * d / (f.z * f.z * 0.25)) * (0.3 + 0.3 * pl));
+  }
+  // cursor de herramienta
+  if (uMouse.w > 0.0) {
+    float d = distance(sp, uMouse.xy);
+    col += uMouseCol * exp(-pow((d - uMouse.z) / 0.9, 2.0)) * 0.8;
+  }
+  vec2 q = uv - 0.5;
+  col *= 1.0 - 0.7 * dot(q, q);
+  float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) + uTime) * 43758.5453);
+  col += (n - 0.5) * 0.012;
+  o = vec4(clamp(col, 0.0, 1.0), 1.0);
+}`;
+
+  // --- 5) Reducciones GPU para el HUD ----------------------------------
+  const FS_RED_AG = HDR + `
+uniform sampler2D uAg;
+out vec4 o;
+void main(){
+  ivec2 b = ivec2(gl_FragCoord.xy) * 8;
+  vec3 c = vec3(0.0);
+  for (int y = 0; y < 8; y++)
+    for (int x = 0; x < 8; x++) {
+      float w = texelFetch(uAg, b + ivec2(x, y), 0).w;
+      c += vec3(abs(w) < 0.5 ? 1.0 : 0.0, abs(w - 1.0) < 0.5 ? 1.0 : 0.0, abs(w - 2.0) < 0.5 ? 1.0 : 0.0);
+    }
+  o = vec4(c / 255.0, 1.0);
+}`;
+  const FS_RED_TR = HDR + `
+uniform sampler2D uA;
+in vec2 vUv;
+out vec4 o;
+void main(){ o = vec4(1.0 - exp(-texture(uA, vUv).rgb * 0.05), 1.0); }`;
+
+  // --- 6) Pincel de muros (cápsula entre dos puntos) --------------------
+  const FS_BRUSH = HDR + `
+uniform vec2 uP0, uP1;
+uniform float uR, uVal;
+out vec4 o;
+void main(){
+  vec2 p = gl_FragCoord.xy;
+  vec2 ab = uP1 - uP0;
+  float t = clamp(dot(p - uP0, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
+  if (length(p - uP0 - ab * t) > uR) discard;
+  o = vec4(uVal);
+}`;
+
+  // =====================================================================
+  //  UTILIDADES GL
+  // =====================================================================
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  function program(vs, fs, samplers) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    p.u = {};
+    const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) {
+      const info = gl.getActiveUniform(p, i);
+      p.u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name);
+    }
+    gl.useProgram(p);
+    samplers.forEach((name, i) => gl.uniform1i(p.u[name], i));
+    return p;
+  }
+  function mkTex(w, h, ifmt, fmt, type, filter, wrap) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, type, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+    return t;
+  }
+  function mkFbo(texs) {
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    texs.forEach((t, i) => gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, t, 0));
+    gl.drawBuffers(texs.map((_, i) => gl.COLOR_ATTACHMENT0 + i));
+    const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (st !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Framebuffer incompleto (0x' + st.toString(16) + ')');
+    return f;
+  }
+  function bindTex(unit, tex) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); }
+
+  const pUpdate  = program(VS_QUAD, FS_UPDATE, ['uAgents', 'uTrailA', 'uTrailB', 'uWall']);
+  const pDeposit = program(VS_DEP, FS_DEP, ['uAgents']);
+  const pDiffuse = program(VS_QUAD, FS_DIFF, ['uA', 'uB', 'uWall']);
+  const pDisplay = program(VS_QUAD, FS_DISP, ['uA', 'uB', 'uWall']);
+  const pRedAg   = program(VS_QUAD, FS_RED_AG, ['uAg']);
+  const pRedTr   = program(VS_QUAD, FS_RED_TR, ['uA']);
+  const pBrush   = program(VS_QUAD, FS_BRUSH, []);
+
+  gl.bindVertexArray(gl.createVertexArray());
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.BLEND);
+
+  // Agentes: RGBA32F ping-pong (capacidad fija)
+  const agTex = [0, 1].map(() => mkTex(AW, AH, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.NEAREST, gl.CLAMP_TO_EDGE));
+  const agFbo = agTex.map((t) => mkFbo([t]));
+  const agentData = new Float32Array(CAP * 4);
+  const rowBuf = new Float32Array(AW * 4);
+
+  // Reducción + lectura asíncrona (PBO + fence) para no bloquear la GPU
+  const redTex = mkTex(RW, RH, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.NEAREST, gl.CLAMP_TO_EDGE);
+  const redFbo = mkFbo([redTex]);
+  const pbo = gl.createBuffer();
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+  gl.bufferData(gl.PIXEL_PACK_BUFFER, RW * RH * 4, gl.STREAM_READ);
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+  const readBuf = new Uint8Array(RW * RH * 4);
+  let fence = null;
+
+  // Mapa químico (dependiente del tamaño de ventana)
+  const QUAL = [350000, 620000, 1000000];
+  let W = 0, H = 0, S = 0, trA = [], trB = [], wallTex = null, depFbo = [], difFbo = [], wallFbo = null, wallData = null;
+  let cur = 0;
+
+  function buildSim() {
+    [...trA, ...trB, wallTex].forEach((t) => t && gl.deleteTexture(t));
+    [...depFbo, ...difFbo, wallFbo].forEach((f) => f && gl.deleteFramebuffer(f));
+    const cw = Math.max(320, innerWidth), ch = Math.max(240, innerHeight);
+    const sc = Math.sqrt(QUAL[params.quality] / (cw * ch));
+    W = Math.round(cw * sc); H = Math.round(ch * sc); S = Math.min(W, H);
+    trA = [0, 1].map(() => mkTex(W, H, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR, gl.REPEAT));
+    trB = [0, 1].map(() => mkTex(W, H, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR, gl.REPEAT));
+    wallTex = mkTex(W, H, gl.R8, gl.RED, gl.UNSIGNED_BYTE, gl.LINEAR, gl.REPEAT);
+    depFbo = trA.map((t) => mkFbo([t]));
+    difFbo = [0, 1].map((i) => mkFbo([trA[i], trB[i]]));
+    wallFbo = mkFbo([wallTex]);
+    wallData = new Uint8Array(W * H);
+    $('#res').textContent = W + '×' + H;
+  }
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = Math.round(innerWidth * dpr);
+    canvas.height = Math.round(innerHeight * dpr);
+  }
+
+  // =====================================================================
+  //  ESTADO, PRESETS
+  // =====================================================================
+  const params = {
+    sa: 24, sd: 11, turn: 20, speed: 1.1, decay: 0.03, diffuse: 0.55, deposit: 1.0,
+    jitter: 0.35, foodW: 1.6, steps: 2, exposure: 0.13, brush: 22, popN: 60000, quality: 1, view: 0
+  };
+  let matrix = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const matFlat = new Float32Array(9);
+  let spm = { move: [1, 1, 1], turn: [1, 1, 1], sa: [1, 1, 1], sd: [1, 1, 1], chiral: [0, 0, 0] };
+  let dish = [0, 0, 0];
+  let foods = [];
+  const foodArr = new Float32Array(MAXF * 4);
+  let presetIdx = 0, ringRow = 0, paused = false, frameNo = 0, simSteps = 0;
+  let tool = 'seed', seedSp = -1, neonGreen = false;
+  let pendingPulse = null;
+
+  const COLORS = { c0: [0.1, 0.9, 1.0], c1: [1.0, 0.16, 0.72], amber: [1.0, 0.62, 0.1], neon: [0.4, 1.0, 0.22] };
+  const ONES = () => [1, 1, 1];
+
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Ciudades del área metropolitana (coordenadas relativas a Tokio, norte = +v)
+  const TOKYO = [
+    ['Tokio', 0, 0], ['Kawasaki', -0.06, -0.12], ['Yokohama', -0.12, -0.26], ['Yokosuka', -0.06, -0.56],
+    ['Kamakura', -0.2, -0.47], ['Fujisawa', -0.33, -0.44], ['Odawara', -0.82, -0.56], ['Atsugi', -0.55, -0.33],
+    ['Sagamihara', -0.5, -0.14], ['Machida', -0.36, -0.2], ['Hachioji', -0.62, 0.0], ['Tachikawa', -0.44, 0.06],
+    ['Ome', -0.74, 0.22], ['Tokorozawa', -0.34, 0.22], ['Kawagoe', -0.38, 0.38], ['Omiya', -0.12, 0.36],
+    ['Ageo', -0.17, 0.5], ['Kumagaya', -0.42, 0.72], ['Kasukabe', 0.06, 0.52], ['Koshigaya', 0.08, 0.34],
+    ['Matsudo', 0.18, 0.16], ['Kashiwa', 0.27, 0.27], ['Tsukuba', 0.42, 0.62], ['Narita', 0.66, 0.18],
+    ['Funabashi', 0.25, 0.02], ['Chiba', 0.36, -0.08], ['Ichihara', 0.42, -0.26], ['Kisarazu', 0.27, -0.5]
+  ];
+
+  const PRESETS = [
+    {
+      name: 'Red Ferroviaria de Tokio', glyph: '⛩',
+      info: 'Tero et al. (Science, 2010): el plasmodio parte de Tokio y conecta 27 ciudades rodeando la bahía. La red emergente rivaliza en eficiencia y tolerancia a fallos con el ferrocarril real.',
+      params: { sa: 24, sd: 11, turn: 20, speed: 1.1, decay: 0.03, diffuse: 0.55, deposit: 1.0, jitter: 0.35, foodW: 1.6, steps: 2, exposure: 0.13 },
+      matrix: [[1, 0.5, 0.5], [0.5, 1, 0.5], [0.5, 0.5, 1]],
+      dish: false, seedSp: 2,
+      setup(c) {
+        const s = Math.min(c.W / 1.8, c.H / 1.55);
+        const ox = c.W / 2 + s * 0.075 + c.W * 0.06, oy = c.H / 2 - s * 0.075;
+        c.wallFill((x, y) => {
+          const u = (x - ox) / s, v = (y - oy) / s;
+          const bay = ((u - 0.1) / 0.14) ** 2 + ((v + 0.32) / 0.2) ** 2 < 1;
+          const mouth = Math.abs(u - 0.1 - 0.02 * Math.sin(v * 20)) < 0.055 && v < -0.42;
+          const sagami = ((u + 0.5) / 0.32) ** 2 + ((v + 0.72) / 0.16) ** 2 < 1;
+          const ocean = v < -0.66 + 0.03 * Math.sin(u * 9);
+          return bay || mouth || sagami || ocean;
+        });
+        c.border(3);
+        TOKYO.forEach(([name, u, v], i) => {
+          c.food(ox + u * s, oy + v * s, i === 0 ? Math.max(7, s * 0.035) : Math.max(4, s * 0.018), i === 0 ? 1.5 : 1.0, name);
+        });
+        c.disk(c.N, ox, oy, s * 0.05, () => 2, 'out');
+      }
+    },
+    {
+      name: 'Guerra de 3 Colonias', glyph: '⚔',
+      info: 'Matriz cíclica piedra-papel-tijera: cada especie persigue el rastro de su presa y huye del de su depredador. Emergen frentes de invasión, fronteras territoriales y persecuciones.',
+      params: { sa: 30, sd: 15, turn: 24, speed: 1.25, decay: 0.04, diffuse: 0.5, deposit: 1.2, jitter: 0.3, foodW: 1.0, steps: 2, exposure: 0.12 },
+      matrix: [[1, 0.7, -1.1], [-1.1, 1, 0.7], [0.7, -1.1, 1]],
+      sp: { move: [1, 1.08, 0.94], sd: [1, 0.85, 1.2] },
+      dish: true, seedSp: -1,
+      setup(c) {
+        for (let k = 0; k < 3; k++) {
+          const a = -Math.PI / 2 + k * 2 * Math.PI / 3;
+          c.disk(Math.floor(c.N / 3), c.W / 2 + Math.cos(a) * c.S * 0.27, c.H / 2 + Math.sin(a) * c.S * 0.27, c.S * 0.07, () => k, 'out');
+        }
+      }
+    },
+    {
+      name: 'Mitosis Celular', glyph: '◎',
+      info: 'Autoatracción alta, ángulo sensor amplio y giro lento: el rastro colapsa en células compactas que se elongan, se estrangulan y se dividen. La repulsión cruzada actúa como membrana.',
+      params: { sa: 58, sd: 7, turn: 13, speed: 0.95, decay: 0.07, diffuse: 0.75, deposit: 1.6, jitter: 0.25, foodW: 1.0, steps: 2, exposure: 0.1 },
+      matrix: [[1, -0.6, -0.6], [-0.6, 1, -0.6], [-0.6, -0.6, 1]],
+      sp: { chiral: [0.012, -0.012, 0.018], sa: [1, 1.1, 0.9] },
+      dish: true, seedSp: 0,
+      setup(c) {
+        const cells = [[0, 0]];
+        for (let k = 0; k < 6; k++) cells.push([Math.cos(k * Math.PI / 3) * 0.22, Math.sin(k * Math.PI / 3) * 0.22]);
+        const per = Math.floor(c.N / cells.length);
+        cells.forEach(([u, v], i) => c.disk(per, c.W / 2 + u * c.S, c.H / 2 + v * c.S, c.S * 0.055, () => i % 3, 'rand'));
+      }
+    },
+    {
+      name: 'Red Neuronal Sináptica', glyph: '✺',
+      info: 'Sensores de largo alcance y evaporación lenta: filamentos tipo axón conectan somas (nodos nutrientes). Cian y magenta cooperan en simbiosis y forman sinapsis mixtas.',
+      params: { sa: 16, sd: 28, turn: 11, speed: 1.4, decay: 0.018, diffuse: 0.22, deposit: 0.7, jitter: 0.4, foodW: 2.2, steps: 2, exposure: 0.17 },
+      matrix: [[1, 0.45, 0.1], [0.45, 1, 0.1], [0.2, 0.2, 1]],
+      sp: { sd: [1, 0.9, 1.15] },
+      dish: false, seedSp: 0,
+      setup(c) {
+        const r = rng(7), pts = [], minD = c.S * 0.13;
+        for (let tries = 0; pts.length < 26 && tries < 4000; tries++) {
+          const x = 20 + r() * (c.W - 40), y = 20 + r() * (c.H - 40);
+          if (pts.every(([px, py]) => Math.hypot(px - x, py - y) > minD)) pts.push([x, y]);
+        }
+        pts.forEach(([x, y]) => c.food(x, y, Math.max(4, c.S * 0.009), 0.7));
+        c.uniform(c.N, () => { const q = Math.random(); return q < 0.45 ? 0 : q < 0.9 ? 1 : 2; });
+      }
+    },
+    {
+      name: 'Tormenta Quiral', glyph: '🌀',
+      info: 'Sesgo quiral intrínseco por especie (levógira / dextrógira): se rompe la simetría especular y emergen vórtices, espirales y turbulencia activa entre especies.',
+      params: { sa: 40, sd: 16, turn: 28, speed: 1.8, decay: 0.06, diffuse: 0.45, deposit: 1.2, jitter: 0.2, foodW: 1.0, steps: 2, exposure: 0.12 },
+      matrix: [[1, -0.35, 0.35], [0.35, 1, -0.35], [-0.35, 0.35, 1]],
+      sp: { chiral: [0.07, -0.07, 0.13], move: [1, 1.15, 0.85] },
+      dish: false, seedSp: -1,
+      setup(c) { c.uniform(c.N, (i) => i % 3); }
+    }
+  ];
+
+  function loadPreset(idx) {
+    presetIdx = idx;
+    const P = PRESETS[idx];
+    Object.assign(params, P.params);
+    matrix = P.matrix.map((r) => r.slice());
+    const sp = P.sp || {};
+    spm = { move: sp.move || ONES(), turn: sp.turn || ONES(), sa: sp.sa || ONES(), sd: sp.sd || ONES(), chiral: sp.chiral || [0, 0, 0] };
+    dish = P.dish ? [W / 2, H / 2, S * 0.47] : [0, 0, 0];
+    seedSp = P.seedSp;
+
+    for (let i = 0; i < CAP; i++) { const o = i * 4; agentData[o] = -1000; agentData[o + 1] = -1000; agentData[o + 2] = 0; agentData[o + 3] = -1; }
+    wallData.fill(0);
+    clearFoods();
+    let n = 0;
+    const N = Math.min(CAP, params.popN | 0);
+    const add = (x, y, th, s) => {
+      if (n >= CAP) return;
+      const o = n * 4;
+      agentData[o] = ((x % W) + W) % W; agentData[o + 1] = ((y % H) + H) % H; agentData[o + 2] = th; agentData[o + 3] = s;
+      n++;
+    };
+    const inDish = (x, y) => !P.dish || Math.hypot(x - dish[0], y - dish[1]) < dish[2] * 0.97;
+    const ctx = {
+      W, H, S, N,
+      disk(count, x, y, r, sfn, mode) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2, rr = r * Math.sqrt(Math.random());
+          const th = mode === 'out' ? a : mode === 'in' ? a + Math.PI : Math.random() * Math.PI * 2;
+          add(x + Math.cos(a) * rr, y + Math.sin(a) * rr, th, sfn(i));
+        }
+      },
+      uniform(count, sfn) {
+        for (let i = 0; i < count; i++) {
+          let x, y, guard = 0;
+          do { x = Math.random() * W; y = Math.random() * H; } while (!inDish(x, y) && ++guard < 50);
+          add(x, y, Math.random() * Math.PI * 2, sfn(i));
+        }
+      },
+      food(x, y, r, str, label) { addFood(x, y, r, str, label); },
+      wallFill(fn) {
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (fn(x + 0.5, y + 0.5)) wallData[y * W + x] = 255;
+      },
+      border(b) {
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+          if (x < b || y < b || x >= W - b || y >= H - b) wallData[y * W + x] = 255;
+      }
+    };
+    P.setup(ctx);
+
+    bindTex(0, agTex[cur]);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, AW, AH, gl.RGBA, gl.FLOAT, agentData);
+    ringRow = Math.ceil(n / AW) % AH;
+    bindTex(0, wallTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RED, gl.UNSIGNED_BYTE, wallData);
+    clearTrails();
+    pendingPulse = null;
+    history.forEach((h) => h.length = 0);
+
+    syncSliders(); buildMatrixUI(); syncPresetUI(); syncChips();
+    $('#pinfo').textContent = P.info;
+    $('#agents').textContent = n.toLocaleString('es-ES');
+    toast(P.glyph + '  ' + P.name);
+  }
+
+  function clearTrails() {
+    gl.clearColor(0, 0, 0, 0);
+    for (let i = 0; i < 2; i++) { gl.bindFramebuffer(gl.FRAMEBUFFER, difFbo[i]); gl.clear(gl.COLOR_BUFFER_BIT); }
+  }
+  function clearWalls() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, wallFbo);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  // ---------- nutrientes ----------
+  const labelBox = $('#labels');
+  function addFood(x, y, r, str, label) {
+    if (foods.length >= MAXF) { const old = foods.shift(); if (old.el) old.el.remove(); }
+    const f = { x, y, r, str, el: null };
+    if (label) {
+      f.el = document.createElement('div');
+      f.el.className = 'lbl';
+      f.el.textContent = label;
+      f.el.style.left = (x / W * 100) + '%';
+      f.el.style.top = ((1 - y / H) * 100) + '%';
+      labelBox.appendChild(f.el);
+    }
+    foods.push(f);
+    syncFood();
+  }
+  function removeFoodNear(x, y) {
+    let best = -1, bd = 1e9;
+    foods.forEach((f, i) => { const d = Math.hypot(f.x - x, f.y - y) - f.r; if (d < bd) { bd = d; best = i; } });
+    if (best >= 0 && bd < 25) { const [f] = foods.splice(best, 1); if (f.el) f.el.remove(); syncFood(); }
+  }
+  function clearFoods() { foods.forEach((f) => f.el && f.el.remove()); foods = []; syncFood(); }
+  function syncFood() {
+    foodArr.fill(0);
+    foods.forEach((f, i) => { foodArr[i * 4] = f.x; foodArr[i * 4 + 1] = f.y; foodArr[i * 4 + 2] = f.r; foodArr[i * 4 + 3] = f.str; });
+    $('#nfood').textContent = foods.length + ' / ' + MAXF;
+  }
+  const foodRadius = () => Math.max(4, S * 0.013);
+
+  // ---------- interacción ----------
+  function seedBurst(x, y) {
+    const r = toolRadius('seed');
+    for (let i = 0; i < AW; i++) {
+      const a = Math.random() * Math.PI * 2, rr = r * Math.sqrt(Math.random()), o = i * 4;
+      rowBuf[o] = x + Math.cos(a) * rr;
+      rowBuf[o + 1] = y + Math.sin(a) * rr;
+      rowBuf[o + 2] = a;
+      rowBuf[o + 3] = seedSp < 0 ? (Math.random() * 3) | 0 : seedSp;
+    }
+    bindTex(0, agTex[cur]);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, ringRow, AW, 1, gl.RGBA, gl.FLOAT, rowBuf);
+    ringRow = (ringRow + 1) % AH;
+  }
+  function drawWall(x0, y0, x1, y1, val) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, wallFbo);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(pBrush);
+    gl.uniform2f(pBrush.u.uP0, x0, y0);
+    gl.uniform2f(pBrush.u.uP1, x1, y1);
+    gl.uniform1f(pBrush.u.uR, val > 0 ? toolRadius('wall') : toolRadius('erase'));
+    gl.uniform1f(pBrush.u.uVal, val);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function antibiotic(x, y) { pendingPulse = [x, y, toolRadius('anti'), 7.0]; }
+  function toolRadius(t) {
+    const b = params.brush;
+    return t === 'seed' ? b : t === 'food' ? foodRadius() : t === 'wall' ? b * 0.4 : t === 'erase' ? b * 0.8 : b * 1.6;
+  }
+
+  const ptr = { down: false, btn: 0, x: 0, y: 0, px: 0, py: 0, inside: false };
+  function toSim(e) {
+    const r = canvas.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width * W, (1 - (e.clientY - r.top) / r.height) * H];
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    const [x, y] = toSim(e);
+    Object.assign(ptr, { down: true, btn: e.button, x, y, px: x, py: y, inside: true });
+    if (e.button === 2) { if (tool === 'food') removeFoodNear(x, y); else drawWall(x, y, x, y, 0); return; }
+    if (e.button !== 0) return;
+    if (tool === 'seed') seedBurst(x, y);
+    else if (tool === 'food') addFood(x, y, foodRadius(), 1.0);
+    else if (tool === 'wall') drawWall(x, y, x, y, 1);
+    else if (tool === 'erase') drawWall(x, y, x, y, 0);
+    else if (tool === 'anti') antibiotic(x, y);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const [x, y] = toSim(e);
+    ptr.px = ptr.x; ptr.py = ptr.y; ptr.x = x; ptr.y = y; ptr.inside = true;
+    if (!ptr.down) return;
+    if (ptr.btn === 2 && tool !== 'food') drawWall(ptr.px, ptr.py, x, y, 0);
+    else if (ptr.btn === 0 && tool === 'wall') drawWall(ptr.px, ptr.py, x, y, 1);
+    else if (ptr.btn === 0 && tool === 'erase') drawWall(ptr.px, ptr.py, x, y, 0);
+  });
+  const endPtr = () => { ptr.down = false; };
+  canvas.addEventListener('pointerup', endPtr);
+  canvas.addEventListener('pointercancel', endPtr);
+  canvas.addEventListener('pointerleave', () => { ptr.inside = false; });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    params.brush = Math.min(120, Math.max(3, params.brush * (e.deltaY > 0 ? 0.9 : 1.1)));
+    syncBrush();
+  }, { passive: false });
+
+  // =====================================================================
+  //  PASO DE SIMULACIÓN
+  // =====================================================================
+  function step(time) {
+    const nx = 1 - cur;
+    // 1) sensores + actuadores
+    gl.bindFramebuffer(gl.FRAMEBUFFER, agFbo[nx]);
+    gl.viewport(0, 0, AW, AH);
+    gl.useProgram(pUpdate);
+    bindTex(0, agTex[cur]); bindTex(1, trA[cur]); bindTex(2, trB[cur]); bindTex(3, wallTex);
+    let u = pUpdate.u;
+    gl.uniform2f(u.uSim, W, H);
+    gl.uniform1f(u.uSA, params.sa * DEG);
+    gl.uniform1f(u.uSD, params.sd);
+    gl.uniform1f(u.uTurn, params.turn * DEG);
+    gl.uniform1f(u.uSpeed, params.speed);
+    gl.uniform1f(u.uJitter, params.jitter);
+    gl.uniform1ui(u.uFrame, frameNo >>> 0);
+    gl.uniformMatrix3fv(u.uM, false, matFlat);
+    gl.uniform3fv(u.uSpMove, spm.move);
+    gl.uniform3fv(u.uSpTurn, spm.turn);
+    gl.uniform3fv(u.uSpSA, spm.sa);
+    gl.uniform3fv(u.uSpSD, spm.sd);
+    gl.uniform3fv(u.uChiral, spm.chiral);
+    gl.uniform1f(u.uFoodW, params.foodW);
+    gl.uniform1f(u.uRepel, 3.0);
+    gl.uniform1f(u.uKill, 0.06);
+    gl.uniform1f(u.uRespawn, 0.004);
+    gl.uniform4fv(u.uFood, foodArr);
+    gl.uniform1i(u.uFoodN, foods.length);
+    gl.uniform3fv(u.uDish, dish);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // 2) depósito aditivo de feromona
+    gl.bindFramebuffer(gl.FRAMEBUFFER, depFbo[cur]);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(pDeposit);
+    bindTex(0, agTex[nx]);
+    gl.uniform2f(pDeposit.u.uSim, W, H);
+    gl.uniform1i(pDeposit.u.uAW, AW);
+    gl.uniform1f(pDeposit.u.uDep, params.deposit);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.drawArrays(gl.POINTS, 0, CAP);
+    gl.disable(gl.BLEND);
+
+    // 3) difusión + evaporación
+    gl.bindFramebuffer(gl.FRAMEBUFFER, difFbo[nx]);
+    gl.useProgram(pDiffuse);
+    bindTex(0, trA[cur]); bindTex(1, trB[cur]); bindTex(2, wallTex);
+    u = pDiffuse.u;
+    gl.uniform2i(u.uSimI, W, H);
+    gl.uniform1f(u.uDecay, params.decay);
+    gl.uniform1f(u.uDiff, params.diffuse);
+    gl.uniform1f(u.uFoodDecay, 0.006);
+    gl.uniform1f(u.uAntiDecay, 0.022);
+    gl.uniform1f(u.uFoodE, 0.5);
+    gl.uniform1f(u.uTime, time);
+    gl.uniform4fv(u.uFood, foodArr);
+    gl.uniform1i(u.uFoodN, foods.length);
+    gl.uniform3fv(u.uDish, dish);
+    if (pendingPulse) { gl.uniform4fv(u.uPulse, pendingPulse); pendingPulse = null; }
+    else gl.uniform4f(u.uPulse, 0, 0, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    cur = nx;
+    frameNo++;
+    simSteps++;
+  }
+
+  function render(time) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(pDisplay);
+    bindTex(0, trA[cur]); bindTex(1, trB[cur]); bindTex(2, wallTex);
+    const u = pDisplay.u;
+    gl.uniform2f(u.uSim, W, H);
+    gl.uniform1f(u.uExp, params.exposure);
+    gl.uniform1f(u.uTime, time);
+    gl.uniform3fv(u.uC0, COLORS.c0);
+    gl.uniform3fv(u.uC1, COLORS.c1);
+    gl.uniform3fv(u.uC2, neonGreen ? COLORS.neon : COLORS.amber);
+    gl.uniform4fv(u.uFood, foodArr);
+    gl.uniform1i(u.uFoodN, foods.length);
+    gl.uniform3fv(u.uDish, dish);
+    const t = ptr.down && ptr.btn === 2 ? (tool === 'food' ? 'food' : 'erase') : tool;
+    gl.uniform4f(u.uMouse, ptr.x, ptr.y, toolRadius(t), ptr.inside ? 1 : 0);
+    gl.uniform3fv(u.uMouseCol, cursorColor(t));
+    gl.uniform1i(u.uView, params.view);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function cursorColor(t) {
+    if (t === 'seed') return seedSp === 0 ? COLORS.c0 : seedSp === 1 ? COLORS.c1 : seedSp === 2 ? (neonGreen ? COLORS.neon : COLORS.amber) : [0.85, 0.9, 1];
+    if (t === 'food') return [0.5, 1, 0.6];
+    if (t === 'wall') return [0.7, 0.82, 0.95];
+    if (t === 'erase') return [1, 0.3, 0.32];
+    return [0.75, 1, 0.2];
+  }
+
+  // =====================================================================
+  //  TELEMETRÍA (reducción GPU → PBO asíncrono)
+  // =====================================================================
+  const HLEN = 160;
+  const history = [[], [], []];
+  const entVals = new Float32Array(128 * 80);
+  function requestStats() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, redFbo);
+    gl.viewport(0, 0, 64, 64);
+    gl.useProgram(pRedAg);
+    bindTex(0, agTex[cur]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.viewport(64, 0, 128, 80);
+    gl.useProgram(pRedTr);
+    bindTex(0, trA[cur]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+    gl.readPixels(0, 0, RW, RH, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+  }
+  function pollStats() {
+    if (!fence) return;
+    if (gl.getSyncParameter(fence, gl.SYNC_STATUS) !== gl.SIGNALED) return;
+    gl.deleteSync(fence);
+    fence = null;
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+    gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, readBuf);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    processStats();
+  }
+  function processStats() {
+    const pop = [0, 0, 0];
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+      const o = (y * RW + x) * 4;
+      pop[0] += readBuf[o]; pop[1] += readBuf[o + 1]; pop[2] += readBuf[o + 2];
+    }
+    let sum = 0, i = 0;
+    const terr = [0, 0, 0];
+    for (let y = 0; y < 80; y++) for (let x = 0; x < 128; x++, i++) {
+      const o = (y * RW + 64 + x) * 4;
+      const r = readBuf[o], g = readBuf[o + 1], b = readBuf[o + 2];
+      const v = r + g + b;
+      entVals[i] = v; sum += v;
+      const m = Math.max(r, g, b);
+      if (m > 12) terr[m === r ? 0 : m === g ? 1 : 2]++;
+    }
+    let Hs = 0;
+    if (sum > 0) for (let k = 0; k < entVals.length; k++) { const v = entVals[k]; if (v > 0) { const p = v / sum; Hs -= p * Math.log(p); } }
+    const Hn = Hs / Math.log(entVals.length);
+    const total = pop[0] + pop[1] + pop[2];
+    $('#agents').textContent = total.toLocaleString('es-ES');
+    $('#ent').textContent = sum > 0 ? Hn.toFixed(4) : '0.0000';
+    $('#entBar').style.width = (Math.max(0, Math.min(1, Hn)) * 100).toFixed(1) + '%';
+    $('#bits').textContent = (Hs / Math.LN2).toFixed(2) + ' / ' + Math.log2(entVals.length).toFixed(2) + ' bits';
+    const cells = entVals.length;
+    for (let k = 0; k < 3; k++) {
+      $('#p' + k).textContent = pop[k].toLocaleString('es-ES');
+      $('#t' + k).textContent = (terr[k] / cells * 100).toFixed(1) + '%';
+      history[k].push(pop[k]);
+      if (history[k].length > HLEN) history[k].shift();
+    }
+    $('#steps').textContent = simSteps.toLocaleString('es-ES');
+    drawSpark();
+  }
+  const spark = $('#spark'), sctx = spark.getContext('2d');
+  function drawSpark() {
+    const w = spark.width, h = spark.height;
+    sctx.clearRect(0, 0, w, h);
+    sctx.strokeStyle = 'rgba(120,200,255,0.08)';
+    sctx.lineWidth = 1;
+    for (let k = 1; k < 4; k++) { sctx.beginPath(); sctx.moveTo(0, h * k / 4); sctx.lineTo(w, h * k / 4); sctx.stroke(); }
+    let mx = 1000;
+    history.forEach((hh) => hh.forEach((v) => { if (v > mx) mx = v; }));
+    const cols = ['#19e6ff', '#ff29b8', neonGreen ? '#66ff38' : '#ff9e1a'];
+    history.forEach((hh, k) => {
+      if (hh.length < 2) return;
+      sctx.beginPath();
+      hh.forEach((v, i) => {
+        const x = (i + HLEN - hh.length) / (HLEN - 1) * w, y = h - 4 - v / mx * (h - 8);
+        i ? sctx.lineTo(x, y) : sctx.moveTo(x, y);
+      });
+      sctx.strokeStyle = cols[k];
+      sctx.lineWidth = 2;
+      sctx.shadowColor = cols[k];
+      sctx.shadowBlur = 6;
+      sctx.stroke();
+    });
+    sctx.shadowBlur = 0;
+  }
+
+  // =====================================================================
+  //  HUD
+  // =====================================================================
+  const SLIDERS = [
+    { k: 'sa', name: 'sensorAngle', sub: 'SA', unit: '°', min: 2, max: 120, step: 0.5 },
+    { k: 'sd', name: 'sensorDistance', sub: 'SO', unit: ' px', min: 1, max: 48, step: 0.5 },
+    { k: 'turn', name: 'turnSpeed', sub: 'RA', unit: '°', min: 1, max: 90, step: 0.5 },
+    { k: 'speed', name: 'moveSpeed', sub: 'SS', unit: ' px', min: 0.2, max: 4, step: 0.05 },
+    { k: 'decay', name: 'evaporationRate', sub: 'λ', unit: '', min: 0, max: 0.25, step: 0.001 },
+    { k: 'diffuse', name: 'diffusion', sub: 'D ∇²', unit: '', min: 0, max: 1, step: 0.01 },
+    { k: 'deposit', name: 'depositAmount', sub: 'rastro', unit: '', min: 0.05, max: 5, step: 0.05 },
+    { k: 'jitter', name: 'stochasticNoise', sub: 'ruido', unit: '', min: 0, max: 1, step: 0.01 },
+    { k: 'foodW', name: 'chemotaxis', sub: 'nutriente', unit: '', min: 0, max: 5, step: 0.05 },
+    { k: 'steps', name: 'stepsPerFrame', sub: 'pasos', unit: '', min: 1, max: 4, step: 1 },
+    { k: 'exposure', name: 'glow', sub: 'exposición', unit: '', min: 0.02, max: 0.6, step: 0.005 }
+  ];
+  const dec = (st) => { const s = String(st); return s.includes('.') ? s.split('.')[1].length : 0; };
+  const slEls = {};
+  function makeSlider(host, d, onChange) {
+    const row = document.createElement('div');
+    row.className = 'sl';
+    row.innerHTML = `<label><span class="k">${d.name}<i>${d.sub || ''}</i></span><span class="v"></span></label>
+      <input type="range" min="${d.min}" max="${d.max}" step="${d.step}">`;
+    const inp = row.querySelector('input'), val = row.querySelector('.v');
+    const show = () => { val.textContent = d.fmt ? d.fmt(params[d.k]) : (+params[d.k]).toFixed(dec(d.step)) + (d.unit || ''); };
+    inp.addEventListener('input', () => { params[d.k] = parseFloat(inp.value); show(); if (onChange) onChange(false); });
+    if (onChange) inp.addEventListener('change', () => onChange(true));
+    host.appendChild(row);
+    slEls[d.k] = { inp, show };
+    return row;
+  }
+  const slHost = $('#sliders');
+  SLIDERS.forEach((d) => makeSlider(slHost, d));
+  makeSlider($('#brushRow'), { k: 'brush', name: 'brushRadius', sub: 'rueda', unit: ' px', min: 3, max: 120, step: 1 });
+  makeSlider($('#popRow'), {
+    k: 'popN', name: 'agentes iniciales', sub: 'al soltar reinicia', min: 10000, max: CAP, step: 1000,
+    fmt: (v) => Math.round(v).toLocaleString('es-ES')
+  }, (commit) => { if (commit) loadPreset(presetIdx); });
+  function syncSliders() { for (const k in slEls) { slEls[k].inp.value = params[k]; slEls[k].show(); } }
+  function syncBrush() { slEls.brush.inp.value = params.brush; slEls.brush.show(); }
+
+  // presets
+  const presetHost = $('#presets');
+  PRESETS.forEach((P, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<span>${P.glyph}</span><span>${P.name}</span><kbd>${i + 1}</kbd>`;
+    b.addEventListener('click', () => loadPreset(i));
+    presetHost.appendChild(b);
+  });
+  function syncPresetUI() { [...presetHost.children].forEach((b, i) => b.classList.toggle('on', i === presetIdx)); }
+
+  // herramientas
+  const TOOLS = [
+    { k: 'seed', name: '✦ Sembrar agentes', key: 'A' },
+    { k: 'food', name: '◉ Nutriente', key: 'F' },
+    { k: 'wall', name: '▮ Muro', key: 'M' },
+    { k: 'erase', name: '⌫ Borrar muro', key: 'E' },
+    { k: 'anti', name: '☣ Pulso de antibiótico', key: 'X' }
+  ];
+  const toolHost = $('#tools');
+  TOOLS.forEach((t) => {
+    const b = document.createElement('button');
+    b.dataset.k = t.k;
+    b.innerHTML = `<span>${t.name}</span><kbd>${t.key}</kbd>`;
+    b.addEventListener('click', () => setTool(t.k));
+    toolHost.appendChild(b);
+  });
+  function setTool(k) { tool = k; [...toolHost.children].forEach((b) => b.classList.toggle('on', b.dataset.k === k)); }
+
+  const chips = $('#chips');
+  chips.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    seedSp = parseInt(b.dataset.s, 10);
+    syncChips();
+    setTool('seed');
+  });
+  function syncChips() { [...chips.children].forEach((b) => b.classList.toggle('on', parseInt(b.dataset.s, 10) === seedSp)); }
+
+  // matriz
+  const mHost = $('#matrix');
+  const SPN = ['d0', 'd1', 'd2'];
+  function buildMatrixUI() {
+    mHost.innerHTML = '';
+    mHost.appendChild(document.createElement('span'));
+    SPN.forEach((c) => { const h = document.createElement('span'); h.className = 'hd'; h.innerHTML = `<i class="dot ${c}"></i>`; mHost.appendChild(h); });
+    for (let r = 0; r < 3; r++) {
+      const h = document.createElement('span'); h.className = 'hd'; h.innerHTML = `<i class="dot ${SPN[r]}"></i>`; mHost.appendChild(h);
+      for (let c = 0; c < 3; c++) {
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.step = '0.1'; inp.min = '-3'; inp.max = '3';
+        inp.value = matrix[r][c];
+        const tint = () => {
+          const v = matrix[r][c];
+          inp.style.background = v >= 0 ? `rgba(80,255,170,${Math.min(0.35, v * 0.25)})` : `rgba(255,70,100,${Math.min(0.4, -v * 0.3)})`;
+        };
+        inp.addEventListener('input', () => { const v = parseFloat(inp.value); matrix[r][c] = isFinite(v) ? v : 0; tint(); updateMat(); });
+        tint();
+        mHost.appendChild(inp);
+      }
+    }
+    updateMat();
+  }
+  function updateMat() { for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) matFlat[r * 3 + c] = matrix[r][c]; }
+
+  // acciones
+  const bPause = $('#bPause');
+  function togglePause() { paused = !paused; bPause.classList.toggle('on', paused); bPause.textContent = paused ? '▶ Reanudar' : '⏸ Pausa'; $('#paused').style.display = paused ? 'block' : 'none'; }
+  bPause.addEventListener('click', togglePause);
+  $('#bReset').addEventListener('click', () => loadPreset(presetIdx));
+  $('#bClrTrail').addEventListener('click', clearTrails);
+  $('#bClrWall').addEventListener('click', clearWalls);
+  $('#bClrFood').addEventListener('click', clearFoods);
+  function setPalette(g) {
+    neonGreen = g;
+    document.documentElement.style.setProperty('--c2', g ? '#66ff38' : '#ff9e1a');
+    $('#c2name').textContent = $('#c2name2').textContent = g ? 'Neón' : 'Ámbar';
+    $('#bPal').textContent = g ? 'Ámbar' : 'Verde neón';
+  }
+  $('#bPal').addEventListener('click', () => setPalette(!neonGreen));
+  $('#view').addEventListener('change', (e) => { params.view = parseInt(e.target.value, 10); });
+  $('#quality').addEventListener('change', (e) => { params.quality = parseInt(e.target.value, 10); buildSim(); loadPreset(presetIdx); });
+  const hud = $('#hud');
+  const toggleHud = () => hud.classList.toggle('hidden');
+  $('#hudBtn').addEventListener('click', toggleHud);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k.length === 1 && k >= '1' && k <= '5') loadPreset(parseInt(k, 10) - 1);
+    else if (k === ' ') { e.preventDefault(); togglePause(); }
+    else if (k === 'a') setTool('seed');
+    else if (k === 'f') setTool('food');
+    else if (k === 'm') setTool('wall');
+    else if (k === 'e') setTool('erase');
+    else if (k === 'x') setTool('anti');
+    else if (k === 'c') clearTrails();
+    else if (k === 'r') loadPreset(presetIdx);
+    else if (k === 'h') toggleHud();
+  });
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { buildSim(); loadPreset(presetIdx); }, 300);
+  });
+
+  // =====================================================================
+  //  ARRANQUE + BUCLE
+  // =====================================================================
+  resizeCanvas();
+  buildSim();
+  setTool('seed');
+  setPalette(false);
+  $('#cap').textContent = CAP.toLocaleString('es-ES');
+  loadPreset(0);
+
+  let lastT = performance.now(), acc = 0, frames = 0, uiFrame = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = now - lastT;
+    lastT = now;
+    acc += dt; frames++;
+    if (acc >= 500) {
+      $('#fps').textContent = Math.round(frames * 1000 / acc);
+      $('#ms').textContent = (acc / frames).toFixed(1) + ' ms';
+      acc = 0; frames = 0;
+    }
+    const time = now / 1000;
+    pollStats();
+
+    if (ptr.down && ptr.btn === 0 && !paused) {
+      if (tool === 'seed' && uiFrame % 2 === 0) seedBurst(ptr.x, ptr.y);
+      if (tool === 'anti' && uiFrame % 8 === 0) antibiotic(ptr.x, ptr.y);
+    }
+    if (!paused) for (let i = 0; i < params.steps; i++) step(time);
+    render(time);
+    if (!fence && uiFrame % 12 === 0) requestStats();
+    uiFrame++;
+  }
+  requestAnimationFrame(frame);
+}
+})();
+</script>
+</body>
+</html>
