@@ -31,9 +31,13 @@ import NewsSection from "@/components/NewsSection";
 import PixelUiShowcase from "@/components/PixelUiShowcase";
 import {
   Pixel3DCRTWorkstation,
+  PixelCalendar,
+  PixelCollapse,
   PixelCreditBadge,
+  PixelDonutGauge,
   PixelFloppyCard,
   PixelIcon,
+  PixelMultiLineChart,
   PixelProceduralAmbientBg,
   PixelScrollMaterializer,
   PixelSocialBar,
@@ -618,11 +622,11 @@ export default function MixiuhLabsHomePage() {
 
       {/* FOREGROUND OPAQUE LAYER (Strictly z-10 above background canvas) */}
       <div className="relative z-10 flex flex-col flex-1 min-w-0">
-        {/* CENTERED, ZERO-OVERFLOW OPAQUE PIXEL-ART HEADER */}
+        {/* FULL-WIDTH SINGLE-ROW OPAQUE PIXEL-ART HEADER (Zero Wrap, Zero Overflow) */}
         <header className="sticky top-0 z-50 bg-[#090B10] border-b-3 border-[#FFD100] shadow-[0_4px_0_#040508] w-full">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6">
-            <div className="min-h-16 py-2 flex flex-wrap lg:flex-nowrap items-center justify-between gap-2">
-              {/* Left: CleanMixiuh Labs Brand Logo (Zero overflow, no CRT-9000 label) */}
+          <div className="w-full px-2 sm:px-3 lg:px-4">
+            <div className="h-14 flex items-center justify-between gap-2 flex-nowrap">
+              {/* Left: Clean Mixiuh Labs Brand Logo */}
               <button
                 onClick={() => navigateToView("blog")}
                 className="flex items-center gap-2 shrink-0 group cursor-pointer text-left"
@@ -631,7 +635,7 @@ export default function MixiuhLabsHomePage() {
                   <img
                     src="/brand/logos/mixiuh-labs_mark_dark.svg"
                     alt="Mixiuh Labs"
-                    className="h-6 w-6 shrink-0"
+                    className="h-5 w-5 sm:h-6 sm:w-6 shrink-0"
                   />
                 </div>
                 <span className="font-pixel text-xs sm:text-sm font-bold tracking-wider text-white whitespace-nowrap">
@@ -639,14 +643,14 @@ export default function MixiuhLabsHomePage() {
                 </span>
               </button>
 
-              {/* Center: Centered Tactile Navigation Bar */}
-              <nav className="hidden md:flex flex-wrap items-center justify-center gap-1 bg-[#111622] p-1 border-2 border-[#2A344B] font-mono-hud text-[11px] mx-auto">
+              {/* Center: Single-Row Centered Tactile Navigation Bar */}
+              <nav className="hidden md:flex flex-nowrap items-center justify-center gap-1 bg-[#111622] p-1 border-2 border-[#2A344B] font-mono-hud text-[11px] xl:text-xs mx-auto overflow-x-auto">
                 <button
                   onClick={() => navigateToView("blog")}
-                  className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     mainView === "blog"
                       ? "bg-[#FFD100] text-[#090B10] border border-[#090B10]"
-                      : "text-[#94A3B8] hover:text-white"
+                      : "text-[#CBD5E1] hover:text-white"
                   }`}
                 >
                   <PixelIcon
@@ -663,10 +667,10 @@ export default function MixiuhLabsHomePage() {
 
                 <button
                   onClick={() => navigateToView("dossiers")}
-                  className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     mainView === "dossiers"
                       ? "bg-[#10B981] text-[#090B10] border border-[#090B10]"
-                      : "text-[#94A3B8] hover:text-white"
+                      : "text-[#CBD5E1] hover:text-white"
                   }`}
                 >
                   <PixelIcon
@@ -680,10 +684,10 @@ export default function MixiuhLabsHomePage() {
                 {released.cc01 && (
                   <button
                     onClick={() => navigateToView("comunidad")}
-                    className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                       mainView === "comunidad"
                         ? "bg-[#FFD100] text-[#090B10] border border-[#090B10]"
-                        : "text-[#94A3B8] hover:text-white"
+                        : "text-[#CBD5E1] hover:text-white"
                     }`}
                   >
                     <PixelIcon
@@ -700,7 +704,7 @@ export default function MixiuhLabsHomePage() {
                 {released.carbon01 && (
                   <button
                     onClick={() => navigateToView("noticias")}
-                    className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                       mainView === "noticias"
                         ? "bg-[#00E5FF] text-[#090B10] border border-[#090B10]"
                         : "text-[#00E5FF] hover:text-white"
@@ -719,10 +723,10 @@ export default function MixiuhLabsHomePage() {
 
                 <button
                   onClick={() => navigateToView("arena")}
-                  className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     mainView === "arena"
                       ? "bg-[#A855F7] text-white border border-[#090B10]"
-                      : "text-[#94A3B8] hover:text-white"
+                      : "text-[#CBD5E1] hover:text-white"
                   }`}
                 >
                   <PixelIcon
@@ -735,7 +739,7 @@ export default function MixiuhLabsHomePage() {
 
                 <button
                   onClick={() => navigateToView("pixelui")}
-                  className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     mainView === "pixelui"
                       ? "bg-[#FF3355] text-white border border-[#090B10]"
                       : "text-[#FF3355] hover:text-white"
@@ -751,10 +755,10 @@ export default function MixiuhLabsHomePage() {
 
                 <button
                   onClick={() => navigateToView("foro")}
-                  className={`px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`px-2 xl:px-2.5 py-1 font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     mainView === "foro"
                       ? "bg-[#F5F2EB] text-[#090B10] border border-[#090B10]"
-                      : "text-[#94A3B8] hover:text-white"
+                      : "text-[#CBD5E1] hover:text-white"
                   }`}
                 >
                   <PixelIcon
@@ -766,7 +770,7 @@ export default function MixiuhLabsHomePage() {
                 </button>
               </nav>
 
-              {/* Right: Compact Hardware & Social Controls (Zero Overflow) */}
+              {/* Right: Compact Hardware & Social Controls (Single Row, Zero Overflow) */}
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
@@ -852,6 +856,17 @@ export default function MixiuhLabsHomePage() {
                     EN
                   </button>
                 </div>
+
+                <a
+                  href="https://x.com/MixiuhLabs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => playSfx("coin")}
+                  title="X @MixiuhLabs"
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-[#F5F2EB] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] font-pixel text-[9px] font-bold hover:bg-[#00E5FF] transition"
+                >
+                  <PixelIcon name="x" size={11} color="#090B10" />
+                </a>
 
                 <a
                   href={
@@ -1514,7 +1529,7 @@ export default function MixiuhLabsHomePage() {
                       ? "Autopsias de Codigo, Facturas de Tokens y 53 Conceptos"
                       : "Code Autopsies, Token Bills & 53 Concepts"}
                   </h3>
-                  <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#CBD5E1] leading-relaxed">
                     {lang === "es"
                       ? `Lee las autopsias forenses de Gemini 4 Carbon, Escalera Claude 5.5, Superpowers Kit y copia los ${totalPromptsCount} prompts originales.`
                       : `Read the forensic breakdowns of Gemini 4 Carbon, Claude 5.5 Ladder, Superpowers Kit, and copy all ${totalPromptsCount} verbatim prompts.`}
@@ -1525,6 +1540,168 @@ export default function MixiuhLabsHomePage() {
                     ? "Abrir Foro y Glosario →"
                     : "Open Forum & Glossary →"}
                 </div>
+              </div>
+            </div>
+
+            {/* LIVE PIXEL-ART TELEMETRY CHARTS, RELEASE CALENDAR & COLLAPSE FAQ */}
+            <div
+              data-px-reveal="true"
+              className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+            >
+              {/* Left 7 Cols: Multi-Series Pixel Telemetry Chart + Donut Gauges */}
+              <div className="lg:col-span-7 space-y-4">
+                <PixelMultiLineChart
+                  title={
+                    lang === "es"
+                      ? "TELEMETRIA COMPARATIVA // GEMINI 4 CARBON VS OPUS 5.5 VS SONNET 5.5"
+                      : "COMPARATIVE TELEMETRY // GEMINI 4 CARBON VS OPUS 5.5 VS SONNET 5.5"
+                  }
+                  subtitle={
+                    lang === "es"
+                      ? "Haz clic en cada modelo para activar/ocultar series o pasa el cursor sobre los nodos"
+                      : "Click any model legend to toggle series or hover over pixel nodes"
+                  }
+                  series={[
+                    {
+                      key: "carbon",
+                      name: "Gemini 4 Carbon",
+                      color: "#00E5FF",
+                    },
+                    {
+                      key: "opus",
+                      name: "Claude Opus 5.5",
+                      color: "#A855F7",
+                    },
+                    {
+                      key: "sonnet",
+                      name: "Claude Sonnet 5.5",
+                      color: "#FFD100",
+                    },
+                  ]}
+                  data={[
+                    {
+                      label: "TERM-HARD",
+                      values: { carbon: 54.5, opus: 53.0, sonnet: 43.8 },
+                    },
+                    {
+                      label: "SECBENCH",
+                      values: { carbon: 84.0, opus: 76.2, sonnet: 68.5 },
+                    },
+                    {
+                      label: "SWE-VERIF",
+                      values: { carbon: 79.4, opus: 78.1, sonnet: 72.4 },
+                    },
+                    {
+                      label: "WEBGL-60FPS",
+                      values: { carbon: 92.0, opus: 86.0, sonnet: 78.0 },
+                    },
+                    {
+                      label: "COST-EFF",
+                      values: { carbon: 94.0, opus: 48.0, sonnet: 76.0 },
+                    },
+                  ]}
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <PixelDonutGauge
+                    label="TERMINAL-BENCH HARD"
+                    sublabel="Gemini 4 Carbon #1"
+                    value={54.5}
+                    maxValue={100}
+                    displayValue="54.5%"
+                    tone="cyan"
+                  />
+                  <PixelDonutGauge
+                    label="SECBENCH DEFENSIVE"
+                    sublabel="Record ciberseguridad"
+                    value={84.0}
+                    maxValue={100}
+                    displayValue="84.0%"
+                    tone="emerald"
+                  />
+                  <PixelDonutGauge
+                    label="AHORRO API VS OPUS"
+                    sublabel="$4/$20 vs $5/$25 USD"
+                    value={80}
+                    maxValue={100}
+                    displayValue="-80%"
+                    tone="yellow"
+                  />
+                </div>
+              </div>
+
+              {/* Right 5 Cols: Release Calendar + Collapsible Methodology */}
+              <div className="lg:col-span-5 space-y-4">
+                <PixelCalendar
+                  lang={lang}
+                  selectedDate="2026-10-30"
+                  tone="yellow"
+                  events={[
+                    {
+                      date: "2026-10-14",
+                      label: "EP01: Argon vs 3.8 Flash (10-0)",
+                      tone: "violet",
+                    },
+                    {
+                      date: "2026-10-18",
+                      label: "EP02: Argon vs Claude Opus 5.5 (4-2)",
+                      tone: "cyan",
+                    },
+                    {
+                      date: "2026-10-22",
+                      label: "CC01: OVERFIT Studio 3D (@tenito03)",
+                      tone: "yellow",
+                    },
+                    {
+                      date: "2026-10-25",
+                      label: "EP03: Sin Kit vs Superpowers Kit (4-2)",
+                      tone: "emerald",
+                    },
+                    {
+                      date: "2026-10-28",
+                      label: "EP04: Escalera Claude 5.5 (18 corridas)",
+                      tone: "coral",
+                    },
+                    {
+                      date: "2026-10-30",
+                      label: "Noticias IA #01: Gemini 4 Carbon + Pixel UI v2.2",
+                      tone: "cyan",
+                    },
+                  ]}
+                />
+
+                <PixelCollapse
+                  tone="cyan"
+                  defaultOpenIds={["faq-1"]}
+                  items={[
+                    {
+                      id: "faq-1",
+                      title:
+                        lang === "es"
+                          ? "¿Como se auditan las pruebas en Mixiuh Labs?"
+                          : "How are benchmarks audited at Mixiuh Labs?",
+                      badge: "ZERO-SHOT",
+                      icon: "shield",
+                      content:
+                        lang === "es"
+                          ? "Cada reto se ejecuta con el mismo prompt exacto en un unico intento (zero-shot) sin editar ni una linea de codigo. Publicamos el index.html integro, el tiempo cronometrado y la factura real de API."
+                          : "Every challenge runs with the exact same verbatim prompt in a single zero-shot attempt without editing a single line of code. We publish the raw index.html, wall-clock time, and real API bill.",
+                    },
+                    {
+                      id: "faq-2",
+                      title:
+                        lang === "es"
+                          ? "¿Puedo usar @mixiuh/pixel-ui en proyectos comerciales?"
+                          : "Can I use @mixiuh/pixel-ui in commercial projects?",
+                      badge: "CC-BY 4.0",
+                      icon: "crt-tv",
+                      content:
+                        lang === "es"
+                          ? "Si, 100% gratis para uso personal o comercial en cualquier parte del mundo. Solo debes incluir una insignia o enlace de credito a labs.mixiuh.online."
+                          : "Yes, 100% free for personal or commercial use worldwide. Just include a visible credit badge or link back to labs.mixiuh.online.",
+                    },
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -3270,44 +3447,96 @@ export default function MixiuhLabsHomePage() {
                 const cur =
                   EP04_CHALLENGES.find((c) => c.n === ep04ChallengeN) ||
                   EP04_CHALLENGES[0];
-                const haikuUrl = `/demos/ep04-haiku-55/${cur.dir}/index.html`;
-                const sonnetUrl = `/demos/ep04-sonnet-55/${cur.dir}/index.html`;
-                const opusUrl = `/demos/ep04-opus-55/${cur.dir}/index.html`;
+                const haikuUrl = cur.haiku.demoUrl;
+                const sonnetUrl = cur.sonnet.demoUrl;
+                const opusUrl = cur.opus.demoUrl;
                 return (
-                  <div className="rounded-2xl bg-[#060B14] border-2 border-[#22D3EE]/50 overflow-hidden shadow-2xl">
+                  <div className="rounded-2xl bg-[#060B14] border-2 border-[#22D3EE] overflow-hidden shadow-2xl">
                     <div className="p-4 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h3 className="font-display text-lg font-black text-white">
                           EP04 Reto 0{cur.n}:{" "}
                           {lang === "es" ? cur.name_es : cur.name_en}
                         </h3>
-                        <p className="text-xs text-[#8FA3B8]">
+                        <p className="text-xs text-[#CBD5E1] mt-1">
                           {lang === "es" ? cur.verdict_es : cur.verdict_en}
                         </p>
                       </div>
                       <button
                         onClick={() => navigateToView("dossiers", "ep04")}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#22D3EE] text-[#060B14] font-mono-hud text-xs font-bold cursor-pointer"
+                        className="px-3.5 py-1.5 bg-[#22D3EE] text-[#060B14] font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508]"
                       >
-                        Ver Dossier Completo EP04
+                        {lang === "es"
+                          ? "Ver Dossier Completo EP04 →"
+                          : "Open Full EP04 Dossier →"}
                       </button>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
-                      <iframe
-                        src={haikuUrl}
-                        title={`Haiku ${cur.dir}`}
-                        className="w-full h-[520px] border-0 bg-[#04060A]"
-                      />
-                      <iframe
-                        src={sonnetUrl}
-                        title={`Sonnet ${cur.dir}`}
-                        className="w-full h-[520px] border-0 bg-[#04060A]"
-                      />
-                      <iframe
-                        src={opusUrl}
-                        title={`Opus ${cur.dir}`}
-                        className="w-full h-[520px] border-0 bg-[#04060A]"
-                      />
+                      {/* Column 1: Claude Haiku 5.5 */}
+                      <div className="flex flex-col">
+                        <div className="px-3 py-2 bg-[#090B10] border-b border-white/10 flex items-center justify-between gap-2 font-mono-hud text-xs">
+                          <span className="font-pixel text-[10px] text-[#34D399] font-bold">
+                            CLAUDE HAIKU 5.5 (${cur.haiku.usd} · {cur.haiku.min}m)
+                          </span>
+                          <a
+                            href={haikuUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-[#131824] text-[#34D399] border border-[#34D399]/50 text-[10px] font-bold"
+                          >
+                            {cur.haiku.fps} ↗
+                          </a>
+                        </div>
+                        <iframe
+                          src={haikuUrl}
+                          title={`Haiku ${cur.dir}`}
+                          className="w-full h-[520px] border-0 bg-[#04060A]"
+                        />
+                      </div>
+
+                      {/* Column 2: Claude Sonnet 5.5 */}
+                      <div className="flex flex-col">
+                        <div className="px-3 py-2 bg-[#090B10] border-b border-white/10 flex items-center justify-between gap-2 font-mono-hud text-xs">
+                          <span className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                            CLAUDE SONNET 5.5 (${cur.sonnet.usd} · {cur.sonnet.min}m)
+                          </span>
+                          <a
+                            href={sonnetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-[#131824] text-[#FFD100] border border-[#FFD100]/50 text-[10px] font-bold"
+                          >
+                            {cur.sonnet.fps} ↗
+                          </a>
+                        </div>
+                        <iframe
+                          src={sonnetUrl}
+                          title={`Sonnet ${cur.dir}`}
+                          className="w-full h-[520px] border-0 bg-[#04060A]"
+                        />
+                      </div>
+
+                      {/* Column 3: Claude Opus 5.5 */}
+                      <div className="flex flex-col">
+                        <div className="px-3 py-2 bg-[#090B10] border-b border-white/10 flex items-center justify-between gap-2 font-mono-hud text-xs">
+                          <span className="font-pixel text-[10px] text-[#A855F7] font-bold">
+                            CLAUDE OPUS 5.5 (${cur.opus.usd} · {cur.opus.min}m)
+                          </span>
+                          <a
+                            href={opusUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-[#131824] text-[#A855F7] border border-[#A855F7]/50 text-[10px] font-bold"
+                          >
+                            {cur.opus.fps} ↗
+                          </a>
+                        </div>
+                        <iframe
+                          src={opusUrl}
+                          title={`Opus ${cur.dir}`}
+                          className="w-full h-[520px] border-0 bg-[#04060A]"
+                        />
+                      </div>
                     </div>
                   </div>
                 );

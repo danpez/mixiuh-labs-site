@@ -5,8 +5,7 @@ import React from "react";
 export type PixelIconName =
   // 1. Social Media & Tech Brands (28)
   | "youtube"
-  | "x-twitter"
-  | "twitter"
+  | "x"
   | "instagram"
   | "facebook"
   | "tiktok"
@@ -30,6 +29,7 @@ export type PixelIconName =
   | "npm"
   | "react"
   | "nextjs"
+  | "vercel"
   | "blender"
   | "figma"
   // 2. Navigation & Layout (20)
@@ -233,8 +233,7 @@ export const PIXEL_ICON_CATEGORIES: {
     label_en: "Brands & Social Media (28)",
     icons: [
       "youtube",
-      "x-twitter",
-      "twitter",
+      "x",
       "instagram",
       "facebook",
       "tiktok",
@@ -258,6 +257,7 @@ export const PIXEL_ICON_CATEGORIES: {
       "npm",
       "react",
       "nextjs",
+      "vercel",
       "blender",
       "figma",
     ],
@@ -1335,7 +1335,7 @@ export function PixelIcon({
             <rect x="10" y="7" width="1" height="2" fill="#090B10" />
           </>
         );
-      case "x-twitter":
+      case "x":
         return (
           <>
             <rect x="2" y="2" width="3" height="2" />
@@ -1349,15 +1349,15 @@ export function PixelIcon({
             <rect x="2" y="12" width="2" height="2" />
           </>
         );
-      case "twitter":
+      case "vercel":
         return (
           <>
-            <rect x="9" y="3" width="4" height="3" />
-            <rect x="13" y="4" width="2" height="1" />
-            <rect x="2" y="4" width="3" height="2" />
-            <rect x="4" y="6" width="9" height="4" />
-            <rect x="3" y="10" width="8" height="2" />
-            <rect x="1" y="11" width="6" height="2" />
+            <rect x="7" y="2" width="2" height="2" />
+            <rect x="6" y="4" width="4" height="2" />
+            <rect x="5" y="6" width="6" height="2" />
+            <rect x="4" y="8" width="8" height="2" />
+            <rect x="3" y="10" width="10" height="2" />
+            <rect x="2" y="12" width="12" height="2" />
           </>
         );
       case "instagram":

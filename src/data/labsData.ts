@@ -1346,6 +1346,7 @@ export const YOUTUBE_LINKS = {
   carbon_short_en: "https://www.youtube.com/shorts/tBHRMWmC_Vk",
   instagram: "https://www.instagram.com/labs.mixiuh",
   tiktok: "https://www.tiktok.com/@mixiuhlabs",
-  twitter: "https://x.com/mixiuh",
+  x: "https://x.com/MixiuhLabs",
+  twitter: "https://x.com/MixiuhLabs",
 } as const;
 
