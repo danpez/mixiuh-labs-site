@@ -35,7 +35,7 @@ export interface ForumThread {
   readTime: string;
   upvotes: number;
   views: number;
-  episode?: "ep01" | "ep02" | "ep03" | "cc01";
+  episode?: "ep01" | "ep02" | "ep03" | "ep04" | "cc01" | "carbon01";
   relatedChallengeN?: number;
   tags: string[];
   codeComparison?: {
@@ -138,6 +138,74 @@ export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
 ];
 
 export const INITIAL_FORUM_THREADS: ForumThread[] = [
+  {
+    id: "thread-carbon01-news",
+    slug: "radar-mixiuh-noticias-ia-01-google-gemini-4-carbon-59-pts",
+    category: "benchmarks",
+    pinned: true,
+    episode: "carbon01",
+    badge_es: "RADAR MIXIUH · NOTICIAS IA #01 · GEMINI 4 CARBON",
+    badge_en: "MIXIUH NEWS · AI RADAR #01 · GEMINI 4 CARBON",
+    title_es: "Google anuncia Gemini 4 Carbon (59 pts #1 Mundial): Analisis del Reporte Oficial, 71% CWE en Antigravity y la Letra Pequena del Precio ($2/$10 → $4/$20 USD)",
+    title_en: "Google Unveils Gemini 4 Carbon (59 pts World #1): Official Report Breakdown, 71% CWE on Antigravity & Pricing Fine Print ($2/$10 → $4/$20 USD)",
+    excerpt_es: "Apenas 14 dias despues de Gemini 4 Argon (50 pts), Google DeepMind lanza Gemini 4 Carbon: #1 mundial en Artificial Analysis v5.0 (59 pts), 9.6% en SWE-sweep (2.2x Argon), 88.2% en SEC-bench Pro, 71.0% en CWE-bench sobre Antigravity y 0.0% vulnerado en Gray Swan IPI.",
+    excerpt_en: "Just 14 days after Gemini 4 Argon (50 pts), Google DeepMind launches Gemini 4 Carbon: #1 worldwide on Artificial Analysis v5.0 (59 pts), 9.6% on SWE-sweep (2.2x Argon), 88.2% on SEC-bench Pro, 71.0% on CWE-bench in Antigravity, and 0.0% breached on Gray Swan IPI.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-29",
+    readTime: "6 min",
+    upvotes: 528,
+    views: 5140,
+    tags: ["Radar Mixiuh", "Noticias IA", "Gemini 4 Carbon", "Antigravity", "Ciberseguridad", "Precios API"],
+    content_es: [
+      "Con este reporte inauguramos RADAR MIXIUH · NOTICIAS IA, la seccion de Mixiuh Labs dedicada a analizar con rigor de ingenieria los anuncios y reportes tecnicos mas importantes de la inteligencia artificial.",
+      "1. La Estrategia Dual de Google DeepMind (+14 Dias): El 14 de octubre conocimos a Gemini 4 Argon (50 pts en AA Index v5.0), pensado para flujos rapidos diarios a $2/$10 USD. El 28 de octubre llega su hermano mayor de razonamiento profundo: Gemini 4 Carbon, que salta a 59 puntos y toma el #1 mundial por encima de Claude Opus 5.5 (58 pts) y GPT-6 Astra (57 pts).",
+      "2. Agentes de 72 Horas y Tridente de Ciberseguridad: Carbon duplica a Argon en SWE-sweep (9.6% vs 4.3%, y 2.7x sobre el 3.6% de Opus 5.5) manteniendo 96.2% en GraphWalks de 1M de tokens. En ciberseguridad logra una triple corona: 88.2% en SEC-bench Pro, 54.8% en ExploitGym (+20.3 pts sobre Opus) y 71.0% en CWE-bench corriendo directamente sobre Google Antigravity, con >10x mejores parches reportados por el equipo de Google Chrome.",
+      "3. Escudo 0.0% en Gray Swan IPI y la Letra Pequena del Precio: Carbon bloquea 15 de 15 ataques de inyeccion indirecta de prompts (0.0% frente a 8.5% de GPT-6 Astra). En precio, arranca hoy mediante Google Fairwind a $2/$10 USD por millon de tokens (<=200k), pero la nota al pie confirma que al terminar la promo se duplicara a $4/$20 USD ($6/$30 para >200k), quedando 20% por debajo de Claude Opus 5.5 ($5/$25)."
+    ],
+    content_en: [
+      "With this special report we launch MIXIUH NEWS · AI RADAR, our dedicated section for dissecting major AI model announcements and technical papers with engineering rigor.",
+      "1. Google DeepMind's Dual Strategy (+14 Days): On October 14 Google launched Gemini 4 Argon (50 pts on AA Index v5.0) for fast daily workflows at $2/$10 USD. On October 28 comes its deep-reasoning sibling: Gemini 4 Carbon, jumping to 59 points to claim #1 worldwide ahead of Claude Opus 5.5 (58 pts) and GPT-6 Astra (57 pts).",
+      "2. 72-Hour Agents & Cybersecurity Triple Crown: Carbon more than doubles Argon on SWE-sweep (9.6% vs 4.3%, and 2.7x over Opus 5.5's 3.6%) while holding 96.2% on 1M-token GraphWalks. In cybersecurity it sweeps 88.2% on SEC-bench Pro, 54.8% on ExploitGym (+20.3 pts over Opus), and 71.0% on CWE-bench running on Google Antigravity, with >10x higher patch quality reported by the Chrome Security Team.",
+      "3. 0.0% Gray Swan IPI Shield & Pricing Fine Print: Carbon blocks 15 out of 15 indirect prompt injection attacks (0.0% vs 8.5% for GPT-6 Astra). On pricing, it opens today via Google Fairwind at $2/$10 USD per million tokens (<=200k), but the official footnote confirms it will double post-promo to $4/$20 USD ($6/$30 for >200k)—still 20% cheaper than Claude Opus 5.5 ($5/$25)."
+    ],
+    comments: []
+  },
+  {
+    id: "thread-ep04-escalera-claude",
+    slug: "ep04-dossier-escalera-claude-5-5-haiku-vs-sonnet-vs-opus",
+    category: "benchmarks",
+    pinned: true,
+    episode: "ep04",
+    badge_es: "DOSSIER OFICIAL EP04 · 18 CORRIDAS EN CLAUDE CODE CLI",
+    badge_en: "OFFICIAL EP04 DOSSIER · 18 CLAUDE CODE CLI RUNS",
+    title_es: "Escalera Claude 5.5 (Haiku $1.54 vs Sonnet $12.22 vs Opus $29.94): ¿Cuando Vale la Pena Pagar 19x Mas?",
+    title_en: "The Claude 5.5 Ladder (Haiku $1.54 vs Sonnet $12.22 vs Opus $29.94): When Is Paying 19x More Actually Worth It?",
+    excerpt_es: "Enfrentamos a los 3 niveles de Claude 5.5 en 18 corridas aisladas (6 retos x 3 modelos). Opus gano 3 puntos en fisica y shaders, Sonnet gano 2 puntos duplicando FPS en Path Tracing y arrancando Pong en CHIP-8, y Haiku gano 1 punto historico por $0.21 USD.",
+    excerpt_en: "We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 challenges x 3 models). Opus won 3 physics/shader rounds, Sonnet won 2 by doubling Path Tracer FPS and booting CHIP-8 Pong, and Haiku won 1 historic ROI point for $0.21 USD.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-28",
+    readTime: "7 min",
+    upvotes: 465,
+    views: 4320,
+    tags: ["EP04", "Claude Haiku 5.5", "Claude Sonnet 5.5", "Claude Opus 5.5", "Claude Code CLI", "ROI"],
+    content_es: [
+      "En el Episodio 04 pusimos a prueba a toda la familia Anthropic Claude 5.5 bajo exactamente las mismas condiciones en Claude Code CLI: Haiku 5.5 ($1.54 USD total en 87 min), Sonnet 5.5 ($12.22 USD en 105 min) y Opus 5.5 ($29.94 USD en 179 min).",
+      "1. Donde Opus 5.5 justifica su precio (Retos 01, 02 y 03): En el Rover Planetario Verlet, la Bio-Red de Tokio en GPU (150,000 agentes a 61 FPS) y el Puente Estructural XPBD, Opus 5.5 se llevo los 3 primeros puntos gracias a su arquitectura fisica multicapa y telemetria cientifica.",
+      "2. El batacazo de Haiku 5.5 en el Reto 04 ($0.21 USD vs $5.04 USD): En el Estudio Acido 3D (TB-303 + TR-909 + Tunel GLSL), Haiku 5.5 entrego un sintetizador completo a 61 FPS en 16 minutos por apenas 21 centavos de dolar (24 veces mas barato que Opus 5.5).",
+      "3. La remontada de Sonnet 5.5 en los Retos 05 y 06: En el Path Tracer WebGL2 BVH, Sonnet 5.5 duplico el framerate de Opus (29 FPS vs 15 FPS) costando la mitad ($2.49 vs $5.24). Y en el Nivel Jefe (Consola Retro CHIP-8), Opus 5.5 gasto $5.13 USD pero olvido ensamblar la ROM en memoria (0 bytes), mientras Sonnet 5.5 ($1.53 USD) arranco Pong jugable al instante a 60 FPS."
+    ],
+    content_en: [
+      "In Episode 04 we benchmarked the entire Anthropic Claude 5.5 family under identical rules in Claude Code CLI: Haiku 5.5 ($1.54 USD total in 87m), Sonnet 5.5 ($12.22 USD in 105m), and Opus 5.5 ($29.94 USD in 179m).",
+      "1. Where Opus 5.5 justifies its price (Challenges 01, 02 & 03): Across the Verlet Planetary Rover, Tokyo GPU Slime Network (150,000 agents at 61 FPS), and XPBD Structural Bridge, Opus 5.5 swept the first 3 points with multi-pass physics and scientific telemetry.",
+      "2. Haiku 5.5's upset in Challenge 04 ($0.21 USD vs $5.04 USD): In the 3D Acid Studio (TB-303 + TR-909 + GLSL Tunnel), Haiku 5.5 shipped a complete 61 FPS audiovisual studio in 16 minutes for just 21 cents (24x cheaper than Opus 5.5).",
+      "3. Sonnet 5.5's comeback in Challenges 05 & 06: In the WebGL2 BVH Path Tracer, Sonnet 5.5 doubled Opus's framerate (29 FPS vs 15 FPS) at half the cost ($2.49 vs $5.24). And in the Boss Level (Retro CHIP-8 Console), Opus 5.5 spent $5.13 USD but left a 0-byte unmounted ROM, while Sonnet 5.5 ($1.53 USD) booted playable Pong immediately at 60 FPS."
+    ],
+    comments: []
+  },
   {
     id: "thread-ep03-dossier-real",
     slug: "ep03-dossier-gemini-4-argon-high-sin-kit-vs-mixiuh-superpowers-kit-4-2",

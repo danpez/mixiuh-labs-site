@@ -27,6 +27,7 @@ import {
 } from "@/data/ep04Data";
 import DemoArenaSection from "@/components/DemoArenaModal";
 import ForumSection from "@/components/ForumSection";
+import NewsSection from "@/components/NewsSection";
 import {
   getReleasedStatus,
   isContentReleased,
@@ -51,11 +52,18 @@ import {
   Download,
   Copy,
   Check,
+  Radio,
 } from "lucide-react";
 
-type MainView = "blog" | "dossiers" | "comunidad" | "arena" | "foro";
+type MainView =
+  | "blog"
+  | "dossiers"
+  | "comunidad"
+  | "noticias"
+  | "arena"
+  | "foro";
 type DossierEpisode = "ep04" | "ep03" | "ep02" | "ep01";
-type BlogFilter = "all" | "torneos" | "kits" | "comunidad";
+type BlogFilter = "all" | "laboratorios" | "comunidad" | "noticias";
 
 export default function MixiuhLabsHomePage() {
   const [lang, setLang] = useState<"es" | "en">("es");
@@ -74,8 +82,13 @@ export default function MixiuhLabsHomePage() {
   // Arena & Episode state
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
-  const [arenaMode, setArenaMode] = useState<"ep03" | "ep02_ep01">(() =>
-    getReleasedStatus().ep03 ? "ep03" : "ep02_ep01"
+  const [arenaMode, setArenaMode] = useState<"ep04" | "ep03" | "ep02_ep01">(
+    () => {
+      const r = getReleasedStatus();
+      if (r.ep04) return "ep04";
+      if (r.ep03) return "ep03";
+      return "ep02_ep01";
+    }
   );
 
   // EP03 interactive comparator state
@@ -118,7 +131,14 @@ export default function MixiuhLabsHomePage() {
     const applyHash = () => {
       const h = window.location.hash.replace("#", "");
       if (!h || h === "top") return;
-      if (h === "ep04-escalera-claude" && rel.ep04) {
+      if (
+        (h === "noticias" ||
+          h === "radar-mixiuh" ||
+          h === "gemini-4-carbon") &&
+        rel.carbon01
+      ) {
+        setMainView("noticias");
+      } else if (h === "ep04-escalera-claude" && rel.ep04) {
         setMainView("dossiers");
         setDossierEp("ep04");
       } else if (h === "ep03-superpowers-kit" && rel.ep03) {
@@ -126,7 +146,7 @@ export default function MixiuhLabsHomePage() {
         setDossierEp("ep03");
       } else if (h === "comentario-al-codigo" && rel.cc01) {
         setMainView("comunidad");
-      } else if (h === "dossier" || h === "matriz") {
+      } else if (h === "dossier" || h === "matriz" || h === "laboratorios") {
         setMainView("dossiers");
       } else if (h === "arena") {
         setMainView("arena");
@@ -145,6 +165,10 @@ export default function MixiuhLabsHomePage() {
 
   const navigateToView = (view: MainView, subEp?: DossierEpisode) => {
     if (view === "comunidad" && !released.cc01 && !released.ep03) {
+      setMainView("blog");
+      return;
+    }
+    if (view === "noticias" && !released.carbon01) {
       setMainView("blog");
       return;
     }
@@ -174,15 +198,20 @@ export default function MixiuhLabsHomePage() {
   };
 
   const handleJumpToArena = (
-    episode: "ep03" | "ep02" | "ep01",
+    episode: "ep04" | "ep03" | "ep02" | "ep01",
     challengeN: number
   ) => {
-    if (episode === "ep03" && released.ep03) {
+    if (episode === "ep04" && released.ep04) {
+      setEp04ChallengeN(challengeN);
+      setArenaMode("ep04");
+      setMainView("arena");
+    } else if (episode === "ep03" && released.ep03) {
       setEp03ChallengeN(challengeN);
       setArenaMode("ep03");
       setMainView("arena");
     } else {
-      const safeEp = episode === "ep03" ? "ep02" : episode;
+      const safeEp =
+        episode === "ep04" || episode === "ep03" ? "ep02" : episode;
       setActiveEpisode(safeEp);
       setSelectedChallengeN(challengeN);
       setArenaMode("ep02_ep01");
@@ -202,19 +231,47 @@ export default function MixiuhLabsHomePage() {
 
   const isEp02 = dossierEp === "ep02";
 
-  // Blog Cards Data (All 5 Productions, strictly gated by releaseSchedule.ts)
+  // Blog Cards Data (All 6 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
   const BLOG_ARTICLES = [
     {
+      id: "carbon01" as ReleaseKey,
+      filter: "noticias" as const,
+      date: "29 Oct 2026",
+      readTime: "04:19 Video · 8 Capitulos · 19 Evals",
+      badge_es: "RADAR MIXIUH · NOTICIAS IA #01",
+      badge_en: "MIXIUH NEWS · AI RADAR #01",
+      accentColor: "#22D3EE",
+      scoreBadge_es: "NUEVO #1 MUNDIAL",
+      scoreBadge_en: "NEW #1 WORLDWIDE",
+      thumb: "/brand/thumbs/carbon_thumb_A.jpg",
+      title_es:
+        "Google Anuncia Gemini 4 Carbon: El Nuevo #1 Mundial (14 Dias Despues de Argon) y el Salto a $4/$20 USD",
+      title_en:
+        "Google Unveils Gemini 4 Carbon: The New #1 Worldwide (14 Days After Argon) & the $4/$20 USD Price Jump",
+      excerpt_es:
+        "Analisis completo de las 19 evaluaciones oficiales de Google DeepMind: como Gemini 4 Carbon destrona a Claude Opus 5.5 en Terminal-Bench Hard (54.5% vs 53.0%) y programacion de largo horizonte, arrasa en ciberseguridad defensiva (84.0% en SecBench) y por que duplicar el precio de la API ($4/$20 USD) sigue costando un 20% menos que Opus ($5/$25).",
+      excerpt_en:
+        "Full breakdown of Google DeepMind's 19 official benchmarks: how Gemini 4 Carbon dethrones Claude Opus 5.5 on Terminal-Bench Hard (54.5% vs 53.0%) and long-horizon coding, sweeps defensive cybersecurity (84.0% on SecBench), and why doubling the API price ($4/$20 USD) still costs 20% less than Opus ($5/$25).",
+      metrics: [
+        { label_es: "TERMINAL HARD", label_en: "TERMINAL HARD", val: "54.5% (#1)" },
+        { label_es: "SECBENCH PRO", label_en: "SECBENCH PRO", val: "84.0% (#1)" },
+        { label_es: "CHARXIV-R", label_en: "CHARXIV-R", val: "91.0% (#1)" },
+        { label_es: "PRECIO API", label_en: "API PRICE", val: "$4 / $20 USD" },
+      ],
+      onOpenDossier: () => navigateToView("noticias"),
+      onOpenArena: () => navigateToView("noticias"),
+    },
+    {
       id: "ep04" as ReleaseKey,
-      filter: "torneos" as const,
+      filter: "laboratorios" as const,
       date: "28 Oct 2026",
       readTime: "08:15 Video · 18 Demos",
-      badge_es: "EPISODIO 04 · ESCALERA CLAUDE 5.5",
-      badge_en: "EPISODE 04 · CLAUDE 5.5 LADDER",
-      accentColor: "#22D3EE",
+      badge_es: "LABORATORIO EP04 · ESCALERA CLAUDE 5.5",
+      badge_en: "LAB EP04 · CLAUDE 5.5 LADDER",
+      accentColor: "#38BDF8",
       scoreBadge_es: "OPUS 3 · SONNET 2 · HAIKU 1",
       scoreBadge_en: "OPUS 3 · SONNET 2 · HAIKU 1",
-      thumb: "/stills/ep04/ep04_vs_04_acido.png",
+      thumb: "/brand/thumbs/ep04_thumb_A.jpg",
       title_es:
         "Claude Haiku 5.5 vs. Sonnet 5.5 vs. Opus 5.5: ¿En Que Nivel Conviene Gastar Tu Dinero? ($1.54 vs $12.22 vs $29.94)",
       title_en:
@@ -230,15 +287,15 @@ export default function MixiuhLabsHomePage() {
         { label_es: "OPUS 5.5", label_en: "OPUS 5.5", val: "$29.94 · 179m" },
       ],
       onOpenDossier: () => navigateToView("dossiers", "ep04"),
-      onOpenArena: () => navigateToView("dossiers", "ep04"),
+      onOpenArena: () => handleJumpToArena("ep04", 4),
     },
     {
       id: "ep03" as ReleaseKey,
-      filter: "kits" as const,
+      filter: "laboratorios" as const,
       date: "25 Oct 2026",
       readTime: "07:31 Video · 12 Demos",
-      badge_es: "EPISODIO 03 · BENCHMARK AGY CLI",
-      badge_en: "EPISODE 03 · AGY CLI BENCHMARK",
+      badge_es: "LABORATORIO EP03 · BENCHMARK AGY CLI",
+      badge_en: "LAB EP03 · AGY CLI BENCHMARK",
       accentColor: "#34D399",
       scoreBadge_es: "SUPERKIT 4 - 2 SIN KIT",
       scoreBadge_en: "SUPERKIT 4 - 2 RAW AI",
@@ -258,10 +315,7 @@ export default function MixiuhLabsHomePage() {
         { label_es: "TOKENS", label_en: "TOKENS", val: "3.52M vs 2.65M" },
       ],
       onOpenDossier: () => navigateToView("dossiers", "ep03"),
-      onOpenArena: () => {
-        setArenaMode("ep03");
-        navigateToView("arena");
-      },
+      onOpenArena: () => handleJumpToArena("ep03", 2),
     },
     {
       id: "cc01" as ReleaseKey,
@@ -293,11 +347,11 @@ export default function MixiuhLabsHomePage() {
     },
     {
       id: "ep02" as ReleaseKey,
-      filter: "torneos" as const,
+      filter: "laboratorios" as const,
       date: "21 Oct 2026",
       readTime: "08:06 Video · 12 Demos",
-      badge_es: "EPISODIO 02 · DUELO DE TITANES HIGH",
-      badge_en: "EPISODE 02 · HIGH TITAN DUEL",
+      badge_es: "LABORATORIO EP02 · DUELO DE TITANES HIGH",
+      badge_en: "LAB EP02 · HIGH TITAN DUEL",
       accentColor: "#B794F6",
       scoreBadge_es: "ARGON 4 - 2 OPUS 5.5",
       scoreBadge_en: "ARGON 4 - 2 OPUS 5.5",
@@ -321,11 +375,11 @@ export default function MixiuhLabsHomePage() {
     },
     {
       id: "ep01" as ReleaseKey,
-      filter: "torneos" as const,
+      filter: "laboratorios" as const,
       date: "16 Oct 2026",
       readTime: "10:05 Video · 21 Demos",
-      badge_es: "EPISODIO 01 · TORNEO FUNDACIONAL",
-      badge_en: "EPISODE 01 · FOUNDATIONAL TOURNAMENT",
+      badge_es: "LABORATORIO EP01 · TORNEO FUNDACIONAL",
+      badge_en: "LAB EP01 · FOUNDATIONAL TOURNAMENT",
       accentColor: "#22A2DD",
       scoreBadge_es: "ARGON 10 - 0 FLASH",
       scoreBadge_en: "ARGON 10 - 0 FLASH",
@@ -356,8 +410,10 @@ export default function MixiuhLabsHomePage() {
 
   // Dynamic spoiler-free counters matching only what has been published
   const totalEpisodesCount = releasedArticles.length;
+  const totalLabsCount =
+    2 + (released.ep03 ? 1 : 0) + (released.ep04 ? 1 : 0);
   const totalDemosCount =
-    20 +
+    21 +
     12 +
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 12 : 0) +
@@ -369,14 +425,15 @@ export default function MixiuhLabsHomePage() {
     5 +
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 1 : 0) +
-    (released.ep04 ? 1 : 0);
+    (released.ep04 ? 1 : 0) +
+    (released.carbon01 ? 1 : 0);
 
   return (
     <div className="min-h-screen labs-grid-bg text-[#F5F7FA] flex flex-col">
       {/* STICKY HEADER WITH CLEAN PORTAL SECTIONS */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#060B14]/95 border-b border-[#22A2DD]/25">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-16 flex items-center justify-between gap-3">
+          <div className="h-16 flex items-center justify-between gap-2">
             {/* Brand Logo */}
             <button
               onClick={() => navigateToView("blog")}
@@ -392,30 +449,34 @@ export default function MixiuhLabsHomePage() {
                   <span className="font-mono-hud text-sm sm:text-base font-bold tracking-wider text-white whitespace-nowrap">
                     MIXIUH <span className="text-[#22A2DD]">LABS</span>
                   </span>
-                  <span className="hidden xl:inline-block px-2 py-0.5 rounded bg-[#11283F] border border-[#22A2DD]/30 font-mono-hud text-[10px] font-bold text-[#5EEAD4] whitespace-nowrap">
-                    BLOG · BENCHMARKS · ARENA
+                  <span className="hidden 2xl:inline-block px-2 py-0.5 rounded bg-[#11283F] border border-[#22A2DD]/30 font-mono-hud text-[10px] font-bold text-[#5EEAD4] whitespace-nowrap">
+                    LABS · COMUNIDAD · NOTICIAS
                   </span>
                 </div>
               </div>
             </button>
 
-            {/* Primary Portal Switcher (Desktop) */}
+            {/* Primary Portal Switcher (Desktop — Clearly Separated Sections) */}
             <nav className="hidden md:flex items-center gap-1 bg-[#0B1D30] p-1 rounded-xl border border-white/10 font-mono-hud text-[11px] lg:text-xs">
               <button
                 onClick={() => navigateToView("blog")}
-                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "blog"
                     ? "bg-[#22A2DD] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                <span>{`Blog (${totalEpisodesCount})`}</span>
+                <span>
+                  {lang === "es"
+                    ? `Inicio (${totalEpisodesCount})`
+                    : `Home (${totalEpisodesCount})`}
+                </span>
               </button>
 
               <button
                 onClick={() => navigateToView("dossiers")}
-                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "dossiers"
                     ? "bg-[#34D399] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
@@ -423,16 +484,16 @@ export default function MixiuhLabsHomePage() {
               >
                 <FileText className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  {released.ep03
-                    ? "Dossiers (EP03·02·01)"
-                    : "Dossiers (EP02·01)"}
+                  {lang === "es"
+                    ? `Videos / Laboratorios (${totalLabsCount})`
+                    : `Videos / Labs (${totalLabsCount})`}
                 </span>
               </button>
 
-              {(released.cc01 || released.ep03) && (
+              {released.cc01 && (
                 <button
                   onClick={() => navigateToView("comunidad")}
-                  className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     mainView === "comunidad"
                       ? "bg-[#FBBF24] text-[#060B14]"
                       : "text-[#8FA3B8] hover:text-white"
@@ -440,37 +501,51 @@ export default function MixiuhLabsHomePage() {
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    {released.ep03
-                      ? "OVERFIT 3D & SuperKit"
-                      : "OVERFIT Studio 3D"}
+                    {lang === "es"
+                      ? "Del Comentario al Codigo (1)"
+                      : "Comment to Code (1)"}
+                  </span>
+                </button>
+              )}
+
+              {released.carbon01 && (
+                <button
+                  onClick={() => navigateToView("noticias")}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    mainView === "noticias"
+                      ? "bg-[#22D3EE] text-[#060B14] shadow-[0_0_16px_rgba(34,211,238,0.3)]"
+                      : "text-[#22D3EE] hover:text-white"
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {lang === "es" ? "Noticias IA (1)" : "AI News (1)"}
                   </span>
                 </button>
               )}
 
               <button
                 onClick={() => navigateToView("arena")}
-                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "arena"
                     ? "bg-[#B794F6] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
                 <Play className="w-3.5 h-3.5 shrink-0" />
-                <span>{`Arena (${totalDemosCount} Demos)`}</span>
+                <span>{`Arena (${totalDemosCount})`}</span>
               </button>
 
               <button
                 onClick={() => navigateToView("foro")}
-                className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   mainView === "foro"
                     ? "bg-[#5EEAD4] text-[#060B14]"
                     : "text-[#8FA3B8] hover:text-white"
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  {lang === "es" ? "Foro & Glosario" : "Forum & Glossary"}
-                </span>
+                <span>{lang === "es" ? "Foro" : "Forum"}</span>
               </button>
             </nav>
 
@@ -507,7 +582,7 @@ export default function MixiuhLabsHomePage() {
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-[#F43F5E]/40 font-mono-hud text-xs text-white transition"
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-[#F43F5E]/40 font-mono-hud text-xs text-white transition"
               >
                 <Play className="w-3.5 h-3.5 text-[#F43F5E] fill-current shrink-0" />
                 <span>{lang === "es" ? "@MixiuhLabsES" : "@MixiuhLabsEN"}</span>
@@ -517,7 +592,7 @@ export default function MixiuhLabsHomePage() {
                 href="https://github.com/danpez/gemini-4-argon-vs-3.8-flash-benchmark"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 font-mono-hud text-xs text-white transition"
+                className="hidden 2xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1D30] hover:bg-[#11283F] border border-white/15 font-mono-hud text-xs text-white transition"
               >
                 <Code2 className="w-3.5 h-3.5 text-[#5EEAD4] shrink-0" />
                 <span>GitHub</span>
@@ -535,7 +610,9 @@ export default function MixiuhLabsHomePage() {
                   : "bg-[#0B1D30] text-[#8FA3B8]"
               }`}
             >
-              {`Blog (${totalEpisodesCount})`}
+              {lang === "es"
+                ? `Inicio (${totalEpisodesCount})`
+                : `Home (${totalEpisodesCount})`}
             </button>
             <button
               onClick={() => navigateToView("dossiers")}
@@ -545,9 +622,11 @@ export default function MixiuhLabsHomePage() {
                   : "bg-[#0B1D30] text-[#8FA3B8]"
               }`}
             >
-              {released.ep03 ? "Dossiers EP01-03" : "Dossiers EP01-02"}
+              {lang === "es"
+                ? `Videos / Labs (${totalLabsCount})`
+                : `Videos / Labs (${totalLabsCount})`}
             </button>
-            {(released.cc01 || released.ep03) && (
+            {released.cc01 && (
               <button
                 onClick={() => navigateToView("comunidad")}
                 className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
@@ -556,7 +635,21 @@ export default function MixiuhLabsHomePage() {
                     : "bg-[#0B1D30] text-[#8FA3B8]"
                 }`}
               >
-                {released.ep03 ? "OVERFIT 3D & Kit" : "OVERFIT 3D"}
+                {lang === "es"
+                  ? "Comentario al Codigo"
+                  : "Comment to Code"}
+              </button>
+            )}
+            {released.carbon01 && (
+              <button
+                onClick={() => navigateToView("noticias")}
+                className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${
+                  mainView === "noticias"
+                    ? "bg-[#22D3EE] text-[#060B14]"
+                    : "bg-[#0B1D30] text-[#22D3EE] border border-[#22D3EE]/35"
+                }`}
+              >
+                {lang === "es" ? "Noticias IA" : "AI News"}
               </button>
             )}
             <button
@@ -584,24 +677,160 @@ export default function MixiuhLabsHomePage() {
       </header>
 
       {/* =====================================================================
-          VIEW 1: BLOG & PORTADA DE EPISODIOS (CLEAN EDITORIAL HUB)
+          VIEW 1: PORTAL PRINCIPAL Y ARQUITECTURA DE LAS 3 SECCIONES EDITORIALES
          ===================================================================== */}
       {mainView === "blog" && (
-        <main className="flex-1 py-8 sm:py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-            {/* Editorial Lab Header + Dynamic Featured Hero (Strictly Released Content Only) */}
-            <div className="rounded-3xl bg-gradient-to-br from-[#0B1D30] via-[#11283F] to-[#060B14] border border-[#22A2DD]/35 p-6 sm:p-10 shadow-2xl">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#060B14] border border-[#34D399]/50">
-                  <span className="w-2 h-2 rounded-full bg-[#34D399] animate-pulse" />
-                  <span className="font-mono-hud text-xs font-bold tracking-wider text-[#34D399]">
+        <main className="flex-1 py-8 sm:py-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+            {/* 3-PILLAR DIRECTORY BAR: VIDEOS/LABORATORIOS · DEL COMENTARIO AL CODIGO · NOTICIAS IA */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Pillar 1: Videos / Laboratorios */}
+              <div
+                onClick={() => navigateToView("dossiers", "ep04")}
+                className="group p-5 rounded-2xl bg-[#0B1D30] border border-[#34D399]/35 hover:border-[#34D399] transition cursor-pointer flex flex-col justify-between shadow-lg"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#34D399]/15 border border-[#34D399]/40 font-mono-hud text-[11px] font-bold text-[#34D399]">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>
+                        {lang === "es"
+                          ? "SECCION 01 · VIDEOS Y LABORATORIOS"
+                          : "SECTION 01 · VIDEOS & LABS"}
+                      </span>
+                    </span>
+                    <span className="font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                      EP01 – EP04
+                    </span>
+                  </div>
+                  <h2 className="font-display text-lg sm:text-xl font-black text-white group-hover:text-[#34D399] transition">
                     {lang === "es"
-                      ? "AQUI NO SE OPINA: SE PRUEBA. // BLOG DE BENCHMARKS Y LABORATORIO INTERACTIVO"
-                      : "HERE, WE DON'T GUESS: WE TEST. // BENCHMARK BLOG & INTERACTIVE LAB"}
+                      ? "Benchmarks Empiricos y Duelos de Codigo Real"
+                      : "Empirical Benchmarks & Real Code Duels"}
+                  </h2>
+                  <p className="text-xs text-[#8FA3B8] mt-1.5 leading-relaxed">
+                    {lang === "es"
+                      ? "4 episodios completos (63 demos en vivo): Escalera Claude 5.5 (Haiku vs Sonnet vs Opus), Argon High vs Superpowers Kit, Argon vs Opus 5.5 y Argon vs 3.8 Flash."
+                      : "4 full benchmark episodes (63 live demos): Claude 5.5 Ladder (Haiku vs Sonnet vs Opus), Argon High vs Superpowers Kit, Argon vs Opus 5.5, and Argon vs 3.8 Flash."}
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between font-mono-hud text-xs">
+                  <span className="text-[#34D399] font-bold">
+                    {lang === "es"
+                      ? "Abrir Videos y Laboratorios →"
+                      : "Open Videos & Labs →"}
+                  </span>
+                  <span className="text-[#8FA3B8]">4 Dossiers</span>
+                </div>
+              </div>
+
+              {/* Pillar 2: Del Comentario al Codigo */}
+              <div
+                onClick={() => navigateToView("comunidad")}
+                className="group p-5 rounded-2xl bg-[#0B1D30] border border-[#FBBF24]/35 hover:border-[#FBBF24] transition cursor-pointer flex flex-col justify-between shadow-lg"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#FBBF24]/15 border border-[#FBBF24]/40 font-mono-hud text-[11px] font-bold text-[#FBBF24]">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>
+                        {lang === "es"
+                          ? "SECCION 02 · DEL COMENTARIO AL CODIGO"
+                          : "SECTION 02 · COMMENT TO CODE"}
+                      </span>
+                    </span>
+                    <span className="font-mono-hud text-xs font-bold text-[#FBBF24]">
+                      #01 @TENITO03
+                    </span>
+                  </div>
+                  <h2 className="font-display text-lg sm:text-xl font-black text-white group-hover:text-[#FBBF24] transition">
+                    {lang === "es"
+                      ? "Retos de la Comunidad Convertidos en Software 3D"
+                      : "Community Prompts Turned Into Live 3D Software"}
+                  </h2>
+                  <p className="text-xs text-[#8FA3B8] mt-1.5 leading-relaxed">
+                    {lang === "es"
+                      ? "Episodio #01: De un comentario en Instagram sobre la tela Verlet a OVERFIT Studio 3D con 3 maniquies de 300 GSM en Blender Cycles y 10 artes satiricos en 2K."
+                      : "Episode #01: From an Instagram comment on our Verlet cloth Reel to OVERFIT Studio 3D with 3 300 GSM Blender Cycles mannequins and 10 satirical 2K prints."}
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between font-mono-hud text-xs">
+                  <span className="text-[#FBBF24] font-bold">
+                    {lang === "es"
+                      ? "Abrir Del Comentario al Codigo →"
+                      : "Open Comment to Code →"}
+                  </span>
+                  <span className="text-[#8FA3B8]">OVERFIT 3D</span>
+                </div>
+              </div>
+
+              {/* Pillar 3: Radar Mixiuh · Noticias IA */}
+              <div
+                onClick={() => navigateToView("noticias")}
+                className="group p-5 rounded-2xl bg-[#0B1D30] border border-[#22D3EE]/45 hover:border-[#22D3EE] transition cursor-pointer flex flex-col justify-between shadow-lg relative overflow-hidden"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#22D3EE]/15 border border-[#22D3EE]/50 font-mono-hud text-[11px] font-bold text-[#22D3EE]">
+                      <Radio className="w-3.5 h-3.5" />
+                      <span>
+                        {lang === "es"
+                          ? "SECCION 03 · RADAR MIXIUH NOTICIAS IA"
+                          : "SECTION 03 · MIXIUH AI NEWS RADAR"}
+                      </span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-[#22D3EE] text-[#060B14] font-mono-hud text-[10px] font-bold">
+                      {lang === "es" ? "NUEVO" : "NEW"}
+                    </span>
+                  </div>
+                  <h2 className="font-display text-lg sm:text-xl font-black text-white group-hover:text-[#22D3EE] transition">
+                    {lang === "es"
+                      ? "Especial #01: Google Anuncia Gemini 4 Carbon (#1 Mundial)"
+                      : "Special #01: Google Unveils Gemini 4 Carbon (#1 Worldwide)"}
+                  </h2>
+                  <p className="text-xs text-[#8FA3B8] mt-1.5 leading-relaxed">
+                    {lang === "es"
+                      ? "Cobertura con datos verificados: las 19 evaluaciones de Google DeepMind, como supera a Opus 5.5 tras 14 dias de Argon y la letra chica del precio ($4/$20 USD)."
+                      : "Verified data coverage: all 19 Google DeepMind benchmarks, how it overtakes Opus 5.5 14 days after Argon, and the API pricing fine print ($4/$20 USD)."}
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between font-mono-hud text-xs">
+                  <span className="text-[#22D3EE] font-bold">
+                    {lang === "es"
+                      ? "Abrir Seccion de Noticias IA →"
+                      : "Open AI News Section →"}
+                  </span>
+                  <span className="text-[#5EEAD4]">19 Evals + Graficas</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Editorial Lab Header + Dynamic Featured Hero (Strictly Released Content Only) */}
+            <div className="rounded-3xl bg-gradient-to-br from-[#0B1D30] via-[#11283F] to-[#060B14] border border-[#22D3EE]/40 p-6 sm:p-10 shadow-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#060B14] border border-[#22D3EE]/50">
+                  <span className="w-2 h-2 rounded-full bg-[#22D3EE] animate-pulse" />
+                  <span className="font-mono-hud text-xs font-bold tracking-wider text-[#22D3EE]">
+                    {lang === "es"
+                      ? "AQUI NO SE OPINA: SE PRUEBA. // LABORATORIOS · COMUNIDAD · RADAR DE NOTICIAS IA"
+                      : "HERE, WE DON'T GUESS: WE TEST. // LABS · COMMUNITY · AI NEWS RADAR"}
                   </span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                  {released.ep04 && (
+                    <button
+                      onClick={() => navigateToView("dossiers", "ep04")}
+                      className="px-3 py-1.5 rounded-lg bg-[#38BDF8] text-[#060B14] font-bold hover:brightness-110 transition inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>
+                        {lang === "es"
+                          ? "EP04: Escalera Claude 5.5 (18 Demos)"
+                          : "EP04: Claude 5.5 Ladder (18 Demos)"}
+                      </span>
+                    </button>
+                  )}
                   {released.ep03 && (
                     <a
                       href="/downloads/mixiuh-superpowers-kit.zip"
@@ -611,8 +840,8 @@ export default function MixiuhLabsHomePage() {
                       <Download className="w-3.5 h-3.5" />
                       <span>
                         {lang === "es"
-                          ? "Descargar Superpowers Kit v1.0 (.ZIP)"
-                          : "Download Superpowers Kit v1.0 (.ZIP)"}
+                          ? "Superpowers Kit v1.0 (.ZIP)"
+                          : "Superpowers Kit v1.0 (.ZIP)"}
                       </span>
                     </a>
                   )}
@@ -625,25 +854,161 @@ export default function MixiuhLabsHomePage() {
                       <span>OVERFIT Studio 3D</span>
                     </button>
                   )}
-                  {!released.ep03 && !released.cc01 && (
-                    <a
-                      href={YOUTUBE_LINKS.ep02_es}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 rounded-lg bg-[#F43F5E] text-white font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>
-                        {lang === "es"
-                          ? "Ver EP02 en YouTube (4K60)"
-                          : "Watch EP02 on YouTube (4K60)"}
-                      </span>
-                    </a>
-                  )}
                 </div>
               </div>
 
-              {released.ep03 ? (
+              {released.carbon01 ? (
+                /* STAGE D HERO: RADAR MIXIUH NOTICIAS IA #01 (GEMINI 4 CARBON) + EP04 ESCALERA CLAUDE */
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#22D3EE]/15 border border-[#22D3EE]/40 text-[#22D3EE] font-mono-hud text-xs font-bold">
+                      {lang === "es"
+                        ? "ULTIMA HORA · RADAR MIXIUH NOTICIAS IA #01 · 19 BENCHMARKS VERIFICADOS"
+                        : "BREAKING · MIXIUH AI NEWS RADAR #01 · 19 VERIFIED BENCHMARKS"}
+                    </div>
+                    <h1 className="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.08]">
+                      {lang === "es" ? (
+                        <>
+                          Google Anuncia{" "}
+                          <span className="text-[#22D3EE]">
+                            Gemini 4 Carbon
+                          </span>
+                          : El Nuevo{" "}
+                          <span className="text-[#34D399]">#1 Mundial</span>{" "}
+                          (14 Dias Despues de Argon) y el Salto a{" "}
+                          <span className="text-[#F43F5E]">$4/$20 USD</span>
+                        </>
+                      ) : (
+                        <>
+                          Google Unveils{" "}
+                          <span className="text-[#22D3EE]">
+                            Gemini 4 Carbon
+                          </span>
+                          : The New{" "}
+                          <span className="text-[#34D399]">#1 Worldwide</span>{" "}
+                          (14 Days After Argon) & the{" "}
+                          <span className="text-[#F43F5E]">$4/$20 USD</span>{" "}
+                          Jump
+                        </>
+                      )}
+                    </h1>
+                    <p className="text-sm sm:text-base text-[#8FA3B8] leading-relaxed">
+                      {lang === "es"
+                        ? "A solo 14 dias de lanzar Argon, Google DeepMind publica Gemini 4 Carbon. Desglosamos los 8 puntos clave de la noticia: como destrona a Claude Opus 5.5 en Terminal-Bench Hard (54.5% vs 53.0%) y programacion de largo horizonte, su dominio en ciberseguridad defensiva (84.0% en SecBench) y por que duplicar la tarifa API ($2/$10 a $4/$20 USD) sigue costando 20% menos que Opus ($5/$25)."
+                        : "Just 14 days after launching Argon, Google DeepMind releases Gemini 4 Carbon. We break down all 8 key takeaways: how it dethrones Claude Opus 5.5 on Terminal-Bench Hard (54.5% vs 53.0%) and long-horizon coding, its sweep in defensive cybersecurity (84.0% on SecBench), and why doubling the API rate ($2/$10 to $4/$20 USD) still undercuts Opus ($5/$25) by 20%."}
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <button
+                        onClick={() => navigateToView("noticias")}
+                        className="px-5 py-3 rounded-xl bg-[#22D3EE] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition flex items-center gap-2 shadow-[0_0_24px_rgba(34,211,238,0.3)] cursor-pointer"
+                      >
+                        <Radio className="w-4 h-4" />
+                        <span>
+                          {lang === "es"
+                            ? "Ver Video + Especial Gemini 4 Carbon (8 Capitulos)"
+                            : "Watch Video + Gemini 4 Carbon Special (8 Chapters)"}
+                        </span>
+                      </button>
+
+                      <a
+                        href={
+                          lang === "es"
+                            ? YOUTUBE_LINKS.carbon_es
+                            : YOUTUBE_LINKS.carbon_en
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-3 rounded-xl bg-[#F43F5E] text-white font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>
+                          {lang === "es"
+                            ? "YouTube 4K60"
+                            : "YouTube 4K60"}
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+
+                      {released.ep04 && (
+                        <button
+                          onClick={() => navigateToView("dossiers", "ep04")}
+                          className="px-4 py-3 rounded-xl bg-[#34D399] text-[#060B14] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition flex items-center gap-2 cursor-pointer"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>
+                            {lang === "es"
+                              ? "Laboratorio EP04: Escalera Claude 5.5"
+                              : "Lab EP04: Claude 5.5 Ladder"}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-5 space-y-3">
+                    <div
+                      onClick={() => navigateToView("noticias")}
+                      className="group relative rounded-2xl overflow-hidden border-2 border-[#22D3EE]/60 shadow-2xl cursor-pointer"
+                    >
+                      <img
+                        src={
+                          lang === "es"
+                            ? "/brand/thumbs/carbon_thumb_A.jpg"
+                            : "/brand/thumbs/carbon_thumb_A_en.jpg"
+                        }
+                        alt="Gemini 4 Carbon Special"
+                        className="w-full aspect-video object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#060B14]/90 via-transparent to-transparent flex items-end p-4">
+                        <div className="w-full flex items-center justify-between font-mono-hud text-xs">
+                          <span className="px-2.5 py-1 rounded bg-[#22D3EE] text-[#060B14] font-bold">
+                            NUEVO #1 MUNDIAL · GEMINI 4 CARBON
+                          </span>
+                          <span className="text-white font-bold">
+                            54.5% Terminal · $4/$20 USD
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 text-center font-mono-hud">
+                      <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                        <div className="text-base sm:text-lg font-black text-[#34D399]">
+                          {totalEpisodesCount}
+                        </div>
+                        <div className="text-[10px] text-[#8FA3B8]">
+                          {lang === "es" ? "ENTREGAS" : "RELEASES"}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                        <div className="text-base sm:text-lg font-black text-[#5EEAD4]">
+                          {totalDemosCount}
+                        </div>
+                        <div className="text-[10px] text-[#8FA3B8]">
+                          {lang === "es" ? "DEMOS EN VIVO" : "LIVE DEMOS"}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                        <div className="text-base sm:text-lg font-black text-[#B794F6]">
+                          {totalPromptsCount}
+                        </div>
+                        <div className="text-[10px] text-[#8FA3B8]">
+                          {lang === "es" ? "PROMPTS PUROS" : "RAW PROMPTS"}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#060B14]/90 border border-white/10">
+                        <div className="text-base sm:text-lg font-black text-[#FBBF24]">
+                          19
+                        </div>
+                        <div className="text-[10px] text-[#8FA3B8]">
+                          {lang === "es" ? "EVALS CARBON" : "CARBON EVALS"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : released.ep03 ? (
                 /* STAGE C HERO: EPISODIO 03 (Releases Sun Oct 25 11:00 CST) */
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                   <div className="lg:col-span-7 space-y-4">
@@ -1060,13 +1425,13 @@ export default function MixiuhLabsHomePage() {
                 <div>
                   <div className="font-mono-hud text-xs font-bold text-[#5EEAD4] uppercase mb-1">
                     {lang === "es"
-                      ? "ARCHIVO EDITORIAL Y BITACORA DE PRUEBAS"
-                      : "EDITORIAL ARCHIVE & BENCHMARK LOG"}
+                      ? "ARCHIVO EDITORIAL ORGANIZADO POR SECCION"
+                      : "EDITORIAL ARCHIVE ORGANIZED BY SECTION"}
                   </div>
                   <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
                     {lang === "es"
-                      ? "Episodios Publicados y Dossiers Tecnicos"
-                      : "Published Episodes & Technical Dossiers"}
+                      ? "Videos / Laboratorios, Del Comentario al Codigo y Noticias IA"
+                      : "Videos / Labs, Comment to Code & AI News"}
                   </h2>
                 </div>
 
@@ -1081,22 +1446,22 @@ export default function MixiuhLabsHomePage() {
                         en: `All (${totalEpisodesCount})`,
                       },
                       {
-                        id: "torneos" as const,
+                        id: "laboratorios" as const,
                         show: true,
-                        es: "Torneos IA vs IA (EP01, EP02)",
-                        en: "AI vs AI Duels (EP01, EP02)",
-                      },
-                      {
-                        id: "kits" as const,
-                        show: released.ep03,
-                        es: "Kits & Workflows (EP03)",
-                        en: "Kits & Workflows (EP03)",
+                        es: `Videos / Laboratorios (${totalLabsCount})`,
+                        en: `Videos / Labs (${totalLabsCount})`,
                       },
                       {
                         id: "comunidad" as const,
                         show: released.cc01,
-                        es: "Del Comentario al Codigo (#01)",
-                        en: "Comment to Code (#01)",
+                        es: "Del Comentario al Codigo (1)",
+                        en: "Comment to Code (1)",
+                      },
+                      {
+                        id: "noticias" as const,
+                        show: released.carbon01,
+                        es: "Noticias IA · Radar (1)",
+                        en: "AI News · Radar (1)",
                       },
                     ]
                   )
@@ -1202,9 +1567,17 @@ export default function MixiuhLabsHomePage() {
                       >
                         <FileText className="w-3.5 h-3.5" />
                         <span>
-                          {lang === "es"
-                            ? "Abrir Dossier Completo"
-                            : "Open Full Dossier"}
+                          {art.filter === "noticias"
+                            ? lang === "es"
+                              ? "Abrir Noticia Completa"
+                              : "Open Full News Report"
+                            : art.filter === "comunidad"
+                            ? lang === "es"
+                              ? "Abrir OVERFIT Studio 3D"
+                              : "Open OVERFIT Studio 3D"
+                            : lang === "es"
+                            ? "Abrir Dossier del Laboratorio"
+                            : "Open Lab Dossier"}
                         </span>
                       </button>
 
@@ -1215,7 +1588,13 @@ export default function MixiuhLabsHomePage() {
                         >
                           <Play className="w-3.5 h-3.5" />
                           <span>
-                            {lang === "es" ? "Probar Demos" : "Play Demos"}
+                            {art.filter === "noticias"
+                              ? lang === "es"
+                                ? "Ver 19 Benchmarks"
+                                : "View 19 Benchmarks"
+                              : lang === "es"
+                              ? "Probar Demos"
+                              : "Play Demos"}
                           </span>
                         </button>
 
@@ -1249,13 +1628,9 @@ export default function MixiuhLabsHomePage() {
                       : `Run All ${totalDemosCount} Simulators Live in Your Browser`}
                   </h3>
                   <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
-                    {released.ep03
-                      ? lang === "es"
-                        ? "Compara lado a lado las entregas de EP03 (Sin Kit vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01 (Argon vs Flash) y OVERFIT 3D sin recargar todo el sitio."
-                        : "Compare side-by-side deliverables from EP03 (Raw vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01 (Argon vs Flash), and OVERFIT 3D with zero page lag."
-                      : lang === "es"
-                      ? "Compara lado a lado las entregas originales de EP02 (Gemini 4 Argon vs Claude Opus 5.5) y EP01 (Gemini 4 Argon vs Gemini 3.8 Flash) directamente en tu navegador."
-                      : "Compare side-by-side deliverables from EP02 (Gemini 4 Argon vs Claude Opus 5.5) and EP01 (Gemini 4 Argon vs Gemini 3.8 Flash) live in your browser."}
+                    {lang === "es"
+                      ? "Compara lado a lado las entregas de EP04 (Haiku vs Sonnet vs Opus), EP03 (Sin Kit vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01 (Argon vs Flash) y OVERFIT 3D."
+                      : "Compare side-by-side deliverables from EP04 (Haiku vs Sonnet vs Opus), EP03 (Raw vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01 (Argon vs Flash), and OVERFIT 3D."}
                   </p>
                 </div>
                 <div className="mt-4 font-mono-hud text-xs font-bold text-[#B794F6]">
@@ -1282,8 +1657,8 @@ export default function MixiuhLabsHomePage() {
                   </h3>
                   <p className="text-xs sm:text-sm text-[#8FA3B8] leading-relaxed">
                     {lang === "es"
-                      ? `Lee el analisis forense del 28 FPS vs 120 FPS de Verlet en EP02, la factura real de tokens de Claude Opus 5.5, el bug del medio pixel en EP01, copia los ${totalPromptsCount} prompts y vota por el siguiente reto.`
-                      : `Read the forensic breakdown of EP02's 28 FPS Verlet bottleneck, Claude Opus 5.5's token bill, EP01's half-pixel bug, copy all ${totalPromptsCount} prompts, and vote on the next challenge.`}
+                      ? `Lee las autopsias de Gemini 4 Carbon, la escalera Claude 5.5 (EP04), Superpowers Kit (EP03), el duelo Argon vs Opus (EP02), el bug del medio pixel (EP01) y copia los ${totalPromptsCount} prompts.`
+                      : `Read the forensic breakdowns of Gemini 4 Carbon, the Claude 5.5 Ladder (EP04), Superpowers Kit (EP03), Argon vs Opus (EP02), the half-pixel bug (EP01), and copy all ${totalPromptsCount} prompts.`}
                   </p>
                 </div>
                 <div className="mt-4 font-mono-hud text-xs font-bold text-[#5EEAD4]">
@@ -1328,19 +1703,57 @@ export default function MixiuhLabsHomePage() {
       )}
 
       {/* =====================================================================
-          VIEW 2: DOSSIERS DE EPISODIOS (STRICTLY RELEASED EPISODES ONLY)
+          VIEW 2: SECCION 01 · VIDEOS Y LABORATORIOS (EP01 – EP04)
          ===================================================================== */}
       {mainView === "dossiers" && (
         <main className="flex-1 py-8 sm:py-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            {/* Section 01 Header Banner */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B1D30] to-[#11283F] border border-[#34D399]/40 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xl">
+              <div>
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#34D399]/15 border border-[#34D399]/40 font-mono-hud text-[11px] font-bold text-[#34D399] mb-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>
+                    {lang === "es"
+                      ? "SECCION 01 · VIDEOS Y LABORATORIOS EMPIRICOS"
+                      : "SECTION 01 · EMPIRICAL VIDEOS & LABS"}
+                  </span>
+                </div>
+                <h1 className="font-display text-xl sm:text-2xl font-black text-white">
+                  {lang === "es"
+                    ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP04)"
+                    : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP04)"}
+                </h1>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                <button
+                  onClick={() => navigateToView("noticias")}
+                  className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#22D3EE]/40 text-[#22D3EE] hover:bg-[#11283F] font-bold cursor-pointer"
+                >
+                  {lang === "es"
+                    ? "Ir a Noticias IA (Carbon) →"
+                    : "Go to AI News (Carbon) →"}
+                </button>
+                <button
+                  onClick={() => navigateToView("comunidad")}
+                  className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#FBBF24]/40 text-[#FBBF24] hover:bg-[#11283F] font-bold cursor-pointer"
+                >
+                  {lang === "es"
+                    ? "Ir a Comentario al Codigo →"
+                    : "Go to Comment to Code →"}
+                </button>
+              </div>
+            </div>
+
             {/* Top Episode Dossier Selector Bar */}
             <div className="p-3 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-xl">
               <div className="flex items-center gap-2 font-mono-hud text-xs text-[#5EEAD4] px-2">
                 <FileText className="w-4 h-4 shrink-0" />
                 <span className="font-bold uppercase">
                   {lang === "es"
-                    ? "SELECCIONA EL DOSSIER TECNICO:"
-                    : "SELECT TECHNICAL DOSSIER:"}
+                    ? "SELECCIONA EL LABORATORIO:"
+                    : "SELECT LABORATORY EPISODE:"}
                 </span>
               </div>
 
@@ -2710,11 +3123,49 @@ export default function MixiuhLabsHomePage() {
       )}
 
       {/* =====================================================================
-          VIEW 3: DEL COMENTARIO AL CODIGO #01 (OVERFIT 3D) & SUPERPOWERS KIT
+          VIEW 3: SECCION 02 · DEL COMENTARIO AL CODIGO (#01 OVERFIT 3D)
          ===================================================================== */}
       {mainView === "comunidad" && released.cc01 && (
         <main id="comentario-al-codigo" className="flex-1 py-8 sm:py-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            {/* Section 02 Header Banner */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B1D30] to-[#11283F] border border-[#FBBF24]/45 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xl">
+              <div>
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#FBBF24]/15 border border-[#FBBF24]/45 font-mono-hud text-[11px] font-bold text-[#FBBF24] mb-2">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>
+                    {lang === "es"
+                      ? "SECCION 02 · DEL COMENTARIO AL CODIGO"
+                      : "SECTION 02 · FROM COMMENT TO CODE"}
+                  </span>
+                </div>
+                <h2 className="font-display text-xl sm:text-2xl font-black text-white">
+                  {lang === "es"
+                    ? "Retos y Preguntas de la Comunidad Convertidos en Software 3D Real"
+                    : "Community Questions & Challenges Turned Into Live 3D Software"}
+                </h2>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                <button
+                  onClick={() => navigateToView("dossiers", "ep04")}
+                  className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#34D399]/40 text-[#34D399] hover:bg-[#11283F] font-bold cursor-pointer"
+                >
+                  {lang === "es"
+                    ? "Ir a Videos / Laboratorios →"
+                    : "Go to Videos / Labs →"}
+                </button>
+                <button
+                  onClick={() => navigateToView("noticias")}
+                  className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#22D3EE]/40 text-[#22D3EE] hover:bg-[#11283F] font-bold cursor-pointer"
+                >
+                  {lang === "es"
+                    ? "Ir a Noticias IA (Carbon) →"
+                    : "Go to AI News (Carbon) →"}
+                </button>
+              </div>
+            </div>
+
             <div className="rounded-2xl bg-[#0B1D30] border border-[#FBBF24]/40 p-6 sm:p-8 shadow-2xl space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="px-3.5 py-1 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/50 font-mono-hud text-xs font-bold text-[#FBBF24]">
@@ -2816,7 +3267,22 @@ export default function MixiuhLabsHomePage() {
       )}
 
       {/* =====================================================================
-          VIEW 4: ARENA INTERACTIVA (STRICTLY RELEASED DEMOS ONLY)
+          VIEW 4: SECCION 03 · RADAR MIXIUH NOTICIAS IA (#01 GEMINI 4 CARBON)
+         ===================================================================== */}
+      {mainView === "noticias" && released.carbon01 && (
+        <main id="noticias" className="flex-1 py-8 sm:py-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <NewsSection
+              lang={lang}
+              onOpenLabEpisode={(ep) => navigateToView("dossiers", ep)}
+              onOpenArena={() => navigateToView("arena")}
+            />
+          </div>
+        </main>
+      )}
+
+      {/* =====================================================================
+          VIEW 5: ARENA INTERACTIVA (STRICTLY RELEASED DEMOS ONLY)
          ===================================================================== */}
       {mainView === "arena" && (
         <main className="flex-1 py-6">
@@ -2828,6 +3294,18 @@ export default function MixiuhLabsHomePage() {
                   : `INTERACTIVE ARENA MODE (${totalDemosCount} PUBLISHED DEMOS):`}
               </div>
               <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                {released.ep04 && (
+                  <button
+                    onClick={() => setArenaMode("ep04")}
+                    className={`px-3.5 py-2 rounded-xl font-bold cursor-pointer ${
+                      arenaMode === "ep04"
+                        ? "bg-[#22D3EE] text-[#060B14]"
+                        : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
+                    }`}
+                  >
+                    EP04: Escalera Claude 5.5 (18)
+                  </button>
+                )}
                 {released.ep03 && (
                   <button
                     onClick={() => setArenaMode("ep03")}
@@ -2846,8 +3324,7 @@ export default function MixiuhLabsHomePage() {
                     handleEpisodeChange("ep02");
                   }}
                   className={`px-3.5 py-2 rounded-xl font-bold cursor-pointer ${
-                    (!released.ep03 || arenaMode === "ep02_ep01") &&
-                    activeEpisode === "ep02"
+                    arenaMode === "ep02_ep01" && activeEpisode === "ep02"
                       ? "bg-[#B794F6] text-[#060B14]"
                       : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
                   }`}
@@ -2860,8 +3337,7 @@ export default function MixiuhLabsHomePage() {
                     handleEpisodeChange("ep01");
                   }}
                   className={`px-3.5 py-2 rounded-xl font-bold cursor-pointer ${
-                    (!released.ep03 || arenaMode === "ep02_ep01") &&
-                    activeEpisode === "ep01"
+                    arenaMode === "ep02_ep01" && activeEpisode === "ep01"
                       ? "bg-[#22A2DD] text-[#060B14]"
                       : "bg-[#060B14] text-[#8FA3B8] hover:text-white"
                   }`}
@@ -2880,7 +3356,88 @@ export default function MixiuhLabsHomePage() {
             </div>
           </div>
 
-          {released.ep03 && arenaMode === "ep03" ? (
+          {released.ep04 && arenaMode === "ep04" ? (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {EP04_CHALLENGES.map((ch) => (
+                  <button
+                    key={ch.n}
+                    onClick={() => setEp04ChallengeN(ch.n)}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                      ep04ChallengeN === ch.n
+                        ? "bg-[#11283F] border-[#22D3EE]"
+                        : "bg-[#0B1D30] border-white/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                      <span className="text-[#5EEAD4] font-bold">R0{ch.n}</span>
+                      <span
+                        className={
+                          ch.winner === "haiku"
+                            ? "text-[#34D399] font-bold"
+                            : ch.winner === "sonnet"
+                            ? "text-[#FBBF24] font-bold"
+                            : "text-[#B794F6] font-bold"
+                        }
+                      >
+                        {ch.winner.toUpperCase()} WIN
+                      </span>
+                    </div>
+                    <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                      {lang === "es" ? ch.name_es : ch.name_en}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {(() => {
+                const cur =
+                  EP04_CHALLENGES.find((c) => c.n === ep04ChallengeN) ||
+                  EP04_CHALLENGES[0];
+                const haikuUrl = `/demos/ep04-haiku-55/${cur.dir}/index.html`;
+                const sonnetUrl = `/demos/ep04-sonnet-55/${cur.dir}/index.html`;
+                const opusUrl = `/demos/ep04-opus-55/${cur.dir}/index.html`;
+                return (
+                  <div className="rounded-2xl bg-[#060B14] border-2 border-[#22D3EE]/50 overflow-hidden shadow-2xl">
+                    <div className="p-4 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-black text-white">
+                          EP04 Reto 0{cur.n}:{" "}
+                          {lang === "es" ? cur.name_es : cur.name_en}
+                        </h3>
+                        <p className="text-xs text-[#8FA3B8]">
+                          {lang === "es" ? cur.verdict_es : cur.verdict_en}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => navigateToView("dossiers", "ep04")}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#22D3EE] text-[#060B14] font-mono-hud text-xs font-bold cursor-pointer"
+                      >
+                        Ver Dossier Completo EP04
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                      <iframe
+                        src={haikuUrl}
+                        title={`Haiku ${cur.dir}`}
+                        className="w-full h-[520px] border-0 bg-[#04060A]"
+                      />
+                      <iframe
+                        src={sonnetUrl}
+                        title={`Sonnet ${cur.dir}`}
+                        className="w-full h-[520px] border-0 bg-[#04060A]"
+                      />
+                      <iframe
+                        src={opusUrl}
+                        title={`Opus ${cur.dir}`}
+                        className="w-full h-[520px] border-0 bg-[#04060A]"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : released.ep03 && arenaMode === "ep03" ? (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {EP03_CHALLENGES.map((ch) => (
@@ -2966,7 +3523,7 @@ export default function MixiuhLabsHomePage() {
       )}
 
       {/* =====================================================================
-          VIEW 5: FORO TECNICO, AUTOPSIAS & GLOSARIO (53 TERMINOS)
+          VIEW 6: FORO TECNICO, AUTOPSIAS & GLOSARIO (53 TERMINOS)
          ===================================================================== */}
       {mainView === "foro" && (
         <main className="flex-1 py-6">
@@ -3078,36 +3635,30 @@ export default function MixiuhLabsHomePage() {
               onClick={() => navigateToView("blog")}
               className="hover:text-white cursor-pointer"
             >
-              Inicio / Blog
+              Inicio
             </button>
-            {released.ep03 && (
-              <button
-                onClick={() => navigateToView("dossiers", "ep03")}
-                className="text-[#34D399] hover:text-white font-bold cursor-pointer"
-              >
-                EP03 Superpowers Kit
-              </button>
-            )}
+            <button
+              onClick={() => navigateToView("dossiers", "ep04")}
+              className="text-[#34D399] hover:text-white font-bold cursor-pointer"
+            >
+              Videos / Laboratorios (EP01–EP04)
+            </button>
             {released.cc01 && (
               <button
                 onClick={() => navigateToView("comunidad")}
                 className="text-[#FBBF24] hover:text-white font-bold cursor-pointer"
               >
-                OVERFIT 3D
+                Del Comentario al Codigo (#01)
               </button>
             )}
-            <button
-              onClick={() => navigateToView("dossiers", "ep02")}
-              className="text-[#B794F6] hover:text-white font-bold cursor-pointer"
-            >
-              EP02 Argon vs Opus
-            </button>
-            <button
-              onClick={() => navigateToView("dossiers", "ep01")}
-              className="text-[#5EEAD4] hover:text-white font-bold cursor-pointer"
-            >
-              EP01 Argon vs Flash
-            </button>
+            {released.carbon01 && (
+              <button
+                onClick={() => navigateToView("noticias")}
+                className="text-[#22D3EE] hover:text-white font-bold cursor-pointer"
+              >
+                Noticias IA (Gemini 4 Carbon)
+              </button>
+            )}
             <a
               href="https://mixiuh.online"
               target="_blank"

@@ -11,6 +11,7 @@ import {
 import { CHALLENGES } from "@/data/labsData";
 import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES } from "@/data/ep03Data";
+import { EP04_CHALLENGES } from "@/data/ep04Data";
 import {
   getReleasedStatus,
   type ReleasedState,
@@ -29,7 +30,10 @@ import {
 
 interface Props {
   lang: "es" | "en";
-  onJumpToArena: (episode: "ep03" | "ep02" | "ep01", challengeN: number) => void;
+  onJumpToArena: (
+    episode: "ep04" | "ep03" | "ep02" | "ep01",
+    challengeN: number
+  ) => void;
   released?: ReleasedState;
 }
 
@@ -59,10 +63,56 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   // Combine curated threads with individual prompt/audit threads for released episodes only (zero spoilers)
   const defaultThreads = useMemo<ForumThread[]>(() => {
     const releasedCuratedThreads = INITIAL_FORUM_THREADS.filter((t) => {
+      if (t.episode === "carbon01" && !rel.carbon01) return false;
+      if (t.episode === "ep04" && !rel.ep04) return false;
       if (t.episode === "ep03" && !rel.ep03) return false;
       if (t.episode === "cc01" && !rel.cc01) return false;
       return true;
     });
+
+    const ep04Threads: ForumThread[] = rel.ep04
+      ? EP04_CHALLENGES.map((ch) => ({
+          id: `thread-ep04-challenge-${ch.n}`,
+          slug: `ep04-reto-${ch.n}-${ch.dir}`,
+          category: "prompts",
+          episode: "ep04",
+          badge_es: `EP04 PROMPT Y TELEMETRIA · RETO 0${ch.n}`,
+          badge_en: `EP04 PROMPT & TELEMETRY · CHALLENGE 0${ch.n}`,
+          title_es: `EP04 Reto 0${ch.n} (${ch.name_es}): Haiku ($${ch.haiku.usd.toFixed(2)}) vs Sonnet ($${ch.sonnet.usd.toFixed(2)}) vs Opus ($${ch.opus.usd.toFixed(2)})`,
+          title_en: `EP04 Challenge 0${ch.n} (${ch.name_en}): Haiku ($${ch.haiku.usd.toFixed(2)}) vs Sonnet ($${ch.sonnet.usd.toFixed(2)}) vs Opus ($${ch.opus.usd.toFixed(2)})`,
+          excerpt_es: ch.verdict_es,
+          excerpt_en: ch.verdict_en,
+          author: "Kevin Gonzalez",
+          authorRole_es: "Arbitro · Mixiuh Labs",
+          authorRole_en: "Referee · Mixiuh Labs",
+          createdAt: "2026-10-28",
+          readTime: "4 min",
+          upvotes: 132 + (7 - ch.n) * 12,
+          views: 920 + ch.n * 80,
+          relatedChallengeN: ch.n,
+          tags: [
+            "EP04",
+            `Reto 0${ch.n}`,
+            ch.dir,
+            `Ganador: ${ch.winner.toUpperCase()} 5.5`,
+          ],
+          content_es: [
+            `Categoria del reto: ${ch.world_es} — ${ch.sub_es}.`,
+            `Claude Haiku 5.5: ${ch.haiku.min} min · $${ch.haiku.usd.toFixed(2)} USD · ${ch.haiku.tok} tok · ${ch.haiku.lines} lineas · ${ch.haiku.fps}.`,
+            `Claude Sonnet 5.5: ${ch.sonnet.min} min · $${ch.sonnet.usd.toFixed(2)} USD · ${ch.sonnet.tok} tok · ${ch.sonnet.lines} lineas · ${ch.sonnet.fps}.`,
+            `Claude Opus 5.5: ${ch.opus.min} min · $${ch.opus.usd.toFixed(2)} USD · ${ch.opus.tok} tok · ${ch.opus.lines} lineas · ${ch.opus.fps}.`,
+            `Veredicto forense: ${ch.verdict_es}`,
+          ],
+          content_en: [
+            `Challenge category: ${ch.world_en} — ${ch.sub_en}.`,
+            `Claude Haiku 5.5: ${ch.haiku.min} min · $${ch.haiku.usd.toFixed(2)} USD · ${ch.haiku.tok} tok · ${ch.haiku.lines} lines · ${ch.haiku.fps}.`,
+            `Claude Sonnet 5.5: ${ch.sonnet.min} min · $${ch.sonnet.usd.toFixed(2)} USD · ${ch.sonnet.tok} tok · ${ch.sonnet.lines} lines · ${ch.sonnet.fps}.`,
+            `Claude Opus 5.5: ${ch.opus.min} min · $${ch.opus.usd.toFixed(2)} USD · ${ch.opus.tok} tok · ${ch.opus.lines} lines · ${ch.opus.fps}.`,
+            `Forensic verdict: ${ch.verdict_en}`,
+          ],
+          comments: [],
+        }))
+      : [];
 
     const ep03Threads: ForumThread[] = rel.ep03
       ? EP03_CHALLENGES.map((ch) => ({
@@ -190,7 +240,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       ],
       comments: [],
     }));
-    return [...releasedCuratedThreads, ...ep03Threads, ...ep02Threads, ...ep01Threads];
+    return [
+      ...releasedCuratedThreads,
+      ...ep04Threads,
+      ...ep03Threads,
+      ...ep02Threads,
+      ...ep01Threads,
+    ];
   }, [rel]);
 
   const defaultProposals = useMemo<Ep02Proposal[]>(() => {
@@ -271,15 +327,21 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     filteredThreads[0] ||
     threads[0];
 
-  const activeThreadEpisode: "ep03" | "ep02" | "ep01" =
+  const activeThreadEpisode: "ep04" | "ep03" | "ep02" | "ep01" =
     activeThread?.episode === "ep01"
       ? "ep01"
       : activeThread?.episode === "ep03"
       ? "ep03"
+      : activeThread?.episode === "ep04"
+      ? "ep04"
       : "ep02";
 
   const linkedPromptVerbatim = useMemo(() => {
     if (!activeThread?.relatedChallengeN) return undefined;
+    if (activeThreadEpisode === "ep04") {
+      return EP04_CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
+        ?.prompt_verbatim;
+    }
     if (activeThreadEpisode === "ep03") {
       return EP03_CHALLENGES.find((c) => c.n === activeThread.relatedChallengeN)
         ?.prompt_verbatim;
