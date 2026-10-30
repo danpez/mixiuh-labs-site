@@ -717,7 +717,9 @@ export function Pixel3DCRTWorkstation({
               }`}
             />
             <span className="font-pixel text-[10px] font-bold tracking-wider truncate">
-              MIXIUH CRT-9000 // LAB WORKSTATION
+              {lang === "es"
+                ? "MIXIUH LABS // MONITOR DE PRUEBAS"
+                : "MIXIUH LABS // BENCHMARK MONITOR"}
             </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -778,11 +780,11 @@ export function Pixel3DCRTWorkstation({
                     {/* Subtle CRT Scanline Overlay */}
                     <div className="absolute inset-0 px-crt-scanlines pointer-events-none" />
                     {/* Top-Left Green OSD Channel Indicator */}
-                    <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#090B10]/90 border border-[#10B981]/60 font-pixel text-[10px] text-[#10B981]">
+                    <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#090B10] border border-[#10B981] font-pixel text-[10px] text-[#10B981]">
                       CH 0{idx + 1} · {current.code}
                     </div>
                     {/* Floating Character Sprite in Corner */}
-                    <div className="absolute bottom-2 right-2 p-1 bg-[#090B10]/90 border border-white/25">
+                    <div className="absolute bottom-2 right-2 p-1 bg-[#090B10] border border-white/25">
                       <PixelSprite character={current.character} size={28} />
                     </div>
                   </>
@@ -1437,5 +1439,149 @@ export function PixelCreditBadge({
         PIXEL UI BY <span className="text-[#FFD100]">MIXIUH LABS</span>
       </span>
     </a>
+  );
+}
+
+/* ============================================================================
+   10. PIXEL-ART SOCIAL MEDIA & COMMUNITY REDIRECT BAR (<PixelSocialBar />)
+   ============================================================================ */
+
+export interface PixelSocialLinkItem {
+  id: string;
+  label: string;
+  sublabel?: string;
+  href: string;
+  icon: PixelIconName;
+  accentHex: string;
+}
+
+export interface PixelSocialBarProps {
+  links?: PixelSocialLinkItem[];
+  compact?: boolean;
+  className?: string;
+}
+
+export const DEFAULT_MIXIUH_SOCIAL_LINKS: PixelSocialLinkItem[] = [
+  {
+    id: "youtube-es",
+    label: "YouTube ES",
+    sublabel: "@MixiuhLabsES",
+    href: "https://www.youtube.com/@MixiuhLabsES",
+    icon: "youtube",
+    accentHex: "#FF3355",
+  },
+  {
+    id: "youtube-en",
+    label: "YouTube EN",
+    sublabel: "@MixiuhLabsEN",
+    href: "https://www.youtube.com/@MixiuhLabsEN",
+    icon: "youtube",
+    accentHex: "#FFD100",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    sublabel: "@labs.mixiuh",
+    href: "https://www.instagram.com/labs.mixiuh",
+    icon: "instagram",
+    accentHex: "#F472B6",
+  },
+  {
+    id: "tiktok",
+    label: "TikTok",
+    sublabel: "@mixiuhlabs",
+    href: "https://www.tiktok.com/@mixiuhlabs",
+    icon: "tiktok",
+    accentHex: "#00E5FF",
+  },
+  {
+    id: "x-twitter",
+    label: "X / Twitter",
+    sublabel: "@mixiuh",
+    href: "https://x.com/mixiuh",
+    icon: "x-twitter",
+    accentHex: "#F5F2EB",
+  },
+  {
+    id: "github",
+    label: "GitHub",
+    sublabel: "Open Source",
+    href: "https://github.com/mixiuh/mixiuh-labs-site",
+    icon: "github",
+    accentHex: "#10B981",
+  },
+  {
+    id: "web",
+    label: "Mixiuh Web",
+    sublabel: "mixiuh.online",
+    href: "https://mixiuh.online",
+    icon: "globe",
+    accentHex: "#A855F7",
+  },
+];
+
+export function PixelSocialBar({
+  links = DEFAULT_MIXIUH_SOCIAL_LINKS,
+  compact = false,
+  className = "",
+}: PixelSocialBarProps) {
+  if (compact) {
+    return (
+      <div className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+        {links.map((item) => (
+          <a
+            key={item.id}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => pixelSound.play("coin")}
+            title={`${item.label} (${item.sublabel || item.href})`}
+            className="px-2.5 py-1.5 bg-[#111622] hover:bg-[#090B10] border-2 border-[#090B10] shadow-[3px_3px_0_#040508] inline-flex items-center gap-1.5 font-pixel text-[10px] font-bold text-[#F5F2EB] transition hover:-translate-y-0.5"
+            style={{ outline: `1px solid ${item.accentHex}` }}
+          >
+            <PixelIcon name={item.icon} size={13} color={item.accentHex} />
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 ${className}`}
+    >
+      {links.map((item) => (
+        <a
+          key={item.id}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => pixelSound.play("coin")}
+          className="p-3 bg-[#111622] hover:bg-[#171E2E] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center gap-2.5 transition hover:-translate-y-0.5"
+          style={{ outline: `2px solid ${item.accentHex}` }}
+        >
+          <div
+            className="w-8 h-8 border-2 border-[#090B10] flex items-center justify-center shrink-0"
+            style={{ backgroundColor: item.accentHex }}
+          >
+            <PixelIcon name={item.icon} size={16} color="#090B10" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-pixel text-[10px] font-bold text-white truncate">
+              {item.label}
+            </div>
+            {item.sublabel && (
+              <div
+                className="font-mono-hud text-[10px] font-bold truncate"
+                style={{ color: item.accentHex }}
+              >
+                {item.sublabel}
+              </div>
+            )}
+          </div>
+        </a>
+      ))}
+    </div>
   );
 }

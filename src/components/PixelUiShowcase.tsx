@@ -15,16 +15,19 @@ import {
   PixelDialogBox,
   PixelTelemetryPill,
   PixelCreditBadge,
+  PixelSocialBar,
   PixelIcon,
   PixelSprite,
   PixelSceneAnimation,
   ALL_PIXEL_ICON_NAMES,
+  PIXEL_ICON_CATEGORIES,
   PIXEL_CURSOR_PRESETS,
   usePixelSound,
   type PixelSoundName,
   type PixelSpriteCharacter,
   type PixelSpriteMotion,
   type PixelIconName,
+  type PixelIconCategoryId,
   type PixelCursorStyle,
   type AmbientSimulationMode,
 } from "@/lib/mixiuh-pixel-ui";
@@ -154,7 +157,8 @@ export default function PixelUiShowcase({
   const [switchB, setSwitchB] = useState(false);
   const [switchC, setSwitchC] = useState(true);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
-  const [selectedIcon, setSelectedIcon] = useState<PixelIconName>("crt-tv");
+  const [selectedIcon, setSelectedIcon] = useState<PixelIconName>("youtube");
+  const [iconCategory, setIconCategory] = useState<PixelIconCategoryId>("all");
   const [iconSearch, setIconSearch] = useState("");
   const [iconColor, setIconColor] = useState("#00E5FF");
   const [iconSize, setIconSize] = useState<16 | 24 | 32>(24);
@@ -170,7 +174,13 @@ export default function PixelUiShowcase({
     setTimeout(() => setCopiedSnippet(null), 2000);
   };
 
-  const filteredIcons = ALL_PIXEL_ICON_NAMES.filter((n) =>
+  const categoryPool =
+    iconCategory === "all"
+      ? ALL_PIXEL_ICON_NAMES
+      : PIXEL_ICON_CATEGORIES.find((c) => c.id === iconCategory)?.icons ||
+        ALL_PIXEL_ICON_NAMES;
+
+  const filteredIcons = categoryPool.filter((n) =>
     n.toLowerCase().includes(iconSearch.trim().toLowerCase())
   );
 
@@ -212,8 +222,8 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
               <p className="text-sm sm:text-base font-medium text-[#090B10]/85 leading-relaxed">
                 {lang === "es"
-                  ? "Creada desde cero por Mixiuh Labs: combina superficies minimalistas de alto contraste con monitores CRT 3D, disquetes 3.5\", 82 iconos vectoriales 16x16, 16 sprites animados, 8 escenas pixel-art, 6 cursores personalizados, ecosistema de agentes IA procedurales en el fondo y un secuenciador + sintetizador WebAudio 8-bit. Libre para cualquier uso dando credito a Mixiuh Labs."
-                  : "Built from scratch by Mixiuh Labs: combines high-contrast flat minimalism with 3D CRT monitors, 3.5\" floppy disks, 82 16x16 vector icons, 16 animated sprites, 8 pixel-art scenes, 6 custom cursors, a procedural background AI ecosystem, and an 8-bit WebAudio synth & sequencer. Free for any project with credit to Mixiuh Labs."}
+                  ? `Creada desde cero por Mixiuh Labs: combina superficies opacas de alto contraste con monitores CRT 3D, disquetes 3.5", ${ALL_PIXEL_ICON_NAMES.length} iconos vectoriales 16x16 (incluyendo 28 marcas y redes sociales como YouTube, X, Instagram, TikTok, Facebook, Google, GitHub, Discord), 16 sprites animados, 8 escenas pixel-art, 6 cursores personalizados, generacion procedural por pixeles al hacer scroll y un secuenciador WebAudio 8-bit.`
+                  : `Built from scratch by Mixiuh Labs: combines high-contrast opaque surfaces with 3D CRT monitors, 3.5" floppy disks, ${ALL_PIXEL_ICON_NAMES.length} 16x16 vector icons (including 28 social & tech brands like YouTube, X, Instagram, TikTok, Facebook, Google, GitHub, Discord), 16 animated sprites, 8 pixel-art scenes, 6 custom cursors, procedural pixel scroll reveal, and an 8-bit WebAudio synth & sequencer.`}
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -650,14 +660,14 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           >
             <div className="space-y-4">
               <PixelDialogBox
-                speaker="CRT-9000 BIOS"
+                speaker="MIXIUH BIOS"
                 role="MIXIUH PIXEL UI v2.0"
                 character="crt-monitor"
                 tone="cyan"
                 messages={[
                   lang === "es"
-                    ? "Sistema CRT-9000 inicializado. Haz clic en esta ventana para avanzar el dialogo con voz sintetizada en 8-bit."
-                    : "CRT-9000 workstation initialized. Click this box to advance the dialog with 8-bit synthesized voice blips.",
+                    ? "Monitor de pruebas inicializado. Haz clic en esta ventana para avanzar el dialogo con voz sintetizada en 8-bit."
+                    : "Benchmark monitor initialized. Click this box to advance the dialog with 8-bit synthesized voice blips.",
                   lang === "es"
                     ? "Toda esta libreria es 100% libre para uso comercial o personal dando credito a Mixiuh Labs."
                     : "This entire library is 100% free for commercial or personal use by crediting Mixiuh Labs.",
@@ -693,15 +703,71 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </PixelWindow>
         </div>
 
-        {/* SECTION 5: 82 CRISP 16x16 PIXEL SVG ICONS WITH SEARCH & CUSTOMIZER */}
+        {/* SECTION 5: 198 CRISP 16x16 PIXEL SVG ICONS WITH CATEGORY FILTERS, BRANDS & SEARCH */}
         <PixelWindow
-          title={`06 // ${ALL_PIXEL_ICON_NAMES.length} ICONOS VECTORIALES PIXEL-ART EN GRILLA 16x16`}
-          subtitle="Filtra por nombre, personaliza color/tamano y haz clic para copiar el JSX"
+          title={`06 // ${ALL_PIXEL_ICON_NAMES.length} ICONOS VECTORIALES PIXEL-ART EN GRILLA 16x16 (INCLUYE MARCAS Y REDES)`}
+          subtitle="Incluye YouTube, X, Twitter, Instagram, Facebook, TikTok, Google, GitHub, Discord y todas las categorias UI"
           tone="chalk"
           statusLeft={`SELECTED: <PixelIcon name="${selectedIcon}" size={${iconSize}} color="${iconColor}" />`}
           statusRight="ZERO UNICODE EMOJIS"
         >
           <div className="space-y-4">
+            {/* Live Social Media Bar Component Preview */}
+            <div className="p-3.5 bg-[#090B10] border-2 border-[#2A344B] space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-pixel text-[10px] text-[#FFD100]">
+                  COMPONENTE DE REDES SOCIALES (<code className="text-white">&lt;PixelSocialBar /&gt;</code>)
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyCode("social-bar", `<PixelSocialBar />`)
+                  }
+                  className="px-2.5 py-1 bg-[#00E5FF] text-[#090B10] font-pixel text-[9px] font-bold cursor-pointer"
+                >
+                  COPIAR JSX
+                </button>
+              </div>
+              <PixelSocialBar />
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  play("click");
+                  setIconCategory("all");
+                }}
+                className={`px-3 py-1.5 font-pixel text-[10px] border-2 cursor-pointer ${
+                  iconCategory === "all"
+                    ? "bg-[#FFD100] text-[#090B10] border-[#090B10] font-bold"
+                    : "bg-[#131824] text-[#94A3B8] border-[#2A344B] hover:text-white"
+                }`}
+              >
+                {lang === "es"
+                  ? `Todos (${ALL_PIXEL_ICON_NAMES.length})`
+                  : `All (${ALL_PIXEL_ICON_NAMES.length})`}
+              </button>
+              {PIXEL_ICON_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    play("click");
+                    setIconCategory(cat.id);
+                  }}
+                  className={`px-3 py-1.5 font-pixel text-[10px] border-2 cursor-pointer ${
+                    iconCategory === cat.id
+                      ? "bg-[#00E5FF] text-[#090B10] border-[#090B10] font-bold"
+                      : "bg-[#131824] text-[#94A3B8] border-[#2A344B] hover:text-white"
+                  }`}
+                >
+                  {lang === "es" ? cat.label_es : cat.label_en}
+                </button>
+              ))}
+            </div>
+
             {/* Icon Search, Color & Size Customizer Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-[#131824] p-3 border-2 border-[#2A344B]">
               <input
@@ -710,10 +776,10 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 onChange={(e) => setIconSearch(e.target.value)}
                 placeholder={
                   lang === "es"
-                    ? "Buscar icono (ej. crt, floppy, robot, sword)..."
-                    : "Search icon (e.g. crt, floppy, robot, sword)..."
+                    ? "Buscar icono (ej. youtube, google, instagram, x-twitter, floppy)..."
+                    : "Search icon (e.g. youtube, google, instagram, x-twitter, floppy)..."
                 }
-                className="px-3 py-1.5 bg-[#090B10] border-2 border-[#2A344B] font-mono-hud text-xs text-white w-full sm:w-64"
+                className="px-3 py-1.5 bg-[#090B10] border-2 border-[#2A344B] font-mono-hud text-xs text-white w-full sm:w-80"
               />
 
               <div className="flex flex-wrap items-center gap-3 font-mono-hud text-xs">
