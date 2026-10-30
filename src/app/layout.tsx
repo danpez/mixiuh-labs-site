@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Poppins, Space_Mono } from "next/font/google";
+import { Inter, Poppins, Space_Mono, Silkscreen } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
@@ -20,6 +20,13 @@ const spaceMono = Space_Mono({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-space-mono",
+  display: "swap",
+});
+
+const silkscreen = Silkscreen({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-pixel",
   display: "swap",
 });
 
@@ -87,8 +94,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${poppins.variable} ${spaceMono.variable}`}>
-      <body className="min-h-screen bg-[#060B14] text-[#F5F7FA] antialiased selection:bg-[#22A2DD]/30 selection:text-white">
+    <html
+      lang="es"
+      className={`${inter.variable} ${poppins.variable} ${spaceMono.variable} ${silkscreen.variable}`}
+    >
+      <body className="min-h-screen bg-[#090B10] text-[#F5F2EB] antialiased selection:bg-[#FFD100] selection:text-[#090B10]">
         {children}
         <Analytics />
       </body>
