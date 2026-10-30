@@ -30,11 +30,16 @@ import ForumSection from "@/components/ForumSection";
 import NewsSection from "@/components/NewsSection";
 import PixelUiShowcase from "@/components/PixelUiShowcase";
 import {
+  Pixel3DCRTWorkstation,
   Pixel3DPocketConsole,
   PixelCreditBadge,
   PixelIcon,
+  PixelProceduralAmbientBg,
   PixelSprite,
+  PIXEL_CURSOR_PRESETS,
+  usePixelCursor,
   usePixelSound,
+  type AmbientSimulationMode,
   type PocketConsoleCartridgeItem,
 } from "@/lib/mixiuh-pixel-ui";
 import {
@@ -79,6 +84,28 @@ export default function MixiuhLabsHomePage() {
   const [lang, setLang] = useState<"es" | "en">("es");
   const { enabled: sfxEnabled, play: playSfx, toggle: toggleSfx } =
     usePixelSound();
+  const { cursorStyle, setCursorStyle } = usePixelCursor("cyber-arrow");
+  const [ambientMode, setAmbientMode] =
+    useState<AmbientSimulationMode>("ai-ecosystem");
+
+  const cycleCursorStyle = () => {
+    const idx = PIXEL_CURSOR_PRESETS.findIndex((p) => p.id === cursorStyle);
+    const next =
+      PIXEL_CURSOR_PRESETS[(idx + 1) % PIXEL_CURSOR_PRESETS.length].id;
+    setCursorStyle(next);
+  };
+
+  const cycleAmbientMode = () => {
+    playSfx("click");
+    const modes: AmbientSimulationMode[] = [
+      "ai-ecosystem",
+      "neural-packets",
+      "voxel-rain",
+      "off",
+    ];
+    const next = modes[(modes.indexOf(ambientMode) + 1) % modes.length];
+    setAmbientMode(next);
+  };
   const [released, setReleased] = useState<ReleasedState>(() =>
     getReleasedStatus()
   );
@@ -577,12 +604,15 @@ export default function MixiuhLabsHomePage() {
   ];
 
   return (
-    <div className="min-h-screen labs-grid-bg text-[#F5F2EB] flex flex-col">
-      {/* PLAYDATE HARDWARE STICKY HEADER WITH TACTILE AUDIO & CLEAN PORTAL SECTIONS */}
-      <header className="sticky top-0 z-40 bg-[#090B10] border-b-3 border-[#FFD100] shadow-[0_4px_0_#040508]">
+    <div className="min-h-screen labs-grid-bg text-[#F5F2EB] flex flex-col relative">
+      {/* PROCEDURAL PIXEL-ART AI ECOSYSTEM BACKGROUND (Autonomous Bots, Packets & Nodes) */}
+      <PixelProceduralAmbientBg mode={ambientMode} opacity={0.34} />
+
+      {/* RETRO CRT HARDWARE STICKY HEADER WITH TACTILE AUDIO, CURSOR & PORTAL SECTIONS */}
+      <header className="sticky top-0 z-40 bg-[#090B10]/95 border-b-3 border-[#FFD100] shadow-[0_4px_0_#040508]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="h-16 flex items-center justify-between gap-2">
-            {/* Brand Logo + Playdate Pixel Identity */}
+            {/* Brand Logo + Retro CRT Pixel Identity */}
             <button
               onClick={() => navigateToView("blog")}
               className="flex items-center gap-2.5 shrink-0 group cursor-pointer text-left"
@@ -599,8 +629,8 @@ export default function MixiuhLabsHomePage() {
                   <span className="font-pixel text-xs sm:text-sm font-bold tracking-wider text-white whitespace-nowrap">
                     MIXIUH <span className="text-[#FFD100]">LABS</span>
                   </span>
-                  <span className="hidden 2xl:inline-block px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[9px] font-bold whitespace-nowrap">
-                    PLAYDATE 3D EDITION
+                  <span className="hidden 2xl:inline-block px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[9px] font-bold whitespace-nowrap">
+                    CRT-9000 // PIXEL LAB
                   </span>
                 </div>
               </div>
@@ -739,8 +769,40 @@ export default function MixiuhLabsHomePage() {
               </button>
             </nav>
 
-            {/* Right Controls: 8-Bit SFX Toggle + Lang + YouTube */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Right Controls: Cursor + AI Ambient BG + 8-Bit SFX + Lang + YouTube */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={cycleCursorStyle}
+                title={
+                  lang === "es"
+                    ? `Cambiar cursor Pixel-Art (${cursorStyle})`
+                    : `Switch Pixel-Art cursor (${cursorStyle})`
+                }
+                className="hidden lg:inline-flex px-2 py-1.5 bg-[#131824] hover:bg-[#00E5FF] hover:text-[#090B10] text-[#00E5FF] border-2 border-[#090B10] font-pixel text-[9px] font-bold items-center gap-1 cursor-pointer shadow-[2px_2px_0_#040508]"
+              >
+                <PixelIcon name="mouse" size={12} />
+                <span>CURSOR</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={cycleAmbientMode}
+                title={
+                  lang === "es"
+                    ? `Cambiar ecosistema IA de fondo (${ambientMode})`
+                    : `Switch background AI ecosystem (${ambientMode})`
+                }
+                className={`hidden xl:inline-flex px-2 py-1.5 border-2 border-[#090B10] font-pixel text-[9px] font-bold items-center gap-1 cursor-pointer shadow-[2px_2px_0_#040508] ${
+                  ambientMode !== "off"
+                    ? "bg-[#10B981] text-[#090B10]"
+                    : "bg-[#131824] text-[#94A3B8]"
+                }`}
+              >
+                <PixelIcon name="brain-ai" size={12} />
+                <span>BG IA</span>
+              </button>
+
               <button
                 type="button"
                 onClick={toggleSfx}
@@ -3364,11 +3426,17 @@ export default function MixiuhLabsHomePage() {
       )}
 
       {/* =====================================================================
-          VIEW 7: MIXIUH PIXEL UI v1.0 (OPEN SOURCE LIBRARY & PLAYGROUND)
+          VIEW 7: MIXIUH PIXEL UI v2.0 (OPEN SOURCE LIBRARY & PLAYGROUND)
          ===================================================================== */}
       {mainView === "pixelui" && (
         <main className="flex-1">
-          <PixelUiShowcase lang={lang} />
+          <PixelUiShowcase
+            lang={lang}
+            cursorStyle={cursorStyle}
+            onChangeCursor={setCursorStyle}
+            ambientMode={ambientMode}
+            onChangeAmbient={setAmbientMode}
+          />
         </main>
       )}
 

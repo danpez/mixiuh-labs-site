@@ -195,7 +195,7 @@ export function PixelKeycap({
 }
 
 /* ============================================================================
-   2. PLAYDATE ROTARY CRANK & HARDWARE TOGGLE
+   2. RETRO VHF ROTARY CHANNEL DIAL & HARDWARE DIP-SWITCH TOGGLE
    ============================================================================ */
 
 export interface PixelToggleProps {
@@ -260,41 +260,45 @@ export function PixelCrank({ angle, onChange, label }: PixelCrankProps) {
     onChange(next);
   };
 
+  const chNumber = Math.floor((angle / 360) * 12) + 1;
+
   return (
-    <div className="inline-flex items-center gap-3 p-3 bg-[#111622] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
+    <div className="inline-flex items-center gap-3 p-3 bg-[#111622] border-2 border-[#00E5FF] shadow-[4px_4px_0_#040508]">
       <div
-        onClick={() => stepRotate(45)}
-        title="Click to spin Playdate Crank (+45 deg)"
-        className="relative w-14 h-14 rounded-full bg-[#090B10] border-2 border-[#FFD100] flex items-center justify-center cursor-pointer select-none group"
+        onClick={() => stepRotate(30)}
+        title="Click to turn VHF/UHF Rotary Tuner (+30 deg)"
+        className="relative w-14 h-14 rounded-full bg-[#1E2638] border-3 border-[#090B10] shadow-[inset_0_2px_4px_rgba(255,255,255,0.25),0_3px_0_#040508] flex items-center justify-center cursor-pointer select-none"
       >
         <div
           className="w-full h-full flex items-center justify-center transition-transform duration-150"
           style={{ transform: `rotate(${angle}deg)` }}
         >
-          <div className="w-2 h-6 bg-[#FFD100] -translate-y-2 border border-[#090B10]" />
-          <div className="w-4 h-4 rounded-full bg-[#FFD100] border-2 border-[#090B10] absolute top-1" />
+          <div className="w-2.5 h-11 bg-[#D8D1C2] border-2 border-[#090B10] flex flex-col items-center justify-start pt-0.5">
+            <span className="w-1.5 h-2.5 bg-[#FF3355]" />
+          </div>
         </div>
-        <div className="w-3 h-3 rounded-full bg-[#F5F2EB] border border-[#090B10] absolute" />
       </div>
       <div className="font-mono-hud text-xs">
-        <div className="text-[10px] font-bold text-[#FFD100] uppercase">
-          {label || "PLAYDATE CRANK"}
+        <div className="text-[10px] font-bold text-[#00E5FF] uppercase">
+          {label || "VHF ROTARY TUNER"}
         </div>
-        <div className="text-sm font-black text-white">{angle}°</div>
+        <div className="text-sm font-black text-white">
+          CH {chNumber < 10 ? `0${chNumber}` : chNumber} · {angle}°
+        </div>
         <div className="flex items-center gap-1 mt-1">
           <button
             type="button"
-            onClick={() => stepRotate(-45)}
-            className="px-1.5 py-0.5 bg-[#1A2132] hover:bg-[#FFD100] hover:text-[#090B10] text-[10px] font-bold border border-white/20 cursor-pointer"
+            onClick={() => stepRotate(-30)}
+            className="px-2 py-0.5 bg-[#1A2132] hover:bg-[#00E5FF] hover:text-[#090B10] text-[10px] font-bold border border-white/20 cursor-pointer"
           >
-            -45°
+            CH -
           </button>
           <button
             type="button"
-            onClick={() => stepRotate(45)}
-            className="px-1.5 py-0.5 bg-[#FFD100] text-[#090B10] text-[10px] font-bold border border-[#090B10] cursor-pointer"
+            onClick={() => stepRotate(30)}
+            className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] text-[10px] font-bold border border-[#090B10] cursor-pointer"
           >
-            +45°
+            CH +
           </button>
         </div>
       </div>
@@ -303,7 +307,7 @@ export function PixelCrank({ angle, onChange, label }: PixelCrankProps) {
 }
 
 /* ============================================================================
-   3. PLAYDATE SPEC CARDS, RETRO OS WINDOWS & 3D CARTRIDGES
+   3. SPEC CARDS, RETRO OS WINDOWS, 3.5" FLOPPY DISKS & ROM CARTRIDGES
    ============================================================================ */
 
 export interface PixelCardProps {
@@ -352,14 +356,14 @@ export function PixelCard({
           } ${ditherHeader ? "px-dither-dots" : ""}`}
         >
           <span
-            className="uppercase tracking-wider"
+            className="uppercase tracking-wider truncate"
             style={{ color: tone === "chalk" ? "#090B10" : t.hex }}
           >
             {kicker}
           </span>
           {badge && (
             <span
-              className="px-2 py-0.5 text-[10px] font-bold text-[#090B10]"
+              className="px-2 py-0.5 text-[10px] font-bold text-[#090B10] shrink-0"
               style={{ backgroundColor: tone === "ink" ? "#FFD100" : t.hex }}
             >
               {badge}
@@ -449,6 +453,64 @@ export function PixelWindow({
   );
 }
 
+export interface PixelFloppyCardProps {
+  diskCode: string;
+  title: string;
+  capacity?: string;
+  description: string;
+  tone?: PixelTone;
+  onInsert?: () => void;
+}
+
+export function PixelFloppyCard({
+  diskCode,
+  title,
+  capacity = "1.44 MB HD",
+  description,
+  tone = "cyan",
+  onInsert,
+}: PixelFloppyCardProps) {
+  const t = TONE_STYLES[tone];
+  return (
+    <div
+      onClick={() => {
+        pixelSound.play("cartridgeInsert");
+        onInsert?.();
+      }}
+      className="group relative bg-[#182032] border-3 border-[#090B10] shadow-[6px_6px_0_#040508] p-4 pt-12 cursor-pointer select-none transition hover:-translate-y-1"
+      style={{ outline: `2px solid ${t.hex}` }}
+    >
+      {/* Top 3.5" Metal Sliding Shutter */}
+      <div className="absolute top-0 left-6 right-10 h-9 bg-[#CBD5E1] border-x-2 border-b-2 border-[#090B10] flex items-center justify-between px-3 transition-transform duration-200 group-hover:translate-x-2">
+        <div className="w-4 h-6 bg-[#090B10]" />
+        <span className="font-pixel text-[9px] text-[#090B10] font-bold">
+          {diskCode} // {capacity}
+        </span>
+      </div>
+
+      {/* Floppy Label Sticker */}
+      <div className="bg-[#F5F2EB] text-[#090B10] border-2 border-[#090B10] p-3.5 space-y-2">
+        <div
+          className="h-2 w-full"
+          style={{ backgroundColor: t.hex }}
+        />
+        <div className="font-display text-sm sm:text-base font-black leading-snug">
+          {title}
+        </div>
+        <p className="font-mono-hud text-[11px] text-[#090B10]/80 leading-relaxed">
+          {description}
+        </p>
+        <div className="pt-1 border-t border-[#090B10]/20 flex items-center justify-between font-pixel text-[9px]">
+          <span>SECTOR 00 // ZERO-SHOT</span>
+          <span className="px-1.5 py-0.5 bg-[#090B10] text-[#FFD100]">
+            LOAD DISK ▶
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export interface Pixel3DCartridgeProps {
   code: string;
   title: string;
@@ -487,7 +549,6 @@ export function Pixel3DCartridge({
       }`}
       style={{ borderColor: t.hex }}
     >
-      {/* Top Cartridge Grip Ribs & Serial Code */}
       <div className="flex items-center justify-between gap-2 mb-2.5">
         <div className="flex flex-col gap-1 w-14">
           <div className="h-1 bg-white/20" />
@@ -501,7 +562,6 @@ export function Pixel3DCartridge({
         </span>
       </div>
 
-      {/* Recessed Cartridge Artwork Sticker */}
       <div className="bg-[#090B10] border-2 border-[#040508] p-2.5 space-y-2">
         {thumb && (
           <div className="relative aspect-video overflow-hidden border border-white/15">
@@ -527,7 +587,6 @@ export function Pixel3DCartridge({
           </div>
         </div>
 
-        {/* Standard Mixiuh Telemetry Pills: [CLOCK + MIN] & [COIN + $ USD] */}
         <div className="grid grid-cols-2 gap-1.5 pt-1 font-mono-hud text-[10px]">
           <div className="px-2 py-1 bg-[#131824] border border-white/10 flex items-center gap-1 text-[#F5F2EB]">
             <PixelIcon name="clock" size={11} color="#00E5FF" />
@@ -540,7 +599,6 @@ export function Pixel3DCartridge({
         </div>
       </div>
 
-      {/* Bottom Gold PCB Contact Pins */}
       <div className="mt-2.5 pt-1.5 border-t border-white/10 flex items-center justify-between px-2">
         <div className="flex items-center gap-1">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -559,7 +617,9 @@ export function Pixel3DCartridge({
 }
 
 /* ============================================================================
-   4. PLAYDATE 3D HANDHELD CONSOLE RENDER ("MIXIUH POCKET LAB // REV 4.0")
+   4. 3D RETRO CRT COMPUTER & TELE-MONITOR WORKSTATION ("MIXIUH CRT-9000")
+   100% Original Retro TV / Lab Computer with Working Channels, Degauss,
+   Phosphor Modes, Power Switch & Zero Text Overflow!
    ============================================================================ */
 
 export interface PocketConsoleCartridgeItem {
@@ -584,103 +644,193 @@ export interface Pixel3DPocketConsoleProps {
   lang?: "es" | "en";
 }
 
-export function Pixel3DPocketConsole({
+export function Pixel3DCRTWorkstation({
   items,
   lang = "es",
 }: Pixel3DPocketConsoleProps) {
   const [idx, setIdx] = useState(0);
-  const [crankAngle, setCrankAngle] = useState(0);
-  const current = items[idx] || items[0];
+  const [poweredOn, setPoweredOn] = useState(true);
+  const [staticFlash, setStaticFlash] = useState(false);
+  const [degaussing, setDegaussing] = useState(false);
+  const [crtMode, setCrtMode] = useState<"rgb" | "amber" | "green" | "mono">(
+    "rgb"
+  );
 
+  const current = items[idx] || items[0];
   if (!current) return null;
 
-  const cycleCartridge = (dir: 1 | -1) => {
-    const next = (idx + dir + items.length) % items.length;
-    setIdx(next);
-    setCrankAngle((a) => (a + dir * 45 + 360) % 360);
+  const switchChannel = (nextIdx: number) => {
+    const safeIdx = (nextIdx + items.length) % items.length;
+    setIdx(safeIdx);
+    setStaticFlash(true);
     pixelSound.play("cartridgeInsert");
+    setTimeout(() => setStaticFlash(false), 140);
   };
+
+  const triggerDegauss = () => {
+    setDegaussing(true);
+    pixelSound.play("laser", { pitchMultiplier: 0.55 });
+    setTimeout(() => setDegaussing(false), 450);
+  };
+
+  const cyclePhosphorMode = () => {
+    const order: ("rgb" | "amber" | "green" | "mono")[] = [
+      "rgb",
+      "amber",
+      "green",
+      "mono",
+    ];
+    const next = order[(order.indexOf(crtMode) + 1) % order.length];
+    setCrtMode(next);
+    pixelSound.play("click", { pitchMultiplier: 1.25 });
+  };
+
+  const togglePower = () => {
+    const next = !poweredOn;
+    setPoweredOn(next);
+    pixelSound.play(next ? "powerup" : "hit");
+  };
+
+  const filterClass =
+    crtMode === "amber"
+      ? "px-crt-filter-amber"
+      : crtMode === "green"
+      ? "px-crt-filter-green"
+      : crtMode === "mono"
+      ? "px-crt-filter-mono"
+      : "";
 
   return (
     <div className="px-3d-stage w-full">
-      <div className="px-3d-console-shell p-4 sm:p-5 text-[#090B10]">
-        {/* Top Console Hardware Stamp & LED */}
-        <div className="flex items-center justify-between gap-2 mb-2.5 font-mono-hud text-[10px] font-bold">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] border border-[#090B10]" />
-            <span className="tracking-wider uppercase font-black">
-              MIXIUH POCKET LAB // 3D DECK
+      {/* UPPER 3D CRT MONITOR CHASSIS */}
+      <div
+        className={`px-3d-crt-shell p-3.5 sm:p-4 text-[#090B10] ${
+          degaussing ? "px-degauss-active" : ""
+        }`}
+      >
+        {/* Monitor Top Ventilation Slots & Model Plate */}
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`w-2.5 h-2.5 rounded-full border border-[#090B10] shrink-0 ${
+                poweredOn ? "bg-[#10B981]" : "bg-[#FF3355]"
+              }`}
+            />
+            <span className="font-pixel text-[10px] font-bold tracking-wider truncate">
+              MIXIUH CRT-9000 // LAB WORKSTATION
             </span>
           </div>
-          <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[9px]">
-            ROM {idx + 1}/{items.length} · {current.code}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[9px]">
+              CH 0{idx + 1}/0{items.length}
+            </span>
+            <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[9px] uppercase">
+              {crtMode}
+            </span>
+          </div>
         </div>
 
-        {/* Recessed High-Contrast Screen Bezel */}
-        <div className="px-3d-screen-bezel p-3 text-[#F5F2EB] space-y-2.5">
-          {/* Screen Top Telemetry Strip */}
-          <div className="flex items-center justify-between gap-2 font-mono-hud text-[10px]">
-            <span
-              className="px-2 py-0.5 font-bold text-[#090B10]"
-              style={{ backgroundColor: current.accentHex }}
-            >
-              {current.kicker}
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-[#00E5FF]">
-                <PixelIcon name="clock" size={11} color="#00E5FF" />
-                {current.timeMetric}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[#FFD100]">
-                <PixelIcon name="coin" size={11} color="#FFD100" />
-                {current.costMetric}
-              </span>
-            </div>
-          </div>
-
-          {/* 4K Thumbnail Viewport with Floating Pixel Sprite Badge */}
-          <div
-            onClick={() => {
-              pixelSound.play("powerup");
-              current.onLaunchPrimary();
-            }}
-            className="relative aspect-video overflow-hidden border-2 border-[#2A344B] group cursor-pointer"
-          >
-            <img
-              src={current.thumb}
-              alt={current.title}
-              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-200"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#090B10] via-transparent to-transparent flex items-end justify-between p-2.5">
-              <div>
-                <div className="font-pixel text-[10px] text-[#FFD100]">
-                  {current.verdict}
+        {/* CRT Recessed Dark Glass Tube */}
+        <div className="px-3d-screen-bezel p-2.5 sm:p-3 text-[#F5F2EB] space-y-2.5 overflow-hidden">
+          {poweredOn ? (
+            <>
+              {/* Top OSD Telemetry Bar inside CRT */}
+              <div className="flex items-center justify-between gap-2 font-mono-hud text-[10px] min-w-0">
+                <span
+                  className="px-2 py-0.5 font-bold text-[#090B10] truncate"
+                  style={{ backgroundColor: current.accentHex }}
+                >
+                  {current.kicker}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[#00E5FF] font-bold">
+                    <PixelIcon name="clock" size={11} color="#00E5FF" />
+                    <span>{current.timeMetric}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[#FFD100] font-bold">
+                    <PixelIcon name="coin" size={11} color="#FFD100" />
+                    <span>{current.costMetric}</span>
+                  </span>
                 </div>
-                <div className="font-display text-xs sm:text-sm font-black text-white leading-tight line-clamp-1">
+              </div>
+
+              {/* 16:9 CRT Phosphor Screen with Scanlines & Click-to-Play */}
+              <div
+                onClick={() => {
+                  pixelSound.play("powerup");
+                  current.onLaunchPrimary();
+                }}
+                className={`relative aspect-video overflow-hidden border-2 border-[#2A344B] bg-[#05070B] group cursor-pointer ${filterClass}`}
+              >
+                {staticFlash ? (
+                  <div className="w-full h-full px-dither-checker bg-[#1E293B] flex items-center justify-center">
+                    <span className="font-pixel text-sm text-[#FFD100]">
+                      TUNING CH 0{idx + 1} // {current.code}...
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <img
+                      src={current.thumb}
+                      alt={current.title}
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
+                    />
+                    {/* Subtle CRT Scanline Overlay */}
+                    <div className="absolute inset-0 px-crt-scanlines pointer-events-none" />
+                    {/* Top-Left Green OSD Channel Indicator */}
+                    <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#090B10]/90 border border-[#10B981]/60 font-pixel text-[10px] text-[#10B981]">
+                      CH 0{idx + 1} · {current.code}
+                    </div>
+                    {/* Floating Character Sprite in Corner */}
+                    <div className="absolute bottom-2 right-2 p-1 bg-[#090B10]/90 border border-white/25">
+                      <PixelSprite character={current.character} size={28} />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box */}
+              <div className="p-2.5 bg-[#111622] border border-[#2A344B] min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span
+                    className="font-pixel text-[10px] font-bold truncate"
+                    style={{ color: current.accentHex }}
+                  >
+                    {current.verdict}
+                  </span>
+                  <span className="font-mono-hud text-[9px] text-[#94A3B8] shrink-0">
+                    60Hz LOCK
+                  </span>
+                </div>
+                <div className="font-display text-xs sm:text-sm font-black text-white leading-snug line-clamp-1">
                   {current.title}
                 </div>
               </div>
-              <div className="p-1 bg-[#090B10]/90 border border-white/20">
-                <PixelSprite character={current.character} size={30} />
-              </div>
+            </>
+          ) : (
+            /* CRT Powered Off State (Horizontal White Phosphor Dot/Line) */
+            <div
+              onClick={togglePower}
+              className="aspect-video bg-[#040508] border-2 border-[#1E2638] flex flex-col items-center justify-center gap-3 cursor-pointer"
+            >
+              <div className="w-2/3 h-0.5 bg-[#F5F2EB] shadow-[0_0_12px_#00E5FF]" />
+              <span className="font-pixel text-[10px] text-[#94A3B8]">
+                CRT STANDBY // CLICK PWR TO BOOT
+              </span>
             </div>
-          </div>
+          )}
 
-          {/* Cartridge Quick Selector Tabs inside Screen */}
+          {/* Physical VHF Channel Push-Buttons inside Monitor Bezel */}
           <div className="grid grid-cols-5 gap-1 pt-0.5">
             {items.map((item, i) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => {
-                  setIdx(i);
-                  pixelSound.play("cartridgeInsert");
-                }}
-                className={`py-1 px-1 font-pixel text-[9px] border transition cursor-pointer truncate ${
+                onClick={() => switchChannel(i)}
+                className={`py-1.5 px-1 font-pixel text-[9px] border-2 transition cursor-pointer truncate ${
                   i === idx
-                    ? "bg-[#FFD100] text-[#090B10] border-[#FFD100] font-bold"
-                    : "bg-[#131824] text-[#94A3B8] border-white/10 hover:text-white"
+                    ? "bg-[#FFD100] text-[#090B10] border-[#090B10] font-bold shadow-[2px_2px_0_#00E5FF]"
+                    : "bg-[#131824] text-[#94A3B8] border-[#2A344B] hover:text-white"
                 }`}
               >
                 {item.code}
@@ -689,108 +839,118 @@ export function Pixel3DPocketConsole({
           </div>
         </div>
 
-        {/* Physical Console Controls Deck: D-Pad + A/B Buttons + Playdate Side Crank */}
-        <div className="mt-3.5 pt-2 border-t-2 border-[#090B10]/25 flex items-center justify-between gap-3">
-          {/* Tactile Cross D-Pad */}
-          <div className="flex items-center gap-2">
-            <div className="relative w-16 h-16 flex items-center justify-center">
-              <button
-                type="button"
-                onClick={() => cycleCartridge(-1)}
-                title={lang === "es" ? "Cartucho anterior" : "Previous cartridge"}
-                className="w-16 h-6 bg-[#131824] text-[#F5F2EB] border-2 border-[#090B10] shadow-[0_3px_0_#040508] active:translate-y-0.5 flex items-center justify-between px-1.5 font-pixel text-[9px] cursor-pointer"
-              >
-                <span>◀</span>
-                <span>▶</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => cycleCartridge(1)}
-                title={lang === "es" ? "Siguiente cartucho" : "Next cartridge"}
-                className="absolute w-6 h-16 bg-[#131824] text-[#F5F2EB] border-2 border-[#090B10] shadow-[0_3px_0_#040508] active:translate-y-0.5 flex flex-col items-center justify-between py-1 font-pixel text-[8px] cursor-pointer"
-              >
-                <span>▲</span>
-                <span className="w-2 h-2 rounded-full bg-[#FFD100]" />
-                <span>▼</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Center Speaker Grille + Action CTA */}
-          <div className="flex-1 flex flex-col items-center gap-1.5">
-            <div className="flex items-center gap-1.5">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <span
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-[#090B10]"
-                />
-              ))}
-            </div>
+        {/* Monitor Front Panel Hardware Controls: CH -, CH +, DEGAUSS, CRT MODE, POWER */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => {
-                pixelSound.play("powerup");
-                current.onLaunchPrimary();
-              }}
-              className="w-full py-2 px-3 bg-[#090B10] hover:bg-[#131824] text-[#FFD100] border-2 border-[#090B10] font-pixel text-[10px] font-bold shadow-[3px_3px_0_rgba(0,0,0,0.35)] flex items-center justify-center gap-1.5 cursor-pointer"
+              onClick={() => switchChannel(idx - 1)}
+              className="px-2.5 py-1.5 bg-[#131824] hover:bg-[#090B10] text-[#F5F2EB] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              title={lang === "es" ? "Canal Anterior" : "Previous Channel"}
             >
-              <PixelIcon name="play" size={12} color="#FFD100" />
-              <span className="truncate">{current.primaryLabel}</span>
+              ◀ CH
+            </button>
+            <button
+              type="button"
+              onClick={() => switchChannel(idx + 1)}
+              className="px-2.5 py-1.5 bg-[#131824] hover:bg-[#090B10] text-[#F5F2EB] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              title={lang === "es" ? "Siguiente Canal" : "Next Channel"}
+            >
+              CH ▶
             </button>
           </div>
 
-          {/* B / A Physical Round Buttons + Crank Hinge */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={triggerDegauss}
+              className="px-2.5 py-1.5 bg-[#00E5FF] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              title="Magnetic CRT Degauss Coil"
+            >
+              DEGAUSS
+            </button>
+            <button
+              type="button"
+              onClick={cyclePhosphorMode}
+              className="px-2.5 py-1.5 bg-[#FFD100] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              title="Cycle CRT Phosphor Filter (RGB / Amber / Green / Mono)"
+            >
+              CRT: {crtMode.toUpperCase()}
+            </button>
+            <button
+              type="button"
+              onClick={togglePower}
+              className={`px-2.5 py-1.5 border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer ${
+                poweredOn
+                  ? "bg-[#10B981] text-[#090B10]"
+                  : "bg-[#FF3355] text-white"
+              }`}
+              title="Toggle CRT Power"
+            >
+              PWR
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* LOWER 3D RETRO COMPUTER FLOPPY DRIVE & FUNCTIONAL KEYBOARD ACTION DECK */}
+      <div className="px-3d-crt-deck mx-2 p-3 text-[#090B10] space-y-2.5">
+        {/* 3.5" Floppy Drive Slot & Activity LED */}
+        <div className="flex items-center justify-between gap-3 px-2 py-1.5 bg-[#090B10] text-[#F5F2EB] border-2 border-[#040508]">
+          <div className="flex items-center gap-2 min-w-0">
+            <PixelIcon name="floppy" size={13} color="#FFD100" />
+            <span className="font-mono-hud text-[10px] font-bold text-[#94A3B8] truncate">
+              DRIVE A: // {current.code}_MASTER.ROM
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 bg-[#10B981] animate-px-blink" />
+            <span className="font-pixel text-[9px] text-[#FFD100]">READY</span>
+          </div>
+        </div>
+
+        {/* 100% Visible, Non-Clipping Mechanical Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              pixelSound.play("powerup");
+              current.onLaunchPrimary();
+            }}
+            className={`${
+              current.onLaunchSecondary ? "sm:col-span-8" : "sm:col-span-12"
+            } py-2.5 px-3 bg-[#090B10] hover:bg-[#131824] text-[#FFD100] border-2 border-[#090B10] shadow-[3px_3px_0_rgba(0,0,0,0.4)] active:translate-y-0.5 font-pixel text-[10px] font-bold flex items-center justify-center gap-2 cursor-pointer`}
+          >
+            <PixelIcon name="play" size={13} color="#FFD100" />
+            <span className="truncate">{current.primaryLabel}</span>
+          </button>
+
+          {current.onLaunchSecondary && (
             <button
               type="button"
               onClick={() => {
                 pixelSound.play("coin");
-                if (current.onLaunchSecondary) {
-                  current.onLaunchSecondary();
-                } else {
-                  cycleCartridge(1);
-                }
+                current.onLaunchSecondary?.();
               }}
-              title={current.secondaryLabel || "Action B"}
-              className="w-10 h-10 rounded-full bg-[#131824] text-[#F5F2EB] border-2 border-[#090B10] shadow-[0_4px_0_#040508] active:translate-y-1 font-pixel text-xs font-bold flex items-center justify-center cursor-pointer"
+              className="sm:col-span-4 py-2.5 px-3 bg-[#00E5FF] hover:brightness-105 text-[#090B10] border-2 border-[#090B10] shadow-[3px_3px_0_rgba(0,0,0,0.4)] active:translate-y-0.5 font-pixel text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              B
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                pixelSound.play("powerup");
-                current.onLaunchPrimary();
-              }}
-              title={current.primaryLabel}
-              className="w-10 h-10 rounded-full bg-[#FF3355] text-white border-2 border-[#090B10] shadow-[0_4px_0_#040508] active:translate-y-1 font-pixel text-xs font-bold flex items-center justify-center -translate-y-2 cursor-pointer"
-            >
-              A
-            </button>
-            {/* Docked Rotary Crank Handle */}
-            <button
-              type="button"
-              onClick={() => {
-                cycleCartridge(1);
-                pixelSound.play("crank", { pitchMultiplier: 1.15 });
-              }}
-              title={`Crank (${crankAngle} deg) — Click to spin`}
-              className="w-6 h-14 bg-[#C49F00] border-2 border-[#090B10] flex flex-col items-center justify-between p-1 cursor-pointer hover:bg-[#00E5FF]"
-            >
-              <span className="w-2.5 h-2.5 bg-[#090B10]" />
-              <span className="font-mono-hud text-[8px] font-bold leading-none">
-                CRK
+              <PixelIcon name="gamepad" size={13} color="#090B10" />
+              <span className="truncate">
+                {current.secondaryLabel || "SIMULADOR"}
               </span>
             </button>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+// Keep alias so imports of Pixel3DPocketConsole automatically use the new CRT Workstation
+export const Pixel3DPocketConsole = Pixel3DCRTWorkstation;
+
 /* ============================================================================
-   5. PIXEL-ART CHARTS & TELEMETRY VISUALIZATIONS
+   5. PIXEL-ART CHARTS, GAUGES & TELEMETRY VISUALIZATIONS
    ============================================================================ */
 
 export interface PixelBarChartItem {
@@ -951,7 +1111,118 @@ export function PixelSparkline({
 }
 
 /* ============================================================================
-   6. RPG TYPEWRITER DIALOG BOX WITH VOICE BLIPS
+   6. INTERACTIVE 8-BIT CHIPTUNE STEP SEQUENCER (<PixelAudioSequencer />)
+   ============================================================================ */
+
+const SEQ_TRACKS = [
+  { name: "LEAD (C6)", sound: "coin" as PixelSoundName, pitch: 1.2, color: "#00E5FF" },
+  { name: "SYNTH (G5)", sound: "toggleOn" as PixelSoundName, pitch: 1.0, color: "#FFD100" },
+  { name: "BASS (C4)", sound: "crank" as PixelSoundName, pitch: 0.75, color: "#10B981" },
+  { name: "PERC (HIT)", sound: "click" as PixelSoundName, pitch: 0.9, color: "#FF3355" },
+];
+
+export function PixelAudioSequencer() {
+  const [grid, setGrid] = useState<boolean[][]>([
+    [true, false, false, true, false, true, false, false],
+    [false, false, true, false, true, false, false, true],
+    [true, false, true, false, true, false, true, false],
+    [true, false, false, false, true, false, false, true],
+  ]);
+  const [playing, setPlaying] = useState(false);
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = setInterval(() => {
+      setStep((prev) => {
+        const next = (prev + 1) % 8;
+        grid.forEach((row, rIdx) => {
+          if (row[next]) {
+            const tr = SEQ_TRACKS[rIdx];
+            pixelSound.play(tr.sound, {
+              pitchMultiplier: tr.pitch + (next % 3) * 0.08,
+              volume: 0.65,
+            });
+          }
+        });
+        return next;
+      });
+    }, 185);
+    return () => clearInterval(timer);
+  }, [playing, grid]);
+
+  const toggleCell = (r: number, c: number) => {
+    const next = grid.map((row, ri) =>
+      row.map((val, ci) => (ri === r && ci === c ? !val : val))
+    );
+    setGrid(next);
+    if (!grid[r][c]) {
+      pixelSound.play(SEQ_TRACKS[r].sound, {
+        pitchMultiplier: SEQ_TRACKS[r].pitch,
+      });
+    }
+  };
+
+  return (
+    <div className="p-4 bg-[#090B10] border-2 border-[#2A344B] space-y-3 font-mono-hud">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <PixelIcon name="music" size={15} color="#FFD100" />
+          <span className="font-pixel text-xs text-[#FFD100] font-bold">
+            8-BIT CHIPTUNE STEP SEQUENCER (4x8)
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPlaying(!playing)}
+            className={`px-3 py-1 font-pixel text-[10px] font-bold border-2 border-[#090B10] cursor-pointer ${
+              playing
+                ? "bg-[#FF3355] text-white"
+                : "bg-[#10B981] text-[#090B10]"
+            }`}
+          >
+            {playing ? "■ STOP LOOP" : "▶ PLAY 8-BIT LOOP"}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        {SEQ_TRACKS.map((tr, rIdx) => (
+          <div key={tr.name} className="grid grid-cols-12 gap-1.5 items-center">
+            <span
+              className="col-span-4 sm:col-span-3 font-pixel text-[9px] truncate"
+              style={{ color: tr.color }}
+            >
+              {tr.name}
+            </span>
+            <div className="col-span-8 sm:col-span-9 grid grid-cols-8 gap-1">
+              {grid[rIdx].map((active, cIdx) => {
+                const isCur = playing && step === cIdx;
+                return (
+                  <button
+                    key={cIdx}
+                    type="button"
+                    onClick={() => toggleCell(rIdx, cIdx)}
+                    className={`h-6 border transition cursor-pointer ${
+                      isCur ? "ring-2 ring-white" : "border-[#2A344B]"
+                    }`}
+                    style={{
+                      backgroundColor: active ? tr.color : "#131824",
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+   7. RPG TYPEWRITER DIALOG BOX WITH VOICE BLIPS
    ============================================================================ */
 
 export interface PixelDialogBoxProps {
@@ -1042,7 +1313,7 @@ export function PixelDialogBox({
 }
 
 /* ============================================================================
-   7. TELEMETRY PILLS (AGENTS.MD STANDARD: [CLOCK + MIN] & [COIN + $ USD])
+   8. TELEMETRY PILLS (AGENTS.MD STANDARD: [CLOCK + MIN] & [COIN + $ USD])
    ============================================================================ */
 
 export function PixelTelemetryPill({
@@ -1074,7 +1345,7 @@ export function PixelTelemetryPill({
 }
 
 /* ============================================================================
-   8. OPEN-SOURCE ATTRIBUTION COMPONENT (<PixelCreditBadge />)
+   9. OPEN-SOURCE ATTRIBUTION COMPONENT (<PixelCreditBadge />)
    Required for free worldwide personal & commercial use of @mixiuh/pixel-ui
    ============================================================================ */
 
@@ -1095,9 +1366,10 @@ export function PixelCreditBadge({
         rel="noopener noreferrer"
         className={`inline-flex items-center gap-1.5 font-mono-hud text-[11px] text-[#94A3B8] hover:text-[#FFD100] transition ${className}`}
       >
-        <PixelIcon name="gamepad" size={13} color="#FFD100" />
+        <PixelIcon name="crt-tv" size={13} color="#FFD100" />
         <span>
-          UI powered by <strong className="text-[#F5F2EB]">Mixiuh Pixel UI</strong>
+          UI powered by{" "}
+          <strong className="text-[#F5F2EB]">Mixiuh Pixel UI</strong>
         </span>
       </a>
     );
@@ -1114,7 +1386,7 @@ export function PixelCreditBadge({
         <PixelSprite character="mixiuh" size={22} animate={false} />
         <div>
           <div className="font-pixel text-[10px] leading-none">
-            MIXIUH PIXEL UI v1.0
+            MIXIUH PIXEL UI v2.0
           </div>
           <div className="text-[9px] font-bold opacity-80">
             OPEN SOURCE · LABS.MIXIUH.ONLINE
@@ -1133,11 +1405,11 @@ export function PixelCreditBadge({
           <PixelSprite character="mixiuh" size={28} />
           <div>
             <span className="font-pixel text-[#FFD100] font-bold">
-              BUILT WITH MIXIUH PIXEL UI
+              BUILT WITH MIXIUH PIXEL UI v2.0
             </span>
             <p className="text-[11px] text-[#94A3B8]">
-              Free Open-Source Pixel-Art & Playdate 3D Component System by Mixiuh
-              Labs.
+              Free Open-Source Pixel-Art & Retro 3D CRT Component System by
+              Mixiuh Labs.
             </p>
           </div>
         </div>
@@ -1160,7 +1432,7 @@ export function PixelCreditBadge({
       rel="noopener noreferrer"
       className={`inline-flex items-center gap-2 px-3 py-1 bg-[#090B10] border-2 border-[#FFD100] shadow-[3px_3px_0_#040508] font-mono-hud text-[11px] font-bold text-[#F5F2EB] hover:bg-[#131824] transition ${className}`}
     >
-      <PixelIcon name="console" size={13} color="#FFD100" />
+      <PixelIcon name="crt-tv" size={13} color="#FFD100" />
       <span>
         PIXEL UI BY <span className="text-[#FFD100]">MIXIUH LABS</span>
       </span>
