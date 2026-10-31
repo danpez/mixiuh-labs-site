@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CHALLENGES } from "@/data/labsData";
 import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES, EP03_HONESTY_NOTES } from "@/data/ep03Data";
@@ -55,8 +55,17 @@ const ep04OkRuns = (tier: "haiku" | "sonnet" | "opus") =>
  */
 /** Table: tighter cell padding on phones. */
 const PIN_TABLE = "max-sm:[&_th]:px-3 max-sm:[&_td]:px-3";
-/** Scroller: snaps value columns to the right edge of the 120px pinned column. */
-const PIN_SCROLLER = "overflow-x-auto max-sm:snap-x max-sm:scroll-pl-30";
+/**
+ * Scroller: snaps value columns to the right edge of the 120px pinned column.
+ * Its keyboard focus ring sits just inside its edge from sm up; on phones the
+ * pinned column would paint over that, so there the ring is drawn just outside
+ * the edge, over the card's border (PIN_CARD_OVERFLOW leaves it unclipped).
+ */
+const PIN_SCROLLER =
+  "overflow-x-auto max-sm:snap-x max-sm:scroll-pl-30 " +
+  "sm:focus-visible:outline-offset-[-3px] max-sm:focus-visible:outline-offset-0";
+/** Card around a pinned table: it clips its overflow from sm up only. */
+const PIN_CARD_OVERFLOW = "overflow-hidden max-sm:overflow-visible";
 /** Pinned name cell of the dark header and footer rows. */
 const PIN_BAR_CELL = "max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-30 max-sm:min-w-30 max-sm:bg-[#090B10]";
 /** Pinned name cell of a body row (whose <tr> has `group/row`). */
@@ -66,6 +75,37 @@ const pinCell = (selected = false) =>
   }`;
 /** Header cell of a value column: a snap point. */
 const SNAP_COL = "max-sm:snap-start";
+
+/**
+ * Sideways scroller of a results table. As in PixelDataTable, it becomes a
+ * focusable region named after its table only while the table overflows it,
+ * so keyboard users can scroll it too.
+ */
+function TableScroller({ label, children }: { label: string; children: ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1);
+    });
+    observer.observe(scroller);
+    if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div
+      ref={scrollRef}
+      role={overflowing ? "region" : undefined}
+      aria-label={overflowing ? label : undefined}
+      tabIndex={overflowing ? 0 : undefined}
+      className={PIN_SCROLLER}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * Videos / Labs view: the EP04 to EP01 dossiers, their tables and demo
@@ -845,7 +885,7 @@ export default function DossierView({
           </div>
 
           {/* EP03 Verified Comparative Matrix Table */}
-          <div className="bg-[#111622] border-2 border-[#00E5FF]/30 overflow-hidden shadow-[4px_4px_0_#040508]">
+          <div className={`bg-[#111622] border-2 border-[#00E5FF]/30 ${PIN_CARD_OVERFLOW} shadow-[4px_4px_0_#040508]`}>
             <div className="p-5 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="font-mono-hud text-xs font-bold text-[#10B981] uppercase">
@@ -862,7 +902,7 @@ export default function DossierView({
             </div>
 
             <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
-            <div className={PIN_SCROLLER}>
+            <TableScroller label={lang === "es" ? "Matriz comparativa EP03" : "EP03 comparative matrix"}>
               <table className={`w-full min-w-[620px] sm:min-w-[860px] text-left border-collapse ${PIN_TABLE}`}>
                 <thead>
                   <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
@@ -999,7 +1039,7 @@ export default function DossierView({
                   </tr>
                 </tfoot>
               </table>
-            </div>
+            </TableScroller>
           </div>
 
           {/* EP03 Interactive 12-Demo Comparator */}
@@ -1529,7 +1569,7 @@ export default function DossierView({
           </div>
 
           {/* Comparative Matrix Table for EP02 or EP01 */}
-          <div className="bg-[#111622] border-2 border-[#00E5FF]/25 overflow-hidden shadow-[4px_4px_0_#040508]">
+          <div className={`bg-[#111622] border-2 border-[#00E5FF]/25 ${PIN_CARD_OVERFLOW} shadow-[4px_4px_0_#040508]`}>
             <div className="p-5 bg-[#1A2132] border-b border-[#2A344B]">
               <h2 className="font-display text-xl sm:text-2xl font-black text-white">
                 {isEp02
@@ -1542,7 +1582,13 @@ export default function DossierView({
               </h2>
             </div>
             <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
-            <div className={PIN_SCROLLER}>
+            <TableScroller
+              label={
+                isEp02
+                  ? lang === "es" ? "Matriz comparativa EP02" : "EP02 comparative matrix"
+                  : lang === "es" ? "Matriz comparativa EP01" : "EP01 comparative matrix"
+              }
+            >
               {isEp02 ? (
                 <table className={`w-full min-w-[600px] sm:min-w-[860px] text-left border-collapse ${PIN_TABLE}`}>
                   <thead>
@@ -1667,7 +1713,7 @@ export default function DossierView({
                   </tbody>
                 </table>
               )}
-            </div>
+            </TableScroller>
           </div>
         </div>
       )}

@@ -1498,14 +1498,17 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   onClick={() => setPaletteOpen(true)}
                   aria-label={
                     lang === "es"
-                      ? "Buscar y abrir comandos (Ctrl+K)"
-                      : "Search & run commands (Ctrl+K)"
+                      ? "Buscar y abrir comandos, Ctrl+K"
+                      : "Search & run commands, Ctrl+K"
                   }
                   className="inline-flex min-h-8 min-w-8 justify-center px-2 py-1 bg-[#111622] hover:bg-[#FFD100] hover:text-[#090B10] text-[#FFD100] border-2 border-[#090B10] font-pixel text-[10px] font-bold items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_#040508]"
                 >
                   <PixelIcon name="search" size={12} />
+                  {/* The name above must contain the keycaps' text, outside
+                      parentheses (WCAG 2.5.3). The space keeps it "Ctrl K",
+                      not "CtrlK"; the flex row does not render it */}
                   <span className="hidden xl:inline-flex items-center gap-0.5">
-                    <kbd className="px-kbd">Ctrl</kbd>
+                    <kbd className="px-kbd">Ctrl</kbd>{" "}
                     <kbd className="px-kbd">K</kbd>
                   </span>
                 </button>

@@ -3233,6 +3233,12 @@ export interface PixelMultiLineChartProps {
    * The y-axis ticks keep `unit`.
    */
   formatValue?: (value: number) => string;
+  /**
+   * Accessible name of the plot's sideways scroller, a focusable region only
+   * while the plot is wider than the card (phones). Default: `title`, else
+   * "Grafica de lineas".
+   */
+  scrollLabel?: string;
 }
 
 const useIsoLayoutEffect =
@@ -3277,9 +3283,11 @@ export function PixelMultiLineChart({
   className = "",
   categoryLabel = "Benchmark",
   formatValue,
+  scrollLabel,
 }: PixelMultiLineChartProps) {
   const [hiddenKeys, setHiddenKeys] = useState<string[]>([]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(data.length - 1);
+  const [overflowing, setOverflowing] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   // The point picked when the chart mounts (the last one by default)
   const firstIdx = useRef(hoverIdx);
@@ -3299,6 +3307,19 @@ export function PixelMultiLineChart({
       smooth: false,
       ifHidden: true,
     });
+  }, []);
+
+  // The scroller only becomes a focusable region when it really overflows
+  // (as in PixelDataTable), so keyboard users can pan the plot too
+  useIsoLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1);
+    });
+    observer.observe(scroller);
+    if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+    return () => observer.disconnect();
   }, []);
 
   const toggleSeries = (k: string) => {
@@ -3369,8 +3390,17 @@ export function PixelMultiLineChart({
         </div>
       </div>
 
-      {/* Never scale below 1:1 so axis labels stay readable; phones scroll sideways */}
-      <div ref={scrollerRef} className="relative overflow-x-auto">
+      {/* Never scale below 1:1 so axis labels stay readable; phones scroll
+          sideways. Its focus ring is drawn in the card's padding, unclipped */}
+      <div
+        ref={scrollerRef}
+        role={overflowing ? "region" : undefined}
+        aria-label={
+          overflowing ? scrollLabel || title || "Grafica de lineas" : undefined
+        }
+        tabIndex={overflowing ? 0 : undefined}
+        className="relative overflow-x-auto"
+      >
       <svg
         viewBox={`0 0 ${w} ${h}`}
         role={title ? "img" : undefined}

@@ -73,6 +73,8 @@ export interface PixelDataTableLabels {
   sortHint: string;
   /** Announced after sorting, e.g. "Ordenado por Modelo, ascendente". */
   sortStatus: (column: string, direction: "asc" | "desc") => string;
+  /** Announced when a sort button puts the rows back in their original order, e.g. "Orden original". */
+  sortReset: string;
 }
 
 export interface PixelDataTableProps<T> {
@@ -91,6 +93,10 @@ export interface PixelDataTableProps<T> {
    * query token must appear in some column `value` (case- and accent-insensitive).
    */
   searchFn?: (row: T, query: string) => boolean;
+  /**
+   * The original order. A column's sort button cycles ascending, descending,
+   * then back to this order (the order of `rows` when it is left out).
+   */
   initialSort?: { key: string; direction: "asc" | "desc" };
   /** Rows per page; 0 or undefined shows every row. */
   pageSize?: number;
@@ -137,6 +143,7 @@ const DEFAULT_LABELS: PixelDataTableLabels = {
     `Ordenado por ${column}, ${
       direction === "asc" ? "ascendente" : "descendente"
     }`,
+  sortReset: "Orden original",
 };
 
 const LABEL_KEYS = Object.keys(DEFAULT_LABELS) as (keyof PixelDataTableLabels)[];
@@ -408,13 +415,22 @@ export function PixelDataTable<T>({
     if (currentPage !== 1) announce("");
   };
 
+  // Each press goes ascending → descending → back to the original order, so
+  // getting that order back never needs a column the user may not see ("#")
   const toggleSort = (column: PixelDataColumn<T>) => {
-    const direction: PixelSortDirection =
-      sort?.key === column.key && sort.direction === "asc" ? "desc" : "asc";
+    const original = initialSort ?? null;
+    const sorting = sort?.key === column.key ? sort.direction : null;
+    // Already the original order (initialSort descending): wrap to ascending
+    const restore =
+      sorting === "desc" &&
+      !(original?.key === column.key && original.direction === "desc");
+    const direction: PixelSortDirection = sorting === "asc" ? "desc" : "asc";
     pixelSound.play("click");
-    setSort({ key: column.key, direction });
+    setSort(restore ? original : { key: column.key, direction });
     setPage(1);
-    announce(l.sortStatus(columnLabel(column), direction));
+    announce(
+      restore ? l.sortReset : l.sortStatus(columnLabel(column), direction)
+    );
   };
 
   const goToPage = (next: number) => {
@@ -588,7 +604,9 @@ export function PixelDataTable<T>({
         role={regionLabelled ? "region" : undefined}
         aria-labelledby={regionLabelled ? captionId : undefined}
         tabIndex={overflowing ? 0 : undefined}
-        className="overflow-x-auto focus-visible:outline-offset-[-3px]"
+        // Positioned, so visually hidden nodes (caption, sort hints) stay
+        // inside the scroller instead of widening the page
+        className="relative overflow-x-auto focus-visible:outline-offset-[-3px]"
       >
         <table
           id={tableId}

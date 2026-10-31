@@ -47,6 +47,8 @@ export interface ForumThread {
   codeComparison?: {
     title_es: string;
     title_en: string;
+    // Panel labels carry no position tag: ForumSection adds [IZQUIERDA] /
+    // [ARRIBA] (or the English tag) to match the panels' layout
     leftLabel_es?: string;
     leftLabel_en?: string;
     rightLabel_es?: string;
@@ -248,10 +250,10 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
     codeComparison: {
       title_es: "Reto 02 (Terminal HFT): objetos JS con push/shift (sin kit) vs ring buffer Float32Array de 240 muestras (Kit); el ord/s del HUD es una formula en ambos",
       title_en: "Challenge 02 (HFT Terminal): JS objects with push/shift (raw) vs a 240-sample Float32Array ring buffer (Kit); the HUD's ord/s is a formula in both",
-      leftLabel_es: "[IZQUIERDA] IA SIN KIT (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
-      leftLabel_en: "[LEFT] RAW AI (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
-      rightLabel_es: "[DERECHA] IA + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
-      rightLabel_en: "[RIGHT] AI + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
+      leftLabel_es: "IA SIN KIT (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
+      leftLabel_en: "RAW AI (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
+      rightLabel_es: "IA + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
+      rightLabel_en: "AI + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
       flashCode: `// ia-sin-kit/02-terminal-trading/index.html · L2434-2447, L3498
 if (uiThrottleCounter % 2 === 0) {
   const lat = 9.8 + inst.stressVolMult * 4.2 + Math.abs(inst.ofi) * 6.5 + Math.random() * 3.2;
@@ -416,10 +418,10 @@ if (simTickCounter % 2 === 0) {
     codeComparison: {
       title_es: "Configuracion por defecto del Solver de Restricciones en CPU (Opus 5.5 vs Argon)",
       title_en: "Default CPU Constraint Solver Configuration (Opus 5.5 vs Argon)",
-      leftLabel_es: "[IZQUIERDA] CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
-      leftLabel_en: "[LEFT] CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
-      rightLabel_es: "[DERECHA] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
-      rightLabel_en: "[RIGHT] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
+      leftLabel_es: "CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
+      leftLabel_en: "CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
+      rightLabel_es: "GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
+      rightLabel_en: "GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
       flashCode: `// opus/01-tela-verlet/index.html · L192-198
 const P = {
   gravity: 9.81, iters: 10, substeps: 3, damping: 0.993,

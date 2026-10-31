@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useId, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   PixelDataTable,
@@ -89,9 +89,41 @@ const PHONE_TABLE_CLASS =
   "max-sm:[&_div:has(>table)]:scroll-pl-36 " +
   "max-sm:[&_div:has(>table)]:focus-visible:outline-offset-0";
 
+/**
+ * The pricing table's version of PHONE_TABLE_CLASS (a plain <table>, on its
+ * own colours): below sm its model column is pinned while the prices swipe
+ * under it, so it uses separate borders there and its cells draw the 1px
+ * lines its rows draw on wider screens (under the header and between rows).
+ */
+const PHONE_PRICE_TABLE_CLASS =
+  "max-sm:border-separate max-sm:border-spacing-0 " +
+  "max-sm:[&_th]:border-b max-sm:[&_th]:border-b-[#2A344B] " +
+  "max-sm:[&_tbody_tr:not(:last-child)_td]:border-b max-sm:[&_td]:border-b-[#2A344B]";
+
 /** The English version of an image when the asset has one. */
 function assetSrc(asset: OfficialChartAsset, es: boolean): string {
   return !es && asset.src_en ? asset.src_en : asset.src;
+}
+
+/**
+ * Reports whether `scroller` really scrolls (its content runs more than a
+ * pixel past its box), now and whenever it or its content resizes, as when
+ * the image inside it loads. Returns the cleanup.
+ */
+function watchOverflow(
+  scroller: HTMLElement,
+  onChange: (overflowing: boolean) => void
+): () => void {
+  if (typeof ResizeObserver === "undefined") return () => {};
+  const observer = new ResizeObserver(() => {
+    onChange(
+      scroller.scrollWidth > scroller.clientWidth + 1 ||
+        scroller.scrollHeight > scroller.clientHeight + 1
+    );
+  });
+  observer.observe(scroller);
+  if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+  return () => observer.disconnect();
 }
 
 /**
@@ -130,6 +162,28 @@ export default function NewsSection({
   );
   const zoomTitleId = useId();
   const zoomDescId = useId();
+
+  // The lightbox's image box scrolls on phones and on short screens: like
+  // PixelDataTable's scroller, it is focusable (a named region) only while
+  // it does, so keyboard users can scroll it too.
+  const [zoomBoxOverflowing, setZoomBoxOverflowing] = useState(false);
+  const zoomBoxRef = useCallback((box: HTMLDivElement | null) => {
+    if (!box) return;
+    const stopWatching = watchOverflow(box, setZoomBoxOverflowing);
+    return () => {
+      stopWatching();
+      setZoomBoxOverflowing(false);
+    };
+  }, []);
+
+  // Pricing table scroller: the same, named by the section heading.
+  const priceScrollRef = useRef<HTMLDivElement>(null);
+  const [priceOverflowing, setPriceOverflowing] = useState(false);
+  const priceTitleId = useId();
+  useEffect(() => {
+    const scroller = priceScrollRef.current;
+    return scroller ? watchOverflow(scroller, setPriceOverflowing) : undefined;
+  }, []);
 
   const activeChapter =
     CARBON_CHAPTERS.find((c) => c.idx === activeChapterIdx) ||
@@ -1079,14 +1133,19 @@ export default function NewsSection({
           4. API PRICING & FINE PRINT TABLE ($2/$10 -> $4/$20 USD)
          ===================================================================== */}
       <section id="letra-pequena-precios-carbon" className="space-y-5">
-        <div className="bg-[#111622] border-2 border-[#FFD100]/45 overflow-hidden shadow-[6px_6px_0_#040508]">
+        {/* Phones: no overflow clip, so the table's focus ring (drawn just
+            outside its scroller there) is not cut off by this card. */}
+        <div className="bg-[#111622] border-2 border-[#FFD100]/45 overflow-hidden max-sm:overflow-visible shadow-[6px_6px_0_#040508]">
           <div className="p-5 sm:p-6 bg-[#1A2132] border-b border-[#2A344B]">
             <div className="font-mono-hud text-xs font-bold text-[#FFD100] uppercase">
               {es
                 ? "AUDITORIA DE COSTOS API · LA LETRA PEQUENA DEL ANUNCIO OFICIAL"
                 : "API COST AUDIT · THE OFFICIAL ANNOUNCEMENT FINE PRINT"}
             </div>
-            <h2 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
+            <h2
+              id={priceTitleId}
+              className="font-display text-xl sm:text-2xl font-black text-white mt-0.5"
+            >
               {es
                 ? "Precio por 1 Millon de Tokens: Promo de Lanzamiento ($2/$10) vs. Tarifa Estandar ($4/$20)"
                 : "Price per 1 Million Tokens: Launch Promo ($2/$10) vs. Standard Rate ($4/$20)"}
@@ -1098,11 +1157,26 @@ export default function NewsSection({
             </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Phones get the comparison table's treatment: the model column
+              stays put while the prices swipe under it (PHONE_PRICE_TABLE_CLASS),
+              its cells take their row's opaque colour (bg-inherit), whole-pixel
+              line heights keep every row on whole pixels (where the pinned cells
+              meet their row's separator), scroll padding keeps a scrolled-to
+              cell clear of the pinned column and the focus ring sits just
+              outside the scroller, where the pinned cells cannot cover it. */}
+          <div
+            ref={priceScrollRef}
+            role={priceOverflowing ? "region" : undefined}
+            aria-labelledby={priceOverflowing ? priceTitleId : undefined}
+            tabIndex={priceOverflowing ? 0 : undefined}
+            className="overflow-x-auto focus-visible:outline-offset-[-3px] max-sm:scroll-pl-36 max-sm:focus-visible:outline-offset-0"
+          >
+            <table
+              className={`w-full text-left border-collapse ${PHONE_PRICE_TABLE_CLASS}`}
+            >
               <thead>
-                <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
-                  <th className="py-3.5 px-4">
+                <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] max-sm:leading-[18px] uppercase text-[#94A3B8]">
+                  <th className="py-3.5 px-4 max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-36 max-sm:bg-[#090B10] max-sm:border-r max-sm:border-r-[#2A344B]">
                     {es ? "Modelo y Modalidad" : "Model & Tier"}
                   </th>
                   <th className="py-3.5 px-4">
@@ -1120,11 +1194,15 @@ export default function NewsSection({
               </thead>
               <tbody className="divide-y divide-[#2A344B] text-xs sm:text-sm">
                 {CARBON_PRICING_TABLE.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-[#1A2132] transition">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
+                  <tr
+                    key={idx}
+                    className="max-sm:bg-[#111622] hover:bg-[#1A2132] transition"
+                  >
+                    {/* Phones: badge above the name, so the pinned column stays narrow */}
+                    <td className="py-4 px-4 max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-36 max-sm:bg-inherit max-sm:border-r max-sm:border-r-[#2A344B]">
+                      <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-start max-sm:gap-1.5">
                         <span
-                          className="px-2 py-0.5 font-mono-hud text-[10px] font-bold text-[#090B10]"
+                          className="px-2 py-0.5 font-mono-hud text-[10px] max-sm:leading-[13px] font-bold text-[#090B10]"
                           style={{ backgroundColor: row.color }}
                         >
                           {es ? row.badge_es : row.badge_en}
@@ -1310,7 +1388,7 @@ export default function NewsSection({
               aria-labelledby={zoomTitleId}
               aria-describedby={zoomDescId}
               onClick={(e) => e.stopPropagation()}
-              className="max-w-6xl w-full max-sm:max-h-full max-sm:flex max-sm:flex-col bg-[#111622] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]"
+              className="max-w-6xl w-full max-h-full flex flex-col bg-[#111622] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]"
             >
               <div className="px-5 py-3.5 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between gap-4">
                 <div>
@@ -1336,18 +1414,35 @@ export default function NewsSection({
               {/* Phones: fitting the chart to the screen would leave its text
                   about 5px tall, so it opens at a readable width (up to 56rem,
                   never upscaled) and pans inside this box. Start-aligned there:
-                  centred overflow could not be scrolled back to the left. The
-                  dialog is a column capped at the screen height, so this box
-                  takes what the header and caption leave. */}
+                  centred overflow could not be scrolled back to the left. At
+                  every width the dialog is a column capped at the screen height
+                  (a landscape phone or a short laptop window too), so this box
+                  takes what the header and caption leave and scrolls the rest.
+                  From sm the chart is centred by auto margins, which drop to 0
+                  when it does not fit (safe centring): its top stays reachable. */}
               <PixelSwipeHint
                 hideFrom="sm"
                 label={es ? "Desliza para recorrer la imagen" : "Swipe to pan the image"}
               />
-              <div className="p-4 sm:p-6 bg-white flex items-start justify-start sm:items-center sm:justify-center max-h-[78vh] overflow-auto max-sm:overscroll-contain">
+              {/* Its focus ring is dark and inset: a yellow one would barely
+                  show on white, and the dialog clips anything outside it. */}
+              <div
+                ref={zoomBoxRef}
+                role={zoomBoxOverflowing ? "region" : undefined}
+                aria-label={
+                  zoomBoxOverflowing
+                    ? es
+                      ? "Vista ampliada (desplazable)"
+                      : "Magnified view (scrollable)"
+                    : undefined
+                }
+                tabIndex={zoomBoxOverflowing ? 0 : undefined}
+                className="p-4 sm:p-6 bg-white flex items-start justify-start max-h-[78vh] overflow-auto overscroll-contain focus-visible:outline-[#090B10] focus-visible:outline-offset-[-3px]"
+              >
                 <img
                   src={assetSrc(zoomedAsset, es)}
                   alt={es ? zoomedAsset.title_es : zoomedAsset.title_en}
-                  className="max-h-[72vh] w-auto object-contain max-sm:max-h-none max-sm:max-w-[56rem] max-sm:shrink-0"
+                  className="max-h-[72vh] w-auto object-contain sm:m-auto max-sm:max-h-none max-sm:max-w-[56rem] max-sm:shrink-0"
                 />
               </div>
               <div className="px-5 py-3 bg-[#090B10] border-t border-[#2A344B] text-xs text-[#94A3B8] flex max-sm:flex-col max-sm:items-start max-sm:gap-2 items-center justify-between gap-4">

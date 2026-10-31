@@ -272,6 +272,37 @@ function threadTags(thread: ForumThreadEntry, lang: Props["lang"]): string[] {
   return thread.tags_en ?? thread.tags.map(toEnglishLabel);
 }
 
+/**
+ * Label of the first or second code panel of a thread's code comparison: the
+ * panels sit side by side from `md` up and stack below it, so its position tag
+ * follows the layout (the arena's SideTag does the same from `lg`). Each variant
+ * is a single text node, so from `md` up it paints exactly as one string did.
+ */
+function SideLabel({
+  lang,
+  side,
+  text,
+}: {
+  lang: Props["lang"];
+  side: "first" | "second";
+  text: string;
+}) {
+  const stacked =
+    side === "first"
+      ? lang === "es" ? "ARRIBA" : "TOP"
+      : lang === "es" ? "ABAJO" : "BOTTOM";
+  const sideBySide =
+    side === "first"
+      ? lang === "es" ? "IZQUIERDA" : "LEFT"
+      : lang === "es" ? "DERECHA" : "RIGHT";
+  return (
+    <>
+      <span className="md:hidden">{`[${stacked}] ${text}`}</span>
+      <span className="hidden md:inline">{`[${sideBySide}] ${text}`}</span>
+    </>
+  );
+}
+
 // Proposal cards that describe a production's results stay hidden until it airs.
 const PROPOSAL_RELEASES: Partial<Record<string, ReleaseKey>> = {
   "prop-cc01-overfit": "cc01",
@@ -1012,8 +1043,12 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Thread List. `relative` makes this scroller the
               containing block of the cards' sr-only text, so it is clipped
-              here instead of stretching the page below the footer. */}
-          <div className="relative lg:col-span-5 space-y-3 max-h-[60vh] lg:max-h-[880px] overflow-y-auto pr-1">
+              here instead of stretching the page below the footer. Its 5px
+              padding holds the cards' keyboard focus ring (2px at a 3px offset)
+              and their shadow; negative margins and a 5px taller cap keep the
+              cards and the visible window where they were, and the scroll
+              padding keeps the whole ring in view when Tab scrolls the list. */}
+          <div className="relative lg:col-span-5 space-y-3 max-h-[calc(60vh+5px)] lg:max-h-[885px] overflow-y-auto -mt-[5px] -ml-[5px] -mr-px p-[5px] scroll-py-[5px]">
             {filteredThreads.length === 0 && (
               <p className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] font-mono-hud text-xs text-[#CBD5E1]">
                 {emptyListText}
@@ -1212,11 +1247,17 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#2A344B]">
                     <div className="p-4">
                       <div className="text-[11px] font-mono-hud font-bold text-[#FFD100] mb-2">
-                        {lang === "es"
-                          ? activeThread.codeComparison.leftLabel_es ||
-                            "[IZQUIERDA] GEMINI 3.8 FLASH (BUG / OMISION)"
-                          : activeThread.codeComparison.leftLabel_en ||
-                            "[LEFT] GEMINI 3.8 FLASH (BUG / OMISSION)"}
+                        <SideLabel
+                          lang={lang}
+                          side="first"
+                          text={
+                            lang === "es"
+                              ? activeThread.codeComparison.leftLabel_es ||
+                                "GEMINI 3.8 FLASH (BUG / OMISION)"
+                              : activeThread.codeComparison.leftLabel_en ||
+                                "GEMINI 3.8 FLASH (BUG / OMISSION)"
+                          }
+                        />
                       </div>
                       <pre className="text-xs font-mono-hud text-[#F5F2EB] whitespace-pre-wrap overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.flashCode}
@@ -1224,11 +1265,17 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     </div>
                     <div className="p-4">
                       <div className="text-[11px] font-mono-hud font-bold text-[#C084FC] mb-2">
-                        {lang === "es"
-                          ? activeThread.codeComparison.rightLabel_es ||
-                            "[DERECHA] GEMINI 4 ARGON (SOLUCION EXACTA)"
-                          : activeThread.codeComparison.rightLabel_en ||
-                            "[RIGHT] GEMINI 4 ARGON (EXACT SOLUTION)"}
+                        <SideLabel
+                          lang={lang}
+                          side="second"
+                          text={
+                            lang === "es"
+                              ? activeThread.codeComparison.rightLabel_es ||
+                                "GEMINI 4 ARGON (SOLUCION EXACTA)"
+                              : activeThread.codeComparison.rightLabel_en ||
+                                "GEMINI 4 ARGON (EXACT SOLUTION)"
+                          }
+                        />
                       </div>
                       <pre className="text-xs font-mono-hud text-[#10B981] whitespace-pre-wrap overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.argonCode}
