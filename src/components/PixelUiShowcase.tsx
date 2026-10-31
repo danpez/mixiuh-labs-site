@@ -15,6 +15,11 @@ import {
   type ReleasedState,
 } from "@/data/releaseSchedule";
 import {
+  CALENDAR_LABELS,
+  CALENDAR_TONES,
+  PIXEL_UI_RELEASE_DATE,
+} from "@/data/calendar";
+import {
   PixelButton,
   PixelKeycap,
   PixelToggle,
@@ -347,21 +352,6 @@ const HAIKU_ROI = ACID_RUN
 const PATH_TRACER_RUN = ep04Challenge(5);
 const EP04_RUN_COUNT = EP04_CHALLENGES.length * EP04_TIERS.length;
 
-/** Same text and tones as the home calendar (CALENDAR_LABELS / EPISODE_TONE in src/app/page.tsx). */
-const RELEASE_EVENTS: Record<
-  ReleaseKey,
-  { es: string; en: string; tone: PixelColorTone }
-> = {
-  ep01: { es: "EP01: Argon vs 3.8 Flash (10-0)", en: "EP01: Argon vs 3.8 Flash (10-0)", tone: "chalk" },
-  ep02: { es: "EP02: Argon vs Claude Opus 5.5 (4-2)", en: "EP02: Argon vs Claude Opus 5.5 (4-2)", tone: "violet" },
-  cc01: { es: "CC01: OVERFIT Studio 3D (@tenito03)", en: "CC01: OVERFIT Studio 3D (@tenito03)", tone: "yellow" },
-  ep03: { es: "EP03: Sin Kit vs Superpowers Kit (4-2)", en: "EP03: Raw vs Superpowers Kit (4-2)", tone: "emerald" },
-  ep04: { es: "EP04: Escalera Claude 5.5 (18 corridas)", en: "EP04: Claude 5.5 Ladder (18 runs)", tone: "coral" },
-  carbon01: { es: "Noticias IA #01: Gemini 4 Carbon", en: "AI News #01: Gemini 4 Carbon", tone: "cyan" },
-};
-/** Release day of the current @mixiuh/pixel-ui version (same date as the home calendar). */
-const PIXEL_UI_RELEASE_DATE = "2026-10-31";
-
 /** English labels of the EP04 table (stable object: the table memoizes on it). */
 const EP04_TABLE_LABELS_EN: Partial<PixelDataTableLabels> = {
   search: "Search the table",
@@ -678,8 +668,9 @@ export default function PixelUiShowcase({
   const [demoDrawer, setDemoDrawer] = useState(false);
   const [demoSheet, setDemoSheet] = useState(false);
 
-  // Release calendar built like the home one: the timestamps that gate the
-  // content (published productions only) plus the current Pixel UI release.
+  // Release calendar built like the home one (shared labels, tones and date in
+  // @/data/calendar): the timestamps that gate the content (published
+  // productions only) plus the current Pixel UI release.
   const rel = useMemo<ReleasedState>(
     () => released ?? getReleasedStatus(),
     [released]
@@ -689,8 +680,8 @@ export default function PixelUiShowcase({
       .filter((key) => rel[key])
       .map((key) => ({
         date: RELEASE_TIMESTAMPS_CST[key].slice(0, 10),
-        label: es ? RELEASE_EVENTS[key].es : RELEASE_EVENTS[key].en,
-        tone: RELEASE_EVENTS[key].tone,
+        label: es ? CALENDAR_LABELS[key].es : CALENDAR_LABELS[key].en,
+        tone: CALENDAR_TONES[key],
       })),
     {
       date: PIXEL_UI_RELEASE_DATE,
