@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { PixelDataTable, PixelIcon, PixelSwipeHint, PixelTabs } from "@mixiuh/pixel-ui";
+import React, { useCallback, useId, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  PixelDataTable,
+  PixelIcon,
+  PixelSwipeHint,
+  PixelTabs,
+  usePixelDialog,
+} from "@mixiuh/pixel-ui";
 import {
   CARBON_NEWS_META,
   CARBON_CHAPTERS,
@@ -59,6 +66,16 @@ export default function NewsSection({
     null
   );
 
+  // Chart lightbox = modal dialog: focus moves in, Tab stays inside, Escape
+  // closes, page scroll locks and focus returns to the opener on close.
+  const closeZoom = useCallback(() => setZoomedAsset(null), []);
+  const zoomPanelRef = usePixelDialog<HTMLDivElement>(
+    zoomedAsset !== null,
+    closeZoom
+  );
+  const zoomTitleId = useId();
+  const zoomDescId = useId();
+
   const activeChapter =
     CARBON_CHAPTERS.find((c) => c.idx === activeChapterIdx) ||
     CARBON_CHAPTERS[0];
@@ -73,6 +90,32 @@ export default function NewsSection({
       : heroThumb === "C"
       ? "/brand/thumbs/carbon_thumb_C.jpg"
       : "/stills/noticias/carbon/03_evals_table.png";
+
+  const heroZoomAsset: OfficialChartAsset = {
+    id: "hero-preview",
+    title_es: "Infografia Oficial · Especial Gemini 4 Carbon",
+    title_en: "Official Infographic · Gemini 4 Carbon Special",
+    badge_es: "4K UHD",
+    badge_en: "4K UHD",
+    desc_es:
+      "Haz clic afuera, pulsa Esc o usa el boton superior derecho para cerrar la vista ampliada.",
+    desc_en:
+      "Click outside, press Esc or use the top-right button to close the magnified view.",
+    src: heroImageSrc,
+    accent: "#00E5FF",
+  };
+
+  const chapterZoomAsset: OfficialChartAsset = {
+    id: activeChapter.id,
+    title_es: activeChapter.chart_title_es,
+    title_en: activeChapter.chart_title_en,
+    badge_es: activeChapter.badge_es,
+    badge_en: activeChapter.badge_en,
+    desc_es: activeChapter.explanation_es,
+    desc_en: activeChapter.explanation_en,
+    src: activeChapter.chart_img,
+    accent: activeChapter.accent,
+  };
 
   const ytLongUrl = es
     ? "https://youtu.be/h_wVhlSfl64"
@@ -417,13 +460,16 @@ export default function NewsSection({
                           : "/videos/carbon_captions_en.vtt"
                       }
                       srcLang={lang}
-                      label={es ? "Espanol" : "English"}
+                      label={es ? "Español" : "English"}
                       default
                     />
                   </video>
                 </div>
               ) : heroThumb === "short" ? (
                 <div className="relative aspect-video bg-[#090B10] flex items-center justify-center p-2">
+                  {/* No <track> on purpose: the Short has its own script with
+                      burned-in (open) word-by-word captions. carbon_captions_*.vtt
+                      belong to the long report and do not match this audio. */}
                   <video
                     key={`carbon-short-${lang}`}
                     controls
@@ -447,33 +493,31 @@ export default function NewsSection({
                   </video>
                 </div>
               ) : (
-                <div
-                  onClick={() =>
-                    setZoomedAsset({
-                      id: "hero-preview",
-                      title_es: "Infografia Oficial · Especial Gemini 4 Carbon",
-                      title_en: "Official Infographic · Gemini 4 Carbon Special",
-                      badge_es: "4K UHD",
-                      badge_en: "4K UHD",
-                      desc_es:
-                        "Haz clic afuera o en el boton superior derecho para cerrar la vista ampliada.",
-                      desc_en:
-                        "Click outside or on the top-right button to close the magnified view.",
-                      src: heroImageSrc,
-                      accent: "#00E5FF",
-                    })
+                <button
+                  type="button"
+                  onClick={() => setZoomedAsset(heroZoomAsset)}
+                  aria-label={
+                    es
+                      ? `Clic para ampliar: ${heroZoomAsset.title_es}`
+                      : `Click to magnify: ${heroZoomAsset.title_en}`
                   }
-                  className="relative aspect-video bg-[#090B10] cursor-zoom-in group overflow-hidden"
+                  className="relative block w-full aspect-video bg-[#090B10] cursor-zoom-in group overflow-hidden focus-visible:outline-none"
                 >
                   <img
                     src={heroImageSrc}
                     alt="Gemini 4 Carbon Radar Mixiuh"
-                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                    className="absolute inset-0 w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                   />
-                  <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-[#090B10] border border-[#00E5FF]/50 font-mono-hud text-[11px] font-bold text-[#00E5FF]">
+                  <span className="absolute bottom-3 right-3 px-2.5 py-1 bg-[#090B10] border border-[#00E5FF]/50 font-mono-hud text-[11px] font-bold text-[#00E5FF]">
                     {es ? "Clic para ampliar ↗" : "Click to magnify ↗"}
-                  </div>
-                </div>
+                  </span>
+                  {/* Focus ring drawn above the picture: the button's own outline
+                      would sit under the image and be clipped by the card edge. */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 group-focus-visible:outline-2 group-focus-visible:outline-[var(--px-focus)] group-focus-visible:outline-offset-[-4px]"
+                  />
+                </button>
               )}
             </div>
 
@@ -716,23 +760,17 @@ export default function NewsSection({
 
               {/* Right: Official Chart + Plain-Language Explanation */}
               <div className="lg:col-span-6 flex flex-col justify-between gap-4">
-                <div
-                  onClick={() =>
-                    setZoomedAsset({
-                      id: activeChapter.id,
-                      title_es: activeChapter.chart_title_es,
-                      title_en: activeChapter.chart_title_en,
-                      badge_es: activeChapter.badge_es,
-                      badge_en: activeChapter.badge_en,
-                      desc_es: activeChapter.explanation_es,
-                      desc_en: activeChapter.explanation_en,
-                      src: activeChapter.chart_img,
-                      accent: activeChapter.accent,
-                    })
+                <button
+                  type="button"
+                  onClick={() => setZoomedAsset(chapterZoomAsset)}
+                  aria-label={
+                    es
+                      ? `Ampliar: ${activeChapter.chart_title_es}`
+                      : `Zoom: ${activeChapter.chart_title_en}`
                   }
-                  className="shadow-[6px_6px_0_#040508] bg-[#090B10] border-2 border-[#2A344B] overflow-hidden cursor-zoom-in group"
+                  className="block w-full text-left shadow-[6px_6px_0_#040508] bg-[#090B10] border-2 border-[#2A344B] overflow-hidden cursor-zoom-in group"
                 >
-                  <div className="px-4 py-2.5 bg-[#111622] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                  <span className="px-4 py-2.5 bg-[#111622] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                     <span className="text-white font-bold truncate">
                       {es
                         ? activeChapter.chart_title_es
@@ -741,8 +779,8 @@ export default function NewsSection({
                     <span className="text-[#00E5FF] font-bold shrink-0 ml-2">
                       {es ? "Ampliar ↗" : "Zoom ↗"}
                     </span>
-                  </div>
-                  <div className="p-3 bg-[#F5F2EB] flex items-center justify-center max-h-[340px] overflow-hidden">
+                  </span>
+                  <span className="p-3 bg-[#F5F2EB] flex items-center justify-center max-h-[340px] overflow-hidden">
                     <img
                       src={activeChapter.chart_img}
                       alt={
@@ -752,8 +790,8 @@ export default function NewsSection({
                       }
                       className="max-h-[310px] w-auto object-contain group-hover:scale-[1.02] transition-transform duration-300"
                     />
-                  </div>
-                </div>
+                  </span>
+                </button>
 
                 {/* Pedagogical Explanation Card */}
                 <div className="p-5 shadow-[6px_6px_0_#040508] bg-[#090B10] border-2 border-[#10B981]/35 space-y-2.5">
@@ -1026,10 +1064,11 @@ export default function NewsSection({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {CARBON_OFFICIAL_GALLERY.map((item) => (
+            // The "Ampliar" button below stretches over the whole card (after:inset-0),
+            // so a click anywhere still opens the chart while the h3 stays a heading.
             <div
               key={item.id}
-              onClick={() => setZoomedAsset(item)}
-              className="bg-[#111622] border-2 border-[#2A344B] hover:border-[#00E5FF]/60 overflow-hidden shadow-[4px_4px_0_#040508] flex flex-col justify-between cursor-zoom-in group transition"
+              className="relative bg-[#111622] border-2 border-[#2A344B] hover:border-[#00E5FF]/60 has-[:focus-visible]:border-[#00E5FF]/60 overflow-hidden shadow-[4px_4px_0_#040508] flex flex-col justify-between cursor-zoom-in group transition"
             >
               <div>
                 <div className="p-3 bg-[#F5F2EB] aspect-video flex items-center justify-center overflow-hidden">
@@ -1047,9 +1086,18 @@ export default function NewsSection({
                     >
                       {es ? item.badge_es : item.badge_en}
                     </span>
-                    <span className="font-mono-hud text-[11px] text-[#00E5FF] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setZoomedAsset(item)}
+                      aria-label={
+                        es
+                          ? `Ampliar: ${item.title_es}`
+                          : `Magnify: ${item.title_en}`
+                      }
+                      className="font-mono-hud text-[11px] text-[#00E5FF] font-bold cursor-zoom-in after:absolute after:inset-0"
+                    >
                       {es ? "Ampliar ↗" : "Magnify ↗"}
-                    </span>
+                    </button>
                   </div>
                   <h3 className="font-display text-base sm:text-lg font-bold text-white">
                     {es ? item.title_es : item.title_en}
@@ -1116,53 +1164,71 @@ export default function NewsSection({
       {/* =====================================================================
           LIGHTBOX MODAL FOR OFFICIAL CHARTS
          ===================================================================== */}
-      {zoomedAsset && (
-        <div
-          onClick={() => setZoomedAsset(null)}
-          className="fixed inset-0 z-50 px-backdrop flex items-center justify-center p-4 sm:p-8"
-        >
+      {/* Portaled to <body> at the kit's modal layer (z-[88], like PixelDrawer):
+          inside the page's z-10 foreground layer the backdrop could not cover
+          the floating back-to-top button (z-[80]). Only rendered after a click,
+          so `document` is never touched during SSR. */}
+      {zoomedAsset &&
+        createPortal(
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="max-w-6xl w-full bg-[#111622] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]"
+            onClick={closeZoom}
+            className="fixed inset-0 z-[88] px-backdrop flex items-center justify-center p-4 sm:p-8"
           >
-            <div className="px-5 py-3.5 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between gap-4">
-              <div>
-                <span className="font-mono-hud text-xs font-bold text-[#00E5FF] mr-2">
-                  [{es ? zoomedAsset.badge_es : zoomedAsset.badge_en}]
-                </span>
-                <span className="font-display text-base sm:text-lg font-bold text-white">
-                  {es ? zoomedAsset.title_es : zoomedAsset.title_en}
-                </span>
+            <div
+              ref={zoomPanelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={zoomTitleId}
+              aria-describedby={zoomDescId}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-6xl w-full bg-[#111622] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]"
+            >
+              <div className="px-5 py-3.5 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-mono-hud text-xs font-bold text-[#00E5FF] mr-2">
+                    [{es ? zoomedAsset.badge_es : zoomedAsset.badge_en}]
+                  </span>
+                  <h2
+                    id={zoomTitleId}
+                    className="inline font-display text-base sm:text-lg font-bold text-white"
+                  >
+                    {es ? zoomedAsset.title_es : zoomedAsset.title_en}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeZoom}
+                  aria-label={es ? "Cerrar" : "Close"}
+                  className="shrink-0 p-3 sm:p-1.5 bg-[#090B10] text-white hover:text-[#00E5FF] border border-[#2A344B] cursor-pointer"
+                >
+                  <PixelIcon name="close" size={20} />
+                </button>
               </div>
-              <button
-                onClick={() => setZoomedAsset(null)}
-                className="p-1.5 bg-[#090B10] text-white hover:text-[#00E5FF] border border-[#2A344B] cursor-pointer"
-              >
-                <PixelIcon name="close" size={20} />
-              </button>
+              <div className="p-4 sm:p-6 bg-white flex items-center justify-center max-h-[78vh] overflow-auto">
+                <img
+                  src={zoomedAsset.src}
+                  alt={es ? zoomedAsset.title_es : zoomedAsset.title_en}
+                  className="max-h-[72vh] w-auto object-contain"
+                />
+              </div>
+              <div className="px-5 py-3 bg-[#090B10] border-t border-[#2A344B] text-xs text-[#94A3B8] flex items-center justify-between gap-4">
+                <span id={zoomDescId}>
+                  {es ? zoomedAsset.desc_es : zoomedAsset.desc_en}
+                </span>
+                <a
+                  href={zoomedAsset.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono-hud text-xs font-bold text-[#00E5FF] hover:underline shrink-0 inline-flex items-center gap-1"
+                >
+                  <span>{es ? "Abrir original" : "Open original"}</span>
+                  <PixelIcon name="arrow-up-right" size={14} />
+                </a>
+              </div>
             </div>
-            <div className="p-4 sm:p-6 bg-white flex items-center justify-center max-h-[78vh] overflow-auto">
-              <img
-                src={zoomedAsset.src}
-                alt={es ? zoomedAsset.title_es : zoomedAsset.title_en}
-                className="max-h-[72vh] w-auto object-contain"
-              />
-            </div>
-            <div className="px-5 py-3 bg-[#090B10] border-t border-[#2A344B] text-xs text-[#94A3B8] flex items-center justify-between gap-4">
-              <span>{es ? zoomedAsset.desc_es : zoomedAsset.desc_en}</span>
-              <a
-                href={zoomedAsset.src}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono-hud text-xs font-bold text-[#00E5FF] hover:underline shrink-0 inline-flex items-center gap-1"
-              >
-                <span>{es ? "Abrir original" : "Open original"}</span>
-                <PixelIcon name="arrow-up-right" size={14} />
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -44,9 +44,12 @@ function within(root: Element | null, target: EventTarget | null): boolean {
 const TABBABLE_SELECTOR =
   "a[href], area[href], button, input, select, textarea, iframe, summary, audio[controls], video[controls], [contenteditable], [tabindex]";
 
+const isGroupedRadio = (el: Element): el is HTMLInputElement =>
+  el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
+
 /** Elements reachable with Tab inside `root`, in document order. */
 function getTabbables(root: ParentNode): HTMLElement[] {
-  return Array.from(
+  const found = Array.from(
     root.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)
   ).filter(
     (el) =>
@@ -57,6 +60,17 @@ function getTabbables(root: ParentNode): HTMLElement[] {
       el.getClientRects().length > 0 &&
       window.getComputedStyle(el).visibility !== "hidden"
   );
+  // A radio group is a single Tab stop: its checked radio, else its first one
+  const radioStops: HTMLInputElement[] = [];
+  for (const el of found) {
+    if (!isGroupedRadio(el)) continue;
+    const i = radioStops.findIndex(
+      (stop) => stop.name === el.name && stop.form === el.form
+    );
+    if (i < 0) radioStops.push(el);
+    else if (el.checked && !radioStops[i].checked) radioStops[i] = el;
+  }
+  return found.filter((el) => !isGroupedRadio(el) || radioStops.includes(el));
 }
 
 /* ----------------------------------------------------------------------------
@@ -279,6 +293,10 @@ function isKeyboardFocus(target: EventTarget): boolean {
   }
 }
 
+/**
+ * Hint shown on hover (after `delay`) or keyboard focus. Escape hides it
+ * wherever focus is, so a hover-only tooltip can be dismissed too.
+ */
 export function PixelTooltip({
   content,
   children,
@@ -292,6 +310,8 @@ export function PixelTooltip({
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | undefined>(undefined);
+  // Last Escape that dismissed the tooltip (seen first, in the capture phase)
+  const escapeRef = useRef<KeyboardEvent | null>(null);
   const tooltipId = useId();
   const isClient = useIsClient();
   const hasContent =
@@ -310,16 +330,29 @@ export function PixelTooltip({
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
-  const cancelHover = () => {
+  const cancelHover = useCallback(() => {
     window.clearTimeout(timerRef.current);
     timerRef.current = undefined;
-  };
+  }, []);
 
-  const hide = () => {
+  const hide = useCallback(() => {
     cancelHover();
     setHoverOpen(false);
     setFocusOpen(false);
-  };
+  }, [cancelHover]);
+
+  // Escape dismisses it wherever focus is, also after a plain hover (WCAG
+  // 1.4.13). The key still reaches the focused element afterwards.
+  useEffect(() => {
+    if (!shown) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      escapeRef.current = e;
+      hide();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [shown, hide]);
 
   const child = children as React.ReactElement<DescribableProps>;
   const anchorChild =
@@ -369,10 +402,14 @@ export function PixelTooltip({
           setFocusOpen(false);
         }}
         onKeyDown={(e) => {
-          if (e.key !== "Escape" || !shown) return;
-          // Dismiss the tooltip first; a parent overlay closes on the next Escape
-          e.stopPropagation();
-          hide();
+          // That Escape only dismissed the tooltip (listener above): a parent
+          // overlay closes on the next one
+          if (
+            escapeRef.current === e.nativeEvent &&
+            within(e.currentTarget, e.target)
+          ) {
+            e.stopPropagation();
+          }
         }}
       >
         {anchorChild}
@@ -385,7 +422,9 @@ export function PixelTooltip({
             role="tooltip"
             data-placement={floating.placement}
             style={floating.style}
-            className={`pointer-events-none z-[99] max-w-[16rem] px-2 py-1 font-pixel text-[10px] leading-snug break-words border-2 ${edge} shadow-[3px_3px_0_#040508] ${t.bg} ${t.text}`}
+            // w-max: its width must not depend on `left`, or content growing
+            // near the right edge wraps and creeps back 8px per frame
+            className={`pointer-events-none z-[99] w-max max-w-[min(16rem,calc(100vw-16px))] px-2 py-1 font-pixel text-[10px] leading-snug break-words border-2 ${edge} shadow-[3px_3px_0_#040508] ${t.bg} ${t.text}`}
           >
             {content}
             <span
@@ -433,8 +472,70 @@ export interface PixelPopoverProps {
   closeLabel?: string;
 }
 
+/** Open panels, newest last: keys pressed once focus is lost go to the top one. */
+const openPopovers: HTMLElement[] = [];
+
+/** True when `el` has content to scroll (1px slack for subpixel rounding). */
+const canScroll = (el: HTMLElement) =>
+  el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+
 /**
- * Non-modal dialog: focus moves into the panel on open, Tab flows from the
+ * Tab stops of a popover panel in document order. A body with content to
+ * scroll counts as one: it only takes focus from script (tabIndex -1), but
+ * the keyboard has to reach it to scroll it.
+ */
+function getPanelStops(
+  panel: HTMLElement,
+  body: HTMLElement | null
+): HTMLElement[] {
+  const stops = getTabbables(panel);
+  if (body && canScroll(body)) {
+    const i = stops.findIndex((el) => body.contains(el));
+    stops.splice(i < 0 ? stops.length : i, 0, body);
+  }
+  return stops;
+}
+
+/** The panel stop after `from` in Tab order (`backward`: the one before). */
+function adjacentStop(
+  panel: HTMLElement,
+  body: HTMLElement | null,
+  from: Node,
+  backward: boolean
+): HTMLElement | undefined {
+  const ahead = backward
+    ? Node.DOCUMENT_POSITION_PRECEDING
+    : Node.DOCUMENT_POSITION_FOLLOWING;
+  const way = getPanelStops(panel, body).filter(
+    (el) => el !== from && (from.compareDocumentPosition(el) & ahead) !== 0
+  );
+  return backward ? way[way.length - 1] : way[0];
+}
+
+/**
+ * Tab past either end of the panel, as if it sat right after its trigger in
+ * the page: back to the trigger, or on to the page stop that follows it (that
+ * focus move closes the popover; with nothing there, `close` runs).
+ */
+function leavePanel(
+  panel: HTMLElement,
+  trigger: HTMLElement,
+  backward: boolean,
+  close: () => void
+) {
+  if (backward) {
+    trigger.focus();
+    return;
+  }
+  const page = getTabbables(document.body).filter((el) => !panel.contains(el));
+  const next = page[page.indexOf(trigger) + 1];
+  if (next) next.focus();
+  else close();
+}
+
+/**
+ * Non-modal dialog: focus moves into the panel on open (its first control,
+ * else its body, which the arrow keys then scroll), Tab flows from the
  * trigger into the panel and back out to the page, Escape closes it and
  * returns focus to the trigger, and pressing or focusing outside closes it.
  */
@@ -461,10 +562,12 @@ export function PixelPopover({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  // Raised by the panel's React capture handlers: events from overlays
-  // portaled inside the panel (nested popovers, menus) still count as inside.
-  const pointerInsideRef = useRef(false);
-  const focusInsideRef = useRef(false);
+  // Last press and focus events that went through the panel's React tree, so
+  // overlays portaled inside it (nested popovers, menus) count as inside.
+  // Events, not flags: one stopped before it reaches the document must not
+  // make the next outside press or focus count as inside.
+  const treePressRef = useRef<Event | null>(null);
+  const treeFocusRef = useRef<Event | null>(null);
 
   const baseId = useId();
   const triggerId = `${baseId}-trigger`;
@@ -487,6 +590,11 @@ export function PixelPopover({
     },
     [isOpen, isControlled, onOpenChange]
   );
+  // The document listeners call the latest one without subscribing again
+  const setOpenRef = useRef(setOpen);
+  useIsoLayoutEffect(() => {
+    setOpenRef.current = setOpen;
+  });
 
   // Focus in on open, hand focus back to the trigger on close
   useEffect(() => {
@@ -495,10 +603,17 @@ export function PixelPopover({
     const panelEl = panelRef.current;
     // Next frame: the panel has been measured and is visible (focusable)
     const frame = requestAnimationFrame(() => {
-      if (!panelEl) return;
       const body = bodyRef.current;
-      const first = body ? getTabbables(body)[0] : undefined;
-      (first ?? panelEl).focus({ preventScroll: true });
+      if (!body) return;
+      const first = getTabbables(body)[0];
+      // Below the fold it would scroll the start of the content away: the
+      // body itself takes focus then, ready to scroll with the keyboard
+      const target =
+        first &&
+        first.getBoundingClientRect().top < body.getBoundingClientRect().bottom
+          ? first
+          : body;
+      target.focus({ preventScroll: true });
     });
     return () => {
       cancelAnimationFrame(frame);
@@ -512,51 +627,79 @@ export function PixelPopover({
     };
   }, [shown]);
 
-  // Close on a press or a focus move outside trigger + panel
+  // Close on a press or a focus move outside trigger + panel. Keys pressed
+  // after focus fell to <body> from inside (the focused control unmounted)
+  // still reach the innermost open popover.
   useEffect(() => {
     if (!shown) return;
-    pointerInsideRef.current = false;
-    focusInsideRef.current = false;
-    const isInside = (
-      target: EventTarget | null,
-      flag: React.RefObject<boolean>
-    ) => {
-      const fromPanelTree = flag.current;
-      flag.current = false;
-      return (
-        fromPanelTree ||
-        within(triggerRef.current, target) ||
-        within(panelRef.current, target)
-      );
-    };
+    const panelEl = panelRef.current;
+    if (!panelEl) return;
+    openPopovers.push(panelEl);
+    const close = () => setOpenRef.current(false);
+    const isInside = (e: Event, treeEvent: React.RefObject<Event | null>) =>
+      treeEvent.current === e ||
+      within(triggerRef.current, e.target) ||
+      within(panelEl, e.target);
+
     // Mouse/pen close on press; touch waits for the tap so scrolling does not
     let tapOutside = false;
     const onPointerDown = (e: PointerEvent) => {
-      const inside = isInside(e.target, pointerInsideRef);
+      const inside = isInside(e, treePressRef);
       if (e.pointerType === "touch") tapOutside = !inside;
-      else if (!inside) setOpen(false);
+      else if (!inside) close();
     };
     const onPointerUp = (e: PointerEvent) => {
-      if (e.pointerType === "touch" && tapOutside) setOpen(false);
+      if (e.pointerType === "touch" && tapOutside) close();
       tapOutside = false;
     };
     const onPointerCancel = () => {
       tapOutside = false;
     };
+    let focusInside = true;
     const onFocusIn = (e: FocusEvent) => {
-      if (!isInside(e.target, focusInsideRef)) setOpen(false);
+      focusInside = isInside(e, treeFocusRef);
+      if (!focusInside) close();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const triggerEl = triggerRef.current;
+      if (
+        e.defaultPrevented ||
+        e.isComposing ||
+        !focusInside ||
+        (active && active !== document.body) ||
+        openPopovers[openPopovers.length - 1] !== panelEl
+      ) {
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      } else if (e.key === "Tab" && triggerEl) {
+        // Start over from the panel: Tab to its first stop, Shift+Tab to the
+        // trigger
+        e.preventDefault();
+        const stop = adjacentStop(panelEl, bodyRef.current, panelEl, e.shiftKey);
+        if (stop) stop.focus();
+        else leavePanel(panelEl, triggerEl, e.shiftKey, close);
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("pointerup", onPointerUp);
     document.addEventListener("pointercancel", onPointerCancel);
     document.addEventListener("focusin", onFocusIn);
+    // Capture phase: ahead of page-level key handlers, such as a parent drawer's
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("pointerup", onPointerUp);
       document.removeEventListener("pointercancel", onPointerCancel);
       document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("keydown", onKeyDown, true);
+      const index = openPopovers.lastIndexOf(panelEl);
+      if (index >= 0) openPopovers.splice(index, 1);
     };
-  }, [shown, setOpen]);
+  }, [shown]);
 
   const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (!shown || e.defaultPrevented) return;
@@ -568,7 +711,8 @@ export function PixelPopover({
     } else if (e.key === "Tab" && !e.shiftKey && panelEl) {
       // The panel lives at the end of <body>: Tab continues inside it
       e.preventDefault();
-      (getTabbables(panelEl)[0] ?? panelEl).focus();
+      const body = bodyRef.current;
+      (adjacentStop(panelEl, body, panelEl, false) ?? body ?? panelEl).focus();
     }
   };
 
@@ -580,31 +724,27 @@ export function PixelPopover({
       setOpen(false);
       return;
     }
-    const panelEl = panelRef.current;
+    const panelEl = e.currentTarget;
     const triggerEl = triggerRef.current;
-    if (e.key !== "Tab" || !panelEl || !triggerEl) return;
-    const items = getTabbables(panelEl);
-    const active = document.activeElement;
-    if (e.shiftKey) {
-      // Before the first item: back to the trigger, the popover stays open
-      if (active === panelEl || active === items[0]) {
-        e.preventDefault();
-        triggerEl.focus();
-      }
+    const from = e.target;
+    // Overlays portaled out of the panel (nested popovers) handle their own Tab
+    if (
+      e.key !== "Tab" ||
+      !triggerEl ||
+      !(from instanceof Node) ||
+      !panelEl.contains(from)
+    ) {
       return;
     }
-    const atEnd =
-      items.length === 0 ? active === panelEl : active === items[items.length - 1];
-    if (!atEnd) return;
-    // After the last item: resume the page order after the trigger (that
-    // focus move closes the popover); with nothing after it, just close.
+    const stop = adjacentStop(panelEl, bodyRef.current, from, e.shiftKey);
+    // A regular Tab stop: the browser gets there by itself
+    if (stop && stop.tabIndex >= 0) return;
+    // The body (focusable from script only), or out of the panel: before its
+    // first stop back to the trigger (it stays open), after its last one on
+    // to the page
     e.preventDefault();
-    const page = getTabbables(document.body).filter(
-      (el) => !panelEl.contains(el)
-    );
-    const next = page[page.indexOf(triggerEl) + 1];
-    if (next) next.focus();
-    else setOpen(false);
+    if (stop) stop.focus();
+    else leavePanel(panelEl, triggerEl, e.shiftKey, () => setOpen(false));
   };
 
   return (
@@ -638,11 +778,11 @@ export function PixelPopover({
             tabIndex={-1}
             data-placement={floating.placement}
             onKeyDown={onPanelKeyDown}
-            onPointerDownCapture={() => {
-              pointerInsideRef.current = true;
+            onPointerDownCapture={(e) => {
+              treePressRef.current = e.nativeEvent;
             }}
-            onFocusCapture={() => {
-              focusInsideRef.current = true;
+            onFocusCapture={(e) => {
+              treeFocusRef.current = e.nativeEvent;
             }}
             style={{ ...floating.style, outline: `2px solid ${accent}` }}
             className={`z-[89] animate-px-pop flex flex-col max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] bg-[#111622] border-2 border-[#090B10] shadow-[5px_5px_0_#040508] ${widthClassName} ${className}`}
@@ -672,7 +812,10 @@ export function PixelPopover({
             )}
             <div
               ref={bodyRef}
-              className="min-h-0 overflow-y-auto p-3 font-mono-hud text-xs leading-relaxed text-[#CBD5E1]"
+              // Takes focus when nothing inside it can, so the keyboard
+              // scrolls it; the ring is inset to clear the title bar
+              tabIndex={-1}
+              className="min-h-0 overflow-y-auto p-3 font-mono-hud text-xs leading-relaxed text-[#CBD5E1] focus-visible:outline-offset-[-4px]"
             >
               {children}
             </div>

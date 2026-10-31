@@ -1,11 +1,18 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
-import { PixelIcon, copyTextToClipboard, prefersReducedMotion } from "@mixiuh/pixel-ui";
+import React, { useCallback, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  PixelIcon,
+  copyTextToClipboard,
+  prefersReducedMotion,
+  usePixelDialog,
+} from "@mixiuh/pixel-ui";
 import {
   INITIAL_FORUM_THREADS,
   INITIAL_EP02_PROPOSALS,
   type ForumCategory,
+  type ForumComment,
   type ForumThread,
   type Ep02Proposal,
 } from "@/data/forumData";
@@ -45,6 +52,13 @@ function formatInlineCode(text: string): React.ReactNode {
   });
 }
 
+// What this browser keeps between visits. Vote counts are never stored: the
+// shown count is the base count from the data files plus the visitor's flag.
+const UPVOTES_KEY = "mlabs_upvotes_v1";
+const PROPOSAL_VOTES_KEY = "mlabs_prop_votes_v1";
+const CUSTOM_THREADS_KEY = "mlabs_custom_threads_v1";
+const COMMENTS_KEY = "mlabs_comments_v1";
+
 function readStoredJson<T>(key: string): T | null {
   try {
     const raw = window.localStorage.getItem(key);
@@ -52,6 +66,109 @@ function readStoredJson<T>(key: string): T | null {
   } catch {
     return null;
   }
+}
+
+/** Best effort: storage can be full or blocked (private mode, disabled cookies). */
+function writeStoredJson(key: string, value: unknown): void {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // The in-memory state still updates; it just won't survive a reload.
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Saved vote flags as { [id]: true }; anything malformed is ignored. */
+function readStoredFlags(key: string): Record<string, boolean> {
+  const saved = readStoredJson<unknown>(key);
+  const flags: Record<string, boolean> = {};
+  if (isRecord(saved)) {
+    for (const [id, on] of Object.entries(saved)) {
+      if (on === true) flags[id] = true;
+    }
+  }
+  return flags;
+}
+
+function toggleFlag(
+  flags: Record<string, boolean>,
+  id: string
+): Record<string, boolean> {
+  const next = { ...flags };
+  if (next[id]) delete next[id];
+  else next[id] = true;
+  return next;
+}
+
+function isStoredComment(value: unknown): value is ForumComment {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.author === "string" &&
+    typeof value.role === "string" &&
+    typeof value.handle === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.body_es === "string" &&
+    typeof value.body_en === "string" &&
+    typeof value.upvotes === "number"
+  );
+}
+
+/** Comments posted from this browser, keyed by thread id. */
+function readStoredComments(): Record<string, ForumComment[]> {
+  const saved = readStoredJson<unknown>(COMMENTS_KEY);
+  const byThread: Record<string, ForumComment[]> = {};
+  if (isRecord(saved)) {
+    for (const [threadId, list] of Object.entries(saved)) {
+      if (!Array.isArray(list)) continue;
+      const valid = list.filter(isStoredComment);
+      if (valid.length > 0) byThread[threadId] = valid;
+    }
+  }
+  return byThread;
+}
+
+/** Checks the fields the list, search and reader need before rendering a saved thread. */
+function isStoredThread(value: unknown): value is ForumThread {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.title_es === "string" &&
+    typeof value.title_en === "string" &&
+    typeof value.excerpt_es === "string" &&
+    typeof value.excerpt_en === "string" &&
+    typeof value.upvotes === "number" &&
+    Array.isArray(value.tags) &&
+    value.tags.every((tag) => typeof tag === "string") &&
+    Array.isArray(value.content_es) &&
+    Array.isArray(value.content_en) &&
+    Array.isArray(value.comments)
+  );
+}
+
+/** Threads the visitor published from this browser, newest first. */
+function readStoredThreads(): ForumThread[] {
+  const saved = readStoredJson<unknown>(CUSTOM_THREADS_KEY);
+  return Array.isArray(saved) ? saved.filter(isStoredThread) : [];
+}
+
+/** Renders its children into <body>, outside the page's z-10 foreground layer. */
+function BodyPortal({ children }: { children: React.ReactNode }) {
+  return createPortal(children, document.body);
+}
+
+/** Id for a thread or comment posted from this browser (submit handlers only). */
+function localPostId(prefix: string): string {
+  return `${prefix}-${Date.now()}`;
+}
+
+/** Today in the visitor's time zone as YYYY-MM-DD, the forum's date format. */
+function localIsoDate(date: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 export default function ForumSection({ lang, onJumpToArena, released }: Props) {
@@ -250,7 +367,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     ];
   }, [rel]);
 
-  const defaultProposals = useMemo<Ep02Proposal[]>(() => {
+  const proposals = useMemo<Ep02Proposal[]>(() => {
     return INITIAL_EP02_PROPOSALS.filter((p) => {
       if (p.id === "prop-cc01-overfit" && !rel.cc01) return false;
       return true;
@@ -258,37 +375,51 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   }, [rel]);
 
   // The forum only mounts on the client (the prerendered view is always the home
-  // page), so saved votes/threads can be read directly in the state initializers.
-  const [threads, setThreads] = useState<ForumThread[]>(() => {
-    const saved = readStoredJson<ForumThread[]>("mlabs_custom_threads_v1");
-    return Array.isArray(saved) ? [...saved, ...defaultThreads] : defaultThreads;
-  });
-  const [proposals, setProposals] = useState<Ep02Proposal[]>(defaultProposals);
+  // page), so saved threads, comments and vote flags are read directly in the
+  // state initializers. Everything is re-read on mount, so the Hilos/Glosario
+  // switch (which unmounts the forum) or a reload loses nothing.
+  const [customThreads, setCustomThreads] =
+    useState<ForumThread[]>(readStoredThreads);
+  const [postedComments, setPostedComments] =
+    useState<Record<string, ForumComment[]>>(readStoredComments);
+  const threads = useMemo<ForumThread[]>(
+    () =>
+      [...customThreads, ...defaultThreads].map((t) => {
+        const posted = postedComments[t.id];
+        return posted?.length
+          ? { ...t, comments: [...t.comments, ...posted] }
+          : t;
+      }),
+    [customThreads, defaultThreads, postedComments]
+  );
   const [activeCategory, setActiveCategory] = useState<ForumCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string>(
     defaultThreads[0]?.id || "thread-ep02-dossier"
   );
-  const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>(
-    () => readStoredJson<Record<string, boolean>>("mlabs_upvotes_v1") ?? {}
+  const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>(() =>
+    readStoredFlags(UPVOTES_KEY)
   );
   const [votedProposals, setVotedProposals] = useState<Record<string, boolean>>(
-    () => readStoredJson<Record<string, boolean>>("mlabs_prop_votes_v1") ?? {}
+    () => readStoredFlags(PROPOSAL_VOTES_KEY)
   );
+  // Shown counts = base count + 1 when the visitor's saved flag is set
+  const threadVotes = (t: ForumThread) => t.upvotes + (upvotedIds[t.id] ? 1 : 0);
 
-  // On phones the thread detail sits below the list: bring it into view on select
   const threadDetailRef = useRef<HTMLDivElement | null>(null);
+  const revealThreadDetail = () => {
+    requestAnimationFrame(() => {
+      threadDetailRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "start",
+      });
+      threadDetailRef.current?.focus({ preventScroll: true });
+    });
+  };
+  // On phones the thread detail sits below the list: bring it into view on select
   const selectThread = (id: string) => {
     setSelectedThreadId(id);
-    if (window.matchMedia("(max-width: 1023px)").matches) {
-      requestAnimationFrame(() => {
-        threadDetailRef.current?.scrollIntoView({
-          behavior: prefersReducedMotion() ? "auto" : "smooth",
-          block: "start",
-        });
-        threadDetailRef.current?.focus({ preventScroll: true });
-      });
-    }
+    if (window.matchMedia("(max-width: 1023px)").matches) revealThreadDetail();
   };
 
   // Comment composer state
@@ -307,6 +438,20 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     `EP0${latestEp}, Benchmark, Zero-Shot`
   );
   const [newBody, setNewBody] = useState("");
+
+  // The modal is a real dialog: focus moves in, Tab stays inside, Escape closes,
+  // page scroll locks and focus returns to the opener on close.
+  const closeNewThreadModal = useCallback(
+    () => setShowNewThreadModal(false),
+    []
+  );
+  const newThreadDialogRef = usePixelDialog<HTMLDivElement>(
+    showNewThreadModal,
+    closeNewThreadModal
+  );
+  // Pairs each visible label with its control, and the dialog with its title
+  const formId = useId();
+  const fieldId = (name: string) => `${formId}-${name}`;
 
   const filteredThreads = useMemo(() => {
     return threads.filter((t) => {
@@ -355,41 +500,31 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       ?.prompt_verbatim;
   }, [activeThread, activeThreadEpisode]);
 
+  // Votes only toggle the visitor's flag; the shown count is derived from it
   const handleUpvoteThread = (id: string) => {
-    const already = !!upvotedIds[id];
-    const nextUpvoted = { ...upvotedIds, [id]: !already };
-    setUpvotedIds(nextUpvoted);
-    localStorage.setItem("mlabs_upvotes_v1", JSON.stringify(nextUpvoted));
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, upvotes: t.upvotes + (already ? -1 : 1) } : t
-      )
-    );
+    const next = toggleFlag(upvotedIds, id);
+    setUpvotedIds(next);
+    writeStoredJson(UPVOTES_KEY, next);
   };
 
   const handleVoteProposal = (id: string) => {
-    const already = !!votedProposals[id];
-    const nextVoted = { ...votedProposals, [id]: !already };
-    setVotedProposals(nextVoted);
-    localStorage.setItem("mlabs_prop_votes_v1", JSON.stringify(nextVoted));
-    setProposals((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, votes: p.votes + (already ? -1 : 1) } : p
-      )
-    );
+    const next = toggleFlag(votedProposals, id);
+    setVotedProposals(next);
+    writeStoredJson(PROPOSAL_VOTES_KEY, next);
   };
 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentBody.trim()) return;
+    const body = commentBody.trim();
+    if (!body || !activeThread) return;
     const authorName =
       commentAuthor.trim() ||
       (lang === "es" ? "Ingeniero Invitado" : "Guest Engineer");
     const roleName =
       commentRole.trim() ||
       (lang === "es" ? "Comunidad Mixiuh Labs" : "Mixiuh Labs Community");
-    const newComment = {
-      id: `c-${Date.now()}`,
+    const newComment: ForumComment = {
+      id: localPostId("c"),
       author: authorName,
       role: roleName,
       handle: `@${
@@ -398,39 +533,46 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
           .replace(/[^a-z0-9]/g, "")
           .slice(0, 12) || "dev"
       }`,
-      createdAt: lang === "es" ? "Justo ahora" : "Just now",
-      body_es: commentBody.trim(),
-      body_en: commentBody.trim(),
+      createdAt: localIsoDate(),
+      body_es: body,
+      body_en: body,
       upvotes: 1,
     };
+    const threadId = activeThread.id;
 
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === activeThread.id
-          ? { ...t, comments: [...t.comments, newComment] }
-          : t
-      )
-    );
+    setPostedComments((prev) => ({
+      ...prev,
+      [threadId]: [...(prev[threadId] ?? []), newComment],
+    }));
+    // Re-read before writing so comments posted from another tab are kept
+    const stored = readStoredComments();
+    writeStoredJson(COMMENTS_KEY, {
+      ...stored,
+      [threadId]: [...(stored[threadId] ?? []), newComment],
+    });
     setCommentBody("");
   };
 
   const handleCreateThread = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newBody.trim()) return;
+    const title = newTitle.trim();
+    const body = newBody.trim();
+    if (!title || !body) return;
+    const id = localPostId("custom");
     const created: ForumThread = {
-      id: `custom-${Date.now()}`,
-      slug: `custom-${Date.now()}`,
+      id,
+      slug: id,
       category: newCategory,
       badge_es: "APORTE DE LA COMUNIDAD",
       badge_en: "COMMUNITY SUBMISSION",
-      title_es: newTitle.trim(),
-      title_en: newTitle.trim(),
-      excerpt_es: newBody.trim().slice(0, 160),
-      excerpt_en: newBody.trim().slice(0, 160),
+      title_es: title,
+      title_en: title,
+      excerpt_es: body.slice(0, 160),
+      excerpt_en: body.slice(0, 160),
       author: newAuthor.trim() || "Miembro del Lab",
       authorRole_es: "Investigador Invitado",
       authorRole_en: "Guest Researcher",
-      createdAt: "2026-10-21",
+      createdAt: localIsoDate(),
       readTime: "3 min",
       upvotes: 1,
       views: 1,
@@ -438,27 +580,21 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
-      content_es: newBody.trim().split("\n\n"),
-      content_en: newBody.trim().split("\n\n"),
+      content_es: body.split("\n\n"),
+      content_en: body.split("\n\n"),
       comments: [],
     };
 
-    setThreads((prev) => [created, ...prev]);
-    try {
-      const existing = JSON.parse(
-        localStorage.getItem("mlabs_custom_threads_v1") || "[]"
-      );
-      localStorage.setItem(
-        "mlabs_custom_threads_v1",
-        JSON.stringify([created, ...existing])
-      );
-    } catch {
-      // ignore
-    }
-    setSelectedThreadId(created.id);
+    setCustomThreads((prev) => [created, ...prev]);
+    // Re-read before writing so threads posted from another tab are kept
+    writeStoredJson(CUSTOM_THREADS_KEY, [created, ...readStoredThreads()]);
     setShowNewThreadModal(false);
     setNewTitle("");
     setNewBody("");
+    // Open the new thread and move focus to it: the reader is off-screen from
+    // the trigger on every layout (APG: focus may go to the item just created)
+    setSelectedThreadId(created.id);
+    revealThreadDetail();
   };
 
   const categories: { id: ForumCategory; label_es: string; label_en: string }[] =
@@ -520,6 +656,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
           </div>
 
           <button
+            type="button"
+            aria-haspopup="dialog"
             onClick={() => setShowNewThreadModal(true)}
             className="self-start lg:self-end px-5 py-3 bg-[#00E5FF] hover:brightness-110 text-[#090B10] font-mono-hud text-xs font-bold transition flex items-center gap-2 shadow-[4px_4px_0_#040508] cursor-pointer"
           >
@@ -619,7 +757,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                         ? "Votar por este reto"
                         : "Vote for this test"}
                     </span>
-                    <span>{prop.votes} pts</span>
+                    <span>{prop.votes + (voted ? 1 : 0)} pts</span>
                   </button>
                 </div>
               );
@@ -651,6 +789,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label={lang === "es" ? "Buscar en el foro" : "Search the forum"}
               placeholder={
                 lang === "es"
                   ? "Buscar Opus, Verlet, tokens, CCD, Uint32Array..."
@@ -726,7 +865,10 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                           isUpvoted ? "text-[#10B981] font-bold" : "text-[#00E5FF]"
                         }
                       >
-                        ▲ {thread.upvotes}
+                        <span aria-hidden="true">▲</span> {threadVotes(thread)}
+                        <span className="sr-only">
+                          {lang === "es" ? " votos" : " votes"}
+                        </span>
                       </span>
                       <span>
                         {thread.comments.length}{" "}
@@ -778,7 +920,14 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => handleUpvoteThread(activeThread.id)}
+                    aria-pressed={!!upvotedIds[activeThread.id]}
+                    aria-label={
+                      lang === "es"
+                        ? `Votar este hilo (${threadVotes(activeThread)} votos)`
+                        : `Upvote this thread (${threadVotes(activeThread)} votes)`
+                    }
                     className={`px-3.5 py-1.5 font-mono-hud text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                       upvotedIds[activeThread.id]
                         ? "bg-[#10B981] text-[#090B10] border-[#10B981]"
@@ -786,7 +935,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     }`}
                   >
                     <PixelIcon name="arrow-up" size={14} />
-                    <span>{activeThread.upvotes}</span>
+                    <span>{threadVotes(activeThread)}</span>
                   </button>
                 </div>
               </div>
@@ -954,9 +1103,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                 {/* Add Comment Form */}
                 <form
                   onSubmit={handleAddComment}
+                  aria-labelledby={fieldId("comment-heading")}
                   className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/25 space-y-3"
                 >
-                  <div className="text-xs font-mono-hud text-white font-bold">
+                  <div
+                    id={fieldId("comment-heading")}
+                    className="text-xs font-mono-hud text-white font-bold"
+                  >
                     {lang === "es"
                       ? "Agregar comentario o reporte de prueba"
                       : "Add comment or benchmark report"}
@@ -966,6 +1119,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       type="text"
                       value={commentAuthor}
                       onChange={(e) => setCommentAuthor(e.target.value)}
+                      aria-label={
+                        lang === "es" ? "Tu nombre o alias" : "Your name or handle"
+                      }
                       placeholder={
                         lang === "es" ? "Tu nombre o alias" : "Your name or handle"
                       }
@@ -975,6 +1131,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       type="text"
                       value={commentRole}
                       onChange={(e) => setCommentRole(e.target.value)}
+                      aria-label={lang === "es" ? "Especialidad" : "Role"}
                       placeholder={
                         lang === "es"
                           ? "Especialidad (ej. Frontend, IA, Shaders)"
@@ -985,8 +1142,10 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   </div>
                   <textarea
                     rows={3}
+                    required
                     value={commentBody}
                     onChange={(e) => setCommentBody(e.target.value)}
+                    aria-label={lang === "es" ? "Comentario" : "Comment"}
                     placeholder={
                       lang === "es"
                         ? "Escribe tu observacion sobre el codigo, propon una variacion del prompt o comparte que modelo probaste..."
@@ -1010,130 +1169,187 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         </div>
       </div>
 
-      {/* Modal for Creating a New Thread */}
+      {/* Modal for Creating a New Thread. Portaled to <body> at the kit's modal
+          layer (z-[88], like PixelDrawer): inside the page's z-10 foreground
+          layer the backdrop could not cover the floating back-to-top button
+          (z-[80]). Only rendered after a click, so `document` is never touched
+          during SSR. The panel scrolls when it is taller than the screen. */}
       {showNewThreadModal && (
-        <div className="fixed inset-0 z-50 px-backdrop flex items-center justify-center p-4">
-          <div className="w-full max-w-xl bg-[#111622] border-2 border-[#00E5FF]/40 p-6 shadow-[6px_6px_0_#040508]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#2A344B]">
-              <h3 className="font-display text-lg font-bold text-white">
-                {lang === "es"
-                  ? "Publicar Nuevo Hilo / Proponer Experimento"
-                  : "Publish New Thread / Propose Experiment"}
-              </h3>
-              <button
-                onClick={() => setShowNewThreadModal(false)}
-                className="p-1.5 bg-[#1A2132] text-[#94A3B8] hover:text-white cursor-pointer"
-              >
-                <PixelIcon name="close" size={16} />
-              </button>
-            </div>
+        <BodyPortal>
+          <div className="fixed inset-0 z-[88] px-backdrop flex items-center justify-center p-4">
+            <div
+              ref={newThreadDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={fieldId("dialog-title")}
+              className="w-full max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-[#111622] border-2 border-[#00E5FF]/40 p-6 shadow-[6px_6px_0_#040508]"
+            >
+              <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#2A344B]">
+                <h2
+                  id={fieldId("dialog-title")}
+                  className="font-display text-lg font-bold text-white"
+                >
+                  {lang === "es"
+                    ? "Publicar Nuevo Hilo / Proponer Experimento"
+                    : "Publish New Thread / Propose Experiment"}
+                </h2>
+                <button
+                  type="button"
+                  onClick={closeNewThreadModal}
+                  aria-label={lang === "es" ? "Cerrar" : "Close"}
+                  className="shrink-0 p-3.5 sm:p-1.5 bg-[#1A2132] text-[#94A3B8] hover:text-white cursor-pointer"
+                >
+                  <PixelIcon name="close" size={16} />
+                </button>
+              </div>
 
-            <form onSubmit={handleCreateThread} className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleCreateThread} className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor={fieldId("author")}
+                      className="block text-xs font-mono-hud text-[#94A3B8] mb-1"
+                    >
+                      {lang === "es" ? "Autor / Alias" : "Author / Handle"}
+                    </label>
+                    <input
+                      id={fieldId("author")}
+                      type="text"
+                      value={newAuthor}
+                      onChange={(e) => setNewAuthor(e.target.value)}
+                      placeholder={
+                        lang === "es" ? "Ej. Kevin Gonzalez" : "E.g. Kevin Gonzalez"
+                      }
+                      className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={fieldId("category")}
+                      className="block text-xs font-mono-hud text-[#94A3B8] mb-1"
+                    >
+                      {lang === "es" ? "Categoria" : "Category"}
+                    </label>
+                    <select
+                      id={fieldId("category")}
+                      value={newCategory}
+                      onChange={(e) =>
+                        setNewCategory(
+                          e.target.value as Exclude<ForumCategory, "all">
+                        )
+                      }
+                      className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
+                    >
+                      <option value="propuestas">
+                        {lang === "es"
+                          ? `Propuestas Episodio ${nextEp}`
+                          : `Episode ${nextEp} Proposals`}
+                      </option>
+                      <option value="benchmarks">
+                        {lang === "es"
+                          ? "Dossiers y Benchmarks"
+                          : "Dossiers & Benchmarks"}
+                      </option>
+                      <option value="autopsias">
+                        {lang === "es" ? "Autopsias de Codigo" : "Code Autopsies"}
+                      </option>
+                      <option value="prompts">
+                        {lang === "es"
+                          ? "Prompts y Reproducibilidad"
+                          : "Prompts & Reproducibility"}
+                      </option>
+                      <option value="pipeline">
+                        {lang === "es"
+                          ? "Pipeline Mixiuh Labs"
+                          : "Mixiuh Labs Pipeline"}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
-                    {lang === "es" ? "Autor / Alias" : "Author / Handle"}
+                  <label
+                    htmlFor={fieldId("title")}
+                    className="block text-xs font-mono-hud text-[#94A3B8] mb-1"
+                  >
+                    {lang === "es" ? "Titulo del Hilo" : "Thread Title"}
                   </label>
                   <input
+                    id={fieldId("title")}
                     type="text"
-                    value={newAuthor}
-                    onChange={(e) => setNewAuthor(e.target.value)}
-                    placeholder="Ej. Kevin Gonzalez"
+                    required
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder={
+                      lang === "es"
+                        ? `Ej. Propuesta EP${nextEp}: Gemini 4 Argon vs GPT-5.4 High en WebGPU`
+                        : `E.g. EP${nextEp} Proposal: Gemini 4 Argon vs GPT-5.4 High in WebGPU`
+                    }
+                    className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs sm:text-sm text-white"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor={fieldId("tags")}
+                    className="block text-xs font-mono-hud text-[#94A3B8] mb-1"
+                  >
+                    {lang === "es"
+                      ? "Etiquetas (separadas por coma)"
+                      : "Tags (comma-separated)"}
+                  </label>
+                  <input
+                    id={fieldId("tags")}
+                    type="text"
+                    value={newTags}
+                    onChange={(e) => setNewTags(e.target.value)}
                     className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
-                    {lang === "es" ? "Categoria" : "Category"}
-                  </label>
-                  <select
-                    value={newCategory}
-                    onChange={(e) =>
-                      setNewCategory(
-                        e.target.value as Exclude<ForumCategory, "all">
-                      )
-                    }
-                    className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
+                  <label
+                    htmlFor={fieldId("body")}
+                    className="block text-xs font-mono-hud text-[#94A3B8] mb-1"
                   >
-                    <option value="propuestas">Propuestas Episodio 03</option>
-                    <option value="benchmarks">Dossiers y Benchmarks</option>
-                    <option value="autopsias">Autopsias de Codigo</option>
-                    <option value="prompts">Prompts y Reproducibilidad</option>
-                    <option value="pipeline">Pipeline Mixiuh Labs</option>
-                  </select>
+                    {lang === "es"
+                      ? "Desarrollo Tecnico / Reglas del Reto"
+                      : "Technical Breakdown / Challenge Spec"}
+                  </label>
+                  <textarea
+                    id={fieldId("body")}
+                    rows={5}
+                    required
+                    value={newBody}
+                    onChange={(e) => setNewBody(e.target.value)}
+                    placeholder={
+                      lang === "es"
+                        ? "Describe la hipotesis, el prompt utilizado o las condiciones de la prueba..."
+                        : "Describe the hypothesis, prompt used, or benchmark conditions..."
+                    }
+                    className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs sm:text-sm text-white"
+                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
-                  {lang === "es" ? "Titulo del Hilo" : "Thread Title"}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder={
-                    lang === "es"
-                      ? "Ej. Propuesta EP03: Gemini 4 Argon vs GPT-5.4 High en WebGPU"
-                      : "E.g. EP03 Proposal: Gemini 4 Argon vs GPT-5.4 High in WebGPU"
-                  }
-                  className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs sm:text-sm text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
-                  {lang === "es"
-                    ? "Etiquetas (separadas por coma)"
-                    : "Tags (comma-separated)"}
-                </label>
-                <input
-                  type="text"
-                  value={newTags}
-                  onChange={(e) => setNewTags(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
-                  {lang === "es"
-                    ? "Desarrollo Tecnico / Reglas del Reto"
-                    : "Technical Breakdown / Challenge Spec"}
-                </label>
-                <textarea
-                  rows={5}
-                  required
-                  value={newBody}
-                  onChange={(e) => setNewBody(e.target.value)}
-                  placeholder={
-                    lang === "es"
-                      ? "Describe la hipotesis, el prompt utilizado o las condiciones de la prueba..."
-                      : "Describe the hypothesis, prompt used, or benchmark conditions..."
-                  }
-                  className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs sm:text-sm text-white"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNewThreadModal(false)}
-                  className="px-4 py-2 bg-[#1A2132] text-xs font-mono-hud text-[#94A3B8] cursor-pointer"
-                >
-                  {lang === "es" ? "Cancelar" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer"
-                >
-                  {lang === "es" ? "Publicar en el Foro" : "Publish to Forum"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeNewThreadModal}
+                    className="px-4 py-2 bg-[#1A2132] text-xs font-mono-hud text-[#94A3B8] cursor-pointer"
+                  >
+                    {lang === "es" ? "Cancelar" : "Cancel"}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer"
+                  >
+                    {lang === "es" ? "Publicar en el Foro" : "Publish to Forum"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </BodyPortal>
       )}
     </section>
   );

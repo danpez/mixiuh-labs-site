@@ -9,11 +9,15 @@ const inter = Inter({
   display: "swap",
 });
 
+// Only a late fallback in the pixel-ui heading stack (after Pixelify Sans and its
+// Arial-based metric fallback), so it is not preloaded: browsers that never fall
+// back to it no longer download its four weights on first visit.
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["600", "700", "800", "900"],
   variable: "--font-poppins",
   display: "swap",
+  preload: false,
 });
 
 const spaceMono = Space_Mono({
@@ -81,14 +85,8 @@ export const metadata: Metadata = {
       "Benchmarks zero-shot de IA con la factura real de tokens: juega cada demo en tu navegador (Claude 5.5, Gemini 4 Argon, Superpowers Kit), lee las autopsias del foro y descarga gratis Mixiuh Pixel UI.",
     url: "https://labs.mixiuh.online",
     siteName: "Mixiuh Labs",
-    images: [
-      {
-        url: "/brand/thumbs/ep02_x-card_1200x675.png",
-        width: 1200,
-        height: 675,
-        alt: "Mixiuh Labs EP02 - Gemini 4 Argon vs Claude Opus 5.5",
-      },
-    ],
+    // The share image comes from src/app/opengraph-image.tsx (and twitter-image.tsx):
+    // an evergreen generated card, so no episode art goes stale here.
     locale: "es_MX",
     alternateLocale: ["en_US"],
     type: "website",
@@ -98,7 +96,6 @@ export const metadata: Metadata = {
     title: "Mixiuh Labs | Aqui no se opina: se prueba",
     description:
       "Benchmarks zero-shot de IA, demos jugables en vivo, telemetria de tokens, foro de ingenieria y la libreria Mixiuh Pixel UI.",
-    images: ["/brand/thumbs/ep02_x-card_1200x675.png"],
   },
 };
 

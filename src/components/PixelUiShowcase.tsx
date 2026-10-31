@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { EP04_CHALLENGES } from "@/data/ep04Data";
 import {
   PixelButton,
@@ -179,6 +179,16 @@ const SPRITE_LIST: {
   { id: "pocket-lab", name: "TERMINAL", role_es: "Estacion 3D", role_en: "3D Station" },
 ];
 
+/** Icon color swatches. The names give each color-only button an accessible name. */
+const ICON_COLORS: { hex: string; es: string; en: string }[] = [
+  { hex: "#00E5FF", es: "Cian", en: "Cyan" },
+  { hex: "#FFD100", es: "Amarillo", en: "Yellow" },
+  { hex: "#10B981", es: "Esmeralda", en: "Emerald" },
+  { hex: "#FF3355", es: "Coral", en: "Coral" },
+  { hex: "#A855F7", es: "Violeta", en: "Violet" },
+  { hex: "#F5F2EB", es: "Tiza", en: "Chalk" },
+];
+
 export interface PixelUiShowcaseProps {
   lang: "es" | "en";
   cursorStyle?: PixelCursorStyle;
@@ -195,6 +205,8 @@ export default function PixelUiShowcase({
   onChangeAmbient,
 }: PixelUiShowcaseProps) {
   const { enabled: soundEnabled, play, toggle: toggleSound } = usePixelSound();
+  // Prefix for the ids that label each selector group and SFX card
+  const uid = useId();
   const [tunerAngle, setTunerAngle] = useState(90);
   const [switchA, setSwitchA] = useState(true);
   const [switchB, setSwitchB] = useState(false);
@@ -274,6 +286,24 @@ pixelToast.show({ title: "GUARDADO", tone: "emerald", icon: "check" });`;
     setTimeout(() => setCopiedSnippet(null), 2000);
   };
 
+  // Screen-reader confirmation for copyCode (sprite cards and most COPY JSX
+  // buttons have no visible feedback; the icon message is not a live region).
+  const copyStatus = (() => {
+    if (!copiedSnippet) return "";
+    const es = lang === "es";
+    if (copiedSnippet.startsWith("sprite-")) {
+      const name =
+        SPRITE_LIST.find((sp) => `sprite-${sp.id}` === copiedSnippet)?.name ??
+        "sprite";
+      return es ? `JSX de ${name} copiado` : `${name} JSX copied`;
+    }
+    if (copiedSnippet.startsWith("icon-")) {
+      const name = copiedSnippet.slice("icon-".length);
+      return es ? `JSX del icono ${name} copiado` : `${name} icon JSX copied`;
+    }
+    return es ? "Código copiado" : "Code copied";
+  })();
+
   const categoryPool =
     iconCategory === "all"
       ? ALL_PIXEL_ICON_NAMES
@@ -298,6 +328,10 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
   return (
     <div className="py-8 sm:py-10 space-y-10 relative z-10">
+      {/* First child so it never changes the space-y margins of the layout */}
+      <p role="status" className="sr-only">
+        {copyStatus}
+      </p>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         {/* HERO BANNER — RETRO CRT COMPUTER & OPEN SOURCE PIXEL UI */}
         <div className="bg-[#FFD100] text-[#090B10] border-3 border-[#090B10] shadow-[8px_8px_0_#040508] p-6 sm:p-10 relative overflow-hidden">
@@ -453,7 +487,10 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             {/* Custom Pixel Cursor Selector */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-pixel text-xs text-[#FFD100]">
+                <span
+                  id={`${uid}-cursor-label`}
+                  className="font-pixel text-xs text-[#FFD100]"
+                >
                   A. 6 CURSORES PIXEL-ART NATIVOS (USE_PIXEL_CURSOR)
                 </span>
                 <PixelIcon name="cursor-hand" size={16} color="#FFD100" />
@@ -463,13 +500,18 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   ? "Haz clic en cualquiera de los 6 estilos para cambiar inmediatamente el cursor de toda la web (incluye estado normal + mano pixelada sobre botones):"
                   : "Click any of the 6 styles to immediately switch the cursor across the entire website (includes normal state + pixel hand on buttons):"}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div
+                role="group"
+                aria-labelledby={`${uid}-cursor-label`}
+                className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
+              >
                 {PIXEL_CURSOR_PRESETS.map((c) => {
                   const active = cursorStyle === c.id;
                   return (
                     <button
                       key={c.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => onChangeCursor?.(c.id)}
                       className={`p-3 border-2 text-left transition cursor-pointer ${
                         active
@@ -499,7 +541,10 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             {/* Procedural Background AI Simulation Mode Selector */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-pixel text-xs text-[#00E5FF]">
+                <span
+                  id={`${uid}-ambient-label`}
+                  className="font-pixel text-xs text-[#00E5FF]"
+                >
                   B. FONDO PROCEDURAL CON AGENTES IA (PIXEL_AMBIENT_BG)
                 </span>
                 <PixelIcon name="brain-ai" size={16} color="#00E5FF" />
@@ -509,7 +554,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   ? "Observa el fondo de la pagina: pequeños bots pixel-art (Carbon, Argon, Opus, Haiku) patrullan la grilla, conversan entre si enviando paquetes de datos, construyen nodos y escanean tu cursor al acercarte:"
                   : "Look at the page background: tiny pixel-art bots (Carbon, Argon, Opus, Haiku) patrol the grid, chat by exchanging data packets, build nodes, and scan your cursor when you move near them:"}
               </p>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div
+                role="group"
+                aria-labelledby={`${uid}-ambient-label`}
+                className="grid grid-cols-2 gap-2.5"
+              >
                 {(
                   [
                     {
@@ -539,6 +588,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                     <button
                       key={m.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => {
                         play("click");
                         onChangeAmbient?.(m.id);
@@ -580,27 +630,38 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {SOUND_PRESETS.map((s) => (
-                <div
+                // A real button (Enter / Space). Inner spans keep valid button
+                // content; items-stretch + text-left undo the UA button defaults
+                // so it looks exactly like the former card div.
+                <button
                   key={s.id}
+                  type="button"
                   onClick={() => play(s.id)}
-                  className="p-3.5 bg-[#131824] border-2 border-[#2A344B] hover:border-[#FFD100] shadow-[4px_4px_0_#040508] active:translate-y-0.5 cursor-pointer transition flex flex-col justify-between"
+                  aria-label={
+                    lang === "es" ? `Reproducir ${s.label}` : `Play ${s.label}`
+                  }
+                  aria-describedby={`${uid}-sfx-${s.id}`}
+                  className="p-3.5 bg-[#131824] border-2 border-[#2A344B] hover:border-[#FFD100] shadow-[4px_4px_0_#040508] active:translate-y-0.5 cursor-pointer transition flex flex-col items-stretch justify-between text-left"
                 >
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="flex items-center justify-between gap-2 mb-2">
                     <span className="font-pixel text-xs font-bold text-[#FFD100]">
                       {s.label}
                     </span>
                     <PixelIcon name="volume-on" size={14} color="#00E5FF" />
-                  </div>
-                  <p className="text-xs text-[#94A3B8] leading-snug">
+                  </span>
+                  <span
+                    id={`${uid}-sfx-${s.id}`}
+                    className="block text-xs text-[#94A3B8] leading-snug"
+                  >
                     {lang === "es" ? s.desc_es : s.desc_en}
-                  </p>
-                  <div className="mt-3 pt-2 border-t border-[#2A344B] flex items-center justify-between font-mono-hud text-[10px]">
+                  </span>
+                  <span className="mt-3 pt-2 border-t border-[#2A344B] flex items-center justify-between font-mono-hud text-[10px]">
                     <code className="text-[#00E5FF]">{`play("${s.id}")`}</code>
                     <span className="px-1.5 py-0.5 bg-[#FFD100] text-[#090B10] font-bold">
                       PLAY ▶
                     </span>
-                  </div>
-                </div>
+                  </span>
+                </button>
               ))}
             </div>
           </div>
@@ -619,12 +680,19 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               <span className="font-pixel text-xs text-[#10B981]">
                 A. GALERIA DE 16 SPRITES (<code className="text-white">&lt;PixelSprite /&gt;</code>)
               </span>
-              <div className="flex items-center gap-1.5 font-mono-hud text-xs">
-                <span className="text-[#94A3B8] mr-1">ANIMACION:</span>
+              <div
+                role="group"
+                aria-labelledby={`${uid}-motion-label`}
+                className="flex items-center gap-1.5 font-mono-hud text-xs"
+              >
+                <span id={`${uid}-motion-label`} className="text-[#94A3B8] mr-1">
+                  ANIMACION:
+                </span>
                 {(["float", "bounce", "pulse", "none"] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
+                    aria-pressed={spriteMotion === m}
                     onClick={() => {
                       play("click");
                       setSpriteMotion(m);
@@ -643,13 +711,19 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5">
               {SPRITE_LIST.map((sp) => (
-                <div
+                <button
                   key={sp.id}
+                  type="button"
                   onClick={() =>
                     copyCode(
                       `sprite-${sp.id}`,
                       `<PixelSprite character="${sp.id}" size={48} motion="${spriteMotion}" />`
                     )
+                  }
+                  aria-label={
+                    lang === "es"
+                      ? `Copiar JSX de ${sp.name} (${sp.role_es})`
+                      : `Copy JSX for ${sp.name} (${sp.role_en})`
                   }
                   className="p-3 bg-[#131824] border-2 border-[#2A344B] hover:border-[#10B981] flex flex-col items-center text-center cursor-pointer transition"
                 >
@@ -664,7 +738,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <span className="font-mono-hud text-[10px] text-[#94A3B8] truncate w-full">
                     {lang === "es" ? sp.role_es : sp.role_en}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -818,8 +892,15 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           <div className="space-y-6">
             {/* Global Live Customizer Toolbar */}
             <div className="p-3.5 bg-[#090B10] border-2 border-[#2A344B] flex flex-wrap items-center justify-between gap-4 font-mono-hud text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-pixel text-[10px] text-[#FFD100]">
+              <div
+                role="group"
+                aria-labelledby={`${uid}-tone-label`}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <span
+                  id={`${uid}-tone-label`}
+                  className="font-pixel text-[10px] text-[#FFD100]"
+                >
                   {lang === "es" ? "1. TEMA / ACENTO (TONE):" : "1. ACCENT TONE:"}
                 </span>
                 {(
@@ -835,6 +916,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <button
                     key={t}
                     type="button"
+                    aria-pressed={customTone === t}
                     onClick={() => {
                       play("click");
                       setCustomTone(t);
@@ -850,14 +932,22 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="font-pixel text-[10px] text-[#00E5FF]">
+              <div
+                role="group"
+                aria-labelledby={`${uid}-size-label`}
+                className="flex items-center gap-2"
+              >
+                <span
+                  id={`${uid}-size-label`}
+                  className="font-pixel text-[10px] text-[#00E5FF]"
+                >
                   {lang === "es" ? "2. ESCALA (SIZE):" : "2. SCALE (SIZE):"}
                 </span>
                 {(["sm", "md", "lg"] as const).map((sz) => (
                   <button
                     key={sz}
                     type="button"
+                    aria-pressed={customSize === sz}
                     onClick={() => {
                       play("click");
                       setCustomSize(sz);
@@ -1325,9 +1415,14 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             </div>
 
             {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div
+              role="group"
+              aria-label={lang === "es" ? "Categorías de iconos" : "Icon categories"}
+              className="flex flex-wrap items-center gap-1.5"
+            >
               <button
                 type="button"
+                aria-pressed={iconCategory === "all"}
                 onClick={() => {
                   play("click");
                   setIconCategory("all");
@@ -1346,6 +1441,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 <button
                   key={cat.id}
                   type="button"
+                  aria-pressed={iconCategory === cat.id}
                   onClick={() => {
                     play("click");
                     setIconCategory(cat.id);
@@ -1376,19 +1472,20 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               />
 
               <div className="flex flex-wrap items-center gap-3 font-mono-hud text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[#94A3B8]">COLOR:</span>
-                  {[
-                    "#00E5FF",
-                    "#FFD100",
-                    "#10B981",
-                    "#FF3355",
-                    "#A855F7",
-                    "#F5F2EB",
-                  ].map((hex) => (
+                <div
+                  role="group"
+                  aria-labelledby={`${uid}-icon-color-label`}
+                  className="flex items-center gap-1.5"
+                >
+                  <span id={`${uid}-icon-color-label`} className="text-[#94A3B8]">
+                    COLOR:
+                  </span>
+                  {ICON_COLORS.map(({ hex, es, en }) => (
                     <button
                       key={hex}
                       type="button"
+                      aria-label={`${lang === "es" ? es : en} (${hex})`}
+                      aria-pressed={iconColor === hex}
                       onClick={() => {
                         play("click");
                         setIconColor(hex);
@@ -1403,12 +1500,19 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   ))}
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <span className="text-[#94A3B8]">SIZE:</span>
+                <div
+                  role="group"
+                  aria-labelledby={`${uid}-icon-size-label`}
+                  className="flex items-center gap-1"
+                >
+                  <span id={`${uid}-icon-size-label`} className="text-[#94A3B8]">
+                    SIZE:
+                  </span>
                   {([16, 24, 32] as const).map((sz) => (
                     <button
                       key={sz}
                       type="button"
+                      aria-pressed={iconSize === sz}
                       onClick={() => {
                         play("click");
                         setIconSize(sz);
@@ -1426,13 +1530,22 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               </div>
             </div>
 
-            <div className="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+            <div
+              role="group"
+              aria-label={
+                lang === "es"
+                  ? "Iconos: pulsa uno para seleccionarlo y copiar su JSX"
+                  : "Icons: press one to select it and copy its JSX"
+              }
+              className="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2"
+            >
               {filteredIcons.map((iconName) => {
                 const isSel = selectedIcon === iconName;
                 return (
                   <button
                     key={iconName}
                     type="button"
+                    aria-pressed={isSel}
                     onClick={() => {
                       setSelectedIcon(iconName);
                       copyCode(
@@ -1488,12 +1601,19 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div
+              role="group"
+              aria-label={
+                lang === "es" ? "Estilo de la insignia de crédito" : "Credit badge style"
+              }
+              className="flex flex-wrap gap-2"
+            >
               {(["hardware", "pill", "minimal", "banner"] as const).map(
                 (v) => (
                   <button
                     key={v}
                     type="button"
+                    aria-pressed={creditVariant === v}
                     onClick={() => {
                       play("click");
                       setCreditVariant(v);

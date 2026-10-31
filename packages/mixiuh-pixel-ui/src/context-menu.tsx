@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { pixelSound } from "./sound";
 import { PixelIcon, type PixelIconName } from "./icons";
 import { PIXEL_TONE_STYLES, type PixelTone } from "./components";
@@ -35,7 +35,11 @@ export type PixelMenuItem =
       danger?: boolean;
       /** Still listed, but skipped by the keyboard and ignored on click. */
       disabled?: boolean;
-      /** Runs after the menu has closed and focus went back where it was. */
+      /**
+       * Runs once the menu is gone from the page and focus is back where it
+       * was, still inside the user's click or key press (clipboard, popups
+       * and fullscreen keep working).
+       */
       onSelect: () => void;
     }
   | { type: "separator"; id: string }
@@ -101,6 +105,11 @@ const isAction = (item: PixelMenuItem): item is PixelMenuAction =>
 
 const isEnabledAction = (item: PixelMenuItem): item is PixelMenuAction =>
   isAction(item) && !item.disabled;
+
+/** Enabled action at `index` or after it, else the closest one before it. */
+const nearestEnabled = (items: PixelMenuItem[], index: number) =>
+  items.slice(index).find(isEnabledAction) ??
+  items.slice(0, index).reverse().find(isEnabledAction);
 
 /** Lowercase without accents, so typing "e" also reaches "Éxito". */
 const foldText = (value: string) =>
@@ -172,8 +181,9 @@ function keepInView(menu: HTMLElement | null, item: HTMLElement) {
  * Wraps `children` and replaces the browser context menu with a pixel menu.
  * Opens on right-click (at the pointer) or Shift+F10 / the ContextMenu key
  * (under the focused element). Arrow keys, Home/End and typeahead move a
- * roving focus; Escape, Tab, a press outside, scroll, resize and window blur
- * close it. Focus returns to the element focused before it opened.
+ * roving focus; Escape, Tab, a press outside, focus moving elsewhere, scroll,
+ * resize and window blur close it. Focus returns to the element focused
+ * before it opened, unless a press or a script already put it elsewhere.
  */
 export function PixelContextMenu({
   items,
@@ -191,6 +201,8 @@ export function PixelContextMenu({
   const restoreFocusRef = useRef<FocusTarget | null>(null);
   const restoreOnCloseRef = useRef(true);
   const focusPendingRef = useRef(false);
+  // Position in `items` of the item that last held focus
+  const focusIndexRef = useRef(0);
 
   const enabled = !disabled && items.length > 0;
   // Disabling the menu (or emptying `items`) while it is open closes it
@@ -241,22 +253,16 @@ export function PixelContextMenu({
   const selectItem = (item: PixelMenuAction) => {
     if (item.disabled) return;
     pixelSound.play("click");
-    const back = restoreFocusRef.current;
-    restoreFocusRef.current = null;
-    closeMenu(true);
-    // Hand focus back now (not at unmount) so onSelect may move it on purpose
-    if (back?.isConnected) {
-      back.focus({ preventScroll: true });
-    } else {
-      const active = document.activeElement;
-      if (active instanceof HTMLElement && within(menuRef.current, active)) {
-        active.blur();
-      }
-    }
+    // Commit the close before onSelect (the restore effect hands focus back
+    // as the menu unmounts): a dialog, print or navigation it starts never
+    // sees the menu, and it still runs inside the user's gesture
+    flushSync(() => closeMenu(true));
     item.onSelect();
   };
 
-  // Measure, flip/clamp into the viewport, then focus the first enabled item
+  // Measure, flip/clamp into the viewport, then focus the first enabled item.
+  // When `items` change while open and that unmounts the focused item (focus
+  // falls back to <body>), the enabled item now in its place takes over.
   useIsoLayoutEffect(() => {
     const menuEl = menuRef.current;
     if (!anchor || !menuEl) return;
@@ -274,12 +280,18 @@ export function PixelContextMenu({
         ? { ...m, left, top, placed: true }
         : m
     );
-    if (focusPendingRef.current) {
-      focusPendingRef.current = false;
-      const first = items.find(isEnabledAction);
-      const firstEl = first ? itemRefs.current.get(first.id) : undefined;
-      (firstEl ?? menuEl).focus({ preventScroll: true });
-    }
+    const active = document.activeElement;
+    const lost =
+      !active ||
+      active === document.body ||
+      active === document.documentElement;
+    if (!focusPendingRef.current && !lost) return;
+    const from = focusPendingRef.current ? 0 : focusIndexRef.current;
+    focusPendingRef.current = false;
+    const target = nearestEnabled(items, from);
+    const targetEl = target ? itemRefs.current.get(target.id) : undefined;
+    (targetEl ?? menuEl).focus({ preventScroll: true });
+    if (targetEl) keepInView(menuEl, targetEl);
   }, [anchor, items]);
 
   // Give focus back on close, but only when it would otherwise be lost
@@ -299,12 +311,37 @@ export function PixelContextMenu({
     };
   }, [shown]);
 
-  // Dismiss on a press outside, a related scroll, resize and window blur
+  // Dismiss on a press or a focus move outside, a related scroll, resize and
+  // window blur. Escape / Tab also work while focus sits outside the menu.
   useEffect(() => {
     if (!shown) return;
     const onPointerDown = (e: PointerEvent) => {
       // That press decides where focus goes, so no restore here
       if (!within(menuRef.current, e.target)) closeMenu(false);
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      const menuEl = menuRef.current;
+      // A script or assistive tech moved focus out: close, leave it there.
+      // No menu element means it is unmounting and handing focus back.
+      if (menuEl && !within(menuEl, e.target)) closeMenu(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Keys on the menu go to its own handler; these come from outside it,
+      // usually <body> after a script blurred the focused item. Capture
+      // phase, so this top layer closes before a drawer underneath it.
+      const menuEl = menuRef.current;
+      if (
+        !menuEl ||
+        e.defaultPrevented ||
+        e.isComposing ||
+        within(menuEl, e.target)
+      ) {
+        return;
+      }
+      if (e.key === "Escape" || e.key === "Tab") {
+        e.preventDefault();
+        closeMenu(true);
+      }
     };
     const onScroll = (e: Event) => {
       const target = e.target;
@@ -323,11 +360,15 @@ export function PixelContextMenu({
     };
     const onDismiss = () => closeMenu(true);
     document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
     window.addEventListener("resize", onDismiss);
     window.addEventListener("blur", onDismiss);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("scroll", onScroll, { capture: true });
       window.removeEventListener("resize", onDismiss);
       window.removeEventListener("blur", onDismiss);
@@ -471,7 +512,7 @@ export function PixelContextMenu({
               outlineOffset: 0,
             }}
           >
-            {items.map((item) => {
+            {items.map((item, index) => {
               if (item.type === "separator") {
                 return (
                   <div
@@ -511,7 +552,10 @@ export function PixelContextMenu({
                   tabIndex={-1}
                   aria-disabled={item.disabled ? true : undefined}
                   onClick={() => selectItem(item)}
-                  onFocus={() => setActiveId(item.id)}
+                  onFocus={() => {
+                    focusIndexRef.current = index;
+                    setActiveId(item.id);
+                  }}
                   onPointerMove={(e) => {
                     // Hover moves the roving focus, like a native menu
                     if (e.pointerType === "touch" || item.disabled) return;

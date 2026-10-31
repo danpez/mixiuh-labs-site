@@ -45,6 +45,24 @@ const TABBABLE_SELECTOR =
 const isGroupedRadio = (el: Element): el is HTMLInputElement =>
   el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
 
+/**
+ * True when `el` is rendered and visible. checkVisibility() also rules out
+ * content that keeps its boxes while Tab and focus() skip it: a closed
+ * <details> or `hidden="until-found"` (content-visibility: hidden).
+ */
+function isRendered(el: HTMLElement): boolean {
+  if (typeof el.checkVisibility === "function") {
+    return el.checkVisibility({
+      visibilityProperty: true,
+      checkVisibilityCSS: true,
+    });
+  }
+  return (
+    el.getClientRects().length > 0 &&
+    window.getComputedStyle(el).visibility === "visible"
+  );
+}
+
 /** Elements reachable with Tab inside `root`, in document order. */
 function getTabbables(root: HTMLElement): HTMLElement[] {
   const found = Array.from(
@@ -55,8 +73,7 @@ function getTabbables(root: HTMLElement): HTMLElement[] {
       !el.matches(":disabled") &&
       !(el instanceof HTMLInputElement && el.type === "hidden") &&
       !el.closest("[inert]") &&
-      el.getClientRects().length > 0 &&
-      window.getComputedStyle(el).visibility !== "hidden"
+      isRendered(el)
   );
   // A radio group is a single Tab stop: its checked radio, else its first one
   const radioStops: HTMLInputElement[] = [];
@@ -71,13 +88,54 @@ function getTabbables(root: HTMLElement): HTMLElement[] {
   return found.filter((el) => !isGroupedRadio(el) || radioStops.includes(el));
 }
 
-/** Focuses the first (or last) Tab stop of `panel`, else the panel itself. */
+/** True when `el` has content to scroll (1px slack for subpixel rounding). */
+const canScroll = (el: HTMLElement) =>
+  el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+
+/**
+ * Tab stops of a panel in document order. A body with content to scroll is
+ * one too, between the title bar and its own content: it takes focus from
+ * script only (tabIndex -1), but the keyboard has to reach it to scroll it.
+ */
+function getPanelStops(
+  panel: HTMLElement,
+  body: HTMLElement | null
+): HTMLElement[] {
+  const stops = getTabbables(panel);
+  if (body && canScroll(body)) {
+    const i = stops.findIndex(
+      (el) =>
+        (body.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !==
+        0
+    );
+    stops.splice(i < 0 ? stops.length : i, 0, body);
+  }
+  return stops;
+}
+
+/** Focuses the first candidate that really takes focus; false if none does. */
+function focusFirst(
+  candidates: readonly (HTMLElement | null | undefined)[]
+): boolean {
+  for (const el of candidates) {
+    if (!el) continue;
+    el.focus();
+    if (document.activeElement === el) return true;
+  }
+  return false;
+}
+
+/**
+ * Focuses the first (or last) stop of `panel`, walking inward past any stop
+ * that refuses focus, else the panel itself.
+ */
 function focusEdge(
   panel: HTMLElement,
+  body: HTMLElement | null,
   last: boolean,
-  stops = getTabbables(panel)
+  stops = getPanelStops(panel, body)
 ) {
-  ((last ? stops[stops.length - 1] : stops[0]) ?? panel).focus();
+  if (!focusFirst(last ? [...stops].reverse() : stops)) panel.focus();
 }
 
 /** Open panels, newest last: keys pressed outside every panel go to the top one. */
@@ -142,7 +200,8 @@ export interface PixelDrawerProps {
   closeLabel?: string;
   /**
    * Element focused on open. Default: the first focusable element of the
-   * body when it is in view, else the panel itself.
+   * body when it is in view, else the body itself (arrow keys, Page Up/Down,
+   * Space, Home and End then scroll it).
    */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   /** Extra classes for the panel. */
@@ -172,9 +231,10 @@ const PANEL_SIZE = {
 
 /**
  * Modal panel docked to a screen edge. Focus moves in on open (see
- * `initialFocusRef`), Tab and Shift+Tab wrap inside it, Escape or a press on
- * the backdrop closes it, page scroll is locked while it is open and focus
- * returns to the opener on close.
+ * `initialFocusRef`), Tab and Shift+Tab wrap inside it (a body with content
+ * to scroll is a stop of its own), Escape or a press on the backdrop closes
+ * it, page scroll is locked while it is open and focus returns to the opener
+ * on close.
  */
 export function PixelDrawer({
   open,
@@ -230,6 +290,7 @@ export function PixelDrawer({
     if (!shown) return;
     const panel = panelRef.current;
     if (!panel) return;
+    const body = bodyRef.current;
     const opener = openerRef.current;
     const unlockScroll = lockPageScroll();
     openPanels.push(panel);
@@ -239,24 +300,21 @@ export function PixelDrawer({
     const frame = requestAnimationFrame(() => {
       const current = document.activeElement;
       if (current && current !== panel && panel.contains(current)) return;
-      const body = bodyRef.current;
+      const initial = latestRef.current.initialFocusRef?.current;
       const first = body ? getTabbables(body)[0] : undefined;
-      // Below the fold it would scroll the start of the content away
+      // Below the fold it would scroll the start of the content away: the
+      // body itself takes focus then, ready to scroll with the keyboard
       const firstInView =
         body && first
           ? first.getBoundingClientRect().top <
             body.getBoundingClientRect().bottom
           : false;
-      const candidates = [
-        latestRef.current.initialFocusRef?.current,
+      focusFirst([
+        initial && panel.contains(initial) ? initial : null,
         firstInView ? first : null,
+        body,
         panel,
-      ];
-      for (const el of candidates) {
-        if (!el || !panel.contains(el)) continue;
-        el.focus();
-        if (document.activeElement === el) break;
-      }
+      ]);
     });
 
     // Keys pressed with focus outside the panel: on <body> after a focused
@@ -275,7 +333,7 @@ export function PixelDrawer({
         requestClose();
       } else if (e.key === "Tab") {
         e.preventDefault();
-        focusEdge(panel, e.shiftKey);
+        focusEdge(panel, body, e.shiftKey);
       }
     };
     document.addEventListener("keydown", onDocumentKeyDown);
@@ -307,17 +365,26 @@ export function PixelDrawer({
     const panel = e.currentTarget;
     const from = e.target;
     // Popovers portaled out of the panel run their own Tab handling
-    if (e.key !== "Tab" || !(from instanceof Node) || !panel.contains(from)) {
+    if (e.key !== "Tab" || !(from instanceof Element) || !panel.contains(from)) {
       return;
     }
-    const stops = getTabbables(panel);
+    const body = bodyRef.current;
+    const stops = getPanelStops(panel, body);
     const ahead = e.shiftKey
       ? Node.DOCUMENT_POSITION_PRECEDING
       : Node.DOCUMENT_POSITION_FOLLOWING;
-    // Another stop inside the panel that way: let the browser move there
-    if (stops.some((el) => from.compareDocumentPosition(el) & ahead)) return;
+    // Stops that way, nearest first
+    const way = stops.filter(
+      (el) => el !== from && (from.compareDocumentPosition(el) & ahead) !== 0
+    );
+    if (e.shiftKey) way.reverse();
+    // From one regular stop to the next: the browser gets there by itself
+    const fromStop = from instanceof HTMLElement && from.tabIndex >= 0;
+    if (fromStop && way.length > 0 && way[0].tabIndex >= 0) return;
+    // Into the body, out of a container (panel, body: the browser could start
+    // from the point clicked inside it) or around the end: by script
     e.preventDefault();
-    focusEdge(panel, e.shiftKey, stops);
+    if (!focusFirst(way)) focusEdge(panel, body, e.shiftKey, stops);
   };
 
   const panelSize = PANEL_SIZE[side === "bottom" ? "bottom" : "side"][size];
@@ -384,7 +451,11 @@ export function PixelDrawer({
         )}
         <div
           ref={bodyRef}
-          className="min-h-0 flex-auto overflow-y-auto overscroll-contain p-4 font-mono-hud text-[13px] leading-relaxed text-[#CBD5E1]"
+          // Takes focus when nothing in view inside it can, and is a Tab stop
+          // while it has content to scroll, so the keyboard scrolls it; the
+          // ring is inset to clear the title bar and the footer
+          tabIndex={-1}
+          className="min-h-0 flex-auto overflow-y-auto overscroll-contain p-4 font-mono-hud text-[13px] leading-relaxed text-[#CBD5E1] focus-visible:outline-offset-[-4px]"
         >
           {children}
         </div>

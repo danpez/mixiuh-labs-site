@@ -1,3 +1,9 @@
+import {
+  EP04_BENCHMARK_TOTALS,
+  EP04_CHALLENGES,
+  type Ep04ChallengeData,
+} from "@/data/ep04Data";
+
 export type ForumCategory =
   | "all"
   | "benchmarks"
@@ -69,6 +75,19 @@ export interface Ep02Proposal {
   status_en: string;
 }
 
+// EP04 dollar and minute figures quoted in the forum copy are read from ep04Data.ts,
+// so the dossier and the proposal cards cannot drift from the benchmark table again.
+function ep04Challenge(n: number): Ep04ChallengeData {
+  const challenge = EP04_CHALLENGES.find((c) => c.n === n);
+  if (!challenge) throw new Error(`ep04Data.ts has no challenge ${n}`);
+  return challenge;
+}
+const usd = (value: number) => `$${value.toFixed(2)}`;
+const EP04_T = EP04_BENCHMARK_TOTALS;
+const EP04_R04 = ep04Challenge(4);
+const EP04_R05 = ep04Challenge(5);
+const EP04_R06 = ep04Challenge(6);
+
 export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
   {
     id: "prop-cc01-overfit",
@@ -80,8 +99,8 @@ export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
     description_es: "A partir del comentario de @tenito03 sobre la tela Verlet del EP02, esculpimos en Blender Cycles maniquies 3D de 300 GSM (Hombre, Mujer y Mesa) y lanzamos la coleccion satirica 'Guerra de Pesos' con 10 artes de IA y exportacion 4K.",
     description_en: "Triggered by @tenito03's comment on the EP02 Verlet cloth, we sculpted 300 GSM 3D mannequins in Blender Cycles (Male, Female, Flat-Lay) and launched the satirical 'Weight War' collection with 10 AI designs and 4K export.",
     votes: 296,
-    status_es: "En Vivo Arriba (/overfit)",
-    status_en: "Live Above (/overfit)",
+    status_es: "En Vivo · Comentario al Codigo",
+    status_en: "Live · Comment to Code",
   },
   {
     id: "prop-argon-vs-gpt5",
@@ -93,34 +112,34 @@ export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
     description_es: "Despues de vencer 10-0 a Flash y 4-2 a Claude Opus 5.5, enfrentar a Gemini 4 Argon contra GPT-5.4 High midiendo tiempo real, FPS y costo exacto por millon de tokens.",
     description_en: "After beating Flash 10-0 and Claude Opus 5.5 4-2, pit Gemini 4 Argon against GPT-5.4 High auditing wall-clock latency, FPS, and exact token bill.",
     votes: 184,
-    status_es: "En cabeza para EP03",
-    status_en: "Leading for EP03",
+    status_es: "Candidato EP05",
+    status_en: "EP05 Candidate",
   },
   {
     id: "prop-emulador-chip8",
-    title_es: "Reto Jefe: Emulador de Consola Retro + Ensamblador y ROM Procedural en 1 Archivo",
-    title_en: "Boss Challenge: Retro Console Emulator + Assembler & Procedural ROM in 1 File",
-    models: "Argon vs Opus 5.5 vs GPT-5.4",
+    title_es: `COMPLETADO EN EP04 (Reto 06): ${EP04_R06.name_es}`,
+    title_en: `COMPLETED IN EP04 (Challenge 06): ${EP04_R06.name_en}`,
+    models: "Haiku vs Sonnet vs Opus 5.5",
     category_es: "Arquitectura de Sistemas",
     category_en: "Systems Architecture",
-    description_es: "Pedir en un solo intento una maquina virtual con ciclo fetch-decode-execute, registros en vivo, debugger paso a paso en hexadecimal y un juego jugable compilado en memoria al abrir el HTML.",
-    description_en: "Zero-shot virtual machine featuring a fetch-decode-execute cycle, live CPU register inspector, hex step-by-step debugger, and a playable game compiled in memory on load.",
+    description_es: `Se ejecuto como Reto 06 del EP04 (Escalera Claude 5.5): Sonnet 5.5 (${usd(EP04_R06.sonnet.usd)}) y Haiku 5.5 (${usd(EP04_R06.haiku.usd)}) arrancaron jugando Pong a 60 FPS, mientras Opus 5.5 (${usd(EP04_R06.opus.usd)}, ${EP04_R06.opus.min} min) olvido ensamblar la ROM al iniciar (ROM: 0 B). Punto para Sonnet 5.5.`,
+    description_en: `Run as EP04 Challenge 06 (Claude 5.5 Ladder): Sonnet 5.5 (${usd(EP04_R06.sonnet.usd)}) and Haiku 5.5 (${usd(EP04_R06.haiku.usd)}) booted straight into Pong at 60 FPS, while Opus 5.5 (${usd(EP04_R06.opus.usd)}, ${EP04_R06.opus.min} min) forgot to assemble its ROM on boot (ROM: 0 B). Point to Sonnet 5.5.`,
     votes: 156,
-    status_es: "Candidato Nivel Jefe EP03",
-    status_en: "EP03 Boss Level Candidate",
+    status_es: "Publicado en EP04",
+    status_en: "Published in EP04",
   },
   {
     id: "prop-raytracer-bvh",
-    title_es: "Path Tracer en Tiempo Real en WebGL2 con BVH, Refraccion Caustica y Denoiser",
-    title_en: "Real-Time WebGL2 Path Tracer with BVH, Caustic Refraction & Temporal Denoiser",
-    models: "Gemini 4 Argon vs Claude Opus 5.5",
+    title_es: `COMPLETADO EN EP04 (Reto 05): ${EP04_R05.name_es}`,
+    title_en: `COMPLETED IN EP04 (Challenge 05): ${EP04_R05.name_en}`,
+    models: "Haiku vs Sonnet vs Opus 5.5",
     category_es: "GPU y Shaders Avanzados",
     category_en: "GPU & Advanced Shaders",
-    description_es: "Trazado de rayos estocastico de multiples rebotes en un fragment shader GLSL con jerarquia de volumenes delimitadores (BVH), lentes de vidrio con dispersion cromatica y acumulacion temporal.",
-    description_en: "Multi-bounce stochastic path tracing in a GLSL fragment shader with Bounding Volume Hierarchy (BVH), dispersive glass lenses, and progressive temporal accumulation.",
+    description_es: `Se ejecuto como Reto 05 del EP04 (Escalera Claude 5.5): Sonnet 5.5 (${usd(EP04_R05.sonnet.usd)}, ${EP04_R05.sonnet.min} min) rindio 29 FPS con dispersion cromatica arcoiris y Denoiser A-Trous, casi el doble que los 15 FPS de Opus 5.5 (${usd(EP04_R05.opus.usd)}, ${EP04_R05.opus.min} min). Punto para Sonnet 5.5.`,
+    description_en: `Run as EP04 Challenge 05 (Claude 5.5 Ladder): Sonnet 5.5 (${usd(EP04_R05.sonnet.usd)}, ${EP04_R05.sonnet.min} min) hit 29 FPS with rainbow chromatic dispersion and an A-Trous denoiser, nearly double the 15 FPS of Opus 5.5 (${usd(EP04_R05.opus.usd)}, ${EP04_R05.opus.min} min). Point to Sonnet 5.5.`,
     votes: 129,
-    status_es: "En evaluacion",
-    status_en: "Under Evaluation",
+    status_es: "Publicado en EP04",
+    status_en: "Published in EP04",
   },
   {
     id: "prop-argon-vs-claude",
@@ -180,10 +199,10 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
     episode: "ep04",
     badge_es: "DOSSIER OFICIAL EP04 · 18 CORRIDAS EN CLAUDE CODE CLI",
     badge_en: "OFFICIAL EP04 DOSSIER · 18 CLAUDE CODE CLI RUNS",
-    title_es: "Escalera Claude 5.5 (Haiku $1.54 vs Sonnet $12.22 vs Opus $29.94): ¿Cuando Vale la Pena Pagar 19x Mas?",
-    title_en: "The Claude 5.5 Ladder (Haiku $1.54 vs Sonnet $12.22 vs Opus $29.94): When Is Paying 19x More Actually Worth It?",
-    excerpt_es: "Enfrentamos a los 3 niveles de Claude 5.5 en 18 corridas aisladas (6 retos x 3 modelos). Opus gano 3 puntos en fisica y shaders, Sonnet gano 2 puntos duplicando FPS en Path Tracing y arrancando Pong en CHIP-8, y Haiku gano 1 punto historico por $0.21 USD.",
-    excerpt_en: "We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 challenges x 3 models). Opus won 3 physics/shader rounds, Sonnet won 2 by doubling Path Tracer FPS and booting CHIP-8 Pong, and Haiku won 1 historic ROI point for $0.21 USD.",
+    title_es: `Escalera Claude 5.5 (Haiku ${usd(EP04_T.haiku_usd)} vs Sonnet ${usd(EP04_T.sonnet_usd)} vs Opus ${usd(EP04_T.opus_usd)}): ¿Cuando Vale la Pena Pagar ${Math.round(EP04_T.opus_usd / EP04_T.haiku_usd)}x Mas?`,
+    title_en: `The Claude 5.5 Ladder (Haiku ${usd(EP04_T.haiku_usd)} vs Sonnet ${usd(EP04_T.sonnet_usd)} vs Opus ${usd(EP04_T.opus_usd)}): When Is Paying ${Math.round(EP04_T.opus_usd / EP04_T.haiku_usd)}x More Actually Worth It?`,
+    excerpt_es: `Enfrentamos a los 3 niveles de Claude 5.5 en 18 corridas aisladas (6 retos x 3 modelos). Opus gano 3 puntos en fisica y shaders, Sonnet gano 2 puntos casi duplicando FPS en Path Tracing y arrancando Pong en CHIP-8, y Haiku gano 1 punto historico por ${usd(EP04_R04.haiku.usd)} USD.`,
+    excerpt_en: `We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 challenges x 3 models). Opus won 3 physics/shader rounds, Sonnet won 2 by nearly doubling Path Tracer FPS and booting CHIP-8 Pong, and Haiku won 1 historic ROI point for ${usd(EP04_R04.haiku.usd)} USD.`,
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
@@ -193,16 +212,16 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
     views: 4320,
     tags: ["EP04", "Claude Haiku 5.5", "Claude Sonnet 5.5", "Claude Opus 5.5", "Claude Code CLI", "ROI"],
     content_es: [
-      "En el Episodio 04 pusimos a prueba a toda la familia Anthropic Claude 5.5 bajo exactamente las mismas condiciones en Claude Code CLI: Haiku 5.5 ($1.54 USD total en 87 min), Sonnet 5.5 ($12.22 USD en 105 min) y Opus 5.5 ($29.94 USD en 179 min).",
-      "1. Donde Opus 5.5 justifica su precio (Retos 01, 02 y 03): En el Rover Planetario Verlet, la Bio-Red de Tokio en GPU (150,000 agentes a 61 FPS) y el Puente Estructural XPBD, Opus 5.5 se llevo los 3 primeros puntos gracias a su arquitectura fisica multicapa y telemetria cientifica.",
-      "2. El batacazo de Haiku 5.5 en el Reto 04 ($0.21 USD vs $5.04 USD): En el Estudio Acido 3D (TB-303 + TR-909 + Tunel GLSL), Haiku 5.5 entrego un sintetizador completo a 61 FPS en 16 minutos por apenas 21 centavos de dolar (24 veces mas barato que Opus 5.5).",
-      "3. La remontada de Sonnet 5.5 en los Retos 05 y 06: En el Path Tracer WebGL2 BVH, Sonnet 5.5 duplico el framerate de Opus (29 FPS vs 15 FPS) costando la mitad ($2.49 vs $5.24). Y en el Nivel Jefe (Consola Retro CHIP-8), Opus 5.5 gasto $5.13 USD pero olvido ensamblar la ROM en memoria (0 bytes), mientras Sonnet 5.5 ($1.53 USD) arranco Pong jugable al instante a 60 FPS."
+      `En el Episodio 04 pusimos a prueba a toda la familia Anthropic Claude 5.5 bajo exactamente las mismas condiciones en Claude Code CLI: Haiku 5.5 (${usd(EP04_T.haiku_usd)} USD total en ${Math.round(EP04_T.haiku_min)} min), Sonnet 5.5 (${usd(EP04_T.sonnet_usd)} USD en ${Math.round(EP04_T.sonnet_min)} min) y Opus 5.5 (${usd(EP04_T.opus_usd)} USD en ${Math.round(EP04_T.opus_min)} min).`,
+      "1. Donde Opus 5.5 justifica su precio (Retos 01, 02 y 03): En el Rover Planetario Verlet, la Bio-Red de Tokio en GPU (60,000 agentes a 60 FPS) y el Puente Estructural XPBD, Opus 5.5 se llevo los 3 primeros puntos gracias a su arquitectura fisica multicapa y telemetria cientifica.",
+      `2. El batacazo de Haiku 5.5 en el Reto 04 (${usd(EP04_R04.haiku.usd)} USD vs ${usd(EP04_R04.opus.usd)} USD): En el Estudio Acido 3D (TB-303 + TR-909 + Tunel GLSL), Haiku 5.5 entrego un sintetizador completo a 61 FPS en ${EP04_R04.haiku.min} minutos por apenas ${Math.round(EP04_R04.haiku.usd * 100)} centavos de dolar (${Math.round(EP04_R04.opus.usd / EP04_R04.haiku.usd)} veces mas barato que Opus 5.5).`,
+      `3. La remontada de Sonnet 5.5 en los Retos 05 y 06: En el Path Tracer WebGL2 BVH, Sonnet 5.5 casi duplico el framerate de Opus (29 FPS vs 15 FPS) costando un tercio (${usd(EP04_R05.sonnet.usd)} vs ${usd(EP04_R05.opus.usd)}). Y en el Nivel Jefe (Consola Retro CHIP-8), Opus 5.5 gasto ${usd(EP04_R06.opus.usd)} USD pero olvido ensamblar la ROM en memoria (0 bytes), mientras Sonnet 5.5 (${usd(EP04_R06.sonnet.usd)} USD) arranco Pong jugable al instante a 60 FPS.`
     ],
     content_en: [
-      "In Episode 04 we benchmarked the entire Anthropic Claude 5.5 family under identical rules in Claude Code CLI: Haiku 5.5 ($1.54 USD total in 87m), Sonnet 5.5 ($12.22 USD in 105m), and Opus 5.5 ($29.94 USD in 179m).",
-      "1. Where Opus 5.5 justifies its price (Challenges 01, 02 & 03): Across the Verlet Planetary Rover, Tokyo GPU Slime Network (150,000 agents at 61 FPS), and XPBD Structural Bridge, Opus 5.5 swept the first 3 points with multi-pass physics and scientific telemetry.",
-      "2. Haiku 5.5's upset in Challenge 04 ($0.21 USD vs $5.04 USD): In the 3D Acid Studio (TB-303 + TR-909 + GLSL Tunnel), Haiku 5.5 shipped a complete 61 FPS audiovisual studio in 16 minutes for just 21 cents (24x cheaper than Opus 5.5).",
-      "3. Sonnet 5.5's comeback in Challenges 05 & 06: In the WebGL2 BVH Path Tracer, Sonnet 5.5 doubled Opus's framerate (29 FPS vs 15 FPS) at half the cost ($2.49 vs $5.24). And in the Boss Level (Retro CHIP-8 Console), Opus 5.5 spent $5.13 USD but left a 0-byte unmounted ROM, while Sonnet 5.5 ($1.53 USD) booted playable Pong immediately at 60 FPS."
+      `In Episode 04 we benchmarked the entire Anthropic Claude 5.5 family under identical rules in Claude Code CLI: Haiku 5.5 (${usd(EP04_T.haiku_usd)} USD total in ${Math.round(EP04_T.haiku_min)}m), Sonnet 5.5 (${usd(EP04_T.sonnet_usd)} USD in ${Math.round(EP04_T.sonnet_min)}m), and Opus 5.5 (${usd(EP04_T.opus_usd)} USD in ${Math.round(EP04_T.opus_min)}m).`,
+      "1. Where Opus 5.5 justifies its price (Challenges 01, 02 & 03): Across the Verlet Planetary Rover, Tokyo GPU Slime Network (60,000 agents at 60 FPS), and XPBD Structural Bridge, Opus 5.5 swept the first 3 points with multi-pass physics and scientific telemetry.",
+      `2. Haiku 5.5's upset in Challenge 04 (${usd(EP04_R04.haiku.usd)} USD vs ${usd(EP04_R04.opus.usd)} USD): In the 3D Acid Studio (TB-303 + TR-909 + GLSL Tunnel), Haiku 5.5 shipped a complete 61 FPS audiovisual studio in ${EP04_R04.haiku.min} minutes for just ${Math.round(EP04_R04.haiku.usd * 100)} cents (${Math.round(EP04_R04.opus.usd / EP04_R04.haiku.usd)}x cheaper than Opus 5.5).`,
+      `3. Sonnet 5.5's comeback in Challenges 05 & 06: In the WebGL2 BVH Path Tracer, Sonnet 5.5 nearly doubled Opus's framerate (29 FPS vs 15 FPS) at a third of the cost (${usd(EP04_R05.sonnet.usd)} vs ${usd(EP04_R05.opus.usd)}). And in the Boss Level (Retro CHIP-8 Console), Opus 5.5 spent ${usd(EP04_R06.opus.usd)} USD but left a 0-byte unmounted ROM, while Sonnet 5.5 (${usd(EP04_R06.sonnet.usd)} USD) booted playable Pong immediately at 60 FPS.`
     ],
     comments: []
   },
@@ -221,7 +240,7 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
-    createdAt: "2026-10-22",
+    createdAt: "2026-10-25",
     readTime: "8 min",
     upvotes: 412,
     views: 3890,
@@ -279,7 +298,7 @@ function recordTickZeroGC(price, size, side, now) {
     author: "Kevin Gonzalez",
     authorRole_es: "Director de Laboratorio · Mixiuh Labs",
     authorRole_en: "Lab Director · Mixiuh Labs",
-    createdAt: "2026-10-22",
+    createdAt: "2026-10-24",
     readTime: "6 min",
     upvotes: 348,
     views: 3120,
@@ -302,7 +321,7 @@ function recordTickZeroGC(price, size, side, now) {
         author: "tenito03",
         role: "Autor del Reto Original · Instagram",
         handle: "@tenito03",
-        createdAt: "hace 2 h",
+        createdAt: "2026-10-24",
         body_es: "Si ahora con esa textura le pides hacer una playera y tambien le pides que te de un mockup en blanco para editarlo ahora puedes crear una marca de ropa ?",
         body_en: "If you ask it to turn that texture into a t-shirt and also give you an editable blank mockup, can you create a clothing brand now?",
         upvotes: 142,
@@ -315,8 +334,8 @@ function recordTickZeroGC(price, size, side, now) {
     category: "benchmarks",
     pinned: true,
     episode: "ep02",
-    badge_es: "DOSSIER OFICIAL EP02 · NUEVO",
-    badge_en: "OFFICIAL EP02 DOSSIER · NEW",
+    badge_es: "DOSSIER OFICIAL EP02",
+    badge_en: "OFFICIAL EP02 DOSSIER",
     title_es: "Gemini 4 Argon (High) vs. Claude Opus 5.5 (High): 6 Retos Extremos, Marcador 4-2 y la Factura Real de Tokens ($6.26 vs $16.26 USD)",
     title_en: "Gemini 4 Argon (High) vs. Claude Opus 5.5 (High): 6 Extreme Challenges, 4-2 Scoreboard & Real Token Bill ($6.26 vs $16.26 USD)",
     excerpt_es: "En el Episodio 02 subimos la apuesta: enfrentamos a Gemini 4 Argon contra Claude Opus 5.5 en 6 motores fisicos, 3D y DSP, auditando no solo el cronometro (90 vs 159 min) sino cada token de entrada, salida y lectura de cache.",
@@ -347,9 +366,9 @@ function recordTickZeroGC(price, size, side, now) {
         author: "Kevin Gonzalez",
         role: "Arbitro · Mixiuh Labs",
         handle: "@kevingon",
-        createdAt: "Hoy",
-        body_es: "Las 12 nuevas simulaciones del Episodio 02 ya estan activas en la Arena Interactiva aqui arriba (pueden alternar entre Episodio 02 y Episodio 01 con un clic). No olviden activar el sonido en los Niveles 05 y 06 para escuchar el Web Audio procedural en vivo.",
-        body_en: "All 12 new Episode 02 simulations are now live in the Interactive Arena above (you can toggle between Episode 02 and Episode 01 with one click). Make sure to unmute on Levels 05 and 06 to hear the procedural Web Audio live.",
+        createdAt: "2026-10-21",
+        body_es: "Las 12 nuevas simulaciones del Episodio 02 ya estan activas en la vista Arena del menu principal (pueden alternar entre Episodio 02 y Episodio 01 con un clic). No olviden activar el sonido en los Niveles 05 y 06 para escuchar el Web Audio procedural en vivo.",
+        body_en: "All 12 new Episode 02 simulations are now live in the Arena view of the main menu (you can toggle between Episode 02 and Episode 01 with one click). Make sure to unmute on Levels 05 and 06 to hear the procedural Web Audio live.",
         upvotes: 64
       }
     ]
@@ -463,7 +482,7 @@ const CONFIG = {
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
-    createdAt: "2026-10-15",
+    createdAt: "2026-10-16",
     readTime: "8 min",
     upvotes: 214,
     views: 1840,
@@ -488,9 +507,9 @@ const CONFIG = {
         author: "Kevin Gonzalez",
         role: "Arbitro · Mixiuh Labs",
         handle: "@kevingon",
-        createdAt: "Hace 2 horas",
-        body_es: "Todos los 20 archivos index.html originales estan cargados aqui mismo en la pestana 'Arena Interactiva (20 Demos)'. Pueden correr Flash a la izquierda y Argon a la derecha en vivo o copiar los 10 prompts integros para auditarlos en su propia maquina.",
-        body_en: "All 20 original index.html deliverables are live right here under the 'Interactive Arena (20 Demos)' tab. You can run Flash on the left and Argon on the right simultaneously or copy all 10 verbatim prompts to audit them on your own machine.",
+        createdAt: "2026-10-16",
+        body_es: "Todos los 20 archivos index.html originales estan cargados en la vista Arena del menu principal (boton EP01). Pueden correr Flash a la izquierda y Argon a la derecha en vivo o copiar los 10 prompts integros para auditarlos en su propia maquina.",
+        body_en: "All 20 original index.html deliverables are live in the Arena view of the main menu (EP01 button). You can run Flash on the left and Argon on the right simultaneously or copy all 10 verbatim prompts to audit them on your own machine.",
         upvotes: 42
       },
       {
@@ -498,7 +517,7 @@ const CONFIG = {
         author: "Carlos M. · Graphics Dev",
         role: "Ingeniero WebGL",
         handle: "@carlos_glsl",
-        createdAt: "Hace 1 hora",
+        createdAt: "2026-10-16",
         body_es: "Lo que mas me sorprendio fue el Nivel 9 (Arbol Fractal con Viento Perlin): 22 minutos en Flash contra 4 minutos en Argon. Y muy honesto de su parte documentar que cuando el cerezo de Argon supera los 20,000 racimos foliares baja a ~45-50 FPS.",
         body_en: "What blew my mind most was Level 9 (Fractal Tree with Perlin Wind): 22 minutes on Flash vs 4 minutes on Argon. Also huge respect for documenting that when Argon's cherry tree exceeds 20,000 foliage clusters it drops to ~45-50 FPS.",
         upvotes: 19
@@ -514,12 +533,12 @@ const CONFIG = {
     badge_en: "CODE AUTOPSY · LEVEL 6",
     title_es: "El Medio Pixel que Rompio un Mundo: Por que `lineHeight / 2` en un `Uint32Array` destruyo el Raycaster 3D de Flash",
     title_en: "The Half Pixel That Broke a World: Why `lineHeight / 2` on a `Uint32Array` Destroyed Flash's 3D Raycaster",
-    excerpt_es: "Inspeccion forense de la linea 1263 de `gemini-3.8-flash/motor-raycasting/index.html`. Como una division flotante sin redondear dejo mudas todas las columnas impares del buffer de video.",
-    excerpt_en: "Forensic inspection of line 1263 in `gemini-3.8-flash/motor-raycasting/index.html`. How an unrounded float division silently dropped every odd-height wall column in the video buffer.",
+    excerpt_es: "Inspeccion forense de la linea 1263 de `gemini-3.8-flash/motor-raycasting/index.html`. Como una division flotante sin redondear saco de su columna las tiras de pared de altura impar en el buffer de video.",
+    excerpt_en: "Forensic inspection of line 1263 in `gemini-3.8-flash/motor-raycasting/index.html`. How an unrounded float division silently knocked odd-height wall strips out of their columns in the video buffer.",
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
-    createdAt: "2026-10-15",
+    createdAt: "2026-10-16",
     readTime: "6 min",
     upvotes: 189,
     views: 1520,
@@ -529,43 +548,50 @@ const CONFIG = {
     codeComparison: {
       title_es: "Comparativa directa del calculo de columna vertical en el bucle DDA",
       title_en: "Direct comparison of vertical column bounds in the DDA loop",
-      flashCode: `// gemini-3.8-flash/motor-raycasting/index.html (Linea ~1263)
-// Tardo 17 minutos. Cuando lineHeight es IMPAR, lineHeight / 2 termina en .5
-const lineHeight = Math.floor(h / perpWallDist);
-let drawStart = -lineHeight / 2 + halfH; // <-- BUG CRITICO: Flotante .5 si lineHeight es impar
-if (drawStart < 0) drawStart = 0;
+      flashCode: `// gemini-3.8-flash/motor-raycasting/index.html (Lineas 1262-1264, 1296 y 1309)
+// Tardo 17 minutos. Cuando lineHeight es IMPAR, -lineHeight / 2 termina en .5
+const lineHeight = Math.floor(screenH / perpWallDist);
+const drawStart = Math.max(0, -lineHeight / 2 + halfH); // <-- BUG CRITICO: Flotante .5 si lineHeight es impar
+const drawEnd = Math.min(screenH - 1, lineHeight / 2 + halfH);
 
-for (let y = drawStart; y < drawEnd; y++) {
-  // En JS, escribir en buf32[y * w + x] cuando y tiene .5 (ej. 142.5)
-  // trata el indice como propiedad de cadena y Uint32Array LO IGNORA SILENCIOSAMENTE:
-  buf32[y * w + x] = color;
+for (let y = drawStart; y <= drawEnd; y++) {
+  // ...textura, sombreado y niebla (lineas 1297-1307)...
+  // Con y = 142.5 y screenW = 320 (resolucion por defecto) el indice es 45,600 + x:
+  // la tira cae medio renglon (160 px) fuera de su columna. Con ancho impar, Uint32Array la ignoraria.
+  screenBuf32[y * screenW + x] = packColor(r, g, b);
 }`,
-      argonCode: `// gemini-4-argon/motor-raycasting/index.html
+      argonCode: `// gemini-4-argon/motor-raycasting/index.html (Lineas 1310-1315, 1341 y 1347-1349)
 // Tardo 4 minutos (4.25x mas rapido). Corrimiento de bits garantiza entero 32-bit:
-const lineH = (H / perpDist) | 0;
-const halfLine = lineH >> 1; // <-- Division entera por desplazamiento de bits (siempre entero)
-const drawStart = Math.max(0, (H >> 1) - halfLine);
-const drawEnd = Math.min(H - 1, (H >> 1) + halfLine);
+const lineHeight = Math.floor((SCREEN_H / effectiveDist) * fovScale);
 
-for (let y = drawStart; y < drawEnd; y++) {
+const rawStart = - (lineHeight >> 1) + horizon; // <-- Division entera por desplazamiento de bits (siempre entero)
+const rawEnd = (lineHeight >> 1) + horizon;
+const drawStart = Math.max(0, rawStart);
+const drawEnd = Math.min(SCREEN_H - 1, rawEnd);
+
+for (let y = drawStart; y <= drawEnd; y++) {
+  // ...textura y sombreado (lineas 1342-1345)...
   // Indice 100% entero garantizado en cada iteracion:
-  pixels32[y * W + x] = shadedTexel;
+  const rowIdx = y * SCREEN_W + col;
+  for (let s = 0; s < colStep && col + s < SCREEN_W; s++) {
+    frameBuffer[rowIdx + s] = shadedTexel;
+  }
 }`,
-      explanation_es: "En la especificacion ECMAScript para TypedArrays (`Uint32Array`), cualquier acceso `arr[idx]` donde `idx` no es un CanonicalNumericIndexString entero valido (como `45120.5`) no lanza excepcion en consola: simplemente no escribe nada en el buffer o escribe desfasado. Como `lineHeight` alterna entre par e impar segun la distancia perpendicular del rayo, la mitad de las tiras verticales desaparecen y las paredes parecen rejas.",
-      explanation_en: "Under the ECMAScript specification for TypedArrays (`Uint32Array`), any indexed write `arr[idx]` where `idx` is a non-integer float (like `45120.5`) throws zero console errors: it silently discards the write. Because `lineHeight` alternates between even and odd integers as perpendicular distance changes, half the vertical wall strips vanish, turning solid walls into broken cages."
+      explanation_es: "En la especificacion ECMAScript para TypedArrays (`Uint32Array`), cualquier acceso `arr[idx]` donde `idx` no es un CanonicalNumericIndexString entero valido (como `45120.5`) no lanza excepcion en consola: simplemente no escribe nada en el buffer (y si el `.5` se cancela con un ancho de renglon par, la escritura cae medio renglon desfasada). Como `lineHeight` alterna entre par e impar segun la distancia perpendicular del rayo, la mitad de las tiras verticales desaparecen y las paredes parecen rejas.",
+      explanation_en: "Under the ECMAScript specification for TypedArrays (`Uint32Array`), any indexed write `arr[idx]` where `idx` is a non-integer float (like `45120.5`) throws zero console errors: it silently discards the write (and when the `.5` cancels out against an even row width, the write lands half a row off instead). Because `lineHeight` alternates between even and odd integers as perpendicular distance changes, half the vertical wall strips vanish, turning solid walls into broken cages."
     },
     content_es: [
       "El Nivel 6 (Motor 3D Raycasting estilo Wolfenstein 3D sin WebGL) era el jefe del torneo. Ambos modelos eligieron el camino de mayor rendimiento para Canvas 2D: crear un `ImageData` y envolver su buffer en un `Uint32Array` para pintar cada texel de 32 bits (`0xAABBGGRR`) directamente en memoria.",
       "Gemini 3.8 Flash tardo 17 minutos en entregar su archivo `index.html`. Al abrirlo en el navegador, el contador de su HUD marcaba orgullosamente 118-120 FPS sin un solo error en la consola de Chrome DevTools. Sin embargo, el laberinto 3D estaba completamente roto: las paredes se veian como peines o rejas transparentes y solo respondian las puertas.",
-      "Al auditar el codigo fuente de Flash encontramos al culpable exacto: `const lineHeight = Math.floor(h / perpWallDist); let drawStart = -lineHeight / 2 + halfH;`. Flash redondeo `lineHeight`, pero luego lo dividio entre `2` sin `Math.floor` ni `>> 1`. Siempre que `lineHeight` resulta en un numero impar (por ejemplo, 241 pixeles de alto), `drawStart` vale `.5`.",
-      "En el bucle `for (let y = drawStart; y < drawEnd; y++)`, la variable `y` incrementa de uno en uno conservando el `.5` decimal (`100.5`, `101.5`, `102.5`...). Cuando multiplica `y * w + x` y cuando `w` es impar o el producto conserva `.5`, el `Uint32Array` de JavaScript ignora silenciosamente la escritura o desplaza la columna medio renglon.",
+      "Al auditar el codigo fuente de Flash encontramos al culpable exacto en las lineas 1262-1263: `const lineHeight = Math.floor(screenH / perpWallDist); const drawStart = Math.max(0, -lineHeight / 2 + halfH);`. Flash redondeo `lineHeight`, pero luego lo dividio entre `2` sin `Math.floor` ni `>> 1`. Siempre que `lineHeight` resulta en un numero impar (por ejemplo, 141 pixeles de alto) y la pared no llena la pantalla, `drawStart` termina en `.5`.",
+      "En el bucle `for (let y = drawStart; y <= drawEnd; y++)`, la variable `y` incrementa de uno en uno conservando el `.5` decimal (`100.5`, `101.5`, `102.5`...). Al calcular `y * screenW + x`, si `screenW` es impar el indice conserva el `.5` y el `Uint32Array` de JavaScript ignora silenciosamente la escritura; si es par, la desplaza medio renglon. Las 4 resoluciones de Flash (640, 480, 320 y 240 de ancho) son pares, asi que esas tiras se pintan fuera de su columna.",
       "Gemini 4 Argon, en cambio, tardo apenas 4 minutos (13 minutos menos que Flash) y utilizo operadores de bits (`| 0` y `>> 1`) en toda la tuberia de proyeccion DDA, garantizando indices enteros exactos, texturas procedurales 64x64 impecables, canon de plasma funcional, drones y vista dividida 2D/3D con tecla TAB."
     ],
     content_en: [
       "Level 6 (Wolfenstein 3D-style Raycasting Engine without WebGL) was the boss fight of the tournament. Both models chose the highest-performance path for 2D Canvas: allocating an `ImageData` buffer wrapped in a `Uint32Array` to write 32-bit packed pixels (`0xAABBGGRR`) directly in memory.",
       "Gemini 3.8 Flash took 17 minutes to produce its `index.html`. Upon opening it in the browser, its HUD counter proudly read 118-120 FPS with zero errors in the Chrome DevTools console. Yet the 3D world was shattered: walls looked like vertical jail bars or combs with missing slices, and only doors responded.",
-      "Auditing Flash's source code revealed the exact culprit: `const lineHeight = Math.floor(h / perpWallDist); let drawStart = -lineHeight / 2 + halfH;`. Flash floored `lineHeight`, but then divided it by `2` without `Math.floor` or `>> 1`. Whenever `lineHeight` is an odd integer (e.g., 241 pixels tall), `drawStart` ends in `.5`.",
-      "Inside `for (let y = drawStart; y < drawEnd; y++)`, `y` increments by 1 while keeping the `.5` fraction (`100.5`, `101.5`, `102.5`...). In JavaScript's `Uint32Array`, non-integer indices are silently ignored without throwing a runtime error, or shifted by half a row when multiplied by an even width.",
+      "Auditing Flash's source code revealed the exact culprit on lines 1262-1263: `const lineHeight = Math.floor(screenH / perpWallDist); const drawStart = Math.max(0, -lineHeight / 2 + halfH);`. Flash floored `lineHeight`, but then divided it by `2` without `Math.floor` or `>> 1`. Whenever `lineHeight` is an odd integer (e.g., 141 pixels tall) and the wall does not fill the screen, `drawStart` ends in `.5`.",
+      "Inside `for (let y = drawStart; y <= drawEnd; y++)`, `y` increments by 1 while keeping the `.5` fraction (`100.5`, `101.5`, `102.5`...). When computing `y * screenW + x`, an odd `screenW` keeps the `.5` and JavaScript's `Uint32Array` silently ignores the write without throwing a runtime error; an even one shifts it by half a row. All 4 of Flash's resolutions (640, 480, 320 and 240 wide) are even, so those strips land outside their column.",
       "Gemini 4 Argon took only 4 minutes (13 minutes less than Flash) and used bitwise integer operators (`| 0` and `>> 1`) across the entire DDA projection pipeline, guaranteeing exact integer indices, crisp 64x64 procedural textures, a working plasma cannon, target drones, and a live TAB split-screen 2D/3D view."
     ],
     comments: [
@@ -574,7 +600,7 @@ for (let y = drawStart; y < drawEnd; y++) {
         author: "Diego R. · Engine Programmer",
         role: "Desarrollador C++ / JS",
         handle: "@diego_lowlevel",
-        createdAt: "Hace 3 horas",
+        createdAt: "2026-10-16",
         body_es: "Ese bug de TypedArray con indices `.5` en JS es letal porque no tira ningún TypeError en consola. Que Argon haya usado `>> 1` de entrada en un prompt zero-shot habla muchísimo de su entrenamiento en código gráfico de bajo nivel.",
         body_en: "That TypedArray `.5` float index bug in JS is lethal because it never throws a TypeError in the console. The fact that Argon used `>> 1` out of the box in a zero-shot prompt says a lot about its low-level graphics priors.",
         upvotes: 37
@@ -594,7 +620,7 @@ for (let y = drawStart; y < drawEnd; y++) {
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
-    createdAt: "2026-10-15",
+    createdAt: "2026-10-16",
     readTime: "4 min",
     upvotes: 141,
     views: 980,
@@ -602,36 +628,40 @@ for (let y = drawStart; y < drawEnd; y++) {
     relatedChallengeN: 2,
     tags: ["Nivel 2", "Visualizador ADN", "Three.js", "GLSL", "Telemetria", "Hookes Law"],
     codeComparison: {
-      title_es: "Inspeccion de la linea 412 de Flash frente al buffer dinamico de Argon",
-      title_en: "Inspecting line 412 of Flash vs Argon's dynamic particle buffer",
-      flashCode: `<!-- gemini-3.8-flash/visualizador-adn/index.html (Linea 412) -->
-<div class="stat-value" id="particle-count">18,480</div>
+      title_es: "Inspeccion de las lineas 748 y 753 de Flash frente al contador dinamico de Argon",
+      title_en: "Inspecting lines 748 and 753 of Flash vs Argon's dynamic particle counter",
+      flashCode: `<!-- gemini-3.8-flash/visualizador-adn/index.html (Lineas 748 y 753) -->
+<span class="telemetry-val highlight-cyan" id="live-particles-val">18,480 PTS</span>
+<span class="telemetry-val highlight-cyan" id="part-count">18,480</span>
 
 <script>
-  // En el script de Flash:
-  // Helice: 14,640 particulas + Polvo ambiental: 3,200 = 17,840 reales.
-  // Ninguna linea de JS actualiza jamas #particle-count ni existe slider de densidad.
+  // En el script de Flash (lineas 976-982):
+  // Helice: 4,800 x 2 hebras + 120 peldanos x 42 = 14,640 particulas + Polvo ambiental: 3,200 = 17,840 reales.
+  // Ninguna linea de JS actualiza jamas #live-particles-val ni #part-count, ni existe slider de densidad.
 </script>`,
-      argonCode: `// gemini-4-argon/visualizador-adn/index.html
-// Slider de densidad en vivo (5,000 a 40,000 particulas; 24,500 por defecto):
-function rebuildDNAGeometry(targetCount) {
-  // Recalcula hebras A/B, peldanos ATCG (A-T, T-A, C-G, G-C) y polvo ambiental
-  hudTotalParticles.textContent = totalAllocated.toLocaleString();
+      argonCode: `// gemini-4-argon/visualizador-adn/index.html (Lineas 636, 1116 y 1372-1374)
+// Slider de densidad en vivo: 10,000 a 40,000 particulas de la helice (22,000 por defecto)
+// + 2,500 esporas ambientales = 24,500 particulas totales en el HUD
+function buildDNASystem(totalCount) {
+  // ...reconstruye hebras (68%) y peldanos de bases (32%) con totalCount particulas...
+  document.getElementById('val-dna-particles').textContent = totalCount.toLocaleString('en-US');
+  document.getElementById('val-total-particles').textContent =
+    (totalCount + PARAMS.ambientParticleCount).toLocaleString('en-US');
 }`,
       explanation_es: "El prompt exigia explicitamente un HUD con contador de particulas en tiempo real y un control deslizante para modificar la densidad de particulas en caliente. Flash omitio el slider de densidad, instancio 17,840 particulas fijas y escribio `18,480` directamente en el HTML.",
       explanation_en: "The prompt explicitly required a real-time HUD particle counter and a live slider to adjust particle density on the fly. Flash omitted the density slider, instantiated 17,840 fixed particles, and hardcoded `18,480` in the static HTML."
     },
     content_es: [
       "En el Nivel 2 pedimos un Visualizador de ADN 3D con mas de 10,000 particulas sometidas a repulsión del cursor y retorno elástico amortiguado por Ley de Hooke ($F = -k \\cdot d - c \\cdot v$), mas un HUD con contador de particulas y slider de densidad.",
-      "Al revisar el HUD de Gemini 3.8 Flash en pantalla, se leia `18,480` particulas. Parecia cumplir. Pero al abrir el archivo en el editor encontramos dos sorpresas: primero, no habia slider para cambiar la densidad; segundo, la etiqueta `<div id=\"particle-count\">18,480</div>` en la linea 412 nunca era referenciada por el JavaScript. Sumando los arreglos reales del script (`14,640` en la helice + `3,200` de polvo), habia `17,840` particulas.",
-      "Ademas, en la grabacion de Flash la cadena de ADN se deforma en una espiral abierta tipo galaxia donde cuesta distinguir los peldanos transversales A-T y C-G.",
-      "Gemini 4 Argon tardo 5 minutos (2 minutos menos que los 7 de Flash), implemento el slider de densidad real de 5,000 a 40,000 particulas (24,500 por defecto: 22,000 en la doble helice + 2,500 de polvo), sonda 3D con onda de choque al hacer clic y selector de secuencias geneticas."
+      "Al revisar el HUD de Gemini 3.8 Flash en pantalla, se leia `18,480` particulas. Parecia cumplir. Pero al abrir el archivo en el editor encontramos dos sorpresas: primero, no habia slider para cambiar la densidad; segundo, la etiqueta `<span id=\"part-count\">18,480</span>` de la linea 753 (igual que el `18,480 PTS` de `#live-particles-val` en la linea 748) nunca era referenciada por el JavaScript. Sumando los arreglos reales del script (`14,640` en la helice + `3,200` de polvo), habia `17,840` particulas.",
+      "Eso si, en la grabacion la vista desde arriba de Flash (su preset de camara 'CENITAL HELICOIDAL') parece una galaxia y se ve preciosa. Pero su onda expansiva apenas mueve la helice, y tampoco trae el selector de forma de particula que pedia el prompt.",
+      "Gemini 4 Argon tardo 5 minutos (2 minutos menos que los 7 de Flash) e implemento un slider real de densidad de 10,000 a 40,000 particulas para la doble helice (22,000 por defecto, que con 2,500 esporas de polvo suman las 24,500 de su HUD), una sonda de fuerza 3D que sigue al cursor, onda de choque con boton o tecla Espacio y 4 formas de particula en shader."
     ],
     content_en: [
       "In Level 2 we requested a 3D DNA Visualizer with 10,000+ particles governed by cursor repulsion and Hooke's Law damped spring restoration ($F = -k \\cdot d - c \\cdot v$), plus a live HUD particle counter and density slider.",
-      "Looking at Gemini 3.8 Flash's HUD on screen, it displayed `18,480` particles. At first glance it looked compliant. Opening the source file revealed two surprises: first, there was no density slider; second, `<div id=\"particle-count\">18,480</div>` on line 412 was never referenced anywhere in JavaScript. Summing the actual buffers (`14,640` helix + `3,200` dust) yielded `17,840` particles.",
-      "Furthermore, in Flash's recording the DNA chain warps into an open galaxy-like spiral where the transverse A-T and C-G rungs are barely distinguishable.",
-      "Gemini 4 Argon finished in 5 minutes (2 minutes faster than Flash's 7), implemented a real live density slider from 5,000 to 40,000 particles (24,500 default: 22,000 in the double helix + 2,500 ambient dust), a 3D shockwave probe on click, and genetic sequence presets."
+      "Looking at Gemini 3.8 Flash's HUD on screen, it displayed `18,480` particles. At first glance it looked compliant. Opening the source file revealed two surprises: first, there was no density slider; second, `<span id=\"part-count\">18,480</span>` on line 753 (like the `18,480 PTS` in `#live-particles-val` on line 748) was never referenced anywhere in JavaScript. Summing the actual buffers (`14,640` helix + `3,200` dust) yielded `17,840` particles.",
+      "That said, in the recording Flash's top-down view (its 'CENITAL HELICOIDAL' camera preset) looks like a galaxy and is genuinely beautiful. But its shockwave barely moves the helix, and it also lacks the particle-shape selector the prompt asked for.",
+      "Gemini 4 Argon finished in 5 minutes (2 minutes faster than Flash's 7) and implemented a real density slider from 10,000 to 40,000 double-helix particles (22,000 by default, which plus 2,500 dust spores gives the 24,500 on its HUD), a 3D force probe that follows the cursor, a shockwave on button or Space key, and 4 shader particle shapes."
     ],
     comments: []
   },
@@ -648,7 +678,7 @@ function rebuildDNAGeometry(targetCount) {
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
-    createdAt: "2026-10-15",
+    createdAt: "2026-10-16",
     readTime: "5 min",
     upvotes: 128,
     views: 860,
@@ -680,7 +710,7 @@ function rebuildDNAGeometry(targetCount) {
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
-    createdAt: "2026-10-15",
+    createdAt: "2026-10-16",
     readTime: "5 min",
     upvotes: 116,
     views: 740,
@@ -714,7 +744,7 @@ function rebuildDNAGeometry(targetCount) {
     author: "Kevin Gonzalez",
     authorRole_es: "Fundador · Ecosistema Mixiuh",
     authorRole_en: "Founder · Mixiuh Ecosystem",
-    createdAt: "2026-10-15",
+    createdAt: "2026-10-16",
     readTime: "7 min",
     upvotes: 163,
     views: 1190,

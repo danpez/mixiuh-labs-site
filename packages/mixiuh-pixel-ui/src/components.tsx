@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useId, useRef } from "react";
 import { pixelSound, type PixelSoundName } from "./sound";
 import { PIXEL_UI_VERSION } from "./version";
 import {
@@ -84,6 +84,100 @@ const TONE_STYLES: Record<
 
 /** Tone -> Tailwind classes + hex lookup shared by every Pixel UI component. */
 export const PIXEL_TONE_STYLES = TONE_STYLES;
+
+/* ----------------------------------------------------------------------------
+   Shared accessibility helpers
+   ---------------------------------------------------------------------------- */
+
+/*
+ * Accent frames are outline utilities fed by the --px-frame custom property
+ * (pair FRAME_* with frameStyle(hex)). An inline `outline` style beats every
+ * stylesheet rule, so it used to hide the keyboard focus ring.
+ */
+const FRAME_1 = "outline-1 outline-[color:var(--px-frame)]";
+const FRAME_2 = "outline-2 outline-[color:var(--px-frame)]";
+/** Keyboard focus swaps the resting frame for the yellow pixel ring. */
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-[#FFD100] focus-visible:outline-offset-2";
+/** The same ring on a field wrapper while its input (or a field button) has focus. */
+const FOCUS_WITHIN_RING =
+  "focus-within:outline-2 focus-within:outline-[#FFD100] focus-within:outline-offset-2";
+/** Ring drawn inside the element, for rows of scrolling lists and buttons inside fields. */
+const FOCUS_RING_INSET =
+  "focus-visible:outline-2 focus-visible:outline-[#FFD100] focus-visible:-outline-offset-2";
+
+const frameStyle = (hex: string) =>
+  ({ "--px-frame": hex }) as React.CSSProperties;
+
+/**
+ * Props that make a clickable non-button element (a card that holds block
+ * content) work as a button: focusable, Enter / Space to activate.
+ */
+function pressableProps(
+  onPress?: () => void
+): Pick<React.HTMLAttributes<HTMLElement>, "role" | "tabIndex" | "onKeyDown"> {
+  if (!onPress) return {};
+  return {
+    role: "button",
+    tabIndex: 0,
+    onKeyDown: (e) => {
+      // Ignore keys typed into controls nested inside the card
+      if (e.target !== e.currentTarget) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onPress();
+      }
+    },
+  };
+}
+
+/** Swallow a key so dialogs listening on document (Escape) do not see it. */
+function consumeKey(e: React.KeyboardEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.nativeEvent.stopImmediatePropagation();
+}
+
+/**
+ * Closes a dropdown when the user presses or moves focus outside `rootRef`.
+ * Touch closes on the tap's pointerup, so scrolling the page does not.
+ */
+function useDismissOutside(
+  open: boolean,
+  rootRef: React.RefObject<HTMLElement | null>,
+  setOpen: (open: boolean) => void
+) {
+  useEffect(() => {
+    if (!open) return;
+    const outside = (target: EventTarget | null) =>
+      target instanceof Node && !rootRef.current?.contains(target);
+    let tapOutside = false;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch") tapOutside = outside(e.target);
+      else if (outside(e.target)) setOpen(false);
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType === "touch" && tapOutside) setOpen(false);
+      tapOutside = false;
+    };
+    const onPointerCancel = () => {
+      tapOutside = false;
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      if (outside(e.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerCancel);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerCancel);
+      document.removeEventListener("focusin", onFocusIn);
+    };
+  }, [open, rootRef, setOpen]);
+}
 
 /* ============================================================================
    1. TACTILE PIXEL BUTTON & 3D KEYCAP
@@ -342,15 +436,17 @@ export function PixelCard({
   children,
 }: PixelCardProps) {
   const t = TONE_STYLES[tone];
+  const press = onClick
+    ? () => {
+        pixelSound.play("click");
+        onClick();
+      }
+    : undefined;
 
   return (
     <div
-      onClick={() => {
-        if (onClick) {
-          pixelSound.play("click");
-          onClick();
-        }
-      }}
+      onClick={press}
+      {...pressableProps(press)}
       className={`${t.cardClass} ${
         interactive || onClick ? "px-card-interactive cursor-pointer" : ""
       } ${className}`}
@@ -482,17 +578,19 @@ export function PixelFloppyCard({
   onInsert,
 }: PixelFloppyCardProps) {
   const t = TONE_STYLES[tone];
+  const insert = () => {
+    pixelSound.play("cartridgeInsert");
+    onInsert?.();
+  };
   return (
     <div
-      onClick={() => {
-        pixelSound.play("cartridgeInsert");
-        onInsert?.();
-      }}
-      className="group relative bg-[#182032] border-3 border-[#090B10] shadow-[6px_6px_0_#040508] p-4 pt-12 cursor-pointer select-none transition hover:-translate-y-1"
-      style={{ outline: `2px solid ${t.hex}` }}
+      onClick={insert}
+      {...pressableProps(onInsert ? insert : undefined)}
+      className={`group relative bg-[#182032] border-3 border-[#090B10] shadow-[6px_6px_0_#040508] p-4 pt-12 cursor-pointer select-none transition hover:-translate-y-1 focus-visible:-translate-y-1 ${FRAME_2} ${FOCUS_RING}`}
+      style={frameStyle(t.hex)}
     >
       {/* Top 3.5" Metal Sliding Shutter */}
-      <div className="absolute top-0 left-6 right-10 h-9 bg-[#CBD5E1] border-x-2 border-b-2 border-[#090B10] flex items-center justify-between px-3 transition-transform duration-200 group-hover:translate-x-2">
+      <div className="absolute top-0 left-6 right-10 h-9 bg-[#CBD5E1] border-x-2 border-b-2 border-[#090B10] flex items-center justify-between px-3 transition-transform duration-200 group-hover:translate-x-2 group-focus-visible:translate-x-2">
         <div className="w-4 h-6 bg-[#090B10]" />
         <span className="font-pixel text-[10px] text-[#090B10] font-bold">
           {diskCode} {"//"} {capacity}
@@ -548,13 +646,16 @@ export function Pixel3DCartridge({
   onSelect,
 }: Pixel3DCartridgeProps) {
   const t = TONE_STYLES[tone];
+  const select = () => {
+    pixelSound.play("cartridgeInsert");
+    onSelect?.();
+  };
 
   return (
     <div
-      onClick={() => {
-        pixelSound.play("cartridgeInsert");
-        onSelect?.();
-      }}
+      onClick={select}
+      {...pressableProps(onSelect ? select : undefined)}
+      aria-pressed={onSelect ? active : undefined}
       className={`px-3d-cartridge bg-[#151B29] p-3.5 cursor-pointer select-none flex flex-col justify-between ${
         active ? "ring-2 ring-[#FFD100]" : ""
       }`}
@@ -844,6 +945,7 @@ export function Pixel3DCRTWorkstation({
               <button
                 key={item.id}
                 type="button"
+                aria-pressed={i === idx}
                 onClick={() => switchChannel(i)}
                 className={`py-1.5 px-1 font-pixel text-[10px] border-2 transition cursor-pointer truncate ${
                   i === idx
@@ -1221,6 +1323,8 @@ export function PixelAudioSequencer() {
                   <button
                     key={cIdx}
                     type="button"
+                    aria-label={`${tr.name} paso ${cIdx + 1}`}
+                    aria-pressed={active}
                     onClick={() => toggleCell(rIdx, cIdx)}
                     className={`h-6 border transition cursor-pointer ${
                       isCur ? "ring-2 ring-white" : "border-[#2A344B]"
@@ -1570,8 +1674,8 @@ export function PixelSocialBar({
             rel="noopener noreferrer"
             onClick={() => pixelSound.play("coin")}
             title={`${item.label} (${item.sublabel || item.href})`}
-            className="px-2.5 py-1.5 bg-[#111622] hover:bg-[#090B10] border-2 border-[#090B10] shadow-[3px_3px_0_#040508] inline-flex items-center gap-1.5 font-pixel text-[10px] font-bold text-[#F5F2EB] transition hover:-translate-y-0.5"
-            style={{ outline: `1px solid ${item.accentHex}` }}
+            className={`px-2.5 py-1.5 bg-[#111622] hover:bg-[#090B10] border-2 border-[#090B10] shadow-[3px_3px_0_#040508] inline-flex items-center gap-1.5 font-pixel text-[10px] font-bold text-[#F5F2EB] transition hover:-translate-y-0.5 ${FRAME_1} ${FOCUS_RING}`}
+            style={frameStyle(item.accentHex)}
           >
             <PixelIcon name={item.icon} size={13} color={item.accentHex} />
             <span>{item.label}</span>
@@ -1592,8 +1696,8 @@ export function PixelSocialBar({
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => pixelSound.play("coin")}
-          className="p-3 bg-[#111622] hover:bg-[#171E2E] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center gap-2.5 transition hover:-translate-y-0.5"
-          style={{ outline: `2px solid ${item.accentHex}` }}
+          className={`p-3 bg-[#111622] hover:bg-[#171E2E] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center gap-2.5 transition hover:-translate-y-0.5 ${FRAME_2} ${FOCUS_RING}`}
+          style={frameStyle(item.accentHex)}
         >
           <div
             className="w-8 h-8 border-2 border-[#090B10] flex items-center justify-center shrink-0"
@@ -1635,6 +1739,8 @@ export interface PixelInputProps
   iconRight?: PixelIconName;
   clearable?: boolean;
   onClear?: () => void;
+  /** Accessible name and tooltip of the clear button (default "Limpiar"). */
+  clearLabel?: string;
 }
 
 export function PixelInput({
@@ -1647,13 +1753,22 @@ export function PixelInput({
   iconRight,
   clearable = false,
   onClear,
+  clearLabel = "Limpiar",
   className = "",
   value,
   onChange,
   ...rest
 }: PixelInputProps) {
+  const autoId = useId();
+  const inputId = rest.id || autoId;
+  const hintId = `${inputId}-hint`;
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const accent = TONE_STYLES[tone].hex;
   const borderHex = errorText ? "#FF3355" : accent;
+  const describedBy =
+    [rest["aria-describedby"], errorText || helperText ? hintId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
   const sizePad =
     size === "sm"
       ? "px-2.5 py-1.5 text-xs"
@@ -1664,13 +1779,16 @@ export function PixelInput({
   return (
     <div className={`space-y-1.5 font-mono-hud ${className}`}>
       {label && (
-        <label className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase">
+        <label
+          htmlFor={inputId}
+          className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase"
+        >
           {label}
         </label>
       )}
       <div
-        className="relative flex items-center bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508]"
-        style={{ outline: `2px solid ${borderHex}` }}
+        className={`relative flex items-center bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] ${FRAME_2} ${FOCUS_WITHIN_RING}`}
+        style={frameStyle(borderHex)}
       >
         {iconLeft && (
           <span className="pl-3 pr-1 flex items-center shrink-0">
@@ -1678,6 +1796,7 @@ export function PixelInput({
           </span>
         )}
         <input
+          ref={inputRef}
           value={value}
           onChange={(e) => {
             pixelSound.play("dialogBlip");
@@ -1685,6 +1804,9 @@ export function PixelInput({
           }}
           className={`w-full bg-transparent text-[#F5F2EB] placeholder:text-[#94A3B8] focus:outline-none font-mono-hud ${sizePad}`}
           {...rest}
+          id={inputId}
+          aria-describedby={describedBy}
+          aria-invalid={errorText ? true : rest["aria-invalid"]}
         />
         {clearable && value && String(value).length > 0 && (
           <button
@@ -1692,9 +1814,12 @@ export function PixelInput({
             onClick={() => {
               pixelSound.play("click");
               onClear?.();
+              // The button unmounts once the value is empty: keep focus in the field
+              inputRef.current?.focus();
             }}
-            className="pr-2.5 pl-1.5 py-2 text-[#94A3B8] hover:text-[#FF3355] cursor-pointer"
-            title="Clear"
+            className={`pr-2.5 pl-1.5 py-2 text-[#94A3B8] hover:text-[#FF3355] cursor-pointer ${FOCUS_RING_INSET}`}
+            aria-label={clearLabel}
+            title={clearLabel}
           >
             <PixelIcon name="close" size={13} color="currentColor" />
           </button>
@@ -1706,12 +1831,17 @@ export function PixelInput({
         )}
       </div>
       {errorText ? (
-        <p className="text-[11px] text-[#FF3355] font-bold flex items-center gap-1">
+        <p
+          id={hintId}
+          className="text-[11px] text-[#FF3355] font-bold flex items-center gap-1"
+        >
           <PixelIcon name="bug" size={12} color="#FF3355" />
           <span>{errorText}</span>
         </p>
       ) : helperText ? (
-        <p className="text-[11px] text-[#94A3B8]">{helperText}</p>
+        <p id={hintId} className="text-[11px] text-[#94A3B8]">
+          {helperText}
+        </p>
       ) : null}
     </div>
   );
@@ -1747,8 +1877,19 @@ export function PixelSelect({
   className = "",
 }: PixelSelectProps) {
   const [open, setOpen] = useState(false);
+  // Option holding the roving tab stop (and focus) while the listbox is open
+  const [activeIdx, setActiveIdx] = useState(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const baseId = useId();
+  const labelId = `${baseId}-label`;
+  const triggerId = `${baseId}-trigger`;
+  const listId = `${baseId}-list`;
   const accent = TONE_STYLES[tone].hex;
-  const selected = options.find((o) => o.value === value);
+  const selectedIdx = options.findIndex((o) => o.value === value);
+  const selected = selectedIdx >= 0 ? options[selectedIdx] : undefined;
+  const lastIdx = options.length - 1;
   const sizePad =
     size === "sm"
       ? "px-2.5 py-1.5 text-xs"
@@ -1756,21 +1897,97 @@ export function PixelSelect({
       ? "px-4 py-3 text-sm"
       : "px-3 py-2 text-xs sm:text-sm";
 
+  useDismissOutside(open, rootRef, setOpen);
+
+  // Focus follows the active option while the listbox is open
+  useEffect(() => {
+    if (!open) return;
+    const el = optionRefs.current[activeIdx];
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: "nearest" });
+  }, [open, activeIdx]);
+
+  const openList = (idx: number) => {
+    pixelSound.play("click");
+    setActiveIdx(Math.max(0, Math.min(lastIdx, idx)));
+    setOpen(true);
+  };
+
+  const closeList = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (open) optionRefs.current[activeIdx]?.focus();
+      else if (selectedIdx >= 0) openList(selectedIdx);
+      else openList(e.key === "ArrowUp" ? lastIdx : 0);
+    } else if (e.key === "Escape" && open) {
+      consumeKey(e);
+      setOpen(false);
+    }
+  };
+
+  const onOptionKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    i: number
+  ) => {
+    if (e.key === "Escape") {
+      consumeKey(e);
+      closeList();
+      return;
+    }
+    let next = -1;
+    if (e.key === "ArrowDown") next = Math.min(lastIdx, i + 1);
+    else if (e.key === "ArrowUp") next = Math.max(0, i - 1);
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = lastIdx;
+    if (next < 0) return;
+    e.preventDefault();
+    setActiveIdx(next);
+  };
+
   return (
-    <div className={`relative space-y-1.5 font-mono-hud ${className}`}>
+    <div
+      ref={rootRef}
+      className={`relative space-y-1.5 font-mono-hud ${className}`}
+    >
       {label && (
-        <label className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase">
+        <label
+          id={labelId}
+          htmlFor={triggerId}
+          onClick={(e) => {
+            // Like a native <select>: the label focuses the control without opening it
+            e.preventDefault();
+            triggerRef.current?.focus();
+          }}
+          className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase"
+        >
           {label}
         </label>
       )}
       <button
+        ref={triggerRef}
+        id={triggerId}
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-labelledby={label ? `${labelId} ${triggerId}` : undefined}
         onClick={() => {
-          pixelSound.play("click");
-          setOpen((prev) => !prev);
+          if (open) {
+            pixelSound.play("click");
+            setOpen(false);
+          } else {
+            openList(selectedIdx >= 0 ? selectedIdx : 0);
+          }
         }}
-        className={`w-full bg-[#090B10] hover:bg-[#111622] text-left text-[#F5F2EB] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center justify-between gap-2 cursor-pointer transition ${sizePad}`}
-        style={{ outline: `2px solid ${accent}` }}
+        onKeyDown={onTriggerKeyDown}
+        className={`w-full bg-[#090B10] hover:bg-[#111622] text-left text-[#F5F2EB] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center justify-between gap-2 cursor-pointer transition ${FRAME_2} ${FOCUS_RING} ${sizePad}`}
+        style={frameStyle(accent)}
       >
         <div className="flex items-center gap-2 min-w-0">
           {selected?.icon && (
@@ -1804,21 +2021,31 @@ export function PixelSelect({
 
       {open && (
         <div
+          id={listId}
+          role="listbox"
+          aria-labelledby={label ? labelId : triggerId}
           className="absolute left-0 right-0 z-50 mt-1 bg-[#090B10] border-2 border-[#090B10] shadow-[6px_6px_0_#040508] max-h-60 overflow-y-auto divide-y divide-[#1E2638]"
           style={{ outline: `2px solid ${accent}` }}
         >
-          {options.map((opt) => {
+          {options.map((opt, i) => {
             const isSel = opt.value === value;
             return (
               <button
                 key={opt.value}
+                ref={(el) => {
+                  optionRefs.current[i] = el;
+                }}
                 type="button"
+                role="option"
+                aria-selected={isSel}
+                tabIndex={i === activeIdx ? 0 : -1}
                 onClick={() => {
                   pixelSound.play("coin");
                   onChange(opt.value);
-                  setOpen(false);
+                  closeList();
                 }}
-                className={`w-full px-3 py-2.5 text-left flex items-center justify-between gap-2 cursor-pointer transition ${
+                onKeyDown={(e) => onOptionKeyDown(e, i)}
+                className={`w-full px-3 py-2.5 text-left flex items-center justify-between gap-2 cursor-pointer transition ${FOCUS_RING_INSET} ${
                   isSel
                     ? "bg-[#172033] text-white font-bold"
                     : "hover:bg-[#111622] text-[#CBD5E1]"
@@ -1869,6 +2096,10 @@ export interface PixelAutocompleteProps {
   placeholder?: string;
   tone?: PixelColorTone;
   className?: string;
+  /** Accessible name and tooltip of the clear button (default "Limpiar"). */
+  clearLabel?: string;
+  /** Accessible name and tooltip of the open/close button (default "Mostrar opciones"). */
+  toggleLabel?: string;
 }
 
 export function PixelAutocomplete({
@@ -1879,11 +2110,22 @@ export function PixelAutocomplete({
   placeholder = "Escribe para filtrar...",
   tone = "emerald",
   className = "",
+  clearLabel = "Limpiar",
+  toggleLabel = "Mostrar opciones",
 }: PixelAutocompleteProps) {
   const accent = TONE_STYLES[tone].hex;
   const selectedObj = options.find((o) => o.value === value);
   const [query, setQuery] = useState(selectedObj?.label || "");
   const [open, setOpen] = useState(false);
+  const baseId = useId();
+  const inputId = `${baseId}-input`;
+  const listId = `${baseId}-list`;
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  useDismissOutside(open, rootRef, setOpen);
 
   const filtered = options.filter(
     (o) =>
@@ -1893,22 +2135,45 @@ export function PixelAutocomplete({
       (o.badge && o.badge.toLowerCase().includes(query.trim().toLowerCase()))
   );
 
+  // The list is about to unmount: move focus out of it so it is not lost.
+  // The toggle (not the input) avoids popping the phone keyboard up again.
+  const keepFocusOnClose = () => {
+    if (listRef.current?.contains(document.activeElement)) {
+      toggleRef.current?.focus();
+    }
+  };
+
   return (
-    <div className={`relative space-y-1.5 font-mono-hud ${className}`}>
+    <div
+      ref={rootRef}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || !open) return;
+        consumeKey(e);
+        keepFocusOnClose();
+        setOpen(false);
+      }}
+      className={`relative space-y-1.5 font-mono-hud ${className}`}
+    >
       {label && (
-        <label className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase">
+        <label
+          htmlFor={inputId}
+          className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase"
+        >
           {label}
         </label>
       )}
       <div
-        className="flex items-center bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508]"
-        style={{ outline: `2px solid ${accent}` }}
+        className={`flex items-center bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] ${FRAME_2} ${FOCUS_WITHIN_RING}`}
+        style={frameStyle(accent)}
       >
         <span className="pl-3 pr-1 flex items-center shrink-0">
           <PixelIcon name="search" size={14} color={accent} />
         </span>
         <input
+          ref={inputRef}
+          id={inputId}
           type="text"
+          autoComplete="off"
           value={query}
           onFocus={() => setOpen(true)}
           onChange={(e) => {
@@ -1922,23 +2187,32 @@ export function PixelAutocomplete({
         {query && (
           <button
             type="button"
+            aria-label={clearLabel}
+            title={clearLabel}
             onClick={() => {
               pixelSound.play("click");
               setQuery("");
               setOpen(true);
+              // This button unmounts with the text: continue typing in the field
+              inputRef.current?.focus();
             }}
-            className="px-2.5 py-2 text-[#94A3B8] hover:text-white cursor-pointer"
+            className={`px-2.5 py-2 text-[#94A3B8] hover:text-white cursor-pointer ${FOCUS_RING_INSET}`}
           >
             <PixelIcon name="close" size={12} />
           </button>
         )}
         <button
+          ref={toggleRef}
           type="button"
+          aria-label={toggleLabel}
+          title={toggleLabel}
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
           onClick={() => {
             pixelSound.play("click");
             setOpen((o) => !o);
           }}
-          className="px-2.5 py-2 border-l border-[#1E2638] text-[#94A3B8] hover:text-white cursor-pointer"
+          className={`px-2.5 py-2 border-l border-[#1E2638] text-[#94A3B8] hover:text-white cursor-pointer ${FOCUS_RING_INSET}`}
         >
           <PixelIcon
             name={open ? "chevron-up" : "chevron-down"}
@@ -1950,6 +2224,8 @@ export function PixelAutocomplete({
 
       {open && (
         <div
+          ref={listRef}
+          id={listId}
           className="absolute left-0 right-0 z-50 mt-1 bg-[#090B10] border-2 border-[#090B10] shadow-[6px_6px_0_#040508] max-h-56 overflow-y-auto divide-y divide-[#1E2638]"
           style={{ outline: `2px solid ${accent}` }}
         >
@@ -1965,13 +2241,15 @@ export function PixelAutocomplete({
                 <button
                   key={opt.value}
                   type="button"
+                  aria-pressed={isSel}
                   onClick={() => {
                     pixelSound.play("powerup");
                     onChange(opt.value);
                     setQuery(opt.label);
+                    keepFocusOnClose();
                     setOpen(false);
                   }}
-                  className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 cursor-pointer transition ${
+                  className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 cursor-pointer transition ${FOCUS_RING_INSET} ${
                     isSel
                       ? "bg-[#172033] text-white font-bold"
                       : "hover:bg-[#111622] text-[#CBD5E1]"
@@ -2030,9 +2308,16 @@ export function PixelCheckbox({
   className = "",
 }: PixelCheckboxProps) {
   const accent = TONE_STYLES[tone].hex;
+  const baseId = useId();
+  const labelId = `${baseId}-label`;
+  const descId = `${baseId}-desc`;
   return (
     <button
       type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-labelledby={labelId}
+      aria-describedby={description ? descId : undefined}
       disabled={disabled}
       onClick={() => {
         if (disabled) return;
@@ -2053,11 +2338,14 @@ export function PixelCheckbox({
         {checked && <PixelIcon name="check" size={13} color="#090B10" />}
       </div>
       <div className="min-w-0">
-        <div className="text-xs sm:text-sm font-bold text-[#F5F2EB] group-hover:text-white">
+        <div
+          id={labelId}
+          className="text-xs sm:text-sm font-bold text-[#F5F2EB] group-hover:text-white"
+        >
           {label}
         </div>
         {description && (
-          <div className="text-[11px] text-[#94A3B8] leading-snug">
+          <div id={descId} className="text-[11px] text-[#94A3B8] leading-snug">
             {description}
           </div>
         )}
@@ -2091,28 +2379,78 @@ export function PixelRadioGroup({
   className = "",
 }: PixelRadioGroupProps) {
   const accent = TONE_STYLES[tone].hex;
+  const baseId = useId();
+  const labelId = `${baseId}-label`;
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const checkedIdx = options.findIndex((o) => o.value === value);
+  // Roving tab stop: the checked radio, or the first one when none is checked
+  const tabStopIdx = checkedIdx >= 0 ? checkedIdx : 0;
+
+  const choose = (i: number) => {
+    pixelSound.play("click");
+    onChange(options[i].value);
+  };
+
+  // Arrow keys move focus and check the radio they land on (native radio behaviour)
+  const onRadioKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    i: number
+  ) => {
+    const n = options.length;
+    let next = -1;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") next = (i + 1) % n;
+    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") next = (i - 1 + n) % n;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = n - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    optionRefs.current[next]?.focus();
+    if (next !== checkedIdx) choose(next);
+  };
+
   return (
     <div className={`space-y-2 font-mono-hud ${className}`}>
       {label && (
-        <div className="font-pixel text-[10px] font-bold text-[#F5F2EB] uppercase">
+        <div
+          id={labelId}
+          className="font-pixel text-[10px] font-bold text-[#F5F2EB] uppercase"
+        >
           {label}
         </div>
       )}
-      <div className="space-y-2">
-        {options.map((opt) => {
+      <div
+        role="radiogroup"
+        aria-labelledby={label ? labelId : undefined}
+        className="space-y-2"
+      >
+        {options.map((opt, i) => {
           const active = opt.value === value;
+          const optId = `${baseId}-opt-${i}`;
+          const describedBy =
+            [
+              opt.description ? `${optId}-desc` : "",
+              opt.badge ? `${optId}-badge` : "",
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined;
           return (
             <button
               key={opt.value}
-              type="button"
-              onClick={() => {
-                pixelSound.play("click");
-                onChange(opt.value);
+              ref={(el) => {
+                optionRefs.current[i] = el;
               }}
-              className={`w-full p-2.5 border-2 border-[#090B10] shadow-[3px_3px_0_#040508] text-left flex items-center justify-between gap-3 cursor-pointer transition ${
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-labelledby={`${optId}-label`}
+              aria-describedby={describedBy}
+              tabIndex={i === tabStopIdx ? 0 : -1}
+              onClick={() => choose(i)}
+              onKeyDown={(e) => onRadioKeyDown(e, i)}
+              className={`w-full p-2.5 border-2 border-[#090B10] shadow-[3px_3px_0_#040508] text-left flex items-center justify-between gap-3 cursor-pointer transition ${FRAME_2} ${FOCUS_RING} ${
                 active ? "bg-[#161F33]" : "bg-[#090B10] hover:bg-[#111622]"
               }`}
-              style={{ outline: `2px solid ${active ? accent : "#2A344B"}` }}
+              style={frameStyle(active ? accent : "#2A344B")}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
@@ -2130,11 +2468,17 @@ export function PixelRadioGroup({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-white truncate">
+                  <div
+                    id={`${optId}-label`}
+                    className="text-xs font-bold text-white truncate"
+                  >
                     {opt.label}
                   </div>
                   {opt.description && (
-                    <div className="text-[11px] text-[#94A3B8] truncate">
+                    <div
+                      id={`${optId}-desc`}
+                      className="text-[11px] text-[#94A3B8] truncate"
+                    >
                       {opt.description}
                     </div>
                   )}
@@ -2142,6 +2486,7 @@ export function PixelRadioGroup({
               </div>
               {opt.badge && (
                 <span
+                  id={`${optId}-badge`}
                   className="px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] shrink-0"
                   style={{ backgroundColor: accent }}
                 >
@@ -2320,6 +2665,8 @@ export function PixelCalendar({
   ];
   const weekDaysEs = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"];
   const weekDaysEn = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+  const prevLabel = lang === "es" ? "Mes anterior" : "Previous month";
+  const nextLabel = lang === "es" ? "Mes siguiente" : "Next month";
 
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const startOffset = (firstDayOfMonth + 6) % 7; // Monday = 0
@@ -2360,19 +2707,24 @@ export function PixelCalendar({
         <button
           type="button"
           onClick={prevMonth}
+          aria-label={prevLabel}
+          title={prevLabel}
           className="px-2.5 py-1.5 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
         >
           <PixelIcon name="chevron-left" size={13} color={accent} />
         </button>
         <div className="flex items-center gap-1.5 font-pixel text-xs font-bold text-white">
           <PixelIcon name="calendar" size={13} color={accent} />
-          <span>
+          {/* Announces the new month after the arrows */}
+          <span aria-live="polite" aria-atomic="true">
             {(lang === "es" ? monthNamesEs : monthNamesEn)[month]} {year}
           </span>
         </div>
         <button
           type="button"
           onClick={nextMonth}
+          aria-label={nextLabel}
+          title={nextLabel}
           className="px-2.5 py-1.5 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
         >
           <PixelIcon name="chevron-right" size={13} color={accent} />
@@ -2402,33 +2754,59 @@ export function PixelCalendar({
           const evHex = ev
             ? TONE_STYLES[ev.tone || "yellow"].hex
             : undefined;
+          const dayClass = `relative h-8 font-mono-hud text-xs font-bold border transition flex flex-col items-center justify-center ${
+            isSelected
+              ? "text-[#090B10] border-[#090B10] shadow-[2px_2px_0_#FFFFFF]"
+              : `bg-[#111622] text-[#F5F2EB] border-[#1E2638] ${
+                  onSelectDate ? "hover:bg-[#1A2336]" : ""
+                }`
+          } ${onSelectDate ? "cursor-pointer" : ""}`;
+          const dayStyle = { backgroundColor: isSelected ? accent : undefined };
+          const dayContent = (
+            <>
+              <span>{day}</span>
+              {ev && (
+                <>
+                  <span
+                    className="w-1.5 h-1.5"
+                    style={{
+                      backgroundColor: isSelected ? "#090B10" : evHex,
+                    }}
+                  />
+                  {/* The coloured marker alone does not reach screen readers */}
+                  <span className="px-sr-only">{`: ${ev.label}`}</span>
+                </>
+              )}
+            </>
+          );
+
+          // Read-only calendar: plain cells, not 31 buttons that do nothing
+          if (!onSelectDate) {
+            return (
+              <div
+                key={iso}
+                aria-current={isSelected ? "date" : undefined}
+                className={dayClass}
+                style={dayStyle}
+              >
+                {dayContent}
+              </div>
+            );
+          }
 
           return (
             <button
               key={iso}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => {
                 pixelSound.play(ev ? "coin" : "click");
-                onSelectDate?.(iso);
+                onSelectDate(iso);
               }}
-              className={`relative h-8 font-mono-hud text-xs font-bold border transition cursor-pointer flex flex-col items-center justify-center ${
-                isSelected
-                  ? "text-[#090B10] border-[#090B10] shadow-[2px_2px_0_#FFFFFF]"
-                  : "bg-[#111622] hover:bg-[#1A2336] text-[#F5F2EB] border-[#1E2638]"
-              }`}
-              style={{
-                backgroundColor: isSelected ? accent : undefined,
-              }}
+              className={dayClass}
+              style={dayStyle}
             >
-              <span>{day}</span>
-              {ev && (
-                <span
-                  className="w-1.5 h-1.5"
-                  style={{
-                    backgroundColor: isSelected ? "#090B10" : evHex,
-                  }}
-                />
-              )}
+              {dayContent}
             </button>
           );
         })}
@@ -2481,6 +2859,7 @@ export function PixelSlider({
   className = "",
 }: PixelSliderProps) {
   const accent = TONE_STYLES[tone].hex;
+  const inputId = useId();
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   const totalBlocks = 16;
   const activeBlocks = Math.round((pct / 100) * totalBlocks);
@@ -2488,9 +2867,12 @@ export function PixelSlider({
   return (
     <div className={`space-y-1.5 font-mono-hud ${className}`}>
       <div className="flex items-center justify-between text-xs">
-        <span className="font-pixel text-[10px] font-bold text-[#F5F2EB]">
+        <label
+          htmlFor={inputId}
+          className="font-pixel text-[10px] font-bold text-[#F5F2EB]"
+        >
           {label}
-        </span>
+        </label>
         <span
           className="px-2 py-0.5 font-pixel text-[10px] font-bold text-[#090B10]"
           style={{ backgroundColor: accent }}
@@ -2499,7 +2881,8 @@ export function PixelSlider({
           {unit}
         </span>
       </div>
-      <div className="relative p-2 bg-[#090B10] border-2 border-[#2A344B]">
+      {/* The range input is invisible (opacity-0), so the LED track shows its focus */}
+      <div className="relative p-2 bg-[#090B10] border-2 border-[#2A344B] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[#FFD100] has-[:focus-visible]:outline-offset-2">
         <div className="grid grid-cols-16 gap-1 pointer-events-none">
           {Array.from({ length: totalBlocks }).map((_, i) => (
             <div
@@ -2512,11 +2895,13 @@ export function PixelSlider({
           ))}
         </div>
         <input
+          id={inputId}
           type="range"
           min={min}
           max={max}
           step={step}
           value={value}
+          aria-valuetext={`${value}${unit}`}
           onChange={(e) => {
             pixelSound.play("hover");
             onChange(Number(e.target.value));
@@ -2610,6 +2995,7 @@ export function PixelMultiLineChart({
               <button
                 key={s.key}
                 type="button"
+                aria-pressed={!hidden}
                 onClick={() => toggleSeries(s.key)}
                 className={`px-2 py-1 border text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition ${
                   hidden
@@ -2629,11 +3015,12 @@ export function PixelMultiLineChart({
       </div>
 
       {/* Never scale below 1:1 so axis labels stay readable; phones scroll sideways */}
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
       <svg
         viewBox={`0 0 ${w} ${h}`}
-        role="img"
+        role={title ? "img" : undefined}
         aria-label={title}
+        aria-hidden={title ? undefined : true}
         className="block w-full h-auto bg-[#06080D] border border-[#1E2638]"
         style={{ shapeRendering: "crispEdges", aspectRatio: `${w} / ${h}`, minWidth: w }}
       >
@@ -2719,29 +3106,89 @@ export function PixelMultiLineChart({
           </text>
         ))}
       </svg>
+
+      {/* The chart's data as text for screen readers (the SVG is a single image) */}
+      <div className="px-sr-only">
+        <table>
+          {title && <caption>{title}</caption>}
+          <thead>
+            <tr>
+              <th scope="col">Benchmark</th>
+              {series.map((s) => (
+                <th key={s.key} scope="col">
+                  {s.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((d, i) => (
+              <tr key={`${d.label}-${i}`}>
+                <th scope="row">{d.label}</th>
+                {series.map((s) => (
+                  <td key={s.key}>
+                    {d.values[s.key] === undefined
+                      ? "—"
+                      : `${d.values[s.key]}${unit}`}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       </div>
 
-      {hoverIdx !== null && data[hoverIdx] && (
-        <div className="p-2 bg-[#111622] border border-[#2A344B] flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="font-pixel text-[10px] text-[#FFD100]">
-            BENCHMARK: {data[hoverIdx].label}
-          </span>
-          <div className="flex flex-wrap items-center gap-3">
-            {series
-              .filter((s) => !hiddenKeys.includes(s.key))
-              .map((s) => (
-                <span
-                  key={s.key}
-                  className="font-bold"
-                  style={{ color: s.color }}
-                >
-                  {s.name}: {data[hoverIdx].values[s.key]}
-                  {unit}
-                </span>
-              ))}
-          </div>
+      {/* Keyboard and touch twin of hovering the pixel nodes */}
+      {data.length > 0 && (
+        <div role="group" aria-label="Benchmark" className="flex flex-wrap gap-1.5">
+          {data.map((d, i) => {
+            const isOn = hoverIdx === i;
+            return (
+              <button
+                key={`${d.label}-${i}`}
+                type="button"
+                aria-pressed={isOn}
+                onClick={() => setHoverIdx(i)}
+                onFocus={() => setHoverIdx(i)}
+                onMouseEnter={() => setHoverIdx(i)}
+                className={`px-2 py-1 border text-[10px] font-bold cursor-pointer transition ${
+                  isOn
+                    ? "bg-[#FFD100] text-[#090B10] border-[#090B10]"
+                    : "bg-[#131824] text-[#CBD5E1] border-[#2A344B] hover:text-white"
+                }`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
         </div>
       )}
+
+      {/* Live readout: announces the benchmark picked above */}
+      <div role="status">
+        {hoverIdx !== null && data[hoverIdx] && (
+          <div className="p-2 bg-[#111622] border border-[#2A344B] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-pixel text-[10px] text-[#FFD100]">
+              BENCHMARK: {data[hoverIdx].label}
+            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              {series
+                .filter((s) => !hiddenKeys.includes(s.key))
+                .map((s) => (
+                  <span
+                    key={s.key}
+                    className="font-bold"
+                    style={{ color: s.color }}
+                  >
+                    {s.name}: {data[hoverIdx].values[s.key]}
+                    {unit}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

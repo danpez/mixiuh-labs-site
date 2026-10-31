@@ -38,6 +38,8 @@ export interface ChallengeData {
   fun_angle_es: string;
   fun_angle_en: string;
   speed_ratio: string;
+  /** English twin of `speed_ratio` (which is Spanish); same figures. */
+  speed_ratio_en?: string;
   faster_model: "argon" | "flash";
   observed_in_recording: Record<string, string> | null;
   demo_urls: { argon: string; flash: string };
@@ -54,7 +56,10 @@ export interface ChapterItem {
 
 export interface GlossaryItem {
   term: string;
+  /** English display name, set only where `term` is not already English. Keep `term` as the key/id. */
+  term_en?: string;
   plain_es: string;
+  plain_en?: string;
 }
 
 export const BENCHMARK_TOTALS = {
@@ -169,6 +174,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "El único reto 3D donde Flash fue más rápido: 7 minutos contra 11. Aun así perdió: Argon se tomó el tiempo de dibujar en pantalla su propio árbol genealógico de matrices, Sol, Tierra y Luna, y de calcular los eclipses píxel por píxel.",
     "fun_angle_en": "Flash finished 4 minutes faster (7m vs 11m), but its Sun looks like a flat white bulb and its eclipse button only changes a text label. Argon wrote custom GLSL shaders with solar granulation and real blood-moon shadow occlusion.",
     "speed_ratio": "Flash 1.57x más rápido (4 min menos)",
+    "speed_ratio_en": "Flash 1.57x faster (4 min less)",
     "faster_model": "flash",
     "observed_in_recording": null,
     "demo_urls": {
@@ -248,9 +254,10 @@ export const CHALLENGES: ChallengeData[] = [
       "argon": "HELIX-9 // Visualizador Cuántico de ADN 3D [Simulación Física de Partículas]",
       "flash": "GENOM-X // Visualizador 3D de ADN Cyberpunk"
     },
-    "fun_angle_es": "Flash presume 18,480 partículas en su panel... pero ese número está escrito a mano y nunca se actualiza; en su código hay 17,840. Argon pone 24,500 y su contador sí es real.",
-    "fun_angle_en": "Flash's HUD proudly displays '18,480 ACTIVE PARTICLES', yet inspecting line 412 of its HTML reveals a hardcoded static string—actual particle count is 17,840. Argon renders 24,500 real dynamic particles in 5 minutes.",
+    "fun_angle_es": "Flash presume 18,480 partículas en su panel... pero ese número está escrito a mano en su HTML (líneas 748 y 753, #live-particles-val y #part-count) y nunca se actualiza; en su código hay 17,840 (14,640 en la hélice + 3,200 de polvo). Argon pone 24,500 por defecto y su contador sí es real.",
+    "fun_angle_en": "Flash's HUD boasts 18,480 particles... but that number is typed by hand into its HTML (lines 748 and 753, #live-particles-val and #part-count) and never updates; its code has 17,840 (14,640 in the helix + 3,200 dust). Argon defaults to 24,500 and its counter is real.",
     "speed_ratio": "Argon 1.4x más rápido (2 min menos)",
+    "speed_ratio_en": "Argon 1.4x faster (2 min less)",
     "faster_model": "argon",
     "observed_in_recording": {
       "argon": "24,500 particulas; 104-120 FPS durante la interaccion (8 frames muestreados 60-114 s)"
@@ -334,6 +341,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Flash terminó en 3 minutos y hasta le puso sonido. Argon tardó 5, pero soltó hasta tres 'leviatanes' depredadores con inteligencia propia y un atajo de teclado para cada capa de depuración.",
     "fun_angle_en": "Flash finished in 3 minutes and added bioacoustic synth audio. Argon took 5 minutes and unleashed up to 3 autonomous AI leviathan predators plus full keyboard telemetry toggles.",
     "speed_ratio": "Flash 1.67x más rápido (2 min menos)",
+    "speed_ratio_en": "Flash 1.67x faster (2 min less)",
     "faster_model": "flash",
     "observed_in_recording": {
       "argon": "2,400 boids: 116 FPS, reduccion quadtree 96.8%, 181,527 chequeos/frame (t=146.5 s)",
@@ -421,6 +429,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Flash trabajó dos minutos y se dio por terminado. Argon se tomó doce, su prueba más larga, y entregó un mini RPG: vida, cofres, centinelas, trampas y una bitácora de todo lo que pasa.",
     "fun_angle_en": "Flash stopped working after 2 minutes and delivered a dungeon with no enemies, no HP, and torches glowing through undiscovered fog of war. Argon spent 12 minutes building a complete playable mini-RPG with live event logs.",
     "speed_ratio": "Flash 6x más rápido (10 min menos)",
+    "speed_ratio_en": "Flash 6x faster (10 min less)",
     "faster_model": "flash",
     "observed_in_recording": {
       "flash": "119.9-120.1 FPS en su HUD",
@@ -504,6 +513,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Ojo: los dos tienen 12 elementos, así que no ganó por cantidad. Ganó por química: en Argon las plantas beben agua para crecer, el ácido se come la piedra y la pólvora explota en cadena, y lo hizo en menos de la mitad del tiempo.",
     "fun_angle_en": "Both palettes include 12 elements, so Argon didn't win on count—it won on emergent chemistry: plants drink water to grow, acid corrodes stone with toxic fumes, and gunpowder chain-detonates in less than half the time (4m vs 9m).",
     "speed_ratio": "Argon 2.25x más rápido (5 min menos)",
+    "speed_ratio_en": "Argon 2.25x faster (5 min less)",
     "faster_model": "argon",
     "observed_in_recording": {
       "argon": "120 FPS, 340x210, 41,382 pixeles activos",
@@ -589,6 +599,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Medio píxel rompió el mundo de Flash: dividió la altura de cada pared entre dos sin redondear, y en las columnas impares JavaScript simplemente no pinta nada. Argon usó un corrimiento de bits que siempre da un entero... y lo hizo en 4 minutos contra 17.",
     "fun_angle_en": "Half a pixel broke Flash's world: dividing odd column heights by 2 without rounding produced .5 float indices in Uint32Array, causing JavaScript to silently skip every odd wall slice. Argon used bitwise >> 1 and shipped a playable shooter in 4 minutes vs Flash's 17.",
     "speed_ratio": "Argon 4.25x más rápido (13 min menos)",
+    "speed_ratio_en": "Argon 4.25x faster (13 min less)",
     "faster_model": "argon",
     "observed_in_recording": {
       "argon": "120 FPS, 320 rayos",
@@ -673,6 +684,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Los dos hicieron un hangar con vuelo de prueba, pero Flash tardó 13 minutos y Argon 4. En el de Argon cada roca que destruyes revienta en píxeles y te da puntos, como un arcade de verdad.",
     "fun_angle_en": "Both models built a spaceship hangar with a test-flight mode, but Flash took 13 minutes while Argon took 4—and Argon's asteroids shatter into pixel debris with arcade scoring.",
     "speed_ratio": "Argon 3.25x más rápido (9 min menos)",
+    "speed_ratio_en": "Argon 3.25x faster (9 min less)",
     "faster_model": "argon",
     "observed_in_recording": {
       "argon": "120 FPS en vuelo de prueba, 2,800 PTS"
@@ -754,6 +766,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Un reloj de lujo sin una sola línea de JavaScript moviendo las manecillas. Los dos lo lograron, pero Argon lo hizo en 2 minutos: la prueba más rápida de todo el benchmark.",
     "fun_angle_en": "A luxury mechanical timepiece with zero JavaScript in the animation loop. Both models nailed the spec, with Argon completing it in 2 minutes—the fastest single run of the entire benchmark.",
     "speed_ratio": "Argon 2x más rápido (2 min menos)",
+    "speed_ratio_en": "Argon 2x faster (2 min less)",
     "faster_model": "argon",
     "observed_in_recording": null,
     "demo_urls": {
@@ -834,6 +847,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "La diferencia más brutal del benchmark: 22 minutos contra 4, cinco veces y media. Y un dato honesto: cuando el árbol de Argon pasa de veinte mil racimos de flores, hasta él baja a unos 45 cuadros por segundo.",
     "fun_angle_en": "The widest time gap of the tournament: 22 minutes for Flash versus 4 minutes for Argon (5.5x faster). Transparency note: when Argon's canopy exceeds 20,000 blossom clusters, frame rate dips to 43-53 FPS.",
     "speed_ratio": "Argon 5.5x más rápido (18 min menos)",
+    "speed_ratio_en": "Argon 5.5x faster (18 min less)",
     "faster_model": "argon",
     "observed_in_recording": {
       "argon": "7,407 segmentos y 18,530-25,984 racimos: 43-53 FPS; 120 FPS solo con poco follaje",
@@ -917,6 +931,7 @@ export const CHALLENGES: ChallengeData[] = [
     "fun_angle_es": "Argon calculó exactamente cuándo se cierra la figura incluso con un tercer engranaje; en la grabación hay cierres de más de 17 mil radianes, unas 2,755 vueltas. Flash ignoró ese tercer engranaje al hacer la cuenta.",
     "fun_angle_en": "Argon computed the exact cycle closure even with a third guilloche rotor using LCM over GCD revolutions (reaching 17,310+ radians / 2,755 loops in recording). Flash ignored the third gear in its closure math.",
     "speed_ratio": "Argon 2.5x más rápido (6 min menos)",
+    "speed_ratio_en": "Argon 2.5x faster (6 min less)",
     "faster_model": "argon",
     "observed_in_recording": {
       "argon": "120-121 FPS; t_max observado hasta 17,310.18 rad (2,755 vueltas, R=204 r=145 + 3er rotor)"
@@ -1044,255 +1059,348 @@ export const EPISODE_01_CHAPTERS: ChapterItem[] = [
 export const LAB_GLOSSARY: GlossaryItem[] = [
   {
     "term": "zero-shot",
-    "plain_es": "Pedirle algo a la IA una sola vez, sin ejemplos ni segundas oportunidades para corregir."
+    "plain_es": "Pedirle algo a la IA una sola vez, sin ejemplos ni segundas oportunidades para corregir.",
+    "plain_en": "Asking the AI for something just once, with no examples and no second chances to fix it."
   },
   {
     "term": "benchmark",
-    "plain_es": "Una prueba estandarizada para comparar quién lo hace mejor bajo las mismas reglas."
+    "plain_es": "Una prueba estandarizada para comparar quién lo hace mejor bajo las mismas reglas.",
+    "plain_en": "A standardized test to compare who does better under the same rules."
   },
   {
     "term": "Antigravity",
-    "plain_es": "El entorno de programación con agentes de Google donde se corrieron ambos modelos."
+    "plain_es": "El entorno de programación con agentes de Google donde se corrieron ambos modelos.",
+    "plain_en": "Google's agent-based coding environment where both models were run."
   },
   {
     "term": "(High)",
-    "plain_es": "La variante del modelo que piensa más antes de responder."
+    "plain_es": "La variante del modelo que piensa más antes de responder.",
+    "plain_en": "The model variant that thinks more before answering."
   },
   {
     "term": "index.html autocontenido",
-    "plain_es": "Todo el programa en un solo archivo que abres en el navegador, sin instalar nada."
+    "term_en": "self-contained index.html",
+    "plain_es": "Todo el programa en un solo archivo que abres en el navegador, sin instalar nada.",
+    "plain_en": "The whole program in a single file that you open in the browser, with nothing to install."
   },
   {
     "term": "procedural",
-    "plain_es": "Generado con matemáticas y código en lugar de dibujado a mano o cargado de una imagen."
+    "plain_es": "Generado con matemáticas y código en lugar de dibujado a mano o cargado de una imagen.",
+    "plain_en": "Generated with math and code instead of being drawn by hand or loaded from an image."
   },
   {
     "term": "WebGL",
-    "plain_es": "La tecnología del navegador para dibujar gráficos 3D usando la tarjeta de video."
+    "plain_es": "La tecnología del navegador para dibujar gráficos 3D usando la tarjeta de video.",
+    "plain_en": "The browser technology for drawing 3D graphics with the graphics card."
   },
   {
     "term": "Three.js",
-    "plain_es": "Una librería muy popular que facilita hacer escenas 3D en la web."
+    "plain_es": "Una librería muy popular que facilita hacer escenas 3D en la web.",
+    "plain_en": "A very popular library that makes it easy to build 3D scenes on the web."
   },
   {
     "term": "shader / GLSL",
-    "plain_es": "Pequeños programas que corren en la tarjeta de video y deciden el color de cada píxel."
+    "plain_es": "Pequeños programas que corren en la tarjeta de video y deciden el color de cada píxel.",
+    "plain_en": "Small programs that run on the graphics card and decide the color of each pixel."
   },
   {
     "term": "bloom",
-    "plain_es": "Efecto de brillo que hace que las luces intensas se 'desborden' como en una cámara real."
+    "plain_es": "Efecto de brillo que hace que las luces intensas se 'desborden' como en una cámara real.",
+    "plain_en": "A glow effect that makes bright lights 'bleed' over, like in a real camera."
   },
   {
     "term": "ruido Perlin / Simplex / fBM",
-    "plain_es": "Un azar suave y continuo que imita cosas naturales como nubes, terreno o viento."
+    "term_en": "Perlin / Simplex noise / fBM",
+    "plain_es": "Un azar suave y continuo que imita cosas naturales como nubes, terreno o viento.",
+    "plain_en": "Smooth, continuous randomness that imitates natural things like clouds, terrain or wind."
   },
   {
     "term": "grafo de escena (jerarquía padre-hijo)",
-    "plain_es": "Objetos que heredan el movimiento de su 'padre': la Luna sigue a la Tierra y la Tierra al Sol."
+    "term_en": "scene graph (parent-child hierarchy)",
+    "plain_es": "Objetos que heredan el movimiento de su 'padre': la Luna sigue a la Tierra y la Tierra al Sol.",
+    "plain_en": "Objects that inherit the motion of their 'parent': the Moon follows the Earth and the Earth follows the Sun."
   },
   {
     "term": "sicigia",
-    "plain_es": "Cuando Sol, Tierra y Luna quedan alineados; es lo que provoca los eclipses."
+    "term_en": "syzygy",
+    "plain_es": "Cuando Sol, Tierra y Luna quedan alineados; es lo que provoca los eclipses.",
+    "plain_en": "When the Sun, Earth and Moon line up; it is what causes eclipses."
   },
   {
     "term": "Ley de Hooke",
-    "plain_es": "La física de los resortes: entre más los estiras, más fuerte regresan."
+    "term_en": "Hooke's Law",
+    "plain_es": "La física de los resortes: entre más los estiras, más fuerte regresan.",
+    "plain_en": "The physics of springs: the more you stretch them, the harder they pull back."
   },
   {
     "term": "boids",
-    "plain_es": "Simulación de parvadas donde cada 'pájaro' sigue tres reglas simples y surge un comportamiento colectivo."
+    "plain_es": "Simulación de parvadas donde cada 'pájaro' sigue tres reglas simples y surge un comportamiento colectivo.",
+    "plain_en": "A flocking simulation where each 'bird' follows three simple rules and a collective behavior emerges."
   },
   {
     "term": "quadtree",
-    "plain_es": "Dividir el espacio en cuadros cada vez más pequeños para que cada agente solo revise a sus vecinos cercanos."
+    "plain_es": "Dividir el espacio en cuadros cada vez más pequeños para que cada agente solo revise a sus vecinos cercanos.",
+    "plain_en": "Splitting space into smaller and smaller squares so each agent only checks its nearby neighbors."
   },
   {
     "term": "O(N²)",
-    "plain_es": "Comparar a todos contra todos: con miles de agentes son millones de cálculos por cuadro."
+    "plain_es": "Comparar a todos contra todos: con miles de agentes son millones de cálculos por cuadro.",
+    "plain_en": "Comparing everyone against everyone: with thousands of agents that means millions of calculations per frame."
   },
   {
     "term": "roguelike",
-    "plain_es": "Género de videojuego de mazmorras generadas al azar que cambian en cada partida."
+    "plain_es": "Género de videojuego de mazmorras generadas al azar que cambian en cada partida.",
+    "plain_en": "A video game genre of randomly generated dungeons that change every run."
   },
   {
     "term": "BSP (partición binaria del espacio)",
-    "plain_es": "Cortar el mapa en mitades una y otra vez para acomodar cuartos sin que se encimen."
+    "term_en": "BSP (binary space partitioning)",
+    "plain_es": "Cortar el mapa en mitades una y otra vez para acomodar cuartos sin que se encimen.",
+    "plain_en": "Cutting the map in half again and again to fit rooms without them overlapping."
   },
   {
     "term": "árbol de expansión mínima (MST / Kruskal)",
-    "plain_es": "La forma más corta de conectar todos los cuartos sin dejar ninguno aislado."
+    "term_en": "minimum spanning tree (MST / Kruskal)",
+    "plain_es": "La forma más corta de conectar todos los cuartos sin dejar ninguno aislado.",
+    "plain_en": "The shortest way to connect every room without leaving any of them isolated."
   },
   {
     "term": "A* (A estrella)",
-    "plain_es": "Algoritmo que encuentra el camino más corto entre dos puntos, como el GPS de un videojuego."
+    "term_en": "A* (A-star)",
+    "plain_es": "Algoritmo que encuentra el camino más corto entre dos puntos, como el GPS de un videojuego.",
+    "plain_en": "An algorithm that finds the shortest path between two points, like a video game's GPS."
   },
   {
     "term": "Dijkstra",
-    "plain_es": "Algoritmo que calcula la distancia desde un punto a todos los demás; se ve como mapa de calor."
+    "plain_es": "Algoritmo que calcula la distancia desde un punto a todos los demás; se ve como mapa de calor.",
+    "plain_en": "An algorithm that computes the distance from one point to all the others; it shows up as a heat map."
   },
   {
     "term": "fog of war / campo de visión",
-    "plain_es": "Solo ves lo que tu personaje alcanza a ver; lo demás queda en sombra."
+    "term_en": "fog of war / field of view",
+    "plain_es": "Solo ves lo que tu personaje alcanza a ver; lo demás queda en sombra.",
+    "plain_en": "You only see what your character can see; everything else stays in shadow."
   },
   {
     "term": "autómata celular",
-    "plain_es": "Una cuadrícula donde cada píxel decide qué hacer viendo solo a sus vecinos."
+    "term_en": "cellular automaton",
+    "plain_es": "Una cuadrícula donde cada píxel decide qué hacer viendo solo a sus vecinos.",
+    "plain_en": "A grid where each pixel decides what to do by looking only at its neighbors."
   },
   {
     "term": "falling sand",
-    "plain_es": "Juegos tipo arenero donde cada píxel es arena, agua o fuego y se comportan con física."
+    "plain_es": "Juegos tipo arenero donde cada píxel es arena, agua o fuego y se comportan con física.",
+    "plain_en": "Sandbox-style games where each pixel is sand, water or fire and they all behave with physics."
   },
   {
     "term": "raycasting",
-    "plain_es": "Lanzar un rayo por cada columna de la pantalla para fingir un mundo 3D, como en Wolfenstein 3D de 1992."
+    "plain_es": "Lanzar un rayo por cada columna de la pantalla para fingir un mundo 3D, como en Wolfenstein 3D de 1992.",
+    "plain_en": "Casting one ray per screen column to fake a 3D world, as in Wolfenstein 3D from 1992."
   },
   {
     "term": "DDA",
-    "plain_es": "Forma eficiente de avanzar un rayo casilla por casilla en una cuadrícula sin saltarse paredes."
+    "plain_es": "Forma eficiente de avanzar un rayo casilla por casilla en una cuadrícula sin saltarse paredes.",
+    "plain_en": "An efficient way to step a ray cell by cell across a grid without skipping walls."
   },
   {
     "term": "efecto ojo de pez",
-    "plain_es": "Distorsión que curva las paredes rectas si no corriges la distancia del rayo."
+    "term_en": "fisheye effect",
+    "plain_es": "Distorsión que curva las paredes rectas si no corriges la distancia del rayo.",
+    "plain_en": "A distortion that bends straight walls if you don't correct the ray's distance."
   },
   {
     "term": "z-buffer",
-    "plain_es": "Una lista de distancias que decide qué objeto queda delante y cuál se tapa."
+    "plain_es": "Una lista de distancias que decide qué objeto queda delante y cuál se tapa.",
+    "plain_en": "A list of distances that decides which object stays in front and which one gets hidden."
   },
   {
     "term": "sprite / pixel art",
-    "plain_es": "Dibujos hechos píxel por píxel, como los personajes de las consolas de 8 bits."
+    "plain_es": "Dibujos hechos píxel por píxel, como los personajes de las consolas de 8 bits.",
+    "plain_en": "Drawings made pixel by pixel, like the characters on 8-bit consoles."
   },
   {
     "term": "simetría bilateral",
-    "plain_es": "Generar solo la mitad del dibujo y reflejarla como espejo."
+    "term_en": "bilateral symmetry",
+    "plain_es": "Generar solo la mitad del dibujo y reflejarla como espejo.",
+    "plain_en": "Generating only half of the drawing and mirroring it."
   },
   {
     "term": "hue shifting",
-    "plain_es": "Truco de artistas: las sombras tiran a azul o violeta y las luces a amarillo, para colores más vivos."
+    "plain_es": "Truco de artistas: las sombras tiran a azul o violeta y las luces a amarillo, para colores más vivos.",
+    "plain_en": "An artists' trick: shadows lean toward blue or violet and highlights toward yellow, for more vivid colors."
   },
   {
     "term": "shmup",
-    "plain_es": "Juego de naves de disparos, de 'shoot em up'."
+    "plain_es": "Juego de naves de disparos, de 'shoot em up'.",
+    "plain_en": "A spaceship shooting game; short for shoot 'em up."
   },
   {
     "term": "neumorfismo",
-    "plain_es": "Estilo de diseño con sombras suaves que hace que los botones parezcan moldeados en plástico."
+    "term_en": "neumorphism",
+    "plain_es": "Estilo de diseño con sombras suaves que hace que los botones parezcan moldeados en plástico.",
+    "plain_en": "A design style with soft shadows that makes buttons look molded out of plastic."
   },
   {
     "term": "tourbillon",
-    "plain_es": "Mecanismo giratorio de relojes de lujo que compensa la gravedad; aquí animado solo con CSS."
+    "plain_es": "Mecanismo giratorio de relojes de lujo que compensa la gravedad; aquí animado solo con CSS.",
+    "plain_en": "A rotating mechanism in luxury watches that compensates for gravity; here it is animated with CSS alone."
   },
   {
     "term": "CSS @keyframes",
-    "plain_es": "Animaciones que el navegador ejecuta por sí solo, sin JavaScript."
+    "plain_es": "Animaciones que el navegador ejecuta por sí solo, sin JavaScript.",
+    "plain_en": "Animations that the browser runs on its own, without JavaScript."
   },
   {
     "term": "L-system",
-    "plain_es": "Reglas de reescritura que generan estructuras tipo planta, rama por rama."
+    "plain_es": "Reglas de reescritura que generan estructuras tipo planta, rama por rama.",
+    "plain_en": "Rewriting rules that generate plant-like structures, branch by branch."
   },
   {
     "term": "fractal",
-    "plain_es": "Una forma que se repite dentro de sí misma a distintas escalas, como las ramas de un árbol."
+    "plain_es": "Una forma que se repite dentro de sí misma a distintas escalas, como las ramas de un árbol.",
+    "plain_en": "A shape that repeats inside itself at different scales, like the branches of a tree."
   },
   {
     "term": "cinemática directa (FK)",
-    "plain_es": "Cada rama se mueve junto con su rama padre, como los huesos de un brazo."
+    "term_en": "forward kinematics (FK)",
+    "plain_es": "Cada rama se mueve junto con su rama padre, como los huesos de un brazo.",
+    "plain_en": "Each branch moves along with its parent branch, like the bones of an arm."
   },
   {
     "term": "hipotrocoide / epitrocoide",
-    "plain_es": "Las curvas que salen al rodar una rueda por dentro o por fuera de otra: el espirógrafo de toda la vida."
+    "term_en": "hypotrochoid / epitrochoid",
+    "plain_es": "Las curvas que salen al rodar una rueda por dentro o por fuera de otra: el espirógrafo de toda la vida.",
+    "plain_en": "The curves you get by rolling one wheel inside or outside another: the classic spirograph."
   },
   {
     "term": "guilloché",
-    "plain_es": "Grabado de líneas entrelazadas como el de los billetes y pasaportes."
+    "plain_es": "Grabado de líneas entrelazadas como el de los billetes y pasaportes.",
+    "plain_en": "An engraving of interlaced lines like the one on banknotes and passports."
   },
   {
     "term": "MCD (algoritmo de Euclides)",
-    "plain_es": "El máximo común divisor; aquí dice cuántas vueltas faltan para cerrar el dibujo."
+    "term_en": "GCD (Euclidean algorithm)",
+    "plain_es": "El máximo común divisor; aquí dice cuántas vueltas faltan para cerrar el dibujo.",
+    "plain_en": "The greatest common divisor; here it tells how many turns it takes to close the drawing."
   },
   {
     "term": "MCM",
-    "plain_es": "Mínimo común múltiplo; con un tercer engranaje dice cuándo coinciden todas las vueltas."
+    "term_en": "LCM",
+    "plain_es": "Mínimo común múltiplo; con un tercer engranaje dice cuándo coinciden todas las vueltas.",
+    "plain_en": "The least common multiple; with a third gear it tells when all the turns line up."
   },
   {
     "term": "radianes",
-    "plain_es": "Otra forma de medir ángulos: una vuelta completa son unos 6.28 radianes."
+    "term_en": "radians",
+    "plain_es": "Otra forma de medir ángulos: una vuelta completa son unos 6.28 radianes.",
+    "plain_en": "Another way to measure angles: one full turn is about 6.28 radians."
   },
   {
     "term": "FPS",
-    "plain_es": "Cuadros por segundo: cuántas veces se redibuja la imagen cada segundo; más es más fluido."
+    "plain_es": "Cuadros por segundo: cuántas veces se redibuja la imagen cada segundo; más es más fluido.",
+    "plain_en": "Frames per second: how many times the image is redrawn each second; more means smoother."
   },
   {
     "term": "Canvas 2D",
-    "plain_es": "Un lienzo del navegador donde el código pinta píxeles y figuras."
+    "plain_es": "Un lienzo del navegador donde el código pinta píxeles y figuras.",
+    "plain_en": "A browser canvas where code paints pixels and shapes."
   },
   {
     "term": "requestAnimationFrame",
-    "plain_es": "La forma en que el navegador avisa 'ya puedes dibujar el siguiente cuadro'."
+    "plain_es": "La forma en que el navegador avisa 'ya puedes dibujar el siguiente cuadro'.",
+    "plain_en": "The browser's way of saying 'you can draw the next frame now'."
   },
   {
     "term": "Integración de Verlet",
-    "plain_es": "Método físico donde la velocidad sale sola de restar la posición actual menos la anterior; ideal para telas y cuerdas estables."
+    "term_en": "Verlet Integration",
+    "plain_es": "Método físico donde la velocidad sale sola de restar la posición actual menos la anterior; ideal para telas y cuerdas estables.",
+    "plain_en": "A physics method where velocity falls out on its own as the current position minus the previous one; ideal for stable cloth and ropes."
   },
   {
     "term": "Relajación de Gauss-Seidel",
-    "plain_es": "Repasar varias veces cada hilo de la tela en un mismo cuadro para que no se estire como chicle."
+    "term_en": "Gauss-Seidel Relaxation",
+    "plain_es": "Repasar varias veces cada hilo de la tela en un mismo cuadro para que no se estire como chicle.",
+    "plain_en": "Going over each thread of the cloth several times in the same frame so it doesn't stretch like chewing gum."
   },
   {
     "term": "Ecuaciones de Navier-Stokes",
-    "plain_es": "Las ecuaciones matemáticas que describen cómo se mueven los líquidos, el humo y el aire."
+    "term_en": "Navier-Stokes Equations",
+    "plain_es": "Las ecuaciones matemáticas que describen cómo se mueven los líquidos, el humo y el aire.",
+    "plain_en": "The mathematical equations that describe how liquids, smoke and air move."
   },
   {
     "term": "Confinamiento de Vorticidad (Curl)",
-    "plain_es": "Truco gráfico que reinyecta pequeños remolinos para que el humo no se vea borroso."
+    "term_en": "Vorticity Confinement (Curl)",
+    "plain_es": "Truco gráfico que reinyecta pequeños remolinos para que el humo no se vea borroso.",
+    "plain_en": "A graphics trick that re-injects small swirls so the smoke doesn't look blurry."
   },
   {
     "term": "Solver de Jacobi (Proyección de Presión)",
-    "plain_es": "Iteraciones en la GPU que obligan al fluido a ser incompresible para que no desaparezca ni se acumule."
+    "term_en": "Jacobi Solver (Pressure Projection)",
+    "plain_es": "Iteraciones en la GPU que obligan al fluido a ser incompresible para que no desaparezca ni se acumule.",
+    "plain_en": "GPU iterations that force the fluid to be incompressible so it neither disappears nor piles up."
   },
   {
     "term": "FBO Ping-Pong (Framebuffer Objects)",
-    "plain_es": "Dos texturas en la tarjeta gráfica que se turnan: una lee el estado anterior mientras la otra escribe el nuevo."
+    "plain_es": "Dos texturas en la tarjeta gráfica que se turnan: una lee el estado anterior mientras la otra escribe el nuevo.",
+    "plain_en": "Two textures on the graphics card that take turns: the previous state is read from one while the new one is written to the other."
   },
   {
     "term": "Calle de Vórtices de Kármán",
-    "plain_es": "La fila de remolinos alternados que se forma detrás de un cilindro cuando choca una corriente rápida."
+    "term_en": "Kármán Vortex Street",
+    "plain_es": "La fila de remolinos alternados que se forma detrás de un cilindro cuando choca una corriente rápida.",
+    "plain_en": "The row of alternating swirls that forms behind a cylinder when a fast current hits it."
   },
   {
     "term": "XPBD (Extended Position-Based Dynamics)",
-    "plain_es": "Evolución moderna de la física por posiciones que permite calibrar rigidez real en cuerpos blandos sin que exploten."
+    "plain_es": "Evolución moderna de la física por posiciones que permite calibrar rigidez real en cuerpos blandos sin que exploten.",
+    "plain_en": "A modern evolution of position-based physics that lets you tune real stiffness in soft bodies without them blowing up."
   },
   {
     "term": "Efecto Poisson (Conservación de Volumen)",
-    "plain_es": "Cuando aplastas una gomita hacia abajo, se ensancha hacia los lados para mantener el mismo volumen interno."
+    "term_en": "Poisson Effect (Volume Conservation)",
+    "plain_es": "Cuando aplastas una gomita hacia abajo, se ensancha hacia los lados para mantener el mismo volumen interno.",
+    "plain_en": "When you squash a gummy candy downward, it widens to the sides to keep the same internal volume."
   },
   {
     "term": "Face Culling / Greedy Meshing",
-    "plain_es": "No dibujar las caras ocultas entre dos bloques pegados tipo Minecraft para ahorrar millones de triángulos."
+    "plain_es": "No dibujar las caras ocultas entre dos bloques pegados tipo Minecraft para ahorrar millones de triángulos.",
+    "plain_en": "Not drawing the hidden faces between two touching Minecraft-style blocks, to save millions of triangles."
   },
   {
     "term": "Oclusión Ambiental (AO) por Vértice",
-    "plain_es": "Oscurecer las esquinas donde se juntan tres bloques para dar profundidad realista sin usar luces costosas."
+    "term_en": "Per-Vertex Ambient Occlusion (AO)",
+    "plain_es": "Oscurecer las esquinas donde se juntan tres bloques para dar profundidad realista sin usar luces costosas.",
+    "plain_en": "Darkening the corners where three blocks meet to give realistic depth without using expensive lights."
   },
   {
     "term": "Síntesis FM (Modulación de Frecuencia)",
-    "plain_es": "Un oscilador (modulador) agita la frecuencia de otro (portador) para crear timbres metálicos, bajos y campanas como el Yamaha DX7."
+    "term_en": "FM Synthesis (Frequency Modulation)",
+    "plain_es": "Un oscilador (modulador) agita la frecuencia de otro (portador) para crear timbres metálicos, bajos y campanas como el Yamaha DX7.",
+    "plain_en": "One oscillator (the modulator) shakes the frequency of another (the carrier) to create metallic timbres, basses and bells like the Yamaha DX7."
   },
   {
     "term": "Transformada Rápida de Fourier (FFT)",
-    "plain_es": "Algoritmo que descompone el sonido en vivo en sus frecuencias graves, medias y agudas para dibujar el espectro."
+    "term_en": "Fast Fourier Transform (FFT)",
+    "plain_es": "Algoritmo que descompone el sonido en vivo en sus frecuencias graves, medias y agudas para dibujar el espectro.",
+    "plain_en": "An algorithm that breaks live sound down into its low, mid and high frequencies to draw the spectrum."
   },
   {
     "term": "Goniómetro X-Y (Curvas de Lissajous)",
-    "plain_es": "Cruzar el canal izquierdo contra el derecho en un osciloscopio para medir la amplitud estéreo y la fase."
+    "term_en": "X-Y Goniometer (Lissajous Curves)",
+    "plain_es": "Cruzar el canal izquierdo contra el derecho en un osciloscopio para medir la amplitud estéreo y la fase.",
+    "plain_en": "Plotting the left channel against the right one on an oscilloscope to measure stereo amplitude and phase."
   },
   {
     "term": "Detección Continua de Colisiones (CCD)",
-    "plain_es": "Calcular el choque a lo largo de toda la trayectoria entre un cuadro y otro para que una bola rápida jamás atraviese una pared."
+    "term_en": "Continuous Collision Detection (CCD)",
+    "plain_es": "Calcular el choque a lo largo de toda la trayectoria entre un cuadro y otro para que una bola rápida jamás atraviese una pared.",
+    "plain_en": "Computing the collision along the whole path between one frame and the next so a fast ball never passes through a wall."
   },
   {
     "term": "Prompt Caching (Cache Read / Write)",
-    "plain_es": "Memoria temporal del proveedor de IA para reutilizar el contexto de pasos previos a menor costo por millón de tokens."
+    "plain_es": "Memoria temporal del proveedor de IA para reutilizar el contexto de pasos previos a menor costo por millón de tokens.",
+    "plain_en": "The AI provider's temporary memory for reusing the context of previous steps at a lower cost per million tokens."
   }
 ];
 

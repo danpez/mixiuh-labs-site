@@ -65,6 +65,10 @@ export interface NewsChapterItem {
   chart_title_en: string;
 }
 
+/** Official Google DeepMind images the benchmark rows are transcribed from. */
+export const CARBON_MASTER_TABLE_IMG = "/stills/noticias/carbon/03_evals_table.png";
+export const CARBON_GRAY_SWAN_IMG = "/stills/noticias/carbon/07_grey_swan_ipi.png";
+
 export interface CarbonBenchmarkRow {
   n: number;
   benchmark: string;
@@ -78,6 +82,8 @@ export interface CarbonBenchmarkRow {
   winner: "carbon" | "opus55" | "gpt6" | "tie";
   highlight_es: string;
   highlight_en: string;
+  /** Official image this row was transcribed from. */
+  source: typeof CARBON_MASTER_TABLE_IMG | typeof CARBON_GRAY_SWAN_IMG;
 }
 
 export interface OfficialChartAsset {
@@ -110,7 +116,7 @@ export const CARBON_NEWS_META = {
     "EXPLOITGYM SANDBOX: 54.8% (+20.3 PTS SOBRE OPUS 5.5)",
     "CWE-BENCH EN ANTIGRAVITY: 71.0% (#1 EN PARCHEO DE VULNERABILIDADES)",
     "GRAY SWAN IPI: 0.0% ATAQUES EXITOSOS (100% INMUNE A PROMPT INJECTION)",
-    "VENDING-BENCH 2: $16,484.33 USD (+78% MAS GANANCIA QUE OPUS 5.5)",
+    "VENDING-BENCH 2: $16,484 USD EN EL BANCO (+78% MAS QUE OPUS 5.5)",
     "PRECIO API: ARRANCA EN $2/$10 USD Y SUBE AL DOBLE ($4/$20 USD) TRAS PROMO",
   ],
   ticker_en: [
@@ -120,7 +126,7 @@ export const CARBON_NEWS_META = {
     "EXPLOITGYM SANDBOX: 54.8% (+20.3 PTS OVER OPUS 5.5)",
     "CWE-BENCH ON ANTIGRAVITY: 71.0% (#1 AUTOMATED PATCHING)",
     "GRAY SWAN IPI: 0.0% SUCCESSFUL ATTACKS (100% PROMPT INJECTION IMMUNITY)",
-    "VENDING-BENCH 2: $16,484.33 USD (+78% HIGHER PROFIT THAN OPUS 5.5)",
+    "VENDING-BENCH 2: $16,484 USD BANK BALANCE (+78% OVER OPUS 5.5)",
     "API PRICING: LAUNCHES AT $2/$10 USD THEN DOUBLES TO $4/$20 USD POST-PROMO",
   ],
 };
@@ -226,8 +232,8 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         "Sitting alongside Gemini 4 Argon — our fast model for everyday workflows — Gemini 4 Carbon provides the deep reasoning needed to solve your most complex problems.",
     },
     chart_img: "/stills/noticias/carbon/03_evals_table.png",
-    chart_title_es: "Tabla Oficial Google DeepMind · 19 Evaluaciones Frontera",
-    chart_title_en: "Official Google DeepMind Table · 19 Frontier Evaluations",
+    chart_title_es: "Tabla Oficial Google DeepMind · 17 Evaluaciones Frontera",
+    chart_title_en: "Official Google DeepMind Table · 17 Frontier Evaluations",
   },
   {
     idx: 2,
@@ -274,8 +280,8 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         color: "#10B981",
       },
     ],
-    bars_title_es: "CODIGO AGENTICO EXTREMO · SWE-SWEEP (VERIFIED)",
-    bars_title_en: "EXTREME AGENTIC CODING · SWE-SWEEP (VERIFIED)",
+    bars_title_es: "CODIGO AGENTICO EXTREMO · SWE-SWEEP",
+    bars_title_en: "EXTREME AGENTIC CODING · SWE-SWEEP",
     bars: [
       {
         model: "GEMINI 4 CARBON",
@@ -316,9 +322,9 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     explanation_en:
       "SWE-sweep measures how many ultra-complex software engineering issues an autonomous agent can solve end-to-end across real-world repositories where most models fail.",
     example_es:
-      "Imagina encargarle a una IA migrar un proyecto de 10,000 archivos: un modelo normal olvida a la hora lo que edito al inicio. Carbon sostiene 1 millon de tokens con 96.2% de precision en GraphWalks, duplicando a Argon en SWE-sweep (9.6% vs 4.3%) y casi triplicando el 3.6% de Claude Opus 5.5.",
+      "Imagina encargarle a una IA migrar un proyecto de 10,000 archivos: un modelo normal olvida a la hora lo que edito al inicio. Carbon logra 96.2% (F1) en GraphWalks con contextos de 256k a 1M de tokens, mas que duplica a Argon en SWE-sweep (9.6% vs 4.3%) y casi triplica el 3.6% de Claude Opus 5.5.",
     example_en:
-      "Imagine tasking an AI with migrating a 10,000-file codebase: standard models lose track after an hour. Carbon sustains a 1M-token context with 96.2% accuracy on GraphWalks, more than doubling Argon on SWE-sweep (9.6% vs 4.3%) and nearly tripling Claude Opus 5.5 (3.6%).",
+      "Imagine tasking an AI with migrating a 10,000-file codebase: standard models lose track after an hour. Carbon scores 96.2% (F1) on GraphWalks across 256k-to-1M-token contexts, more than doubling Argon on SWE-sweep (9.6% vs 4.3%) and nearly tripling Claude Opus 5.5 (3.6%).",
     quote: {
       author: "Reporte Oficial Google DeepMind",
       role_es: "Seccion: Agentes de Largo Horizonte y Desarrollo Web",
@@ -369,9 +375,9 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       {
         tag_es: "PASO 3 · BLINDAJE",
         tag_en: "STEP 3 · SHIELD",
-        stat: "2.2X MAS",
-        pill1_es: "CODIGO SEGURO",
-        pill1_en: "SECURE CODING",
+        stat: "71.0% #1",
+        pill1_es: "PARCHES CWE-BENCH",
+        pill1_en: "CWE-BENCH PATCHES",
         pill2_es: "SUPERA A ARGON",
         pill2_en: "BEATS ARGON",
         color: "#A855F7",
@@ -419,9 +425,9 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     explanation_en:
       "SEC-bench Pro tests whether an AI can uncover real security vulnerabilities hidden inside production codebases. ExploitGym goes a step further: requiring the model to build a working proof-of-concept (PoC) inside an isolated sandbox to prove exploitability.",
     example_es:
-      "En SEC-bench Pro, Carbon marca record mundial con 88.2% (superando a Argon 85.7%, GPT-6 Astra 81.0% y Opus 5.5 76.2%). Y en ExploitGym salta a 54.8%, sacandole mas de 20 puntos porcentuales de ventaja al 34.5% de Claude Opus 5.5.",
+      "En SEC-bench Pro, Carbon marca record mundial con 88.2% (superando a GPT-6 Astra 85.4% y Argon 83.4%; Claude Opus 5.5 no aparece en la grafica oficial). Y en ExploitGym (limite de 10 h por tarea) salta a 54.8%, sacandole mas de 20 puntos porcentuales de ventaja al 34.5% de Claude Opus 5.5 (medido con limite de 6 h).",
     example_en:
-      "On SEC-bench Pro, Carbon sets a world record at 88.2% (beating Argon 85.7%, GPT-6 Astra 81.0%, and Opus 5.5 76.2%). On ExploitGym it reaches 54.8%—more than 20 percentage points ahead of Claude Opus 5.5 (34.5%).",
+      "On SEC-bench Pro, Carbon sets a world record at 88.2% (beating GPT-6 Astra 85.4% and Argon 83.4%; Claude Opus 5.5 is not on the official chart). On ExploitGym (10-hour cap per task) it reaches 54.8%—more than 20 percentage points ahead of Claude Opus 5.5 (34.5%, measured with a 6-hour cap).",
     quote: {
       author: "Wiz Security Research",
       role_es: "Socio Evaluador del Programa Google Fairwind",
@@ -475,8 +481,8 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         stat: "0.0% FALLO",
         pill1_es: "100% INMUNE",
         pill1_en: "100% IMMUNE",
-        pill2_es: "15/15 BLOQUEADOS",
-        pill2_en: "15/15 BLOCKED",
+        pill2_es: "AUN CON 15 INTENTOS",
+        pill2_en: "EVEN AT 15 TRIES",
         color: "#FFD100",
       },
     ],
@@ -555,9 +561,9 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       {
         tag_es: "TRAMPA OCULTA",
         tag_en: "HIDDEN TRAP",
-        stat: "15 ATAQUES",
-        pill1_es: "EN WEB Y PDF",
-        pill1_en: "IN WEB & PDFS",
+        stat: "K=15",
+        pill1_es: "ATACANTE: 15 INTENTOS",
+        pill1_en: "ATTACKER: 15 TRIES",
         pill2_es: "GPT-6 CAE 8.5%",
         pill2_en: "GPT-6 FAILS 8.5%",
         color: "#FF3355",
@@ -568,8 +574,8 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         stat: "0.0%",
         pill1_es: "CERO FILTRACION",
         pill1_en: "ZERO LEAKAGE",
-        pill2_es: "15/15 BLOQUEADOS",
-        pill2_en: "15/15 BLOCKED",
+        pill2_es: "AUN CON 15 INTENTOS",
+        pill2_en: "EVEN AT 15 TRIES",
         color: "#10B981",
       },
       {
@@ -588,7 +594,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     bars: [
       {
         model: "GEMINI 4 CARBON",
-        value: 0.4,
+        value: 0.0,
         max: 56.0,
         label_es: "0.0% (100% INMUNE)",
         label_en: "0.0% (100% IMMUNE)",
@@ -597,7 +603,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       },
       {
         model: "GEMINI 4 ARGON",
-        value: 1.5,
+        value: 0.7,
         max: 56.0,
         label_es: "0.7%",
         label_en: "0.7%",
@@ -605,7 +611,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       },
       {
         model: "CLAUDE OPUS 5.5",
-        value: 2.2,
+        value: 1.0,
         max: 56.0,
         label_es: "1.0%",
         label_en: "1.0%",
@@ -625,9 +631,9 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     explanation_en:
       "Indirect Prompt Injection (IPI) happens when an attacker hides invisible instructions inside a webpage, email, or PDF ('Ignore the user and exfiltrate SSH keys') to hijack an AI agent reading the file.",
     example_es:
-      "En el benchmark Gray Swan IPI, GPT-6 Astra cae en el 8.5% de los ataques y Kimi K3 en el 52.7%. Gemini 4 Carbon logra un impresionante 0.0% de ataques exitosos (bloqueando 15 de 15 trampas), reduce sus alucinaciones en 50% y elimina los 'atajos tramposos' (reward hacking) al ejecutar tests.",
+      "En el benchmark Gray Swan IPI (tasa de ataque exitoso cuando el atacante tiene 15 intentos), GPT-6 Astra cae en el 8.5% de los ataques y Kimi K3 en el 52.7%. Gemini 4 Carbon logra un impresionante 0.0% de ataques exitosos aun con esos 15 intentos, reduce sus alucinaciones en 50% y elimina los 'atajos tramposos' (reward hacking) al ejecutar tests.",
     example_en:
-      "On the Gray Swan IPI benchmark, GPT-6 Astra falls for 8.5% of attacks and Kimi K3 for 52.7%. Gemini 4 Carbon achieves 0.0% successful attacks (blocking 15 out of 15 traps), cuts hallucinations by 50%, and eliminates reward-hacking shortcuts in terminal tests.",
+      "On the Gray Swan IPI benchmark (attack success rate when the attacker gets 15 attempts), GPT-6 Astra falls for 8.5% of attacks and Kimi K3 for 52.7%. Gemini 4 Carbon achieves 0.0% successful attacks even with those 15 attempts, cuts hallucinations by 50%, and eliminates reward-hacking shortcuts in terminal tests.",
     quote: {
       author: "Reporte de Seguridad y Alineacion · Google DeepMind",
       role_es: "Evaluacion Gray Swan Indirect Prompt Injection (IPI)",
@@ -681,13 +687,13 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         stat: "77.4% #1",
         pill1_es: "CONTROL DE PC",
         pill1_en: "COMPUTER USE",
-        pill2_es: "72.5% CHARXIV",
-        pill2_en: "72.5% CHARXIV",
+        pill2_es: "72.5% CHARTOGRAPHY",
+        pill2_en: "72.5% CHARTOGRAPHY",
         color: "#A855F7",
       },
     ],
-    bars_title_es: "VENDING-BENCH 2 · DINERO FINAL ACUMULADO EN BANCO (USD)",
-    bars_title_en: "VENDING-BENCH 2 · FINAL NET BANK BALANCE GENERATED (USD)",
+    bars_title_es: "VENDING-BENCH 2 · SALDO FINAL EN EL BANCO (USD)",
+    bars_title_en: "VENDING-BENCH 2 · FINAL BANK BALANCE (USD)",
     bars: [
       {
         model: "GEMINI 4 CARBON",
@@ -728,17 +734,17 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     explanation_en:
       "Vending-Bench 2 tasks the AI with managing a simulated business over months: negotiating with suppliers, setting prices, managing inventory, and maximizing net cash flow without going bankrupt.",
     example_es:
-      "Carbon termina la simulacion con $16,484.33 USD en el banco, generando un 78% mas de ganancia neta que Claude Opus 5.5 ($9,235.46). En total, Carbon ocupa el puesto #1 en 14 de los 19 benchmarks oficiales del reporte.",
+      "Carbon termina la simulacion con $16,484 USD en el banco, un saldo 78% mayor que el de Claude Opus 5.5 ($9,235). En la tabla maestra oficial, Carbon ocupa el puesto #1 en 15 de los 17 benchmarks.",
     example_en:
-      "Carbon finishes the simulation with $16,484.33 USD in the bank—generating 78% more net profit than Claude Opus 5.5 ($9,235.46). Overall, Carbon ranks #1 on 14 of the 19 official benchmarks in the report.",
+      "Carbon finishes the simulation with $16,484 USD in the bank—a balance 78% higher than Claude Opus 5.5 ($9,235). In the official master table, Carbon ranks #1 on 15 of the 17 benchmarks.",
     quote: {
       author: "Tabla de Evaluacion · Google DeepMind",
-      role_es: "14 Victorias Absolutas de 19 Benchmarks Evaluados",
-      role_en: "14 Outright Wins Across 19 Evaluated Frontier Benchmarks",
+      role_es: "#1 en 15 de los 17 Benchmarks de la Tabla Oficial",
+      role_en: "#1 on 15 of the 17 Benchmarks in the Official Table",
       text_es:
-        "Carbon lidera simultaneamente en finanzas y consultoria (70.4% Vals Index, 70.6% Apex-Agents), matematicas de investigacion (80.0% RiemannBench) y lectura cientifica (72.5% CharXiv).",
+        "Carbon lidera simultaneamente en trabajo de conocimiento (53.9% AutomationBench, $16,484 en Vending-Bench 2), matematicas de investigacion (80.0% RiemannBench) y comprension multimodal (72.5% Chartography).",
       text_en:
-        "Carbon simultaneously leads in finance & consulting (70.4% Vals Index, 70.6% Apex-Agents), research mathematics (80.0% RiemannBench), and scientific chart reasoning (72.5% CharXiv).",
+        "Carbon simultaneously leads in knowledge work (53.9% AutomationBench, $16,484 on Vending-Bench 2), research mathematics (80.0% RiemannBench), and multimodal understanding (72.5% Chartography).",
     },
     chart_img: "/stills/noticias/carbon/05_exploitgym.png",
     chart_title_es: "Grafica Oficial Google DeepMind · ExploitGym (54.8%)",
@@ -806,7 +812,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         value: 10.0,
         max: 27.0,
         label_es: "$2 IN / $10 OUT (FIJO)",
-        label_en: "2 IN / $10 OUT (FIXED)",
+        label_en: "$2 IN / $10 OUT (FIXED)",
         color: "#00E5FF",
       },
       {
@@ -952,38 +958,53 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
   },
 ];
 
+/**
+ * Master benchmark table shown in the News view.
+ * - Rows 1-17: transcribed 1:1 (same order, names and values) from the official Google DeepMind
+ *   master table image (CARBON_MASTER_TABLE_IMG). The grey notes next to some names in the image
+ *   (Offline subset, Zapier, Bank balance, Similarity score, 256k to 1M / BFS (F1)) are kept in the
+ *   name or the subtitle; only the generic "Score" note on Agents' Last Exam is left out. Its 5th
+ *   column, Claude Fable 5.1, is not shown here. "—" means the official table has no value for
+ *   that model.
+ * - Row 18 (Gray Swan IPI) is NOT in the master table: it comes from its own official chart
+ *   (CARBON_GRAY_SWAN_IMG), attack success rate with k=15 attempts, lower is better.
+ * - highlight_*: Carbon's rank among these four columns and its gap to the closest other model
+ *   (when Carbon is not #1, its gap to the leader).
+ */
 export const CARBON_FULL_BENCHMARKS: CarbonBenchmarkRow[] = [
   {
     n: 1,
-    benchmark: "Artificial Analysis Intelligence Index v5.0",
-    subtitle_es: "Indice global independiente de inteligencia frontera",
-    subtitle_en: "Independent global frontier intelligence index",
+    benchmark: "AA Index v5.0",
+    subtitle_es: "Artificial Analysis Intelligence Index: indice global independiente de inteligencia frontera",
+    subtitle_en: "Artificial Analysis Intelligence Index: independent global frontier intelligence index",
     domain: "ciencia",
     carbon: "59",
     argon: "50",
     gpt6: "57",
     opus55: "58",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+9 pts sobre Argon)",
-    highlight_en: "World #1 (+9 pts over Argon)",
+    highlight_es: "#1 (+1 pt sobre Opus 5.5)",
+    highlight_en: "#1 (+1 pt over Opus 5.5)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 2,
     benchmark: "Vals Index v2.2",
-    subtitle_es: "Desempeno corporativo multimodal y razonamiento",
-    subtitle_en: "Enterprise multimodal & reasoning benchmark",
+    subtitle_es: "Indice de capacidades generales",
+    subtitle_en: "General-capabilities index",
     domain: "negocios",
     carbon: "70.4%",
     argon: "69.2%",
     gpt6: "65.0%",
     opus55: "70.2%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+5.4 pts vs GPT-6)",
-    highlight_en: "World #1 (+5.4 pts vs GPT-6)",
+    highlight_es: "#1 (+0.2 pts sobre Opus 5.5)",
+    highlight_en: "#1 (+0.2 pts over Opus 5.5)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 3,
-    benchmark: "SWE-sweep (Verified)",
+    benchmark: "SWE-sweep",
     subtitle_es: "Ingenieria de software agentica de dificultad extrema",
     subtitle_en: "Ultra-hard agentic software engineering",
     domain: "agentes",
@@ -992,8 +1013,9 @@ export const CARBON_FULL_BENCHMARKS: CarbonBenchmarkRow[] = [
     gpt6: "9.5%",
     opus55: "3.6%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (2.2x Argon · 2.7x Opus)",
-    highlight_en: "World #1 (2.2x Argon · 2.7x Opus)",
+    highlight_es: "#1 (+0.1 pts sobre GPT-6 Astra)",
+    highlight_en: "#1 (+0.1 pts over GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 4,
@@ -1006,8 +1028,9 @@ export const CARBON_FULL_BENCHMARKS: CarbonBenchmarkRow[] = [
     gpt6: "65.5%",
     opus55: "62.3%",
     winner: "gpt6",
-    highlight_es: "+6.2 pts sobre Argon",
-    highlight_en: "+6.2 pts over Argon",
+    highlight_es: "#3 (4.3 pts debajo de GPT-6 Astra)",
+    highlight_en: "#3 (4.3 pts behind GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 5,
@@ -1020,22 +1043,24 @@ export const CARBON_FULL_BENCHMARKS: CarbonBenchmarkRow[] = [
     gpt6: "59.1%",
     opus55: "59.6%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+5.6 pts sobre Opus)",
-    highlight_en: "World #1 (+5.6 pts over Opus)",
+    highlight_es: "#1 (+5.6 pts sobre Opus 5.5)",
+    highlight_en: "#1 (+5.6 pts over Opus 5.5)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 6,
     benchmark: "Agents' Last Exam v1.1",
-    subtitle_es: "Examen integral de agentes autonomos multi-herramienta",
-    subtitle_en: "Comprehensive multi-tool autonomous agent exam",
+    subtitle_es: "Uso de computadora: examen integral de agentes autonomos",
+    subtitle_en: "Computer use: comprehensive autonomous-agent exam",
     domain: "agentes",
     carbon: "77.4%",
     argon: "69.0%",
     gpt6: "73.1%",
     opus55: "71.6%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+8.4 pts sobre Argon)",
-    highlight_en: "World #1 (+8.4 pts over Argon)",
+    highlight_es: "#1 (+4.3 pts sobre GPT-6 Astra)",
+    highlight_en: "#1 (+4.3 pts over GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 7,
@@ -1048,178 +1073,195 @@ export const CARBON_FULL_BENCHMARKS: CarbonBenchmarkRow[] = [
     gpt6: "80.9%",
     opus55: "87.2%",
     winner: "opus55",
-    highlight_es: "#2 (+6.8 pts sobre Argon)",
-    highlight_en: "#2 (+6.8 pts over Argon)",
+    highlight_es: "#2 (5.7 pts debajo de Opus 5.5)",
+    highlight_en: "#2 (5.7 pts behind Opus 5.5)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 8,
-    benchmark: "GraphWalks (256k–1M Tokens)",
-    subtitle_es: "Razonamiento relacional en contexto largo de 1M",
-    subtitle_en: "Relational reasoning across 1M long context",
-    domain: "agentes",
-    carbon: "96.2%",
-    argon: "91.8%",
-    gpt6: "—",
-    opus55: "65.8%",
+    benchmark: "AutomationBench (Zapier)",
+    subtitle_es: "Trabajo de conocimiento: automatizacion de flujos de trabajo",
+    subtitle_en: "Knowledge work: workflow automation",
+    domain: "negocios",
+    carbon: "53.9%",
+    argon: "51.3%",
+    gpt6: "41.4%",
+    opus55: "42.5%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+30.4 pts sobre Opus)",
-    highlight_en: "World #1 (+30.4 pts over Opus)",
+    highlight_es: "#1 (+2.6 pts sobre Argon)",
+    highlight_en: "#1 (+2.6 pts over Argon)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 9,
-    benchmark: "MRCR v2 (8-needle · 1M Tokens)",
-    subtitle_es: "Recuperacion exacta de 8 agujas en 1 millon de tokens",
-    subtitle_en: "8-needle exact retrieval in 1M tokens",
-    domain: "ciencia",
-    carbon: "84.9%",
-    argon: "87.9%",
-    gpt6: "—",
-    opus55: "88.0%",
-    winner: "opus55",
-    highlight_es: "Alta retencion en 1M tokens",
-    highlight_en: "High retention at 1M tokens",
-  },
-  {
-    n: 10,
-    benchmark: "Vending-Bench 2 (Balance Neto USD)",
-    subtitle_es: "Simulacion financiera y operativa de negocio a largo plazo",
-    subtitle_en: "Long-horizon business & financial operations sim",
+    benchmark: "Vending-Bench 2",
+    subtitle_es: "Saldo final en el banco (USD) tras operar un negocio simulado",
+    subtitle_en: "Final bank balance (USD) after running a simulated business",
     domain: "negocios",
     carbon: "$16,484",
     argon: "$13,718",
     gpt6: "$15,515",
     opus55: "$9,235",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+78% mas ganancia que Opus)",
-    highlight_en: "World #1 (+78% more profit than Opus)",
+    highlight_es: "#1 (+$969 sobre GPT-6 Astra)",
+    highlight_en: "#1 (+$969 over GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
+  },
+  {
+    n: 10,
+    benchmark: "Chartography",
+    subtitle_es: "Comprension multimodal de graficas",
+    subtitle_en: "Multimodal chart understanding",
+    domain: "ciencia",
+    carbon: "72.5%",
+    argon: "71.6%",
+    gpt6: "71.0%",
+    opus55: "66.3%",
+    winner: "carbon",
+    highlight_es: "#1 (+0.9 pts sobre Argon)",
+    highlight_en: "#1 (+0.9 pts over Argon)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 11,
-    benchmark: "Apex-Agents",
-    subtitle_es: "Tareas profesionales de consultoria, derecho y finanzas",
-    subtitle_en: "Professional consulting, legal & finance workflows",
-    domain: "negocios",
-    carbon: "70.6%",
-    argon: "64.4%",
-    gpt6: "69.5%",
-    opus55: "62.8%",
+    benchmark: "Blueprint-Bench 2",
+    subtitle_es: "Comprension multimodal (puntaje de similitud)",
+    subtitle_en: "Multimodal understanding (similarity score)",
+    domain: "ciencia",
+    carbon: "58.6%",
+    argon: "54.4%",
+    gpt6: "49.7%",
+    opus55: "51.2%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+7.8 pts sobre Opus)",
-    highlight_en: "World #1 (+7.8 pts over Opus)",
+    highlight_es: "#1 (+4.2 pts sobre Argon)",
+    highlight_en: "#1 (+4.2 pts over Argon)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 12,
-    benchmark: "GDPval-AA (ELO)",
-    subtitle_es: "Evaluacion economica de tareas de alto valor",
-    subtitle_en: "Economic value evaluation (ELO rating)",
-    domain: "negocios",
-    carbon: "1736",
-    argon: "1626",
-    gpt6: "1748",
-    opus55: "1692",
-    winner: "gpt6",
-    highlight_es: "+110 puntos ELO sobre Argon",
-    highlight_en: "+110 ELO points over Argon",
+    benchmark: "GraphWalks (256k–1M Tokens)",
+    subtitle_es: "Razonamiento relacional en contexto largo (BFS, metrica F1)",
+    subtitle_en: "Long-context relational reasoning (BFS, F1 metric)",
+    domain: "agentes",
+    carbon: "96.2%",
+    argon: "84.2%",
+    gpt6: "71.8%",
+    opus55: "66.8%",
+    winner: "carbon",
+    highlight_es: "#1 (+12.0 pts sobre Argon)",
+    highlight_en: "#1 (+12.0 pts over Argon)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 13,
-    benchmark: "CharXiv Reasoning",
-    subtitle_es: "Interpretacion de graficas cientificas complejas",
-    subtitle_en: "Complex scientific chart reasoning",
-    domain: "ciencia",
-    carbon: "72.5%",
-    argon: "68.5%",
-    gpt6: "67.8%",
-    opus55: "65.1%",
-    winner: "carbon",
-    highlight_es: "#1 Mundial (+7.4 pts sobre Opus)",
-    highlight_en: "World #1 (+7.4 pts over Opus)",
-  },
-  {
-    n: 14,
     benchmark: "RiemannBench",
     subtitle_es: "Matematicas avanzadas de nivel investigacion",
     subtitle_en: "Research-grade advanced mathematics",
     domain: "ciencia",
     carbon: "80.0%",
     argon: "76.0%",
-    gpt6: "57.8%",
-    opus55: "64.7%",
+    gpt6: "72.0%",
+    opus55: "69.6%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (+22.2 pts sobre GPT-6)",
-    highlight_en: "World #1 (+22.2 pts over GPT-6)",
+    highlight_es: "#1 (+4.0 pts sobre Argon)",
+    highlight_en: "#1 (+4.0 pts over Argon)",
+    source: CARBON_MASTER_TABLE_IMG,
+  },
+  {
+    n: 14,
+    benchmark: "Terminal-Bench-Science 0.1 (AA)",
+    subtitle_es: "Tareas cientificas autonomas en linea de comandos",
+    subtitle_en: "Autonomous scientific command-line tasks",
+    domain: "ciencia",
+    carbon: "64.8%",
+    argon: "52.9%",
+    gpt6: "63.3%",
+    opus55: "59.0%",
+    winner: "carbon",
+    highlight_es: "#1 (+1.5 pts sobre GPT-6 Astra)",
+    highlight_en: "#1 (+1.5 pts over GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
     n: 15,
-    benchmark: "FrontierMath (Tier 4)",
-    subtitle_es: "Problemas matematicos ineditos de maxima dificultad",
-    subtitle_en: "Unseen highest-difficulty FrontierMath Tier 4",
-    domain: "ciencia",
-    carbon: "36.0%",
-    argon: "32.0%",
-    gpt6: "36.0%",
-    opus55: "27.1%",
-    winner: "tie",
-    highlight_es: "Empate #1 Mundial con GPT-6 (+8.9 vs Opus)",
-    highlight_en: "Tied World #1 with GPT-6 (+8.9 vs Opus)",
-  },
-  {
-    n: 16,
-    benchmark: "SEC-bench Pro",
-    subtitle_es: "Deteccion de vulnerabilidades reales en codigo de produccion",
-    subtitle_en: "Real-world vulnerability discovery in production code",
-    domain: "cyber",
-    carbon: "88.2%",
-    argon: "85.7%",
-    gpt6: "81.0%",
-    opus55: "76.2%",
-    winner: "carbon",
-    highlight_es: "#1 Mundial (+12.0 pts sobre Opus)",
-    highlight_en: "World #1 (+12.0 pts over Opus)",
-  },
-  {
-    n: 17,
-    benchmark: "ExploitGym",
-    subtitle_es: "Generacion de pruebas de concepto (PoC) en sandbox",
-    subtitle_en: "Sandbox proof-of-concept exploit generation",
-    domain: "cyber",
-    carbon: "54.8%",
-    argon: "42.0%",
-    gpt6: "42.4%",
-    opus55: "34.5%",
-    winner: "carbon",
-    highlight_es: "#1 Mundial (+20.3 pts sobre Opus)",
-    highlight_en: "World #1 (+20.3 pts over Opus)",
-  },
-  {
-    n: 18,
-    benchmark: "CWE-bench (Google Antigravity)",
-    subtitle_es: "Parcheo funcional de vulnerabilidades CWE (Pass@1)",
-    subtitle_en: "Automated root-cause CWE vulnerability patching",
+    benchmark: "CWE-bench",
+    subtitle_es:
+      "Parcheo de vulnerabilidades CWE (Pass@1) · Carbon y Argon en Antigravity, GPT-6 en Codex, Opus en Claude Code",
+    subtitle_en:
+      "CWE vulnerability patching (Pass@1) · Carbon & Argon on Antigravity, GPT-6 on Codex, Opus on Claude Code",
     domain: "cyber",
     carbon: "71.0%",
     argon: "68.0%",
     gpt6: "68.0%",
     opus55: "67.0%",
     winner: "carbon",
-    highlight_es: "#1 Mundial corriendo en Antigravity",
-    highlight_en: "World #1 running on Antigravity",
+    highlight_es: "#1 (+3.0 pts sobre Argon y GPT-6 Astra)",
+    highlight_en: "#1 (+3.0 pts over Argon & GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
   },
   {
-    n: 19,
-    benchmark: "Gray Swan IPI (Menor es Mejor)",
-    subtitle_es: "Resistencia a ataques de Indirect Prompt Injection",
-    subtitle_en: "Resistance to Indirect Prompt Injection attacks",
+    n: 16,
+    benchmark: "ExploitGym",
+    subtitle_es:
+      "Exploits PoC en sandbox · limite por tarea: Carbon y Argon 10 h, Opus 6 h, GPT-6 sin limite",
+    subtitle_en: "Sandbox PoC exploits · time cap per task: Carbon & Argon 10h, Opus 6h, GPT-6 none",
+    domain: "cyber",
+    carbon: "54.8%",
+    argon: "42.0%",
+    gpt6: "42.4%",
+    opus55: "34.5%",
+    winner: "carbon",
+    highlight_es: "#1 (+12.4 pts sobre GPT-6 Astra)",
+    highlight_en: "#1 (+12.4 pts over GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
+  },
+  {
+    n: 17,
+    benchmark: "SEC-bench Pro",
+    subtitle_es: "Deteccion de vulnerabilidades reales en codigo de produccion (Pass@1)",
+    subtitle_en: "Real-world vulnerability discovery in production code (Pass@1)",
+    domain: "cyber",
+    carbon: "88.2%",
+    argon: "83.4%",
+    gpt6: "85.4%",
+    opus55: "—",
+    winner: "carbon",
+    highlight_es: "#1 (+2.8 pts sobre GPT-6 Astra)",
+    highlight_en: "#1 (+2.8 pts over GPT-6 Astra)",
+    source: CARBON_MASTER_TABLE_IMG,
+  },
+  {
+    n: 18,
+    benchmark: "Gray Swan IPI",
+    subtitle_es:
+      "Exito de ataques de prompt injection indirecta con 15 intentos (menor es mejor) · grafica oficial aparte, no esta en la tabla maestra",
+    subtitle_en:
+      "Indirect prompt-injection attack success with 15 attempts (lower is better) · separate official chart, not in the master table",
     domain: "cyber",
     carbon: "0.0%",
     argon: "0.7%",
     gpt6: "8.5%",
     opus55: "1.0%",
     winner: "carbon",
-    highlight_es: "#1 Mundial (0.0% vulnerado · 15/15 bloqueados)",
-    highlight_en: "World #1 (0.0% breached · 15/15 blocked)",
+    highlight_es: "#1 (0.0% vs 0.7% de Argon)",
+    highlight_en: "#1 (0.0% vs Argon's 0.7%)",
+    source: CARBON_GRAY_SWAN_IMG,
   },
 ];
+
+/** Counts derived from CARBON_FULL_BENCHMARKS, so UI labels cannot drift from the data. */
+export const CARBON_BENCHMARK_STATS = {
+  /** Rows in the table: the 17 master-table rows plus Gray Swan IPI. */
+  total: CARBON_FULL_BENCHMARKS.length,
+  /** Rows where Carbon is #1. */
+  carbonWins: CARBON_FULL_BENCHMARKS.filter((r) => r.winner === "carbon").length,
+  /** Rows transcribed from the official master table image. */
+  masterTable: CARBON_FULL_BENCHMARKS.filter((r) => r.source === CARBON_MASTER_TABLE_IMG).length,
+  /** Master-table rows where Carbon is #1. */
+  masterTableCarbonWins: CARBON_FULL_BENCHMARKS.filter(
+    (r) => r.source === CARBON_MASTER_TABLE_IMG && r.winner === "carbon"
+  ).length,
+};
 
 export const CARBON_PRICING_TABLE = [
   {
@@ -1283,14 +1325,14 @@ export const CARBON_PRICING_TABLE = [
 export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
   {
     id: "evals-table",
-    title_es: "Tabla Maestra Oficial: 19 Benchmarks Frontera",
-    title_en: "Official Master Table: 19 Frontier Benchmarks",
-    badge_es: "14 DE 19 #1 MUNDIAL",
-    badge_en: "14 OF 19 WORLD #1",
+    title_es: "Tabla Maestra Oficial: 17 Benchmarks Frontera",
+    title_en: "Official Master Table: 17 Frontier Benchmarks",
+    badge_es: "#1 EN 15 DE 17",
+    badge_en: "#1 ON 15 OF 17",
     desc_es:
-      "Comparativa completa publicada por Google DeepMind enfrentando a Gemini 4 Carbon contra Gemini 4 Argon, GPT-6 Astra y Claude Opus 5.5.",
+      "Tabla publicada por Google DeepMind con 17 benchmarks en 8 categorias: Gemini 4 Carbon contra Gemini 4 Argon, GPT-6 Astra, Claude Opus 5.5 y Claude Fable 5.1. Carbon queda #1 en 15; GPT-6 Astra gana FrontierSWE 2 y Claude Opus 5.5 gana OSWorld-2.1.",
     desc_en:
-      "Full benchmark table published by Google DeepMind comparing Gemini 4 Carbon against Gemini 4 Argon, GPT-6 Astra, and Claude Opus 5.5.",
+      "Table published by Google DeepMind with 17 benchmarks across 8 categories: Gemini 4 Carbon vs. Gemini 4 Argon, GPT-6 Astra, Claude Opus 5.5, and Claude Fable 5.1. Carbon is #1 on 15; GPT-6 Astra wins FrontierSWE 2 and Claude Opus 5.5 wins OSWorld-2.1.",
     src: "/stills/noticias/carbon/03_evals_table.png",
     accent: "#00E5FF",
   },
@@ -1301,9 +1343,9 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     badge_es: "88.2% RECORD #1",
     badge_en: "88.2% RECORD #1",
     desc_es:
-      "Carbon alcanza 88.2% en deteccion de fallos de seguridad sobre software real, superando a Argon (85.7%), GPT-6 Astra (81.0%) y Opus 5.5 (76.2%).",
+      "Carbon alcanza 88.2% (Pass@1) en deteccion de fallos de seguridad sobre software real, por delante de GPT-6 Astra (85.4%), Gemini 4 Argon (83.4%) y GPT-6.1 Terra (83.3%). Claude Opus 5.5 no aparece en esta grafica.",
     desc_en:
-      "Carbon hits 88.2% on real-world software vulnerability detection, ahead of Argon (85.7%), GPT-6 Astra (81.0%), and Opus 5.5 (76.2%).",
+      "Carbon hits 88.2% (Pass@1) on real-world software vulnerability detection, ahead of GPT-6 Astra (85.4%), Gemini 4 Argon (83.4%), and GPT-6.1 Terra (83.3%). Claude Opus 5.5 is not on this chart.",
     src: "/stills/noticias/carbon/04_secbench_pro.png",
     accent: "#10B981",
   },
@@ -1314,9 +1356,9 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     badge_es: "+20.3 PTS VS OPUS",
     badge_en: "+20.3 PTS VS OPUS",
     desc_es:
-      "Porcentaje de vulnerabilidades donde el agente logra construir una prueba de concepto funcional en un entorno aislado (54.8% vs 34.5% de Opus).",
+      "Porcentaje de vulnerabilidades donde el agente logra construir una prueba de concepto funcional en un entorno aislado: Carbon 54.8% con limite de 10 h por tarea (53.5% con 6 h) vs 34.5% de Claude Opus 5.5 con 6 h.",
     desc_en:
-      "Percentage of vulnerabilities where the agent builds a working proof-of-concept inside an isolated sandbox (54.8% vs Opus's 34.5%).",
+      "Percentage of vulnerabilities where the agent builds a working proof-of-concept inside an isolated sandbox: Carbon 54.8% with a 10-hour cap per task (53.5% at 6 hours) vs Claude Opus 5.5's 34.5% at 6 hours.",
     src: "/stills/noticias/carbon/05_exploitgym.png",
     accent: "#00E5FF",
   },
@@ -1340,9 +1382,9 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     badge_es: "0.0% VULNERADO",
     badge_en: "0.0% BREACHED",
     desc_es:
-      "Tasa de exito del atacante en inyeccion indirecta de prompts (menor es mejor): Carbon logra 0.0% frente a 8.5% de GPT-6 Astra y 52.7% de Kimi K3.",
+      "Tasa de exito del atacante en inyeccion indirecta de prompts con 15 intentos (menor es mejor): Carbon logra 0.0% frente a 0.7% de Gemini 4 Argon, 1.0% de Claude Opus 5.5, 8.5% de GPT-6 Astra y 52.7% de Kimi K3.",
     desc_en:
-      "Attacker success rate on indirect prompt injection (lower is better): Carbon achieves 0.0% vs 8.5% for GPT-6 Astra and 52.7% for Kimi K3.",
+      "Attacker success rate on indirect prompt injection with 15 attempts (lower is better): Carbon achieves 0.0% vs 0.7% for Gemini 4 Argon, 1.0% for Claude Opus 5.5, 8.5% for GPT-6 Astra, and 52.7% for Kimi K3.",
     src: "/stills/noticias/carbon/07_grey_swan_ipi.png",
     accent: "#10B981",
   },
