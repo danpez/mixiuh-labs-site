@@ -11,6 +11,7 @@ import { createPortal, flushSync } from "react-dom";
 import { pixelSound } from "./sound";
 import { PixelIcon, type PixelIconName } from "./icons";
 import { PIXEL_TONE_STYLES, type PixelTone } from "./components";
+import { finishVisibilityTransitions } from "./focus";
 
 /* ============================================================================
    CONTEXT MENU (ROADMAP PHASE 2): RIGHT-CLICK PIXEL MENU WITH ROVING FOCUS
@@ -274,7 +275,12 @@ export function PixelContextMenu({
     // Write to the DOM right away so the items are visible (focusable) now
     menuEl.style.left = `${left}px`;
     menuEl.style.top = `${top}px`;
-    menuEl.style.visibility = "";
+    if (menuEl.style.visibility) {
+      menuEl.style.visibility = "";
+      // Also where CSS transitions visibility (`transition: all`, 0.01ms
+      // reduced-motion snippets): the items would stay hidden for a frame
+      finishVisibilityTransitions(menuEl);
+    }
     setMenu((m) =>
       m && m.anchor === anchor && (!m.placed || m.left !== left || m.top !== top)
         ? { ...m, left, top, placed: true }

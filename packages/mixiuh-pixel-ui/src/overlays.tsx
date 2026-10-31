@@ -3,6 +3,7 @@
 import React, {
   useEffect,
   useId,
+  useInsertionEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import { pixelSound, type PixelSoundName } from "./sound";
 import { PixelIcon, type PixelIconName } from "./icons";
 import { PIXEL_TONE_STYLES, type PixelTone } from "./components";
 import { prefersReducedMotion } from "./motion";
+import { getTabbables, lockPageScroll } from "./focus";
 
 /* ============================================================================
    12. NAVIGATION & OVERLAY SUITE (v2.3): TABS, COPY, TOASTS, COMMAND PALETTE
@@ -391,7 +393,12 @@ export function PixelCommandPalette({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
   const listId = useId();
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
 
   // Global Ctrl/Cmd+K toggle
   useEffect(() => {
@@ -406,17 +413,38 @@ export function PixelCommandPalette({
     return () => window.removeEventListener("keydown", onKey);
   }, [hotkey, open, onOpenChange]);
 
-  // Focus management, body scroll lock & reset on open/close
+  // Focus management, page scroll lock & reset on open/close
   useEffect(() => {
     if (!open) return;
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
     pixelSound.play("powerup", { volume: 0.5 });
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockPageScroll();
     const raf = requestAnimationFrame(() => inputRef.current?.focus());
+    // The field handles its own keys. With focus anywhere else (<body> after
+    // a press on the dialog's text, the ESC button, a scrolled list) Escape
+    // still closes and Tab goes back to the field. Capture phase: this top
+    // layer answers before a drawer underneath it.
+    const onDocumentKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.defaultPrevented ||
+        e.isComposing ||
+        e.target === inputRef.current
+      ) {
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onOpenChangeRef.current(false);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", onDocumentKeyDown, true);
     return () => {
       cancelAnimationFrame(raf);
-      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onDocumentKeyDown, true);
+      unlockScroll();
       setQuery("");
       setActive(0);
       const prev = restoreFocusRef.current;
@@ -705,35 +733,40 @@ export function PixelSwipeHint({
    give it role="dialog" aria-modal="true" aria-labelledby={...}.
    ---------------------------------------------------------------------------- */
 
-const DIALOG_FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
-
 export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
   open: boolean,
   onClose: () => void
 ) {
   const panelRef = useRef<T | null>(null);
   const onCloseRef = useRef(onClose);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  // Remember who had focus. Insertion effects run before React applies
+  // `autoFocus` inside the new dialog, so this still sees the opener.
+  useInsertionEffect(() => {
+    if (!open) return;
+    const active = document.activeElement;
+    openerRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const focusables = () =>
-      Array.from(
-        panelRef.current?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE) ?? []
-      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    const opener = openerRef.current;
+    const openPanel = panelRef.current;
+    const unlockScroll = lockPageScroll();
 
     const raf = requestAnimationFrame(() => {
       const panel = panelRef.current;
       if (!panel) return;
-      const first = focusables()[0];
+      // `autoFocus` inside the dialog already chose where focus starts
+      const current = document.activeElement;
+      if (current && current !== panel && panel.contains(current)) return;
+      const first = getTabbables(panel)[0];
       if (first) first.focus({ preventScroll: true });
       else {
         if (!panel.hasAttribute("tabindex")) panel.setAttribute("tabindex", "-1");
@@ -742,40 +775,58 @@ export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // Already handled (a menu or popover inside closed on it), or the key
+      // belongs to an IME composition
+      if (e.defaultPrevented || e.isComposing) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
-      const list = focusables();
       const panel = panelRef.current;
       if (!panel) return;
+      const list = getTabbables(panel);
       if (list.length === 0) {
         e.preventDefault();
         panel.focus({ preventScroll: true });
         return;
       }
-      const first = list[0];
-      const last = list[list.length - 1];
       const active = document.activeElement;
-      if (e.shiftKey && (active === first || !panel.contains(active))) {
-        e.preventDefault();
-        last.focus({ preventScroll: true });
-      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
-        e.preventDefault();
-        first.focus({ preventScroll: true });
+      const ahead = e.shiftKey
+        ? Node.DOCUMENT_POSITION_PRECEDING
+        : Node.DOCUMENT_POSITION_FOLLOWING;
+      // Inside the panel with a stop further that way: the browser gets there
+      // by itself. From the last stop (first, with Shift), from the panel
+      // itself or from outside it, wrap around to the other end.
+      if (
+        active &&
+        active !== panel &&
+        panel.contains(active) &&
+        list.some(
+          (el) => el !== active && (active.compareDocumentPosition(el) & ahead) !== 0
+        )
+      ) {
+        return;
       }
+      e.preventDefault();
+      (e.shiftKey ? list[list.length - 1] : list[0]).focus({
+        preventScroll: true,
+      });
     };
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = prevOverflow;
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus({ preventScroll: true });
-      }
+      unlockScroll();
+      // Back to the opener, unless the app already moved focus elsewhere
+      const current = document.activeElement;
+      const lost =
+        !current ||
+        current === document.body ||
+        (!!openPanel && openPanel.contains(current));
+      if (lost && opener?.isConnected) opener.focus({ preventScroll: true });
     };
   }, [open]);
 

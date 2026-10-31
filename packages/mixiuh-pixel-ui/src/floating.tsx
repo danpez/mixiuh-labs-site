@@ -15,6 +15,11 @@ import { createPortal } from "react-dom";
 import { pixelSound } from "./sound";
 import { PixelIcon } from "./icons";
 import { PIXEL_TONE_STYLES, type PixelTone } from "./components";
+import {
+  finishVisibilityTransitions,
+  getPanelStops,
+  getTabbables,
+} from "./focus";
 
 /* ============================================================================
    13. FLOATING LAYER (PHASE 2): POSITIONING HOOK, TOOLTIP & POPOVER
@@ -39,38 +44,6 @@ function useIsClient(): boolean {
 /** True when `target` is a node inside `root` (DOM tree, not React tree). */
 function within(root: Element | null, target: EventTarget | null): boolean {
   return !!root && target instanceof Node && root.contains(target);
-}
-
-const TABBABLE_SELECTOR =
-  "a[href], area[href], button, input, select, textarea, iframe, summary, audio[controls], video[controls], [contenteditable], [tabindex]";
-
-const isGroupedRadio = (el: Element): el is HTMLInputElement =>
-  el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
-
-/** Elements reachable with Tab inside `root`, in document order. */
-function getTabbables(root: ParentNode): HTMLElement[] {
-  const found = Array.from(
-    root.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)
-  ).filter(
-    (el) =>
-      el.tabIndex >= 0 &&
-      !el.matches(":disabled") &&
-      !(el instanceof HTMLInputElement && el.type === "hidden") &&
-      !el.closest("[inert]") &&
-      el.getClientRects().length > 0 &&
-      window.getComputedStyle(el).visibility !== "hidden"
-  );
-  // A radio group is a single Tab stop: its checked radio, else its first one
-  const radioStops: HTMLInputElement[] = [];
-  for (const el of found) {
-    if (!isGroupedRadio(el)) continue;
-    const i = radioStops.findIndex(
-      (stop) => stop.name === el.name && stop.form === el.form
-    );
-    if (i < 0) radioStops.push(el);
-    else if (el.checked && !radioStops[i].checked) radioStops[i] = el;
-  }
-  return found.filter((el) => !isGroupedRadio(el) || radioStops.includes(el));
 }
 
 /* ----------------------------------------------------------------------------
@@ -204,7 +177,12 @@ export function usePixelFloating(
       // late, so the element would trail its anchor while scrolling.
       floatingEl.style.top = `${next.top}px`;
       floatingEl.style.left = `${next.left}px`;
-      floatingEl.style.visibility = "";
+      if (floatingEl.style.visibility) {
+        floatingEl.style.visibility = "";
+        // Shown at once even where CSS transitions visibility, so a panel
+        // can take focus in the next frame (PixelPopover) or right away
+        finishVisibilityTransitions(floatingEl);
+      }
       setPosition((prev) =>
         prev &&
         prev.top === next.top &&
@@ -475,28 +453,10 @@ export interface PixelPopoverProps {
 /** Open panels, newest last: keys pressed once focus is lost go to the top one. */
 const openPopovers: HTMLElement[] = [];
 
-/** True when `el` has content to scroll (1px slack for subpixel rounding). */
-const canScroll = (el: HTMLElement) =>
-  el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
-
 /**
- * Tab stops of a popover panel in document order. A body with content to
- * scroll counts as one: it only takes focus from script (tabIndex -1), but
- * the keyboard has to reach it to scroll it.
+ * The panel stop after `from` in Tab order (`backward`: the one before). A
+ * body with content to scroll is a stop of its own (see getPanelStops).
  */
-function getPanelStops(
-  panel: HTMLElement,
-  body: HTMLElement | null
-): HTMLElement[] {
-  const stops = getTabbables(panel);
-  if (body && canScroll(body)) {
-    const i = stops.findIndex((el) => body.contains(el));
-    stops.splice(i < 0 ? stops.length : i, 0, body);
-  }
-  return stops;
-}
-
-/** The panel stop after `from` in Tab order (`backward`: the one before). */
 function adjacentStop(
   panel: HTMLElement,
   body: HTMLElement | null,

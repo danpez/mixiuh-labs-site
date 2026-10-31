@@ -13,6 +13,12 @@ import { createPortal } from "react-dom";
 import { pixelSound } from "./sound";
 import { PixelIcon } from "./icons";
 import { PIXEL_TONE_STYLES, type PixelTone } from "./components";
+import {
+  focusFirst,
+  getPanelStops,
+  getTabbables,
+  lockPageScroll,
+} from "./focus";
 
 /* ============================================================================
    MODAL DRAWERS (ROADMAP PHASE 2): PIXELDRAWER SIDE PANEL & PIXELSHEET
@@ -36,94 +42,9 @@ const hasNode = (node: React.ReactNode) =>
   node !== undefined && node !== null && node !== false && node !== "";
 
 /* ----------------------------------------------------------------------------
-   Focus trap & page scroll lock shared by every open drawer
+   Focus trap shared by every open drawer (helpers and page scroll lock live
+   in ./focus)
    ---------------------------------------------------------------------------- */
-
-const TABBABLE_SELECTOR =
-  "a[href], area[href], button, input, select, textarea, iframe, summary, audio[controls], video[controls], [contenteditable], [tabindex]";
-
-const isGroupedRadio = (el: Element): el is HTMLInputElement =>
-  el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
-
-/**
- * True when `el` is rendered and visible. checkVisibility() also rules out
- * content that keeps its boxes while Tab and focus() skip it: a closed
- * <details> or `hidden="until-found"` (content-visibility: hidden).
- */
-function isRendered(el: HTMLElement): boolean {
-  if (typeof el.checkVisibility === "function") {
-    return el.checkVisibility({
-      visibilityProperty: true,
-      checkVisibilityCSS: true,
-    });
-  }
-  return (
-    el.getClientRects().length > 0 &&
-    window.getComputedStyle(el).visibility === "visible"
-  );
-}
-
-/** Elements reachable with Tab inside `root`, in document order. */
-function getTabbables(root: HTMLElement): HTMLElement[] {
-  const found = Array.from(
-    root.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)
-  ).filter(
-    (el) =>
-      el.tabIndex >= 0 &&
-      !el.matches(":disabled") &&
-      !(el instanceof HTMLInputElement && el.type === "hidden") &&
-      !el.closest("[inert]") &&
-      isRendered(el)
-  );
-  // A radio group is a single Tab stop: its checked radio, else its first one
-  const radioStops: HTMLInputElement[] = [];
-  for (const el of found) {
-    if (!isGroupedRadio(el)) continue;
-    const i = radioStops.findIndex(
-      (stop) => stop.name === el.name && stop.form === el.form
-    );
-    if (i < 0) radioStops.push(el);
-    else if (el.checked && !radioStops[i].checked) radioStops[i] = el;
-  }
-  return found.filter((el) => !isGroupedRadio(el) || radioStops.includes(el));
-}
-
-/** True when `el` has content to scroll (1px slack for subpixel rounding). */
-const canScroll = (el: HTMLElement) =>
-  el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
-
-/**
- * Tab stops of a panel in document order. A body with content to scroll is
- * one too, between the title bar and its own content: it takes focus from
- * script only (tabIndex -1), but the keyboard has to reach it to scroll it.
- */
-function getPanelStops(
-  panel: HTMLElement,
-  body: HTMLElement | null
-): HTMLElement[] {
-  const stops = getTabbables(panel);
-  if (body && canScroll(body)) {
-    const i = stops.findIndex(
-      (el) =>
-        (body.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !==
-        0
-    );
-    stops.splice(i < 0 ? stops.length : i, 0, body);
-  }
-  return stops;
-}
-
-/** Focuses the first candidate that really takes focus; false if none does. */
-function focusFirst(
-  candidates: readonly (HTMLElement | null | undefined)[]
-): boolean {
-  for (const el of candidates) {
-    if (!el) continue;
-    el.focus();
-    if (document.activeElement === el) return true;
-  }
-  return false;
-}
 
 /**
  * Focuses the first (or last) stop of `panel`, walking inward past any stop
@@ -140,36 +61,6 @@ function focusEdge(
 
 /** Open panels, newest last: keys pressed outside every panel go to the top one. */
 const openPanels: HTMLElement[] = [];
-
-let scrollLocks = 0;
-let savedOverflow = "";
-let savedGutter = "";
-
-/**
- * Stops page scrolling until the returned function runs. The lock goes on
- * <html>, not <body>: this kit gives <html> `overflow-x: clip`, and once the
- * root overflow is not `visible` the body overflow no longer reaches the
- * viewport. Counted, so stacked drawers may close in any order and the
- * previous inline values come back with the last one.
- */
-function lockPageScroll(): () => void {
-  const root = document.documentElement;
-  if (scrollLocks === 0) {
-    savedOverflow = root.style.overflow;
-    savedGutter = root.style.getPropertyValue("scrollbar-gutter");
-    const scrollbarWidth = window.innerWidth - root.clientWidth;
-    root.style.overflow = "hidden";
-    // Keep the scrollbar's room so the page behind does not jump sideways
-    if (scrollbarWidth > 0) root.style.setProperty("scrollbar-gutter", "stable");
-  }
-  scrollLocks += 1;
-  return () => {
-    scrollLocks -= 1;
-    if (scrollLocks > 0) return;
-    root.style.overflow = savedOverflow;
-    root.style.setProperty("scrollbar-gutter", savedGutter);
-  };
-}
 
 /* ----------------------------------------------------------------------------
    PixelDrawer — modal side panel (role="dialog") & PixelSheet — bottom sheet
