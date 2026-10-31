@@ -1,4 +1,4 @@
-# `@mixiuh/pixel-ui` v2.3.0 — Mixiuh Pixel UI
+# `@mixiuh/pixel-ui` v2.5.0 — Mixiuh Pixel UI
 
 > Pixel-art + Playdate 3D hardware UI library for React / Next.js + Tailwind CSS v4.
 > Built by **Mixiuh Labs** (`https://labs.mixiuh.online`).
@@ -19,8 +19,12 @@ imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
 | `src/sound.ts` | Procedural WebAudio 8-bit synth: 13 SFX (`click`, `hover`, `coin`, `powerup`, `achievement`, …) + `usePixelSound()`. Zero MP3 files. |
 | `src/icons.tsx` | 200+ grid-aligned 16x16 SVG icons (28 brands), 16 animated sprites, 8 scenes. `shapeRendering="crispEdges"`, zero emojis. |
 | `src/components.tsx` | Buttons, keycaps, toggles, VHF crank, cards, OS windows, floppies, cartridges, 3D CRT workstation, dialog box, charts (bar, versus, sparkline, multi-line, donut), forms (input, select, autocomplete, checkbox, radio, slider), collapse, calendar, social bar, credit badge. |
-| `src/overlays.tsx` (**new in 2.3**) | `PixelCommandPalette` (Ctrl/Cmd+K), `PixelToaster` + `pixelToast`, `PixelTabs`, `PixelCopyButton` + `copyTextToClipboard`, `PixelBackToTop`. |
-| `src/motion.ts` (**new in 2.3**) | `usePrefersReducedMotion()` / `prefersReducedMotion()`. |
+| `src/overlays.tsx` (2.3) | `PixelCommandPalette` (Ctrl/Cmd+K), `PixelToaster` + `pixelToast`, `PixelTabs`, `PixelCopyButton` + `copyTextToClipboard`, `PixelBackToTop`, `PixelSwipeHint`. |
+| `src/data-table.tsx` (**new in 2.5**) | `PixelDataTable` (sortable `aria-sort` columns, accent-insensitive search, pagination, CSV export via `pixelTableToCsv` / `downloadPixelCsv`). |
+| `src/floating.tsx` (**new in 2.5**) | `PixelTooltip`, `PixelPopover` and the `usePixelFloating` positioning hook (flip + viewport clamp). |
+| `src/drawer.tsx` (**new in 2.5**) | `PixelDrawer` (left/right/bottom modal panel with focus trap) and `PixelSheet`. |
+| `src/context-menu.tsx` (**new in 2.5**) | `PixelContextMenu` (right click, Shift+F10 / Menu key, roving focus, typeahead). |
+| `src/motion.ts` · `src/storage.ts` | `usePrefersReducedMotion()` · `usePixelPref()` (hydration-safe, tab-synced localStorage preferences). |
 | `src/ambient.tsx` | Procedural AI-ecosystem background canvas (auto-disabled for reduced motion). |
 | `src/cursor.tsx` | 6 pixel-art cursor presets + `usePixelCursor()`. |
 | `src/scroll-reveal.tsx` | Pixel-by-pixel "materialize on scroll" observer. |
@@ -103,6 +107,8 @@ the font family names.
 - `PixelTabs` implements `role="tablist"` with Arrow / Home / End keys.
 - `PixelCommandPalette` is a modal `role="dialog"` with a `combobox` + `listbox`, focus restore and scroll lock.
 - `PixelToaster` announces messages through `aria-live="polite"`.
+- `PixelDataTable` uses `aria-sort`, announces result counts and sort changes; `PixelDrawer` traps focus; `PixelContextMenu` implements the WAI-ARIA menu pattern; `PixelTooltip` wires `aria-describedby`.
+- `PixelIcon` cuts its "holes" with an SVG mask, so icons stay readable in any color on any background (active states never collapse into solid blocks).
 - `prefers-reduced-motion: reduce` disables the ambient canvas, the scroll materializer and CSS animations.
 
 ## Maintaining the kit

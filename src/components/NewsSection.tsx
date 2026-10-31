@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { PixelIcon } from "@mixiuh/pixel-ui";
+import { PixelDataTable, PixelIcon, PixelSwipeHint, PixelTabs } from "@mixiuh/pixel-ui";
 import {
   CARBON_NEWS_META,
   CARBON_CHAPTERS,
   CARBON_FULL_BENCHMARKS,
   CARBON_PRICING_TABLE,
   CARBON_OFFICIAL_GALLERY,
+  type CarbonBenchmarkRow,
   type NewsBenchmarkDomain,
   type OfficialChartAsset,
 } from "@/data/newsData";
@@ -18,6 +19,31 @@ interface NewsSectionProps {
   onOpenArena: () => void;
 }
 
+const BENCH_DOMAINS: { id: NewsBenchmarkDomain; es: string; en: string }[] = [
+  { id: "all", es: "Todos", en: "All" },
+  { id: "agentes", es: "Codigo y Agentes", en: "Coding & Agents" },
+  { id: "cyber", es: "Ciberseguridad", en: "Cybersecurity" },
+  { id: "negocios", es: "Negocios y Economia", en: "Business & Economics" },
+  { id: "ciencia", es: "Ciencia y Matematicas", en: "Science & Math" },
+];
+
+const MODEL_COLUMNS: {
+  key: "carbon" | "argon" | "gpt6" | "opus55";
+  name: string;
+  color: string;
+}[] = [
+  { key: "carbon", name: "Gemini 4 Carbon", color: "#00E5FF" },
+  { key: "argon", name: "Gemini 4 Argon", color: "#C084FC" },
+  { key: "gpt6", name: "GPT-6 Astra", color: "#10B981" },
+  { key: "opus55", name: "Claude Opus 5.5", color: "#FB923C" },
+];
+
+/** "70.4%", "$16,484", "1736" -> number for sorting/CSV; "—" -> null. */
+function parseBenchScore(raw: string): number | null {
+  const n = parseFloat(raw.replace(/[$,%\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
 export default function NewsSection({
   lang,
   onOpenLabEpisode,
@@ -26,7 +52,6 @@ export default function NewsSection({
   const es = lang === "es";
   const [activeChapterIdx, setActiveChapterIdx] = useState<number>(1);
   const [domainFilter, setDomainFilter] = useState<NewsBenchmarkDomain>("all");
-  const [benchSearch, setBenchSearch] = useState<string>("");
   const [heroThumb, setHeroThumb] = useState<
     "video" | "short" | "A" | "B" | "C" | "table"
   >("video");
@@ -37,18 +62,6 @@ export default function NewsSection({
   const activeChapter =
     CARBON_CHAPTERS.find((c) => c.idx === activeChapterIdx) ||
     CARBON_CHAPTERS[0];
-
-  const filteredBenchmarks = CARBON_FULL_BENCHMARKS.filter((row) => {
-    if (domainFilter !== "all" && row.domain !== domainFilter) return false;
-    const q = benchSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      row.benchmark.toLowerCase().includes(q) ||
-      row.subtitle_es.toLowerCase().includes(q) ||
-      row.subtitle_en.toLowerCase().includes(q) ||
-      row.highlight_es.toLowerCase().includes(q)
-    );
-  });
 
   const heroImageSrc =
     heroThumb === "A"
@@ -118,7 +131,7 @@ export default function NewsSection({
               href={CARBON_NEWS_META.officialFairwindUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 shadow-[4px_4px_0_#040508] bg-[#090B10] hover:bg-[#1A2132] border border-[#A855F7]/45 text-[#A855F7] font-bold inline-flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 shadow-[4px_4px_0_#040508] bg-[#090B10] hover:bg-[#1A2132] border border-[#A855F7]/45 text-[#C084FC] font-bold inline-flex items-center gap-1.5 transition"
             >
               <span>Google Fairwind</span>
               <PixelIcon name="external" size={14} />
@@ -188,7 +201,7 @@ export default function NewsSection({
               </div>
 
               <div className="p-3.5 shadow-[6px_6px_0_#040508] bg-[#090B10] border-2 border-[#A855F7]/45">
-                <div className="font-mono-hud text-[10px] font-bold text-[#A855F7]">
+                <div className="font-mono-hud text-[10px] font-bold text-[#C084FC]">
                   GRAY SWAN IPI
                 </div>
                 <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
@@ -218,7 +231,7 @@ export default function NewsSection({
                 href={ytLongUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2.5 bg-[#FF3355] text-white font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5 shadow-[4px_4px_0_#040508]"
+                className="px-4 py-2.5 bg-[#FF3355] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5 shadow-[4px_4px_0_#040508]"
               >
                 <PixelIcon name="play" size={16} />
                 <span>
@@ -242,6 +255,11 @@ export default function NewsSection({
 
               <a
                 href="#explorador-capitulos-carbon"
+                onClick={(e) => {
+                  // Scroll within the news view without replacing the shareable #noticias hash
+                  e.preventDefault();
+                  document.getElementById("explorador-capitulos-carbon")?.scrollIntoView();
+                }}
                 className="px-4 py-2.5 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5 shadow-[4px_4px_0_#040508]"
               >
                 <PixelIcon name="sparkles" size={16} />
@@ -254,6 +272,11 @@ export default function NewsSection({
 
               <a
                 href="#tabla-oficial-19-benchmarks"
+                onClick={(e) => {
+                  // Scroll within the news view without replacing the shareable #noticias hash
+                  e.preventDefault();
+                  document.getElementById("tabla-oficial-19-benchmarks")?.scrollIntoView();
+                }}
                 className="px-4 py-2.5 shadow-[4px_4px_0_#040508] bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
               >
                 <PixelIcon name="file" size={16} />
@@ -275,7 +298,7 @@ export default function NewsSection({
                   href={ytLongUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-2.5 py-1 bg-[#FF3355]/15 border border-[#FF3355]/40 text-[#FF3355] hover:text-white font-bold inline-flex items-center gap-1"
+                  className="px-2.5 py-1 bg-[#FF3355]/15 border border-[#FF3355]/70 text-[#F5F2EB] hover:bg-[#FF3355] hover:text-[#090B10] font-bold inline-flex items-center gap-1"
                 >
                   <span>YouTube 16:9</span>
                   <PixelIcon name="arrow-up-right" size={12} />
@@ -284,7 +307,7 @@ export default function NewsSection({
                   href={ytShortUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-2.5 py-1 bg-[#FF3355]/15 border border-[#FF3355]/40 text-[#FF3355] hover:text-white font-bold inline-flex items-center gap-1"
+                  className="px-2.5 py-1 bg-[#FF3355]/15 border border-[#FF3355]/70 text-[#F5F2EB] hover:bg-[#FF3355] hover:text-[#090B10] font-bold inline-flex items-center gap-1"
                 >
                   <span>YT Shorts 9:16</span>
                   <PixelIcon name="arrow-up-right" size={12} />
@@ -293,7 +316,7 @@ export default function NewsSection({
                   href="https://www.instagram.com/labs.mixiuh"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-2.5 py-1 bg-[#FF3355]/15 border border-[#FF3355]/40 text-[#FF3355] hover:text-white font-bold inline-flex items-center gap-1"
+                  className="px-2.5 py-1 bg-[#FF3355]/15 border border-[#FF3355]/70 text-[#F5F2EB] hover:bg-[#FF3355] hover:text-[#090B10] font-bold inline-flex items-center gap-1"
                 >
                   <span>IG Reels (@labs.mixiuh)</span>
                   <PixelIcon name="arrow-up-right" size={12} />
@@ -308,12 +331,12 @@ export default function NewsSection({
                   <PixelIcon name="arrow-up-right" size={12} />
                 </a>
                 <a
-                  href="https://x.com/mixiuh"
+                  href="https://x.com/MixiuhLabs"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2.5 py-1 bg-[#1A2132] border border-[#3A4560] text-white hover:bg-[#2A344B] font-bold inline-flex items-center gap-1"
                 >
-                  <span>X / Hilo (@mixiuh)</span>
+                  <span>X / Hilo (@MixiuhLabs)</span>
                   <PixelIcon name="arrow-up-right" size={12} />
                 </a>
               </div>
@@ -757,149 +780,136 @@ export default function NewsSection({
       {/* =====================================================================
           3. MASTER 19-BENCHMARK OFFICIAL COMPARISON TABLE
          ===================================================================== */}
-      <section id="tabla-oficial-19-benchmarks" className="space-y-5">
-        <div className="bg-[#111622] border-2 border-[#00E5FF]/35 overflow-hidden shadow-[6px_6px_0_#040508]">
-          <div className="p-5 sm:p-6 bg-[#1A2132] border-b border-[#2A344B] space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div>
-                <div className="font-mono-hud text-xs font-bold text-[#00E5FF] uppercase">
-                  {es
-                    ? "DATOS OFICIALES DE GOOGLE DEEPMIND · 14 DE 19 VICTORIAS ABSOLUTAS"
-                    : "OFFICIAL GOOGLE DEEPMIND DATA · 14 OF 19 OUTRIGHT WINS"}
+      <section id="tabla-oficial-19-benchmarks" className="space-y-3">
+        <div className="space-y-1">
+          <div className="font-mono-hud text-xs font-bold text-[#00E5FF] uppercase">
+            {es
+              ? "DATOS OFICIALES DE GOOGLE DEEPMIND · 14 DE 19 VICTORIAS ABSOLUTAS"
+              : "OFFICIAL GOOGLE DEEPMIND DATA · 14 OF 19 OUTRIGHT WINS"}
+          </div>
+          <h2 className="font-display text-xl sm:text-2xl font-black text-white">
+            {es
+              ? "Tabla Comparativa Completa: Gemini 4 Carbon vs. Argon vs. GPT-6 Astra vs. Claude Opus 5.5"
+              : "Full Benchmark Table: Gemini 4 Carbon vs. Argon vs. GPT-6 Astra vs. Claude Opus 5.5"}
+          </h2>
+          <p className="font-mono-hud text-xs text-[#94A3B8]">
+            {es
+              ? "Ordena cualquier columna, filtra por dominio o busca un benchmark y exporta el resultado a CSV."
+              : "Sort any column, filter by domain or search a benchmark, then export the result to CSV."}
+          </p>
+        </div>
+
+        <PixelSwipeHint
+          label={es ? "Desliza para ver los 4 modelos" : "Swipe to see all 4 models"}
+        />
+        <PixelDataTable<CarbonBenchmarkRow>
+          caption={
+            es
+              ? "19 benchmarks oficiales: Gemini 4 Carbon, Gemini 4 Argon, GPT-6 Astra y Claude Opus 5.5"
+              : "19 official benchmarks: Gemini 4 Carbon, Gemini 4 Argon, GPT-6 Astra and Claude Opus 5.5"
+          }
+          tone="cyan"
+          locale="es"
+          searchable
+          exportFileName="gemini-4-carbon-19-benchmarks.csv"
+          className="[&_table]:min-w-[880px]"
+          rows={CARBON_FULL_BENCHMARKS.filter(
+            (row) => domainFilter === "all" || row.domain === domainFilter
+          )}
+          getRowId={(row) => String(row.n)}
+          initialSort={{ key: "n", direction: "asc" }}
+          labels={
+            es
+              ? { searchPlaceholder: "Filtrar SWE-sweep, CWE, Vending..." }
+              : {
+                  search: "Search the table",
+                  searchPlaceholder: "Filter SWE-sweep, CWE, Vending...",
+                  clearSearch: "Clear search",
+                  noResults: "No results",
+                  resultsCount: (count) => (count === 1 ? "1 result" : `${count} results`),
+                  exportCsv: "Export CSV",
+                  previous: "Previous",
+                  next: "Next",
+                  rowsSummary: (from, to, total) => `${from}–${to} of ${total}`,
+                  pageOf: (page, pages) => `Page ${page} of ${pages}`,
+                  sortHint: "Sort by",
+                  sortStatus: (column, direction) =>
+                    `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
+                }
+          }
+          toolbar={
+            <PixelTabs
+              ariaLabel={es ? "Dominio" : "Domain"}
+              tone="cyan"
+              size="sm"
+              wrap
+              value={domainFilter}
+              onChange={setDomainFilter}
+              items={BENCH_DOMAINS.map((d) => ({
+                id: d.id,
+                label: es ? d.es : d.en,
+                badge:
+                  d.id === "all"
+                    ? CARBON_FULL_BENCHMARKS.length
+                    : CARBON_FULL_BENCHMARKS.filter((r) => r.domain === d.id).length,
+              }))}
+            />
+          }
+          columns={[
+            {
+              key: "n",
+              header: "#",
+              value: (r) => r.n,
+              render: (r) => (
+                <span className="font-bold text-[#00E5FF]">{String(r.n).padStart(2, "0")}</span>
+              ),
+            },
+            {
+              key: "benchmark",
+              header: es ? "Benchmark y que mide" : "Benchmark & what it tests",
+              value: (r) => `${r.benchmark} ${es ? r.subtitle_es : r.subtitle_en}`,
+              render: (r) => (
+                <div className="min-w-[200px]">
+                  <div className="font-bold text-white">{r.benchmark}</div>
+                  <div className="text-[11px] text-[#94A3B8]">{es ? r.subtitle_es : r.subtitle_en}</div>
                 </div>
-                <h2 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
-                  {es
-                    ? "Tabla Comparativa Completa: Gemini 4 Carbon vs. Argon vs. GPT-6 Astra vs. Claude Opus 5.5"
-                    : "Full Benchmark Table: Gemini 4 Carbon vs. Argon vs. GPT-6 Astra vs. Claude Opus 5.5"}
-                </h2>
-              </div>
-
-              <div className="relative w-full lg:w-72">
-                <PixelIcon name="search" size={16} className="text-[#94A3B8] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={benchSearch}
-                  onChange={(e) => setBenchSearch(e.target.value)}
-                  placeholder={
-                    es
-                      ? "Filtrar SWE-sweep, CWE, Vending..."
-                      : "Filter SWE-sweep, CWE, Vending..."
-                  }
-                  className="w-full pl-10 pr-4 py-2 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B] text-xs text-white placeholder:text-[#94A3B8]"
-                />
-              </div>
-            </div>
-
-            {/* Domain Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 font-mono-hud text-xs">
-              {(
-                [
-                  {
-                    id: "all" as const,
-                    es: "Todos los Benchmarks (19)",
-                    en: "All Benchmarks (19)",
-                  },
-                  {
-                    id: "agentes" as const,
-                    es: "Codigo y Agentes (6)",
-                    en: "Coding & Agents (6)",
-                  },
-                  {
-                    id: "cyber" as const,
-                    es: "Ciberseguridad (4)",
-                    en: "Cybersecurity (4)",
-                  },
-                  {
-                    id: "negocios" as const,
-                    es: "Negocios y Economia (4)",
-                    en: "Business & Economics (4)",
-                  },
-                  {
-                    id: "ciencia" as const,
-                    es: "Ciencia y Matematicas (5)",
-                    en: "Science & Math (5)",
-                  },
-                ]
-              ).map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setDomainFilter(f.id)}
-                  className={`px-3 py-1.5 font-bold transition cursor-pointer ${
-                    domainFilter === f.id
-                      ? "bg-[#00E5FF] text-[#090B10]"
-                      : "bg-[#090B10] text-[#94A3B8] hover:text-white border border-[#2A344B]"
+              ),
+            },
+            ...MODEL_COLUMNS.map((m) => ({
+              key: m.key,
+              header: m.name,
+              value: (r: CarbonBenchmarkRow) => parseBenchScore(r[m.key]),
+              render: (r: CarbonBenchmarkRow) => (
+                <span
+                  className={m.key === "carbon" ? "font-black text-base" : ""}
+                  style={{ color: m.color }}
+                >
+                  {r[m.key]}
+                </span>
+              ),
+              align: "right" as const,
+              headerClassName: m.key === "carbon" ? "bg-[#00E5FF]/10" : undefined,
+              className: m.key === "carbon" ? "bg-[#00E5FF]/10" : undefined,
+            })),
+            {
+              key: "highlight",
+              header: es ? "Diferencial clave" : "Key differential",
+              value: (r) => (es ? r.highlight_es : r.highlight_en),
+              sortable: false,
+              render: (r) => (
+                <span
+                  className={`inline-block px-2.5 py-1 font-bold text-[11px] ${
+                    r.winner === "carbon"
+                      ? "bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40"
+                      : "bg-[#1A2132] text-[#EAE5D9]"
                   }`}
                 >
-                  {es ? f.es : f.en}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
-                  <th className="py-3.5 px-4">#</th>
-                  <th className="py-3.5 px-4">
-                    {es ? "Benchmark y Qué Mide" : "Benchmark & What It Tests"}
-                  </th>
-                  <th className="py-3.5 px-4 text-[#00E5FF] bg-[#00E5FF]/10">
-                    Gemini 4 Carbon
-                  </th>
-                  <th className="py-3.5 px-4 text-[#A855F7]">
-                    Gemini 4 Argon
-                  </th>
-                  <th className="py-3.5 px-4 text-[#10B981]">GPT-6 Astra</th>
-                  <th className="py-3.5 px-4 text-[#FB923C]">
-                    Claude Opus 5.5
-                  </th>
-                  <th className="py-3.5 px-4">
-                    {es ? "Diferencial Clave" : "Key Differential"}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#2A344B] text-xs sm:text-sm">
-                {filteredBenchmarks.map((r) => (
-                  <tr key={r.n} className="hover:bg-[#1A2132] transition">
-                    <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF]">
-                      {String(r.n).padStart(2, "0")}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-white">{r.benchmark}</div>
-                      <div className="text-xs text-[#94A3B8]">
-                        {es ? r.subtitle_es : r.subtitle_en}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono-hud font-black text-base text-[#00E5FF] bg-[#00E5FF]/10">
-                      {r.carbon}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono-hud text-[#A855F7]">
-                      {r.argon}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono-hud text-[#10B981]">
-                      {r.gpt6}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono-hud text-[#FB923C]">
-                      {r.opus55}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono-hud text-xs">
-                      <span
-                        className={`px-2.5 py-1 font-bold ${
-                          r.winner === "carbon"
-                            ? "bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40"
-                            : "bg-[#1A2132] text-[#EAE5D9]"
-                        }`}
-                      >
-                        {es ? r.highlight_es : r.highlight_en}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  {es ? r.highlight_es : r.highlight_en}
+                </span>
+              ),
+            },
+          ]}
+        />
       </section>
 
       {/* =====================================================================

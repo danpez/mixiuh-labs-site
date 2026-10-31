@@ -34,9 +34,15 @@ import {
   PIXEL_CURSOR_PRESETS,
   PixelBackToTop,
   PixelCommandPalette,
+  PixelDrawer,
+  PixelPopover,
+  PixelRadioGroup,
+  PixelToggle,
   PixelCopyButton,
+  PixelSwipeHint,
   PixelTabs,
   PixelToaster,
+  PixelTooltip,
   PIXEL_UI_VERSION,
   pixelToast,
   prefersReducedMotion,
@@ -170,6 +176,16 @@ const CALENDAR_LABELS: Record<ReleaseKey, { es: string; en: string }> = {
 /** Release day of the current @mixiuh/pixel-ui version (shown in the calendar). */
 const PIXEL_UI_RELEASE_DATE = "2026-10-31";
 
+/** Deep link of each production (used by the share popover). */
+const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  carbon01: "noticias",
+  ep04: "ep04-escalera-claude",
+  ep03: "ep03-superpowers-kit",
+  cc01: "comentario-al-codigo",
+  ep02: "ep02-argon-vs-opus",
+  ep01: "ep01-argon-vs-flash",
+};
+
 const AMBIENT_MODES: AmbientSimulationMode[] = [
   "ai-ecosystem",
   "neural-packets",
@@ -197,6 +213,7 @@ export default function MixiuhLabsHomePage() {
     isAmbientMode
   );
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const cursorLabel = (id: string) => {
     const preset = PIXEL_CURSOR_PRESETS.find((p) => p.id === id);
@@ -427,6 +444,17 @@ export default function MixiuhLabsHomePage() {
     setActiveVideoClip("hook");
   };
 
+  // Inside the Arena the URL stays #arena; bumping the key remounts the EP01/EP02
+  // arena so any open bonus demo or source tab resets with the new episode.
+  const [arenaResetKey, setArenaResetKey] = useState(0);
+  const selectArenaEpisode = (ep: "ep02" | "ep01") => {
+    setArenaMode("ep02_ep01");
+    setActiveEpisode(ep);
+    setDossierEp(ep);
+    setSelectedChallengeN(ep === "ep02" ? 1 : 6);
+    setArenaResetKey((k) => k + 1);
+  };
+
   const handleJumpToArena = (
     episode: "ep04" | "ep03" | "ep02" | "ep01",
     challengeN: number
@@ -445,6 +473,7 @@ export default function MixiuhLabsHomePage() {
       setActiveEpisode(safeEp);
       setSelectedChallengeN(challengeN);
       setArenaMode("ep02_ep01");
+      setArenaResetKey((k) => k + 1);
       setMainView("arena");
     }
     writeHash("arena", "push");
@@ -886,8 +915,8 @@ export default function MixiuhLabsHomePage() {
       view: "arena" as const,
       icon: "gamepad" as const,
       accent: "#A855F7",
-      activeClass: "bg-[#A855F7] text-white",
-      activeIconHex: "#FFFFFF",
+      activeClass: "bg-[#A855F7] text-[#090B10]",
+      activeIconHex: "#090B10",
       idleClass: "text-[#CBD5E1] hover:text-white",
       short_es: "Arena",
       short_en: "Arena",
@@ -900,8 +929,8 @@ export default function MixiuhLabsHomePage() {
       view: "pixelui" as const,
       icon: "crt-tv" as const,
       accent: "#FF3355",
-      activeClass: "bg-[#FF3355] text-white",
-      activeIconHex: "#FFFFFF",
+      activeClass: "bg-[#FF3355] text-[#090B10]",
+      activeIconHex: "#090B10",
       idleClass: "text-[#FF3355] hover:text-white",
       short_es: "Pixel UI",
       short_en: "Pixel UI",
@@ -1105,7 +1134,7 @@ export default function MixiuhLabsHomePage() {
                     className="h-5 w-5 sm:h-6 sm:w-6 shrink-0"
                   />
                 </div>
-                <span className="font-pixel text-xs sm:text-sm font-bold tracking-wider text-white whitespace-nowrap">
+                <span className="font-pixel text-xs sm:text-sm font-bold tracking-wider text-white whitespace-nowrap lg:hidden xl:inline">
                   MIXIUH <span className="text-[#FFD100]">LABS</span>
                 </span>
               </a>
@@ -1133,7 +1162,6 @@ export default function MixiuhLabsHomePage() {
                         name={item.icon}
                         size={12}
                         color={active ? item.activeIconHex : item.accent}
-                        className="hidden xl:block"
                       />
                       <span>{lang === "es" ? item.short_es : item.short_en}</span>
                       {item.count !== undefined && (
@@ -1146,6 +1174,7 @@ export default function MixiuhLabsHomePage() {
 
               {/* Right: compact icon-only hardware & social controls */}
               <div className="flex items-center gap-1 shrink-0">
+                <PixelTooltip placement="bottom" content={lang === "es" ? "Buscar en todo el sitio (Ctrl+K)" : "Search the whole site (Ctrl+K)"}>
                 <button
                   type="button"
                   onClick={() => setPaletteOpen(true)}
@@ -1154,8 +1183,7 @@ export default function MixiuhLabsHomePage() {
                       ? "Buscar y abrir comandos (Ctrl+K)"
                       : "Search & run commands (Ctrl+K)"
                   }
-                  title={lang === "es" ? "Buscar (Ctrl+K)" : "Search (Ctrl+K)"}
-                  className="inline-flex px-2 py-1 bg-[#111622] hover:bg-[#FFD100] hover:text-[#090B10] text-[#FFD100] border-2 border-[#090B10] font-pixel text-[9px] font-bold items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_#040508]"
+                  className="inline-flex min-h-8 min-w-8 justify-center px-2 py-1 bg-[#111622] hover:bg-[#FFD100] hover:text-[#090B10] text-[#FFD100] border-2 border-[#090B10] font-pixel text-[10px] font-bold items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_#040508]"
                 >
                   <PixelIcon name="search" size={12} />
                   <span className="hidden xl:inline-flex items-center gap-0.5">
@@ -1163,7 +1191,22 @@ export default function MixiuhLabsHomePage() {
                     <kbd className="px-kbd">K</kbd>
                   </span>
                 </button>
+                </PixelTooltip>
 
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSfx("click");
+                    setSettingsOpen(true);
+                  }}
+                  aria-label={lang === "es" ? "Ajustes y redes" : "Settings & links"}
+                  aria-haspopup="dialog"
+                  className="sm:hidden inline-flex min-h-8 min-w-8 justify-center items-center px-2 py-1 bg-[#111622] text-[#10B981] border-2 border-[#090B10] cursor-pointer shadow-[2px_2px_0_#040508]"
+                >
+                  <PixelIcon name="settings" size={12} />
+                </button>
+
+                <PixelTooltip placement="bottom" content={lang === "es" ? `Cursor: ${cursorLabel(cursorStyle)}` : `Cursor: ${cursorLabel(cursorStyle)}`}>
                 <button
                   type="button"
                   onClick={cycleCursorStyle}
@@ -1172,16 +1215,13 @@ export default function MixiuhLabsHomePage() {
                       ? `Cambiar cursor pixel-art (actual: ${cursorLabel(cursorStyle)})`
                       : `Switch pixel-art cursor (current: ${cursorLabel(cursorStyle)})`
                   }
-                  title={
-                    lang === "es"
-                      ? `Cursor: ${cursorLabel(cursorStyle)}`
-                      : `Cursor: ${cursorLabel(cursorStyle)}`
-                  }
-                  className="hidden sm:inline-flex px-2 py-1 bg-[#111622] hover:bg-[#00E5FF] hover:text-[#090B10] text-[#00E5FF] border-2 border-[#090B10] items-center cursor-pointer shadow-[2px_2px_0_#040508]"
+                  className="hidden sm:inline-flex min-h-8 min-w-8 justify-center px-2 py-1 bg-[#111622] hover:bg-[#00E5FF] hover:text-[#090B10] text-[#00E5FF] border-2 border-[#090B10] items-center cursor-pointer shadow-[2px_2px_0_#040508]"
                 >
                   <PixelIcon name="mouse" size={12} />
                 </button>
+                </PixelTooltip>
 
+                <PixelTooltip placement="bottom" content={`${lang === "es" ? "Fondo IA" : "AI background"}: ${ambientLabel(ambientMode)}`}>
                 <button
                   type="button"
                   onClick={cycleAmbientMode}
@@ -1190,9 +1230,8 @@ export default function MixiuhLabsHomePage() {
                       ? `Cambiar ecosistema IA de fondo (actual: ${ambientLabel(ambientMode)})`
                       : `Switch background AI ecosystem (current: ${ambientLabel(ambientMode)})`
                   }
-                  title={`${lang === "es" ? "Fondo IA" : "AI background"}: ${ambientLabel(ambientMode)}`}
                   aria-pressed={ambientMode !== "off"}
-                  className={`hidden sm:inline-flex px-2 py-1 border-2 border-[#090B10] items-center cursor-pointer shadow-[2px_2px_0_#040508] ${
+                  className={`hidden sm:inline-flex min-h-8 min-w-8 justify-center px-2 py-1 border-2 border-[#090B10] items-center cursor-pointer shadow-[2px_2px_0_#040508] ${
                     ambientMode !== "off"
                       ? "bg-[#10B981] text-[#090B10]"
                       : "bg-[#111622] text-[#94A3B8]"
@@ -1200,7 +1239,9 @@ export default function MixiuhLabsHomePage() {
                 >
                   <PixelIcon name="brain-ai" size={12} />
                 </button>
+                </PixelTooltip>
 
+                <PixelTooltip placement="bottom" content={sfxEnabled ? (lang === "es" ? "Sonido 8-bit: activado" : "8-bit sound: on") : (lang === "es" ? "Sonido 8-bit: silenciado" : "8-bit sound: muted")}>
                 <button
                   type="button"
                   onClick={toggleSfx}
@@ -1210,8 +1251,7 @@ export default function MixiuhLabsHomePage() {
                       : "Toggle 8-Bit WebAudio SFX"
                   }
                   aria-pressed={sfxEnabled}
-                  title={sfxEnabled ? "SFX ON" : "SFX OFF"}
-                  className={`px-2 py-1 border-2 border-[#090B10] flex items-center cursor-pointer shadow-[2px_2px_0_#040508] ${
+                  className={`min-h-8 min-w-8 justify-center px-2 py-1 border-2 border-[#090B10] flex items-center cursor-pointer shadow-[2px_2px_0_#040508] ${
                     sfxEnabled
                       ? "bg-[#FFD100] text-[#090B10]"
                       : "bg-[#111622] text-[#94A3B8]"
@@ -1222,6 +1262,7 @@ export default function MixiuhLabsHomePage() {
                     size={12}
                   />
                 </button>
+                </PixelTooltip>
 
                 <div
                   role="group"
@@ -1237,7 +1278,7 @@ export default function MixiuhLabsHomePage() {
                         playSfx("click");
                         setLang(code);
                       }}
-                      className={`px-1.5 py-0.5 font-pixel text-[9px] font-bold transition cursor-pointer ${
+                      className={`min-h-7 min-w-7 px-1.5 py-0.5 font-pixel text-[10px] font-bold transition cursor-pointer ${
                         lang === code
                           ? "bg-[#FFD100] text-[#090B10]"
                           : "text-[#94A3B8] hover:text-white"
@@ -1248,18 +1289,20 @@ export default function MixiuhLabsHomePage() {
                   ))}
                 </div>
 
+                <PixelTooltip placement="bottom" content={"X @MixiuhLabs"}>
                 <a
                   href="https://x.com/MixiuhLabs"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => playSfx("coin")}
                   aria-label="X @MixiuhLabs"
-                  title="X @MixiuhLabs"
-                  className="hidden sm:inline-flex items-center px-2 py-1 bg-[#F5F2EB] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] hover:bg-[#00E5FF] transition"
+                  className="hidden sm:inline-flex min-h-8 min-w-8 justify-center items-center px-2 py-1 bg-[#F5F2EB] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] hover:bg-[#00E5FF] transition"
                 >
                   <PixelIcon name="x" size={12} color="#090B10" />
                 </a>
+                </PixelTooltip>
 
+                <PixelTooltip placement="bottom" content={"YouTube Mixiuh Labs"}>
                 <a
                   href={
                     lang === "es"
@@ -1270,11 +1313,11 @@ export default function MixiuhLabsHomePage() {
                   rel="noopener noreferrer"
                   onClick={() => playSfx("coin")}
                   aria-label="YouTube Mixiuh Labs"
-                  title="YouTube Mixiuh Labs"
-                  className="hidden sm:inline-flex items-center px-2 py-1 bg-[#FF3355] text-white border-2 border-[#090B10] shadow-[2px_2px_0_#040508] hover:brightness-110 transition"
+                  className="hidden sm:inline-flex min-h-8 min-w-8 justify-center items-center px-2 py-1 bg-[#FF3355] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] hover:brightness-110 transition"
                 >
                   <PixelIcon name="youtube" size={12} color="#FFFFFF" />
                 </a>
+                </PixelTooltip>
               </div>
             </div>
 
@@ -1328,10 +1371,10 @@ export default function MixiuhLabsHomePage() {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[9px]">
+                  <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[10px]">
                     {`${totalEpisodesCount} PRODUCCIONES 4K60`}
                   </span>
-                  <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[9px]">
+                  <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[10px]">
                     {`${totalDemosCount} MOTORES EN VIVO`}
                   </span>
                 </div>
@@ -1647,7 +1690,7 @@ export default function MixiuhLabsHomePage() {
                 className="px-card-coral px-card-interactive flex flex-col justify-between cursor-pointer"
               >
                 <div>
-                  <div className="px-4 py-2 bg-[#FF3355] text-white border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
+                  <div className="px-4 py-2 bg-[#FF3355] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
                     <span>{`04 // PIXEL UI KIT v${PIXEL_UI_VERSION}`}</span>
                     <span>OPEN SOURCE</span>
                   </div>
@@ -1741,10 +1784,10 @@ export default function MixiuhLabsHomePage() {
                     <div>
                       {/* Top Cartridge Header Strip */}
                       <div
-                        className="px-4 py-2 border-b-2 border-[#090B10] flex items-center justify-between gap-2 font-pixel text-[10px] font-bold text-[#090B10]"
+                        className="px-4 py-2 border-b-2 border-[#090B10] flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-pixel text-[10px] font-bold text-[#090B10]"
                         style={{ backgroundColor: art.accentColor }}
                       >
-                        <span className="truncate">
+                        <span className="min-w-0 break-words">
                           {lang === "es" ? art.badge_es : art.badge_en}
                         </span>
                         <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] shrink-0">
@@ -1858,6 +1901,63 @@ export default function MixiuhLabsHomePage() {
                         >
                           {lang === "es" ? "Foro" : "Forum"}
                         </button>
+
+                        {(() => {
+                          const shareUrl = `https://labs.mixiuh.online/#${ARTICLE_HASH[art.id]}`;
+                          const shareTitle = lang === "es" ? art.title_es : art.title_en;
+                          return (
+                            <PixelPopover
+                              trigger={<PixelIcon name="share" size={13} />}
+                              triggerAriaLabel={lang === "es" ? "Compartir" : "Share"}
+                              triggerClassName="bg-[#131824] text-[#00E5FF] px-3 py-2 text-xs"
+                              tone="cyan"
+                              title={lang === "es" ? "COMPARTIR" : "SHARE"}
+                              closeLabel={lang === "es" ? "Cerrar" : "Close"}
+                              placement="top"
+                              widthClassName="w-64"
+                            >
+                              <div className="grid gap-2 font-mono-hud text-xs">
+                                <PixelCopyButton
+                                  text={shareUrl}
+                                  tone="cyan"
+                                  className="w-full"
+                                  label={lang === "es" ? "Copiar enlace" : "Copy link"}
+                                  copiedLabel={lang === "es" ? "Enlace copiado" : "Link copied"}
+                                  toastTitle={lang === "es" ? "ENLACE COPIADO" : "LINK COPIED"}
+                                />
+                                {[
+                                  {
+                                    label: "X / Twitter",
+                                    icon: "x" as const,
+                                    href: `https://x.com/intent/post?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(shareUrl)}`,
+                                  },
+                                  {
+                                    label: "WhatsApp",
+                                    icon: "whatsapp" as const,
+                                    href: `https://wa.me/?text=${encodeURIComponent(`${shareTitle} ${shareUrl}`)}`,
+                                  },
+                                  {
+                                    label: "LinkedIn",
+                                    icon: "linkedin" as const,
+                                    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+                                  },
+                                ].map((net) => (
+                                  <a
+                                    key={net.label}
+                                    href={net.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => playSfx("coin")}
+                                    className="px-btn w-full justify-start bg-[#131824] text-[#F5F2EB] px-3 py-1.5"
+                                  >
+                                    <PixelIcon name={net.icon} size={13} />
+                                    <span>{net.label}</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </PixelPopover>
+                          );
+                        })()}
                       </div>
                     </div>
                   </article>
@@ -1872,8 +1972,8 @@ export default function MixiuhLabsHomePage() {
                 className="px-card-violet px-card-interactive p-6 flex flex-col justify-between cursor-pointer"
               >
                 <div>
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#A855F7] text-white font-pixel text-[10px] font-bold mb-3">
-                    <PixelIcon name="gamepad" size={13} color="#FFFFFF" />
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#A855F7] text-[#090B10] font-pixel text-[10px] font-bold mb-3">
+                    <PixelIcon name="gamepad" size={13} color="#090B10" />
                     <span>{`ARENA (${totalDemosCount} DEMOS)`}</span>
                   </div>
                   <h3 className="font-display text-lg font-black text-white mb-2">
@@ -1887,7 +1987,7 @@ export default function MixiuhLabsHomePage() {
                       : "Compare side-by-side deliverables from EP04 (Haiku vs Sonnet vs Opus), EP03 (Raw vs Superpowers Kit), EP02 (Argon vs Opus 5.5), EP01, and OVERFIT 3D."}
                   </p>
                 </div>
-                <div className="mt-4 font-mono-hud text-xs font-bold text-[#A855F7]">
+                <div className="mt-4 font-mono-hud text-xs font-bold text-[#C084FC]">
                   {lang === "es" ? "Entrar a la Arena →" : "Enter the Arena →"}
                 </div>
               </a>
@@ -2174,7 +2274,7 @@ export default function MixiuhLabsHomePage() {
                         : "bg-[#090B10] border-[#2A344B] hover:border-[#FF3355]"
                     }`}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[9px]">
+                    <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
                       <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#FF3355] text-[#090B10] font-bold">
                         DISK 04 · NUEVO
                       </span>
@@ -2200,7 +2300,7 @@ export default function MixiuhLabsHomePage() {
                         : "bg-[#090B10] border-[#2A344B] hover:border-[#10B981]"
                     }`}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[9px]">
+                    <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
                       <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#10B981] text-[#090B10] font-bold">
                         DISK 03
                       </span>
@@ -2223,8 +2323,8 @@ export default function MixiuhLabsHomePage() {
                       : "bg-[#090B10] border-[#2A344B] hover:border-[#A855F7]"
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[9px]">
-                    <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#A855F7] text-white font-bold">
+                  <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                    <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#A855F7] text-[#090B10] font-bold">
                       DISK 02
                     </span>
                     <span className="text-[#00E5FF]">
@@ -2247,7 +2347,7 @@ export default function MixiuhLabsHomePage() {
                       : "bg-[#090B10] border-[#2A344B] hover:border-[#F5F2EB]"
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[9px]">
+                  <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
                     <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#F5F2EB] text-[#090B10] font-bold">
                       DISK 01
                     </span>
@@ -2283,7 +2383,7 @@ export default function MixiuhLabsHomePage() {
                         <span className="text-[#10B981]">Haiku ($1.54)</span> vs.{" "}
                         <span className="text-[#FFD100]">Sonnet ($12.22)</span>{" "}
                         vs.{" "}
-                        <span className="text-[#A855F7]">Opus ($29.94)</span>
+                        <span className="text-[#C084FC]">Opus ($29.94)</span>
                       </>
                     ) : (
                       <>
@@ -2291,7 +2391,7 @@ export default function MixiuhLabsHomePage() {
                         <span className="text-[#10B981]">Haiku ($1.54)</span> vs.{" "}
                         <span className="text-[#FFD100]">Sonnet ($12.22)</span>{" "}
                         vs.{" "}
-                        <span className="text-[#A855F7]">Opus ($29.94)</span>
+                        <span className="text-[#C084FC]">Opus ($29.94)</span>
                       </>
                     )}
                   </h1>
@@ -2346,12 +2446,12 @@ export default function MixiuhLabsHomePage() {
                     </div>
 
                     <div className="p-4 bg-[#090B10] border-2 border-[#A855F7] shadow-[4px_4px_0_#040508]">
-                      <div className="font-pixel text-[10px] text-[#A855F7] font-bold">
+                      <div className="font-pixel text-[10px] text-[#C084FC] font-bold">
                         CLAUDE OPUS 5.5 (6 RETOS)
                       </div>
                       <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
                         ${EP04_BENCHMARK_TOTALS.opus_usd.toFixed(2)}{" "}
-                        <span className="text-sm text-[#A855F7]">
+                        <span className="text-sm text-[#C084FC]">
                           ({EP04_BENCHMARK_TOTALS.opus_min}m)
                         </span>
                       </div>
@@ -2394,7 +2494,7 @@ export default function MixiuhLabsHomePage() {
                                   : "bg-[#111622] border-[#2A344B] hover:border-[#00E5FF]"
                               }`}
                             >
-                              <div className="flex items-center justify-between font-pixel text-[9px]">
+                              <div className="flex items-center justify-between font-pixel text-[10px]">
                                 <span className="text-[#00E5FF] font-bold">
                                   R0{ch.n}
                                 </span>
@@ -2562,6 +2662,7 @@ export default function MixiuhLabsHomePage() {
                                 </a>
                               </div>
                               <iframe
+                                allowFullScreen
                                 src={ch4[ep04Mode].demoUrl}
                                 title={`${ch4.dir}-${ep04Mode}`}
                                 className="w-full h-[620px] shadow-[4px_4px_0_#040508] border border-[#2A344B] bg-black"
@@ -2721,7 +2822,7 @@ export default function MixiuhLabsHomePage() {
                     </div>
 
                     <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#A855F7]/40">
-                      <div className="font-mono-hud text-[11px] text-[#A855F7] font-bold">
+                      <div className="font-mono-hud text-[11px] text-[#C084FC] font-bold">
                         {lang === "es"
                           ? "VOLUMEN DE CODIGO REAL"
                           : "REAL CODE VOLUME"}
@@ -2754,8 +2855,9 @@ export default function MixiuhLabsHomePage() {
                     </div>
                   </div>
 
+                  <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full min-w-[860px] text-left border-collapse">
                       <thead>
                         <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
                           <th className="py-3.5 px-4">#</th>
@@ -3001,6 +3103,7 @@ export default function MixiuhLabsHomePage() {
                                 </div>
                               </div>
                               <iframe
+                                allowFullScreen
                                 src={vanillaUrl}
                                 title={`Raw AI ${cur.dir}`}
                                 className="w-full h-[540px] border-0 bg-[#090B10]"
@@ -3032,6 +3135,7 @@ export default function MixiuhLabsHomePage() {
                                 </div>
                               </div>
                               <iframe
+                                allowFullScreen
                                 src={superkitUrl}
                                 title={`Superkit ${cur.dir}`}
                                 className="w-full h-[540px] border-0 bg-[#090B10]"
@@ -3043,6 +3147,7 @@ export default function MixiuhLabsHomePage() {
                         {(ep03Mode === "superkit" ||
                           ep03Mode === "vanilla") && (
                           <iframe
+                                allowFullScreen
                             src={
                               ep03Mode === "superkit" ? superkitUrl : vanillaUrl
                             }
@@ -3125,7 +3230,7 @@ export default function MixiuhLabsHomePage() {
                 {/* Hero Grid for EP02 / EP01 */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                   <div className="lg:col-span-7 space-y-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#A855F7]/15 border border-[#A855F7]/40 text-[#A855F7] font-mono-hud text-xs font-bold">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#A855F7]/15 border border-[#A855F7]/40 text-[#C084FC] font-mono-hud text-xs font-bold">
                       {isEp02
                         ? lang === "es"
                           ? "EPISODIO 02 · DUELO DE TITANES ZERO-SHOT + FACTURA REAL DE TOKENS"
@@ -3179,7 +3284,7 @@ export default function MixiuhLabsHomePage() {
 
                           <div className="flex items-center justify-end gap-3 text-right">
                             <div>
-                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#A855F7] uppercase">
+                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#C084FC] uppercase">
                                 Gemini 4 Argon
                               </div>
                               <div className="font-display text-2xl sm:text-4xl font-black text-[#10B981]">
@@ -3230,7 +3335,7 @@ export default function MixiuhLabsHomePage() {
 
                           <div className="flex items-center justify-end gap-3 text-right">
                             <div>
-                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#A855F7] uppercase">
+                              <div className="font-mono-hud text-[10px] sm:text-xs font-bold text-[#C084FC] uppercase">
                                 Gemini 4 Argon
                               </div>
                               <div className="font-display text-2xl sm:text-4xl font-black text-[#10B981]">
@@ -3267,11 +3372,17 @@ export default function MixiuhLabsHomePage() {
 
                       <a
                         href={
-                          isEp02 ? YOUTUBE_LINKS.ep02_es : YOUTUBE_LINKS.ep01_es
+                          isEp02
+                            ? lang === "es"
+                              ? YOUTUBE_LINKS.ep02_es
+                              : YOUTUBE_LINKS.ep02_en
+                            : lang === "es"
+                            ? YOUTUBE_LINKS.ep01_es
+                            : YOUTUBE_LINKS.ep01_en
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-5 py-3 shadow-[4px_4px_0_#040508] bg-[#FF3355] text-white font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
+                        className="px-5 py-3 shadow-[4px_4px_0_#040508] bg-[#FF3355] text-[#090B10] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
                       >
                         <PixelIcon name="play" size={16} />
                         <span>Ver en YouTube (4K60)</span>
@@ -3298,7 +3409,7 @@ export default function MixiuhLabsHomePage() {
                           onClick={() => setActiveVideoClip("boss")}
                           className={`px-3 py-1 font-mono-hud text-xs font-bold cursor-pointer ${
                             activeVideoClip === "boss"
-                              ? "bg-[#FF3355] text-white"
+                              ? "bg-[#FF3355] text-[#090B10]"
                               : "bg-[#090B10] text-[#94A3B8]"
                           }`}
                         >
@@ -3348,9 +3459,10 @@ export default function MixiuhLabsHomePage() {
                         : "Matriz Comparativa EP01: 10 Retos Zero-Shot"}
                     </h2>
                   </div>
+                  <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
                   <div className="overflow-x-auto">
                     {isEp02 ? (
-                      <table className="w-full text-left border-collapse">
+                      <table className="w-full min-w-[860px] text-left border-collapse">
                         <thead>
                           <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
                             <th className="py-3.5 px-4">#</th>
@@ -3361,10 +3473,10 @@ export default function MixiuhLabsHomePage() {
                             <th className="py-3.5 px-4 text-[#FFD100]">
                               Opus Tokens / USD
                             </th>
-                            <th className="py-3.5 px-4 text-[#A855F7]">
+                            <th className="py-3.5 px-4 text-[#C084FC]">
                               Gemini 4 Argon
                             </th>
-                            <th className="py-3.5 px-4 text-[#A855F7]">
+                            <th className="py-3.5 px-4 text-[#C084FC]">
                               Argon Tokens / USD
                             </th>
                             <th className="py-3.5 px-4">Ganador</th>
@@ -3395,7 +3507,7 @@ export default function MixiuhLabsHomePage() {
                                 ${ch.cost_usd.opus.toFixed(2)} USD (
                                 {ch.tokens.opus_total})
                               </td>
-                              <td className="py-3.5 px-4 font-mono-hud text-[#A855F7]">
+                              <td className="py-3.5 px-4 font-mono-hud text-[#C084FC]">
                                 {ch.time_min.argon} min · {ch.fps.argon}
                               </td>
                               <td className="py-3.5 px-4 font-mono-hud text-[#10B981]">
@@ -3416,7 +3528,7 @@ export default function MixiuhLabsHomePage() {
                         </tbody>
                       </table>
                     ) : (
-                      <table className="w-full text-left border-collapse">
+                      <table className="w-full min-w-[680px] text-left border-collapse">
                         <thead>
                           <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
                             <th className="py-3.5 px-4">#</th>
@@ -3424,7 +3536,7 @@ export default function MixiuhLabsHomePage() {
                             <th className="py-3.5 px-4 text-[#FFD100]">
                               Gemini 3.8 Flash
                             </th>
-                            <th className="py-3.5 px-4 text-[#A855F7]">
+                            <th className="py-3.5 px-4 text-[#C084FC]">
                               Gemini 4 Argon
                             </th>
                             <th className="py-3.5 px-4">Relacion</th>
@@ -3447,7 +3559,7 @@ export default function MixiuhLabsHomePage() {
                                 {ch.time_min.flash} min (
                                 {ch.code_stats.flash_lines} loc)
                               </td>
-                              <td className="py-3.5 px-4 font-mono-hud text-[#A855F7]">
+                              <td className="py-3.5 px-4 font-mono-hud text-[#C084FC]">
                                 {ch.time_min.argon} min (
                                 {ch.code_stats.argon_lines} loc)
                               </td>
@@ -3601,6 +3713,7 @@ export default function MixiuhLabsHomePage() {
                   </a>
                 </div>
                 <iframe
+                                allowFullScreen
                   src="/overfit/index.html"
                   title="OVERFIT Studio 3D"
                   className="w-full h-[820px] border-0 bg-[#090B10]"
@@ -3633,7 +3746,7 @@ export default function MixiuhLabsHomePage() {
         <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
             <div className="p-3 shadow-[6px_6px_0_#040508] bg-[#111622] border-2 border-[#A855F7]/40 flex flex-wrap items-center justify-between gap-3">
-              <div className="font-mono-hud text-xs font-bold text-[#A855F7]">
+              <div className="font-mono-hud text-xs font-bold text-[#C084FC]">
                 {lang === "es"
                   ? `MODO DE ARENA INTERACTIVA (${totalDemosCount} DEMOS PUBLICADAS):`
                   : `INTERACTIVE ARENA MODE (${totalDemosCount} PUBLISHED DEMOS):`}
@@ -3665,8 +3778,8 @@ export default function MixiuhLabsHomePage() {
                 )}
                 <button
                   onClick={() => {
-                    setArenaMode("ep02_ep01");
-                    handleEpisodeChange("ep02");
+                    playSfx("click");
+                    selectArenaEpisode("ep02");
                   }}
                   className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
                     arenaMode === "ep02_ep01" && activeEpisode === "ep02"
@@ -3678,8 +3791,8 @@ export default function MixiuhLabsHomePage() {
                 </button>
                 <button
                   onClick={() => {
-                    setArenaMode("ep02_ep01");
-                    handleEpisodeChange("ep01");
+                    playSfx("click");
+                    selectArenaEpisode("ep01");
                   }}
                   className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
                     arenaMode === "ep02_ep01" && activeEpisode === "ep01"
@@ -3722,7 +3835,7 @@ export default function MixiuhLabsHomePage() {
                             ? "text-[#10B981] font-bold"
                             : ch.winner === "sonnet"
                             ? "text-[#FFD100] font-bold"
-                            : "text-[#A855F7] font-bold"
+                            : "text-[#C084FC] font-bold"
                         }
                       >
                         {ch.winner.toUpperCase()} WIN
@@ -3780,6 +3893,7 @@ export default function MixiuhLabsHomePage() {
                           </a>
                         </div>
                         <iframe
+                                allowFullScreen
                           src={haikuUrl}
                           title={`Haiku ${cur.dir}`}
                           className="w-full h-[520px] border-0 bg-[#090B10]"
@@ -3802,6 +3916,7 @@ export default function MixiuhLabsHomePage() {
                           </a>
                         </div>
                         <iframe
+                                allowFullScreen
                           src={sonnetUrl}
                           title={`Sonnet ${cur.dir}`}
                           className="w-full h-[520px] border-0 bg-[#090B10]"
@@ -3811,19 +3926,20 @@ export default function MixiuhLabsHomePage() {
                       {/* Column 3: Claude Opus 5.5 */}
                       <div className="flex flex-col">
                         <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
-                          <span className="font-pixel text-[10px] text-[#A855F7] font-bold">
+                          <span className="font-pixel text-[10px] text-[#C084FC] font-bold">
                             CLAUDE OPUS 5.5 (${cur.opus.usd} · {cur.opus.min}m)
                           </span>
                           <a
                             href={opusUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2 py-0.5 bg-[#131824] text-[#A855F7] border border-[#A855F7]/50 text-[10px] font-bold"
+                            className="px-2 py-0.5 bg-[#131824] text-[#C084FC] border border-[#A855F7]/50 text-[10px] font-bold"
                           >
                             {cur.opus.fps} ↗
                           </a>
                         </div>
                         <iframe
+                                allowFullScreen
                           src={opusUrl}
                           title={`Opus ${cur.dir}`}
                           className="w-full h-[520px] border-0 bg-[#090B10]"
@@ -3893,11 +4009,13 @@ export default function MixiuhLabsHomePage() {
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
                       <iframe
+                                allowFullScreen
                         src={vanillaUrl}
                         title={`Raw ${cur.dir}`}
                         className="w-full h-[560px] border-0 bg-[#090B10]"
                       />
                       <iframe
+                                allowFullScreen
                         src={superkitUrl}
                         title={`Superkit ${cur.dir}`}
                         className="w-full h-[560px] border-0 bg-[#090B10]"
@@ -3909,9 +4027,14 @@ export default function MixiuhLabsHomePage() {
             </div>
           ) : (
             <DemoArenaSection
+              key={arenaResetKey}
               lang={lang}
               activeEpisode={activeEpisode}
-              onChangeEpisode={handleEpisodeChange}
+              onChangeEpisode={(ep) => {
+                setActiveEpisode(ep);
+                setDossierEp(ep);
+                setSelectedChallengeN(ep === "ep02" ? 1 : 6);
+              }}
               selectedChallengeN={selectedChallengeN}
               onSelectChallengeN={setSelectedChallengeN}
             />
@@ -4058,12 +4181,12 @@ export default function MixiuhLabsHomePage() {
               aria-label={lang === "es" ? "Mapa del sitio" : "Site map"}
               className="flex flex-wrap items-center gap-4"
             >
-              <a {...viewLink("blog")} className="hover:text-white cursor-pointer">
+              <a {...viewLink("blog")} className="inline-block py-1.5 hover:text-white cursor-pointer">
                 {lang === "es" ? "Inicio" : "Home"}
               </a>
               <a
                 {...viewLink("dossiers", "ep04")}
-                className="text-[#10B981] hover:text-white font-bold cursor-pointer"
+                className="inline-block py-1.5 text-[#10B981] hover:text-white font-bold cursor-pointer"
               >
                 {lang === "es"
                   ? "Videos / Laboratorios (EP01–EP04)"
@@ -4072,7 +4195,7 @@ export default function MixiuhLabsHomePage() {
               {released.cc01 && (
                 <a
                   {...viewLink("comunidad")}
-                  className="text-[#FFD100] hover:text-white font-bold cursor-pointer"
+                  className="inline-block py-1.5 text-[#FFD100] hover:text-white font-bold cursor-pointer"
                 >
                   {lang === "es"
                     ? "Del Comentario al Codigo (#01)"
@@ -4082,7 +4205,7 @@ export default function MixiuhLabsHomePage() {
               {released.carbon01 && (
                 <a
                   {...viewLink("noticias")}
-                  className="text-[#00E5FF] hover:text-white font-bold cursor-pointer"
+                  className="inline-block py-1.5 text-[#00E5FF] hover:text-white font-bold cursor-pointer"
                 >
                   {lang === "es"
                     ? "Noticias IA (Gemini 4 Carbon)"
@@ -4091,7 +4214,7 @@ export default function MixiuhLabsHomePage() {
               )}
               <a
                 {...viewLink("pixelui")}
-                className="text-[#FF3355] hover:text-white font-bold cursor-pointer"
+                className="inline-block py-1.5 text-[#FF3355] hover:text-white font-bold cursor-pointer"
               >
                 {`Mixiuh Pixel UI v${PIXEL_UI_VERSION} (${lang === "es" ? "Gratis" : "Free"})`}
               </a>
@@ -4099,7 +4222,7 @@ export default function MixiuhLabsHomePage() {
                 href="https://mixiuh.online"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-white"
+                className="inline-block py-1.5 hover:text-white"
               >
                 Mixiuh
               </a>
@@ -4126,6 +4249,129 @@ export default function MixiuhLabsHomePage() {
             : "↑↓ navigate · ENTER open · ESC close"
         }
       />
+      <PixelDrawer
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        side="right"
+        size="sm"
+        tone="emerald"
+        title={es ? "AJUSTES // MIXIUH LABS" : "SETTINGS // MIXIUH LABS"}
+        description={
+          es
+            ? "Sonido, idioma, fondo animado y redes. Se guardan en este dispositivo."
+            : "Sound, language, animated background and links. Saved on this device."
+        }
+        closeLabel={es ? "Cerrar ajustes" : "Close settings"}
+        footer={
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(false)}
+            className="px-btn bg-[#10B981] text-[#090B10] px-4 py-2 text-xs"
+          >
+            {es ? "Listo" : "Done"}
+          </button>
+        }
+      >
+        <div className="space-y-6 font-mono-hud text-xs">
+          <section className="space-y-2">
+            <h3 className="font-pixel text-[11px] text-[#FFD100]">
+              {es ? "SONIDO 8-BIT" : "8-BIT SOUND"}
+            </h3>
+            <PixelToggle
+              checked={sfxEnabled}
+              onChange={(next) => {
+                if (next !== sfxEnabled) toggleSfx();
+              }}
+              label={sfxEnabled ? (es ? "Activado" : "On") : es ? "Silenciado" : "Muted"}
+            />
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="font-pixel text-[11px] text-[#FFD100]">
+              {es ? "IDIOMA" : "LANGUAGE"}
+            </h3>
+            <PixelTabs
+              ariaLabel={es ? "Idioma" : "Language"}
+              value={lang}
+              onChange={setLang}
+              items={[
+                { id: "es" as const, label: "Espanol" },
+                { id: "en" as const, label: "English" },
+              ]}
+            />
+          </section>
+
+          <section className="space-y-2">
+            <PixelRadioGroup
+              label={es ? "FONDO IA PROCEDURAL" : "PROCEDURAL AI BACKGROUND"}
+              value={ambientMode}
+              onChange={(v) => {
+                if (isAmbientMode(v)) setAmbientMode(v);
+              }}
+              tone="emerald"
+              options={[
+                {
+                  value: "ai-ecosystem",
+                  label: es ? "Ecosistema de agentes IA" : "AI agent ecosystem",
+                },
+                {
+                  value: "neural-packets",
+                  label: es ? "Paquetes y circuitos" : "Packets & circuits",
+                },
+                {
+                  value: "voxel-rain",
+                  label: es ? "Lluvia binaria voxel" : "Voxel binary rain",
+                },
+                {
+                  value: "off",
+                  label: es ? "Apagado (ahorra bateria)" : "Off (saves battery)",
+                },
+              ]}
+            />
+          </section>
+
+          <section className="space-y-2 hidden pointer-fine:block">
+            <PixelRadioGroup
+              label={es ? "CURSOR PIXEL-ART" : "PIXEL-ART CURSOR"}
+              value={cursorStyle}
+              onChange={(v) => {
+                const preset = PIXEL_CURSOR_PRESETS.find((p) => p.id === v);
+                if (preset) setCursorStyle(preset.id);
+              }}
+              tone="cyan"
+              options={PIXEL_CURSOR_PRESETS.map((p) => ({
+                value: p.id,
+                label: es ? p.name_es : p.name_en,
+              }))}
+            />
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="font-pixel text-[11px] text-[#FFD100]">
+              {es ? "BUSCAR EN TODO EL SITIO" : "SEARCH THE WHOLE SITE"}
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsOpen(false);
+                window.setTimeout(() => setPaletteOpen(true), 0);
+              }}
+              className="px-btn bg-[#FFD100] text-[#090B10] px-4 py-2 text-xs"
+            >
+              <PixelIcon name="search" size={13} />
+              <span>{es ? "Abrir buscador" : "Open search"}</span>
+              <kbd className="px-kbd hidden pointer-fine:inline-flex">Ctrl K</kbd>
+            </button>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="font-pixel text-[11px] text-[#FFD100]">
+              {es ? "REDES OFICIALES" : "OFFICIAL CHANNELS"}
+            </h3>
+            <PixelSocialBar compact />
+          </section>
+        </div>
+      </PixelDrawer>
       <PixelToaster />
       <PixelBackToTop label={es ? "Volver arriba" : "Back to top"} />
     </div>

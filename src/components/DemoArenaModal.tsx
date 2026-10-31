@@ -116,7 +116,7 @@ export default function DemoArenaSection({
   const opponentFullName = isEp02 ? "Claude Opus 5.5" : "Gemini 3.8 Flash";
 
   return (
-    <section id="arena" className="scroll-mt-24 py-14 border-t border-[#00E5FF]/15">
+    <section id="arena" className="py-14 border-t border-[#00E5FF]/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
@@ -193,7 +193,7 @@ export default function DemoArenaSection({
                   : "bg-[#111622] border-[#00E5FF]/25 text-[#94A3B8] hover:text-white hover:border-[#A855F7]/60"
               }`}
             >
-              <PixelIcon name="sparkles" size={16} className="text-[#A855F7]" />
+              <PixelIcon name="sparkles" size={16} className="text-[#C084FC]" />
               {lang === "es" ? "Bonus: Gummy Bears SDF" : "Bonus: Gummy Bears SDF"}
             </button>
           </div>
@@ -221,13 +221,13 @@ export default function DemoArenaSection({
                   <div className="flex items-center justify-between gap-1 mb-1">
                     <span
                       className={`font-mono-hud text-[11px] font-bold ${
-                        isSelected ? "text-[#A855F7]" : "text-[#00E5FF]"
+                        isSelected ? "text-[#C084FC]" : "text-[#00E5FF]"
                       }`}
                     >
                       R{String(ch.n).padStart(2, "0")}
                     </span>
                     <span
-                      className={`px-1.5 py-0.5 font-mono-hud text-[9px] font-bold ${
+                      className={`px-1.5 py-0.5 font-mono-hud text-[10px] font-bold ${
                         isOpusWin
                           ? "bg-[#FFD100]/20 border border-[#FFD100]/40 text-[#FFD100]"
                           : "bg-[#10B981]/20 border border-[#10B981]/40 text-[#10B981]"
@@ -271,13 +271,13 @@ export default function DemoArenaSection({
                   <div className="flex items-center justify-between gap-1 mb-1">
                     <span
                       className={`font-mono-hud text-[11px] font-bold ${
-                        isSelected ? "text-[#A855F7]" : "text-[#00E5FF]"
+                        isSelected ? "text-[#C084FC]" : "text-[#00E5FF]"
                       }`}
                     >
                       N{String(ch.n).padStart(2, "0")}
                     </span>
                     {ch.flash_broken ? (
-                      <span className="px-1.5 py-0.5 bg-[#FF3355]/20 border border-[#FF3355]/40 text-[#FF3355] font-mono-hud text-[9px] font-bold">
+                      <span className="px-1.5 py-0.5 bg-[#FF3355] border border-[#090B10] text-[#090B10] font-mono-hud text-[10px] font-bold">
                         {lang === "es" ? "FLASH ROTO" : "BROKEN"}
                       </span>
                     ) : (
@@ -302,7 +302,7 @@ export default function DemoArenaSection({
             <div className="p-5 sm:p-6 bg-[#111622] border-b border-[#2A344B]">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <div className="inline-flex items-center gap-2 text-xs font-mono-hud text-[#A855F7] mb-1">
+                  <div className="inline-flex items-center gap-2 text-xs font-mono-hud text-[#C084FC] mb-1">
                     <span>ARCHIVO EXTRA FUERA DE TORNEO · 2026-10-14 02:28</span>
                   </div>
                   <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
@@ -340,7 +340,7 @@ export default function DemoArenaSection({
                         : ep02Challenge.world_en}
                     </span>
                     <a
-                      href={`${YOUTUBE_LINKS.ep02_es}?t=${(() => {
+                      href={`${lang === "es" ? YOUTUBE_LINKS.ep02_es : YOUTUBE_LINKS.ep02_en}?t=${(() => {
                         const ts =
                           lang === "es"
                             ? ep02Challenge.timestamp_es
@@ -350,7 +350,7 @@ export default function DemoArenaSection({
                       })()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-0.5 bg-[#FF3355]/15 hover:bg-[#FF3355]/25 border border-[#FF3355]/40 text-white hover:text-[#FF3355] transition-colors cursor-pointer"
+                      className="px-2.5 py-0.5 bg-[#FF3355]/15 hover:bg-[#FF3355] border border-[#FF3355]/70 text-[#F5F2EB] hover:text-[#090B10] transition-colors cursor-pointer"
                     >
                       {lang === "es"
                         ? `VER EN YT (${ep02Challenge.timestamp_es})`
@@ -370,7 +370,7 @@ export default function DemoArenaSection({
                       </span>
                     )}
                     {ep02Challenge.opus_slow_fps && (
-                      <span className="px-2.5 py-0.5 bg-[#FF3355]/15 border border-[#FF3355]/40 text-[#FF3355] font-bold">
+                      <span className="px-2.5 py-0.5 bg-[#FF3355] border border-[#090B10] text-[#090B10] font-bold">
                         OPUS FPS: {ep02Challenge.fps.opus}
                       </span>
                     )}
@@ -389,7 +389,7 @@ export default function DemoArenaSection({
                 {/* EP02 Speed, Tokens & Cost Scoreboard */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 shrink-0">
                   <div className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#A855F7]/40">
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-mono-hud uppercase text-[#A855F7]">
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-mono-hud uppercase text-[#C084FC]">
                       <span>Gemini 4 Argon</span>
                       <span className="text-[#10B981] font-bold">
                         ${ep02Challenge.cost_usd.argon.toFixed(2)} USD
@@ -475,7 +475,7 @@ export default function DemoArenaSection({
                       })()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-0.5 bg-[#FF3355]/15 hover:bg-[#FF3355]/25 border border-[#FF3355]/40 text-white hover:text-[#FF3355] transition-colors cursor-pointer"
+                      className="px-2.5 py-0.5 bg-[#FF3355]/15 hover:bg-[#FF3355] border border-[#FF3355]/70 text-[#F5F2EB] hover:text-[#090B10] transition-colors cursor-pointer"
                     >
                       {lang === "es"
                         ? `VER EN YT (${ep01Challenge.timestamp})`
@@ -487,7 +487,7 @@ export default function DemoArenaSection({
                         : "WINNER: GEMINI 4 ARGON"}
                     </span>
                     {ep01Challenge.flash_broken && (
-                      <span className="px-2.5 py-0.5 bg-[#FF3355]/15 border border-[#FF3355]/40 text-[#FF3355] font-bold">
+                      <span className="px-2.5 py-0.5 bg-[#FF3355] border border-[#090B10] text-[#090B10] font-bold">
                         {lang === "es"
                           ? "FLASH ENTREGO ROTO / INCOMPLETO"
                           : "FLASH DELIVERED BROKEN"}
@@ -508,7 +508,7 @@ export default function DemoArenaSection({
                 {/* EP01 Speed & Code Scoreboard */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 shrink-0">
                   <div className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#A855F7]/40">
-                    <div className="text-[10px] font-mono-hud uppercase text-[#A855F7]">
+                    <div className="text-[10px] font-mono-hud uppercase text-[#C084FC]">
                       Gemini 4 Argon
                     </div>
                     <div className="font-mono-hud text-base font-bold text-white">
@@ -674,7 +674,7 @@ export default function DemoArenaSection({
                     }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-1.5 bg-[#A855F7]/15 hover:bg-[#A855F7]/25 border border-[#A855F7]/40 text-xs font-mono-hud text-[#A855F7] flex items-center gap-1"
+                    className="px-3 py-1.5 bg-[#A855F7]/15 hover:bg-[#A855F7]/25 border border-[#A855F7]/40 text-xs font-mono-hud text-[#C084FC] flex items-center gap-1"
                   >
                     <PixelIcon name="expand" size={12} />
                     Argon
@@ -701,7 +701,7 @@ export default function DemoArenaSection({
           {activeTab === "argon" && (
             <div className="relative bg-black">
               <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between text-xs font-mono-hud">
-                <span className="text-[#A855F7] font-bold">
+                <span className="text-[#C084FC] font-bold">
                   {showBonus
                     ? "GEMINI 4 ARGON // GUMMY BEARS SOFT-BODY SIMULATION"
                     : isEp02
@@ -733,7 +733,8 @@ export default function DemoArenaSection({
                     : ep01Challenge.page_titles.argon
                 }
                 className="w-full h-[560px] sm:h-[650px] border-0 bg-black"
-                sandbox="allow-scripts allow-same-origin allow-pointer-lock"
+                sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-downloads"
+                allowFullScreen
               />
             </div>
           )}
@@ -765,7 +766,8 @@ export default function DemoArenaSection({
                     : ep01Challenge.page_titles.flash
                 }
                 className="w-full h-[560px] sm:h-[650px] border-0 bg-black"
-                sandbox="allow-scripts allow-same-origin allow-pointer-lock"
+                sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-downloads"
+                allowFullScreen
               />
             </div>
           )}
@@ -795,14 +797,15 @@ export default function DemoArenaSection({
                   }
                   title={`${opponentFullName} - ${activeDir}`}
                   className="w-full h-[480px] sm:h-[560px] border-0 bg-black"
-                  sandbox="allow-scripts allow-same-origin allow-pointer-lock"
+                  sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-downloads"
+                allowFullScreen
                 />
               </div>
 
               {/* Right: ARGON */}
               <div>
                 <div className="px-4 py-2 bg-[#090B10] border-b border-[#A855F7]/30 flex items-center justify-between text-xs font-mono-hud">
-                  <span className="text-[#A855F7] font-bold">
+                  <span className="text-[#C084FC] font-bold">
                     {isEp02
                       ? `[DERECHA] GEMINI 4 ARGON · ${ep02Challenge.time_min.argon} MIN · $${ep02Challenge.cost_usd.argon.toFixed(2)}`
                       : `[DERECHA] GEMINI 4 ARGON · ${ep01Challenge.time_min.argon} MIN (GANADOR)`}
@@ -822,7 +825,8 @@ export default function DemoArenaSection({
                   }
                   title={`Argon - ${activeDir}`}
                   className="w-full h-[480px] sm:h-[560px] border-0 bg-black"
-                  sandbox="allow-scripts allow-same-origin allow-pointer-lock"
+                  sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-downloads"
+                allowFullScreen
                 />
               </div>
             </div>
@@ -869,7 +873,7 @@ export default function DemoArenaSection({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono-hud text-xs">
                     <div className="p-3.5 bg-[#090B10] border border-[#A855F7]/30 flex items-center justify-between">
                       <div>
-                        <div className="text-[#A855F7] font-bold">
+                        <div className="text-[#C084FC] font-bold">
                           GEMINI 4 ARGON (HIGH)
                         </div>
                         <div className="text-[#94A3B8] mt-1">
@@ -920,7 +924,7 @@ export default function DemoArenaSection({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Argon Features */}
                 <div className="p-5 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#A855F7]/30">
-                  <h4 className="font-display text-base font-bold text-[#A855F7] mb-3 flex items-center justify-between">
+                  <h4 className="font-display text-base font-bold text-[#C084FC] mb-3 flex items-center justify-between">
                     <span>
                       {lang === "es"
                         ? "Lo que entrego Gemini 4 Argon (High)"
@@ -1090,7 +1094,7 @@ export default function DemoArenaSection({
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#A855F7] font-bold mb-3">
+                  <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#C084FC] font-bold mb-3">
                     [DERECHA] CAPTURAS DE GRABACION REAL — GEMINI 4 ARGON
                   </h4>
                   <div className="space-y-3">

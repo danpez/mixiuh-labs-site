@@ -1,6 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
+
+/** Fill used by the icon drawings to mark "holes" (rendered transparent via a mask). */
+const ICON_HOLE_FILL = "#090B10";
 
 export type PixelIconName =
   // 1. Social Media & Tech Brands (28)
@@ -497,6 +500,8 @@ export interface PixelIconProps {
   size?: number;
   className?: string;
   color?: string;
+  /** Accessible name. Without it the icon is decorative (aria-hidden). */
+  title?: string;
 }
 
 export function PixelIcon({
@@ -504,8 +509,10 @@ export function PixelIcon({
   size = 16,
   className = "",
   color = "currentColor",
+  title,
 }: PixelIconProps) {
-  const renderRects = () => {
+  const maskId = `px-icon-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const renderRects = (): React.ReactNode => {
     switch (name) {
       case "crt-tv":
         return (
@@ -617,8 +624,18 @@ export function PixelIcon({
             <rect x="6" y="11" width="4" height="3" />
           </>
         );
-      case "server":
       case "database":
+        return (
+          <>
+            <rect x="3" y="1" width="10" height="1" />
+            <rect x="2" y="2" width="12" height="11" />
+            <rect x="3" y="13" width="10" height="1" />
+            <rect x="4" y="3" width="8" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="2" y="6" width="12" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="2" y="10" width="12" height="1" fill={ICON_HOLE_FILL} />
+          </>
+        );
+      case "server":
         return (
           <>
             <rect x="2" y="2" width="12" height="3" />
@@ -723,9 +740,11 @@ export function PixelIcon({
       case "chest":
         return (
           <>
-            <rect x="2" y="3" width="12" height="10" />
-            <rect x="2" y="7" width="12" height="2" fill="#090B10" />
-            <rect x="7" y="6" width="2" height="4" />
+            <rect x="3" y="2" width="10" height="1" />
+            <rect x="2" y="3" width="12" height="4" />
+            <rect x="2" y="8" width="12" height="6" />
+            <rect x="6" y="6" width="4" height="4" />
+            <rect x="7" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
           </>
         );
       case "diamond":
@@ -933,11 +952,11 @@ export function PixelIcon({
         return (
           <>
             <rect x="1" y="2" width="14" height="12" />
-            <rect x="3" y="4" width="10" height="8" fill="#090B10" />
-            <rect x="4" y="6" width="2" height="1" />
-            <rect x="6" y="7" width="2" height="1" />
-            <rect x="4" y="8" width="2" height="1" />
-            <rect x="8" y="9" width="3" height="1" />
+            <rect x="2" y="4" width="12" height="9" fill={ICON_HOLE_FILL} />
+            <rect x="4" y="5" width="2" height="2" />
+            <rect x="6" y="7" width="2" height="2" />
+            <rect x="4" y="9" width="2" height="2" />
+            <rect x="9" y="9" width="4" height="2" />
           </>
         );
       case "code":
@@ -1066,8 +1085,21 @@ export function PixelIcon({
             <rect x="8" y="10" width="2" height="2" />
           </>
         );
-      case "arrow-up-right":
       case "external":
+        return (
+          <>
+            <rect x="1" y="4" width="2" height="11" />
+            <rect x="1" y="13" width="11" height="2" />
+            <rect x="10" y="9" width="2" height="6" />
+            <rect x="1" y="4" width="5" height="2" />
+            <rect x="9" y="1" width="6" height="2" />
+            <rect x="13" y="1" width="2" height="6" />
+            <rect x="11" y="3" width="2" height="2" />
+            <rect x="9" y="5" width="2" height="2" />
+            <rect x="7" y="7" width="2" height="2" />
+          </>
+        );
+      case "arrow-up-right":
         return (
           <>
             <rect x="5" y="3" width="8" height="2" />
@@ -1203,15 +1235,38 @@ export function PixelIcon({
       case "sword":
         return (
           <>
-            <rect x="11" y="2" width="3" height="3" />
-            <rect x="9" y="4" width="3" height="3" />
-            <rect x="7" y="6" width="3" height="3" />
-            <rect x="5" y="8" width="3" height="3" />
-            <rect x="2" y="11" width="4" height="3" />
+            <rect x="13" y="1" width="2" height="2" />
+            <rect x="11" y="3" width="2" height="2" />
+            <rect x="9" y="5" width="2" height="2" />
+            <rect x="7" y="7" width="2" height="2" />
+            <rect x="4" y="7" width="2" height="2" />
+            <rect x="6" y="9" width="2" height="2" />
+            <rect x="8" y="11" width="2" height="2" />
+            <rect x="4" y="11" width="2" height="2" />
+            <rect x="2" y="13" width="2" height="2" />
+          </>
+        );
+      case "radar":
+        return (
+          <>
+            <rect x="5" y="1" width="6" height="2" />
+            <rect x="5" y="13" width="6" height="2" />
+            <rect x="1" y="5" width="2" height="6" />
+            <rect x="13" y="5" width="2" height="6" />
+            <rect x="3" y="3" width="2" height="2" />
+            <rect x="11" y="3" width="2" height="2" />
+            <rect x="3" y="11" width="2" height="2" />
+            <rect x="11" y="11" width="2" height="2" />
+            <rect x="6" y="4" width="4" height="1" />
+            <rect x="6" y="11" width="4" height="1" />
+            <rect x="4" y="6" width="1" height="4" />
+            <rect x="11" y="6" width="1" height="4" />
+            <rect x="7" y="7" width="2" height="2" />
+            <rect x="9" y="5" width="2" height="2" />
+            <rect x="10" y="9" width="2" height="2" />
           </>
         );
       case "target":
-      case "radar":
         return (
           <>
             <rect x="5" y="1" width="6" height="2" />
@@ -1239,15 +1294,37 @@ export function PixelIcon({
             <rect x="2" y="9" width="12" height="5" />
           </>
         );
-      case "dna":
       case "atom":
         return (
           <>
-            <rect x="3" y="2" width="10" height="2" />
-            <rect x="5" y="5" width="6" height="2" />
+            <rect x="4" y="5" width="8" height="1" />
+            <rect x="4" y="10" width="8" height="1" />
+            <rect x="2" y="6" width="2" height="4" />
+            <rect x="12" y="6" width="2" height="4" />
+            <rect x="5" y="4" width="1" height="8" />
+            <rect x="10" y="4" width="1" height="8" />
+            <rect x="6" y="2" width="4" height="2" />
+            <rect x="6" y="12" width="4" height="2" />
             <rect x="7" y="7" width="2" height="2" />
-            <rect x="5" y="9" width="6" height="2" />
-            <rect x="3" y="12" width="10" height="2" />
+          </>
+        );
+      case "dna":
+        return (
+          <>
+            <rect x="4" y="1" width="2" height="2" />
+            <rect x="10" y="1" width="2" height="2" />
+            <rect x="6" y="2" width="4" height="1" />
+            <rect x="5" y="3" width="2" height="2" />
+            <rect x="9" y="3" width="2" height="2" />
+            <rect x="7" y="5" width="2" height="2" />
+            <rect x="5" y="7" width="2" height="2" />
+            <rect x="9" y="7" width="2" height="2" />
+            <rect x="4" y="9" width="2" height="2" />
+            <rect x="10" y="9" width="2" height="2" />
+            <rect x="6" y="10" width="4" height="1" />
+            <rect x="5" y="11" width="2" height="2" />
+            <rect x="9" y="11" width="2" height="2" />
+            <rect x="7" y="13" width="2" height="2" />
           </>
         );
       case "chart-bar":
@@ -1278,12 +1355,17 @@ export function PixelIcon({
       case "bug":
         return (
           <>
-            <rect x="5" y="2" width="6" height="3" />
-            <rect x="4" y="5" width="8" height="8" />
-            <rect x="2" y="6" width="2" height="2" />
-            <rect x="12" y="6" width="2" height="2" />
-            <rect x="2" y="10" width="2" height="2" />
-            <rect x="12" y="10" width="2" height="2" />
+            <rect x="4" y="0" width="2" height="2" />
+            <rect x="10" y="0" width="2" height="2" />
+            <rect x="6" y="2" width="4" height="2" />
+            <rect x="5" y="4" width="6" height="10" />
+            <rect x="7" y="6" width="2" height="7" fill={ICON_HOLE_FILL} />
+            <rect x="2" y="5" width="3" height="2" />
+            <rect x="11" y="5" width="3" height="2" />
+            <rect x="2" y="9" width="3" height="2" />
+            <rect x="11" y="9" width="3" height="2" />
+            <rect x="3" y="12" width="2" height="2" />
+            <rect x="11" y="12" width="2" height="2" />
           </>
         );
       case "wrench":
@@ -1769,8 +1851,20 @@ export function PixelIcon({
             <rect x="10" y="10" width="2" height="4" />
           </>
         );
-      case "refresh":
       case "sync":
+        return (
+          <>
+            <rect x="2" y="4" width="10" height="2" />
+            <rect x="10" y="2" width="2" height="2" />
+            <rect x="12" y="4" width="2" height="2" />
+            <rect x="10" y="6" width="2" height="2" />
+            <rect x="4" y="10" width="10" height="2" />
+            <rect x="4" y="8" width="2" height="2" />
+            <rect x="2" y="10" width="2" height="2" />
+            <rect x="4" y="12" width="2" height="2" />
+          </>
+        );
+      case "refresh":
         return (
           <>
             <rect x="4" y="2" width="8" height="2" />
@@ -1860,10 +1954,23 @@ export function PixelIcon({
       case "bell-off":
         return (
           <>
-            <rect x="2" y="2" width="2" height="2" />
-            <rect x="5" y="3" width="6" height="8" />
-            <rect x="3" y="11" width="10" height="2" />
-            <rect x="12" y="12" width="2" height="2" />
+            <rect x="6" y="2" width="4" height="2" />
+            <rect x="4" y="4" width="8" height="7" />
+            <rect x="2" y="11" width="12" height="2" />
+            <rect x="7" y="13" width="2" height="2" />
+            <rect x="3" y="1" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="5" y="3" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="5" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="9" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="11" y="9" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="13" y="11" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="1" y="1" width="2" height="2" />
+            <rect x="3" y="3" width="2" height="2" />
+            <rect x="5" y="5" width="2" height="2" />
+            <rect x="7" y="7" width="2" height="2" />
+            <rect x="9" y="9" width="2" height="2" />
+            <rect x="11" y="11" width="2" height="2" />
+            <rect x="13" y="13" width="2" height="2" />
           </>
         );
       case "phone":
@@ -1896,10 +2003,22 @@ export function PixelIcon({
         return (
           <>
             <rect x="6" y="1" width="4" height="7" />
-            <rect x="2" y="2" width="3" height="3" />
             <rect x="4" y="6" width="8" height="4" />
             <rect x="7" y="10" width="2" height="4" />
-            <rect x="11" y="11" width="3" height="3" />
+            <rect x="5" y="13" width="6" height="2" />
+            <rect x="3" y="1" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="5" y="3" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="5" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="9" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="11" y="9" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="13" y="11" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="1" y="1" width="2" height="2" />
+            <rect x="3" y="3" width="2" height="2" />
+            <rect x="5" y="5" width="2" height="2" />
+            <rect x="7" y="7" width="2" height="2" />
+            <rect x="9" y="9" width="2" height="2" />
+            <rect x="11" y="11" width="2" height="2" />
+            <rect x="13" y="13" width="2" height="2" />
           </>
         );
       case "rss":
@@ -1936,9 +2055,21 @@ export function PixelIcon({
       case "file-code":
         return (
           <>
-            <rect x="3" y="1" width="10" height="14" />
-            <rect x="5" y="6" width="2" height="4" fill="#090B10" />
-            <rect x="9" y="6" width="2" height="4" fill="#090B10" />
+            <rect x="2" y="1" width="12" height="14" />
+            <rect x="11" y="1" width="3" height="3" fill={ICON_HOLE_FILL} />
+            <rect x="6" y="5" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="5" y="6" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="4" y="7" width="1" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="5" y="9" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="6" y="10" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="9" y="5" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="10" y="6" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="11" y="7" width="1" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="10" y="9" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="9" y="10" width="1" height="1" fill={ICON_HOLE_FILL} />
+            <rect x="8" y="4" width="1" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="9" width="1" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="6" width="1" height="3" fill={ICON_HOLE_FILL} />
           </>
         );
       case "folder-open":
@@ -1952,9 +2083,14 @@ export function PixelIcon({
       case "save":
         return (
           <>
-            <rect x="2" y="2" width="12" height="12" />
-            <rect x="5" y="2" width="6" height="4" fill="#090B10" />
-            <rect x="4" y="9" width="8" height="5" fill="#090B10" />
+            <rect x="1" y="1" width="14" height="14" />
+            <rect x="4" y="1" width="7" height="4" fill={ICON_HOLE_FILL} />
+            <rect x="8" y="2" width="2" height="2" />
+            <rect x="3" y="8" width="10" height="6" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="8" width="2" height="2" />
+            <rect x="5" y="10" width="6" height="1" />
+            <rect x="6" y="11" width="4" height="1" />
+            <rect x="7" y="12" width="2" height="1" />
           </>
         );
       case "upload":
@@ -1997,7 +2133,6 @@ export function PixelIcon({
             <rect x="5" y="6" width="6" height="6" fill="#090B10" />
           </>
         );
-      case "edit":
       case "pen":
         return (
           <>
@@ -2005,6 +2140,18 @@ export function PixelIcon({
             <rect x="8" y="5" width="3" height="3" />
             <rect x="5" y="8" width="3" height="3" />
             <rect x="2" y="11" width="3" height="3" />
+          </>
+        );
+      case "edit":
+        return (
+          <>
+            <rect x="11" y="1" width="3" height="3" />
+            <rect x="9" y="3" width="3" height="3" />
+            <rect x="7" y="5" width="3" height="3" />
+            <rect x="5" y="7" width="3" height="3" />
+            <rect x="3" y="9" width="3" height="3" />
+            <rect x="2" y="12" width="2" height="2" />
+            <rect x="11" y="3" width="1" height="1" fill={ICON_HOLE_FILL} />
           </>
         );
       case "trash":
@@ -2030,9 +2177,10 @@ export function PixelIcon({
       case "link":
         return (
           <>
-            <rect x="2" y="5" width="5" height="6" />
-            <rect x="9" y="5" width="5" height="6" />
-            <rect x="5" y="7" width="6" height="2" />
+            <rect x="7" y="2" width="7" height="7" />
+            <rect x="9" y="4" width="3" height="3" fill={ICON_HOLE_FILL} />
+            <rect x="2" y="7" width="7" height="7" />
+            <rect x="4" y="9" width="3" height="3" fill={ICON_HOLE_FILL} />
           </>
         );
       case "paperclip":
@@ -2061,9 +2209,13 @@ export function PixelIcon({
       case "book":
         return (
           <>
-            <rect x="2" y="2" width="5" height="12" />
-            <rect x="9" y="2" width="5" height="12" />
-            <rect x="7" y="3" width="2" height="11" />
+            <rect x="1" y="3" width="6" height="10" />
+            <rect x="9" y="3" width="6" height="10" />
+            <rect x="7" y="4" width="2" height="10" />
+            <rect x="2" y="5" width="4" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="2" y="9" width="4" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="10" y="5" width="4" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="10" y="9" width="4" height="2" fill={ICON_HOLE_FILL} />
           </>
         );
 
@@ -2147,9 +2299,12 @@ export function PixelIcon({
         return (
           <>
             <rect x="1" y="2" width="14" height="12" />
-            <rect x="3" y="4" width="10" height="8" fill="#090B10" />
-            <rect x="4" y="5" width="2" height="2" />
-            <rect x="5" y="9" width="7" height="3" />
+            <rect x="2" y="3" width="12" height="10" fill={ICON_HOLE_FILL} />
+            <rect x="10" y="4" width="2" height="2" />
+            <rect x="5" y="6" width="2" height="2" />
+            <rect x="4" y="8" width="4" height="2" />
+            <rect x="9" y="8" width="2" height="2" />
+            <rect x="3" y="10" width="10" height="2" />
           </>
         );
       case "film":
@@ -2212,16 +2367,21 @@ export function PixelIcon({
       case "shopping-bag":
         return (
           <>
-            <rect x="5" y="2" width="6" height="3" />
-            <rect x="3" y="5" width="10" height="9" />
+            <rect x="2" y="5" width="12" height="10" />
+            <rect x="5" y="1" width="6" height="2" />
+            <rect x="4" y="2" width="2" height="3" />
+            <rect x="10" y="2" width="2" height="3" />
+            <rect x="4" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="10" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
           </>
         );
       case "tag":
         return (
           <>
-            <rect x="2" y="2" width="6" height="6" />
-            <rect x="6" y="6" width="6" height="6" />
-            <rect x="4" y="4" width="2" height="2" fill="#090B10" />
+            <rect x="5" y="3" width="10" height="10" />
+            <rect x="3" y="5" width="2" height="6" />
+            <rect x="1" y="7" width="2" height="2" />
+            <rect x="6" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
           </>
         );
       case "percent":
@@ -2293,9 +2453,23 @@ export function PixelIcon({
       case "eye-off":
         return (
           <>
+            <rect x="4" y="4" width="8" height="2" />
             <rect x="2" y="6" width="12" height="4" />
-            <rect x="2" y="2" width="3" height="3" />
-            <rect x="11" y="11" width="3" height="3" />
+            <rect x="4" y="10" width="8" height="2" />
+            <rect x="6" y="6" width="4" height="4" fill={ICON_HOLE_FILL} />
+            <rect x="3" y="1" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="5" y="3" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="5" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="9" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="11" y="9" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="13" y="11" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="1" y="1" width="2" height="2" />
+            <rect x="3" y="3" width="2" height="2" />
+            <rect x="5" y="5" width="2" height="2" />
+            <rect x="7" y="7" width="2" height="2" />
+            <rect x="9" y="9" width="2" height="2" />
+            <rect x="11" y="11" width="2" height="2" />
+            <rect x="13" y="13" width="2" height="2" />
           </>
         );
       case "user":
@@ -2379,9 +2553,18 @@ export function PixelIcon({
       case "compass":
         return (
           <>
-            <rect x="3" y="2" width="10" height="12" />
-            <rect x="7" y="4" width="3" height="4" fill="#090B10" />
-            <rect x="6" y="8" width="3" height="4" fill="#090B10" />
+            <rect x="5" y="1" width="6" height="2" />
+            <rect x="5" y="13" width="6" height="2" />
+            <rect x="1" y="5" width="2" height="6" />
+            <rect x="13" y="5" width="2" height="6" />
+            <rect x="3" y="3" width="2" height="2" />
+            <rect x="11" y="3" width="2" height="2" />
+            <rect x="3" y="11" width="2" height="2" />
+            <rect x="11" y="11" width="2" height="2" />
+            <rect x="7" y="4" width="2" height="3" />
+            <rect x="6" y="7" width="4" height="2" />
+            <rect x="7" y="7" width="2" height="2" fill={ICON_HOLE_FILL} />
+            <rect x="7" y="9" width="2" height="3" />
           </>
         );
       case "globe":
@@ -2397,17 +2580,70 @@ export function PixelIcon({
     }
   };
 
+  // Split the drawing into solid pixels and "hole" pixels. Holes are cut out
+  // with a mask so they stay transparent on ANY background and with ANY icon
+  // color (painting them ink made ink icons on active states a solid block).
+  const drawing = renderRects();
+  const pixels: React.ReactElement<React.SVGProps<SVGRectElement>>[] = [];
+  const collect = (node: React.ReactNode) => {
+    React.Children.forEach(node, (child) => {
+      if (!React.isValidElement(child)) return;
+      if (child.type === React.Fragment) {
+        collect((child.props as { children?: React.ReactNode }).children);
+      } else {
+        pixels.push(child as React.ReactElement<React.SVGProps<SVGRectElement>>);
+      }
+    });
+  };
+  collect(drawing);
+  const hasHoles = pixels.some((p) => p.props.fill === ICON_HOLE_FILL);
+
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 16 16"
-      fill={color}
       shapeRendering="crispEdges"
       className={`shrink-0 ${className}`}
-      aria-hidden="true"
+      role={title ? "img" : undefined}
+      aria-label={title}
+      aria-hidden={title ? undefined : true}
+      focusable="false"
     >
-      {renderRects()}
+      {!hasHoles ? (
+        <g fill={color}>
+          {pixels.map((p, i) => React.cloneElement(p, { key: `p${i}` }))}
+        </g>
+      ) : (
+        <>
+          <defs>
+            <mask
+              id={maskId}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="16"
+              height="16"
+            >
+              {/* Painter's order is kept: a solid drawn after a hole fills it again */}
+              {pixels.map((p, i) =>
+                React.cloneElement(p, {
+                  key: `p${i}`,
+                  fill: p.props.fill === ICON_HOLE_FILL ? "#000000" : "#FFFFFF",
+                })
+              )}
+            </mask>
+          </defs>
+          <rect
+            x="0"
+            y="0"
+            width="16"
+            height="16"
+            fill={color}
+            mask={`url(#${maskId})`}
+          />
+        </>
+      )}
     </svg>
   );
 }
@@ -2642,7 +2878,7 @@ export function PixelSceneAnimation({
               color="#00E5FF"
               className="animate-px-float"
             />
-            <span className="font-pixel text-[9px] text-[#10B981] animate-px-blink">
+            <span className="font-pixel text-[10px] text-[#10B981] animate-px-blink">
               BIOS OK // 640K RAM
             </span>
           </div>
@@ -2657,7 +2893,7 @@ export function PixelSceneAnimation({
               className="animate-px-float"
             />
             <div className="space-y-1">
-              <div className="font-pixel text-[9px] text-[#FFD100]">
+              <div className="font-pixel text-[10px] text-[#FFD100]">
                 WRITING TRACK 08
               </div>
               <div className="flex gap-1">
@@ -2718,7 +2954,7 @@ export function PixelSceneAnimation({
               color="#10B981"
               className="animate-spin"
             />
-            <div className="font-pixel text-[9px] text-[#10B981]">
+            <div className="font-pixel text-[10px] text-[#10B981]">
               <div>TARGET LOCKED</div>
               <div className="text-[#FFD100] animate-px-blink">
                 X:128 Y:064
@@ -2735,7 +2971,7 @@ export function PixelSceneAnimation({
               color="#FFD100"
               className="animate-px-float"
             />
-            <span className="font-pixel text-[9px] text-[#00E5FF]">
+            <span className="font-pixel text-[10px] text-[#00E5FF]">
               COMPILING SHADER...
             </span>
           </div>
@@ -2749,7 +2985,7 @@ export function PixelSceneAnimation({
               color="#A855F7"
               className="animate-px-float"
             />
-            <span className="font-pixel text-[9px] text-[#FFD100] animate-px-blink">
+            <span className="font-pixel text-[10px] text-[#FFD100] animate-px-blink">
               PLAYING SIDE A // 60FPS
             </span>
           </div>

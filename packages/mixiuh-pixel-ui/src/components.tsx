@@ -54,14 +54,14 @@ const TONE_STYLES: Record<
   },
   coral: {
     bg: "bg-[#FF3355]",
-    text: "text-white",
+    text: "text-[#090B10]",
     border: "border-[#FF3355]",
     hex: "#FF3355",
     cardClass: "px-card-coral",
   },
   violet: {
     bg: "bg-[#A855F7]",
-    text: "text-white",
+    text: "text-[#090B10]",
     border: "border-[#A855F7]",
     hex: "#A855F7",
     cardClass: "px-card-violet",
@@ -192,7 +192,7 @@ export function PixelKeycap({
         {keyLabel}
       </span>
       {caption && (
-        <span className="font-mono-hud text-[9px] opacity-75 mt-1 uppercase">
+        <span className="font-mono-hud text-[10px] opacity-75 mt-1 uppercase">
           {caption}
         </span>
       )}
@@ -221,6 +221,8 @@ export function PixelToggle({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={() => {
         const next = !checked;
         pixelSound.play(next ? "toggleOn" : "toggleOff");
@@ -295,14 +297,14 @@ export function PixelCrank({ angle, onChange, label }: PixelCrankProps) {
           <button
             type="button"
             onClick={() => stepRotate(-30)}
-            className="px-2 py-0.5 bg-[#1A2132] hover:bg-[#00E5FF] hover:text-[#090B10] text-[10px] font-bold border border-white/20 cursor-pointer"
+            className="px-2.5 py-1 bg-[#1A2132] hover:bg-[#00E5FF] hover:text-[#090B10] text-[11px] font-bold border border-[#3A4560] cursor-pointer"
           >
             CH -
           </button>
           <button
             type="button"
             onClick={() => stepRotate(30)}
-            className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] text-[10px] font-bold border border-[#090B10] cursor-pointer"
+            className="px-2.5 py-1 bg-[#FFD100] text-[#090B10] text-[11px] font-bold border border-[#090B10] cursor-pointer"
           >
             CH +
           </button>
@@ -422,7 +424,9 @@ export function PixelWindow({
       >
         <div className="flex items-center gap-2 min-w-0">
           <PixelIcon name="window" size={14} />
-          <span className="font-pixel text-xs font-bold truncate">{title}</span>
+          <span className="font-pixel text-xs font-bold min-w-0 break-words sm:truncate">
+            {title}
+          </span>
           {subtitle && (
             <span className="hidden sm:inline-block font-mono-hud text-[10px] opacity-80 truncate">
               {"// "}
@@ -437,12 +441,12 @@ export function PixelWindow({
               pixelSound.play("click");
               setMinimized(!minimized);
             }}
-            className="w-5 h-5 bg-[#090B10] text-[#F5F2EB] font-mono-hud text-[10px] font-bold flex items-center justify-center hover:bg-[#FF3355] cursor-pointer"
+            className="w-6 h-6 bg-[#090B10] text-[#F5F2EB] font-mono-hud text-[11px] font-bold flex items-center justify-center hover:bg-[#FF3355] cursor-pointer"
             title={minimized ? "Expand window" : "Minimize window"}
           >
             {minimized ? "+" : "-"}
           </button>
-          <span className="w-5 h-5 bg-[#090B10] text-[#F5F2EB] font-mono-hud text-[10px] font-bold flex items-center justify-center">
+          <span aria-hidden="true" className="w-6 h-6 bg-[#090B10] text-[#F5F2EB] font-mono-hud text-[11px] font-bold flex items-center justify-center">
             □
           </span>
         </div>
@@ -490,7 +494,7 @@ export function PixelFloppyCard({
       {/* Top 3.5" Metal Sliding Shutter */}
       <div className="absolute top-0 left-6 right-10 h-9 bg-[#CBD5E1] border-x-2 border-b-2 border-[#090B10] flex items-center justify-between px-3 transition-transform duration-200 group-hover:translate-x-2">
         <div className="w-4 h-6 bg-[#090B10]" />
-        <span className="font-pixel text-[9px] text-[#090B10] font-bold">
+        <span className="font-pixel text-[10px] text-[#090B10] font-bold">
           {diskCode} {"//"} {capacity}
         </span>
       </div>
@@ -507,7 +511,7 @@ export function PixelFloppyCard({
         <p className="font-mono-hud text-[11px] text-[#090B10]/80 leading-relaxed">
           {description}
         </p>
-        <div className="pt-1 border-t border-[#090B10]/20 flex items-center justify-between font-pixel text-[9px]">
+        <div className="pt-1 border-t border-[#090B10]/20 flex items-center justify-between font-pixel text-[10px]">
           <span>SECTOR 00 // ZERO-SHOT</span>
           <span className="px-1.5 py-0.5 bg-[#090B10] text-[#FFD100]">
             LOAD DISK ▶
@@ -577,7 +581,7 @@ export function Pixel3DCartridge({
               alt={title}
               className="w-full h-full object-cover"
             />
-            <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#090B10]/90 border border-white/20 font-mono-hud text-[9px] font-bold text-[#FFD100]">
+            <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#090B10]/90 border border-white/20 font-mono-hud text-[10px] font-bold text-[#FFD100]">
               {score}
             </div>
           </div>
@@ -615,7 +619,7 @@ export function Pixel3DCartridge({
             />
           ))}
         </div>
-        <span className="font-mono-hud text-[9px] font-bold text-[#94A3B8] uppercase">
+        <span className="font-mono-hud text-[10px] font-bold text-[#94A3B8] uppercase">
           INSERT ROM →
         </span>
       </div>
@@ -730,10 +734,10 @@ export function Pixel3DCRTWorkstation({
             </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[9px]">
+            <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[10px]">
               CH 0{idx + 1}/0{items.length}
             </span>
-            <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[9px] uppercase">
+            <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[10px] uppercase">
               {crtMode}
             </span>
           </div>
@@ -825,23 +829,23 @@ export function Pixel3DCRTWorkstation({
                   ? "TUBO CATODICO EN REPOSO · PRESIONA PWR PARA ENCENDER"
                   : "CRT TUBE IN STANDBY · PRESS PWR TO RESUME"}
               </span>
-              <span className="font-mono-hud text-[9px] text-[#94A3B8] shrink-0">
+              <span className="font-mono-hud text-[10px] text-[#94A3B8] shrink-0">
                 {poweredOn ? "60Hz LOCK" : "0Hz OFF"}
               </span>
             </div>
-            <div className="font-display text-xs sm:text-sm font-black text-white leading-snug truncate">
+            <div className="font-display text-xs sm:text-sm font-black text-white leading-snug line-clamp-2 min-h-[2.75em]">
               {current.title}
             </div>
           </div>
 
           {/* Physical VHF Channel Push-Buttons inside Monitor Bezel */}
-          <div className="grid grid-cols-5 gap-1 pt-0.5">
+          <div className="grid grid-cols-3 min-[420px]:grid-cols-5 gap-1 pt-0.5">
             {items.map((item, i) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => switchChannel(i)}
-                className={`py-1.5 px-1 font-pixel text-[9px] border-2 transition cursor-pointer truncate ${
+                className={`py-1.5 px-1 font-pixel text-[10px] border-2 transition cursor-pointer truncate ${
                   i === idx
                     ? "bg-[#FFD100] text-[#090B10] border-[#090B10] font-bold shadow-[2px_2px_0_#00E5FF]"
                     : "bg-[#131824] text-[#94A3B8] border-[#2A344B] hover:text-white"
@@ -859,7 +863,7 @@ export function Pixel3DCRTWorkstation({
             <button
               type="button"
               onClick={() => switchChannel(idx - 1)}
-              className="px-2.5 py-1.5 bg-[#131824] hover:bg-[#090B10] text-[#F5F2EB] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              className="px-2.5 py-1.5 bg-[#131824] hover:bg-[#090B10] text-[#F5F2EB] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer"
               title={lang === "es" ? "Canal Anterior" : "Previous Channel"}
             >
               ◀ CH
@@ -867,7 +871,7 @@ export function Pixel3DCRTWorkstation({
             <button
               type="button"
               onClick={() => switchChannel(idx + 1)}
-              className="px-2.5 py-1.5 bg-[#131824] hover:bg-[#090B10] text-[#F5F2EB] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              className="px-2.5 py-1.5 bg-[#131824] hover:bg-[#090B10] text-[#F5F2EB] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer"
               title={lang === "es" ? "Siguiente Canal" : "Next Channel"}
             >
               CH ▶
@@ -878,7 +882,7 @@ export function Pixel3DCRTWorkstation({
             <button
               type="button"
               onClick={triggerDegauss}
-              className="px-2.5 py-1.5 bg-[#00E5FF] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              className="px-2.5 py-1.5 bg-[#00E5FF] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer"
               title="Magnetic CRT Degauss Coil"
             >
               DEGAUSS
@@ -886,7 +890,7 @@ export function Pixel3DCRTWorkstation({
             <button
               type="button"
               onClick={cyclePhosphorMode}
-              className="px-2.5 py-1.5 bg-[#FFD100] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer"
+              className="px-2.5 py-1.5 bg-[#FFD100] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer"
               title="Cycle CRT Phosphor Filter (RGB / Amber / Green / Mono)"
             >
               CRT: {crtMode.toUpperCase()}
@@ -894,10 +898,10 @@ export function Pixel3DCRTWorkstation({
             <button
               type="button"
               onClick={togglePower}
-              className={`px-2.5 py-1.5 border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[9px] font-bold cursor-pointer ${
+              className={`px-2.5 py-1.5 border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer ${
                 poweredOn
                   ? "bg-[#10B981] text-[#090B10]"
-                  : "bg-[#FF3355] text-white"
+                  : "bg-[#FF3355] text-[#090B10]"
               }`}
               title="Toggle CRT Power"
             >
@@ -919,7 +923,7 @@ export function Pixel3DCRTWorkstation({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="w-2 h-2 bg-[#10B981] animate-px-blink" />
-            <span className="font-pixel text-[9px] text-[#FFD100]">READY</span>
+            <span className="font-pixel text-[10px] text-[#FFD100]">READY</span>
           </div>
         </div>
 
@@ -936,7 +940,7 @@ export function Pixel3DCRTWorkstation({
             } py-2.5 px-3 bg-[#090B10] hover:bg-[#131824] text-[#FFD100] border-2 border-[#090B10] shadow-[3px_3px_0_rgba(0,0,0,0.4)] active:translate-y-0.5 font-pixel text-[10px] font-bold flex items-center justify-center gap-2 cursor-pointer`}
           >
             <PixelIcon name="play" size={13} color="#FFD100" />
-            <span className="truncate">{current.primaryLabel}</span>
+            <span className="text-left leading-snug">{current.primaryLabel}</span>
           </button>
 
           {current.onLaunchSecondary && (
@@ -1192,7 +1196,7 @@ export function PixelAudioSequencer() {
             onClick={() => setPlaying(!playing)}
             className={`px-3 py-1 font-pixel text-[10px] font-bold border-2 border-[#090B10] cursor-pointer ${
               playing
-                ? "bg-[#FF3355] text-white"
+                ? "bg-[#FF3355] text-[#090B10]"
                 : "bg-[#10B981] text-[#090B10]"
             }`}
           >
@@ -1205,7 +1209,7 @@ export function PixelAudioSequencer() {
         {SEQ_TRACKS.map((tr, rIdx) => (
           <div key={tr.name} className="grid grid-cols-12 gap-1.5 items-center">
             <span
-              className="col-span-4 sm:col-span-3 font-pixel text-[9px] truncate"
+              className="col-span-4 sm:col-span-3 font-pixel text-[10px] truncate"
               style={{ color: tr.color }}
             >
               {tr.name}
@@ -1413,12 +1417,14 @@ export function PixelCreditBadge({
         rel="noopener noreferrer"
         className={`inline-flex items-center gap-2.5 px-3 py-1.5 bg-[#FFD100] text-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] font-mono-hud text-xs font-bold hover:brightness-105 transition ${className}`}
       >
-        <PixelSprite character="mixiuh" size={22} animate={false} />
+        <span className="p-0.5 bg-[#090B10] border border-[#090B10] inline-flex">
+          <PixelSprite character="mixiuh" size={20} animate={false} />
+        </span>
         <div>
           <div className="font-pixel text-[10px] leading-none">
             {`MIXIUH PIXEL UI v${PIXEL_UI_VERSION}`}
           </div>
-          <div className="text-[9px] font-bold opacity-80">
+          <div className="text-[10px] font-bold opacity-80">
             OPEN SOURCE · LABS.MIXIUH.ONLINE
           </div>
         </div>
@@ -1596,12 +1602,12 @@ export function PixelSocialBar({
             <PixelIcon name={item.icon} size={16} color="#090B10" />
           </div>
           <div className="min-w-0">
-            <div className="font-pixel text-[10px] font-bold text-white truncate">
+            <div className="font-pixel text-[10px] font-bold text-white break-words">
               {item.label}
             </div>
             {item.sublabel && (
               <div
-                className="font-mono-hud text-[10px] font-bold truncate"
+                className="font-mono-hud text-[10px] font-bold break-words"
                 style={{ color: item.accentHex }}
               >
                 {item.sublabel}
@@ -1677,7 +1683,7 @@ export function PixelInput({
             pixelSound.play("dialogBlip");
             onChange?.(e);
           }}
-          className={`w-full bg-transparent text-[#F5F2EB] placeholder:text-[#64748B] focus:outline-none font-mono-hud ${sizePad}`}
+          className={`w-full bg-transparent text-[#F5F2EB] placeholder:text-[#94A3B8] focus:outline-none font-mono-hud ${sizePad}`}
           {...rest}
         />
         {clearable && value && String(value).length > 0 && (
@@ -1687,7 +1693,7 @@ export function PixelInput({
               pixelSound.play("click");
               onClear?.();
             }}
-            className="pr-2.5 pl-1 text-[#94A3B8] hover:text-[#FF3355] cursor-pointer"
+            className="pr-2.5 pl-1.5 py-2 text-[#94A3B8] hover:text-[#FF3355] cursor-pointer"
             title="Clear"
           >
             <PixelIcon name="close" size={13} color="currentColor" />
@@ -1782,7 +1788,7 @@ export function PixelSelect({
         <div className="flex items-center gap-1.5 shrink-0">
           {selected?.badge && (
             <span
-              className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10]"
+              className="px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10]"
               style={{ backgroundColor: accent }}
             >
               {selected.badge}
@@ -1838,7 +1844,7 @@ export function PixelSelect({
                 <div className="flex items-center gap-1.5 shrink-0">
                   {opt.badge && (
                     <span
-                      className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10]"
+                      className="px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10]"
                       style={{ backgroundColor: accent }}
                     >
                       {opt.badge}
@@ -1911,7 +1917,7 @@ export function PixelAutocomplete({
             setOpen(true);
           }}
           placeholder={placeholder}
-          className="w-full px-2.5 py-2 bg-transparent text-xs sm:text-sm text-[#F5F2EB] placeholder:text-[#64748B] focus:outline-none"
+          className="w-full px-2.5 py-2 bg-transparent text-xs sm:text-sm text-[#F5F2EB] placeholder:text-[#94A3B8] focus:outline-none"
         />
         {query && (
           <button
@@ -1921,7 +1927,7 @@ export function PixelAutocomplete({
               setQuery("");
               setOpen(true);
             }}
-            className="px-2 text-[#94A3B8] hover:text-white cursor-pointer"
+            className="px-2.5 py-2 text-[#94A3B8] hover:text-white cursor-pointer"
           >
             <PixelIcon name="close" size={12} />
           </button>
@@ -1988,7 +1994,7 @@ export function PixelAutocomplete({
                   </div>
                   {opt.badge && (
                     <span
-                      className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10] shrink-0"
+                      className="px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] shrink-0"
                       style={{ backgroundColor: accent }}
                     >
                       {opt.badge}
@@ -2136,7 +2142,7 @@ export function PixelRadioGroup({
               </div>
               {opt.badge && (
                 <span
-                  className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10] shrink-0"
+                  className="px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] shrink-0"
                   style={{ backgroundColor: accent }}
                 >
                   {opt.badge}
@@ -2228,7 +2234,7 @@ export function PixelCollapse({
               <div className="flex items-center gap-2 shrink-0">
                 {item.badge && (
                   <span
-                    className="px-2 py-0.5 font-pixel text-[9px] font-bold text-[#090B10]"
+                    className="px-2 py-0.5 font-pixel text-[10px] font-bold text-[#090B10]"
                     style={{ backgroundColor: accent }}
                   >
                     {item.badge}
@@ -2354,7 +2360,7 @@ export function PixelCalendar({
         <button
           type="button"
           onClick={prevMonth}
-          className="px-2 py-1 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
+          className="px-2.5 py-1.5 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
         >
           <PixelIcon name="chevron-left" size={13} color={accent} />
         </button>
@@ -2367,7 +2373,7 @@ export function PixelCalendar({
         <button
           type="button"
           onClick={nextMonth}
-          className="px-2 py-1 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
+          className="px-2.5 py-1.5 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
         >
           <PixelIcon name="chevron-right" size={13} color={accent} />
         </button>
@@ -2378,7 +2384,7 @@ export function PixelCalendar({
         {(lang === "es" ? weekDaysEs : weekDaysEn).map((wd) => (
           <div
             key={wd}
-            className="font-pixel text-[9px] text-[#94A3B8] py-1 bg-[#111622]"
+            className="font-pixel text-[10px] text-[#94A3B8] py-1 bg-[#111622]"
           >
             {wd}
           </div>
@@ -2432,7 +2438,7 @@ export function PixelCalendar({
       <div className="p-2.5 bg-[#111622] border border-[#2A344B] flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className="px-2 py-0.5 font-pixel text-[9px] font-bold text-[#090B10] shrink-0"
+            className="px-2 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] shrink-0"
             style={{ backgroundColor: accent }}
           >
             {selectedDate}
@@ -2562,13 +2568,19 @@ export function PixelMultiLineChart({
     );
   };
 
-  const w = 520;
+  // Size the plot from the longest x label (11px monospace ~6.6px/char) so
+  // labels never overlap; the SVG never renders below 1:1 (see wrapper).
+  const labelW = Math.max(1, ...data.map((d) => d.label.length)) * 6.6;
   const h = 210;
-  const padL = 38;
-  const padR = 18;
+  const padL = Math.max(46, Math.ceil(labelW / 2) + 4);
+  const padR = Math.max(18, Math.ceil(labelW / 2) + 4);
   const padT = 18;
-  const padB = 30;
-  const plotW = w - padL - padR;
+  const padB = 32;
+  const plotW = Math.max(
+    520 - padL - padR,
+    Math.ceil(Math.max(0, data.length - 1) * (labelW + 12))
+  );
+  const w = padL + plotW + padR;
   const plotH = h - padT - padB;
 
   const getX = (i: number) =>
@@ -2601,7 +2613,7 @@ export function PixelMultiLineChart({
                 onClick={() => toggleSeries(s.key)}
                 className={`px-2 py-1 border text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition ${
                   hidden
-                    ? "bg-[#090B10] text-[#64748B] border-[#1E2638]"
+                    ? "bg-[#090B10] text-[#94A3B8] line-through border-[#1E2638]"
                     : "bg-[#131824] text-white border-[#2A344B]"
                 }`}
               >
@@ -2616,10 +2628,14 @@ export function PixelMultiLineChart({
         </div>
       </div>
 
+      {/* Never scale below 1:1 so axis labels stay readable; phones scroll sideways */}
+      <div className="overflow-x-auto">
       <svg
         viewBox={`0 0 ${w} ${h}`}
-        className="w-full h-48 bg-[#06080D] border border-[#1E2638]"
-        style={{ shapeRendering: "crispEdges" }}
+        role="img"
+        aria-label={title}
+        className="block w-full h-auto bg-[#06080D] border border-[#1E2638]"
+        style={{ shapeRendering: "crispEdges", aspectRatio: `${w} / ${h}`, minWidth: w }}
       >
         {/* Horizontal Grid Lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
@@ -2637,10 +2653,10 @@ export function PixelMultiLineChart({
               />
               <text
                 x={padL - 6}
-                y={y + 3}
+                y={y + 4}
                 textAnchor="end"
-                fill="#64748B"
-                fontSize="9"
+                fill="#94A3B8"
+                fontSize="11"
                 fontFamily="monospace"
               >
                 {val}
@@ -2692,10 +2708,10 @@ export function PixelMultiLineChart({
           <text
             key={d.label}
             x={getX(i)}
-            y={h - 8}
+            y={h - 9}
             textAnchor="middle"
-            fill={hoverIdx === i ? "#FFD100" : "#94A3B8"}
-            fontSize="9"
+            fill={hoverIdx === i ? "#FFD100" : "#CBD5E1"}
+            fontSize="11"
             fontFamily="monospace"
             fontWeight="bold"
           >
@@ -2703,6 +2719,7 @@ export function PixelMultiLineChart({
           </text>
         ))}
       </svg>
+      </div>
 
       {hoverIdx !== null && data[hoverIdx] && (
         <div className="p-2 bg-[#111622] border border-[#2A344B] flex flex-wrap items-center justify-between gap-2 text-xs">

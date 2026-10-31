@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { prefersReducedMotion } from "./motion";
 
 const PALETTE_SPARKS = [
@@ -10,6 +10,13 @@ const PALETTE_SPARKS = [
   "#A855F7",
   "#FF3355",
 ];
+
+/** Elements waiting off-screen are hidden by this attribute (see pixel-ui.css). */
+export const PIXEL_REVEAL_PENDING_ATTR = "data-px-reveal-pending";
+
+const MIN_REVEAL_WIDTH = 40;
+const MIN_REVEAL_HEIGHT = 32;
+const REVEAL_DURATION_MS = 520;
 
 /**
  * Deterministic 2D hash in [0, 1) so each pixel cell has a procedural threshold
@@ -21,27 +28,32 @@ function cellHash(gx: number, gy: number, seed: number): number {
 }
 
 /**
- * Runs a procedural pixel-by-pixel construction animation on a target HTML element
+ * Covers an element with a pixel matrix canvas and dissolves it with a
+ * procedural wavefront. The first, fully opaque frame is drawn synchronously so
+ * the caller can un-hide the element in the same task without a visible flash.
+ * Returns false when the element is too small or already animating.
  */
-function runProceduralPixelMaterialize(el: HTMLElement, seed: number) {
-  if (el.dataset.pxAnimating === "1") return;
+function runProceduralPixelMaterialize(el: HTMLElement, seed: number): boolean {
+  if (el.dataset.pxAnimating === "1") return false;
   const rect = el.getBoundingClientRect();
-  if (rect.width < 40 || rect.height < 32) return;
+  if (rect.width < MIN_REVEAL_WIDTH || rect.height < MIN_REVEAL_HEIGHT) return false;
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
 
   el.dataset.pxAnimating = "1";
-
-  const computedPos = window.getComputedStyle(el).position;
-  if (computedPos === "static") {
+  if (window.getComputedStyle(el).position === "static") {
     el.style.position = "relative";
   }
 
-  const canvas = document.createElement("canvas");
   const blockSize = rect.width > 640 ? 16 : 12;
   const cols = Math.max(4, Math.ceil(rect.width / blockSize));
   const rows = Math.max(3, Math.ceil(rect.height / blockSize));
 
   canvas.width = cols;
   canvas.height = rows;
+  canvas.setAttribute("aria-hidden", "true");
   canvas.style.position = "absolute";
   canvas.style.inset = "0";
   canvas.style.width = "100%";
@@ -50,31 +62,10 @@ function runProceduralPixelMaterialize(el: HTMLElement, seed: number) {
   canvas.style.zIndex = "25";
   canvas.style.imageRendering = "pixelated";
 
-  el.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    canvas.remove();
-    el.dataset.pxAnimating = "0";
-    return;
-  }
+  const accentColor = PALETTE_SPARKS[Math.abs(seed) % PALETTE_SPARKS.length];
 
-  const durationMs = 520;
-  const startTime = performance.now();
-  const accentColor =
-    PALETTE_SPARKS[Math.abs(seed) % PALETTE_SPARKS.length];
-
-  const tick = (now: number) => {
-    const elapsed = now - startTime;
-    const progress = Math.min(1, elapsed / durationMs);
-
+  const draw = (progress: number) => {
     ctx.clearRect(0, 0, cols, rows);
-
-    if (progress >= 1) {
-      canvas.remove();
-      el.dataset.pxAnimating = "0";
-      return;
-    }
-
     // Procedural diagonal + cellular wavefront construction
     for (let gy = 0; gy < rows; gy++) {
       for (let gx = 0; gx < cols; gx++) {
@@ -87,20 +78,37 @@ function runProceduralPixelMaterialize(el: HTMLElement, seed: number) {
           ctx.fillStyle = (gx + gy) % 2 === 0 ? "#090B10" : "#0F1420";
           ctx.fillRect(gx, gy, 1, 1);
         } else if (progress < cellThreshold) {
-          // Active procedural construction wavefront: neon pixel blocks
+          // Active construction wavefront: neon pixel blocks
           const h = cellHash(gx + 7, gy + 13, seed);
-          ctx.fillStyle =
-            h > 0.55 ? accentColor : h > 0.25 ? "#FFD100" : "#F5F2EB";
+          ctx.fillStyle = h > 0.55 ? accentColor : h > 0.25 ? "#FFD100" : "#F5F2EB";
           ctx.fillRect(gx, gy, 1, 1);
         }
-        // Once progress >= cellThreshold, pixel block is transparent (card revealed!)
+        // Built cells stay transparent: the element shows through
       }
     }
-
-    requestAnimationFrame(tick);
   };
 
+  // Frame 0 is fully opaque and painted before the element becomes visible.
+  // Prepended (not appended) with zeroed box so space-y / divide-y rules that
+  // target :last-child or siblings never shift the card's layout.
+  draw(0);
+  canvas.style.margin = "0";
+  canvas.style.border = "0";
+  el.prepend(canvas);
+
+  const startTime = performance.now();
+  const tick = (now: number) => {
+    const progress = Math.min(1, (now - startTime) / REVEAL_DURATION_MS);
+    if (progress >= 1 || !canvas.isConnected) {
+      canvas.remove();
+      el.dataset.pxAnimating = "0";
+      return;
+    }
+    draw(progress);
+    requestAnimationFrame(tick);
+  };
   requestAnimationFrame(tick);
+  return true;
 }
 
 export interface PixelScrollMaterializerProps {
@@ -111,7 +119,10 @@ export interface PixelScrollMaterializerProps {
 }
 
 /**
- * Global observer that procedurally generates cards pixel-by-pixel as the user scrolls
+ * Global observer that procedurally builds cards pixel-by-pixel as they scroll
+ * into view. Cards that start on screen are left alone; cards below the fold
+ * are hidden until the opaque pixel matrix covers them, so nothing ever flashes
+ * visible and then disappears. Disabled for prefers-reduced-motion.
  */
 export function PixelScrollMaterializer({
   watchKey = "default",
@@ -119,42 +130,60 @@ export function PixelScrollMaterializer({
 }: PixelScrollMaterializerProps) {
   useEffect(() => {
     if (typeof window === "undefined" || prefersReducedMotion()) return;
+    if (typeof IntersectionObserver === "undefined") return;
 
-    const seenInCurrentPass = new WeakSet<HTMLElement>();
+    const armed = new Set<HTMLElement>();
     let seedCounter = 1;
+
+    const arm = (el: HTMLElement) => {
+      el.setAttribute(PIXEL_REVEAL_PENDING_ATTR, "1");
+      armed.add(el);
+    };
+    const disarm = (el: HTMLElement) => {
+      el.removeAttribute(PIXEL_REVEAL_PENDING_ATTR);
+      armed.delete(el);
+    };
+    const isOnScreen = (r: DOMRect) =>
+      r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+    const isLargeEnough = (r: DOMRect) =>
+      r.width >= MIN_REVEAL_WIDTH && r.height >= MIN_REVEAL_HEIGHT;
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const el = entry.target as HTMLElement;
           if (entry.isIntersecting) {
-            if (!seenInCurrentPass.has(el)) {
-              seenInCurrentPass.add(el);
+            if (armed.has(el)) {
+              // Cover first, then un-hide in the same task: no flash
               runProceduralPixelMaterialize(el, seedCounter++);
+              disarm(el);
             }
           } else {
-            // Reset when scrolled well out of viewport so scrolling back re-generates pixels
+            // Fully off-screen again: re-arm so scrolling back rebuilds it
             const r = entry.boundingClientRect;
-            if (r.bottom < -80 || r.top > window.innerHeight + 80) {
-              seenInCurrentPass.delete(el);
-            }
+            if (isLargeEnough(r) && el.dataset.pxAnimating !== "1") arm(el);
           }
         }
       },
-      {
-        threshold: 0.08,
-        rootMargin: "0px 0px -24px 0px",
-      }
+      { threshold: 0 }
     );
 
     const scanTimer = window.setTimeout(() => {
-      const nodes = document.querySelectorAll<HTMLElement>(selector);
-      nodes.forEach((node) => observer.observe(node));
+      document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (!isLargeEnough(r)) return;
+        // Already visible on load / view switch: never hide what the user sees
+        if (!isOnScreen(r)) arm(el);
+        observer.observe(el);
+      });
     }, 35);
 
     return () => {
       window.clearTimeout(scanTimer);
       observer.disconnect();
+      // Never leave content hidden behind
+      armed.forEach((el) => el.removeAttribute(PIXEL_REVEAL_PENDING_ATTR));
+      armed.clear();
     };
   }, [watchKey, selector]);
 
@@ -173,10 +202,8 @@ export function PixelProceduralReveal({
   children,
   className = "",
 }: PixelProceduralRevealProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
-
   return (
-    <div ref={ref} data-px-reveal="true" className={`relative ${className}`}>
+    <div data-px-reveal="true" className={`relative ${className}`}>
       {children}
     </div>
   );

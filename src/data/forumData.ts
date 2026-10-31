@@ -523,6 +523,7 @@ const CONFIG = {
     readTime: "6 min",
     upvotes: 189,
     views: 1520,
+    episode: "ep01",
     relatedChallengeN: 6,
     tags: ["Nivel 6", "Raycasting", "DDA", "Uint32Array", "JavaScript TypedArrays", "Bug Forense"],
     codeComparison: {
@@ -597,6 +598,7 @@ for (let y = drawStart; y < drawEnd; y++) {
     readTime: "4 min",
     upvotes: 141,
     views: 980,
+    episode: "ep01",
     relatedChallengeN: 2,
     tags: ["Nivel 2", "Visualizador ADN", "Three.js", "GLSL", "Telemetria", "Hookes Law"],
     codeComparison: {
@@ -650,6 +652,7 @@ function rebuildDNAGeometry(targetCount) {
     readTime: "5 min",
     upvotes: 128,
     views: 860,
+    episode: "ep01",
     relatedChallengeN: 4,
     tags: ["Nivel 4", "BSP", "Kruskal MST", "A-Star", "Dijkstra", "Roguelike"],
     content_es: [
@@ -681,6 +684,7 @@ function rebuildDNAGeometry(targetCount) {
     readTime: "5 min",
     upvotes: 116,
     views: 740,
+    episode: "ep01",
     relatedChallengeN: 10,
     tags: ["Nivel 10", "Spirograph", "Teoria de Numeros", "Euclides MCD", "Guilloche"],
     content_es: [

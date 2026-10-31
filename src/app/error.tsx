@@ -21,7 +21,7 @@ export default function Error({
         className="w-full max-w-xl bg-[#111622] border-2 border-[#090B10] shadow-[8px_8px_0_#040508]"
         style={{ outline: "2px solid #FF3355" }}
       >
-        <div className="px-4 py-2 bg-[#FF3355] text-white border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
+        <div className="px-4 py-2 bg-[#FF3355] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
           <span>MIXIUH LABS // FALLO DEL SISTEMA</span>
           {error.digest && <span>#{error.digest}</span>}
         </div>

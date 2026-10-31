@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { EP04_CHALLENGES } from "@/data/ep04Data";
 import {
   PixelButton,
   PixelKeycap,
@@ -33,10 +34,18 @@ import {
   copyTextToClipboard,
   usePixelSound,
   PIXEL_UI_VERSION,
+  PixelContextMenu,
+  PixelDataTable,
+  PixelDrawer,
+  PixelPopover,
+  PixelSheet,
+  PixelTooltip,
   PixelTabs,
   PixelCopyButton,
+  PixelSwipeHint,
   pixelToast,
   type PixelColorTone,
+  type PixelMenuItem,
   type PixelSoundName,
   type PixelSpriteCharacter,
   type PixelSpriteMotion,
@@ -45,6 +54,26 @@ import {
   type PixelCursorStyle,
   type AmbientSimulationMode,
 } from "@mixiuh/pixel-ui";
+
+interface Ep04Row {
+  n: number;
+  name_es: string;
+  name_en: string;
+  haiku: number;
+  sonnet: number;
+  opus: number;
+  winner: string;
+}
+
+const EP04_ROWS: Ep04Row[] = EP04_CHALLENGES.map((c) => ({
+  n: c.n,
+  name_es: c.name_es,
+  name_en: c.name_en,
+  haiku: c.haiku.usd,
+  sonnet: c.sonnet.usd,
+  opus: c.opus.usd,
+  winner: c.winner,
+}));
 
 const SOUND_PRESETS: {
   id: PixelSoundName;
@@ -196,6 +225,33 @@ export default function PixelUiShowcase({
   const [demoTab, setDemoTab] = useState<"palette" | "toasts" | "a11y">(
     "palette"
   );
+  const [demoDrawer, setDemoDrawer] = useState(false);
+  const [demoSheet, setDemoSheet] = useState(false);
+  const contextMenuItems: PixelMenuItem[] = [
+    { type: "label", id: "lbl", label: lang === "es" ? "CARTUCHO EP04" : "EP04 CARTRIDGE" },
+    {
+      id: "load",
+      label: lang === "es" ? "Cargar cartucho" : "Load cartridge",
+      icon: "play",
+      shortcut: "Enter",
+      onSelect: () => pixelToast.show({ title: lang === "es" ? "CARTUCHO CARGADO" : "CARTRIDGE LOADED", tone: "emerald", icon: "cartridge" }),
+    },
+    {
+      id: "copy",
+      label: lang === "es" ? "Copiar ROM" : "Copy ROM",
+      icon: "copy",
+      shortcut: "Ctrl C",
+      onSelect: () => pixelToast.show({ title: lang === "es" ? "ROM COPIADA" : "ROM COPIED", tone: "cyan", icon: "copy" }),
+    },
+    { type: "separator", id: "sep" },
+    {
+      id: "erase",
+      label: lang === "es" ? "Borrar partida" : "Erase save",
+      icon: "trash",
+      danger: true,
+      onSelect: () => pixelToast.show({ title: lang === "es" ? "PARTIDA BORRADA" : "SAVE ERASED", tone: "coral", icon: "trash", sound: "hit" }),
+    },
+  ];
 
   const overlaySnippet = `import {
   PixelCommandPalette,
@@ -427,7 +483,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                           size={14}
                           color={active ? "#090B10" : c.accent}
                         />
-                        <span className="font-pixel text-[9px]">
+                        <span className="font-pixel text-[10px]">
                           {active ? "ACTIVO" : "SELECT"}
                         </span>
                       </div>
@@ -493,7 +549,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                           : "bg-[#131824] text-[#F5F2EB] border-[#2A344B] hover:border-[#00E5FF]"
                       }`}
                     >
-                      <div className="font-pixel text-[9px] mb-1">
+                      <div className="font-pixel text-[10px] mb-1">
                         {active ? "● RUNNING" : "○ MODE"}
                       </div>
                       <div className="font-bold">
@@ -573,7 +629,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       play("click");
                       setSpriteMotion(m);
                     }}
-                    className={`px-2.5 py-1 font-pixel text-[10px] border cursor-pointer ${
+                    className={`px-2.5 py-1.5 font-pixel text-[10px] border cursor-pointer ${
                       spriteMotion === m
                         ? "bg-[#10B981] text-[#090B10] border-[#090B10] font-bold"
                         : "bg-[#131824] text-[#94A3B8] border-[#2A344B]"
@@ -602,10 +658,10 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                     size={42}
                     motion={spriteMotion}
                   />
-                  <span className="font-pixel text-[9px] text-[#F5F2EB] mt-2 truncate w-full">
+                  <span className="font-pixel text-[10px] text-[#F5F2EB] mt-2 truncate w-full">
                     {sp.name}
                   </span>
-                  <span className="font-mono-hud text-[9px] text-[#94A3B8] truncate w-full">
+                  <span className="font-mono-hud text-[10px] text-[#94A3B8] truncate w-full">
                     {lang === "es" ? sp.role_es : sp.role_en}
                   </span>
                 </div>
@@ -783,7 +839,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       play("click");
                       setCustomTone(t);
                     }}
-                    className={`px-2.5 py-1 font-pixel text-[9px] border-2 cursor-pointer uppercase ${
+                    className={`px-2.5 py-1.5 font-pixel text-[10px] border-2 cursor-pointer uppercase ${
                       customTone === t
                         ? "bg-[#FFD100] text-[#090B10] border-[#090B10] font-bold"
                         : "bg-[#131824] text-[#CBD5E1] border-[#2A344B] hover:text-white"
@@ -806,7 +862,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       play("click");
                       setCustomSize(sz);
                     }}
-                    className={`px-2.5 py-1 font-pixel text-[9px] border-2 cursor-pointer uppercase ${
+                    className={`px-2.5 py-1.5 font-pixel text-[10px] border-2 cursor-pointer uppercase ${
                       customSize === sz
                         ? "bg-[#00E5FF] text-[#090B10] border-[#090B10] font-bold"
                         : "bg-[#131824] text-[#CBD5E1] border-[#2A344B] hover:text-white"
@@ -834,7 +890,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                         `<PixelInput label="PROMPT ID" value="${demoInput}" tone="${customTone}" size="${customSize}" iconLeft="terminal" clearable />`
                       )
                     }
-                    className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[9px] font-bold cursor-pointer"
+                    className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
                   >
                     COPY JSX
                   </button>
@@ -891,7 +947,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                         `<PixelSelect label="AI MODEL" value="${demoSelect}" onChange={setModel} tone="${customTone}" size="${customSize}" options={options} />`
                       )
                     }
-                    className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[9px] font-bold cursor-pointer"
+                    className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
                   >
                     COPY JSX
                   </button>
@@ -1007,7 +1063,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                         `<PixelCheckbox checked={checked} onChange={setChecked} label="Zero-Shot Verification" tone="${customTone}" />`
                       )
                     }
-                    className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[9px] font-bold cursor-pointer"
+                    className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
                   >
                     COPY JSX
                   </button>
@@ -1260,7 +1316,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   onClick={() =>
                     copyCode("social-bar", `<PixelSocialBar />`)
                   }
-                  className="px-2.5 py-1 bg-[#00E5FF] text-[#090B10] font-pixel text-[9px] font-bold cursor-pointer"
+                  className="px-2.5 py-1.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
                 >
                   COPIAR JSX
                 </button>
@@ -1337,7 +1393,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                         play("click");
                         setIconColor(hex);
                       }}
-                      className={`w-5 h-5 border-2 cursor-pointer ${
+                      className={`w-6 h-6 border-2 cursor-pointer ${
                         iconColor === hex
                           ? "border-white scale-110"
                           : "border-[#090B10]"
@@ -1357,7 +1413,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                         play("click");
                         setIconSize(sz);
                       }}
-                      className={`px-2 py-0.5 font-pixel text-[9px] border cursor-pointer ${
+                      className={`px-2.5 py-1.5 font-pixel text-[10px] border cursor-pointer ${
                         iconSize === sz
                           ? "bg-[#FFD100] text-[#090B10] border-[#090B10]"
                           : "bg-[#090B10] text-[#94A3B8] border-[#2A344B]"
@@ -1395,7 +1451,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       size={iconSize}
                       color={isSel ? "#090B10" : iconColor}
                     />
-                    <span className="font-mono-hud text-[9px] truncate w-full text-center">
+                    <span className="font-mono-hud text-[10px] truncate w-full text-center">
                       {iconName}
                     </span>
                   </button>
@@ -1606,9 +1662,207 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </div>
         </PixelWindow>
 
+        {/* SECTION 9: PHASE 2 COMPLETE — DATA TABLE, TOOLTIP, POPOVER, DRAWER, SHEET, CONTEXT MENU */}
+        <PixelWindow
+          title={`09 // FASE 2 COMPLETA v${PIXEL_UI_VERSION}: DATATABLE, TOOLTIP, POPOVER, DRAWER Y MENU CONTEXTUAL`}
+          subtitle={
+            lang === "es"
+              ? "Componentes de datos y overlays con teclado completo, foco atrapado y lectores de pantalla"
+              : "Data and overlay components with full keyboard support, focus management and screen readers"
+          }
+          tone="emerald"
+          statusLeft="ARIA SORT · DIALOG · MENU · TOOLTIP"
+          statusRight="CSV EXPORT"
+        >
+          <div className="space-y-6 font-mono-hud text-xs">
+            <div className="space-y-2">
+              <div className="font-pixel text-[11px] text-[#10B981]">
+                {"<PixelDataTable /> // EP04 · costo por reto (USD)"}
+              </div>
+              <PixelDataTable<Ep04Row>
+                caption={lang === "es" ? "Costo por reto EP04" : "EP04 cost per challenge"}
+                tone="emerald"
+                locale="es"
+                searchable
+                pageSize={4}
+                exportFileName="ep04-costos.csv"
+                rows={EP04_ROWS}
+                getRowId={(r) => String(r.n)}
+                className="[&_table]:min-w-[560px]"
+                labels={
+                  lang === "es"
+                    ? undefined
+                    : {
+                        search: "Search the table",
+                        searchPlaceholder: "Search...",
+                        clearSearch: "Clear search",
+                        noResults: "No results",
+                        exportCsv: "Export CSV",
+                        previous: "Previous",
+                        next: "Next",
+                        rowsSummary: (from, to, total) => `${from}–${to} of ${total}`,
+                        pageOf: (page, pages) => `Page ${page} of ${pages}`,
+                        sortHint: "Sort by",
+                      }
+                }
+                columns={[
+                  { key: "n", header: "#", value: (r) => r.n },
+                  {
+                    key: "reto",
+                    header: lang === "es" ? "Reto" : "Challenge",
+                    value: (r) => (lang === "es" ? r.name_es : r.name_en),
+                  },
+                  {
+                    key: "haiku",
+                    header: "Haiku 5.5",
+                    value: (r) => r.haiku,
+                    render: (r) => <span className="text-[#10B981]">${r.haiku.toFixed(2)}</span>,
+                    align: "right",
+                  },
+                  {
+                    key: "sonnet",
+                    header: "Sonnet 5.5",
+                    value: (r) => r.sonnet,
+                    render: (r) => <span className="text-[#FFD100]">${r.sonnet.toFixed(2)}</span>,
+                    align: "right",
+                  },
+                  {
+                    key: "opus",
+                    header: "Opus 5.5",
+                    value: (r) => r.opus,
+                    render: (r) => <span className="text-[#C084FC]">${r.opus.toFixed(2)}</span>,
+                    align: "right",
+                  },
+                  {
+                    key: "winner",
+                    header: lang === "es" ? "Ganador" : "Winner",
+                    value: (r) => r.winner.toUpperCase(),
+                  },
+                ]}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="p-4 bg-[#090B10] border-2 border-[#2A344B] space-y-3">
+                <div className="font-pixel text-[11px] text-[#00E5FF]">{"<PixelTooltip />"}</div>
+                <div className="flex flex-wrap gap-2">
+                  {(["top", "bottom", "right"] as const).map((placement) => (
+                    <PixelTooltip
+                      key={placement}
+                      placement={placement}
+                      content={
+                        lang === "es"
+                          ? `Tooltip ${placement} (hover o foco con teclado)`
+                          : `Tooltip ${placement} (hover or keyboard focus)`
+                      }
+                    >
+                      <button type="button" className="px-btn bg-[#131824] text-[#F5F2EB] px-3 py-2 text-[11px]">
+                        {placement.toUpperCase()}
+                      </button>
+                    </PixelTooltip>
+                  ))}
+                </div>
+                <div className="font-pixel text-[11px] text-[#00E5FF] pt-2">{"<PixelPopover />"}</div>
+                <PixelPopover
+                  trigger={
+                    <>
+                      <PixelIcon name="settings" size={13} />
+                      <span>{lang === "es" ? "Opciones" : "Options"}</span>
+                    </>
+                  }
+                  tone="cyan"
+                  title={lang === "es" ? "OPCIONES DEL LAB" : "LAB OPTIONS"}
+                  closeLabel={lang === "es" ? "Cerrar" : "Close"}
+                >
+                  <div className="space-y-3">
+                    <PixelToggle checked={switchA} onChange={setSwitchA} label="60Hz VSYNC" tone="cyan" />
+                    <PixelToggle checked={switchB} onChange={setSwitchB} label="DEGAUSS AUTO" tone="coral" />
+                  </div>
+                </PixelPopover>
+              </div>
+
+              <div className="p-4 bg-[#090B10] border-2 border-[#2A344B] space-y-3">
+                <div className="font-pixel text-[11px] text-[#FFD100]">{"<PixelDrawer /> · <PixelSheet />"}</div>
+                <p className="text-[#CBD5E1] leading-relaxed">
+                  {lang === "es"
+                    ? "Paneles modales laterales o inferiores con foco atrapado, Escape y bloqueo de scroll. El menu de Ajustes del sitio en movil usa PixelDrawer."
+                    : "Side or bottom modal panels with focus trap, Escape and scroll lock. The site's mobile Settings menu uses PixelDrawer."}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDemoDrawer(true)}
+                    className="px-btn bg-[#FFD100] text-[#090B10] px-3 py-2 text-[11px]"
+                  >
+                    {lang === "es" ? "Abrir Drawer" : "Open Drawer"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDemoSheet(true)}
+                    className="px-btn bg-[#00E5FF] text-[#090B10] px-3 py-2 text-[11px]"
+                  >
+                    {lang === "es" ? "Abrir Sheet" : "Open Sheet"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 bg-[#090B10] border-2 border-[#2A344B] space-y-3">
+                <div className="font-pixel text-[11px] text-[#FF3355]">{"<PixelContextMenu />"}</div>
+                <PixelContextMenu
+                  label={lang === "es" ? "Acciones del cartucho" : "Cartridge actions"}
+                  tone="coral"
+                  items={contextMenuItems}
+                >
+                  <div
+                    tabIndex={0}
+                    className="p-4 bg-[#111622] border-2 border-dashed border-[#FF3355] text-center text-[#CBD5E1] leading-relaxed"
+                  >
+                    <PixelIcon name="cartridge" size={28} color="#FF3355" className="mx-auto mb-2" />
+                    {lang === "es"
+                      ? "Clic derecho aqui (o enfoca y pulsa Shift+F10 / tecla Menu)"
+                      : "Right-click here (or focus and press Shift+F10 / Menu key)"}
+                  </div>
+                </PixelContextMenu>
+              </div>
+            </div>
+          </div>
+
+          <PixelDrawer
+            open={demoDrawer}
+            onOpenChange={setDemoDrawer}
+            title={lang === "es" ? "DRAWER DE DEMOSTRACION" : "DEMO DRAWER"}
+            description={lang === "es" ? "Tab y Shift+Tab se quedan dentro; Escape cierra." : "Tab and Shift+Tab stay inside; Escape closes."}
+            closeLabel={lang === "es" ? "Cerrar" : "Close"}
+            footer={
+              <button type="button" onClick={() => setDemoDrawer(false)} className="px-btn bg-[#FFD100] text-[#090B10] px-4 py-2 text-xs">
+                OK
+              </button>
+            }
+          >
+            <div className="space-y-3 font-mono-hud text-xs">
+              <PixelToggle checked={switchC} onChange={setSwitchC} label="TURBO 66MHz" tone="emerald" />
+              <p className="text-[#CBD5E1]">
+                {lang === "es" ? "Contenido desplazable, formularios y acciones." : "Scrollable content, forms and actions."}
+              </p>
+            </div>
+          </PixelDrawer>
+          <PixelSheet
+            open={demoSheet}
+            onOpenChange={setDemoSheet}
+            tone="cyan"
+            size="sm"
+            title={lang === "es" ? "SHEET INFERIOR" : "BOTTOM SHEET"}
+            closeLabel={lang === "es" ? "Cerrar" : "Close"}
+          >
+            <p className="font-mono-hud text-xs text-[#CBD5E1]">
+              {lang === "es" ? "Ideal para acciones rapidas en movil." : "Great for quick actions on phones."}
+            </p>
+          </PixelSheet>
+        </PixelWindow>
+
         {/* SECTION 8: MASTER ROADMAP & COMPETITIVE BENCHMARK MATRIX VS TOP UI LIBRARIES */}
         <PixelWindow
-          title="09 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"
+          title="10 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"
           subtitle={
             lang === "es"
               ? `Que tenemos hoy en v${PIXEL_UI_VERSION}, como se compara frente a shadcn/ui, MUI, Ant Design y NES.css, y las siguientes fases de evolucion`
@@ -1620,8 +1874,12 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
         >
           <div className="space-y-6 font-mono-hud text-xs">
             {/* Comparative Matrix Table */}
-            <div className="overflow-x-auto border-2 border-[#2A344B]">
-              <table className="w-full text-left border-collapse">
+            <div className="border-2 border-[#2A344B]">
+              <PixelSwipeHint
+                label={lang === "es" ? "Desliza para comparar" : "Swipe to compare"}
+              />
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
                   <tr className="bg-[#090B10] text-[#FFD100] font-pixel text-[10px] border-b-2 border-[#2A344B]">
                     <th className="p-3">CAPACIDAD / SISTEMA</th>
@@ -1683,7 +1941,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       Navegacion Pro y Accesibilidad (Command Palette Ctrl+K, Tabs con teclado, Toasts, foco visible, prefers-reduced-motion)
                     </td>
                     <td className="p-3 text-[#10B981] font-bold">
-                      INCLUIDO (v2.3 · WAI-ARIA + teclado)
+                      INCLUIDO (v2.5 · WAI-ARIA + teclado)
                     </td>
                     <td className="p-3">Incluido (cmdk + Radix por separado)</td>
                     <td className="p-3">Parcial (sin Command Palette)</td>
@@ -1702,12 +1960,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* 4-Phase Roadmap Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 bg-[#090B10] border-2 border-[#10B981] space-y-2">
-                <div className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[9px] font-bold inline-block">
+                <div className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
                   FASE 1 · COMPLETADO (v2.2)
                 </div>
                 <h3 className="font-display text-sm font-black text-white">
@@ -1723,24 +1982,24 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               </div>
 
               <div className="p-4 bg-[#090B10] border-2 border-[#00E5FF] space-y-2">
-                <div className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[9px] font-bold inline-block">
-                  {`FASE 2 · EN PROGRESO (v${PIXEL_UI_VERSION} -> v2.5)`}
+                <div className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
+                  {`FASE 2 · COMPLETADO (v${PIXEL_UI_VERSION})`}
                 </div>
                 <h3 className="font-display text-sm font-black text-white">
                   Command Palette, Notificaciones, DataGrid y Overlays
                 </h3>
-                <ul className="space-y-1 text-[11px] text-[#CBD5E1]">
-                  <li className="text-[#10B981]">✓ PixelCommandPalette (Ctrl+K / Cmd+K estilo BIOS)</li>
-                  <li className="text-[#10B981]">✓ PixelToaster + pixelToast (alertas con fanfarria)</li>
-                  <li className="text-[#10B981]">✓ PixelTabs, PixelCopyButton y PixelBackToTop</li>
-                  <li>+ PixelDataTable (Ordenamiento, filtros, paginacion, export CSV)</li>
-                  <li>+ PixelDrawer, PixelSheet, PixelTooltip &amp; PixelPopover</li>
-                  <li>+ PixelContextMenu (Menu clic derecho pixel-art)</li>
+                <ul className="space-y-1 text-[11px] text-[#10B981]">
+                  <li>✓ PixelCommandPalette (Ctrl+K / Cmd+K estilo BIOS)</li>
+                  <li>✓ PixelToaster + pixelToast (alertas con fanfarria)</li>
+                  <li>✓ PixelTabs, PixelCopyButton y PixelBackToTop</li>
+                  <li>✓ PixelDataTable (orden, filtros, paginacion, export CSV)</li>
+                  <li>✓ PixelDrawer, PixelSheet, PixelTooltip y PixelPopover</li>
+                  <li>✓ PixelContextMenu (menu clic derecho + Shift+F10)</li>
                 </ul>
               </div>
 
               <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] space-y-2">
-                <div className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[9px] font-bold inline-block">
+                <div className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
                   FASE 3 · FLUJOS AVANZADOS Y MEDIA (v3.0)
                 </div>
                 <h3 className="font-display text-sm font-black text-white">
@@ -1756,7 +2015,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               </div>
 
               <div className="p-4 bg-[#090B10] border-2 border-[#A855F7] space-y-2">
-                <div className="px-2 py-0.5 bg-[#A855F7] text-white font-pixel text-[9px] font-bold inline-block">
+                <div className="px-2 py-0.5 bg-[#A855F7] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
                   FASE 4 · ECOSISTEMA CLI Y MULTI-FRAMEWORK (v4.0)
                 </div>
                 <h3 className="font-display text-sm font-black text-white">

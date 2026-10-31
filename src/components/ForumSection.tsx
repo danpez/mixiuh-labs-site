@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { PixelIcon, copyTextToClipboard } from "@mixiuh/pixel-ui";
+import React, { useMemo, useRef, useState } from "react";
+import { PixelIcon, copyTextToClipboard, prefersReducedMotion } from "@mixiuh/pixel-ui";
 import {
   INITIAL_FORUM_THREADS,
   INITIAL_EP02_PROPOSALS,
@@ -276,6 +276,21 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     () => readStoredJson<Record<string, boolean>>("mlabs_prop_votes_v1") ?? {}
   );
 
+  // On phones the thread detail sits below the list: bring it into view on select
+  const threadDetailRef = useRef<HTMLDivElement | null>(null);
+  const selectThread = (id: string) => {
+    setSelectedThreadId(id);
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      requestAnimationFrame(() => {
+        threadDetailRef.current?.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "start",
+        });
+        threadDetailRef.current?.focus({ preventScroll: true });
+      });
+    }
+  };
+
   // Comment composer state
   const [commentAuthor, setCommentAuthor] = useState("");
   const [commentRole, setCommentRole] = useState("");
@@ -481,7 +496,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     ];
 
   return (
-    <section id="foro" className="scroll-mt-24 py-14 border-t border-[#00E5FF]/15">
+    <section id="foro" className="py-14 border-t border-[#00E5FF]/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
@@ -529,7 +544,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   href="https://www.youtube.com/@MixiuhLabsES"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#00E5FF] hover:underline"
+                  className="inline-block py-1 text-[#00E5FF] hover:underline"
                 >
                   @MixiuhLabsES
                 </a>
@@ -538,7 +553,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   href="https://www.youtube.com/@MixiuhLabsEN"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#A855F7] hover:underline"
+                  className="inline-block py-1 text-[#C084FC] hover:underline"
                 >
                   @MixiuhLabsEN
                 </a>
@@ -649,14 +664,23 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         {/* Two-Column Forum Layout: Left Thread Feed (5 cols), Right Active Thread Reader (7 cols) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Thread List */}
-          <div className="lg:col-span-5 space-y-3 max-h-[880px] overflow-y-auto pr-1">
+          <div className="lg:col-span-5 space-y-3 max-h-[60vh] lg:max-h-[880px] overflow-y-auto pr-1">
             {filteredThreads.map((thread) => {
               const isSelected = thread.id === activeThread?.id;
               const isUpvoted = !!upvotedIds[thread.id];
               return (
                 <div
                   key={thread.id}
-                  onClick={() => setSelectedThreadId(thread.id)}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onClick={() => selectThread(thread.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      selectThread(thread.id);
+                    }
+                  }}
                   className={`p-4 shadow-[4px_4px_0_#040508] border transition cursor-pointer ${
                     isSelected
                       ? "bg-[#1A2132] border-[#00E5FF] shadow-[4px_4px_0_#040508]"
@@ -667,9 +691,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     <span
                       className={`px-2 py-0.5 font-mono-hud text-[10px] font-bold ${
                         thread.category === "autopsias"
-                          ? "bg-[#FF3355]/20 text-[#FF3355] border border-[#FF3355]/30"
+                          ? "bg-[#FF3355] text-[#090B10] border border-[#090B10]"
                           : thread.category === "benchmarks"
-                          ? "bg-[#A855F7]/20 text-[#A855F7] border border-[#A855F7]/30"
+                          ? "bg-[#A855F7]/20 text-[#C084FC] border border-[#A855F7]/30"
                           : thread.category === "pipeline"
                           ? "bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/30"
                           : "bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/30"
@@ -717,7 +741,12 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
           {/* Right Column: Active Thread Detail Reader */}
           {activeThread && (
-            <div className="lg:col-span-7 bg-[#111622] border-2 border-[#00E5FF]/30 p-5 sm:p-8 shadow-[6px_6px_0_#040508]">
+            <div
+              ref={threadDetailRef}
+              tabIndex={-1}
+              aria-live="polite"
+              className="lg:col-span-7 focus:outline-none bg-[#111622] border-2 border-[#00E5FF]/30 p-5 sm:p-8 shadow-[6px_6px_0_#040508]"
+            >
               {/* Top Meta & Upvote */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#2A344B]">
                 <div className="flex flex-wrap items-center gap-2">
@@ -821,7 +850,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       </pre>
                     </div>
                     <div className="p-4">
-                      <div className="text-[11px] font-mono-hud font-bold text-[#A855F7] mb-2">
+                      <div className="text-[11px] font-mono-hud font-bold text-[#C084FC] mb-2">
                         {lang === "es"
                           ? activeThread.codeComparison.rightLabel_es ||
                             "[DERECHA] GEMINI 4 ARGON (SOLUCION EXACTA)"

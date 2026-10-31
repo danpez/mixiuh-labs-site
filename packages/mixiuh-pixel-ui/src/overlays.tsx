@@ -116,7 +116,7 @@ export function PixelTabs<T extends string = string>({
             <span>{item.label}</span>
             {item.badge !== undefined && (
               <span
-                className={`px-1 font-pixel text-[9px] ${
+                className={`px-1 font-pixel text-[10px] ${
                   active ? "bg-[#090B10] text-[#F5F2EB]" : "bg-[#1A2132] text-[#CBD5E1]"
                 }`}
               >
@@ -513,7 +513,7 @@ export function PixelCommandPalette({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="px-1.5 py-0.5 bg-[#090B10] text-[#F5F2EB] font-pixel text-[9px] font-bold cursor-pointer hover:bg-[#FF3355]"
+            className="px-1.5 py-0.5 bg-[#090B10] text-[#F5F2EB] font-pixel text-[10px] font-bold cursor-pointer hover:bg-[#FF3355]"
           >
             ESC
           </button>
@@ -542,7 +542,7 @@ export function PixelCommandPalette({
             placeholder={placeholder}
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 min-w-0 bg-transparent font-mono-hud text-sm text-white placeholder:text-[#64748B] focus:outline-none focus-visible:outline-none"
+            className="flex-1 min-w-0 bg-transparent font-mono-hud text-sm text-white placeholder:text-[#94A3B8] focus:outline-none focus-visible:outline-none"
           />
           <span className="hidden sm:inline-flex items-center gap-1 font-mono-hud text-[10px] text-[#94A3B8]">
             {results.length}
@@ -567,7 +567,7 @@ export function PixelCommandPalette({
             return (
               <React.Fragment key={item.id}>
                 {showGroup && (
-                  <div className="px-3.5 pt-2.5 pb-1 font-pixel text-[9px] text-[#64748B] uppercase tracking-wider">
+                  <div className="px-3.5 pt-2.5 pb-1 font-pixel text-[10px] text-[#94A3B8] uppercase tracking-wider">
                     {item.group}
                   </div>
                 )}
@@ -663,4 +663,121 @@ export function PixelBackToTop({
       <PixelIcon name="arrow-up" size={18} />
     </button>
   );
+}
+
+/* ----------------------------------------------------------------------------
+   PixelSwipeHint — tells touch users a wide table/chart scrolls sideways
+   ---------------------------------------------------------------------------- */
+
+export interface PixelSwipeHintProps {
+  label?: string;
+  /** Tailwind breakpoint class that hides the hint on wide screens. */
+  hideFrom?: "sm" | "md" | "lg" | "xl";
+  className?: string;
+}
+
+const SWIPE_HIDE_CLASS = {
+  sm: "sm:hidden",
+  md: "md:hidden",
+  lg: "lg:hidden",
+  xl: "xl:hidden",
+};
+
+export function PixelSwipeHint({
+  label = "Desliza para ver todas las columnas",
+  hideFrom = "lg",
+  className = "",
+}: PixelSwipeHintProps) {
+  return (
+    <div
+      className={`${SWIPE_HIDE_CLASS[hideFrom]} flex items-center justify-center gap-2 px-3 py-1.5 bg-[#090B10] border-b border-[#2A344B] font-pixel text-[10px] text-[#CBD5E1] ${className}`}
+    >
+      <PixelIcon name="arrow-left" size={10} color="#FFD100" />
+      <span>{label}</span>
+      <PixelIcon name="arrow-right" size={10} color="#FFD100" />
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   usePixelDialog — modal behaviour for custom dialogs (focus in, trap, Escape,
+   scroll lock, focus restore). Attach the returned ref to the dialog panel and
+   give it role="dialog" aria-modal="true" aria-labelledby={...}.
+   ---------------------------------------------------------------------------- */
+
+const DIALOG_FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
+
+export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
+  open: boolean,
+  onClose: () => void
+) {
+  const panelRef = useRef<T | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusables = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE) ?? []
+      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+
+    const raf = requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const first = focusables()[0];
+      if (first) first.focus({ preventScroll: true });
+      else {
+        if (!panel.hasAttribute("tabindex")) panel.setAttribute("tabindex", "-1");
+        panel.focus({ preventScroll: true });
+      }
+    });
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const list = focusables();
+      const panel = panelRef.current;
+      if (!panel) return;
+      if (list.length === 0) {
+        e.preventDefault();
+        panel.focus({ preventScroll: true });
+        return;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus({ preventScroll: true });
+      }
+    };
+  }, [open]);
+
+  return panelRef;
 }

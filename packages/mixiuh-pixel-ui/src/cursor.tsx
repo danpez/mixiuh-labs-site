@@ -191,8 +191,15 @@ export function usePixelCursor(initial: PixelCursorStyle = "cyber-arrow") {
       html, body {
         cursor: ${pair.normal} !important;
       }
-      a, button, [role="button"], input, select, textarea, .cursor-pointer {
+      a, button, [role="button"], [role="tab"], [role="option"], [role="menuitem"], select, .cursor-pointer,
+      input[type="checkbox"], input[type="radio"], input[type="range"], input[type="button"], input[type="submit"] {
         cursor: ${pair.pointer} !important;
+      }
+      input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]), textarea {
+        cursor: text !important;
+      }
+      :disabled, [aria-disabled="true"] {
+        cursor: not-allowed !important;
       }
     `;
   }, [cursorStyle]);
