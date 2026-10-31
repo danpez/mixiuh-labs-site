@@ -299,18 +299,18 @@ export default function MixiuhLabsHomePage() {
       scoreBadge_en: "ASTRA 2 · ARGON 1 · OPUS 0",
       thumb: "/brand/thumbs/cc02_thumb_A.png",
       title_es:
-        "Le Pedi un Juego Tipo ROBLOX 3D a Gemini 4 Argon High vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($0 Plus)",
+        "Le Pedi un Juego Tipo ROBLOX 3D a Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($1.11)",
       title_en:
-        "I Asked Gemini 4 Argon High vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($0 Plus) to Build a 3D ROBLOX Game",
+        "I Asked Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($1.11) to Build a 3D ROBLOX Game",
       excerpt_es:
-        "Un suscriptor en Instagram nos reto a enfrentar a los 3 gigantes en modo HIGH creando un juego tipo ROBLOX 3D completo (circuito Obby de 10 etapas, 6 bots IA con chat y modo Roblox Studio 3D). GPT-6 Astra High termino primero en 18.9 min con 4,727 lineas a 61 FPS ($0 extra en ChatGPT Plus), Gemini 4 Argon High entrego el mejor modo Roblox Studio 3D con Gizmo wireframe por $0.32 USD equivalentes, y Claude Opus 5.5 High tardo 55.1 min y $9.91 USD dejando la escena 3D en negro.",
+        "Un suscriptor en Instagram nos reto a enfrentar a los 3 gigantes en modo HIGH creando un juego tipo ROBLOX 3D completo (circuito Obby de 10 etapas, 6 bots IA con chat y modo Roblox Studio 3D). GPT-6 Astra High termino primero en 18.9 min con 4,727 lineas a 61 FPS por $1.11 USD, Gemini 4 Argon High entrego el mejor modo Roblox Studio 3D con molde 3D en vivo por $0.32 USD, y Claude Opus 5.5 High tardo 55.1 min y $9.91 USD dejando la escena 3D en negro.",
       excerpt_en:
-        "An Instagram subscriber challenged us to pit the 3 AI Giants in HIGH mode building a complete 3D ROBLOX game (10-stage Obby course, 6 AI bots with chat, and live 3D Roblox Studio mode). GPT-6 Astra High finished first in 18.9 min with 4,727 lines at 61 FPS ($0 extra on ChatGPT Plus), Gemini 4 Argon High built the best 3D Studio wireframe Gizmo for $0.32 USD equivalent, and Claude Opus 5.5 High spent 55.1 min and $9.91 USD only to crash its 3D WebGL scene.",
+        "An Instagram subscriber challenged us to pit the 3 AI Giants in HIGH mode building a complete 3D ROBLOX game (10-stage Obby course, 6 AI bots with chat, and live 3D Roblox Studio mode). GPT-6 Astra High finished first in 18.9 min with 4,727 lines at 61 FPS for $1.11 USD, Gemini 4 Argon High built the best 3D Studio preview tool for $0.32 USD, and Claude Opus 5.5 High spent 55.1 min and $9.91 USD only to leave its 3D scene black.",
       metrics: [
         { label_es: "MARCADOR", label_en: "SCORE", val: "2 - 1 - 0 Astra" },
-        { label_es: "GPT-6 ASTRA", label_en: "GPT-6 ASTRA", val: "18.9m · 4,727 Lín ($0 Plus)" },
+        { label_es: "GPT-6 ASTRA", label_en: "GPT-6 ASTRA", val: "18.9m · 4,727 Lín ($1.11)" },
         { label_es: "ARGON HIGH", label_en: "ARGON HIGH", val: "27.2m · 2,578 Lín ($0.32)" },
-        { label_es: "OPUS 5.5 HIGH", label_en: "OPUS 5.5 HIGH", val: "55.1m · $9.91 (3D Crash)" },
+        { label_es: "OPUS 5.5 HIGH", label_en: "OPUS 5.5 HIGH", val: "55.1m · $9.91 (Sin 3D)" },
       ],
       onOpenDossier: () => navigateToView("comunidad"),
       onOpenArena: () => navigateToView("comunidad"),
@@ -531,7 +531,7 @@ export default function MixiuhLabsHomePage() {
                 ? "ASTRA 2 - ARGON 1 - OPUS 0 ($9.91 CRASH)"
                 : "ASTRA 2 - ARGON 1 - OPUS 0 ($9.91 CRASH)",
             timeMetric: "18.9m vs 27.2m vs 55.1m",
-            costMetric: "$0 Plus vs $0.32 vs $9.91",
+            costMetric: "$1.11 vs $0.32 vs $9.91",
             thumb: "/brand/thumbs/cc02_thumb_A.png",
             accentHex: "#34D399",
             character: "argon" as const,
@@ -3305,7 +3305,7 @@ export default function MixiuhLabsHomePage() {
                       className="px-3.5 py-2 rounded-xl bg-[#34D399] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>GPT-6 Astra High ($0 Plus · 61 FPS)</span>
+                      <span>GPT-6 Astra High ($1.11 · 61 FPS)</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                     <a
@@ -3325,7 +3325,7 @@ export default function MixiuhLabsHomePage() {
                       className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#B794F6]/50 text-[#B794F6] font-mono-hud text-xs font-bold hover:bg-[#11283F] transition inline-flex items-center gap-1.5"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Claude Opus 5.5 High ($9.91 · 3D Crash)</span>
+                      <span>Claude Opus 5.5 High ($9.91 · Sin 3D)</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
@@ -3339,8 +3339,8 @@ export default function MixiuhLabsHomePage() {
 
                 <p className="text-sm sm:text-base text-[#C4D3E3] leading-relaxed">
                   {lang === "es"
-                    ? "Pusimos a prueba la suscripcion activa de ChatGPT Plus dentro de la terminal oficial de Codex CLI (GPT-6 Astra High) frente a Gemini 4 Argon High y Claude Opus 5.5 High (Claude Code CLI) con exactamente el mismo prompt zero-shot: crear un circuito Mega-Obby 3D de 10 etapas en el cielo, fisica ragdoll OOF en 6 piezas, 6 bots NPC multijugador con chat en vivo y un editor interactivo estilo Roblox Studio 3D a 60 FPS."
-                    : "We tested an active ChatGPT Plus subscription inside the official Codex CLI (GPT-6 Astra High) against Gemini 4 Argon High and Claude Opus 5.5 High (Claude Code CLI) using the exact same zero-shot prompt: build a 10-stage aerial Mega-Obby 3D course, 6-piece OOF ragdoll physics, 6 autonomous multiplayer NPC bots with live chat, and an interactive 3D Roblox Studio level editor at 60 FPS."}
+                    ? "Pusimos a competir a los tres modelos de inteligencia artificial mas potentes del mundo en modo de maximo razonamiento (HIGH): Gemini 4 Argon High, Claude Opus 5.5 High y GPT-6 Astra High. Los tres recibieron exactamente la misma instruccion en un solo intento: crear un circuito de saltos tipo Roblox en 3D con diez islas en el cielo, personaje cuadrado que se desarma al caer, seis robots corriendo juntos con chat en vivo y un modo constructor estilo Roblox Studio 3D a 60 cuadros por segundo."
+                    : "We put the three most powerful AI models in the world head-to-head in maximum reasoning (HIGH) mode: Gemini 4 Argon High, Claude Opus 5.5 High, and GPT-6 Astra High. All three received the exact same instruction in a single attempt: build a complete 3D Roblox-style game with a ten-island sky obstacle course, blocky character ragdoll physics, six robot players racing with live chat, and a live 3D Roblox Studio builder mode at 60 frames per second."}
                 </p>
 
                 {/* Telemetry Summary Cards */}
@@ -3358,35 +3358,35 @@ export default function MixiuhLabsHomePage() {
                   </div>
                   <div className="p-4 rounded-xl bg-[#060B14] border border-[#34D399]/50">
                     <div className="font-mono-hud text-[11px] font-bold text-[#34D399]">
-                      1º GPT-6 ASTRA HIGH (CODEX CLI)
+                      1º GPT-6 ASTRA HIGH
                     </div>
                     <div className="font-display text-2xl font-black text-white mt-1">
-                      18.9m · 4,727 Lín
+                      18.9m · $1.11 USD
                     </div>
                     <div className="font-mono-hud text-[11px] text-[#34D399] mt-1">
-                      $0 Extra en Plus ($1.11 eq) · 61 FPS · Studs 3D
+                      4,727 Lín · 61 FPS · Relieve 3D + Chat 3D
                     </div>
                   </div>
                   <div className="p-4 rounded-xl bg-[#060B14] border border-[#22D3EE]/50">
                     <div className="font-mono-hud text-[11px] font-bold text-[#22D3EE]">
-                      2º GEMINI 4 ARGON HIGH (ULTRA)
+                      2º GEMINI 4 ARGON HIGH
                     </div>
                     <div className="font-display text-2xl font-black text-white mt-1">
-                      27.2m · 2,578 Lín
+                      27.2m · $0.32 USD
                     </div>
                     <div className="font-mono-hud text-[11px] text-[#22D3EE] mt-1">
-                      $0.32 USD equiv. · 60 FPS · Mejor Studio Gizmo 3D
+                      2,578 Lín · 60 FPS · Mejor Modo Studio 3D
                     </div>
                   </div>
                   <div className="p-4 rounded-xl bg-[#060B14] border border-[#FB7185]/50">
                     <div className="font-mono-hud text-[11px] font-bold text-[#FB7185]">
-                      3º CLAUDE OPUS 5.5 HIGH (CLAUDE CODE)
+                      3º CLAUDE OPUS 5.5 HIGH
                     </div>
                     <div className="font-display text-2xl font-black text-white mt-1">
                       55.1m · $9.91 USD
                     </div>
                     <div className="font-mono-hud text-[11px] text-[#FB7185] mt-1">
-                      4.53M tokens (38 pasos) · CRASH 3D (index z)
+                      2,413 Lín · 4.53M tokens · Pantalla 3D Negra
                     </div>
                   </div>
                 </div>
@@ -3469,7 +3469,7 @@ export default function MixiuhLabsHomePage() {
                       </div>
                       <div>
                         <div className="px-3 py-2 bg-[#060B14] text-[#34D399] font-mono-hud text-[11px] font-bold flex justify-between">
-                          <span>GPT-6 ASTRA HIGH (18.9m · $0 Plus)</span>
+                          <span>GPT-6 ASTRA HIGH (18.9m · $1.11 USD)</span>
                           <span>61 FPS · GANADOR 2-1</span>
                         </div>
                         <iframe
