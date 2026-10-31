@@ -23,6 +23,34 @@ interface Props {
 
 type ArenaTab = "argon" | "split" | "opponent" | "prompt" | "source" | "stills";
 
+type CopyTarget = "prompt" | "code";
+
+/** The English twin in English mode when the data has one; the Spanish source otherwise. */
+function inLang<T>(lang: "es" | "en", es: T, en: T | undefined): T {
+  return lang === "en" ? en ?? es : es;
+}
+
+/**
+ * Position tag for the opponent (first) and Argon (second) columns: they sit
+ * side by side from `lg` up and stack below it, so the tag follows the layout.
+ */
+function SideTag({ lang, side }: { lang: "es" | "en"; side: "first" | "second" }) {
+  const stacked =
+    side === "first"
+      ? lang === "es" ? "ARRIBA" : "TOP"
+      : lang === "es" ? "ABAJO" : "BOTTOM";
+  const sideBySide =
+    side === "first"
+      ? lang === "es" ? "IZQUIERDA" : "LEFT"
+      : lang === "es" ? "DERECHA" : "RIGHT";
+  return (
+    <>
+      <span className="lg:hidden">[{stacked}]</span>
+      <span className="hidden lg:inline">[{sideBySide}]</span>
+    </>
+  );
+}
+
 export default function DemoArenaSection({
   lang,
   activeEpisode,
@@ -31,8 +59,13 @@ export default function DemoArenaSection({
   onSelectChallengeN,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ArenaTab>("argon");
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
+  // Result of the last copy: drives the button label and the screen-reader
+  // announcement; `id` changes on every copy so a repeat is announced again
+  const [copyFeedback, setCopyFeedback] = useState<{
+    id: number;
+    target: CopyTarget;
+    ok: boolean;
+  } | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [sourceModel, setSourceModel] = useState<"argon" | "opponent">("argon");
   // Source viewer state is keyed by the requested file so a slow or failed
@@ -99,18 +132,73 @@ export default function DemoArenaSection({
     ? ep02Challenge.prompt_verbatim
     : ep01Challenge.prompt_verbatim;
 
+  // Each copy restarts the 2.2 s feedback window; unmounting cancels it
+  useEffect(() => {
+    if (!copyFeedback) return;
+    const timer = window.setTimeout(() => setCopyFeedback(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [copyFeedback]);
+
+  const copyWithFeedback = async (target: CopyTarget, text: string) => {
+    const ok = await copyTextToClipboard(text);
+    setCopyFeedback((prev) => ({ id: (prev?.id ?? 0) + 1, target, ok }));
+  };
+
   const handleCopyPrompt = () => {
-    void copyTextToClipboard(activePromptVerbatim);
-    setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 2200);
+    void copyWithFeedback("prompt", activePromptVerbatim);
   };
 
   const handleCopySource = () => {
     if (!sourceData?.code) return;
-    void copyTextToClipboard(sourceData.code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2200);
+    void copyWithFeedback("code", sourceData.code);
   };
+
+  const copyStateOf = (target: CopyTarget) =>
+    copyFeedback?.target !== target ? "idle" : copyFeedback.ok ? "copied" : "failed";
+  const promptCopyState = copyStateOf("prompt");
+  const codeCopyState = copyStateOf("code");
+  const copyAnnouncement = !copyFeedback
+    ? ""
+    : !copyFeedback.ok
+    ? lang === "es"
+      ? "No se pudo copiar. Selecciona el texto y cópialo a mano."
+      : "Could not copy. Select the text and copy it manually."
+    : copyFeedback.target === "prompt"
+    ? lang === "es"
+      ? "Prompt copiado al portapapeles."
+      : "Prompt copied to the clipboard."
+    : lang === "es"
+    ? "index.html copiado al portapapeles."
+    : "index.html copied to the clipboard.";
+
+  // Quote only Kevin's own words or their faithful translation. An editorial
+  // summary (EP01 kevin_note_en) is labelled as one and never shown in quotes.
+  const refereeNote: { text: string; quoted: boolean } = isEp02
+    ? {
+        text:
+          lang === "es"
+            ? ep02Challenge.kevin_note_es
+            : ep02Challenge.kevin_note_verbatim_en ?? ep02Challenge.kevin_note_en,
+        quoted: true,
+      }
+    : lang === "es"
+    ? { text: ep01Challenge.kevin_note_verbatim, quoted: true }
+    : ep01Challenge.kevin_note_verbatim_en
+    ? { text: ep01Challenge.kevin_note_verbatim_en, quoted: true }
+    : { text: ep01Challenge.kevin_note_en, quoted: false };
+
+  const argonFeatures = isEp02
+    ? inLang(lang, ep02Challenge.argon_features, ep02Challenge.argon_features_en)
+    : inLang(lang, ep01Challenge.argon_features, ep01Challenge.argon_features_en);
+  const opponentFeatures = isEp02
+    ? inLang(lang, ep02Challenge.opus_features, ep02Challenge.opus_features_en)
+    : inLang(lang, ep01Challenge.flash_features, ep01Challenge.flash_features_en);
+  const opponentNotes = isEp02
+    ? inLang(lang, ep02Challenge.opus_observations, ep02Challenge.opus_observations_en)
+    : inLang(lang, ep01Challenge.flash_problems, ep01Challenge.flash_problems_en);
+
+  const stepsWord = lang === "es" ? "pasos" : "steps";
+  const linesWord = lang === "es" ? "lineas" : "lines";
 
   const opponentShortName = isEp02 ? "Opus 5.5" : "Flash";
   const opponentFullName = isEp02 ? "Claude Opus 5.5" : "Gemini 3.8 Flash";
@@ -320,7 +408,11 @@ export default function DemoArenaSection({
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="inline-flex items-center gap-2 text-xs font-mono-hud text-[#C084FC] mb-1">
-                    <span>ARCHIVO EXTRA FUERA DE TORNEO · 2026-10-14 02:28</span>
+                    <span>
+                      {lang === "es"
+                        ? "ARCHIVO EXTRA FUERA DE TORNEO · 2026-10-14 02:28"
+                        : "BONUS FILE OUTSIDE THE TOURNAMENT · 2026-10-14 02:28"}
+                    </span>
                   </div>
                   <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
                     {lang === "es"
@@ -399,7 +491,7 @@ export default function DemoArenaSection({
                   </h3>
                   <p className="text-xs sm:text-sm text-[#94A3B8] mt-1">
                     <span className="text-[#00E5FF] font-mono-hud">Stack:</span>{" "}
-                    {ep02Challenge.tech}
+                    {inLang(lang, ep02Challenge.tech, ep02Challenge.tech_en)}
                   </p>
                 </div>
 
@@ -421,7 +513,7 @@ export default function DemoArenaSection({
                     </div>
                     <div className="font-mono-hud text-[10px] text-[#94A3B8]">
                       Tokens: {ep02Challenge.tokens.argon_total} (
-                      {ep02Challenge.tokens.argon_steps} pasos)
+                      {ep02Challenge.tokens.argon_steps} {stepsWord})
                     </div>
                   </div>
 
@@ -441,7 +533,7 @@ export default function DemoArenaSection({
                     </div>
                     <div className="font-mono-hud text-[10px] text-[#94A3B8]">
                       Tokens: {ep02Challenge.tokens.opus_total} (
-                      {ep02Challenge.tokens.opus_steps} pasos)
+                      {ep02Challenge.tokens.opus_steps} {stepsWord})
                     </div>
                   </div>
 
@@ -467,7 +559,7 @@ export default function DemoArenaSection({
               <div className="mt-4 p-3.5 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <p className="text-xs sm:text-sm text-[#F5F2EB]">
                   <span className="font-mono-hud font-bold text-[#00E5FF] mr-2">
-                    [HALLAZGO CLAVE]
+                    {lang === "es" ? "[HALLAZGO CLAVE]" : "[KEY FINDING]"}
                   </span>
                   {lang === "es"
                     ? ep02Challenge.fun_angle_es
@@ -518,7 +610,7 @@ export default function DemoArenaSection({
                   </h3>
                   <p className="text-xs sm:text-sm text-[#94A3B8] mt-1">
                     <span className="text-[#00E5FF] font-mono-hud">Stack:</span>{" "}
-                    {ep01Challenge.tech}
+                    {inLang(lang, ep01Challenge.tech, ep01Challenge.tech_en)}
                   </p>
                 </div>
 
@@ -553,7 +645,9 @@ export default function DemoArenaSection({
                       {lang === "es" ? "Diferencia Reloj" : "Speed Ratio"}
                     </div>
                     <div className="font-mono-hud text-xs font-bold text-white mt-0.5">
-                      {ep01Challenge.speed_ratio}
+                      {lang === "es"
+                        ? ep01Challenge.speed_ratio
+                        : ep01Challenge.speed_ratio_en ?? ep01Challenge.speed_ratio}
                     </div>
                   </div>
                 </div>
@@ -563,7 +657,7 @@ export default function DemoArenaSection({
               <div className="mt-4 p-3.5 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <p className="text-xs sm:text-sm text-[#F5F2EB]">
                   <span className="font-mono-hud font-bold text-[#00E5FF] mr-2">
-                    [HALLAZGO CLAVE]
+                    {lang === "es" ? "[HALLAZGO CLAVE]" : "[KEY FINDING]"}
                   </span>
                   {lang === "es"
                     ? ep01Challenge.fun_angle_es
@@ -591,7 +685,9 @@ export default function DemoArenaSection({
               >
                 <PixelIcon name="play" size={14} />
                 {showBonus
-                  ? "Jugar Gummy Bears (WebGL)"
+                  ? lang === "es"
+                    ? "Jugar Gummy Bears (WebGL)"
+                    : "Play Gummy Bears (WebGL)"
                   : lang === "es"
                   ? "Jugar Argon"
                   : "Play Argon"}
@@ -737,10 +833,10 @@ export default function DemoArenaSection({
                 </span>
                 <span className="text-[#94A3B8]">
                   {showBonus
-                    ? `${BONUS_EXPERIMENT.lines} lineas · ${BONUS_EXPERIMENT.kb} KB`
+                    ? `${BONUS_EXPERIMENT.lines} ${linesWord} · ${BONUS_EXPERIMENT.kb} KB`
                     : isEp02
-                    ? `${ep02Challenge.time_min.argon} min · $${ep02Challenge.cost_usd.argon.toFixed(2)} USD · ${ep02Challenge.code_stats.argon_lines} lineas · ${ep02Challenge.fps.argon}`
-                    : `${ep01Challenge.time_min.argon} min · ${ep01Challenge.code_stats.argon_lines} lineas`}
+                    ? `${ep02Challenge.time_min.argon} min · $${ep02Challenge.cost_usd.argon.toFixed(2)} USD · ${ep02Challenge.code_stats.argon_lines} ${linesWord} · ${ep02Challenge.fps.argon}`
+                    : `${ep01Challenge.time_min.argon} min · ${ep01Challenge.code_stats.argon_lines} ${linesWord}`}
                 </span>
               </div>
               <iframe
@@ -776,8 +872,8 @@ export default function DemoArenaSection({
                 </span>
                 <span className="text-[#94A3B8]">
                   {isEp02
-                    ? `${ep02Challenge.time_min.opus} min · $${ep02Challenge.cost_usd.opus.toFixed(2)} USD · ${ep02Challenge.code_stats.opus_lines} lineas · ${ep02Challenge.fps.opus}`
-                    : `${ep01Challenge.time_min.flash} min · ${ep01Challenge.code_stats.flash_lines} lineas`}
+                    ? `${ep02Challenge.time_min.opus} min · $${ep02Challenge.cost_usd.opus.toFixed(2)} USD · ${ep02Challenge.code_stats.opus_lines} ${linesWord} · ${ep02Challenge.fps.opus}`
+                    : `${ep01Challenge.time_min.flash} min · ${ep01Challenge.code_stats.flash_lines} ${linesWord}`}
                 </span>
               </div>
               <iframe
@@ -805,9 +901,10 @@ export default function DemoArenaSection({
               <div>
                 <div className="px-4 py-2 bg-[#090B10] border-b border-[#FFD100]/30 flex items-center justify-between text-xs font-mono-hud">
                   <span className="text-[#FFD100] font-bold">
+                    <SideTag lang={lang} side="first" />{" "}
                     {isEp02
-                      ? `[IZQUIERDA] CLAUDE OPUS 5.5 · ${ep02Challenge.time_min.opus} MIN · $${ep02Challenge.cost_usd.opus.toFixed(2)}`
-                      : `[IZQUIERDA] GEMINI 3.8 FLASH · ${ep01Challenge.time_min.flash} MIN`}
+                      ? `CLAUDE OPUS 5.5 · ${ep02Challenge.time_min.opus} MIN · $${ep02Challenge.cost_usd.opus.toFixed(2)}`
+                      : `GEMINI 3.8 FLASH · ${ep01Challenge.time_min.flash} MIN`}
                   </span>
                   <span className="text-[#94A3B8]">
                     {isEp02
@@ -833,9 +930,10 @@ export default function DemoArenaSection({
               <div>
                 <div className="px-4 py-2 bg-[#090B10] border-b border-[#A855F7]/30 flex items-center justify-between text-xs font-mono-hud">
                   <span className="text-[#C084FC] font-bold">
+                    <SideTag lang={lang} side="second" />{" "}
                     {isEp02
-                      ? `[DERECHA] GEMINI 4 ARGON · ${ep02Challenge.time_min.argon} MIN · $${ep02Challenge.cost_usd.argon.toFixed(2)}`
-                      : `[DERECHA] GEMINI 4 ARGON · ${ep01Challenge.time_min.argon} MIN (GANADOR)`}
+                      ? `GEMINI 4 ARGON · ${ep02Challenge.time_min.argon} MIN · $${ep02Challenge.cost_usd.argon.toFixed(2)}`
+                      : `GEMINI 4 ARGON · ${ep01Challenge.time_min.argon} MIN (${lang === "es" ? "GANADOR" : "WINNER"})`}
                   </span>
                   <span className="text-[#94A3B8]">
                     {isEp02
@@ -864,20 +962,30 @@ export default function DemoArenaSection({
               {/* Referee Verbatim Verdict */}
               <div className="p-5 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#10B981]/30">
                 <div className="text-xs font-mono-hud uppercase text-[#10B981] font-bold mb-1.5">
-                  {lang === "es"
-                    ? "VEREDICTO Y AUDITORIA DE KEVIN GONZALEZ (ARBITRO)"
-                    : "KEVIN GONZALEZ'S REFEREE VERDICT & AUDIT"}
+                  {refereeNote.quoted
+                    ? lang === "es"
+                      ? "VEREDICTO Y AUDITORIA DE KEVIN GONZALEZ (ARBITRO)"
+                      : "KEVIN GONZALEZ'S REFEREE VERDICT & AUDIT"
+                    : lang === "es"
+                    ? "RESUMEN EDITORIAL DEL VEREDICTO DE KEVIN GONZALEZ"
+                    : "EDITORIAL SUMMARY OF KEVIN GONZALEZ'S REFEREE VERDICT"}
+                  {lang === "en" && (
+                    <>
+                      {" "}
+                      <span className="normal-case font-normal text-[#94A3B8]">
+                        {refereeNote.quoted
+                          ? "(translated from Spanish)"
+                          : "(not his words)"}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <p className="text-sm sm:text-base text-white leading-relaxed">
-                  &ldquo;
-                  {isEp02
-                    ? lang === "es"
-                      ? ep02Challenge.kevin_note_es
-                      : ep02Challenge.kevin_note_en
-                    : lang === "es"
-                    ? ep01Challenge.kevin_note_verbatim
-                    : ep01Challenge.kevin_note_en}
-                  &rdquo;
+                  {refereeNote.quoted ? (
+                    <>&ldquo;{refereeNote.text}&rdquo;</>
+                  ) : (
+                    refereeNote.text
+                  )}
                 </p>
               </div>
 
@@ -910,7 +1018,7 @@ export default function DemoArenaSection({
                         </div>
                         <div className="text-white mt-0.5">
                           Total: {ep02Challenge.tokens.argon_total} tokens (
-                          {ep02Challenge.tokens.argon_steps} pasos)
+                          {ep02Challenge.tokens.argon_steps} {stepsWord})
                         </div>
                       </div>
                       <div className="text-right">
@@ -933,7 +1041,7 @@ export default function DemoArenaSection({
                         </div>
                         <div className="text-white mt-0.5">
                           Total: {ep02Challenge.tokens.opus_total} tokens (
-                          {ep02Challenge.tokens.opus_steps} pasos)
+                          {ep02Challenge.tokens.opus_steps} {stepsWord})
                         </div>
                       </div>
                       <div className="text-right">
@@ -964,10 +1072,7 @@ export default function DemoArenaSection({
                     </span>
                   </h4>
                   <ul className="space-y-2 text-xs sm:text-sm text-[#F5F2EB]">
-                    {(isEp02
-                      ? ep02Challenge.argon_features
-                      : ep01Challenge.argon_features
-                    ).map((feat, i) => (
+                    {argonFeatures.map((feat, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="font-mono-hud text-[#10B981] font-bold mt-0.5">
                           [+]
@@ -998,10 +1103,7 @@ export default function DemoArenaSection({
                       </span>
                     </h4>
                     <ul className="space-y-2 text-xs sm:text-sm text-[#F5F2EB]">
-                      {(isEp02
-                        ? ep02Challenge.opus_features
-                        : ep01Challenge.flash_features
-                      ).map((feat, i) => (
+                      {opponentFeatures.map((feat, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className="font-mono-hud text-[#FFD100] font-bold mt-0.5">
                             [·]
@@ -1023,10 +1125,7 @@ export default function DemoArenaSection({
                         : "BUGS & OMISSIONS DETECTED IN FLASH"}
                     </div>
                     <ul className="space-y-2 text-xs sm:text-sm text-[#94A3B8]">
-                      {(isEp02
-                        ? ep02Challenge.opus_observations
-                        : ep01Challenge.flash_problems
-                      ).map((prob, i) => (
+                      {opponentNotes.map((prob, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className="font-mono-hud text-[#FF3355] font-bold mt-0.5">
                             [!]
@@ -1048,15 +1147,25 @@ export default function DemoArenaSection({
                         ? `PROMPT OFICIAL INTEGRO · ${isEp02 ? `EP02 RETO 0${ep02Challenge.n}` : `EP01 NIVEL ${ep01Challenge.n}`} (${activeDir})`
                         : `OFFICIAL VERBATIM PROMPT · ${isEp02 ? `EP02 CHALLENGE 0${ep02Challenge.n}` : `EP01 LEVEL ${ep01Challenge.n}`} (${activeDir})`}
                     </span>
+                    {lang === "en" && (
+                      <span className="block mt-0.5 font-mono-hud text-[11px] text-[#94A3B8]">
+                        Shown verbatim, in the original Spanish.
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={handleCopyPrompt}
                     className="px-3.5 py-1.5 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    {copiedPrompt ? (
+                    {promptCopyState === "copied" ? (
                       <>
                         <PixelIcon name="check" size={14} />
                         {lang === "es" ? "Prompt Copiado" : "Prompt Copied"}
+                      </>
+                    ) : promptCopyState === "failed" ? (
+                      <>
+                        <PixelIcon name="close" size={14} />
+                        {lang === "es" ? "No se pudo copiar" : "Copy failed"}
                       </>
                     ) : (
                       <>
@@ -1096,7 +1205,9 @@ export default function DemoArenaSection({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#FFD100] font-bold mb-3">
-                    [IZQUIERDA] CAPTURAS DE GRABACION REAL — {opponentFullName.toUpperCase()}
+                    <SideTag lang={lang} side="first" />{" "}
+                    {lang === "es" ? "CAPTURAS DE GRABACION REAL" : "REAL RECORDING STILLS"}{" "}
+                    — {opponentFullName.toUpperCase()}
                   </h4>
                   <div className="space-y-3">
                     {(isEp02
@@ -1109,7 +1220,11 @@ export default function DemoArenaSection({
                       >
                         <img
                           src={src}
-                          alt={`${opponentShortName} capture ${src}`}
+                          alt={
+                            lang === "es"
+                              ? `Captura de ${opponentFullName}: ${src.replace("/stills/", "")}`
+                              : `${opponentFullName} still: ${src.replace("/stills/", "")}`
+                          }
                           className="w-full h-auto object-cover"
                           loading="lazy"
                         />
@@ -1122,7 +1237,9 @@ export default function DemoArenaSection({
                 </div>
                 <div>
                   <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#C084FC] font-bold mb-3">
-                    [DERECHA] CAPTURAS DE GRABACION REAL — GEMINI 4 ARGON
+                    <SideTag lang={lang} side="second" />{" "}
+                    {lang === "es" ? "CAPTURAS DE GRABACION REAL" : "REAL RECORDING STILLS"}{" "}
+                    — GEMINI 4 ARGON
                   </h4>
                   <div className="space-y-3">
                     {(isEp02
@@ -1135,7 +1252,11 @@ export default function DemoArenaSection({
                       >
                         <img
                           src={src}
-                          alt={`Argon capture ${src}`}
+                          alt={
+                            lang === "es"
+                              ? `Captura de Gemini 4 Argon: ${src.replace("/stills/", "")}`
+                              : `Gemini 4 Argon still: ${src.replace("/stills/", "")}`
+                          }
                           className="w-full h-auto object-cover"
                           loading="lazy"
                         />
@@ -1158,7 +1279,7 @@ export default function DemoArenaSection({
                   aria-label={
                     showBonus ? undefined : lang === "es" ? "Archivo fuente" : "Source file"
                   }
-                  className="flex items-center gap-2"
+                  className="flex flex-wrap items-center gap-2"
                 >
                   {!showBonus && (
                     <>
@@ -1201,10 +1322,15 @@ export default function DemoArenaSection({
                   onClick={handleCopySource}
                   className="px-3.5 py-1.5 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
-                  {copiedCode ? (
+                  {codeCopyState === "copied" ? (
                     <>
                       <PixelIcon name="check" size={14} />
                       {lang === "es" ? "HTML Copiado" : "HTML Copied"}
+                    </>
+                  ) : codeCopyState === "failed" ? (
+                    <>
+                      <PixelIcon name="close" size={14} />
+                      {lang === "es" ? "No se pudo copiar" : "Copy failed"}
                     </>
                   ) : (
                     <>
@@ -1241,6 +1367,12 @@ export default function DemoArenaSection({
             </div>
           )}
         </div>
+
+        {/* The copy buttons only change visually; this tells screen readers.
+            A new node per copy makes a repeated message read again. */}
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {copyFeedback && <span key={copyFeedback.id}>{copyAnnouncement}</span>}
+        </p>
       </div>
     </section>
   );

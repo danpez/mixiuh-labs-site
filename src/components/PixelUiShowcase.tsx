@@ -1,7 +1,19 @@
 "use client";
 
-import React, { useId, useState } from "react";
-import { EP04_CHALLENGES } from "@/data/ep04Data";
+import React, { useId, useMemo, useState } from "react";
+import { EP04_CHALLENGES, type Ep04ChallengeData } from "@/data/ep04Data";
+import { EP02_BENCHMARK_TOTALS } from "@/data/ep02Data";
+import {
+  CARBON_BENCHMARK_STATS,
+  CARBON_FULL_BENCHMARKS,
+  CARBON_PRICING_TABLE,
+} from "@/data/newsData";
+import {
+  RELEASE_TIMESTAMPS_CST,
+  getReleasedStatus,
+  type ReleaseKey,
+  type ReleasedState,
+} from "@/data/releaseSchedule";
 import {
   PixelButton,
   PixelKeycap,
@@ -53,6 +65,11 @@ import {
   type PixelIconCategoryId,
   type PixelCursorStyle,
   type AmbientSimulationMode,
+  type PixelBarChartItem,
+  type PixelCalendarEvent,
+  type PixelDataTableLabels,
+  type PixelMultiSeriesPoint,
+  type PixelSceneType,
 } from "@mixiuh/pixel-ui";
 
 interface Ep04Row {
@@ -75,85 +92,85 @@ const EP04_ROWS: Ep04Row[] = EP04_CHALLENGES.map((c) => ({
   winner: c.winner,
 }));
 
-const SOUND_PRESETS: {
-  id: PixelSoundName;
-  label: string;
-  desc_es: string;
-  desc_en: string;
-}[] = [
-  {
-    id: "click",
+/**
+ * One card per sound of the library's synth. Keyed by PixelSoundName, so
+ * TypeScript fails here when packages/mixiuh-pixel-ui/src/sound.ts adds a
+ * sound without a card. Notes/Hz are the ones sound.ts actually plays.
+ */
+const SOUND_PRESET_MAP: Record<
+  PixelSoundName,
+  { label: string; desc_es: string; desc_en: string }
+> = {
+  click: {
     label: "SFX_CLICK",
     desc_es: "Interruptor mecanico de terminal (1950Hz -> 620Hz)",
     desc_en: "Mechanical terminal micro-switch (1950Hz -> 620Hz)",
   },
-  {
-    id: "crank",
+  crank: {
     label: "SFX_TUNER_DIAL",
     desc_es: "Perilla rotativa VHF/UHF de televisor CRT",
     desc_en: "CRT TV VHF/UHF rotary tuner dial tick",
   },
-  {
-    id: "coin",
+  coin: {
     label: "SFX_COIN",
     desc_es: "Moneda arcade 8-bit (B5 -> E6 onda cuadrada)",
     desc_en: "8-bit arcade coin pickup (B5 -> E6 square wave)",
   },
-  {
-    id: "powerup",
+  powerup: {
     label: "SFX_POWERUP",
     desc_es: "Arpegio ascendente de 6 notas chiptune",
     desc_en: "6-note ascending chiptune arpeggio",
   },
-  {
-    id: "cartridgeInsert",
+  cartridgeInsert: {
     label: "SFX_FLOPPY_LOAD",
     desc_es: "Encaje mecanico de disquete 3.5 + acorde BIOS",
     desc_en: "3.5 floppy disk lock + BIOS boot chord",
   },
-  {
-    id: "laser",
+  laser: {
     label: "SFX_DEGAUSS",
     desc_es: "Pulso magnetico de desmagnetizacion CRT",
     desc_en: "Magnetic CRT degauss frequency sweep",
   },
-  {
-    id: "jump",
+  jump: {
     label: "SFX_JUMP",
     desc_es: "Salto de plataformas 8-bit (210Hz -> 680Hz)",
     desc_en: "8-bit platformer jump bend (210Hz -> 680Hz)",
   },
-  {
-    id: "hit",
+  hit: {
     label: "SFX_CRT_OFF",
     desc_es: "Colapso de tubo catodico / impacto retro",
     desc_en: "Cathode-ray tube power-down / impact thud",
   },
-  {
-    id: "dialogBlip",
+  dialogBlip: {
     label: "SFX_DIALOG",
     desc_es: "Voz sintetizada de dialogo RPG por letra",
     desc_en: "Per-character RPG typewriter voice blip",
   },
-  {
-    id: "achievement",
+  achievement: {
     label: "SFX_FANFARE",
     desc_es: "Fanfarria de logro desbloqueado en 4 tiempos",
     desc_en: "4-step achievement unlocked fanfare",
   },
-  {
-    id: "toggleOn",
+  toggleOn: {
     label: "SFX_SWITCH_ON",
     desc_es: "Interruptor fisico activado (C5 -> G5)",
     desc_en: "Physical dip-switch ON (C5 -> G5)",
   },
-  {
-    id: "hover",
+  toggleOff: {
+    label: "SFX_SWITCH_OFF",
+    desc_es: "Interruptor fisico desactivado (G5 -> A4)",
+    desc_en: "Physical dip-switch OFF (G5 -> A4)",
+  },
+  hover: {
     label: "SFX_TICK_1BIT",
     desc_es: "Pulso sutil 1-bit al pasar el cursor",
     desc_en: "Subtle 1-bit cursor hover tick",
   },
-];
+};
+
+const SOUND_PRESETS = (Object.keys(SOUND_PRESET_MAP) as PixelSoundName[]).map(
+  (id) => ({ id, ...SOUND_PRESET_MAP[id] })
+);
 
 const SPRITE_LIST: {
   id: PixelSpriteCharacter;
@@ -189,12 +206,431 @@ const ICON_COLORS: { hex: string; es: string; en: string }[] = [
   { hex: "#F5F2EB", es: "Tiza", en: "Chalk" },
 ];
 
+const SCENE_LIST: { scene: PixelSceneType; label: string }[] = [
+  { scene: "crt-boot", label: "CRT BIOS BOOT" },
+  { scene: "floppy-rw", label: "FLOPPY TRACK I/O" },
+  { scene: "ai-duel", label: "CARBON VS OPUS DUEL" },
+  { scene: "radar-sweep", label: "RADAR TARGET LOCK" },
+  { scene: "campfire", label: "8-BIT CAMPFIRE" },
+  { scene: "potion-lab", label: "SHADER ALCHEMY" },
+  { scene: "hourglass-sand", label: "PIXEL HOURGLASS" },
+  { scene: "cassette-spin", label: "DATA CASSETTE" },
+];
+
+/* Library counts quoted in the copy, read from the library itself */
+const ICON_COUNT = ALL_PIXEL_ICON_NAMES.length;
+const BRAND_ICON_COUNT =
+  PIXEL_ICON_CATEGORIES.find((c) => c.id === "brands")?.icons.length ?? 0;
+const SPRITE_COUNT = SPRITE_LIST.length;
+const SCENE_COUNT = SCENE_LIST.length;
+const SOUND_COUNT = SOUND_PRESETS.length;
+const CURSOR_COUNT = PIXEL_CURSOR_PRESETS.length;
+/** The "system" preset is the browser's own cursor, not pixel art. */
+const PIXEL_ART_CURSOR_COUNT = PIXEL_CURSOR_PRESETS.filter(
+  (c) => c.id !== "system"
+).length;
+
+/* ---------------------------------------------------------------------------
+   Figures shown in the demos. Every number comes from src/data (the official
+   Google DeepMind table and the EP02/EP04 logs); nothing is typed by hand.
+   --------------------------------------------------------------------------- */
+
+/** "65.2%" -> 65.2 */
+const pctValue = (s: string) => Number.parseFloat(s);
+/** "$4.00 USD" -> "$4" */
+const shortUsd = (s: string) => s.replace(/ USD$/, "").replace(/\.00$/, "");
+
+const carbonRow = (prefix: string) =>
+  CARBON_FULL_BENCHMARKS.find((r) => r.benchmark.startsWith(prefix));
+const TERMINAL_BENCH_NAME = "Terminal-Bench 4.0";
+const TERMINAL_BENCH = carbonRow(TERMINAL_BENCH_NAME);
+const SEC_BENCH = carbonRow("SEC-bench Pro");
+
+/** Standard per-1M-token price (<=200k context) from the official pricing table. */
+const priceOf = (modelPrefix: string) => {
+  const row = CARBON_PRICING_TABLE.find((r) => r.model_en.startsWith(modelPrefix));
+  return row
+    ? `${shortUsd(row.input_200k)} / ${shortUsd(row.output_200k)} USD`
+    : undefined;
+};
+const CARBON_PRICE = priceOf("Gemini 4 Carbon (Standard");
+const OPUS_PRICE = priceOf("Claude Opus 5.5");
+
+const joinDot = (...parts: (string | undefined)[]) =>
+  parts.filter(Boolean).join(" · ");
+
+/** Terminal-Bench 4.0 bars (official table): Carbon vs Claude Opus 5.5. */
+const TERMINAL_BENCH_BARS: PixelBarChartItem[] = TERMINAL_BENCH
+  ? [
+      {
+        label: `Gemini 4 Carbon (${TERMINAL_BENCH_NAME})`,
+        value: pctValue(TERMINAL_BENCH.carbon),
+        maxValue: 70,
+        displayValue: TERMINAL_BENCH.carbon,
+        tone: "cyan",
+        badge: TERMINAL_BENCH.winner === "carbon" ? "#1" : undefined,
+      },
+      {
+        label: `Claude Opus 5.5 (${TERMINAL_BENCH_NAME})`,
+        value: pctValue(TERMINAL_BENCH.opus55),
+        maxValue: 70,
+        displayValue: TERMINAL_BENCH.opus55,
+        tone: "coral",
+        badge: TERMINAL_BENCH.winner === "opus55" ? "#1" : undefined,
+      },
+    ]
+  : [];
+
+/** Carbon donuts: the two headline rows of the official table. */
+const CARBON_DONUTS = [
+  { row: TERMINAL_BENCH, label: "TERMINAL-BENCH 4.0", tone: "cyan" as const },
+  { row: SEC_BENCH, label: "SEC-BENCH PRO", tone: "emerald" as const },
+].flatMap(({ row, label, tone }) =>
+  row ? [{ label, value: pctValue(row.carbon), displayValue: row.carbon, tone }] : []
+);
+
+type Ep04Tier = Ep04ChallengeData["winner"];
+const EP04_TIERS: Ep04Tier[] = ["haiku", "sonnet", "opus"];
+const EP04_TIER_NAME: Record<Ep04Tier, string> = {
+  haiku: "Haiku 5.5",
+  sonnet: "Sonnet 5.5",
+  opus: "Opus 5.5",
+};
+const EP04_TIER_COLOR: Record<Ep04Tier, string> = {
+  haiku: "#10B981",
+  sonnet: "#FFD100",
+  opus: "#A855F7",
+};
+const ep04Code = (c: Ep04ChallengeData) => `R${String(c.n).padStart(2, "0")}`;
+const ep04Challenge = (n: number) => EP04_CHALLENGES.find((c) => c.n === n);
+/** "61 FPS (Puente Colgante + Faro)" -> "61 FPS" */
+const fpsOf = (s: string) => /^\d+ FPS/.exec(s)?.[0];
+
+/** Short x-axis names of the EP04 challenges, by challenge number. */
+const EP04_SHORT: Record<number, { es: string; en: string }> = {
+  1: { es: "ROVER", en: "ROVER" },
+  2: { es: "PHYSARUM", en: "PHYSARUM" },
+  3: { es: "PUENTE", en: "BRIDGE" },
+  4: { es: "TB-303", en: "TB-303" },
+  5: { es: "BVH-RT", en: "BVH-RT" },
+  6: { es: "CHIP-8", en: "CHIP-8" },
+};
+
+/** Badge and icon of each EP04 challenge in the autocomplete demo. */
+const EP04_OPTION_STYLE: Record<number, { badge: string; icon: PixelIconName }> = {
+  1: { badge: "PHYSICS", icon: "rocket" },
+  2: { badge: "WEBGL2", icon: "dna" },
+  3: { badge: "XPBD", icon: "hammer" },
+  4: { badge: "WEBAUDIO", icon: "music" },
+  5: { badge: "RAYTRACING", icon: "gpu" },
+  6: { badge: "EMULATOR", icon: "gamepad" },
+};
+
+/** Real EP04 minutes per run; the y axis tops out at the next multiple of 20. */
+const EP04_MAX_MIN = Math.max(
+  ...EP04_CHALLENGES.flatMap((c) => EP04_TIERS.map((t) => c[t].min))
+);
+const EP04_CHART_MAX_Y = Math.max(20, Math.ceil(EP04_MAX_MIN / 20) * 20);
+
+/** EP04 Reto 04: Haiku's cost against Opus's (the "24x cheaper" run). */
+const ACID_RUN = ep04Challenge(4);
+const HAIKU_ROI = ACID_RUN
+  ? {
+      ratio: Math.round(ACID_RUN.opus.usd / ACID_RUN.haiku.usd),
+      savedPct: Math.round((1 - ACID_RUN.haiku.usd / ACID_RUN.opus.usd) * 100),
+      haikuUsd: ACID_RUN.haiku.usd.toFixed(2),
+      opusUsd: ACID_RUN.opus.usd.toFixed(2),
+      code: ep04Code(ACID_RUN),
+    }
+  : undefined;
+/** EP04 Reto 05: Sonnet's path tracer. */
+const PATH_TRACER_RUN = ep04Challenge(5);
+const EP04_RUN_COUNT = EP04_CHALLENGES.length * EP04_TIERS.length;
+
+/** Same text and tones as the home calendar (CALENDAR_LABELS / EPISODE_TONE in src/app/page.tsx). */
+const RELEASE_EVENTS: Record<
+  ReleaseKey,
+  { es: string; en: string; tone: PixelColorTone }
+> = {
+  ep01: { es: "EP01: Argon vs 3.8 Flash (10-0)", en: "EP01: Argon vs 3.8 Flash (10-0)", tone: "chalk" },
+  ep02: { es: "EP02: Argon vs Claude Opus 5.5 (4-2)", en: "EP02: Argon vs Claude Opus 5.5 (4-2)", tone: "violet" },
+  cc01: { es: "CC01: OVERFIT Studio 3D (@tenito03)", en: "CC01: OVERFIT Studio 3D (@tenito03)", tone: "yellow" },
+  ep03: { es: "EP03: Sin Kit vs Superpowers Kit (4-2)", en: "EP03: Raw vs Superpowers Kit (4-2)", tone: "emerald" },
+  ep04: { es: "EP04: Escalera Claude 5.5 (18 corridas)", en: "EP04: Claude 5.5 Ladder (18 runs)", tone: "coral" },
+  carbon01: { es: "Noticias IA #01: Gemini 4 Carbon", en: "AI News #01: Gemini 4 Carbon", tone: "cyan" },
+};
+/** Release day of the current @mixiuh/pixel-ui version (same date as the home calendar). */
+const PIXEL_UI_RELEASE_DATE = "2026-10-31";
+
+/** English labels of the EP04 table (stable object: the table memoizes on it). */
+const EP04_TABLE_LABELS_EN: Partial<PixelDataTableLabels> = {
+  search: "Search the table",
+  searchPlaceholder: "Search...",
+  clearSearch: "Clear search",
+  noResults: "No results",
+  resultsCount: (count) => (count === 1 ? "1 result" : `${count} results`),
+  exportCsv: "Export CSV",
+  previous: "Previous",
+  next: "Next",
+  rowsSummary: (from, to, total) => `${from}–${to} of ${total}`,
+  pageOf: (page, pages) => `Page ${page} of ${pages}`,
+  sortHint: "Sort by",
+  sortStatus: (column, direction) =>
+    `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
+};
+
+/** Components named by each "COPY JSX" button (its accessible name and confirmation). */
+const COPY_JSX_TARGETS: Record<string, string> = {
+  "comp-input": "PixelInput",
+  "comp-select": "PixelSelect",
+  "comp-check": "PixelCheckbox",
+  "social-bar": "PixelSocialBar",
+};
+
+type Bilingual = { es: string; en: string };
+
+/** Section 10 comparison matrix. `bad` cells are drawn in coral. */
+const COMPARISON_ROWS: {
+  capability: Bilingual;
+  mixiuh: Bilingual & { className: string };
+  others: (Bilingual & { bad?: boolean })[];
+}[] = [
+  {
+    capability: {
+      es: "Formularios Pro (Input, Select, Autocomplete, Checks, Radio, Slider, Calendar)",
+      en: "Pro Forms (Input, Select, Autocomplete, Checks, Radio, Slider, Calendar)",
+    },
+    mixiuh: {
+      es: "INCLUIDO (desde v2.2, con Audio 8-Bit + Tones)",
+      en: "INCLUDED (since v2.2, with 8-Bit Audio + Tones)",
+      className: "text-[#10B981]",
+    },
+    others: [
+      { es: "Incluido (Estilo corporativo plano)", en: "Included (Flat corporate style)" },
+      { es: "Incluido (Pesado, sin pixel-art)", en: "Included (Heavy, no pixel art)" },
+      { es: "Incompleto (Sin Autocomplete ni Calendar)", en: "Incomplete (No Autocomplete or Calendar)", bad: true },
+    ],
+  },
+  {
+    capability: {
+      es: "Visualizacion de Datos (MultiLine, Bar, Versus, Sparkline, Donut Gauge)",
+      en: "Data Visualization (MultiLine, Bar, Versus, Sparkline, Donut Gauge)",
+    },
+    mixiuh: { es: "INCLUIDO NATIVO (SVG CrispEdges)", en: "BUILT IN (SVG CrispEdges)", className: "text-[#10B981]" },
+    others: [
+      { es: "Requiere Recharts externo", en: "Requires external Recharts" },
+      { es: "Paquete empresarial separado", en: "Separate enterprise package" },
+      { es: "No existe", en: "Not available", bad: true },
+    ],
+  },
+  {
+    capability: {
+      es: 'Hardware Retro 3D (Monitor CRT 3D, Disquetes 3.5", Perilla VHF, Keycaps)',
+      en: '3D Retro Hardware (3D CRT Monitor, 3.5" Floppies, VHF Dial, Keycaps)',
+    },
+    mixiuh: {
+      es: "EXCLUSIVO MIXIUH (3D + Degauss + Fosforo)",
+      en: "MIXIUH EXCLUSIVE (3D + Degauss + Phosphor)",
+      className: "text-[#00E5FF]",
+    },
+    others: [
+      { es: "No existe", en: "Not available", bad: true },
+      { es: "No existe", en: "Not available", bad: true },
+      { es: "Solo bordes 2D basicos", en: "Basic 2D borders only", bad: true },
+    ],
+  },
+  {
+    capability: {
+      es: "Iconografia Vectorial Pixel-Art + Marcas (YouTube, X, Instagram, TikTok, Google)",
+      en: "Pixel-Art Vector Icons + Brands (YouTube, X, Instagram, TikTok, Google)",
+    },
+    mixiuh: {
+      es: `${ICON_COUNT} ICONOS 16x16 NATIVOS (Cero Emojis)`,
+      en: `${ICON_COUNT} NATIVE 16x16 ICONS (Zero Emojis)`,
+      className: "text-[#10B981]",
+    },
+    others: [
+      { es: "Usa Lucide (Lineas curvas)", en: "Uses Lucide (Curved strokes)" },
+      { es: "Material Icons (Curvos)", en: "Material Icons (Curved)" },
+      { es: "Menos de 25 iconos", en: "Fewer than 25 icons" },
+    ],
+  },
+  {
+    capability: {
+      es: "Navegacion Pro y Accesibilidad (Command Palette Ctrl+K, Tabs con teclado, Toasts, foco visible, prefers-reduced-motion)",
+      en: "Pro Navigation & Accessibility (Ctrl+K Command Palette, keyboard Tabs, Toasts, visible focus, prefers-reduced-motion)",
+    },
+    mixiuh: {
+      es: "INCLUIDO (v2.5 · WAI-ARIA + teclado)",
+      en: "INCLUDED (v2.5 · WAI-ARIA + keyboard)",
+      className: "text-[#10B981]",
+    },
+    others: [
+      { es: "Incluido (cmdk + Radix por separado)", en: "Included (cmdk + Radix separately)" },
+      { es: "Parcial (sin Command Palette)", en: "Partial (no Command Palette)" },
+      { es: "No existe", en: "Not available", bad: true },
+    ],
+  },
+  {
+    capability: {
+      es: "Audio Chiptune WebAudio + Cursores + Fondo IA + Scroll Procedural",
+      en: "WebAudio Chiptune + Cursors + AI Background + Procedural Scroll",
+    },
+    mixiuh: {
+      es: `INCLUIDO (${SOUND_COUNT} SFX + Secuenciador + Bots IA)`,
+      en: `INCLUDED (${SOUND_COUNT} SFX + Sequencer + AI Bots)`,
+      className: "text-[#FFD100]",
+    },
+    others: [
+      { es: "No existe", en: "Not available", bad: true },
+      { es: "No existe", en: "Not available", bad: true },
+      { es: "No existe", en: "Not available", bad: true },
+    ],
+  },
+];
+
+/** Section 10 roadmap cards. Versions follow the library README (2.2 forms, 2.3 overlays, 2.5 data & overlays). */
+const ROADMAP_PHASES: {
+  borderClass: string;
+  badgeClass: string;
+  badge: Bilingual;
+  title: Bilingual;
+  done?: boolean;
+  items: Bilingual[];
+}[] = [
+  {
+    borderClass: "border-[#10B981]",
+    badgeClass: "bg-[#10B981]",
+    badge: { es: "FASE 1 · COMPLETADO (v2.2)", en: "PHASE 1 · DONE (v2.2)" },
+    title: {
+      es: "Core Pixel-Art, Hardware 3D, Formularios y Graficas",
+      en: "Pixel-Art Core, 3D Hardware, Forms & Charts",
+    },
+    items: [
+      {
+        es: `${ICON_COUNT} iconos 16x16 (incluye ${BRAND_ICON_COUNT} marcas: X, YT, IG, TikTok, Google)`,
+        en: `${ICON_COUNT} 16x16 icons (incl. ${BRAND_ICON_COUNT} brands: X, YT, IG, TikTok, Google)`,
+      },
+      { es: 'Monitor CRT 3D + Disquetes 3.5" + Keycaps', en: '3D CRT Monitor + 3.5" Floppies + Keycaps' },
+      {
+        es: "Input, Select, Autocomplete, Checkbox, Radio, Slider",
+        en: "Input, Select, Autocomplete, Checkbox, Radio, Slider",
+      },
+      {
+        es: "Collapse, Calendar, MultiLineChart, DonutGauge",
+        en: "Collapse, Calendar, MultiLineChart, DonutGauge",
+      },
+      {
+        es: `${SPRITE_COUNT} Sprites + ${SCENE_COUNT} Escenas + ${SOUND_COUNT} SFX + Scroll Procedural`,
+        en: `${SPRITE_COUNT} Sprites + ${SCENE_COUNT} Scenes + ${SOUND_COUNT} SFX + Procedural Scroll`,
+      },
+    ],
+  },
+  {
+    borderClass: "border-[#00E5FF]",
+    badgeClass: "bg-[#00E5FF]",
+    badge: { es: "FASE 2 · COMPLETADO (v2.5)", en: "PHASE 2 · DONE (v2.5)" },
+    title: {
+      es: "Command Palette, Notificaciones, DataGrid y Overlays",
+      en: "Command Palette, Notifications, DataGrid & Overlays",
+    },
+    done: true,
+    items: [
+      { es: "PixelCommandPalette (Ctrl+K / Cmd+K estilo BIOS)", en: "PixelCommandPalette (BIOS-style Ctrl+K / Cmd+K)" },
+      { es: "PixelToaster + pixelToast (alertas con fanfarria)", en: "PixelToaster + pixelToast (alerts with fanfare)" },
+      { es: "PixelTabs, PixelCopyButton y PixelBackToTop", en: "PixelTabs, PixelCopyButton & PixelBackToTop" },
+      {
+        es: "PixelDataTable (orden, filtros, paginacion, export CSV)",
+        en: "PixelDataTable (sorting, filters, pagination, CSV export)",
+      },
+      {
+        es: "PixelDrawer, PixelSheet, PixelTooltip y PixelPopover",
+        en: "PixelDrawer, PixelSheet, PixelTooltip & PixelPopover",
+      },
+      {
+        es: "PixelContextMenu (menu clic derecho + Shift+F10)",
+        en: "PixelContextMenu (right-click menu + Shift+F10)",
+      },
+    ],
+  },
+  {
+    borderClass: "border-[#FFD100]",
+    badgeClass: "bg-[#FFD100]",
+    badge: { es: "FASE 3 · FLUJOS AVANZADOS Y MEDIA (v3.0)", en: "PHASE 3 · ADVANCED FLOWS & MEDIA (v3.0)" },
+    title: {
+      es: "Kanban, Editor de Codigo, Grafos de Nodos y Graficas 3D",
+      en: "Kanban, Code Editor, Node Graphs & 3D Charts",
+    },
+    items: [
+      {
+        es: "PixelKanbanBoard (Drag & Drop con fisica de cartuchos)",
+        en: "PixelKanbanBoard (Drag & Drop with cartridge physics)",
+      },
+      {
+        es: "PixelCodeEditor & DiffViewer (Comparador lado a lado)",
+        en: "PixelCodeEditor & DiffViewer (Side-by-side comparison)",
+      },
+      {
+        es: "PixelNodeGraph (Editor visual de flujos de agentes IA)",
+        en: "PixelNodeGraph (Visual AI-agent flow editor)",
+      },
+      {
+        es: "PixelRadarChart, Heatmap & Candlestick financiero",
+        en: "PixelRadarChart, Heatmap & financial Candlestick",
+      },
+      {
+        es: "PixelFileDropzone (Subida de archivos con animacion Floppy)",
+        en: "PixelFileDropzone (File upload with a Floppy animation)",
+      },
+    ],
+  },
+  {
+    borderClass: "border-[#A855F7]",
+    badgeClass: "bg-[#A855F7]",
+    badge: {
+      es: "FASE 4 · ECOSISTEMA CLI Y MULTI-FRAMEWORK (v4.0)",
+      en: "PHASE 4 · CLI & MULTI-FRAMEWORK ECOSYSTEM (v4.0)",
+    },
+    title: {
+      es: "CLI npx mixiuh-pixel-ui, Editor de Sprites y Temas",
+      en: "npx mixiuh-pixel-ui CLI, Sprite Editor & Themes",
+    },
+    items: [
+      {
+        es: "CLI oficial: npx @mixiuh/pixel-ui add [component]",
+        en: "Official CLI: npx @mixiuh/pixel-ui add [component]",
+      },
+      {
+        es: "Theme Builder en vivo (Exportador de variables CSS/Tailwind)",
+        en: "Live Theme Builder (CSS/Tailwind variable exporter)",
+      },
+      {
+        es: "Editor de Sprites e Iconos 16x16 en el navegador",
+        en: "In-browser 16x16 Sprite & Icon Editor",
+      },
+      {
+        es: "Adaptadores Web Components / Vue / Svelte / Astro",
+        en: "Web Components / Vue / Svelte / Astro adapters",
+      },
+      {
+        es: "Kit oficial de Figma con Auto-Layout y tokens",
+        en: "Official Figma kit with Auto-Layout & tokens",
+      },
+    ],
+  },
+];
+
 export interface PixelUiShowcaseProps {
   lang: "es" | "en";
   cursorStyle?: PixelCursorStyle;
   onChangeCursor?: (c: PixelCursorStyle) => void;
   ambientMode?: AmbientSimulationMode;
   onChangeAmbient?: (m: AmbientSimulationMode) => void;
+  /**
+   * Which productions are public (page state, which honours ?preview=all).
+   * Without it the calendar demo uses the visitor's clock.
+   */
+  released?: ReleasedState;
 }
 
 export default function PixelUiShowcase({
@@ -203,7 +639,9 @@ export default function PixelUiShowcase({
   onChangeCursor,
   ambientMode = "ai-ecosystem",
   onChangeAmbient,
+  released,
 }: PixelUiShowcaseProps) {
+  const es = lang === "es";
   const { enabled: soundEnabled, play, toggle: toggleSound } = usePixelSound();
   // Prefix for the ids that label each selector group and SFX card
   const uid = useId();
@@ -227,18 +665,116 @@ export default function PixelUiShowcase({
   const [customSize, setCustomSize] = useState<"sm" | "md" | "lg">("md");
   const [demoInput, setDemoInput] = useState("gemini-4-carbon-zero-shot");
   const [demoSelect, setDemoSelect] = useState("carbon");
-  const [demoAuto, setDemoAuto] = useState("ep04-acid-synth");
+  const [demoAuto, setDemoAuto] = useState("ep04-r04");
   const [demoCheckA, setDemoCheckA] = useState(true);
   const [demoCheckB, setDemoCheckB] = useState(true);
   const [demoCheckC, setDemoCheckC] = useState(false);
   const [demoRadio, setDemoRadio] = useState("60fps");
   const [demoSlider, setDemoSlider] = useState(60);
-  const [demoCalDate, setDemoCalDate] = useState("2026-10-30");
+  const [demoCalDate, setDemoCalDate] = useState(PIXEL_UI_RELEASE_DATE);
   const [demoTab, setDemoTab] = useState<"palette" | "toasts" | "a11y">(
     "palette"
   );
   const [demoDrawer, setDemoDrawer] = useState(false);
   const [demoSheet, setDemoSheet] = useState(false);
+
+  // Release calendar built like the home one: the timestamps that gate the
+  // content (published productions only) plus the current Pixel UI release.
+  const rel = useMemo<ReleasedState>(
+    () => released ?? getReleasedStatus(),
+    [released]
+  );
+  const calendarEvents: PixelCalendarEvent[] = [
+    ...(Object.keys(RELEASE_TIMESTAMPS_CST) as ReleaseKey[])
+      .filter((key) => rel[key])
+      .map((key) => ({
+        date: RELEASE_TIMESTAMPS_CST[key].slice(0, 10),
+        label: es ? RELEASE_EVENTS[key].es : RELEASE_EVENTS[key].en,
+        tone: RELEASE_EVENTS[key].tone,
+      })),
+    {
+      date: PIXEL_UI_RELEASE_DATE,
+      label: `Mixiuh Pixel UI v${PIXEL_UI_VERSION}`,
+      tone: "yellow" as const,
+    },
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Sublabels lead with the figure: the list truncates them on phones and the
+  // trigger truncates them on desktop. Sonnet/Haiku per-token prices have no
+  // source in src/data, so those two quote their EP04 runs instead.
+  const modelOptions = [
+    {
+      value: "carbon",
+      label: "Gemini 4 Carbon",
+      sublabel: joinDot(
+        TERMINAL_BENCH && `${TERMINAL_BENCH.carbon} ${TERMINAL_BENCH_NAME}`,
+        CARBON_PRICE
+      ),
+      badge: "#1 GLOBAL",
+      icon: "gemini-brand" as const,
+    },
+    {
+      value: "opus",
+      label: "Claude Opus 5.5",
+      sublabel: joinDot(
+        TERMINAL_BENCH && `${TERMINAL_BENCH.opus55} ${TERMINAL_BENCH_NAME}`,
+        OPUS_PRICE
+      ),
+      badge: "ARCHITECT",
+      icon: "anthropic" as const,
+    },
+    {
+      value: "sonnet",
+      label: "Claude Sonnet 5.5",
+      sublabel: PATH_TRACER_RUN
+        ? joinDot(
+            `Path Tracer ${fpsOf(PATH_TRACER_RUN.sonnet.fps) ?? `${PATH_TRACER_RUN.sonnet.min} min`}`,
+            `EP04 ${ep04Code(PATH_TRACER_RUN)}`
+          )
+        : undefined,
+      badge: "BALANCED",
+      icon: "cpu" as const,
+    },
+    {
+      value: "haiku",
+      label: "Claude Haiku 5.5",
+      sublabel: HAIKU_ROI
+        ? joinDot(
+            es
+              ? `${HAIKU_ROI.ratio}x mas barato que Opus`
+              : `${HAIKU_ROI.ratio}x cheaper than Opus`,
+            `EP04 ${HAIKU_ROI.code}`
+          )
+        : undefined,
+      badge: "ROI KING",
+      icon: "bolt" as const,
+    },
+  ];
+
+  // One option per EP04 challenge: its winner, that run's cost and frame rate
+  const ep04Options = EP04_CHALLENGES.map((c) => {
+    const run = c[c.winner];
+    const style = EP04_OPTION_STYLE[c.n];
+    return {
+      value: `ep04-${ep04Code(c).toLowerCase()}`,
+      label: `EP04 ${ep04Code(c)}: ${es ? c.name_es : c.name_en}`,
+      sublabel: joinDot(
+        `${EP04_TIER_NAME[c.winner]} ($${run.usd.toFixed(2)})`,
+        fpsOf(run.fps)
+      ),
+      badge: style?.badge,
+      icon: style?.icon,
+    };
+  });
+
+  const ep04MinutesData: PixelMultiSeriesPoint[] = EP04_CHALLENGES.map((c) => {
+    const short = EP04_SHORT[c.n];
+    return {
+      label: short ? `${ep04Code(c)} ${es ? short.es : short.en}` : ep04Code(c),
+      values: { haiku: c.haiku.min, sonnet: c.sonnet.min, opus: c.opus.min },
+    };
+  });
+
   const contextMenuItems: PixelMenuItem[] = [
     { type: "label", id: "lbl", label: lang === "es" ? "CARTUCHO EP04" : "EP04 CARTRIDGE" },
     {
@@ -273,11 +809,11 @@ export default function PixelUiShowcase({
 } from "@mixiuh/pixel-ui";
 
 <PixelCommandPalette open={open} onOpenChange={setOpen} items={[
-  { id: "home", label: "Inicio", icon: "home", onSelect: goHome },
+  { id: "home", label: "${es ? "Inicio" : "Home"}", icon: "home", onSelect: goHome },
 ]} />
 <PixelToaster />
 
-pixelToast.show({ title: "GUARDADO", tone: "emerald", icon: "check" });`;
+pixelToast.show({ title: "${es ? "GUARDADO" : "SAVED"}", tone: "emerald", icon: "check" });`;
 
   const copyCode = (id: string, text: string) => {
     void copyTextToClipboard(text);
@@ -286,11 +822,39 @@ pixelToast.show({ title: "GUARDADO", tone: "emerald", icon: "check" });`;
     setTimeout(() => setCopiedSnippet(null), 2000);
   };
 
-  // Screen-reader confirmation for copyCode (sprite cards and most COPY JSX
-  // buttons have no visible feedback; the icon message is not a live region).
+  // "COPY JSX" button: its accessible name starts with the visible text and
+  // names the component it copies (all of them used to read just "COPY JSX")
+  const copyJsxButton = (id: string, snippet: string, className: string) => {
+    const component = COPY_JSX_TARGETS[id] ?? id;
+    const copied = copiedSnippet === id;
+    return (
+      <button
+        type="button"
+        onClick={() => copyCode(id, snippet)}
+        aria-label={
+          copied
+            ? es
+              ? `Copiado: ${component}`
+              : `Copied: ${component}`
+            : es
+            ? `Copiar JSX: ${component}`
+            : `Copy JSX: ${component}`
+        }
+        className={`${className} shrink-0 whitespace-nowrap text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer`}
+      >
+        {copied ? (es ? "COPIADO" : "COPIED") : es ? "COPIAR JSX" : "COPY JSX"}
+      </button>
+    );
+  };
+
+  // Screen-reader confirmation for copyCode (sprite cards have no visible
+  // feedback, and neither the COPY JSX label nor the icon message is a live region).
   const copyStatus = (() => {
     if (!copiedSnippet) return "";
-    const es = lang === "es";
+    const target = COPY_JSX_TARGETS[copiedSnippet];
+    if (target) {
+      return es ? `JSX de ${target} copiado` : `${target} JSX copied`;
+    }
     if (copiedSnippet.startsWith("sprite-")) {
       const name =
         SPRITE_LIST.find((sp) => `sprite-${sp.id}` === copiedSnippet)?.name ??
@@ -356,8 +920,8 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
               <p className="text-sm sm:text-base font-medium text-[#090B10]/85 leading-relaxed">
                 {lang === "es"
-                  ? `Creada desde cero por Mixiuh Labs: combina superficies opacas de alto contraste con monitores CRT 3D, disquetes 3.5", ${ALL_PIXEL_ICON_NAMES.length} iconos vectoriales 16x16 (incluyendo 28 marcas y redes sociales como YouTube, X, Instagram, TikTok, Facebook, Google, GitHub, Discord), 16 sprites animados, 8 escenas pixel-art, 6 cursores personalizados, generacion procedural por pixeles al hacer scroll y un secuenciador WebAudio 8-bit.`
-                  : `Built from scratch by Mixiuh Labs: combines high-contrast opaque surfaces with 3D CRT monitors, 3.5" floppy disks, ${ALL_PIXEL_ICON_NAMES.length} 16x16 vector icons (including 28 social & tech brands like YouTube, X, Instagram, TikTok, Facebook, Google, GitHub, Discord), 16 animated sprites, 8 pixel-art scenes, 6 custom cursors, procedural pixel scroll reveal, and an 8-bit WebAudio synth & sequencer.`}
+                  ? `Creada desde cero por Mixiuh Labs: combina superficies opacas de alto contraste con monitores CRT 3D, disquetes 3.5", ${ICON_COUNT} iconos vectoriales 16x16 (incluyendo ${BRAND_ICON_COUNT} marcas y redes sociales como YouTube, X, Instagram, TikTok, Facebook, Google, GitHub, Discord), ${SPRITE_COUNT} sprites animados, ${SCENE_COUNT} escenas pixel-art, ${PIXEL_ART_CURSOR_COUNT} cursores pixel-art, generacion procedural por pixeles al hacer scroll y un secuenciador WebAudio 8-bit con ${SOUND_COUNT} efectos.`
+                  : `Built from scratch by Mixiuh Labs: combines high-contrast opaque surfaces with 3D CRT monitors, 3.5" floppy disks, ${ICON_COUNT} 16x16 vector icons (including ${BRAND_ICON_COUNT} social & tech brands like YouTube, X, Instagram, TikTok, Facebook, Google, GitHub, Discord), ${SPRITE_COUNT} animated sprites, ${SCENE_COUNT} pixel-art scenes, ${PIXEL_ART_CURSOR_COUNT} pixel-art cursors, procedural pixel scroll reveal, and an 8-bit WebAudio synth & sequencer with ${SOUND_COUNT} effects.`}
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -473,7 +1037,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 1: CUSTOM PIXEL MOUSE & PROCEDURAL AI ECOSYSTEM CONTROLS */}
         <PixelWindow
-          title="01 // PERSONALIZACION DE CURSOR PIXEL-ART Y ECOSISTEMA IA DE FONDO"
+          title={
+            es
+              ? "01 // PERSONALIZACION DE CURSOR PIXEL-ART Y ECOSISTEMA IA DE FONDO"
+              : "01 // PIXEL-ART CURSOR CUSTOMIZATION & AI BACKGROUND ECOSYSTEM"
+          }
           subtitle={
             lang === "es"
               ? "Cambia el puntero del mouse en vivo y controla los agentes IA procedurales que patrullan el fondo"
@@ -491,14 +1059,16 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   id={`${uid}-cursor-label`}
                   className="font-pixel text-xs text-[#FFD100]"
                 >
-                  A. 6 CURSORES PIXEL-ART NATIVOS (USE_PIXEL_CURSOR)
+                  {es
+                    ? `A. ${PIXEL_ART_CURSOR_COUNT} CURSORES PIXEL-ART + EL DEL SISTEMA (USE_PIXEL_CURSOR)`
+                    : `A. ${PIXEL_ART_CURSOR_COUNT} PIXEL-ART CURSORS + THE SYSTEM ONE (USE_PIXEL_CURSOR)`}
                 </span>
                 <PixelIcon name="cursor-hand" size={16} color="#FFD100" />
               </div>
               <p className="text-xs text-[#94A3B8]">
                 {lang === "es"
-                  ? "Haz clic en cualquiera de los 6 estilos para cambiar inmediatamente el cursor de toda la web (incluye estado normal + mano pixelada sobre botones):"
-                  : "Click any of the 6 styles to immediately switch the cursor across the entire website (includes normal state + pixel hand on buttons):"}
+                  ? `Haz clic en cualquiera de los ${CURSOR_COUNT} estilos para cambiar inmediatamente el cursor de toda la web (los pixel-art incluyen estado normal + mano pixelada sobre botones):`
+                  : `Click any of the ${CURSOR_COUNT} styles to immediately switch the cursor across the entire website (the pixel-art ones include a normal state + pixel hand on buttons):`}
               </p>
               <div
                 role="group"
@@ -526,7 +1096,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                           color={active ? "#090B10" : c.accent}
                         />
                         <span className="font-pixel text-[10px]">
-                          {active ? "ACTIVO" : "SELECT"}
+                          {active
+                            ? es
+                              ? "ACTIVO"
+                              : "ACTIVE"
+                            : es
+                            ? "ELEGIR"
+                            : "SELECT"}
                         </span>
                       </div>
                       <div className="font-mono-hud text-xs font-bold truncate">
@@ -545,7 +1121,9 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   id={`${uid}-ambient-label`}
                   className="font-pixel text-xs text-[#00E5FF]"
                 >
-                  B. FONDO PROCEDURAL CON AGENTES IA (PIXEL_AMBIENT_BG)
+                  {es
+                    ? "B. FONDO PROCEDURAL CON AGENTES IA (PIXEL_AMBIENT_BG)"
+                    : "B. PROCEDURAL AI-AGENT BACKGROUND (PIXEL_AMBIENT_BG)"}
                 </span>
                 <PixelIcon name="brain-ai" size={16} color="#00E5FF" />
               </div>
@@ -600,7 +1178,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       }`}
                     >
                       <div className="font-pixel text-[10px] mb-1">
-                        {active ? "● RUNNING" : "○ MODE"}
+                        {active
+                          ? es
+                            ? "● ACTIVO"
+                            : "● RUNNING"
+                          : es
+                          ? "○ MODO"
+                          : "○ MODE"}
                       </div>
                       <div className="font-bold">
                         {lang === "es" ? m.es : m.en}
@@ -613,20 +1197,28 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </div>
         </PixelWindow>
 
-        {/* SECTION 2: 8-BIT STEP SEQUENCER & 12-SOUND WEBAUDIO SYNTHESIZER */}
+        {/* SECTION 2: 8-BIT STEP SEQUENCER & WEBAUDIO SYNTHESIZER (ONE CARD PER LIBRARY SOUND) */}
         <PixelWindow
-          title="02 // SECUENCIADOR CHIPTUNE 8-BIT + SINTETIZADOR WEBAUDIO"
+          title={
+            es
+              ? "02 // SECUENCIADOR CHIPTUNE 8-BIT + SINTETIZADOR WEBAUDIO"
+              : "02 // 8-BIT CHIPTUNE SEQUENCER + WEBAUDIO SYNTHESIZER"
+          }
           subtitle={
             lang === "es"
-              ? "Compon ritmos 8-bit en vivo y prueba los 12 efectos procedurales sin archivos MP3"
-              : "Compose live 8-bit loops and test all 12 procedural sound effects with zero MP3 files"
+              ? `Compon ritmos 8-bit en vivo y prueba los ${SOUND_COUNT} efectos procedurales sin archivos MP3`
+              : `Compose live 8-bit loops and test all ${SOUND_COUNT} procedural sound effects with zero MP3 files`
           }
           tone="cyan"
           statusLeft="WEBAUDIO SYNTHESIS"
           statusRight="ZERO EXTERNAL ASSETS"
         >
           <div className="space-y-6">
-            <PixelAudioSequencer />
+            <PixelAudioSequencer
+              cellLabel={(track, step) =>
+                es ? `${track} paso ${step}` : `${track} step ${step}`
+              }
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {SOUND_PRESETS.map((s) => (
@@ -669,16 +1261,27 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 3: 16 ANIMATED SPRITES + 8 PIXEL-ART MINI SCENES */}
         <PixelWindow
-          title="03 // 16 SPRITES PIXEL-ART ANIMADOS Y 8 ESCENAS PROCEDURALES"
-          subtitle="Controla el estado de animacion en vivo y copia cualquier sprite o escena"
+          title={
+            es
+              ? `03 // ${SPRITE_COUNT} SPRITES PIXEL-ART ANIMADOS Y ${SCENE_COUNT} ESCENAS PROCEDURALES`
+              : `03 // ${SPRITE_COUNT} ANIMATED PIXEL-ART SPRITES & ${SCENE_COUNT} PROCEDURAL SCENES`
+          }
+          subtitle={
+            es
+              ? "Controla el estado de animacion en vivo y copia el JSX de cualquier sprite"
+              : "Control the animation state live and copy any sprite's JSX"
+          }
           tone="emerald"
-          statusLeft="16 CHARACTERS + 8 SCENES"
+          statusLeft={`${SPRITE_COUNT} CHARACTERS + ${SCENE_COUNT} SCENES`}
           statusRight="CRISP 16x16 SVG"
         >
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2A344B] pb-3">
               <span className="font-pixel text-xs text-[#10B981]">
-                A. GALERIA DE 16 SPRITES (<code className="text-white">&lt;PixelSprite /&gt;</code>)
+                {es
+                  ? `A. GALERIA DE ${SPRITE_COUNT} SPRITES (`
+                  : `A. ${SPRITE_COUNT}-SPRITE GALLERY (`}
+                <code className="text-white">&lt;PixelSprite /&gt;</code>)
               </span>
               <div
                 role="group"
@@ -686,7 +1289,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 className="flex items-center gap-1.5 font-mono-hud text-xs"
               >
                 <span id={`${uid}-motion-label`} className="text-[#94A3B8] mr-1">
-                  ANIMACION:
+                  {es ? "ANIMACION:" : "ANIMATION:"}
                 </span>
                 {(["float", "bounce", "pulse", "none"] as const).map((m) => (
                   <button
@@ -744,17 +1347,15 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
             <div className="pt-2">
               <div className="font-pixel text-xs text-[#FFD100] mb-3">
-                B. 8 ESCENAS Y LOADERS PIXEL-ART ANIMADOS (<code className="text-white">&lt;PixelSceneAnimation /&gt;</code>)
+                {es
+                  ? `B. ${SCENE_COUNT} ESCENAS Y LOADERS PIXEL-ART ANIMADOS (`
+                  : `B. ${SCENE_COUNT} ANIMATED PIXEL-ART SCENES & LOADERS (`}
+                <code className="text-white">&lt;PixelSceneAnimation /&gt;</code>)
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <PixelSceneAnimation scene="crt-boot" label="CRT BIOS BOOT" />
-                <PixelSceneAnimation scene="floppy-rw" label="FLOPPY TRACK I/O" />
-                <PixelSceneAnimation scene="ai-duel" label="CARBON VS OPUS DUEL" />
-                <PixelSceneAnimation scene="radar-sweep" label="RADAR TARGET LOCK" />
-                <PixelSceneAnimation scene="campfire" label="8-BIT CAMPFIRE" />
-                <PixelSceneAnimation scene="potion-lab" label="SHADER ALCHEMY" />
-                <PixelSceneAnimation scene="hourglass-sand" label="PIXEL HOURGLASS" />
-                <PixelSceneAnimation scene="cassette-spin" label="DATA CASSETTE" />
+                {SCENE_LIST.map((s) => (
+                  <PixelSceneAnimation key={s.scene} scene={s.scene} label={s.label} />
+                ))}
               </div>
             </div>
           </div>
@@ -763,8 +1364,16 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
         {/* SECTION 4: 3.5" FLOPPY DISK CARDS, BUTTONS & RPG DIALOG */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <PixelWindow
-            title="04 // DISQUETES 3.5 PULGADAS Y CONTROLES DE HARDWARE"
-            subtitle="Pasa el cursor sobre los disquetes para deslizar el obturador metalico"
+            title={
+              es
+                ? "04 // DISQUETES 3.5 PULGADAS Y CONTROLES DE HARDWARE"
+                : '04 // 3.5" FLOPPY DISKS & HARDWARE CONTROLS'
+            }
+            subtitle={
+              es
+                ? "Pasa el cursor sobre los disquetes para deslizar el obturador metalico"
+                : "Hover over a floppy to slide its metal shutter"
+            }
             tone="coral"
             statusLeft="3.5 INCH HD FLOPPY"
             statusRight="TACTILE SWITCHES"
@@ -775,15 +1384,27 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   diskCode="DISK_01"
                   title="Gemini 4 Carbon Evals"
                   capacity="1.44 MB"
-                  description="19 benchmarks oficiales verificados de Google DeepMind."
+                  description={
+                    es
+                      ? `${CARBON_BENCHMARK_STATS.masterTable} benchmarks de la tabla oficial de Google DeepMind.`
+                      : `${CARBON_BENCHMARK_STATS.masterTable} benchmarks from Google DeepMind's official table.`
+                  }
                   tone="cyan"
+                  sectorLabel="SECTOR 00 // ZERO-SHOT"
+                  loadLabel={es ? "CARGAR" : "LOAD DISK"}
                 />
                 <PixelFloppyCard
                   diskCode="DISK_02"
-                  title="Claude 5.5 Ladder"
+                  title={es ? "Escalera Claude 5.5" : "Claude 5.5 Ladder"}
                   capacity="1.44 MB"
-                  description="18 motores en vivo: Haiku vs Sonnet vs Opus 5.5."
+                  description={
+                    es
+                      ? `${EP04_RUN_COUNT} corridas zero-shot: Haiku vs Sonnet vs Opus 5.5.`
+                      : `${EP04_RUN_COUNT} zero-shot runs: Haiku vs Sonnet vs Opus 5.5.`
+                  }
                   tone="yellow"
+                  sectorLabel="SECTOR 00 // ZERO-SHOT"
+                  loadLabel={es ? "CARGAR" : "LOAD DISK"}
                 />
               </div>
 
@@ -826,8 +1447,16 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </PixelWindow>
 
           <PixelWindow
-            title="05 // DIALOGO RPG Y GRAFICAS DE TELEMETRIA"
-            subtitle="Texto con voz 8-bit por letra y barras segmentadas LED"
+            title={
+              es
+                ? "05 // DIALOGO RPG Y GRAFICAS DE TELEMETRIA"
+                : "05 // RPG DIALOG & TELEMETRY CHARTS"
+            }
+            subtitle={
+              es
+                ? "Texto con voz 8-bit por letra y barras segmentadas LED"
+                : "Per-letter 8-bit voice text and segmented LED bars"
+            }
             tone="violet"
             statusLeft="RPG TYPEWRITER"
             statusRight="LED TELEMETRY"
@@ -838,6 +1467,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 role={`MIXIUH PIXEL UI v${PIXEL_UI_VERSION}`}
                 character="crt-monitor"
                 tone="cyan"
+                nextLabel={es ? "SIGUIENTE" : "NEXT"}
                 messages={[
                   lang === "es"
                     ? "Monitor de pruebas inicializado. Haz clic en esta ventana para avanzar el dialogo con voz sintetizada en 8-bit."
@@ -848,30 +1478,27 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 ]}
               />
 
-              <PixelBarChart
-                items={[
-                  {
-                    label: "Gemini 4 Carbon (Terminal Hard)",
-                    value: 54.5,
-                    maxValue: 60,
-                    displayValue: "54.5%",
-                    tone: "cyan",
-                    badge: "#1",
-                  },
-                  {
-                    label: "Claude Opus 5.5 (Terminal Hard)",
-                    value: 53.0,
-                    maxValue: 60,
-                    displayValue: "53.0%",
-                    tone: "coral",
-                  },
-                ]}
-              />
+              {/* Official Google DeepMind table (CARBON_FULL_BENCHMARKS) */}
+              <PixelBarChart items={TERMINAL_BENCH_BARS} />
 
+              {/* Gemini 4 Argon's EP02 totals (EP02_BENCHMARK_TOTALS) */}
               <div className="flex flex-wrap gap-2">
-                <PixelTelemetryPill kind="time" value="90 MIN" tone="cyan" />
-                <PixelTelemetryPill kind="cost" value="$6.26 USD" tone="yellow" />
-                <PixelTelemetryPill kind="score" value="4 - 2 WIN" tone="emerald" />
+                <PixelTelemetryPill kind="model" value="ARGON · EP02" tone="violet" />
+                <PixelTelemetryPill
+                  kind="time"
+                  value={`${EP02_BENCHMARK_TOTALS.argon_min_rounded} MIN`}
+                  tone="cyan"
+                />
+                <PixelTelemetryPill
+                  kind="cost"
+                  value={`$${EP02_BENCHMARK_TOTALS.argon_cost_usd.toFixed(2)} USD`}
+                  tone="yellow"
+                />
+                <PixelTelemetryPill
+                  kind="score"
+                  value={`${EP02_BENCHMARK_TOTALS.argon_wins} - ${EP02_BENCHMARK_TOTALS.opus_wins} WIN`}
+                  tone="emerald"
+                />
               </div>
             </div>
           </PixelWindow>
@@ -879,7 +1506,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 5B: PRO FORM, SELECT, AUTOCOMPLETE, CHECKS, COLLAPSE, CALENDAR & CHARTS STUDIO */}
         <PixelWindow
-          title="06 // PERSONALIZADOR INTERACTIVO: INPUTS, SELECTS, AUTOCOMPLETE, CHECKS, COLLAPSE, CALENDARIO Y GRAFICAS"
+          title={
+            es
+              ? "06 // PERSONALIZADOR INTERACTIVO: INPUTS, SELECTS, AUTOCOMPLETE, CHECKS, COLLAPSE, CALENDARIO Y GRAFICAS"
+              : "06 // INTERACTIVE CUSTOMIZER: INPUTS, SELECTS, AUTOCOMPLETE, CHECKS, COLLAPSE, CALENDAR & CHARTS"
+          }
           subtitle={
             lang === "es"
               ? "Personaliza el color de acento (tone) y tamano (size) en tiempo real y prueba cada componente profesional"
@@ -887,7 +1518,9 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           }
           tone={customTone}
           statusLeft={`CUSTOMIZER TONE: ${customTone.toUpperCase()} · SIZE: ${customSize.toUpperCase()}`}
-          statusRight="CLICK ANY SNIPPET TO COPY JSX"
+          statusRight={
+            es ? "COPIAR JSX EN CADA TARJETA" : "COPY JSX ON EVERY CARD"
+          }
         >
           <div className="space-y-6">
             {/* Global Live Customizer Toolbar */}
@@ -972,18 +1605,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <span className="font-pixel text-[10px] text-[#FFD100]">
                     &lt;PixelInput /&gt; &amp; &lt;PixelSlider /&gt;
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyCode(
-                        "comp-input",
-                        `<PixelInput label="PROMPT ID" value="${demoInput}" tone="${customTone}" size="${customSize}" iconLeft="terminal" clearable />`
-                      )
-                    }
-                    className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
-                  >
-                    COPY JSX
-                  </button>
+                  {copyJsxButton(
+                    "comp-input",
+                    `<PixelInput label="PROMPT ID" value="${demoInput}" tone="${customTone}" size="${customSize}" iconLeft="terminal" clearable />`,
+                    "px-2 py-0.5 bg-[#00E5FF]"
+                  )}
                 </div>
 
                 <PixelInput
@@ -1000,7 +1626,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   iconLeft="terminal"
                   tone={customTone}
                   size={customSize}
-                  placeholder="Ej. claude-opus-5.5..."
+                  placeholder={es ? "Ej. claude-opus-5.5..." : "e.g. claude-opus-5.5..."}
                   helperText={
                     lang === "es"
                       ? "Soporta iconos izquierda/derecha, clearable y estado de error."
@@ -1030,18 +1656,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <span className="font-pixel text-[10px] text-[#00E5FF]">
                     &lt;PixelSelect /&gt; &amp; &lt;PixelAutocomplete /&gt;
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyCode(
-                        "comp-select",
-                        `<PixelSelect label="AI MODEL" value="${demoSelect}" onChange={setModel} tone="${customTone}" size="${customSize}" options={options} />`
-                      )
-                    }
-                    className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
-                  >
-                    COPY JSX
-                  </button>
+                  {copyJsxButton(
+                    "comp-select",
+                    `<PixelSelect label="AI MODEL" value="${demoSelect}" onChange={setModel} tone="${customTone}" size="${customSize}" options={options} />`,
+                    "px-2 py-0.5 bg-[#FFD100]"
+                  )}
                 </div>
 
                 <PixelSelect
@@ -1054,36 +1673,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   onChange={setDemoSelect}
                   tone={customTone}
                   size={customSize}
-                  options={[
-                    {
-                      value: "carbon",
-                      label: "Gemini 4 Carbon",
-                      sublabel: "$4 / $20 USD · 54.5% Term-Hard",
-                      badge: "#1 GLOBAL",
-                      icon: "gemini-brand",
-                    },
-                    {
-                      value: "opus",
-                      label: "Claude Opus 5.5",
-                      sublabel: "$5 / $25 USD · 53.0% Term-Hard",
-                      badge: "ARCHITECT",
-                      icon: "anthropic",
-                    },
-                    {
-                      value: "sonnet",
-                      label: "Claude Sonnet 5.5",
-                      sublabel: "$3 / $15 USD · Path Tracer 29 FPS",
-                      badge: "BALANCED",
-                      icon: "cpu",
-                    },
-                    {
-                      value: "haiku",
-                      label: "Claude Haiku 5.5",
-                      sublabel: "$0.80 / $4 USD · 24x mas barato",
-                      badge: "ROI KING",
-                      icon: "bolt",
-                    },
-                  ]}
+                  options={modelOptions}
                 />
 
                 <PixelAutocomplete
@@ -1097,48 +1687,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   tone={customTone}
                   clearLabel={lang === "es" ? "Limpiar" : "Clear"}
                   toggleLabel={lang === "es" ? "Mostrar opciones" : "Show options"}
+                  emptyLabel={es ? "Sin coincidencias para" : "No matches for"}
                   placeholder={
                     lang === "es"
-                      ? "Filtra entre simuladores (ej. rover, tb-303, pathtracer)..."
-                      : "Filter simulators (e.g. rover, tb-303, pathtracer)..."
+                      ? "Filtra entre simuladores (ej. rover, tb-303, chip-8)..."
+                      : "Filter simulators (e.g. rover, tb-303, chip-8)..."
                   }
-                  options={[
-                    {
-                      value: "ep04-rover",
-                      label: "EP04 R01: Rover Planetario Verlet",
-                      sublabel: "Opus 5.5 ($6.81) · 61 FPS",
-                      badge: "PHYSICS",
-                      icon: "rocket",
-                    },
-                    {
-                      value: "ep04-physarum",
-                      label: "EP04 R02: Bio-Red Physarum 100K GPU",
-                      sublabel: "Opus 5.5 ($2.55) · 28 estaciones Tokio",
-                      badge: "WEBGL2",
-                      icon: "dna",
-                    },
-                    {
-                      value: "ep04-acid-synth",
-                      label: "EP04 R04: Estudio Acido 3D TB-303 + TR-909",
-                      sublabel: "Haiku 5.5 ($0.21) · 24x mas barato",
-                      badge: "WEBAUDIO",
-                      icon: "music",
-                    },
-                    {
-                      value: "ep04-pathtracer",
-                      label: "EP04 R05: Path Tracer WebGL2 con BVH",
-                      sublabel: "Sonnet 5.5 ($1.62) · 29 FPS",
-                      badge: "RAYTRACING",
-                      icon: "gpu",
-                    },
-                    {
-                      value: "ep04-chip8",
-                      label: "EP04 R06: Consola Retro CHIP-8 + Pong",
-                      sublabel: "Sonnet 5.5 ($2.25) · 60 FPS",
-                      badge: "EMULATOR",
-                      icon: "gamepad",
-                    },
-                  ]}
+                  options={ep04Options}
                 />
               </div>
 
@@ -1148,18 +1703,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <span className="font-pixel text-[10px] text-[#10B981]">
                     &lt;PixelCheckbox /&gt; &amp; &lt;PixelRadioGroup /&gt;
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyCode(
-                        "comp-check",
-                        `<PixelCheckbox checked={checked} onChange={setChecked} label="Zero-Shot Verification" tone="${customTone}" />`
-                      )
-                    }
-                    className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
-                  >
-                    COPY JSX
-                  </button>
+                  {copyJsxButton(
+                    "comp-check",
+                    `<PixelCheckbox checked={checked} onChange={setChecked} label="Zero-Shot Verification" tone="${customTone}" />`,
+                    "px-2 py-0.5 bg-[#10B981]"
+                  )}
                 </div>
 
                 <div className="space-y-2.5">
@@ -1233,33 +1781,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   selectedDate={demoCalDate}
                   onSelectDate={setDemoCalDate}
                   tone={customTone}
-                  events={[
-                    {
-                      date: "2026-10-14",
-                      label: "EP01: Argon vs 3.8 Flash (10-0)",
-                      tone: "violet",
-                    },
-                    {
-                      date: "2026-10-18",
-                      label: "EP02: Argon vs Claude Opus 5.5 (4-2)",
-                      tone: "cyan",
-                    },
-                    {
-                      date: "2026-10-25",
-                      label: "EP03: Sin Kit vs Superpowers Kit (4-2)",
-                      tone: "emerald",
-                    },
-                    {
-                      date: "2026-10-28",
-                      label: "EP04: Escalera Claude 5.5 (18 demos)",
-                      tone: "coral",
-                    },
-                    {
-                      date: "2026-10-30",
-                      label: "Gemini 4 Carbon + Pixel UI v2.2",
-                      tone: "yellow",
-                    },
-                  ]}
+                  events={calendarEvents}
                 />
 
                 <PixelCollapse
@@ -1297,92 +1819,51 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               </div>
 
               <div className="lg:col-span-7 space-y-4">
+                {/* Real EP04 run times (ep04Data). Gemini 4 Carbon did not run EP04. */}
                 <PixelMultiLineChart
                   title={
                     lang === "es"
-                      ? "GRAFICA MULTISERIE (<PixelMultiLineChart />) · BENCHMARKS EN VIVO"
-                      : "MULTI-SERIES LINE CHART (<PixelMultiLineChart />) · LIVE BENCHMARKS"
+                      ? "GRAFICA MULTISERIE (<PixelMultiLineChart />) · EP04: MINUTOS POR RETO"
+                      : "MULTI-SERIES LINE CHART (<PixelMultiLineChart />) · EP04: MINUTES PER CHALLENGE"
                   }
                   subtitle={
                     lang === "es"
-                      ? "Haz clic en las leyendas superiores para filtrar series o inspecciona cada punto con el cursor"
-                      : "Click top legends to toggle series or hover over pixel nodes to inspect metrics"
+                      ? "Tiempo real de cada corrida de la Escalera Claude: haz clic en las leyendas para filtrar series o en un reto para ver sus valores"
+                      : "Real time of every Claude Ladder run: click a legend to toggle its series or a challenge to read its values"
                   }
-                  series={[
-                    {
-                      key: "carbon",
-                      name: "Gemini 4 Carbon",
-                      color: "#00E5FF",
-                    },
-                    {
-                      key: "opus",
-                      name: "Claude Opus 5.5",
-                      color: "#A855F7",
-                    },
-                    {
-                      key: "sonnet",
-                      name: "Claude Sonnet 5.5",
-                      color: "#FFD100",
-                    },
-                    {
-                      key: "haiku",
-                      name: "Claude Haiku 5.5",
-                      color: "#10B981",
-                    },
-                  ]}
-                  data={[
-                    {
-                      label: "R01 ROVER",
-                      values: { carbon: 92, opus: 95, sonnet: 20, haiku: 82 },
-                    },
-                    {
-                      label: "R02 PHYSARUM",
-                      values: { carbon: 90, opus: 96, sonnet: 68, haiku: 15 },
-                    },
-                    {
-                      label: "R03 BRIDGE",
-                      values: { carbon: 89, opus: 94, sonnet: 74, haiku: 70 },
-                    },
-                    {
-                      label: "R04 TB-303",
-                      values: { carbon: 91, opus: 84, sonnet: 82, haiku: 96 },
-                    },
-                    {
-                      label: "R05 BVH-RT",
-                      values: { carbon: 93, opus: 62, sonnet: 95, haiku: 58 },
-                    },
-                    {
-                      label: "R06 CHIP-8",
-                      values: { carbon: 94, opus: 35, sonnet: 96, haiku: 72 },
-                    },
-                  ]}
+                  series={EP04_TIERS.map((t) => ({
+                    key: t,
+                    name: `Claude ${EP04_TIER_NAME[t]}`,
+                    color: EP04_TIER_COLOR[t],
+                  }))}
+                  data={ep04MinutesData}
+                  maxY={EP04_CHART_MAX_Y}
+                  unit=" min"
+                  categoryLabel={es ? "Reto" : "Challenge"}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <PixelDonutGauge
-                    label="TERMINAL-BENCH HARD"
-                    sublabel="Gemini 4 Carbon"
-                    value={54.5}
-                    maxValue={100}
-                    displayValue="54.5%"
-                    tone="cyan"
-                  />
-                  <PixelDonutGauge
-                    label="SECBENCH DEFENSIVE"
-                    sublabel="Gemini 4 Carbon"
-                    value={84.0}
-                    maxValue={100}
-                    displayValue="84.0%"
-                    tone="emerald"
-                  />
-                  <PixelDonutGauge
-                    label="HAIKU ROI RATIO"
-                    sublabel="$0.21 vs $5.00 Opus"
-                    value={96}
-                    maxValue={100}
-                    displayValue="24x"
-                    tone="yellow"
-                  />
+                  {CARBON_DONUTS.map((d) => (
+                    <PixelDonutGauge
+                      key={d.label}
+                      label={d.label}
+                      sublabel="Gemini 4 Carbon"
+                      value={d.value}
+                      maxValue={100}
+                      displayValue={d.displayValue}
+                      tone={d.tone}
+                    />
+                  ))}
+                  {HAIKU_ROI && (
+                    <PixelDonutGauge
+                      label="HAIKU ROI RATIO"
+                      sublabel={`EP04 ${HAIKU_ROI.code}: $${HAIKU_ROI.haikuUsd} vs $${HAIKU_ROI.opusUsd} Opus`}
+                      value={HAIKU_ROI.savedPct}
+                      maxValue={100}
+                      displayValue={`${HAIKU_ROI.ratio}x`}
+                      tone="yellow"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1391,8 +1872,16 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 6: CRISP 16x16 PIXEL SVG ICONS WITH CATEGORY FILTERS, BRANDS & SEARCH */}
         <PixelWindow
-          title={`07 // ${ALL_PIXEL_ICON_NAMES.length} ICONOS VECTORIALES PIXEL-ART EN GRILLA 16x16 (INCLUYE MARCAS Y REDES)`}
-          subtitle="Incluye YouTube, X, Instagram, Facebook, TikTok, Google, GitHub, Discord, Vercel y todas las categorias UI"
+          title={
+            es
+              ? `07 // ${ICON_COUNT} ICONOS VECTORIALES PIXEL-ART EN GRILLA 16x16 (INCLUYE MARCAS Y REDES)`
+              : `07 // ${ICON_COUNT} PIXEL-ART VECTOR ICONS ON A 16x16 GRID (BRANDS & SOCIAL INCLUDED)`
+          }
+          subtitle={
+            es
+              ? "Incluye YouTube, X, Instagram, Facebook, TikTok, Google, GitHub, Discord, Vercel y todas las categorias UI"
+              : "Includes YouTube, X, Instagram, Facebook, TikTok, Google, GitHub, Discord, Vercel and every UI category"
+          }
           tone="chalk"
           statusLeft={`SELECTED: <PixelIcon name="${selectedIcon}" size={${iconSize}} color="${iconColor}" />`}
           statusRight="ZERO UNICODE EMOJIS"
@@ -1402,17 +1891,14 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             <div className="p-3.5 bg-[#090B10] border-2 border-[#2A344B] space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-pixel text-[10px] text-[#FFD100]">
-                  COMPONENTE DE REDES SOCIALES (<code className="text-white">&lt;PixelSocialBar /&gt;</code>)
+                  {es ? "COMPONENTE DE REDES SOCIALES (" : "SOCIAL MEDIA COMPONENT ("}
+                  <code className="text-white">&lt;PixelSocialBar /&gt;</code>)
                 </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    copyCode("social-bar", `<PixelSocialBar />`)
-                  }
-                  className="px-2.5 py-1.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer"
-                >
-                  COPIAR JSX
-                </button>
+                {copyJsxButton(
+                  "social-bar",
+                  "<PixelSocialBar />",
+                  "px-2.5 py-1.5 bg-[#00E5FF]"
+                )}
               </div>
               <PixelSocialBar />
             </div>
@@ -1466,6 +1952,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 type="text"
                 value={iconSearch}
                 onChange={(e) => setIconSearch(e.target.value)}
+                aria-label={es ? "Buscar iconos" : "Search icons"}
                 placeholder={
                   lang === "es"
                     ? "Buscar icono (ej. youtube, google, instagram, x, floppy)..."
@@ -1578,7 +2065,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               <div className="mt-2 px-3 py-2 bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold inline-flex items-center gap-2">
                 <PixelIcon name="check" size={14} color="#090B10" />
                 <span>
-                  {`Copiado: <PixelIcon name="${selectedIcon}" size={${iconSize}} color="${iconColor}" />`}
+                  {`${es ? "Copiado" : "Copied"}: <PixelIcon name="${selectedIcon}" size={${iconSize}} color="${iconColor}" />`}
                 </span>
               </div>
             )}
@@ -1590,7 +2077,9 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#2A344B] pb-4">
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#FFD100] text-[#090B10] font-pixel text-[10px] font-bold mb-2">
-                LICENCIA ABIERTA MIXIUH (CC-BY 4.0 / MIT CON ATRIBUCION)
+                {es
+                  ? "LICENCIA ABIERTA MIXIUH (CC-BY 4.0 / MIT CON ATRIBUCION)"
+                  : "MIXIUH OPEN ATTRIBUTION LICENSE (CC-BY 4.0 / MIT WITH ATTRIBUTION)"}
               </div>
               <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
                 {lang === "es"
@@ -1663,9 +2152,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </div>
         </div>
 
-        {/* SECTION 8: NEW IN v2.3 — NAVIGATION & OVERLAY SUITE */}
+        {/* SECTION 8: NAVIGATION & OVERLAY SUITE (shipped in v2.3, see the library README) */}
         <PixelWindow
-          title={`08 // NUEVO EN v${PIXEL_UI_VERSION}: COMMAND PALETTE, TOASTS, TABS Y COPIA`}
+          title={
+            es
+              ? "08 // DESDE v2.3: COMMAND PALETTE, TOASTS, TABS Y COPIA"
+              : "08 // SINCE v2.3: COMMAND PALETTE, TOASTS, TABS & COPY"
+          }
           subtitle={
             lang === "es"
               ? "Primera entrega de la Fase 2 del roadmap, accesible con teclado y lector de pantalla"
@@ -1682,7 +2175,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   {"<PixelTabs />"}
                 </div>
                 <PixelTabs
-                  ariaLabel="Demo tabs"
+                  ariaLabel={es ? "Pestañas de demostración" : "Demo tabs"}
                   tone="cyan"
                   wrap
                   value={demoTab}
@@ -1785,9 +2278,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </div>
         </PixelWindow>
 
-        {/* SECTION 9: PHASE 2 COMPLETE — DATA TABLE, TOOLTIP, POPOVER, DRAWER, SHEET, CONTEXT MENU */}
+        {/* SECTION 9: PHASE 2 COMPLETE (v2.5) — DATA TABLE, TOOLTIP, POPOVER, DRAWER, SHEET, CONTEXT MENU */}
         <PixelWindow
-          title={`09 // FASE 2 COMPLETA v${PIXEL_UI_VERSION}: DATATABLE, TOOLTIP, POPOVER, DRAWER Y MENU CONTEXTUAL`}
+          title={
+            es
+              ? "09 // FASE 2 COMPLETA v2.5: DATATABLE, TOOLTIP, POPOVER, DRAWER Y MENU CONTEXTUAL"
+              : "09 // PHASE 2 COMPLETE v2.5: DATATABLE, TOOLTIP, POPOVER, DRAWER & CONTEXT MENU"
+          }
           subtitle={
             lang === "es"
               ? "Componentes de datos y overlays con teclado completo, foco atrapado y lectores de pantalla"
@@ -1800,7 +2297,9 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           <div className="space-y-6 font-mono-hud text-xs">
             <div className="space-y-2">
               <div className="font-pixel text-[11px] text-[#10B981]">
-                {"<PixelDataTable /> // EP04 · costo por reto (USD)"}
+                {es
+                  ? "<PixelDataTable /> // EP04 · costo por reto (USD)"
+                  : "<PixelDataTable /> // EP04 · cost per challenge (USD)"}
               </div>
               <PixelDataTable<Ep04Row>
                 caption={lang === "es" ? "Costo por reto EP04" : "EP04 cost per challenge"}
@@ -1808,26 +2307,11 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 locale="es"
                 searchable
                 pageSize={4}
-                exportFileName="ep04-costos.csv"
+                exportFileName={es ? "ep04-costos.csv" : "ep04-costs.csv"}
                 rows={EP04_ROWS}
                 getRowId={(r) => String(r.n)}
                 className="[&_table]:min-w-[560px]"
-                labels={
-                  lang === "es"
-                    ? undefined
-                    : {
-                        search: "Search the table",
-                        searchPlaceholder: "Search...",
-                        clearSearch: "Clear search",
-                        noResults: "No results",
-                        exportCsv: "Export CSV",
-                        previous: "Previous",
-                        next: "Next",
-                        rowsSummary: (from, to, total) => `${from}–${to} of ${total}`,
-                        pageOf: (page, pages) => `Page ${page} of ${pages}`,
-                        sortHint: "Sort by",
-                      }
-                }
+                labels={es ? undefined : EP04_TABLE_LABELS_EN}
                 columns={[
                   { key: "n", header: "#", value: (r) => r.n },
                   {
@@ -1983,9 +2467,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </PixelSheet>
         </PixelWindow>
 
-        {/* SECTION 8: MASTER ROADMAP & COMPETITIVE BENCHMARK MATRIX VS TOP UI LIBRARIES */}
+        {/* SECTION 10: MASTER ROADMAP & COMPETITIVE BENCHMARK MATRIX VS TOP UI LIBRARIES */}
         <PixelWindow
-          title="10 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"
+          title={
+            es
+              ? "10 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"
+              : "10 // @MIXIUH/PIXEL-UI ROADMAP & COMPARISON WITH PROFESSIONAL UI LIBRARIES"
+          }
           subtitle={
             lang === "es"
               ? `Que tenemos hoy en v${PIXEL_UI_VERSION}, como se compara frente a shadcn/ui, MUI, Ant Design y NES.css, y las siguientes fases de evolucion`
@@ -2005,7 +2493,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
                   <tr className="bg-[#090B10] text-[#FFD100] font-pixel text-[10px] border-b-2 border-[#2A344B]">
-                    <th className="p-3">CAPACIDAD / SISTEMA</th>
+                    <th className="p-3">{es ? "CAPACIDAD / SISTEMA" : "CAPABILITY / SYSTEM"}</th>
                     <th className="p-3 text-[#00E5FF]">{`@MIXIUH/PIXEL-UI v${PIXEL_UI_VERSION}`}</th>
                     <th className="p-3 text-[#94A3B8]">shadcn/ui + Radix</th>
                     <th className="p-3 text-[#94A3B8]">MUI / Ant Design</th>
@@ -2013,74 +2501,24 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1E2638] bg-[#111622] text-[#CBD5E1]">
-                  <tr>
-                    <td className="p-3 font-bold text-white">
-                      Formularios Pro (Input, Select, Autocomplete, Checks, Radio, Slider, Calendar)
-                    </td>
-                    <td className="p-3 text-[#10B981] font-bold">
-                      INCLUIDO (desde v2.2, con Audio 8-Bit + Tones)
-                    </td>
-                    <td className="p-3">Incluido (Estilo corporativo plano)</td>
-                    <td className="p-3">Incluido (Pesado, sin pixel-art)</td>
-                    <td className="p-3 text-[#FF3355]">
-                      Incompleto (Sin Autocomplete ni Calendar)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-bold text-white">
-                      Visualizacion de Datos (MultiLine, Bar, Versus, Sparkline, Donut Gauge)
-                    </td>
-                    <td className="p-3 text-[#10B981] font-bold">
-                      INCLUIDO NATIVO (SVG CrispEdges)
-                    </td>
-                    <td className="p-3">Requiere Recharts externo</td>
-                    <td className="p-3">Paquete empresarial separado</td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-bold text-white">
-                      Hardware Retro 3D (Monitor CRT 3D, Disquetes 3.5&quot;, Perilla VHF, Keycaps)
-                    </td>
-                    <td className="p-3 text-[#00E5FF] font-bold">
-                      EXCLUSIVO MIXIUH (3D + Degauss + Fosforo)
-                    </td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                    <td className="p-3 text-[#FF3355]">Solo bordes 2D basicos</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-bold text-white">
-                      Iconografia Vectorial Pixel-Art + Marcas (YouTube, X, Instagram, TikTok, Google)
-                    </td>
-                    <td className="p-3 text-[#10B981] font-bold">
-                      {`${ALL_PIXEL_ICON_NAMES.length} ICONOS 16x16 NATIVOS (Cero Emojis)`}
-                    </td>
-                    <td className="p-3">Usa Lucide (Lineas curvas)</td>
-                    <td className="p-3">Material Icons (Curvos)</td>
-                    <td className="p-3">Menos de 25 iconos</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-bold text-white">
-                      Navegacion Pro y Accesibilidad (Command Palette Ctrl+K, Tabs con teclado, Toasts, foco visible, prefers-reduced-motion)
-                    </td>
-                    <td className="p-3 text-[#10B981] font-bold">
-                      INCLUIDO (v2.5 · WAI-ARIA + teclado)
-                    </td>
-                    <td className="p-3">Incluido (cmdk + Radix por separado)</td>
-                    <td className="p-3">Parcial (sin Command Palette)</td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-bold text-white">
-                      Audio Chiptune WebAudio + Cursores + Fondo IA + Scroll Procedural
-                    </td>
-                    <td className="p-3 text-[#FFD100] font-bold">
-                      INCLUIDO (12 SFX + Secuenciador + Bots IA)
-                    </td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                    <td className="p-3 text-[#FF3355]">No existe</td>
-                  </tr>
+                  {COMPARISON_ROWS.map((row) => (
+                    <tr key={row.capability.en}>
+                      <td className="p-3 font-bold text-white">
+                        {es ? row.capability.es : row.capability.en}
+                      </td>
+                      <td className={`p-3 ${row.mixiuh.className} font-bold`}>
+                        {es ? row.mixiuh.es : row.mixiuh.en}
+                      </td>
+                      {row.others.map((cell, i) => (
+                        <td
+                          key={i}
+                          className={cell.bad ? "p-3 text-[#FF3355]" : "p-3"}
+                        >
+                          {es ? cell.es : cell.en}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               </div>
@@ -2088,70 +2526,32 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
             {/* 4-Phase Roadmap Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] space-y-2">
-                <div className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
-                  FASE 1 · COMPLETADO (v2.2)
+              {ROADMAP_PHASES.map((phase) => (
+                <div
+                  key={phase.badge.en}
+                  className={`p-4 bg-[#090B10] border-2 ${phase.borderClass} space-y-2`}
+                >
+                  <div
+                    className={`px-2 py-0.5 ${phase.badgeClass} text-[#090B10] font-pixel text-[10px] font-bold inline-block`}
+                  >
+                    {es ? phase.badge.es : phase.badge.en}
+                  </div>
+                  <h3 className="font-display text-sm font-black text-white">
+                    {es ? phase.title.es : phase.title.en}
+                  </h3>
+                  <ul
+                    className={`space-y-1 text-[11px] ${
+                      phase.done ? "text-[#10B981]" : "text-[#CBD5E1]"
+                    }`}
+                  >
+                    {phase.items.map((item) => (
+                      <li key={item.en}>
+                        {`${phase.done ? "✓" : "+"} ${es ? item.es : item.en}`}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <h3 className="font-display text-sm font-black text-white">
-                  Core Pixel-Art, Hardware 3D, Formularios y Graficas
-                </h3>
-                <ul className="space-y-1 text-[11px] text-[#CBD5E1]">
-                  <li>{`+ ${ALL_PIXEL_ICON_NAMES.length} iconos 16x16 + 28 marcas (X, YT, IG, TikTok, Google)`}</li>
-                  <li>+ Monitor CRT 3D + Disquetes 3.5&quot; + Keycaps</li>
-                  <li>+ Input, Select, Autocomplete, Checkbox, Radio, Slider</li>
-                  <li>+ Collapse, Calendar, MultiLineChart, DonutGauge</li>
-                  <li>+ 16 Sprites + 8 Escenas + 12 SFX + Scroll Procedural</li>
-                </ul>
-              </div>
-
-              <div className="p-4 bg-[#090B10] border-2 border-[#00E5FF] space-y-2">
-                <div className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
-                  {`FASE 2 · COMPLETADO (v${PIXEL_UI_VERSION})`}
-                </div>
-                <h3 className="font-display text-sm font-black text-white">
-                  Command Palette, Notificaciones, DataGrid y Overlays
-                </h3>
-                <ul className="space-y-1 text-[11px] text-[#10B981]">
-                  <li>✓ PixelCommandPalette (Ctrl+K / Cmd+K estilo BIOS)</li>
-                  <li>✓ PixelToaster + pixelToast (alertas con fanfarria)</li>
-                  <li>✓ PixelTabs, PixelCopyButton y PixelBackToTop</li>
-                  <li>✓ PixelDataTable (orden, filtros, paginacion, export CSV)</li>
-                  <li>✓ PixelDrawer, PixelSheet, PixelTooltip y PixelPopover</li>
-                  <li>✓ PixelContextMenu (menu clic derecho + Shift+F10)</li>
-                </ul>
-              </div>
-
-              <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] space-y-2">
-                <div className="px-2 py-0.5 bg-[#FFD100] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
-                  FASE 3 · FLUJOS AVANZADOS Y MEDIA (v3.0)
-                </div>
-                <h3 className="font-display text-sm font-black text-white">
-                  Kanban, Editor de Codigo, Grafos de Nodos y Graficas 3D
-                </h3>
-                <ul className="space-y-1 text-[11px] text-[#CBD5E1]">
-                  <li>+ PixelKanbanBoard (Drag &amp; Drop con fisica de cartuchos)</li>
-                  <li>+ PixelCodeEditor &amp; DiffViewer (Comparador lado a lado)</li>
-                  <li>+ PixelNodeGraph (Editor visual de flujos de agentes IA)</li>
-                  <li>+ PixelRadarChart, Heatmap &amp; Candlestick financiero</li>
-                  <li>+ PixelFileDropzone (Subida de archivos con animacion Floppy)</li>
-                </ul>
-              </div>
-
-              <div className="p-4 bg-[#090B10] border-2 border-[#A855F7] space-y-2">
-                <div className="px-2 py-0.5 bg-[#A855F7] text-[#090B10] font-pixel text-[10px] font-bold inline-block">
-                  FASE 4 · ECOSISTEMA CLI Y MULTI-FRAMEWORK (v4.0)
-                </div>
-                <h3 className="font-display text-sm font-black text-white">
-                  CLI npx mixiuh-pixel-ui, Editor de Sprites y Temas
-                </h3>
-                <ul className="space-y-1 text-[11px] text-[#CBD5E1]">
-                  <li>+ CLI oficial: npx @mixiuh/pixel-ui add [component]</li>
-                  <li>+ Theme Builder en vivo (Exportador de variables CSS/Tailwind)</li>
-                  <li>+ Editor de Sprites e Iconos 16x16 en el navegador</li>
-                  <li>+ Adaptadores Web Components / Vue / Svelte / Astro</li>
-                  <li>+ Kit oficial de Figma con Auto-Layout y tokens</li>
-                </ul>
-              </div>
+              ))}
             </div>
           </div>
         </PixelWindow>

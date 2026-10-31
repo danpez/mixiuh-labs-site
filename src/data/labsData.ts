@@ -497,14 +497,14 @@ export const CHALLENGES: ChallengeData[] = [
     "flash_problems": [
       "Se declaró terminado a los 2 minutos (nota de Kevin)",
       "Varios bugs y sin interacción con el entorno (nota de Kevin): sin enemigos, sin trampas activas, sin HP",
-      "No tiene slider de tamaño de mapa ni de radio de visión (los pedía el prompt)",
+      "No tiene slider de tamaño de mapa (lo pedía el prompt)",
       "Su título dice 'Árbol de Expansión Mínima' pero el código no implementa MST: conecta hermanos del árbol BSP (válido según el prompt, pero la etiqueta es falsa)",
       "Observado en la grabación: durante 'paso a paso' la ruta A* del mapa anterior se dibuja sobre un mapa todavía sin construir, y en modo explorador las antorchas de cuartos no descubiertos brillan a través de la niebla"
     ],
     "flash_problems_en": [
       "Declared itself finished after 2 minutes (Kevin's note)",
       "Several bugs and no interaction with the environment (Kevin's note): no enemies, no active traps, no HP",
-      "No map-size or vision-radius slider (the prompt asked for them)",
+      "No map-size slider (the prompt asked for one)",
       "Its title says 'Árbol de Expansión Mínima' (Minimum Spanning Tree) but the code does not implement an MST: it connects siblings of the BSP tree (valid under the prompt, but the label is false)",
       "Observed in the recording: during 'step by step' the A* route from the previous map is drawn over a map that is not built yet, and in explorer mode the torches of undiscovered rooms glow through the fog"
     ],

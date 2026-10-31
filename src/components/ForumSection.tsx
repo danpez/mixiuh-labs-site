@@ -22,7 +22,9 @@ import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES } from "@/data/ep03Data";
 import { EP04_CHALLENGES } from "@/data/ep04Data";
 import {
+  RELEASE_TIMESTAMPS_CST,
   getReleasedStatus,
+  type ReleaseKey,
   type ReleasedState,
 } from "@/data/releaseSchedule";
 
@@ -171,6 +173,105 @@ function localIsoDate(date: Date = new Date()): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/** Publication day of a production (YYYY-MM-DD, the date part of its CST timestamp). */
+function releaseDay(key: ReleaseKey): string {
+  return RELEASE_TIMESTAMPS_CST[key].slice(0, 10);
+}
+
+// Forum dates are calendar days. Formatting them in UTC keeps the same day in
+// every time zone, on the server and in the browser.
+const DATE_FORMATS: Record<Props["lang"], Intl.DateTimeFormat> = {
+  es: new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }),
+  en: new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }),
+};
+
+/**
+ * "2026-10-31" reads "31 oct 2026" / "Oct 31, 2026". Any other text, such as
+ * "Justo ahora" on comments older builds saved in this browser, shows as is.
+ */
+function ForumDate({ value, lang }: { value: string; lang: Props["lang"] }) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return <>{value}</>;
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return <>{value}</>;
+  }
+  return (
+    <time dateTime={value} className="whitespace-nowrap">
+      {DATE_FORMATS[lang].format(date)}
+    </time>
+  );
+}
+
+// English for the Spanish tags, model chips, comment roles and default names
+// that forumData.ts and this form keep as one shared string. Keyed by the exact
+// Spanish text, so an edited source string shows as written, never a stale label.
+const LABELS_EN: Record<string, string> = {
+  "Bug Forense": "Forensic Bug",
+  "Visualizador ADN": "DNA Visualizer",
+  Telemetria: "Telemetry",
+  "Teoria de Numeros": "Number Theory",
+  "Euclides MCD": "Euclid GCD",
+  "Radar Mixiuh": "Mixiuh Radar",
+  "Noticias IA": "AI News",
+  Ciberseguridad: "Cybersecurity",
+  "Precios API": "API Pricing",
+  "Del Comentario al Codigo": "Comment to Code",
+  "Streetwear IA": "AI Streetwear",
+  "Benchmark Real": "Real Benchmark",
+  "Arbitro · Mixiuh Labs": "Referee · Mixiuh Labs",
+  "Autor del Reto Original · Instagram": "Original Challenge Author · Instagram",
+  "Ingeniero WebGL": "WebGL Engineer",
+  "Desarrollador C++ / JS": "C++ / JS Developer",
+  "Ingeniero Invitado": "Guest Engineer",
+  "Comunidad Mixiuh Labs": "Mixiuh Labs Community",
+  "Miembro del Lab": "Lab Member",
+};
+
+function toEnglishLabel(text: string): string {
+  const known = LABELS_EN[text];
+  if (known) return known;
+  const numbered = /^(Reto|Nivel) (\d+)$/.exec(text);
+  if (numbered) {
+    return `${numbered[1] === "Reto" ? "Challenge" : "Level"} ${numbered[2]}`;
+  }
+  const winner = /^Ganador: (.+)$/.exec(text);
+  if (winner) return `Winner: ${toEnglishLabel(winner[1])}`;
+  const proposedBy = /^Reto de (.+)$/.exec(text);
+  if (proposedBy) return `Challenge by ${proposedBy[1]}`;
+  return text;
+}
+
+function labelIn(lang: Props["lang"], text: string): string {
+  return lang === "en" ? toEnglishLabel(text) : text;
+}
+
+/** Generated prompt threads also carry English tags; the others go through LABELS_EN. */
+type ForumThreadEntry = ForumThread & { tags_en?: string[] };
+
+function threadTags(thread: ForumThreadEntry, lang: Props["lang"]): string[] {
+  if (lang === "es") return thread.tags;
+  return thread.tags_en ?? thread.tags.map(toEnglishLabel);
+}
+
+// Proposal cards that describe a production's results stay hidden until it airs.
+const PROPOSAL_RELEASES: Partial<Record<string, ReleaseKey>> = {
+  "prop-cc01-overfit": "cc01",
+  "prop-emulador-chip8": "ep04",
+  "prop-raytracer-bvh": "ep04",
+};
+
 export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   const rel = useMemo<ReleasedState>(
     () => released ?? getReleasedStatus(),
@@ -183,12 +284,12 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   const promptCount = 10 + 6 + (rel.ep03 ? 6 : 0) + (rel.ep04 ? 6 : 0);
 
   // Combine curated threads with individual prompt/audit threads for released episodes only (zero spoilers)
-  const defaultThreads = useMemo<ForumThread[]>(() => {
+  const defaultThreads = useMemo<ForumThreadEntry[]>(() => {
     const releasedCuratedThreads = INITIAL_FORUM_THREADS.filter((t) =>
       isCuratedThreadReleased(t, rel)
     );
 
-    const ep04Threads: ForumThread[] = rel.ep04
+    const ep04Threads: ForumThreadEntry[] = rel.ep04
       ? EP04_CHALLENGES.map((ch) => ({
           id: `thread-ep04-challenge-${ch.n}`,
           slug: `ep04-reto-${ch.n}-${ch.dir}`,
@@ -203,7 +304,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
           author: "Kevin Gonzalez",
           authorRole_es: "Arbitro · Mixiuh Labs",
           authorRole_en: "Referee · Mixiuh Labs",
-          createdAt: "2026-10-28",
+          createdAt: releaseDay("ep04"),
           readTime: "4 min",
           upvotes: 132 + (7 - ch.n) * 12,
           views: 920 + ch.n * 80,
@@ -213,6 +314,12 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
             `Reto 0${ch.n}`,
             ch.dir,
             `Ganador: ${ch.winner.toUpperCase()} 5.5`,
+          ],
+          tags_en: [
+            "EP04",
+            `Challenge 0${ch.n}`,
+            ch.dir,
+            `Winner: ${ch.winner.toUpperCase()} 5.5`,
           ],
           content_es: [
             `Categoria del reto: ${ch.world_es} — ${ch.sub_es}.`,
@@ -232,7 +339,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         }))
       : [];
 
-    const ep03Threads: ForumThread[] = rel.ep03
+    const ep03Threads: ForumThreadEntry[] = rel.ep03
       ? EP03_CHALLENGES.map((ch) => ({
           id: `thread-ep03-challenge-${ch.n}`,
           slug: `ep03-reto-${ch.n}-${ch.dir}`,
@@ -247,7 +354,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
           author: "Kevin Gonzalez",
           authorRole_es: "Arbitro · Mixiuh Labs",
           authorRole_en: "Referee · Mixiuh Labs",
-          createdAt: "2026-10-22",
+          createdAt: releaseDay("ep03"),
           readTime: "4 min",
           upvotes: 118 + (7 - ch.n) * 11,
           views: 840 + ch.n * 75,
@@ -259,6 +366,15 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
             ch.winner === "superkit"
               ? "Ganador: Superpowers Kit"
               : "Ganador: IA Sin Kit",
+            ch.skill,
+          ],
+          tags_en: [
+            "EP03",
+            `Challenge 0${ch.n}`,
+            ch.dir,
+            ch.winner === "superkit"
+              ? "Winner: Superpowers Kit"
+              : "Winner: Raw AI",
             ch.skill,
           ],
           content_es: [
@@ -277,7 +393,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         }))
       : [];
 
-    const ep02Threads: ForumThread[] = EP02_CHALLENGES.map((ch) => ({
+    const ep02Threads: ForumThreadEntry[] = EP02_CHALLENGES.map((ch) => ({
       id: `thread-ep02-challenge-${ch.n}`,
       slug: `ep02-reto-${ch.n}-${ch.dir}`,
       category: "prompts",
@@ -291,7 +407,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       author: "Kevin Gonzalez",
       authorRole_es: "Arbitro · Mixiuh Labs",
       authorRole_en: "Referee · Mixiuh Labs",
-      createdAt: "2026-10-18",
+      createdAt: releaseDay("ep02"),
       readTime: "4 min",
       upvotes: 95 + (7 - ch.n) * 9,
       views: 680 + ch.n * 65,
@@ -301,6 +417,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         `Reto 0${ch.n}`,
         ch.dir,
         ch.winner === "argon" ? "Ganador: Argon" : "Ganador: Opus 5.5",
+        "Zero-Shot",
+      ],
+      tags_en: [
+        "EP02",
+        `Challenge 0${ch.n}`,
+        ch.dir,
+        ch.winner === "argon" ? "Winner: Argon" : "Winner: Opus 5.5",
         "Zero-Shot",
       ],
       content_es: [
@@ -315,14 +438,15 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
         `Challenge summary (EP02 Argon vs Claude Opus 5.5): ${ch.prompt_gist_en}`,
         `Clock & performance in Antigravity: Gemini 4 Argon (High) took ${ch.time_min.argon} minutes (${ch.code_stats.argon_lines} lines / ${ch.code_stats.argon_kb} KB · ${ch.fps.argon}) versus ${ch.time_min.opus} minutes for Claude Opus 5.5 (High) (${ch.code_stats.opus_lines} lines / ${ch.code_stats.opus_kb} KB · ${ch.fps.opus}). ${ch.speed_ratio_en}.`,
         `Token telemetry & API bill: Argon consumed ${ch.tokens.argon_total} tokens (${ch.tokens.argon_in} In, ${ch.tokens.argon_cache} Cache, ${ch.tokens.argon_out} Out across ${ch.tokens.argon_steps} steps) for $${ch.cost_usd.argon.toFixed(2)} USD. Opus 5.5 consumed ${ch.tokens.opus_total} tokens (${ch.tokens.opus_in} In+CW, ${ch.tokens.opus_cache} Cache, ${ch.tokens.opus_out} Out across ${ch.tokens.opus_steps} steps) for $${ch.cost_usd.opus.toFixed(2)} USD (${ch.cost_ratio_en}).`,
-        `Referee verdict (Kevin Gonzalez): "${ch.kevin_note_en}"`,
-        `Key Argon deliverables: ${ch.argon_features.join(" · ")}.`,
-        `Opus 5.5 deliverables & observations: ${ch.opus_features.join(" · ")} | ${ch.opus_observations.join(" · ")}.`,
+        // kevin_note_verbatim_en is set where kevin_note_en is not a faithful translation
+        `Referee verdict (Kevin Gonzalez, translated from Spanish): "${ch.kevin_note_verbatim_en ?? ch.kevin_note_en}"`,
+        `Key Argon deliverables: ${(ch.argon_features_en ?? ch.argon_features).join(" · ")}.`,
+        `Opus 5.5 deliverables & observations: ${(ch.opus_features_en ?? ch.opus_features).join(" · ")} | ${(ch.opus_observations_en ?? ch.opus_observations).join(" · ")}.`,
       ],
       comments: [],
     }));
 
-    const ep01Threads: ForumThread[] = CHALLENGES.map((ch) => ({
+    const ep01Threads: ForumThreadEntry[] = CHALLENGES.map((ch) => ({
       id: `thread-challenge-${ch.n}`,
       slug: `reto-${ch.n}-${ch.dir}`,
       category: "prompts",
@@ -336,12 +460,19 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       author: "Kevin Gonzalez",
       authorRole_es: "Arbitro · Mixiuh Labs",
       authorRole_en: "Referee · Mixiuh Labs",
-      createdAt: "2026-10-14",
+      createdAt: releaseDay("ep01"),
       readTime: "4 min",
       upvotes: 60 + (11 - ch.n) * 7,
       views: 420 + ch.n * 45,
       relatedChallengeN: ch.n,
       tags: ["EP01", `Nivel ${ch.n}`, ch.dir, ch.tech.split("+")[0].trim(), "Zero-Shot"],
+      tags_en: [
+        "EP01",
+        `Level ${ch.n}`,
+        ch.dir,
+        (ch.tech_en ?? ch.tech).split("+")[0].trim(),
+        "Zero-Shot",
+      ],
       content_es: [
         `Resumen del reto (EP01 Argon vs Flash): ${ch.prompt_gist_es}`,
         `Tiempos de generacion en Antigravity: Gemini 4 Argon (High) tardo ${ch.time_min.argon} minutos (${ch.code_stats.argon_lines} lineas / ${ch.code_stats.argon_kb} KB) contra ${ch.time_min.flash} minutos de Gemini 3.8 Flash (High) (${ch.code_stats.flash_lines} lineas / ${ch.code_stats.flash_kb} KB). Relacion de velocidad: ${ch.speed_ratio}.`,
@@ -351,10 +482,14 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       ],
       content_en: [
         `Challenge summary (EP01 Argon vs Flash): ${ch.prompt_gist_en}`,
-        `Generation times in Antigravity: Gemini 4 Argon (High) took ${ch.time_min.argon} minutes (${ch.code_stats.argon_lines} lines / ${ch.code_stats.argon_kb} KB) versus ${ch.time_min.flash} minutes for Gemini 3.8 Flash (High) (${ch.code_stats.flash_lines} lines / ${ch.code_stats.flash_kb} KB). Speed ratio: ${ch.speed_ratio}.`,
-        `Referee note (Kevin Gonzalez): "${ch.kevin_note_en}"`,
-        `Key Argon features: ${ch.argon_features.join(" · ")}.`,
-        `Flash observations: ${ch.flash_problems.join(" · ")}.`,
+        `Generation times in Antigravity: Gemini 4 Argon (High) took ${ch.time_min.argon} minutes (${ch.code_stats.argon_lines} lines / ${ch.code_stats.argon_kb} KB) versus ${ch.time_min.flash} minutes for Gemini 3.8 Flash (High) (${ch.code_stats.flash_lines} lines / ${ch.code_stats.flash_kb} KB). Speed ratio: ${ch.speed_ratio_en ?? ch.speed_ratio}.`,
+        // Only the faithful translation of the verbatim note is quoted as Kevin's
+        // words; kevin_note_en is an editorial rewrite, so it is never put in quotes.
+        ch.kevin_note_verbatim_en
+          ? `Referee note (Kevin Gonzalez, translated from Spanish): "${ch.kevin_note_verbatim_en}"`
+          : `Editorial summary (not the referee's words): ${ch.kevin_note_en}`,
+        `Key Argon features: ${(ch.argon_features_en ?? ch.argon_features).join(" · ")}.`,
+        `Flash observations: ${(ch.flash_problems_en ?? ch.flash_problems).join(" · ")}.`,
       ],
       comments: [],
     }));
@@ -369,8 +504,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
   const proposals = useMemo<Ep02Proposal[]>(() => {
     return INITIAL_EP02_PROPOSALS.filter((p) => {
-      if (p.id === "prop-cc01-overfit" && !rel.cc01) return false;
-      return true;
+      const airsWith = PROPOSAL_RELEASES[p.id];
+      return !airsWith || rel[airsWith];
     });
   }, [rel]);
 
@@ -382,7 +517,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     useState<ForumThread[]>(readStoredThreads);
   const [postedComments, setPostedComments] =
     useState<Record<string, ForumComment[]>>(readStoredComments);
-  const threads = useMemo<ForumThread[]>(
+  const threads = useMemo<ForumThreadEntry[]>(
     () =>
       [...customThreads, ...defaultThreads].map((t) => {
         const posted = postedComments[t.id];
@@ -434,8 +569,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   const [newCategory, setNewCategory] =
     useState<Exclude<ForumCategory, "all">>("propuestas");
   const [newAuthor, setNewAuthor] = useState("");
+  // Matches the default category (proposals for the next episode)
   const [newTags, setNewTags] = useState(
-    `EP0${latestEp}, Benchmark, Zero-Shot`
+    `EP${nextEp}, Benchmark, Zero-Shot`
   );
   const [newBody, setNewBody] = useState("");
 
@@ -463,7 +599,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       const excerpt = (
         lang === "es" ? t.excerpt_es : t.excerpt_en
       ).toLowerCase();
-      const tagsMatch = t.tags.some((tag) => tag.toLowerCase().includes(q));
+      // Shown tags plus the shared originals, so a Spanish tag still matches in English
+      const tags = lang === "es" ? t.tags : [...t.tags, ...threadTags(t, lang)];
+      const tagsMatch = tags.some((tag) => tag.toLowerCase().includes(q));
       return matchesCat && (title.includes(q) || excerpt.includes(q) || tagsMatch);
     });
   }, [threads, activeCategory, searchQuery, lang]);
@@ -569,7 +707,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       title_en: title,
       excerpt_es: body.slice(0, 160),
       excerpt_en: body.slice(0, 160),
-      author: newAuthor.trim() || "Miembro del Lab",
+      author: newAuthor.trim() || (lang === "es" ? "Miembro del Lab" : "Lab Member"),
       authorRole_es: "Investigador Invitado",
       authorRole_en: "Guest Researcher",
       createdAt: localIsoDate(),
@@ -725,7 +863,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="px-2 py-0.5 bg-[#00E5FF]/15 text-[#00E5FF] font-mono-hud text-[10px] font-bold">
-                        {prop.models}
+                        {labelIn(lang, prop.models)}
                       </span>
                       <span className="font-mono-hud text-[10px] text-[#94A3B8]">
                         {lang === "es" ? prop.status_es : prop.status_en}
@@ -841,7 +979,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       {lang === "es" ? thread.badge_es : thread.badge_en}
                     </span>
                     <span className="font-mono-hud text-[11px] text-[#94A3B8]">
-                      {thread.readTime} · {thread.createdAt}
+                      {thread.readTime} ·{" "}
+                      <ForumDate value={thread.createdAt} lang={lang} />
                     </span>
                   </div>
 
@@ -858,7 +997,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   </p>
 
                   <div className="flex items-center justify-between text-xs font-mono-hud text-[#94A3B8]">
-                    <span>{thread.author}</span>
+                    <span>{labelIn(lang, thread.author)}</span>
                     <div className="flex items-center gap-3">
                       <span
                         className={
@@ -898,7 +1037,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       : activeThread.badge_en}
                   </span>
                   <span className="text-xs font-mono-hud text-[#94A3B8]">
-                    {activeThread.createdAt} · {activeThread.readTime}
+                    <ForumDate value={activeThread.createdAt} lang={lang} /> ·{" "}
+                    {activeThread.readTime}
                   </span>
                 </div>
 
@@ -947,7 +1087,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                 )}
               </h3>
               <div className="text-xs font-mono-hud text-[#94A3B8] mb-5">
-                {activeThread.author} —{" "}
+                {labelIn(lang, activeThread.author)} —{" "}
                 <span className="text-[#00E5FF]">
                   {lang === "es"
                     ? activeThread.authorRole_es
@@ -957,9 +1097,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
               {/* Tags */}
               <div className="flex flex-wrap gap-1.5 mb-6">
-                {activeThread.tags.map((tag) => (
+                {threadTags(activeThread, lang).map((tag, idx) => (
                   <span
-                    key={tag}
+                    key={`${idx}-${tag}`}
                     className="px-2.5 py-0.5 bg-[#090B10] border border-[#2A344B] font-mono-hud text-[11px] text-[#94A3B8]"
                   >
                     #{tag}
@@ -1031,7 +1171,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     <span className="font-mono-hud text-xs font-bold text-[#00E5FF]">
                       {lang === "es"
                         ? `Prompt Oficial Zero-Shot — ${activeThreadEpisode.toUpperCase()} Reto ${activeThread.relatedChallengeN}`
-                        : `Official Zero-Shot Prompt — ${activeThreadEpisode.toUpperCase()} Challenge ${activeThread.relatedChallengeN}`}
+                        : `Official Zero-Shot Prompt (verbatim, in Spanish as run) — ${activeThreadEpisode.toUpperCase()} Challenge ${activeThread.relatedChallengeN}`}
                     </span>
                     <button
                       onClick={() => {
@@ -1084,12 +1224,14 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="text-xs font-mono-hud">
                             <span className="font-bold text-white">
-                              {c.author}
+                              {labelIn(lang, c.author)}
                             </span>{" "}
-                            <span className="text-[#00E5FF]">· {c.role}</span>
+                            <span className="text-[#00E5FF]">
+                              · {labelIn(lang, c.role)}
+                            </span>
                           </div>
-                          <span className="text-[11px] font-mono-hud text-[#94A3B8]">
-                            {c.createdAt}
+                          <span className="shrink-0 text-[11px] font-mono-hud text-[#94A3B8]">
+                            <ForumDate value={c.createdAt} lang={lang} />
                           </span>
                         </div>
                         <p className="text-xs sm:text-sm text-[#F5F2EB]/90 leading-relaxed">

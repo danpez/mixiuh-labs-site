@@ -17,6 +17,11 @@ import {
   EP04_BENCHMARK_TOTALS,
   EP04_CHALLENGES,
 } from "@/data/ep04Data";
+import {
+  CARBON_BENCHMARK_STATS,
+  CARBON_FULL_BENCHMARKS,
+  type CarbonBenchmarkRow,
+} from "@/data/newsData";
 import dynamic from "next/dynamic";
 import { countForumThreads } from "@/data/forumStats";
 import {
@@ -194,6 +199,114 @@ const TENITO_COMMENT_ES =
   "Si ahora con esa textura le pides hacer una playera y también le pides que te de un mockup en blanco para editarlo ahora puedes crear una marca de ropa ?";
 const TENITO_COMMENT_EN =
   "If you now take that texture and ask it to make a T-shirt, and also ask it to give you a blank mockup to edit, can you now create a clothing brand?";
+
+/**
+ * Carbon figures on the home page come from the official Google DeepMind rows
+ * in newsData.ts (no retyped numbers). A renamed row fails the build here.
+ */
+function carbonRow(benchmark: string): CarbonBenchmarkRow {
+  const row = CARBON_FULL_BENCHMARKS.find((r) => r.benchmark === benchmark);
+  if (!row) throw new Error(`newsData.ts has no Carbon row "${benchmark}"`);
+  return row;
+}
+const CARBON_TERMINAL_BENCH = carbonRow("Terminal-Bench 4.0 (AA)");
+const CARBON_SEC_BENCH = carbonRow("SEC-bench Pro");
+const CARBON_AA_INDEX = carbonRow("AA Index v5.0");
+
+/** Carbon's score, tagged "(#1)" only where the official table ranks it first. */
+const carbonScore = (row: CarbonBenchmarkRow) =>
+  `${row.carbon}${row.winner === "carbon" ? " (#1)" : ""}`;
+
+/** Benchmarks in DeepMind's master table (17); the News view's table adds Gray Swan IPI (18). */
+const CARBON_TABLE_EVALS = CARBON_BENCHMARK_STATS.masterTable;
+const CARBON_SITE_EVALS = CARBON_BENCHMARK_STATS.total;
+
+/** Home telemetry chart: official rows that have a Carbon, Opus 5.5 and Argon score. */
+const CARBON_TELEMETRY_DATA = (
+  [
+    ["Terminal-Bench 4.0 (AA)", "TERMINAL-BENCH 4.0"],
+    ["Agents' Last Exam v1.1", "AGENTS' LAST EXAM"],
+    ["CWE-bench", "CWE-BENCH"],
+    ["ExploitGym", "EXPLOITGYM"],
+  ] as const
+).map(([benchmark, label]) => {
+  const row = carbonRow(benchmark);
+  return {
+    label,
+    values: {
+      carbon: parseFloat(row.carbon),
+      opus: parseFloat(row.opus55),
+      argon: parseFloat(row.argon),
+    },
+  };
+});
+
+/** EP04 runs of one tier marked "ok" in ep04Data.ts, e.g. "5/6 OK". */
+const ep04OkRuns = (tier: "haiku" | "sonnet" | "opus") =>
+  `${EP04_CHALLENGES.filter((c) => c[tier].status === "ok").length}/${EP04_CHALLENGES.length} OK`;
+
+/**
+ * English for the Spanish FPS notes of ep03Data.ts / ep04Data.ts, which have no
+ * `_en` field yet. Keyed by the exact source text, so a changed source note
+ * shows as written instead of a stale translation.
+ */
+const FPS_NOTE_EN: Record<string, string> = {
+  "60 FPS (Rover Funcional)": "60 FPS (Functional Rover)",
+  "ROTO (SyntaxError EOF)": "BROKEN (SyntaxError EOF)",
+  "61 FPS (Puente Colgante + Faro)": "61 FPS (Suspension Bridge + Headlight)",
+  "ROTO (GLSL vec3 -> vec4)": "BROKEN (GLSL vec3 -> vec4)",
+  "60 FPS (Centro Saturado)": "60 FPS (Overexposed Center)",
+  "60 FPS (28 Estaciones Tokio)": "60 FPS (28 Tokyo Stations)",
+  "61 FPS (Cercha + Camion 20t)": "61 FPS (Truss + 20t Truck)",
+  "60 FPS (Tren 4 Vagones)": "60 FPS (4-Car Train)",
+  "61 FPS (XPBD 20x + % por Viga)": "61 FPS (XPBD 20x + % per Beam)",
+  "61 FPS (24x Mas Barato)": "61 FPS (24x Cheaper)",
+  "50 FPS (Tunel Holodome)": "50 FPS (Holodome Tunnel)",
+  "37 FPS (Escena Basica)": "37 FPS (Basic Scene)",
+  "29 FPS (Cornell Box + Arcoiris)": "29 FPS (Cornell Box + Rainbow)",
+  "15 FPS (Shader Pesado)": "15 FPS (Heavy Shader)",
+  "60 FPS (Cyber Pong en Vivo)": "60 FPS (Live Cyber Pong)",
+  "60 FPS (CRT Curvo + 9,598 IPS)": "60 FPS (Curved CRT + 9,598 IPS)",
+  "BUG ARRANQUE (ROM 0 B)": "BOOT BUG (ROM 0 B)",
+  "60 FPS (16k sin Bloom)": "60 FPS (16k, no Bloom)",
+  "60 FPS (20k + Bloom HDR)": "60 FPS (20k + HDR Bloom)",
+  "60 FPS (1,829 balas)": "60 FPS (1,829 bullets)",
+  "60 FPS (432 balas)": "60 FPS (432 bullets)",
+  "60 FPS (5 pasos · $0.74)": "60 FPS (5 steps · $0.74)",
+  "60 FPS (21 pasos · $2.04)": "60 FPS (21 steps · $2.04)",
+  "60 FPS (Sin PiP 3D)": "60 FPS (No 3D PiP)",
+  "60 FPS (Ventanas solapadas)": "60 FPS (Overlapping Windows)",
+  "60 FPS (4 Apps + Dock macOS)": "60 FPS (4 Apps + macOS Dock)",
+};
+
+interface BlogMetric {
+  label_es: string;
+  label_en: string;
+  val: string;
+  /** Set only where `val` contains Spanish words. */
+  val_en?: string;
+}
+
+interface BlogArticle {
+  id: ReleaseKey;
+  filter: Exclude<BlogFilter, "all">;
+  date: string;
+  readTime_es: string;
+  readTime_en: string;
+  badge_es: string;
+  badge_en: string;
+  accentColor: string;
+  scoreBadge_es: string;
+  scoreBadge_en: string;
+  thumb: string;
+  title_es: string;
+  title_en: string;
+  excerpt_es: string;
+  excerpt_en: string;
+  metrics: BlogMetric[];
+  onOpenDossier: () => void;
+  onOpenArena: () => void;
+}
 
 const AMBIENT_MODES: AmbientSimulationMode[] = [
   "ai-ecosystem",
@@ -502,19 +615,32 @@ export default function MixiuhLabsHomePage() {
     if (!q) return true;
     return (
       item.term.toLowerCase().includes(q) ||
-      item.plain_es.toLowerCase().includes(q)
+      item.plain_es.toLowerCase().includes(q) ||
+      (item.term_en ?? "").toLowerCase().includes(q) ||
+      (item.plain_en ?? "").toLowerCase().includes(q)
     );
   });
+
+  // English mode shows the English twins of the data where they exist
+  const glossaryTerm = (g: (typeof LAB_GLOSSARY)[number]) =>
+    lang === "es" ? g.term : (g.term_en ?? g.term);
+  const glossaryPlain = (g: (typeof LAB_GLOSSARY)[number]) =>
+    lang === "es" ? g.plain_es : (g.plain_en ?? g.plain_es);
+  const fpsNote = (note: string) =>
+    lang === "es" ? note : (FPS_NOTE_EN[note] ?? note);
+  /** "p" (pasos) is the Spanish shorthand for agent steps in the EP03 figures. */
+  const stepsUnit = lang === "es" ? "p" : " steps";
 
   const isEp02 = dossierEp === "ep02";
 
   // Blog Cards Data (All 6 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
-  const BLOG_ARTICLES = [
+  const BLOG_ARTICLES: BlogArticle[] = [
     {
       id: "carbon01" as ReleaseKey,
       filter: "noticias" as const,
       date: "29 Oct 2026",
-      readTime: "04:19 Video · 8 Capitulos · 19 Evals",
+      readTime_es: `04:19 Video · 8 Capitulos · ${CARBON_TABLE_EVALS} Evals`,
+      readTime_en: `04:19 Video · 8 Chapters · ${CARBON_TABLE_EVALS} Evals`,
       badge_es: "RADAR MIXIUH · NOTICIAS IA #01",
       badge_en: "MIXIUH NEWS · AI RADAR #01",
       accentColor: EPISODE_ACCENT.carbon01,
@@ -525,14 +651,12 @@ export default function MixiuhLabsHomePage() {
         "Google Anuncia Gemini 4 Carbon: El Nuevo #1 Mundial (14 Dias Despues de Argon) y el Salto a $4/$20 USD",
       title_en:
         "Google Unveils Gemini 4 Carbon: The New #1 Worldwide (14 Days After Argon) & the $4/$20 USD Price Jump",
-      excerpt_es:
-        "Analisis completo de las 19 evaluaciones oficiales de Google DeepMind: como Gemini 4 Carbon destrona a Claude Opus 5.5 en Terminal-Bench Hard (54.5% vs 53.0%) y programacion de largo horizonte, arrasa en ciberseguridad defensiva (84.0% en SecBench) y por que duplicar el precio de la API ($4/$20 USD) sigue costando un 20% menos que Opus ($5/$25).",
-      excerpt_en:
-        "Full breakdown of Google DeepMind's 19 official benchmarks: how Gemini 4 Carbon dethrones Claude Opus 5.5 on Terminal-Bench Hard (54.5% vs 53.0%) and long-horizon coding, sweeps defensive cybersecurity (84.0% on SecBench), and why doubling the API price ($4/$20 USD) still costs 20% less than Opus ($5/$25).",
+      excerpt_es: `Analisis completo de las ${CARBON_TABLE_EVALS} evaluaciones oficiales de Google DeepMind: como Gemini 4 Carbon destrona a Claude Opus 5.5 en Terminal-Bench 4.0 (${CARBON_TERMINAL_BENCH.carbon} vs ${CARBON_TERMINAL_BENCH.opus55}) y programacion de largo horizonte, arrasa en ciberseguridad defensiva (${CARBON_SEC_BENCH.carbon} en SEC-bench Pro) y por que duplicar el precio de la API ($4/$20 USD) sigue costando un 20% menos que Opus ($5/$25).`,
+      excerpt_en: `Full breakdown of Google DeepMind's ${CARBON_TABLE_EVALS} official benchmarks: how Gemini 4 Carbon dethrones Claude Opus 5.5 on Terminal-Bench 4.0 (${CARBON_TERMINAL_BENCH.carbon} vs ${CARBON_TERMINAL_BENCH.opus55}) and long-horizon coding, sweeps defensive cybersecurity (${CARBON_SEC_BENCH.carbon} on SEC-bench Pro), and why doubling the API price ($4/$20 USD) still costs 20% less than Opus ($5/$25).`,
       metrics: [
-        { label_es: "TERMINAL HARD", label_en: "TERMINAL HARD", val: "54.5% (#1)" },
-        { label_es: "SECBENCH PRO", label_en: "SECBENCH PRO", val: "84.0% (#1)" },
-        { label_es: "CHARXIV-R", label_en: "CHARXIV-R", val: "91.0% (#1)" },
+        { label_es: "TERMINAL-BENCH 4.0", label_en: "TERMINAL-BENCH 4.0", val: carbonScore(CARBON_TERMINAL_BENCH) },
+        { label_es: "SEC-BENCH PRO", label_en: "SEC-BENCH PRO", val: carbonScore(CARBON_SEC_BENCH) },
+        { label_es: "AA INDEX", label_en: "AA INDEX", val: carbonScore(CARBON_AA_INDEX) },
         { label_es: "PRECIO API", label_en: "API PRICE", val: "$4 / $20 USD" },
       ],
       onOpenDossier: () => navigateToView("noticias"),
@@ -542,7 +666,8 @@ export default function MixiuhLabsHomePage() {
       id: "ep04" as ReleaseKey,
       filter: "laboratorios" as const,
       date: "28 Oct 2026",
-      readTime: "08:15 Video · 18 Demos",
+      readTime_es: "08:15 Video · 18 Demos",
+      readTime_en: "08:15 Video · 18 Demos",
       badge_es: "LABORATORIO EP04 · ESCALERA CLAUDE 5.5",
       badge_en: "LAB EP04 · CLAUDE 5.5 LADDER",
       accentColor: EPISODE_ACCENT.ep04,
@@ -570,7 +695,8 @@ export default function MixiuhLabsHomePage() {
       id: "ep03" as ReleaseKey,
       filter: "laboratorios" as const,
       date: "25 Oct 2026",
-      readTime: "07:31 Video · 12 Demos",
+      readTime_es: "07:31 Video · 12 Demos",
+      readTime_en: "07:31 Video · 12 Demos",
       badge_es: "LABORATORIO EP03 · BENCHMARK AGY CLI",
       badge_en: "LAB EP03 · AGY CLI BENCHMARK",
       accentColor: EPISODE_ACCENT.ep03,
@@ -598,7 +724,8 @@ export default function MixiuhLabsHomePage() {
       id: "cc01" as ReleaseKey,
       filter: "comunidad" as const,
       date: "24 Oct 2026",
-      readTime: "Estudio 3D + 10 Artes 2K",
+      readTime_es: "Estudio 3D + 10 Artes 2K",
+      readTime_en: "3D Studio + 10 2K Prints",
       badge_es: "DEL COMENTARIO AL CODIGO #01 · @TENITO03",
       badge_en: "FROM COMMENT TO CODE #01 · @TENITO03",
       accentColor: EPISODE_ACCENT.cc01,
@@ -614,8 +741,8 @@ export default function MixiuhLabsHomePage() {
       excerpt_en:
         "@tenito03 asked on the Verlet cloth Reel if we could turn that texture into a t-shirt, an editable blank mockup, and launch a clothing brand. We sculpted 3 300 GSM mannequins in Blender Cycles (Male, Female, Flat-Lay) and designed 10 satirical 2K prints with 4K export.",
       metrics: [
-        { label_es: "MANIQUIES 3D", label_en: "3D MODELS", val: "Hombre/Mujer/Mesa" },
-        { label_es: "COLECCION", label_en: "COLLECTION", val: "10 Artes 2K UHD" },
+        { label_es: "MANIQUIES 3D", label_en: "3D MODELS", val: "Hombre/Mujer/Mesa", val_en: "Male/Female/Flat-Lay" },
+        { label_es: "COLECCION", label_en: "COLLECTION", val: "10 Artes 2K UHD", val_en: "10 2K UHD Prints" },
         { label_es: "GRAMAJE", label_en: "FABRIC", val: "300 GSM + Verlet" },
         { label_es: "EXPORTACION", label_en: "EXPORT", val: "Reels 9:16 + PNG 4K" },
       ],
@@ -626,13 +753,15 @@ export default function MixiuhLabsHomePage() {
       id: "ep02" as ReleaseKey,
       filter: "laboratorios" as const,
       date: "21 Oct 2026",
-      readTime: "08:06 Video · 12 Demos",
+      readTime_es: "08:06 Video · 12 Demos",
+      readTime_en: "08:06 Video · 12 Demos",
       badge_es: "LABORATORIO EP02 · DUELO DE TITANES HIGH",
       badge_en: "LAB EP02 · HIGH TITAN DUEL",
       accentColor: EPISODE_ACCENT.ep02,
       scoreBadge_es: "ARGON 4 - 2 OPUS 5.5",
       scoreBadge_en: "ARGON 4 - 2 OPUS 5.5",
-      thumb: "/brand/thumbs/ep02_thumb_A.jpg",
+      // 1280px copy of the same art (cards render at most ~600 CSS px wide)
+      thumb: "/brand/thumbs/ep02_thumb_A_1280.jpg",
       title_es:
         "Gemini 4 Argon vs. Claude Opus 5.5: 6 Retos Extremos de Fisica, WebGL2 y la Factura Real de Tokens",
       title_en:
@@ -654,7 +783,8 @@ export default function MixiuhLabsHomePage() {
       id: "ep01" as ReleaseKey,
       filter: "laboratorios" as const,
       date: "16 Oct 2026",
-      readTime: "10:05 Video · 21 Demos",
+      readTime_es: "10:05 Video · 21 Demos",
+      readTime_en: "10:05 Video · 21 Demos",
       badge_es: "LABORATORIO EP01 · TORNEO FUNDACIONAL",
       badge_en: "LAB EP01 · FOUNDATIONAL TOURNAMENT",
       accentColor: EPISODE_ACCENT.ep01,
@@ -666,9 +796,9 @@ export default function MixiuhLabsHomePage() {
       title_en:
         "Gemini 4 Argon vs. Gemini 3.8 Flash: 10 Zero-Shot Challenges & the Half Pixel That Broke a 3D World",
       excerpt_es:
-        "10 pruebas zero-shot sin imagenes externas en Antigravity: Sistema Solar 3D, ADN, Boids, Mazmorras, Falling Sand, Raycasting Wolfenstein, Pixel Art, Reloj CSS, Arbol Fractal y Spirograph. Incluye la autopsia forense del error de redondeo Math.floor(p.x + 0.5) que encerro la camara de Flash dentro de un muro.",
+        "10 pruebas zero-shot sin imagenes externas en Antigravity: Sistema Solar 3D, ADN, Boids, Mazmorras, Falling Sand, Raycasting Wolfenstein, Pixel Art, Reloj CSS, Arbol Fractal y Spirograph. Incluye la autopsia forense del medio pixel: drawStart = -lineHeight / 2 + halfH sin redondear en un Uint32Array, que convirtio las paredes de Flash en rejas.",
       excerpt_en:
-        "10 zero-shot challenges with zero external assets in Antigravity: 3D Solar System, DNA Helix, Boids, Dungeons, Falling Sand, Wolfenstein Raycaster, Pixel Art, CSS Clock, Fractal Tree, and Spirograph. Includes the forensic autopsy of the Math.floor(p.x + 0.5) bug that trapped Flash inside a wall.",
+        "10 zero-shot challenges with zero external assets in Antigravity: 3D Solar System, DNA Helix, Boids, Dungeons, Falling Sand, Wolfenstein Raycaster, Pixel Art, CSS Clock, Fractal Tree, and Spirograph. Includes the forensic autopsy of the half pixel: drawStart = -lineHeight / 2 + halfH left unrounded on a Uint32Array, which turned Flash's walls into jail bars.",
       metrics: [
         { label_es: "MARCADOR", label_en: "SCORE", val: "10 - 0 Argon" },
         { label_es: "TIEMPO TOTAL", label_en: "TOTAL TIME", val: "55m vs 94m" },
@@ -729,14 +859,11 @@ export default function MixiuhLabsHomePage() {
               lang === "es"
                 ? "NOTICIA IA #01 · #1 MUNDIAL"
                 : "AI NEWS #01 · #1 WORLD",
-            title:
-              lang === "es"
-                ? "Gemini 4 Carbon: 54.5% Terminal-Bench Hard"
-                : "Gemini 4 Carbon: 54.5% Terminal-Bench Hard",
+            title: `Gemini 4 Carbon: ${CARBON_TERMINAL_BENCH.carbon} Terminal-Bench 4.0`,
             verdict:
               lang === "es"
-                ? "DESTRONA A OPUS 5.5 · 19 EVALS"
-                : "DETHRONES OPUS 5.5 · 19 EVALS",
+                ? `DESTRONA A OPUS 5.5 · ${CARBON_TABLE_EVALS} EVALS`
+                : `DETHRONES OPUS 5.5 · ${CARBON_TABLE_EVALS} EVALS`,
             timeMetric: "04:19 4K60",
             costMetric: "$4/$20 USD",
             thumb:
@@ -749,8 +876,8 @@ export default function MixiuhLabsHomePage() {
             onLaunchSecondary: () => navigateToView("dossiers", "ep04"),
             primaryLabel:
               lang === "es"
-                ? "ABRIR ESPECIAL CARBON (VIDEO + 19 EVALS)"
-                : "OPEN CARBON SPECIAL (VIDEO + 19 EVALS)",
+                ? `ABRIR ESPECIAL CARBON (VIDEO + ${CARBON_TABLE_EVALS} EVALS)`
+                : `OPEN CARBON SPECIAL (VIDEO + ${CARBON_TABLE_EVALS} EVALS)`,
             secondaryLabel: "EP04",
           },
         ]
@@ -794,7 +921,8 @@ export default function MixiuhLabsHomePage() {
               lang === "es"
                 ? "Argon High Sin Kit vs Superpowers Kit"
                 : "Argon High Raw vs Superpowers Kit",
-            verdict: "SUPERKIT 4 - 2 SIN KIT",
+            verdict:
+              lang === "es" ? "SUPERKIT 4 - 2 SIN KIT" : "SUPERKIT 4 - 2 RAW AI",
             timeMetric: "276m vs 302m",
             costMetric: "$10.85 vs $7.69",
             thumb: "/brand/thumbs/ep03_thumb_A.jpg",
@@ -815,9 +943,15 @@ export default function MixiuhLabsHomePage() {
           {
             id: "cc01",
             code: "CC.01",
-            kicker: "COMENTARIO AL CODIGO · @TENITO03",
+            kicker:
+              lang === "es"
+                ? "COMENTARIO AL CODIGO · @TENITO03"
+                : "COMMENT TO CODE · @TENITO03",
             title: "OVERFIT Studio 3D · 300 GSM Streetwear",
-            verdict: "3 MANIQUIES 3D + 10 ARTES 2K",
+            verdict:
+              lang === "es"
+                ? "3 MANIQUIES 3D + 10 ARTES 2K"
+                : "3 3D MANNEQUINS + 10 2K PRINTS",
             timeMetric: "BLENDER + GLB",
             costMetric: "EXPORT 4K",
             thumb: "/brand/thumbs/cc01_thumb_A.jpg",
@@ -834,12 +968,15 @@ export default function MixiuhLabsHomePage() {
     {
       id: "ep02",
       code: "EP.02",
-      kicker: "DUELO DE TITANES HIGH · 12 DEMOS",
+      kicker:
+        lang === "es"
+          ? "DUELO DE TITANES HIGH · 12 DEMOS"
+          : "HIGH TITAN DUEL · 12 DEMOS",
       title: "Gemini 4 Argon vs Claude Opus 5.5",
       verdict: "ARGON 4 - 2 OPUS 5.5",
       timeMetric: "90m vs 159m",
       costMetric: "$6.26 vs $16.26",
-      thumb: "/brand/thumbs/ep02_thumb_A.jpg",
+      thumb: "/brand/thumbs/ep02_thumb_A_1280.jpg",
       accentHex: "#A855F7",
       character: "argon" as const,
       onLaunchPrimary: () => navigateToView("dossiers", "ep02"),
@@ -986,8 +1123,8 @@ export default function MixiuhLabsHomePage() {
         },
         ...(
           [
-            { ep: "ep04" as const, label: "EP04 · Escalera Claude 5.5 (Haiku vs Sonnet vs Opus)", tone: "cyan" as const, show: released.ep04 },
-            { ep: "ep03" as const, label: "EP03 · Argon High Sin Kit vs Superpowers Kit", tone: "emerald" as const, show: released.ep03 },
+            { ep: "ep04" as const, label: es ? "EP04 · Escalera Claude 5.5 (Haiku vs Sonnet vs Opus)" : "EP04 · Claude 5.5 Ladder (Haiku vs Sonnet vs Opus)", tone: "cyan" as const, show: released.ep04 },
+            { ep: "ep03" as const, label: es ? "EP03 · Argon High Sin Kit vs Superpowers Kit" : "EP03 · Argon High Raw vs Superpowers Kit", tone: "emerald" as const, show: released.ep03 },
             { ep: "ep02" as const, label: "EP02 · Gemini 4 Argon vs Claude Opus 5.5", tone: "violet" as const, show: released.ep02 },
             { ep: "ep01" as const, label: "EP01 · Gemini 4 Argon vs Gemini 3.8 Flash", tone: "yellow" as const, show: released.ep01 },
           ].filter((e) => e.show)
@@ -1089,12 +1226,15 @@ export default function MixiuhLabsHomePage() {
         ...LAB_GLOSSARY.map((g) => ({
           id: `term-${g.term}`,
           group: es ? "Glosario" : "Glossary",
-          label: g.term,
-          hint: g.plain_es,
+          label: glossaryTerm(g),
+          hint: glossaryPlain(g),
           icon: "book" as const,
           tone: "emerald" as const,
-          keywords: g.plain_es,
-          onSelect: () => openGlossaryTerm(g.term),
+          // Both languages stay searchable whichever one is shown
+          keywords: [g.term, g.term_en, g.plain_es, g.plain_en]
+            .filter(Boolean)
+            .join(" "),
+          onSelect: () => openGlossaryTerm(glossaryTerm(g)),
         })),
       ]
     : [];
@@ -1381,10 +1521,10 @@ export default function MixiuhLabsHomePage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[10px]">
-                    {`${totalEpisodesCount} PRODUCCIONES 4K60`}
+                    {`${totalEpisodesCount} ${lang === "es" ? "PRODUCCIONES 4K60" : "4K60 PRODUCTIONS"}`}
                   </span>
                   <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[10px]">
-                    {`${totalDemosCount} MOTORES EN VIVO`}
+                    {`${totalDemosCount} ${lang === "es" ? "MOTORES EN VIVO" : "LIVE ENGINES"}`}
                   </span>
                 </div>
               </div>
@@ -1403,7 +1543,7 @@ export default function MixiuhLabsHomePage() {
                       </span>
                       <span className="px-2.5 py-1 bg-[#090B10] text-[#10B981] border border-[#10B981] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5">
                         <PixelIcon name="trophy" size={12} color="#10B981" />
-                        <span>19 EVALS DEEPMIND</span>
+                        <span>{`${CARBON_TABLE_EVALS} EVALS DEEPMIND`}</span>
                       </span>
                     </div>
 
@@ -1431,15 +1571,15 @@ export default function MixiuhLabsHomePage() {
 
                     <p className="text-sm sm:text-base text-[#CBD5E1] leading-relaxed">
                       {lang === "es"
-                        ? "A solo 14 dias de lanzar Argon, Google DeepMind publica Gemini 4 Carbon. Desglosamos los 8 capitulos del reporte en 4K60: como destrona a Claude Opus 5.5 en Terminal-Bench Hard (54.5% vs 53.0%), su dominio en ciberseguridad defensiva (84.0% en SecBench) y por que duplicar la tarifa API ($4/$20 USD) sigue costando 20% menos que Opus ($5/$25)."
-                        : "Just 14 days after launching Argon, Google DeepMind releases Gemini 4 Carbon. We break down all 8 chapters in 4K60: how it dethrones Claude Opus 5.5 on Terminal-Bench Hard (54.5% vs 53.0%), sweeps defensive cybersecurity (84.0% on SecBench), and why doubling the API rate ($4/$20 USD) still costs 20% less than Opus ($5/$25)."}
+                        ? `A solo 14 dias de lanzar Argon, Google DeepMind publica Gemini 4 Carbon. Desglosamos los 8 capitulos del reporte en 4K60: como destrona a Claude Opus 5.5 en Terminal-Bench 4.0 (${CARBON_TERMINAL_BENCH.carbon} vs ${CARBON_TERMINAL_BENCH.opus55}), su dominio en ciberseguridad defensiva (${CARBON_SEC_BENCH.carbon} en SEC-bench Pro) y por que duplicar la tarifa API ($4/$20 USD) sigue costando 20% menos que Opus ($5/$25).`
+                        : `Just 14 days after launching Argon, Google DeepMind releases Gemini 4 Carbon. We break down all 8 chapters in 4K60: how it dethrones Claude Opus 5.5 on Terminal-Bench 4.0 (${CARBON_TERMINAL_BENCH.carbon} vs ${CARBON_TERMINAL_BENCH.opus55}), sweeps defensive cybersecurity (${CARBON_SEC_BENCH.carbon} on SEC-bench Pro), and why doubling the API rate ($4/$20 USD) still costs 20% less than Opus ($5/$25).`}
                     </p>
 
                     {/* Standard Mixiuh Telemetry Strip ([CLOCK + MIN] & [COIN + $ USD]) */}
                     <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
                       <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#00E5FF] text-[#F5F2EB] font-bold inline-flex items-center gap-1.5">
                         <PixelIcon name="clock" size={13} color="#00E5FF" />
-                        <span>TERMINAL HARD: 54.5% (#1)</span>
+                        <span>{`TERMINAL-BENCH 4.0: ${carbonScore(CARBON_TERMINAL_BENCH)}`}</span>
                       </span>
                       <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#FFD100] text-[#FFD100] font-bold inline-flex items-center gap-1.5">
                         <PixelIcon name="coin" size={13} color="#FFD100" />
@@ -1447,7 +1587,7 @@ export default function MixiuhLabsHomePage() {
                       </span>
                       <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#10B981] text-[#10B981] font-bold inline-flex items-center gap-1.5">
                         <PixelIcon name="shield" size={13} color="#10B981" />
-                        <span>SECBENCH: 84.0% (#1)</span>
+                        <span>{`SEC-BENCH PRO: ${carbonScore(CARBON_SEC_BENCH)}`}</span>
                       </span>
                     </div>
 
@@ -1529,7 +1669,7 @@ export default function MixiuhLabsHomePage() {
                             <span className="text-[#94A3B8]">
                               {lang === "es" ? m.label_es : m.label_en}:
                             </span>
-                            <span>{m.val}</span>
+                            <span>{lang === "es" ? m.val : (m.val_en ?? m.val)}</span>
                           </span>
                         ))}
                       </div>
@@ -1638,7 +1778,11 @@ export default function MixiuhLabsHomePage() {
               >
                 <div>
                   <div className="px-4 py-2 bg-[#FFD100] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
-                    <span>02 // COMENTARIO AL CODIGO</span>
+                    <span>
+                      {lang === "es"
+                        ? "02 // COMENTARIO AL CODIGO"
+                        : "02 // COMMENT TO CODE"}
+                    </span>
                     <span>@TENITO03</span>
                   </div>
                   <div className="p-4">
@@ -1669,19 +1813,23 @@ export default function MixiuhLabsHomePage() {
               >
                 <div>
                   <div className="px-4 py-2 bg-[#00E5FF] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
-                    <span>03 // NOTICIAS IA · RADAR</span>
+                    <span>
+                      {lang === "es"
+                        ? "03 // NOTICIAS IA · RADAR"
+                        : "03 // AI NEWS · RADAR"}
+                    </span>
                     <span>CARBON #1</span>
                   </div>
                   <div className="p-4">
                     <h2 className="font-display text-base sm:text-lg font-black text-white">
                       {lang === "es"
-                        ? "Especial #01: Gemini 4 Carbon (19 Evals)"
-                        : "Special #01: Gemini 4 Carbon (19 Evals)"}
+                        ? `Especial #01: Gemini 4 Carbon (${CARBON_TABLE_EVALS} Evals)`
+                        : `Special #01: Gemini 4 Carbon (${CARBON_TABLE_EVALS} Evals)`}
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1.5 leading-relaxed">
                       {lang === "es"
-                        ? "Video 4K60, Short vertical, tabla interactiva de las 19 evaluaciones de DeepMind y comparativa de costos API."
-                        : "4K60 video, vertical Short, interactive table of all 19 DeepMind benchmarks, and API cost breakdown."}
+                        ? `Video 4K60, Short vertical, tabla interactiva de las ${CARBON_SITE_EVALS} evaluaciones oficiales y comparativa de costos API.`
+                        : `4K60 video, vertical Short, interactive table of all ${CARBON_SITE_EVALS} official benchmarks, and API cost breakdown.`}
                     </p>
                   </div>
                 </div>
@@ -1811,9 +1959,12 @@ export default function MixiuhLabsHomePage() {
                         onClick={art.onOpenDossier}
                         className="relative aspect-video bg-[#090B10] border-b-2 border-[#090B10] overflow-hidden cursor-pointer group"
                       >
+                        {/* Below the fold: lazy also keeps it out of the <head> preloads React adds for eager images */}
                         <img
                           src={art.thumb}
                           alt={lang === "es" ? art.title_es : art.title_en}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
                         />
                         <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between font-mono-hud text-[11px]">
@@ -1821,7 +1972,7 @@ export default function MixiuhLabsHomePage() {
                             {art.date}
                           </span>
                           <span className="px-2.5 py-1 bg-[#090B10] border border-[#FFD100] text-[#FFD100] font-bold">
-                            {art.readTime}
+                            {lang === "es" ? art.readTime_es : art.readTime_en}
                           </span>
                         </div>
                       </div>
@@ -1856,7 +2007,7 @@ export default function MixiuhLabsHomePage() {
                                     idx === 0 ? art.accentColor : "#F5F2EB",
                                 }}
                               >
-                                {m.val}
+                                {lang === "es" ? m.val : (m.val_en ?? m.val)}
                               </div>
                             </div>
                           ))}
@@ -1895,9 +2046,7 @@ export default function MixiuhLabsHomePage() {
                           <PixelIcon name="gamepad" size={13} />
                           <span>
                             {art.filter === "noticias"
-                              ? lang === "es"
-                                ? "19 Evals"
-                                : "19 Evals"
+                              ? `${CARBON_TABLE_EVALS} Evals`
                               : lang === "es"
                               ? "Probar Demos"
                               : "Play Demos"}
@@ -2035,7 +2184,11 @@ export default function MixiuhLabsHomePage() {
                 <div>
                   <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#00E5FF] text-[#090B10] font-pixel text-[10px] font-bold mb-3">
                     <PixelIcon name="message" size={13} color="#090B10" />
-                    <span>{`FORO Y GLOSARIO (${totalForumThreadsCount} HILOS)`}</span>
+                    <span>
+                      {lang === "es"
+                        ? `FORO Y GLOSARIO (${totalForumThreadsCount} HILOS)`
+                        : `FORUM & GLOSSARY (${totalForumThreadsCount} THREADS)`}
+                    </span>
                   </div>
                   <h3 className="font-display text-lg font-black text-white mb-2">
                     {lang === "es"
@@ -2066,14 +2219,15 @@ export default function MixiuhLabsHomePage() {
                 <PixelMultiLineChart
                   title={
                     lang === "es"
-                      ? "TELEMETRIA COMPARATIVA // GEMINI 4 CARBON VS OPUS 5.5 VS SONNET 5.5"
-                      : "COMPARATIVE TELEMETRY // GEMINI 4 CARBON VS OPUS 5.5 VS SONNET 5.5"
+                      ? "TELEMETRIA COMPARATIVA // GEMINI 4 CARBON VS OPUS 5.5 VS ARGON"
+                      : "COMPARATIVE TELEMETRY // GEMINI 4 CARBON VS OPUS 5.5 VS ARGON"
                   }
                   subtitle={
                     lang === "es"
-                      ? "Haz clic en cada modelo para activar/ocultar series o pasa el cursor sobre los nodos"
-                      : "Click any model legend to toggle series or hover over pixel nodes"
+                      ? "Tabla oficial de Google DeepMind (ExploitGym: Carbon y Argon con limite de 10 h por tarea, Opus con 6 h). Haz clic en cada modelo para activar/ocultar series o pasa el cursor sobre los nodos"
+                      : "Google DeepMind's official table (ExploitGym: Carbon & Argon capped at 10h per task, Opus at 6h). Click any model legend to toggle series or hover over pixel nodes"
                   }
+                  // Same model colors as the News view's benchmark table
                   series={[
                     {
                       key: "carbon",
@@ -2083,57 +2237,45 @@ export default function MixiuhLabsHomePage() {
                     {
                       key: "opus",
                       name: "Claude Opus 5.5",
-                      color: "#A855F7",
+                      color: "#FB923C",
                     },
                     {
-                      key: "sonnet",
-                      name: "Claude Sonnet 5.5",
-                      color: "#FFD100",
+                      key: "argon",
+                      name: "Gemini 4 Argon",
+                      color: "#C084FC",
                     },
                   ]}
-                  data={[
-                    {
-                      label: "TERM-HARD",
-                      values: { carbon: 54.5, opus: 53.0, sonnet: 43.8 },
-                    },
-                    {
-                      label: "SECBENCH",
-                      values: { carbon: 84.0, opus: 76.2, sonnet: 68.5 },
-                    },
-                    {
-                      label: "SWE-VERIF",
-                      values: { carbon: 79.4, opus: 78.1, sonnet: 72.4 },
-                    },
-                    {
-                      label: "WEBGL-60FPS",
-                      values: { carbon: 92.0, opus: 86.0, sonnet: 78.0 },
-                    },
-                    {
-                      label: "COST-EFF",
-                      values: { carbon: 94.0, opus: 48.0, sonnet: 76.0 },
-                    },
-                  ]}
+                  data={CARBON_TELEMETRY_DATA}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Labels wrap instead of truncating ("TERMINAL-BE…") in the 3-column row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">
                   <PixelDonutGauge
-                    label="TERMINAL-BENCH HARD"
-                    sublabel="Gemini 4 Carbon #1"
-                    value={54.5}
+                    label="TERMINAL-BENCH 4.0"
+                    sublabel={
+                      lang === "es"
+                        ? CARBON_TERMINAL_BENCH.highlight_es
+                        : CARBON_TERMINAL_BENCH.highlight_en
+                    }
+                    value={parseFloat(CARBON_TERMINAL_BENCH.carbon)}
                     maxValue={100}
-                    displayValue="54.5%"
+                    displayValue={CARBON_TERMINAL_BENCH.carbon}
                     tone="cyan"
                   />
                   <PixelDonutGauge
-                    label="SECBENCH DEFENSIVE"
-                    sublabel="Record ciberseguridad"
-                    value={84.0}
+                    label="SEC-BENCH PRO"
+                    sublabel={
+                      lang === "es"
+                        ? CARBON_SEC_BENCH.highlight_es
+                        : CARBON_SEC_BENCH.highlight_en
+                    }
+                    value={parseFloat(CARBON_SEC_BENCH.carbon)}
                     maxValue={100}
-                    displayValue="84.0%"
+                    displayValue={CARBON_SEC_BENCH.carbon}
                     tone="emerald"
                   />
                   <PixelDonutGauge
-                    label="AHORRO API VS OPUS"
+                    label={lang === "es" ? "AHORRO API VS OPUS" : "API SAVINGS VS OPUS"}
                     sublabel="$4/$20 vs $5/$25 USD"
                     value={20}
                     maxValue={100}
@@ -2288,14 +2430,16 @@ export default function MixiuhLabsHomePage() {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
                       <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#FF3355] text-[#090B10] font-bold">
-                        DISK 04 · NUEVO
+                        {lang === "es" ? "DISK 04 · NUEVO" : "DISK 04 · NEW"}
                       </span>
                       <span className="text-[#10B981]">
                         3-2-1 · $1.54 vs $29.94
                       </span>
                     </div>
                     <div className="font-display text-sm font-black text-white mt-2 truncate">
-                      Escalera Claude: Haiku vs Sonnet vs Opus
+                      {lang === "es"
+                        ? "Escalera Claude: Haiku vs Sonnet vs Opus"
+                        : "Claude Ladder: Haiku vs Sonnet vs Opus"}
                     </div>
                   </button>
                 )}
@@ -2320,7 +2464,9 @@ export default function MixiuhLabsHomePage() {
                       <span className="text-[#FFD100]">4-2 · 276m vs 302m</span>
                     </div>
                     <div className="font-display text-sm font-black text-white mt-2 truncate">
-                      Argon High Sin Kit vs. Superpowers Kit
+                      {lang === "es"
+                        ? "Argon High Sin Kit vs. Superpowers Kit"
+                        : "Argon High Raw vs. Superpowers Kit"}
                     </div>
                   </button>
                 )}
@@ -2417,6 +2563,23 @@ export default function MixiuhLabsHomePage() {
                       : "We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 extreme challenges x 3 models). Opus 5.5 won 3 points on multi-pass physics and scientific shaders (Verlet Rover, Tokyo GPU Bio-Network, and XPBD Bridge), Sonnet 5.5 won 2 points in the final challenges (WebGL2 Path Tracer at 29 FPS vs Opus's 15 FPS and Retro CHIP-8 Console booting live Pong while Opus left a 0-byte ROM), and Haiku 5.5 won 1 historic ROI point by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus)."}
                   </p>
 
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href={lang === "es" ? YOUTUBE_LINKS.ep04_es : YOUTUBE_LINKS.ep04_en}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-3 shadow-[4px_4px_0_#040508] bg-[#FF3355] text-[#090B10] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
+                    >
+                      <PixelIcon name="play" size={16} />
+                      <span>
+                        {lang === "es"
+                          ? "Ver en YouTube (4K60)"
+                          : "Watch on YouTube (4K60)"}
+                      </span>
+                      <PixelIcon name="external" size={14} />
+                    </a>
+                  </div>
+
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-4 bg-[#090B10] border-2 border-[#00E5FF] shadow-[4px_4px_0_#040508]">
                       <div className="font-pixel text-[10px] text-[#00E5FF] font-bold">
@@ -2432,7 +2595,9 @@ export default function MixiuhLabsHomePage() {
 
                     <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
                       <div className="font-pixel text-[10px] text-[#10B981] font-bold">
-                        CLAUDE HAIKU 5.5 (6 RETOS)
+                        {lang === "es"
+                          ? "CLAUDE HAIKU 5.5 (6 RETOS)"
+                          : "CLAUDE HAIKU 5.5 (6 CHALLENGES)"}
                       </div>
                       <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
                         ${EP04_BENCHMARK_TOTALS.haiku_usd.toFixed(2)}{" "}
@@ -2441,13 +2606,17 @@ export default function MixiuhLabsHomePage() {
                         </span>
                       </div>
                       <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
-                        19.4x mas barato que Opus · 5/6 OK
+                        {`${(EP04_BENCHMARK_TOTALS.opus_usd / EP04_BENCHMARK_TOTALS.haiku_usd).toFixed(1)}x ${
+                          lang === "es" ? "mas barato que Opus" : "cheaper than Opus"
+                        } · ${ep04OkRuns("haiku")}`}
                       </div>
                     </div>
 
                     <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
                       <div className="font-pixel text-[10px] text-[#FFD100] font-bold">
-                        CLAUDE SONNET 5.5 (6 RETOS)
+                        {lang === "es"
+                          ? "CLAUDE SONNET 5.5 (6 RETOS)"
+                          : "CLAUDE SONNET 5.5 (6 CHALLENGES)"}
                       </div>
                       <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
                         ${EP04_BENCHMARK_TOTALS.sonnet_usd.toFixed(2)}{" "}
@@ -2456,13 +2625,17 @@ export default function MixiuhLabsHomePage() {
                         </span>
                       </div>
                       <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
-                        2.45x mas barato que Opus · 5/6 OK
+                        {`${(EP04_BENCHMARK_TOTALS.opus_usd / EP04_BENCHMARK_TOTALS.sonnet_usd).toFixed(2)}x ${
+                          lang === "es" ? "mas barato que Opus" : "cheaper than Opus"
+                        } · ${ep04OkRuns("sonnet")}`}
                       </div>
                     </div>
 
                     <div className="p-4 bg-[#090B10] border-2 border-[#A855F7] shadow-[4px_4px_0_#040508]">
                       <div className="font-pixel text-[10px] text-[#C084FC] font-bold">
-                        CLAUDE OPUS 5.5 (6 RETOS)
+                        {lang === "es"
+                          ? "CLAUDE OPUS 5.5 (6 RETOS)"
+                          : "CLAUDE OPUS 5.5 (6 CHALLENGES)"}
                       </div>
                       <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
                         ${EP04_BENCHMARK_TOTALS.opus_usd.toFixed(2)}{" "}
@@ -2471,7 +2644,9 @@ export default function MixiuhLabsHomePage() {
                         </span>
                       </div>
                       <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
-                        8,900 lineas · 4.46M tokens · 5/6 OK
+                        {`${EP04_BENCHMARK_TOTALS.opus_lines.toLocaleString("en-US")} ${
+                          lang === "es" ? "lineas" : "lines"
+                        } · ${EP04_BENCHMARK_TOTALS.opus_tokens} tokens · ${ep04OkRuns("opus")}`}
                       </div>
                     </div>
                   </div>
@@ -2593,7 +2768,11 @@ export default function MixiuhLabsHomePage() {
                             <div className="space-y-4">
                               <img
                                 src={ch4.vs_still}
-                                alt={ch4.name_es}
+                                alt={
+                                  lang === "es"
+                                    ? `Captura comparativa del reto 0${ch4.n}, ${ch4.name_es}: Haiku, Sonnet y Opus lado a lado`
+                                    : `Comparison still for challenge 0${ch4.n}, ${ch4.name_en}: Haiku, Sonnet and Opus side by side`
+                                }
                                 className="w-full border border-[#2A344B] shadow-[4px_4px_0_#040508]"
                               />
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono-hud text-xs">
@@ -2636,7 +2815,7 @@ export default function MixiuhLabsHomePage() {
                                         {t.data.lines} loc
                                       </div>
                                       <div className="text-[#94A3B8] mt-0.5">
-                                        {t.data.fps} · {t.data.tok} tok
+                                        {fpsNote(t.data.fps)} · {t.data.tok} tok
                                       </div>
                                     </div>
                                     <button
@@ -2663,7 +2842,7 @@ export default function MixiuhLabsHomePage() {
                                   {ep04Mode.toUpperCase()} 5.5 ·{" "}
                                   {ch4[ep04Mode].min} min · $
                                   {ch4[ep04Mode].usd.toFixed(2)} USD ·{" "}
-                                  {ch4[ep04Mode].fps}
+                                  {fpsNote(ch4[ep04Mode].fps)}
                                 </span>
                                 <a
                                   href={ch4[ep04Mode].demoUrl}
@@ -2692,7 +2871,9 @@ export default function MixiuhLabsHomePage() {
                             <div className="p-5 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B] space-y-3">
                               <div className="flex items-center justify-between">
                                 <span className="font-mono-hud text-xs font-bold text-[#00E5FF]">
-                                  PROMPT EXACTO (1 INTENTO · CLAUDE CODE CLI)
+                                  {lang === "es"
+                                    ? "PROMPT EXACTO (1 INTENTO · CLAUDE CODE CLI)"
+                                    : "EXACT PROMPT (1 ATTEMPT · CLAUDE CODE CLI)"}
                                 </span>
                                 <PixelCopyButton
                                   text={ch4.prompt_verbatim}
@@ -2789,6 +2970,23 @@ export default function MixiuhLabsHomePage() {
                       : "We ran 12 isolated instances of `agy --model gemini-4-argon-high --effort high` across 6 extreme systems. Unlike last year's models, Raw Gemini 4 Argon High shipped zero broken apps and won 2 rounds outright (Ch 03 Bullet-Hell Boss Rush with 1,829 active bullets in 51m vs 69m, and Ch 04 3D Zero-Trust Network in just 5 agent steps for $0.74 USD). However, the Mixiuh Superpowers Kit won 4-2 overall and saved 26 total minutes (276m vs 302m), delivering 70,406 ord/s in the Zero-GC HFT Terminal (6.3x higher throughput, faster and cheaper), compiling the DAG GLSL Studio 10 minutes earlier for the exact same cost, and catching overlapping startup windows in MixiuhOS via the MCP Auto-Debugger."}
                   </p>
 
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href={lang === "es" ? YOUTUBE_LINKS.ep03_es : YOUTUBE_LINKS.ep03_en}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-3 shadow-[4px_4px_0_#040508] bg-[#FF3355] text-[#090B10] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
+                    >
+                      <PixelIcon name="play" size={16} />
+                      <span>
+                        {lang === "es"
+                          ? "Ver en YouTube (4K60)"
+                          : "Watch on YouTube (4K60)"}
+                      </span>
+                      <PixelIcon name="external" size={14} />
+                    </a>
+                  </div>
+
                   {/* 4 Real Telemetry Cards */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#10B981]/40">
@@ -2835,7 +3033,7 @@ export default function MixiuhLabsHomePage() {
                         <span className="text-sm text-[#94A3B8]">vs $7.69</span>
                       </div>
                       <div className="font-mono-hud text-xs text-[#FFD100] mt-1">
-                        3.52M tok (80p) vs 2.65M tok (53p)
+                        {`3.52M tok (80${stepsUnit}) vs 2.65M tok (53${stepsUnit})`}
                       </div>
                     </div>
 
@@ -2850,7 +3048,9 @@ export default function MixiuhLabsHomePage() {
                         <span className="text-sm text-[#94A3B8]">vs 6,996 loc</span>
                       </div>
                       <div className="font-mono-hud text-xs text-[#00E5FF] mt-1">
-                        325.4 KB (Kit) vs 279.1 KB (Sin Kit)
+                        {lang === "es"
+                          ? "325.4 KB (Kit) vs 279.1 KB (Sin Kit)"
+                          : "325.4 KB (Kit) vs 279.1 KB (Raw)"}
                       </div>
                     </div>
                   </div>
@@ -2885,13 +3085,19 @@ export default function MixiuhLabsHomePage() {
                               : "Challenge & Evaluated Skill"}
                           </th>
                           <th className="py-3.5 px-4 text-[#FFD100]">
-                            IA Sin Kit (Reloj / Loc / FPS)
+                            {lang === "es"
+                              ? "IA Sin Kit (Reloj / Loc / FPS)"
+                              : "Raw AI (Clock / Loc / FPS)"}
                           </th>
                           <th className="py-3.5 px-4 text-[#FFD100]">
-                            Sin Kit Tokens / USD
+                            {lang === "es"
+                              ? "Sin Kit Tokens / USD"
+                              : "Raw Tokens / USD"}
                           </th>
                           <th className="py-3.5 px-4 text-[#10B981]">
-                            Superpowers Kit (Reloj / Loc / FPS)
+                            {lang === "es"
+                              ? "Superpowers Kit (Reloj / Loc / FPS)"
+                              : "Superpowers Kit (Clock / Loc / FPS)"}
                           </th>
                           <th className="py-3.5 px-4 text-[#10B981]">
                             Superkit Tokens / USD
@@ -2926,7 +3132,7 @@ export default function MixiuhLabsHomePage() {
                                 {ch.vanilla_min} min
                               </span>{" "}
                               <span className="text-xs text-[#94A3B8]">
-                                · {ch.vanilla_fps}
+                                · {fpsNote(ch.vanilla_fps)}
                               </span>
                               <span className="text-xs text-[#94A3B8] block">
                                 {ch.vanilla_lines} loc · {ch.vanilla_kb} KB
@@ -2937,7 +3143,8 @@ export default function MixiuhLabsHomePage() {
                                 ${ch.vanilla_usd.toFixed(2)} USD
                               </span>
                               <span className="text-xs text-[#94A3B8] block">
-                                {ch.vanilla_tok} tok ({ch.vanilla_steps}p)
+                                {ch.vanilla_tok} tok ({ch.vanilla_steps}
+                                {stepsUnit})
                               </span>
                             </td>
                             <td className="py-3.5 px-4 font-mono-hud">
@@ -2945,7 +3152,7 @@ export default function MixiuhLabsHomePage() {
                                 {ch.superkit_min} min
                               </span>{" "}
                               <span className="text-xs text-[#00E5FF]">
-                                · {ch.superkit_fps}
+                                · {fpsNote(ch.superkit_fps)}
                               </span>
                               <span className="text-xs text-[#94A3B8] block">
                                 {ch.superkit_lines} loc · {ch.superkit_kb} KB
@@ -2956,7 +3163,8 @@ export default function MixiuhLabsHomePage() {
                                 ${ch.superkit_usd.toFixed(2)} USD
                               </span>
                               <span className="text-xs text-[#94A3B8] block">
-                                {ch.superkit_tok} tok ({ch.superkit_steps}p)
+                                {ch.superkit_tok} tok ({ch.superkit_steps}
+                                {stepsUnit})
                               </span>
                             </td>
                             <td className="py-3.5 px-4">
@@ -2966,7 +3174,7 @@ export default function MixiuhLabsHomePage() {
                                 </span>
                               ) : (
                                 <span className="px-2.5 py-1 bg-[#FFD100]/15 border border-[#FFD100]/40 font-mono-hud text-[11px] font-bold text-[#FFD100]">
-                                  IA SIN KIT
+                                  {lang === "es" ? "IA SIN KIT" : "RAW AI"}
                                 </span>
                               )}
                             </td>
@@ -2977,19 +3185,21 @@ export default function MixiuhLabsHomePage() {
                         <tr className="bg-[#090B10] border-t-2 border-[#10B981]/40 font-mono-hud text-xs font-bold">
                           <td className="py-4 px-4 text-[#00E5FF]">TOTAL</td>
                           <td className="py-4 px-4 text-white">
-                            6 Retos Extremos (12 Corridas Reales agy CLI)
+                            {lang === "es"
+                              ? "6 Retos Extremos (12 Corridas Reales agy CLI)"
+                              : "6 Extreme Challenges (12 Real agy CLI Runs)"}
                           </td>
                           <td className="py-4 px-4 text-[#FFD100]">
                             302 min · 6,996 loc (279.1 KB)
                           </td>
                           <td className="py-4 px-4 text-[#FFD100]">
-                            $7.69 USD · 2.65M tok (53p)
+                            {`$7.69 USD · 2.65M tok (53${stepsUnit})`}
                           </td>
                           <td className="py-4 px-4 text-[#10B981]">
                             276 min · 7,937 loc (325.4 KB)
                           </td>
                           <td className="py-4 px-4 text-[#10B981]">
-                            $10.85 USD · 3.52M tok (80p)
+                            {`$10.85 USD · 3.52M tok (80${stepsUnit})`}
                           </td>
                           <td className="py-4 px-4 text-[#10B981]">
                             SUPERKIT 4 - 2
@@ -3060,7 +3270,7 @@ export default function MixiuhLabsHomePage() {
                                 {cur.skill}
                               </span>
                               <span className="text-[#FFD100]">
-                                Sin Kit: {cur.vanilla_min}m · $
+                                {lang === "es" ? "Sin Kit" : "Raw"}: {cur.vanilla_min}m · $
                                 {cur.vanilla_usd.toFixed(2)} ({cur.vanilla_tok}{" "}
                                 tok)
                               </span>
@@ -3103,8 +3313,10 @@ export default function MixiuhLabsHomePage() {
                             <div className="flex flex-col">
                               <div className="px-3 py-2 bg-[#111622] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                                 <span className="text-[#FFD100] font-bold">
-                                  IZQUIERDA · GEMINI 4 ARGON HIGH SIN KIT —{" "}
-                                  {cur.vanilla_fps}
+                                  {lang === "es"
+                                    ? "IZQUIERDA · GEMINI 4 ARGON HIGH SIN KIT —"
+                                    : "LEFT · GEMINI 4 ARGON HIGH RAW —"}{" "}
+                                  {fpsNote(cur.vanilla_fps)}
                                 </span>
                                 <div className="flex items-center gap-3">
                                   <a
@@ -3121,7 +3333,7 @@ export default function MixiuhLabsHomePage() {
                                     rel="noopener noreferrer"
                                     className="text-[#FFD100] hover:underline"
                                   >
-                                    Pantalla Completa ↗
+                                    {lang === "es" ? "Pantalla Completa ↗" : "Full Screen ↗"}
                                   </a>
                                 </div>
                               </div>
@@ -3135,8 +3347,10 @@ export default function MixiuhLabsHomePage() {
                             <div className="flex flex-col">
                               <div className="px-3 py-2 bg-[#111622] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                                 <span className="text-[#10B981] font-bold">
-                                  DERECHA · IA + MIXIUH SUPERPOWERS KIT —{" "}
-                                  {cur.superkit_fps}
+                                  {lang === "es"
+                                    ? "DERECHA · IA + MIXIUH SUPERPOWERS KIT —"
+                                    : "RIGHT · AI + MIXIUH SUPERPOWERS KIT —"}{" "}
+                                  {fpsNote(cur.superkit_fps)}
                                 </span>
                                 <div className="flex items-center gap-3">
                                   <a
@@ -3153,7 +3367,7 @@ export default function MixiuhLabsHomePage() {
                                     rel="noopener noreferrer"
                                     className="text-[#10B981] hover:underline"
                                   >
-                                    Pantalla Completa ↗
+                                    {lang === "es" ? "Pantalla Completa ↗" : "Full Screen ↗"}
                                   </a>
                                 </div>
                               </div>
@@ -3183,7 +3397,11 @@ export default function MixiuhLabsHomePage() {
                           <div className="p-6 bg-[#090B10] flex flex-col items-center">
                             <img
                               src={cur.vs_still}
-                              alt={cur.name_es}
+                              alt={
+                                lang === "es"
+                                  ? `Captura comparativa del reto 0${cur.n}, ${cur.name_es}: IA sin kit y Superpowers Kit lado a lado`
+                                  : `Comparison still for challenge 0${cur.n}, ${cur.name_en}: raw AI and Superpowers Kit side by side`
+                              }
                               className="max-h-[580px] w-auto shadow-[4px_4px_0_#040508] border border-[#2A344B]"
                             />
                           </div>
@@ -3193,8 +3411,9 @@ export default function MixiuhLabsHomePage() {
                           <div className="p-6 bg-[#090B10] space-y-3">
                             <div className="flex items-center justify-between">
                               <span className="font-mono-hud text-xs font-bold text-[#00E5FF]">
-                                PROMPT IDENTICO ENVIADO A AMBAS INSTANCIAS DE
-                                AGY CLI
+                                {lang === "es"
+                                  ? "PROMPT IDENTICO ENVIADO A AMBAS INSTANCIAS DE AGY CLI"
+                                  : "IDENTICAL PROMPT SENT TO BOTH AGY CLI INSTANCES"}
                               </span>
                               <PixelCopyButton
                                 text={cur.prompt_verbatim}
@@ -3298,7 +3517,7 @@ export default function MixiuhLabsHomePage() {
 
                           <div className="text-center">
                             <div className="inline-block px-3 py-1 bg-[#090B10] border border-[#2A344B] font-mono-hud text-xs font-bold text-[#00E5FF]">
-                              MARCADOR 4 - 2
+                              {lang === "es" ? "MARCADOR 4 - 2" : "SCORE 4 - 2"}
                             </div>
                             <div className="font-mono-hud text-xs text-[#10B981] font-bold mt-1.5">
                               -69 MIN · -$10.00 USD
@@ -3342,14 +3561,14 @@ export default function MixiuhLabsHomePage() {
                                 0
                               </div>
                               <div className="font-mono-hud text-[11px] text-[#94A3B8]">
-                                94 min · 8/10 func.
+                                {lang === "es" ? "94 min · 8/10 func." : "94 min · 8/10 working"}
                               </div>
                             </div>
                           </div>
 
                           <div className="text-center">
                             <div className="inline-block px-3 py-1 bg-[#090B10] border border-[#2A344B] font-mono-hud text-xs font-bold text-[#00E5FF]">
-                              MARCADOR 10 - 0
+                              {lang === "es" ? "MARCADOR 10 - 0" : "SCORE 10 - 0"}
                             </div>
                             <div className="font-mono-hud text-xs text-[#10B981] font-bold mt-1.5">
                               -39 MIN (-41.5%)
@@ -3365,7 +3584,7 @@ export default function MixiuhLabsHomePage() {
                                 10
                               </div>
                               <div className="font-mono-hud text-[11px] text-[#94A3B8]">
-                                55 min · 10/10 func.
+                                {lang === "es" ? "55 min · 10/10 func." : "55 min · 10/10 working"}
                               </div>
                             </div>
                             <img
@@ -3388,8 +3607,12 @@ export default function MixiuhLabsHomePage() {
                         <PixelIcon name="play" size={16} />
                         <span>
                           {isEp02
-                            ? "Abrir los 12 Motores EP02 en la Arena"
-                            : "Abrir las 20 Simulaciones EP01 en la Arena"}
+                            ? lang === "es"
+                              ? "Abrir los 12 Motores EP02 en la Arena"
+                              : "Open the 12 EP02 Engines in the Arena"
+                            : lang === "es"
+                            ? "Abrir las 20 Simulaciones EP01 en la Arena"
+                            : "Open the 20 EP01 Simulations in the Arena"}
                         </span>
                       </button>
 
@@ -3408,7 +3631,11 @@ export default function MixiuhLabsHomePage() {
                         className="px-5 py-3 shadow-[4px_4px_0_#040508] bg-[#FF3355] text-[#090B10] font-mono-hud text-xs sm:text-sm font-bold hover:brightness-110 transition inline-flex items-center gap-2"
                       >
                         <PixelIcon name="play" size={16} />
-                        <span>Ver en YouTube (4K60)</span>
+                        <span>
+                          {lang === "es"
+                            ? "Ver en YouTube (4K60)"
+                            : "Watch on YouTube (4K60)"}
+                        </span>
                         <PixelIcon name="external" size={14} />
                       </a>
                     </div>
@@ -3431,7 +3658,7 @@ export default function MixiuhLabsHomePage() {
                               : "bg-[#090B10] text-[#94A3B8]"
                           }`}
                         >
-                          1. Hook Oficial
+                          {lang === "es" ? "1. Hook Oficial" : "1. Official Hook"}
                         </button>
                         <button
                           onClick={() => setActiveVideoClip("boss")}
@@ -3442,7 +3669,7 @@ export default function MixiuhLabsHomePage() {
                               : "bg-[#090B10] text-[#94A3B8]"
                           }`}
                         >
-                          2. Nivel Jefe
+                          {lang === "es" ? "2. Nivel Jefe" : "2. Boss Level"}
                         </button>
                       </div>
                       <span className="font-mono-hud text-xs text-[#00E5FF]">
@@ -3493,8 +3720,12 @@ export default function MixiuhLabsHomePage() {
                   <div className="p-5 bg-[#1A2132] border-b border-[#2A344B]">
                     <h2 className="font-display text-xl sm:text-2xl font-black text-white">
                       {isEp02
-                        ? "Matriz Comparativa EP02: Tiempo, FPS, Tokens y Costo en USD"
-                        : "Matriz Comparativa EP01: 10 Retos Zero-Shot"}
+                        ? lang === "es"
+                          ? "Matriz Comparativa EP02: Tiempo, FPS, Tokens y Costo en USD"
+                          : "EP02 Comparative Matrix: Time, FPS, Tokens & USD Cost"
+                        : lang === "es"
+                        ? "Matriz Comparativa EP01: 10 Retos Zero-Shot"
+                        : "EP01 Comparative Matrix: 10 Zero-Shot Challenges"}
                     </h2>
                   </div>
                   <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
@@ -3504,7 +3735,9 @@ export default function MixiuhLabsHomePage() {
                         <thead>
                           <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
                             <th className="py-3.5 px-4">#</th>
-                            <th className="py-3.5 px-4">Reto y Stack</th>
+                            <th className="py-3.5 px-4">
+                              {lang === "es" ? "Reto y Stack" : "Challenge & Stack"}
+                            </th>
                             <th className="py-3.5 px-4 text-[#FFD100]">
                               Claude Opus 5.5
                             </th>
@@ -3517,7 +3750,9 @@ export default function MixiuhLabsHomePage() {
                             <th className="py-3.5 px-4 text-[#C084FC]">
                               Argon Tokens / USD
                             </th>
-                            <th className="py-3.5 px-4">Ganador</th>
+                            <th className="py-3.5 px-4">
+                              {lang === "es" ? "Ganador" : "Winner"}
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#2A344B] text-xs sm:text-sm">
@@ -3535,7 +3770,7 @@ export default function MixiuhLabsHomePage() {
                                   {lang === "es" ? ch.name_es : ch.name_en}
                                 </div>
                                 <div className="text-xs text-[#94A3B8]">
-                                  {ch.tech}
+                                  {lang === "en" ? (ch.tech_en ?? ch.tech) : ch.tech}
                                 </div>
                               </td>
                               <td className="py-3.5 px-4 font-mono-hud text-[#FFD100]">
@@ -3570,14 +3805,18 @@ export default function MixiuhLabsHomePage() {
                         <thead>
                           <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
                             <th className="py-3.5 px-4">#</th>
-                            <th className="py-3.5 px-4">Reto</th>
+                            <th className="py-3.5 px-4">
+                              {lang === "es" ? "Reto" : "Challenge"}
+                            </th>
                             <th className="py-3.5 px-4 text-[#FFD100]">
                               Gemini 3.8 Flash
                             </th>
                             <th className="py-3.5 px-4 text-[#C084FC]">
                               Gemini 4 Argon
                             </th>
-                            <th className="py-3.5 px-4">Relacion</th>
+                            <th className="py-3.5 px-4">
+                              {lang === "es" ? "Relacion" : "Speed ratio"}
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#2A344B] text-xs sm:text-sm">
@@ -3602,7 +3841,9 @@ export default function MixiuhLabsHomePage() {
                                 {ch.code_stats.argon_lines} loc)
                               </td>
                               <td className="py-3.5 px-4 font-mono-hud text-[#10B981]">
-                                {ch.speed_ratio}
+                                {lang === "en"
+                                  ? (ch.speed_ratio_en ?? ch.speed_ratio)
+                                  : ch.speed_ratio}
                               </td>
                             </tr>
                           ))}
@@ -3692,6 +3933,21 @@ export default function MixiuhLabsHomePage() {
                     <PixelIcon name="code" size={14} />
                     <span>JSON Source</span>
                   </a>
+                  {/* CC01 has a Spanish cut only; sized like the buttons beside it */}
+                  <a
+                    href={YOUTUBE_LINKS.cc01_es}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 shadow-[4px_4px_0_#040508] bg-[#FF3355] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                  >
+                    <PixelIcon name="play" size={14} />
+                    <span>
+                      {lang === "es"
+                        ? "Ver en YouTube (4K60)"
+                        : "Watch on YouTube (4K60, in Spanish)"}
+                    </span>
+                    <PixelIcon name="external" size={14} />
+                  </a>
                 </div>
               </div>
 
@@ -3704,11 +3960,15 @@ export default function MixiuhLabsHomePage() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
                 <div className="lg:col-span-5 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/30 p-4 flex flex-col justify-between gap-3">
                   <div className="font-mono-hud text-xs font-bold text-[#00E5FF]">
-                    1. EL COMENTARIO ORIGINAL DE @TENITO03 EN INSTAGRAM
+                    {lang === "es"
+                      ? "1. EL COMENTARIO ORIGINAL DE @TENITO03 EN INSTAGRAM"
+                      : "1. THE ORIGINAL INSTAGRAM COMMENT BY @TENITO03"}
                   </div>
                   <div className="overflow-hidden bg-white p-2">
                     <img
                       src="/brand/thumbs/tenito_comment.png"
+                      loading="lazy"
+                      decoding="async"
                       alt={
                         lang === "es"
                           ? `Comentario de @tenito03 en Instagram: "${TENITO_COMMENT_ES}"`
@@ -3720,21 +3980,20 @@ export default function MixiuhLabsHomePage() {
                 </div>
 
                 <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <img
-                    src="/brand/thumbs/cc01_thumb_A.jpg"
-                    alt="Miniatura A OVERFIT"
-                    className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
-                  />
-                  <img
-                    src="/brand/thumbs/cc01_thumb_B.jpg"
-                    alt="Miniatura B OVERFIT"
-                    className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
-                  />
-                  <img
-                    src="/brand/thumbs/cc01_thumb_C.jpg"
-                    alt="Miniatura C OVERFIT"
-                    className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
-                  />
+                  {(["A", "B", "C"] as const).map((variant) => (
+                    <img
+                      key={variant}
+                      src={`/brand/thumbs/cc01_thumb_${variant}.jpg`}
+                      alt={
+                        lang === "es"
+                          ? `Miniatura ${variant} OVERFIT`
+                          : `OVERFIT thumbnail ${variant}`
+                      }
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -3742,8 +4001,9 @@ export default function MixiuhLabsHomePage() {
               <div className="bg-[#090B10] border-2 border-[#FFD100]/50 overflow-hidden shadow-[6px_6px_0_#040508]">
                 <div className="px-4 py-3 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between">
                   <span className="font-mono-hud text-xs font-bold text-white">
-                    OVERFIT STUDIO 3D EN VIVO · GIRA 360°, HAZ ZOOM MACRO HD O
-                    PRUEBA LOS 10 ESTAMPADOS
+                    {lang === "es"
+                      ? "OVERFIT STUDIO 3D EN VIVO · GIRA 360°, HAZ ZOOM MACRO HD O PRUEBA LOS 10 ESTAMPADOS"
+                      : "LIVE OVERFIT STUDIO 3D · SPIN 360°, ZOOM IN MACRO HD OR TRY THE 10 PRINTS"}
                   </span>
                   <a
                     href="/overfit/index.html"
@@ -3751,11 +4011,13 @@ export default function MixiuhLabsHomePage() {
                     rel="noopener noreferrer"
                     className="font-mono-hud text-xs font-bold text-[#FFD100] hover:underline"
                   >
-                    Pantalla Completa ↗
+                    {lang === "es" ? "Pantalla Completa ↗" : "Full Screen ↗"}
                   </a>
                 </div>
+                {/* ~6 MB of scripts: wait until it nears the viewport (below the fold on phones) */}
                 <iframe
-                                allowFullScreen
+                  allowFullScreen
+                  loading="lazy"
                   src="/overfit/index.html"
                   title="OVERFIT Studio 3D"
                   className="w-full h-[820px] border-0 bg-[#090B10]"
@@ -3811,7 +4073,9 @@ export default function MixiuhLabsHomePage() {
                         : "bg-[#090B10] text-[#94A3B8] hover:text-white"
                     }`}
                   >
-                    EP04: Escalera Claude 5.5 (18)
+                    {lang === "es"
+                      ? "EP04: Escalera Claude 5.5 (18)"
+                      : "EP04: Claude 5.5 Ladder (18)"}
                   </button>
                 )}
                 {released.ep03 && (
@@ -3824,7 +4088,9 @@ export default function MixiuhLabsHomePage() {
                         : "bg-[#090B10] text-[#94A3B8] hover:text-white"
                     }`}
                   >
-                    EP03: Sin Kit vs Superpowers Kit (12)
+                    {lang === "es"
+                      ? "EP03: Sin Kit vs Superpowers Kit (12)"
+                      : "EP03: Raw vs Superpowers Kit (12)"}
                   </button>
                 )}
                 <button
@@ -3918,7 +4184,7 @@ export default function MixiuhLabsHomePage() {
                     <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h3 className="font-display text-lg font-black text-white">
-                          EP04 Reto 0{cur.n}:{" "}
+                          {lang === "es" ? "EP04 Reto" : "EP04 Challenge"} 0{cur.n}:{" "}
                           {lang === "es" ? cur.name_es : cur.name_en}
                         </h3>
                         <p className="text-xs text-[#CBD5E1] mt-1">
@@ -3939,7 +4205,7 @@ export default function MixiuhLabsHomePage() {
                       <div className="flex flex-col">
                         <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
                           <span className="font-pixel text-[10px] text-[#10B981] font-bold">
-                            CLAUDE HAIKU 5.5 (${cur.haiku.usd} · {cur.haiku.min}m)
+                            CLAUDE HAIKU 5.5 (${cur.haiku.usd.toFixed(2)} · {cur.haiku.min}m)
                           </span>
                           <a
                             href={haikuUrl}
@@ -3947,7 +4213,7 @@ export default function MixiuhLabsHomePage() {
                             rel="noopener noreferrer"
                             className="px-2 py-0.5 bg-[#131824] text-[#10B981] border border-[#10B981]/50 text-[10px] font-bold"
                           >
-                            {cur.haiku.fps} ↗
+                            {fpsNote(cur.haiku.fps)} ↗
                           </a>
                         </div>
                         <iframe
@@ -3962,7 +4228,7 @@ export default function MixiuhLabsHomePage() {
                       <div className="flex flex-col">
                         <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
                           <span className="font-pixel text-[10px] text-[#FFD100] font-bold">
-                            CLAUDE SONNET 5.5 (${cur.sonnet.usd} · {cur.sonnet.min}m)
+                            CLAUDE SONNET 5.5 (${cur.sonnet.usd.toFixed(2)} · {cur.sonnet.min}m)
                           </span>
                           <a
                             href={sonnetUrl}
@@ -3970,7 +4236,7 @@ export default function MixiuhLabsHomePage() {
                             rel="noopener noreferrer"
                             className="px-2 py-0.5 bg-[#131824] text-[#FFD100] border border-[#FFD100]/50 text-[10px] font-bold"
                           >
-                            {cur.sonnet.fps} ↗
+                            {fpsNote(cur.sonnet.fps)} ↗
                           </a>
                         </div>
                         <iframe
@@ -3985,7 +4251,7 @@ export default function MixiuhLabsHomePage() {
                       <div className="flex flex-col">
                         <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
                           <span className="font-pixel text-[10px] text-[#C084FC] font-bold">
-                            CLAUDE OPUS 5.5 (${cur.opus.usd} · {cur.opus.min}m)
+                            CLAUDE OPUS 5.5 (${cur.opus.usd.toFixed(2)} · {cur.opus.min}m)
                           </span>
                           <a
                             href={opusUrl}
@@ -3993,7 +4259,7 @@ export default function MixiuhLabsHomePage() {
                             rel="noopener noreferrer"
                             className="px-2 py-0.5 bg-[#131824] text-[#C084FC] border border-[#A855F7]/50 text-[10px] font-bold"
                           >
-                            {cur.opus.fps} ↗
+                            {fpsNote(cur.opus.fps)} ↗
                           </a>
                         </div>
                         <iframe
@@ -4056,7 +4322,7 @@ export default function MixiuhLabsHomePage() {
                     <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h3 className="font-display text-lg font-black text-white">
-                          EP03 Reto 0{cur.n}:{" "}
+                          {lang === "es" ? "EP03 Reto" : "EP03 Challenge"} 0{cur.n}:{" "}
                           {lang === "es" ? cur.name_es : cur.name_en}
                         </h3>
                         <p className="text-xs text-[#94A3B8]">
@@ -4067,7 +4333,9 @@ export default function MixiuhLabsHomePage() {
                         onClick={() => navigateToView("dossiers", "ep03")}
                         className="px-3.5 py-1.5 bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer"
                       >
-                        Ver Dossier Completo EP03
+                        {lang === "es"
+                          ? "Ver Dossier Completo EP03 →"
+                          : "Open Full EP03 Dossier →"}
                       </button>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
@@ -4155,8 +4423,9 @@ export default function MixiuhLabsHomePage() {
                       <div className="flex items-center gap-2 text-xs font-mono-hud uppercase text-[#00E5FF] font-bold mb-1">
                         <PixelIcon name="book" size={16} />
                         <span>
-                          GLOSARIO TECNICO MIXIUH LABS ({LAB_GLOSSARY.length}{" "}
-                          CONCEPTOS)
+                          {lang === "es"
+                            ? `GLOSARIO TECNICO MIXIUH LABS (${LAB_GLOSSARY.length} CONCEPTOS)`
+                            : `MIXIUH LABS TECHNICAL GLOSSARY (${LAB_GLOSSARY.length} CONCEPTS)`}
                         </span>
                       </div>
                       <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
@@ -4172,7 +4441,12 @@ export default function MixiuhLabsHomePage() {
                         type="text"
                         value={glossarySearch}
                         onChange={(e) => setGlossarySearch(e.target.value)}
-                        placeholder="Buscar Verlet, CCD, FBO, DDA..."
+                        aria-label={lang === "es" ? "Buscar en el glosario" : "Search the glossary"}
+                        placeholder={
+                          lang === "es"
+                            ? "Buscar Verlet, CCD, FBO, DDA..."
+                            : "Search Verlet, CCD, FBO, DDA..."
+                        }
                         className="w-full pl-10 pr-4 py-2 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] text-xs text-white placeholder:text-[#94A3B8]"
                       />
                     </div>
@@ -4185,10 +4459,10 @@ export default function MixiuhLabsHomePage() {
                         className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] hover:border-[#00E5FF]/40 transition"
                       >
                         <div className="font-mono-hud text-xs font-bold text-[#00E5FF] mb-1">
-                          {g.term}
+                          {glossaryTerm(g)}
                         </div>
                         <p className="text-xs text-[#F5F2EB]/90 leading-relaxed">
-                          {g.plain_es}
+                          {glossaryPlain(g)}
                         </p>
                       </div>
                     ))}

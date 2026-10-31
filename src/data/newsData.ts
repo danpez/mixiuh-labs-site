@@ -15,6 +15,8 @@ export interface NewsConceptNode {
   tag_es: string;
   tag_en: string;
   stat: string;
+  /** English twin of `stat`, only when `stat` has Spanish words. */
+  stat_en?: string;
   pill1_es: string;
   pill1_en: string;
   pill2_es: string;
@@ -24,6 +26,8 @@ export interface NewsConceptNode {
 
 export interface NewsBarItem {
   model: string;
+  /** English twin of `model`, only when `model` has Spanish words. */
+  model_en?: string;
   value: number;
   max: number;
   label_es: string;
@@ -54,7 +58,9 @@ export interface NewsChapterItem {
   example_es: string;
   example_en: string;
   quote: {
+    /** Shown in Spanish mode. */
     author: string;
+    author_en: string;
     role_es: string;
     role_en: string;
     text_es: string;
@@ -95,6 +101,8 @@ export interface OfficialChartAsset {
   desc_es: string;
   desc_en: string;
   src: string;
+  /** English version of the image, when one exists. */
+  src_en?: string;
   accent: string;
 }
 
@@ -224,6 +232,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "On the Artificial Analysis v5.0 global index, Carbon leaps 9 full points above Argon (from 50 to 59), overtaking Claude Opus 5.5 (58 pts) and GPT-6 Astra (57 pts) to claim the #1 world spot.",
     quote: {
       author: "Koray Kavukcuoglu",
+      author_en: "Koray Kavukcuoglu",
       role_es: "CTO de Google DeepMind & Arquitecto Jefe de IA en Google",
       role_en: "CTO of Google DeepMind & Chief AI Architect at Google",
       text_es:
@@ -327,6 +336,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "Imagine tasking an AI with migrating a 10,000-file codebase: standard models lose track after an hour. Carbon scores 96.2% (F1) on GraphWalks across 256k-to-1M-token contexts, more than doubling Argon on SWE-sweep (9.6% vs 4.3%) and nearly tripling Claude Opus 5.5 (3.6%).",
     quote: {
       author: "Reporte Oficial Google DeepMind",
+      author_en: "Official Google DeepMind Report",
       role_es: "Seccion: Agentes de Largo Horizonte y Desarrollo Web",
       role_en: "Section: Long-Horizon Agents & WebDev Arena",
       text_es:
@@ -430,6 +440,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "On SEC-bench Pro, Carbon sets a world record at 88.2% (beating GPT-6 Astra 85.4% and Argon 83.4%; Claude Opus 5.5 is not on the official chart). On ExploitGym (10-hour cap per task) it reaches 54.8%—more than 20 percentage points ahead of Claude Opus 5.5 (34.5%, measured with a 6-hour cap).",
     quote: {
       author: "Wiz Security Research",
+      author_en: "Wiz Security Research",
       role_es: "Socio Evaluador del Programa Google Fairwind",
       role_en: "Evaluation Partner · Google Fairwind Initiative",
       text_es:
@@ -469,6 +480,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         tag_es: "GOOGLE CHROME",
         tag_en: "GOOGLE CHROME",
         stat: ">10X MEJOR",
+        stat_en: ">10X BETTER",
         pill1_es: "PARCHES REALES",
         pill1_en: "BROWSER PATCHES",
         pill2_es: "CALIDAD FRONTERIZA",
@@ -479,6 +491,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         tag_es: "GRAY SWAN IPI",
         tag_en: "GRAY SWAN IPI",
         stat: "0.0% FALLO",
+        stat_en: "0.0% BREACHED",
         pill1_es: "100% INMUNE",
         pill1_en: "100% IMMUNE",
         pill2_es: "AUN CON 15 INTENTOS",
@@ -533,6 +546,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "Running directly on Google Antigravity, Gemini 4 Carbon achieves 71.0% Pass@1 (#1 worldwide), outperforming GPT-6 Astra on Codex (68.0%) and Claude Opus 5.5 on Claude Code (67.0%). The Google Chrome Security Team also reported >10x higher-quality browser patches.",
     quote: {
       author: "Equipo de Seguridad de Google Chrome",
+      author_en: "Google Chrome Security Team",
       role_es: "Pruebas Internas con el Agente CodeMender + Gemini 4 Carbon",
       role_en: "Internal Testing with CodeMender Agent + Gemini 4 Carbon",
       text_es:
@@ -636,6 +650,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "On the Gray Swan IPI benchmark (attack success rate when the attacker gets 15 attempts), GPT-6 Astra falls for 8.5% of attacks and Kimi K3 for 52.7%. Gemini 4 Carbon achieves 0.0% successful attacks even with those 15 attempts, cuts hallucinations by 50%, and eliminates reward-hacking shortcuts in terminal tests.",
     quote: {
       author: "Reporte de Seguridad y Alineacion · Google DeepMind",
+      author_en: "Safety & Alignment Report · Google DeepMind",
       role_es: "Evaluacion Gray Swan Indirect Prompt Injection (IPI)",
       role_en: "Gray Swan Indirect Prompt Injection (IPI) Evaluation",
       text_es:
@@ -739,6 +754,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "Carbon finishes the simulation with $16,484 USD in the bank—a balance 78% higher than Claude Opus 5.5 ($9,235). In the official master table, Carbon ranks #1 on 15 of the 17 benchmarks.",
     quote: {
       author: "Tabla de Evaluacion · Google DeepMind",
+      author_en: "Evaluation Table · Google DeepMind",
       role_es: "#1 en 15 de los 17 Benchmarks de la Tabla Oficial",
       role_en: "#1 on 15 of the 17 Benchmarks in the Official Table",
       text_es:
@@ -800,6 +816,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     bars: [
       {
         model: "CARBON (HOY PROMO)",
+        model_en: "CARBON (PROMO TODAY)",
         value: 10.0,
         max: 27.0,
         label_es: "$2 IN / $10 OUT (PROMO)",
@@ -809,6 +826,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       },
       {
         model: "GEMINI 4 ARGON (FIJO)",
+        model_en: "GEMINI 4 ARGON (FIXED)",
         value: 10.0,
         max: 27.0,
         label_es: "$2 IN / $10 OUT (FIJO)",
@@ -842,6 +860,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "Watch the footnote in Google's official announcement: Carbon launches at the same promotional rate as Argon ($2 input / $10 output per 1M tokens <=200k), but after the promo period its standard price doubles to $4 / $20 USD ($6 / $30 for >200k). Even at $4/$20, it remains 20% cheaper than Claude Opus 5.5 ($5/$25).",
     quote: {
       author: "Nota Oficial de Precios · Google DeepMind",
+      author_en: "Official Pricing Note · Google DeepMind",
       role_es: "Estructura Tarifaria de Gemini 4 Carbon API",
       role_en: "Gemini 4 Carbon API Pricing Footnote",
       text_es:
@@ -881,6 +900,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         tag_es: "RETO 02 · CYBER",
         tag_en: "TEST 02 · CYBER",
         stat: "CERO BUGS",
+        stat_en: "ZERO BUGS",
         pill1_es: "APP VULNERABLE",
         pill1_en: "VULNERABLE APP",
         pill2_es: "PARCHEO EN VIVO",
@@ -945,6 +965,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       "As soon as public API access to Gemini 4 Carbon opens in Google Antigravity, we will run our live benchmark: 60 FPS WebGL2/physics engines, live vulnerability auditing and patching, and full systems architecture against Claude Opus 5.5.",
     quote: {
       author: "Kevin Gonzalez · Mixiuh Labs",
+      author_en: "Kevin Gonzalez · Mixiuh Labs",
       role_es: "Protocolo del Laboratorio: Aqui no se opina, se prueba",
       role_en: "Lab Protocol: Here we don't guess, we test",
       text_es:
@@ -1399,6 +1420,7 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     desc_en:
       "Mixiuh Labs editorial cover highlighting the 3 core pillars: 72-Hour Agent (9.6% SWE-sweep), 71% on Antigravity, and 0.0% Breached.",
     src: "/brand/thumbs/carbon_thumb_A.jpg",
+    src_en: "/brand/thumbs/carbon_thumb_A_en.jpg",
     accent: "#00E5FF",
   },
 ];

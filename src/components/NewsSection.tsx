@@ -13,6 +13,8 @@ import {
   CARBON_NEWS_META,
   CARBON_CHAPTERS,
   CARBON_FULL_BENCHMARKS,
+  CARBON_BENCHMARK_STATS,
+  CARBON_MASTER_TABLE_IMG,
   CARBON_PRICING_TABLE,
   CARBON_OFFICIAL_GALLERY,
   type CarbonBenchmarkRow,
@@ -51,6 +53,31 @@ function parseBenchScore(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** 1 -> "01" for the chapter and card counters. */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Counts shown in the UI come from the data, so they cannot drift from it. */
+const CHAPTER_COUNT = CARBON_CHAPTERS.length;
+const {
+  total: BENCH_TOTAL,
+  carbonWins: BENCH_CARBON_WINS,
+  masterTable: MASTER_TABLE_ROWS,
+  masterTableCarbonWins: MASTER_TABLE_CARBON_WINS,
+} = CARBON_BENCHMARK_STATS;
+/** Table rows that come from their own official chart, not the master table. */
+const OFF_TABLE_BENCHMARKS = CARBON_FULL_BENCHMARKS.filter(
+  (row) => row.source !== CARBON_MASTER_TABLE_IMG
+)
+  .map((row) => row.benchmark)
+  .join(" + ");
+
+/** The English version of an image when the asset has one. */
+function assetSrc(asset: OfficialChartAsset, es: boolean): string {
+  return !es && asset.src_en ? asset.src_en : asset.src;
+}
+
+type HeroView = "video" | "short" | "A" | "B" | "C" | "table";
+
 export default function NewsSection({
   lang,
   onOpenLabEpisode,
@@ -59,9 +86,7 @@ export default function NewsSection({
   const es = lang === "es";
   const [activeChapterIdx, setActiveChapterIdx] = useState<number>(1);
   const [domainFilter, setDomainFilter] = useState<NewsBenchmarkDomain>("all");
-  const [heroThumb, setHeroThumb] = useState<
-    "video" | "short" | "A" | "B" | "C" | "table"
-  >("video");
+  const [heroThumb, setHeroThumb] = useState<HeroView>("video");
   const [zoomedAsset, setZoomedAsset] = useState<OfficialChartAsset | null>(
     null
   );
@@ -80,23 +105,52 @@ export default function NewsSection({
     CARBON_CHAPTERS.find((c) => c.idx === activeChapterIdx) ||
     CARBON_CHAPTERS[0];
 
+  // Covers B and C exist only in Spanish (no _en file), so English mode only
+  // offers the views it can show in English.
+  const heroTabs: { id: HeroView; label: string }[] = [
+    { id: "video", label: es ? "Video 16:9" : "16:9 Video" },
+    { id: "short", label: es ? "Short 9:16" : "9:16 Short" },
+    { id: "A", label: es ? "Portada A" : "Cover A" },
+    ...(es
+      ? [
+          { id: "B" as const, label: "14 Dias B" },
+          { id: "C" as const, label: "Precios C" },
+        ]
+      : []),
+    { id: "table", label: es ? "Tabla" : "Table" },
+  ];
+  const activeHeroThumb: HeroView = heroTabs.some((tab) => tab.id === heroThumb)
+    ? heroThumb
+    : "video";
+
   const heroImageSrc =
-    heroThumb === "A"
+    activeHeroThumb === "A"
       ? es
         ? "/brand/thumbs/carbon_thumb_A.jpg"
         : "/brand/thumbs/carbon_thumb_A_en.jpg"
-      : heroThumb === "B"
+      : activeHeroThumb === "B"
       ? "/brand/thumbs/carbon_thumb_B.jpg"
-      : heroThumb === "C"
+      : activeHeroThumb === "C"
       ? "/brand/thumbs/carbon_thumb_C.jpg"
-      : "/stills/noticias/carbon/03_evals_table.png";
+      : CARBON_MASTER_TABLE_IMG;
 
+  // Covers A-C are Mixiuh's own summary art (1280x720); "table" is Google
+  // DeepMind's master table (2000x1682). Neither is 4K, so no resolution badge.
+  const heroIsTable = activeHeroThumb === "table";
   const heroZoomAsset: OfficialChartAsset = {
-    id: "hero-preview",
-    title_es: "Infografia Oficial · Especial Gemini 4 Carbon",
-    title_en: "Official Infographic · Gemini 4 Carbon Special",
-    badge_es: "4K UHD",
-    badge_en: "4K UHD",
+    id: `hero-${activeHeroThumb}`,
+    title_es: heroIsTable
+      ? `Tabla Maestra Oficial Google DeepMind · ${MASTER_TABLE_ROWS} Benchmarks`
+      : `Infografia Resumen ${activeHeroThumb} · Radar Mixiuh Noticias IA`,
+    title_en: heroIsTable
+      ? `Official Google DeepMind Master Table · ${MASTER_TABLE_ROWS} Benchmarks`
+      : `Summary Infographic ${activeHeroThumb} · Mixiuh News AI Radar`,
+    badge_es: heroIsTable
+      ? `CARBON #1 EN ${MASTER_TABLE_CARBON_WINS} DE ${MASTER_TABLE_ROWS}`
+      : "RESUMEN VISUAL",
+    badge_en: heroIsTable
+      ? `CARBON #1 ON ${MASTER_TABLE_CARBON_WINS} OF ${MASTER_TABLE_ROWS}`
+      : "VISUAL SUMMARY",
     desc_es:
       "Haz clic afuera, pulsa Esc o usa el boton superior derecho para cerrar la vista ampliada.",
     desc_en:
@@ -213,8 +267,8 @@ export default function NewsSection({
 
             <p className="text-sm sm:text-base text-[#94A3B8] leading-relaxed">
               {es
-                ? "Apenas dos semanas despues de lanzar Gemini 4 Argon (50 pts), Google DeepMind presento a su hermano mayor de razonamiento profundo: Gemini 4 Carbon. Toma el puesto #1 mundial en Artificial Analysis v5.0 con 59 puntos (superando los 58 de Claude Opus 5.5 y los 57 de GPT-6 Astra), duplica a Argon en ingenieria de software extrema (9.6% en SWE-sweep), rompe records en ciberseguridad (88.2% en SEC-bench Pro y 71.0% en CWE-bench sobre Google Antigravity) y bloquea el 100% de ataques de Prompt Injection en Gray Swan (0.0%)."
-                : "Just two weeks after releasing Gemini 4 Argon (50 pts), Google DeepMind unveiled its deep-reasoning big brother: Gemini 4 Carbon. It claims the #1 world spot on Artificial Analysis v5.0 with 59 points (beating Claude Opus 5.5 at 58 and GPT-6 Astra at 57), more than doubles Argon on extreme agentic coding (9.6% SWE-sweep), sets cybersecurity records (88.2% SEC-bench Pro and 71.0% CWE-bench on Google Antigravity), and blocks 100% of Prompt Injection attacks on Gray Swan (0.0%)."}
+                ? "Apenas dos semanas despues de lanzar Gemini 4 Argon (50 pts), Google DeepMind presento a su hermano mayor de razonamiento profundo: Gemini 4 Carbon. Toma el puesto #1 mundial en Artificial Analysis v5.0 con 59 puntos (superando los 58 de Claude Opus 5.5 y los 57 de GPT-6 Astra), duplica a Argon en ingenieria de software extrema (9.6% en SWE-sweep), rompe records en ciberseguridad (88.2% en SEC-bench Pro y 71.0% en CWE-bench sobre Google Antigravity) y en Gray Swan deja en 0.0% el exito de los ataques de Prompt Injection indirecta, aun cuando el atacante tiene 15 intentos."
+                : "Just two weeks after releasing Gemini 4 Argon (50 pts), Google DeepMind unveiled its deep-reasoning big brother: Gemini 4 Carbon. It claims the #1 world spot on Artificial Analysis v5.0 with 59 points (beating Claude Opus 5.5 at 58 and GPT-6 Astra at 57), more than doubles Argon on extreme agentic coding (9.6% SWE-sweep), sets cybersecurity records (88.2% SEC-bench Pro and 71.0% CWE-bench on Google Antigravity), and holds indirect Prompt Injection attacks on Gray Swan to a 0.0% success rate, even when the attacker gets 15 attempts."}
             </p>
 
             {/* 4 Hero Concept KPI Cards */}
@@ -233,7 +287,7 @@ export default function NewsSection({
 
               <div className="p-3.5 shadow-[6px_6px_0_#040508] bg-[#090B10] border-2 border-[#10B981]/45">
                 <div className="font-mono-hud text-[10px] font-bold text-[#10B981]">
-                  {es ? "CIBERDEFENSA & AGY" : "CYBER & ANTIGRAVITY"}
+                  {es ? "SEC-BENCH PRO · CIBER" : "SEC-BENCH PRO · CYBER"}
                 </div>
                 <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
                   88.2%
@@ -251,7 +305,7 @@ export default function NewsSection({
                   0.0%
                 </div>
                 <div className="font-mono-hud text-[11px] text-[#10B981] font-bold mt-0.5">
-                  {es ? "15/15 Bloqueados" : "15/15 Blocked"}
+                  {es ? "Aun con 15 intentos" : "Even at 15 tries"}
                 </div>
               </div>
 
@@ -308,23 +362,25 @@ export default function NewsSection({
                 <PixelIcon name="sparkles" size={16} />
                 <span>
                   {es
-                    ? "8 Capitulos Interactivos"
-                    : "8 Interactive Chapters"}
+                    ? `${CHAPTER_COUNT} Capitulos Interactivos`
+                    : `${CHAPTER_COUNT} Interactive Chapters`}
                 </span>
               </a>
 
               <a
-                href="#tabla-oficial-19-benchmarks"
+                href="#tabla-oficial-benchmarks-carbon"
                 onClick={(e) => {
                   // Scroll within the news view without replacing the shareable #noticias hash
                   e.preventDefault();
-                  document.getElementById("tabla-oficial-19-benchmarks")?.scrollIntoView();
+                  document.getElementById("tabla-oficial-benchmarks-carbon")?.scrollIntoView();
                 }}
                 className="px-4 py-2.5 shadow-[4px_4px_0_#040508] bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
               >
                 <PixelIcon name="file" size={16} />
                 <span>
-                  {es ? "Tabla (19 Benchmarks)" : "Table (19 Benchmarks)"}
+                  {es
+                    ? `Tabla (${BENCH_TOTAL} Benchmarks)`
+                    : `Table (${BENCH_TOTAL} Benchmarks)`}
                 </span>
               </a>
             </div>
@@ -379,47 +435,40 @@ export default function NewsSection({
                   rel="noopener noreferrer"
                   className="px-2.5 py-1 bg-[#1A2132] border border-[#3A4560] text-white hover:bg-[#2A344B] font-bold inline-flex items-center gap-1"
                 >
-                  <span>X / Hilo (@MixiuhLabs)</span>
+                  <span>
+                    {es ? "X / Hilo (@MixiuhLabs)" : "X / Thread (@MixiuhLabs)"}
+                  </span>
                   <PixelIcon name="arrow-up-right" size={12} />
                 </a>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Interactive Video (16:9 & 9:16 Short) + 4K Infographic Switcher */}
+          {/* Right Column: Interactive Video (16:9 & 9:16 Short) + Infographic Switcher */}
           <div className="lg:col-span-5 space-y-3">
             <div className="overflow-hidden border-2 border-[#00E5FF]/60 bg-[#090B10] shadow-[6px_6px_0_#040508]">
               <div className="px-3 py-2.5 bg-[#111622] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+                {/* The local files are 1280x720 at 30 fps, so no "4K60" here. */}
                 <span className="font-mono-hud text-[11px] font-bold text-[#00E5FF]">
                   {es
-                    ? "VIDEO OFICIAL 4K60 & INFOGRAFIAS"
-                    : "OFFICIAL 4K60 VIDEO & INFOGRAPHICS"}
+                    ? "VIDEO OFICIAL & INFOGRAFIAS"
+                    : "OFFICIAL VIDEO & INFOGRAPHICS"}
                 </span>
-                <div className="flex flex-wrap bg-[#090B10] p-0.5 border border-[#2A344B] font-mono-hud text-[10px]">
-                  {(
-                    [
-                      {
-                        id: "video" as const,
-                        label: es ? "Video 16:9" : "16:9 Video",
-                      },
-                      {
-                        id: "short" as const,
-                        label: es ? "Short 9:16" : "9:16 Short",
-                      },
-                      { id: "A" as const, label: es ? "Portada A" : "Cover A" },
-                      { id: "B" as const, label: es ? "14 Dias B" : "14 Days B" },
-                      { id: "C" as const, label: es ? "Precios C" : "Pricing C" },
-                      {
-                        id: "table" as const,
-                        label: es ? "Tabla" : "Table",
-                      },
-                    ]
-                  ).map((tab) => (
+                <div
+                  role="group"
+                  aria-label={
+                    es ? "Elegir video o infografia" : "Choose video or infographic"
+                  }
+                  className="flex flex-wrap bg-[#090B10] p-0.5 border border-[#2A344B] font-mono-hud text-[10px]"
+                >
+                  {heroTabs.map((tab) => (
                     <button
                       key={tab.id}
+                      type="button"
+                      aria-pressed={activeHeroThumb === tab.id}
                       onClick={() => setHeroThumb(tab.id)}
                       className={`px-2 py-1 font-bold transition cursor-pointer ${
-                        heroThumb === tab.id
+                        activeHeroThumb === tab.id
                           ? "bg-[#00E5FF] text-[#090B10]"
                           : "text-[#94A3B8] hover:text-white"
                       }`}
@@ -430,7 +479,7 @@ export default function NewsSection({
                 </div>
               </div>
 
-              {heroThumb === "video" ? (
+              {activeHeroThumb === "video" ? (
                 <div className="relative aspect-video bg-black">
                   <video
                     key={`carbon-video-${lang}`}
@@ -465,7 +514,7 @@ export default function NewsSection({
                     />
                   </video>
                 </div>
-              ) : heroThumb === "short" ? (
+              ) : activeHeroThumb === "short" ? (
                 <div className="relative aspect-video bg-[#090B10] flex items-center justify-center p-2">
                   {/* No <track> on purpose: the Short has its own script with
                       burned-in (open) word-by-word captions. carbon_captions_*.vtt
@@ -505,7 +554,7 @@ export default function NewsSection({
                 >
                   <img
                     src={heroImageSrc}
-                    alt="Gemini 4 Carbon Radar Mixiuh"
+                    alt={es ? heroZoomAsset.title_es : heroZoomAsset.title_en}
                     className="absolute inset-0 w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                   />
                   <span className="absolute bottom-3 right-3 px-2.5 py-1 bg-[#090B10] border border-[#00E5FF]/50 font-mono-hud text-[11px] font-bold text-[#00E5FF]">
@@ -545,8 +594,8 @@ export default function NewsSection({
           <div>
             <div className="font-mono-hud text-xs font-bold text-[#00E5FF] uppercase mb-1">
               {es
-                ? "DESGLOSE INTERACTIVO EN 8 CAPITULOS · PUNTOS CLAVE Y TELEMETRIA"
-                : "8-CHAPTER INTERACTIVE BREAKDOWN · KEY POINTS & TELEMETRY"}
+                ? `DESGLOSE INTERACTIVO EN ${CHAPTER_COUNT} CAPITULOS · PUNTOS CLAVE Y TELEMETRIA`
+                : `${CHAPTER_COUNT}-CHAPTER INTERACTIVE BREAKDOWN · KEY POINTS & TELEMETRY`}
             </div>
             <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
               {es
@@ -556,18 +605,24 @@ export default function NewsSection({
           </div>
           <span className="font-mono-hud text-xs text-[#00E5FF]">
             {es
-              ? "Selecciona cualquiera de los 8 temas para ver sus tarjetas conceptuales y grafica oficial"
-              : "Select any of the 8 topics to inspect its conceptual cards and official chart"}
+              ? `Selecciona cualquiera de los ${CHAPTER_COUNT} temas para ver sus tarjetas conceptuales y grafica oficial`
+              : `Select any of the ${CHAPTER_COUNT} topics to inspect its conceptual cards and official chart`}
           </span>
         </div>
 
-        {/* 8 Chapter Selector Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        {/* Chapter Selector Grid (single choice: the pressed button is the open chapter) */}
+        <div
+          role="group"
+          aria-label={es ? "Capitulos del reporte" : "Report chapters"}
+          className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2"
+        >
           {CARBON_CHAPTERS.map((ch) => {
             const active = ch.idx === activeChapterIdx;
             return (
               <button
                 key={ch.id}
+                type="button"
+                aria-pressed={active}
                 onClick={() => setActiveChapterIdx(ch.idx)}
                 className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer flex flex-col justify-between ${
                   active
@@ -577,7 +632,7 @@ export default function NewsSection({
               >
                 <div className="flex items-center justify-between font-mono-hud text-[10px] gap-1">
                   <span className="text-[#00E5FF] font-bold">
-                    0{ch.idx} · {ch.timestamp}
+                    {pad2(ch.idx)} · {ch.timestamp}
                   </span>
                 </div>
                 <div className="font-display text-xs font-bold text-white mt-1.5 line-clamp-2">
@@ -611,19 +666,21 @@ export default function NewsSection({
 
             <div className="flex items-center gap-2 shrink-0 font-mono-hud text-xs">
               <button
+                type="button"
                 onClick={() =>
-                  setActiveChapterIdx((prev) => (prev > 1 ? prev - 1 : 8))
+                  setActiveChapterIdx((prev) => (prev > 1 ? prev - 1 : CHAPTER_COUNT))
                 }
                 className="px-3 py-1.5 bg-[#090B10] hover:bg-[#111622] text-[#94A3B8] hover:text-white border border-[#2A344B] cursor-pointer"
               >
                 {es ? "← Anterior" : "← Prev"}
               </button>
               <span className="px-3 py-1.5 bg-[#090B10] text-white font-bold border border-[#2A344B]">
-                0{activeChapter.idx} / 08
+                {pad2(activeChapter.idx)} / {pad2(CHAPTER_COUNT)}
               </span>
               <button
+                type="button"
                 onClick={() =>
-                  setActiveChapterIdx((prev) => (prev < 8 ? prev + 1 : 1))
+                  setActiveChapterIdx((prev) => (prev < CHAPTER_COUNT ? prev + 1 : 1))
                 }
                 className="px-3 py-1.5 bg-[#00E5FF] text-[#090B10] font-bold hover:brightness-110 cursor-pointer"
               >
@@ -658,12 +715,12 @@ export default function NewsSection({
                         {es ? node.tag_es : node.tag_en}
                       </span>
                       <span className="font-mono-hud text-xs text-[#94A3B8]">
-                        0{i + 1}/03
+                        {pad2(i + 1)}/{pad2(activeChapter.nodes.length)}
                       </span>
                     </div>
 
                     <div className="font-display text-3xl sm:text-4xl font-black text-white tracking-tight">
-                      {node.stat}
+                      {es ? node.stat : (node.stat_en ?? node.stat)}
                     </div>
 
                     <div className="space-y-2">
@@ -712,7 +769,7 @@ export default function NewsSection({
                         >
                           <div className="flex items-center justify-between font-mono-hud text-xs mb-2 gap-2">
                             <span className="font-bold text-white">
-                              {bar.model}
+                              {es ? bar.model : (bar.model_en ?? bar.model)}
                             </span>
                             <span
                               className="font-bold"
@@ -740,7 +797,9 @@ export default function NewsSection({
                 <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#00E5FF]/30 space-y-1.5">
                   <div className="flex items-center justify-between font-mono-hud text-[11px]">
                     <span className="font-bold text-[#00E5FF]">
-                      {activeChapter.quote.author}
+                      {es
+                        ? activeChapter.quote.author
+                        : activeChapter.quote.author_en}
                     </span>
                     <span className="text-[#94A3B8]">
                       {es
@@ -788,6 +847,8 @@ export default function NewsSection({
                           ? activeChapter.chart_title_es
                           : activeChapter.chart_title_en
                       }
+                      loading="lazy"
+                      decoding="async"
                       className="max-h-[310px] w-auto object-contain group-hover:scale-[1.02] transition-transform duration-300"
                     />
                   </span>
@@ -816,14 +877,14 @@ export default function NewsSection({
       </section>
 
       {/* =====================================================================
-          3. MASTER 19-BENCHMARK OFFICIAL COMPARISON TABLE
+          3. OFFICIAL BENCHMARK COMPARISON TABLE (counts: CARBON_BENCHMARK_STATS)
          ===================================================================== */}
-      <section id="tabla-oficial-19-benchmarks" className="space-y-3">
+      <section id="tabla-oficial-benchmarks-carbon" className="space-y-3">
         <div className="space-y-1">
           <div className="font-mono-hud text-xs font-bold text-[#00E5FF] uppercase">
             {es
-              ? "DATOS OFICIALES DE GOOGLE DEEPMIND · 14 DE 19 VICTORIAS ABSOLUTAS"
-              : "OFFICIAL GOOGLE DEEPMIND DATA · 14 OF 19 OUTRIGHT WINS"}
+              ? `DATOS OFICIALES DE GOOGLE DEEPMIND · CARBON #1 EN ${BENCH_CARBON_WINS} DE ${BENCH_TOTAL}`
+              : `OFFICIAL GOOGLE DEEPMIND DATA · CARBON #1 ON ${BENCH_CARBON_WINS} OF ${BENCH_TOTAL}`}
           </div>
           <h2 className="font-display text-xl sm:text-2xl font-black text-white">
             {es
@@ -843,14 +904,17 @@ export default function NewsSection({
         <PixelDataTable<CarbonBenchmarkRow>
           caption={
             es
-              ? "19 benchmarks oficiales: Gemini 4 Carbon, Gemini 4 Argon, GPT-6 Astra y Claude Opus 5.5"
-              : "19 official benchmarks: Gemini 4 Carbon, Gemini 4 Argon, GPT-6 Astra and Claude Opus 5.5"
+              ? `${BENCH_TOTAL} benchmarks oficiales (los ${MASTER_TABLE_ROWS} de la tabla maestra + ${OFF_TABLE_BENCHMARKS} de su grafica oficial): Gemini 4 Carbon, Gemini 4 Argon, GPT-6 Astra y Claude Opus 5.5`
+              : `${BENCH_TOTAL} official benchmarks (the master table's ${MASTER_TABLE_ROWS} + ${OFF_TABLE_BENCHMARKS} from its own official chart): Gemini 4 Carbon, Gemini 4 Argon, GPT-6 Astra and Claude Opus 5.5`
           }
           tone="cyan"
           locale="es"
           searchable
-          exportFileName="gemini-4-carbon-19-benchmarks.csv"
-          className="[&_table]:min-w-[880px]"
+          exportFileName={`gemini-4-carbon-${BENCH_TOTAL}-benchmarks.csv`}
+          // Toolbar rows: the domain tabs get the first row, so the search never
+          // gets squeezed beside them (its text is 16px on touch screens). On
+          // phones the search also takes its own row and "Exportar CSV" wraps below.
+          className="[&_table]:min-w-[880px] [&_div:has(>[role=tablist])]:basis-full max-sm:[&_div:has(>input[type=search])]:basis-full"
           rows={CARBON_FULL_BENCHMARKS.filter(
             (row) => domainFilter === "all" || row.domain === domainFilter
           )}
@@ -858,10 +922,10 @@ export default function NewsSection({
           initialSort={{ key: "n", direction: "asc" }}
           labels={
             es
-              ? { searchPlaceholder: "Filtrar SWE-sweep, CWE, Vending..." }
+              ? { searchPlaceholder: "Buscar benchmark..." }
               : {
                   search: "Search the table",
-                  searchPlaceholder: "Filter SWE-sweep, CWE, Vending...",
+                  searchPlaceholder: "Search benchmarks...",
                   clearSearch: "Clear search",
                   noResults: "No results",
                   resultsCount: (count) => (count === 1 ? "1 result" : `${count} results`),
@@ -931,7 +995,7 @@ export default function NewsSection({
             })),
             {
               key: "highlight",
-              header: es ? "Diferencial clave" : "Key differential",
+              header: es ? "Puesto de Carbon y margen" : "Carbon rank & margin",
               value: (r) => (es ? r.highlight_es : r.highlight_en),
               sortable: false,
               render: (r) => (
@@ -1051,8 +1115,8 @@ export default function NewsSection({
             </div>
             <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
               {es
-                ? "Graficas Oficiales de Google DeepMind e Infografias 4K"
-                : "Official Google DeepMind Charts & 4K Infographics"}
+                ? "Graficas Oficiales de Google DeepMind e Infografias"
+                : "Official Google DeepMind Charts & Infographics"}
             </h2>
           </div>
           <span className="font-mono-hud text-xs text-[#94A3B8]">
@@ -1072,9 +1136,13 @@ export default function NewsSection({
             >
               <div>
                 <div className="p-3 bg-[#F5F2EB] aspect-video flex items-center justify-center overflow-hidden">
+                  {/* Near the end of the view: load on approach (the 2000px
+                      PNGs add up to about 2 MB). The lightbox shows the full file. */}
                   <img
-                    src={item.src}
+                    src={assetSrc(item, es)}
                     alt={es ? item.title_es : item.title_en}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300"
                   />
                 </div>
@@ -1206,7 +1274,7 @@ export default function NewsSection({
               </div>
               <div className="p-4 sm:p-6 bg-white flex items-center justify-center max-h-[78vh] overflow-auto">
                 <img
-                  src={zoomedAsset.src}
+                  src={assetSrc(zoomedAsset, es)}
                   alt={es ? zoomedAsset.title_es : zoomedAsset.title_en}
                   className="max-h-[72vh] w-auto object-contain"
                 />
@@ -1216,7 +1284,7 @@ export default function NewsSection({
                   {es ? zoomedAsset.desc_es : zoomedAsset.desc_en}
                 </span>
                 <a
-                  href={zoomedAsset.src}
+                  href={assetSrc(zoomedAsset, es)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono-hud text-xs font-bold text-[#00E5FF] hover:underline shrink-0 inline-flex items-center gap-1"

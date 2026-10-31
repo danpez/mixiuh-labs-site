@@ -180,14 +180,14 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
     content_es: [
       "Con este reporte inauguramos RADAR MIXIUH · NOTICIAS IA, la seccion de Mixiuh Labs dedicada a analizar con rigor de ingenieria los anuncios y reportes tecnicos mas importantes de la inteligencia artificial.",
       "1. La Estrategia Dual de Google DeepMind (+14 Dias): El 14 de octubre conocimos a Gemini 4 Argon (50 pts en AA Index v5.0), pensado para flujos rapidos diarios a $2/$10 USD. El 28 de octubre llega su hermano mayor de razonamiento profundo: Gemini 4 Carbon, que salta a 59 puntos y toma el #1 mundial por encima de Claude Opus 5.5 (58 pts) y GPT-6 Astra (57 pts).",
-      "2. Agentes de 72 Horas y Tridente de Ciberseguridad: Carbon duplica a Argon en SWE-sweep (9.6% vs 4.3%, y 2.7x sobre el 3.6% de Opus 5.5) manteniendo 96.2% en GraphWalks de 1M de tokens. En ciberseguridad logra una triple corona: 88.2% en SEC-bench Pro, 54.8% en ExploitGym (+20.3 pts sobre Opus) y 71.0% en CWE-bench corriendo directamente sobre Google Antigravity, con >10x mejores parches reportados por el equipo de Google Chrome.",
-      "3. Escudo 0.0% en Gray Swan IPI y la Letra Pequena del Precio: Carbon bloquea 15 de 15 ataques de inyeccion indirecta de prompts (0.0% frente a 8.5% de GPT-6 Astra). En precio, arranca hoy mediante Google Fairwind a $2/$10 USD por millon de tokens (<=200k), pero la nota al pie confirma que al terminar la promo se duplicara a $4/$20 USD ($6/$30 para >200k), quedando 20% por debajo de Claude Opus 5.5 ($5/$25)."
+      "2. Agentes de 72 Horas y Tridente de Ciberseguridad: Carbon duplica a Argon en SWE-sweep (9.6% vs 4.3%, y 2.7x sobre el 3.6% de Opus 5.5) manteniendo 96.2% (F1) en GraphWalks de 256k a 1M de tokens. En ciberseguridad logra una triple corona: 88.2% en SEC-bench Pro, 54.8% en ExploitGym (con limite de 10 h por tarea; con el mismo limite de 6 h que Opus marca 53.5% frente a su 34.5%) y 71.0% en CWE-bench corriendo directamente sobre Google Antigravity, con >10x mejores parches reportados por el equipo de Google Chrome.",
+      "3. Escudo 0.0% en Gray Swan IPI y la Letra Pequena del Precio: Carbon registra 0.0% de ataques exitosos de inyeccion indirecta de prompts aun cuando el atacante tiene 15 intentos (frente a 8.5% de GPT-6 Astra). En precio, arranca hoy mediante Google Fairwind a $2/$10 USD por millon de tokens (<=200k), pero la nota al pie confirma que al terminar la promo se duplicara a $4/$20 USD ($6/$30 para >200k), quedando 20% por debajo de Claude Opus 5.5 ($5/$25)."
     ],
     content_en: [
       "With this special report we launch MIXIUH NEWS · AI RADAR, our dedicated section for dissecting major AI model announcements and technical papers with engineering rigor.",
       "1. Google DeepMind's Dual Strategy (+14 Days): On October 14 Google launched Gemini 4 Argon (50 pts on AA Index v5.0) for fast daily workflows at $2/$10 USD. On October 28 comes its deep-reasoning sibling: Gemini 4 Carbon, jumping to 59 points to claim #1 worldwide ahead of Claude Opus 5.5 (58 pts) and GPT-6 Astra (57 pts).",
-      "2. 72-Hour Agents & Cybersecurity Triple Crown: Carbon more than doubles Argon on SWE-sweep (9.6% vs 4.3%, and 2.7x over Opus 5.5's 3.6%) while holding 96.2% on 1M-token GraphWalks. In cybersecurity it sweeps 88.2% on SEC-bench Pro, 54.8% on ExploitGym (+20.3 pts over Opus), and 71.0% on CWE-bench running on Google Antigravity, with >10x higher patch quality reported by the Chrome Security Team.",
-      "3. 0.0% Gray Swan IPI Shield & Pricing Fine Print: Carbon blocks 15 out of 15 indirect prompt injection attacks (0.0% vs 8.5% for GPT-6 Astra). On pricing, it opens today via Google Fairwind at $2/$10 USD per million tokens (<=200k), but the official footnote confirms it will double post-promo to $4/$20 USD ($6/$30 for >200k)—still 20% cheaper than Claude Opus 5.5 ($5/$25)."
+      "2. 72-Hour Agents & Cybersecurity Triple Crown: Carbon more than doubles Argon on SWE-sweep (9.6% vs 4.3%, and 2.7x over Opus 5.5's 3.6%) while holding 96.2% (F1) on GraphWalks at 256k–1M tokens. In cybersecurity it sweeps 88.2% on SEC-bench Pro, 54.8% on ExploitGym (with a 10-hour cap per task; under the same 6-hour cap as Opus it scores 53.5% vs Opus's 34.5%), and 71.0% on CWE-bench running on Google Antigravity, with >10x higher patch quality reported by the Chrome Security Team.",
+      "3. 0.0% Gray Swan IPI Shield & Pricing Fine Print: Carbon records 0.0% successful indirect prompt injection attacks even when the attacker gets 15 attempts (vs 8.5% for GPT-6 Astra). On pricing, it opens today via Google Fairwind at $2/$10 USD per million tokens (<=200k), but the official footnote confirms it will double post-promo to $4/$20 USD ($6/$30 for >200k)—still 20% cheaper than Claude Opus 5.5 ($5/$25)."
     ],
     comments: []
   },
@@ -383,8 +383,8 @@ function recordTickZeroGC(price, size, side, now) {
     badge_en: "PERFORMANCE AUTOPSY · EP02 L01",
     title_es: "Nivel 1 (Tela Verlet): Por que los 18,430 enlaces y 30 iteraciones de Claude Opus 5.5 hundieron el CPU a 28 FPS mientras Argon clavo 120 FPS",
     title_en: "Level 1 (Verlet Cloth): Why Claude Opus 5.5's 18,430 Links & 30 Solver Iterations Tanked CPU to 28 FPS While Argon Locked 120 FPS",
-    excerpt_es: "Mas restricciones no siempre significa mejor ingenieria en tiempo real: analizamos las 552,900 relajaciones por cuadro de Opus frente al solver Gauss-Seidel calibrado de Argon.",
-    excerpt_en: "More constraints don't always mean better real-time engineering: dissecting Opus's 552,900 relaxations per frame vs Argon's calibrated Gauss-Seidel solver.",
+    excerpt_es: "Mas restricciones no siempre significa mejor ingenieria en tiempo real: analizamos los 18,430 enlaces y las 30 relajaciones por frame de Opus frente a los 5,602 enlaces y 14 iteraciones de Argon.",
+    excerpt_en: "More constraints don't always mean better real-time engineering: dissecting Opus's 18,430 links and 30 relaxations per frame vs Argon's 5,602 links and 14 iterations.",
     author: "Kevin Gonzalez",
     authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
     authorRole_en: "Referee & Architect · Mixiuh Labs",
@@ -401,26 +401,30 @@ function recordTickZeroGC(price, size, side, now) {
       leftLabel_en: "[LEFT] CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
       rightLabel_es: "[DERECHA] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
       rightLabel_en: "[RIGHT] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
-      flashCode: `// claude-opus-5.5/01-tela-verlet/index.html
-// Malla 77x48 (3,696 nodos) con Estructural + Cizalla + Flexion activados de serie:
-// Total: 18,430 enlaces * 30 iteraciones = 552,900 pases por frame en 1 hilo JS
-const state = {
-  cols: 77, rows: 48,
-  iterations: 30,
-  useShear: true,
-  useBend: true, // <-- Multiplica enlaces a 18,430; cae a 28 FPS (6.28 ms/frame)
+      flashCode: `// /demos/opus/01-tela-verlet/index.html · lineas 192-198 (copia literal)
+const P = {
+  gravity: 9.81, iters: 10, substeps: 3, damping: 0.993,
+  tear: 0.4, stiff: 1.0, grabR: 46,
+  wind: 30, turb: 55,
+  mode: 'tension', preset: 'curtain', res: '72x44',
+  shear: true, bend: true, paused: false, tool: 'grab'
 };`,
-      argonCode: `// gemini-4-argon/01-tela-verlet/index.html
-// Malla 72x44 (3,168 nodos, 6,228 enlaces) en Float32Arrays contiguos:
-// 14 iteraciones Gauss-Seidel = 87,192 operaciones en cache L1 -> 120 FPS clavados
-const CONFIG = {
-  cols: 72, rows: 44,
-  solverIterations: 14, // <-- Tensado perfecto a 120 FPS (0.9 ms/frame)
-  stiffness: 0.98,
-  tearThreshold: 2.35,
-};`,
-      explanation_es: "En simulacion fisica sobre un hilo principal de JavaScript (presupuesto de 8.33 ms por cuadro a 120 Hz), activar simultaneamente enlaces estructurales, diagonales de cizalla y saltos dobles de flexion eleva la malla de Opus a 18,430 objetos en memoria. Multiplicado por 30 iteraciones de relajacion y el renderizado de 18,430 trazos en Canvas 2D, el frame tarda ~35 ms (28 FPS). Argon empaqueto coordenadas en arreglos tipados y calibro 14 iteraciones estructurales con sombreado por celda a 120 FPS.",
-      explanation_en: "In single-threaded JavaScript physics (an 8.33 ms frame budget at 120 Hz), enabling structural, diagonal shear, and double-stride bend links simultaneously inflates Opus's mesh to 18,430 heap objects. Multiplied by 30 solver iterations plus 18,430 Canvas 2D stroke calls, each frame takes ~35 ms (28 FPS). Argon packed coordinates into contiguous arrays and calibrated 14 Gauss-Seidel iterations to hold a locked 120 FPS."
+      argonCode: `// /demos/argon/01-tela-verlet/index.html · lineas 1048-1060 (copia literal, sin sangria)
+// Dimensiones de malla superiores al mínimo requerido (68 columnas x 42 filas = 2,856 partículas)
+this.cols = 68;
+this.rows = 42;
+this.numParticles = this.cols * this.rows;
+
+// Parámetros físicos configurables en tiempo real
+this.gravity = 9.8;
+this.windStrength = 1.40;
+this.solverIterations = 14;
+this.tearThreshold = 2.85;
+this.stiffness = 0.96;
+this.grabRadius = 64;
+this.enableShear = false;`,
+      explanation_es: "En simulacion fisica sobre un hilo principal de JavaScript (presupuesto de 8.33 ms por cuadro a 120 Hz), Opus arranca su malla de 72x44 (3,168 nodos) con cizalla y flexion activadas (`shear: true, bend: true`), asi que su solver relaja 18,430 enlaces con `iters: 10` x `substeps: 3`: 30 relajaciones por frame, como indica su propio HUD, que ademas marca 6.28 ms en 'Física / frame' y 28 FPS. Argon arranca con 68x42 (2,856 particulas), solo sus 5,602 enlaces estructurales (`enableShear = false`) y 14 iteraciones Gauss-Seidel, y se mantiene en 120 FPS. Los dos guardan la tela en arreglos tipados: la diferencia esta en cuantos enlaces y pasadas resuelve cada uno por defecto.",
+      explanation_en: "In single-threaded JavaScript physics (an 8.33 ms frame budget at 120 Hz), Opus starts its 72x44 mesh (3,168 nodes) with shear and bend enabled (`shear: true, bend: true`), so its solver relaxes 18,430 links with `iters: 10` x `substeps: 3`: 30 relaxations per frame, as its own HUD states, which also shows 6.28 ms under 'Física / frame' and 28 FPS. Argon starts at 68x42 (2,856 particles) with only its 5,602 structural links (`enableShear = false`) and 14 Gauss-Seidel iterations, and holds 120 FPS. Both keep the cloth in typed arrays: the difference is how many links and passes each one solves by default."
     },
     content_es: [
       "El Nivel 01 del Episodio 02 pedia una malla densa de tela con integracion de Verlet desde cero, mapa de calor de tension mecanica y corte con bisturi laser.",
@@ -455,13 +459,13 @@ const CONFIG = {
     tags: ["Tokens", "API Pricing", "Prompt Caching", "Claude Opus 5.5", "Gemini 4 Argon"],
     content_es: [
       "En los benchmarks tradicionales rara vez se habla de cuanto cuesta en dolares reales que un agente autonomo termine un proyecto complejo. En el Episodio 02 instrumentamos ambos entornos para medir tanto el tiempo de reloj como el consumo de tokens con tarifas oficiales.",
-      "En 3 de los 6 retos (Nivel 01 Tela Verlet, Nivel 04 Motor Voxel y Nivel 06 Pinball CCD), Gemini 4 Argon (High) necesito unicamente entre 2 y 3 pasos de agente: planifico la arquitectura matematica completa y escribio archivos de 2,500 a 2,760 lineas de un solo tiron, costando entre $0.65 y $0.70 USD por reto.",
+      "En 3 de los 6 retos (Nivel 01 Tela Verlet, Nivel 04 Motor Voxel y Nivel 06 Pinball CCD), Gemini 4 Argon (High) necesito unicamente entre 2 y 3 pasos de agente: planifico la arquitectura matematica completa y escribio archivos de 2,569 a 2,766 lineas de un solo tiron, costando entre $0.65 y $0.70 USD por reto.",
       "En los retos con shaders 3D mas delicados (Nivel 02 Navier-Stokes, Nivel 03 Cuerpos Blandos y Nivel 05 Sintetizador FM), Argon realizo entre 9 y 19 pasos para verificar y pulir detalles, sumando 45 pasos en todo el torneo (1.06M Input, 2.26M Cache Read, 306.9K Output = $6.26 USD).",
       "Claude Opus 5.5 (High), en cambio, ejecuto un bucle intensivo de entre 18 y 28 pasos en CADA UNO de los 6 retos (143 pasos totales). En cada paso de verificacion con navegador headless, el agente vuelve a enviar todo el historial de conversacion (acumulando 12.25 millones de tokens en Cache Read mas 501K de Output), elevando la factura total a $16.26 USD y el tiempo a 158.66 minutos."
     ],
     content_en: [
       "Traditional benchmarks rarely disclose how many real dollars it costs for an autonomous agent to ship a complex project. In Episode 02 we instrumented both environments to audit wall-clock latency alongside exact token billing under official API pricing.",
-      "Across 3 of the 6 challenges (Level 01 Verlet Cloth, Level 04 Voxel Engine, and Level 06 Pinball CCD), Gemini 4 Argon (High) needed only 2 to 3 agent steps: it architected the full mathematical solver and wrote 2,500 to 2,760 lines in a single pass, costing just $0.65 to $0.70 USD per challenge.",
+      "Across 3 of the 6 challenges (Level 01 Verlet Cloth, Level 04 Voxel Engine, and Level 06 Pinball CCD), Gemini 4 Argon (High) needed only 2 to 3 agent steps: it architected the full mathematical solver and wrote 2,569 to 2,766 lines in a single pass, costing just $0.65 to $0.70 USD per challenge.",
       "On the more intricate 3D shader and DSP challenges (Level 02 Navier-Stokes, Level 03 Soft Bodies, and Level 05 FM Synthesizer), Argon used 9 to 19 steps to verify and refine, totaling 45 steps across the tournament (1.06M Input, 2.26M Cache Read, 306.9K Output = $6.26 USD).",
       "Claude Opus 5.5 (High), by contrast, ran an intensive 18-to-28-step verification loop on EVERY single challenge (143 total steps). Because each tool-call turn re-reads the growing conversation context, Opus accumulated 12.25M Cache Read tokens plus 501K Output tokens, driving its total bill to $16.26 USD and wall-clock time to 158.66 minutes."
     ],
