@@ -996,6 +996,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   onChange={(e) => setDemoInput(e.target.value)}
                   onClear={() => setDemoInput("")}
                   clearable
+                  clearLabel={lang === "es" ? "Limpiar" : "Clear"}
                   iconLeft="terminal"
                   tone={customTone}
                   size={customSize}
@@ -1094,6 +1095,8 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   value={demoAuto}
                   onChange={setDemoAuto}
                   tone={customTone}
+                  clearLabel={lang === "es" ? "Limpiar" : "Clear"}
+                  toggleLabel={lang === "es" ? "Mostrar opciones" : "Show options"}
                   placeholder={
                     lang === "es"
                       ? "Filtra entre simuladores (ej. rover, tb-303, pathtracer)..."

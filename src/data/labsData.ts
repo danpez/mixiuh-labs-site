@@ -12,6 +12,8 @@ export interface ChallengeData {
   name_es: string;
   name_en: string;
   tech: string;
+  /** English twin of `tech`; set only where `tech` contains Spanish words. */
+  tech_en?: string;
   timestamp: string;
   prompt_gist_es: string;
   prompt_gist_en: string;
@@ -21,11 +23,20 @@ export interface ChallengeData {
   winner: "argon" | "flash";
   flash_broken: boolean;
   kevin_note_verbatim: string;
+  /** Faithful, literal English translation of `kevin_note_verbatim`: the only English text to quote as Kevin's words. */
+  kevin_note_verbatim_en?: string;
   kevin_note_paraphrase_es: string;
+  /** Editorial English summary, not Kevin's words: never show it in quotes or label it as his note or verdict. */
   kevin_note_en: string;
   argon_features: string[];
+  /** English twin of `argon_features` (same length and order). */
+  argon_features_en?: string[];
   flash_features: string[];
+  /** English twin of `flash_features` (same length and order). */
+  flash_features_en?: string[];
   flash_problems: string[];
+  /** English twin of `flash_problems` (same length and order). */
+  flash_problems_en?: string[];
   code_stats: {
     argon_lines: number;
     flash_lines: number;
@@ -118,6 +129,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Sistema Solar Relativo",
     "name_en": "Relative Solar System",
     "tech": "Three.js r160 (CDN, importmap) + shaders GLSL propios + UnrealBloom",
+    "tech_en": "Three.js r160 (CDN, importmap) + custom GLSL shaders + UnrealBloom",
     "timestamp": "01:00",
     "prompt_gist_es": "Un mini sistema solar en 3D: el Sol en el centro dando luz, la Tierra con océanos y continentes inventados por código, y la Luna girando alrededor de la Tierra mientras ambas viajan alrededor del Sol.",
     "prompt_gist_en": "A relative 3D solar system in Three.js with real point-light emission, procedural GLSL/Canvas Earth continents, hierarchical SceneGraph moon orbit, and eclipse occlusion.",
@@ -136,6 +148,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "4 Argon gana. Mejores graficos, sin errores, luminicencia del sol configurable, angulo de la luna configurable, fondo mejor diseñado.",
+    "kevin_note_verbatim_en": "4 Argon wins. Better graphics, no errors, configurable sun luminescence, configurable moon angle, better-designed background.",
     "kevin_note_paraphrase_es": "Gana Argon: mejores gráficos y cero errores; además deja configurar la intensidad del brillo del Sol y el ángulo de la órbita de la Luna, y su fondo espacial está mejor diseñado.",
     "kevin_note_en": "Argon wins. Superior shader graphics, zero console errors, configurable solar luminescence, adjustable lunar inclination, and real GLSL eclipse shadow.",
     "argon_features": [
@@ -148,16 +161,37 @@ export const CHALLENGES: ChallengeData[] = [
       "Nebulosa procedural en GLSL sobre esfera de fondo + campo de estrellas (THREE.Points)",
       "Anclaje de cámara con teclas 1-4 (Sol, Tierra, Luna, Sistema); toggles O/V/C/S/L/G; escala temporal 0.05x a 8x"
     ],
+    "argon_features_en": [
+      "Sun with its own GLSL shader: granulation, sunspots and filaments (simplex noise + fBM)",
+      "Solar corona with additive Fresnel layers and prominences; UnrealBloom with an 'Intensidad Corona / Bloom HDR' (corona intensity / HDR bloom) slider",
+      "Shader-based Earth: procedural continents, city lights on the night side, a cloud layer with its own rotation and a Fresnel atmospheric halo",
+      "23.44° axial tilt and 5.14° lunar orbital inclination (with a slider to change it)",
+      "Eclipse lab: Solar Eclipse / Lunar Eclipse buttons ('blood moon') and per-pixel occlusion computed in GLSL",
+      "Panel that draws the scene graph (matrix tree Sun -> Earth -> Moon) and a lunar phase widget",
+      "Procedural GLSL nebula on a background sphere + star field (THREE.Points)",
+      "Camera anchoring with keys 1-4 (Sun, Earth, Moon, System); O/V/C/S/L/G toggles; time scale 0.05x to 8x"
+    ],
     "flash_features": [
       "Texturas de la Tierra generadas en CPU con ruido simplex a CanvasTexture (día, especular, noche, relieve) + nubes",
       "Luna con mares y cráteres procedurales; 10,000 estrellas con color por temperatura",
       "Botones Eclipse Solar / Eclipse Lunar, enfoque de cámara 1-5 y modo cinemático [H]",
       "Slider de intensidad de luz solar; velocidades 0.2x a 60x; UnrealBloom"
     ],
+    "flash_features_en": [
+      "Earth textures generated on the CPU with simplex noise into a CanvasTexture (day, specular, night, relief) + clouds",
+      "Moon with procedural maria and craters; 10,000 stars colored by temperature",
+      "Solar Eclipse / Lunar Eclipse buttons, camera focus 1-5 and cinematic mode [H]",
+      "Sunlight intensity slider; speeds 0.2x to 60x; UnrealBloom"
+    ],
     "flash_problems": [
       "Sin errores graves reportados; Kevin lo consideró inferior en gráficos y fondo",
       "No tiene control del ángulo de la órbita lunar (Argon sí)",
       "Carga Google Fonts y es-module-shims desde CDN (no son imágenes, pero no es 100% autocontenido)"
+    ],
+    "flash_problems_en": [
+      "No serious errors reported; Kevin considered it inferior in graphics and background",
+      "No control over the lunar orbit angle (Argon has one)",
+      "Loads Google Fonts and es-module-shims from a CDN (they are not images, but it is not 100% self-contained)"
     ],
     "code_stats": {
       "argon_lines": 2653,
@@ -172,7 +206,7 @@ export const CHALLENGES: ChallengeData[] = [
       "flash": "HELIOS-3 // Simulador Orbital Relativo Sol - Tierra - Luna"
     },
     "fun_angle_es": "El único reto 3D donde Flash fue más rápido: 7 minutos contra 11. Aun así perdió: Argon se tomó el tiempo de dibujar en pantalla su propio árbol genealógico de matrices, Sol, Tierra y Luna, y de calcular los eclipses píxel por píxel.",
-    "fun_angle_en": "Flash finished 4 minutes faster (7m vs 11m), but its Sun looks like a flat white bulb and its eclipse button only changes a text label. Argon wrote custom GLSL shaders with solar granulation and real blood-moon shadow occlusion.",
+    "fun_angle_en": "The only 3D challenge where Flash was faster: 7 minutes vs 11. It still lost: Argon took the time to draw its own family tree of matrices on screen, Sun, Earth and Moon, and to compute the eclipses pixel by pixel.",
     "speed_ratio": "Flash 1.57x más rápido (4 min menos)",
     "speed_ratio_en": "Flash 1.57x faster (4 min less)",
     "faster_model": "flash",
@@ -205,6 +239,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Visualizador ADN 3D",
     "name_en": "3D Particle DNA Visualizer",
     "tech": "Three.js r160 + shaders GLSL de puntos + física de resortes (Ley de Hooke) en CPU",
+    "tech_en": "Three.js r160 + GLSL point shaders + spring physics (Hooke's Law) on the CPU",
     "timestamp": "01:44",
     "prompt_gist_es": "Una doble hélice de ADN hecha con miles de partículas que gira sola; al pasar el mouse las partículas se dispersan y luego regresan a su lugar como si fueran resortes.",
     "prompt_gist_en": "High-density 3D double helix made of thousands of reactive particles with Hooke's Law spring-damping restoration, cursor repulsion, and ATCG base-pair coloring.",
@@ -222,6 +257,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "Gana Argon en calidad y tiempo, mas personalizacion, cambio de particulas, animaciones, efectos, etc.",
+    "kevin_note_verbatim_en": "Argon wins on quality and time, more customization, changing particles, animations, effects, etc.",
     "kevin_note_paraphrase_es": "Argon gana en calidad y en tiempo: más opciones de personalización, cambio de forma de las partículas, más animaciones y efectos.",
     "kevin_note_en": "Argon wins in both quality and speed (5m vs 7m): real 24,500-particle physics, richer customization, and genuine HUD telemetry.",
     "argon_features": [
@@ -232,15 +268,33 @@ export const CHALLENGES: ChallengeData[] = [
       "Modos: alambre de bases [B], rastro [T], aberración RGB [C], rejilla digital [G]; slider de bloom",
       "Secuenciador genómico en vivo (5' a 3') y contadores de telemetría actualizados en tiempo real"
     ],
+    "argon_features_en": [
+      "24,500 particles by default (22,000 in the helix + 2,500 ambient spores); density slider from 10,000 to 40,000",
+      "4 particle morphologies in a GLSL shader: 3D sphere, hexagon, plasma cross and ring",
+      "Per-particle physics: cursor repulsion and Hooke return F = -k x - c v",
+      "3D force probe, shockwave button, center camera",
+      "Modes: base-pair wireframe [B], trail [T], RGB aberration [C], digital grid [G]; bloom slider",
+      "Live genome sequencer (5' to 3') and telemetry counters updated in real time"
+    ],
     "flash_features": [
       "Doble hélice con física Hooke, bloom, aberración cromática, enlaces moleculares, rejilla holográfica",
       "Audio sintetizado interactivo (Web Audio) y botón de dispersión cuántica",
       "Presets de cámara: vista completa, macro nucleótidos, cenital"
     ],
+    "flash_features_en": [
+      "Double helix with Hooke physics, bloom, chromatic aberration, molecular bonds, holographic grid",
+      "Interactive synthesized audio (Web Audio) and a quantum dispersion button",
+      "Camera presets: full view, nucleotide macro, top-down"
+    ],
     "flash_problems": [
       "No tiene slider de densidad de partículas (lo pedía el prompt): el número es una constante",
       "No tiene selector de forma de partícula (lo pedía el prompt)",
       "El HUD dice 18,480 partículas pero ese texto está fijo en el HTML: el código genera 14,640 en la hélice (+3,200 de polvo = 17,840)"
+    ],
+    "flash_problems_en": [
+      "No particle density slider (the prompt asked for one): the number is a constant",
+      "No particle shape selector (the prompt asked for one)",
+      "The HUD says 18,480 particles but that text is fixed in the HTML: the code generates 14,640 in the helix (+3,200 dust particles = 17,840)"
     ],
     "code_stats": {
       "argon_lines": 1754,
@@ -290,6 +344,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Vida Artificial (Boids)",
     "name_en": "Artificial Life (Reynolds Boids)",
     "tech": "Canvas 2D + boids de Reynolds + Quadtree",
+    "tech_en": "Canvas 2D + Reynolds boids + Quadtree",
     "timestamp": "02:36",
     "prompt_gist_es": "Una parvada de cientos de pajaritos que vuelan juntos siguiendo tres reglas simples: no chocar, ir en la misma dirección y mantenerse unidos. El mouse es un depredador que los asusta.",
     "prompt_gist_en": "Craig Reynolds flocking simulation (separation, alignment, cohesion) with Quadtree spatial partitioning, apex predator evasion, and live vector/grid debugging.",
@@ -307,6 +362,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "Los resultados fueron muy parecidos, en cuanto a funcionalidad, ambos cumplen, pero la personalizacion y keymaps de Argon le da la victoria",
+    "kevin_note_verbatim_en": "The results were very similar, in terms of functionality, both deliver, but Argon's customization and keymaps give it the win",
     "kevin_note_paraphrase_es": "Muy parejos: los dos cumplen en funcionalidad. Lo que le da la victoria a Argon es la personalización y los atajos de teclado.",
     "kevin_note_en": "Very close functional tie, but Argon takes the point for its 11 live sliders, 3 autonomous predators, and complete debugging keymaps.",
     "argon_features": [
@@ -317,14 +373,31 @@ export const CHALLENGES: ChallengeData[] = [
       "11 sliders en vivo, incluida cantidad de agentes de 200 a 2,400",
       "4 presets: estorninos, cardumen, enjambre caótico, vórtice abisal"
     ],
+    "argon_features_en": [
+      "Real Quadtree with checks-per-frame telemetry vs the O(N²) equivalent",
+      "0 to 3 autonomous AI predators ('Leviathans'), cycled with [P]",
+      "Click: shockwave; Shift+click: obstacle; right-click: delete obstacle",
+      "Shortcuts Q (quadtree), V (vectors), T (trails), N (local network), P (predators), Space (pause)",
+      "11 live sliders, including agent count from 200 to 2,400",
+      "4 presets: starlings, fish school, chaotic swarm, abyssal vortex"
+    ],
     "flash_features": [
       "Quadtree recursivo con contador de ahorro de cálculo",
       "Depredador IA activable, espacio toroidal, audio bioacústico sintetizado",
       "4 presets (teclas 1-4), botones +200 / -200 boids, modos de clic: onda, obstáculo, sembrar boids"
     ],
+    "flash_features_en": [
+      "Recursive Quadtree with a computation-savings counter",
+      "Toggleable AI predator, toroidal space, synthesized bioacoustic audio",
+      "4 presets (keys 1-4), +200 / -200 boids buttons, click modes: wave, obstacle, seed boids"
+    ],
     "flash_problems": [
       "Funcional; menos controles (7 sliders, un solo depredador IA) y menos atajos que Argon",
       "Carga Google Fonts desde internet aunque el prompt pedía interfaz 100% autocontenida"
+    ],
+    "flash_problems_en": [
+      "Functional; fewer controls (7 sliders, a single AI predator) and fewer shortcuts than Argon",
+      "Loads Google Fonts from the internet although the prompt asked for a 100% self-contained interface"
     ],
     "code_stats": {
       "argon_lines": 1771,
@@ -375,6 +448,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Generador de Mazmorras",
     "name_en": "Procedural Rogue-like Dungeon",
     "tech": "Canvas 2D + BSP + MST (Kruskal) + A* + Dijkstra + FOV por raycasting",
+    "tech_en": "Canvas 2D + BSP + MST (Kruskal) + A* + Dijkstra + FOV via raycasting",
     "timestamp": "03:17",
     "prompt_gist_es": "Un generador de mazmorras estilo videojuego roguelike: cuartos que nunca se encimen, conectados por pasillos de una sola casilla, con una ruta calculada de la entrada a la salida y un modo para explorarla con niebla de guerra.",
     "prompt_gist_en": "Procedural roguelike dungeon generator using Binary Space Partitioning (BSP), Kruskal MST connectivity, 1-tile corridors, A* pathfinding, and playable FOV fog of war.",
@@ -393,6 +467,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": true,
     "kevin_note_verbatim": "Indiscutiblemente mejor Argon, por alguna razón Flash solo trabajo por dos minutos y decidio que habia terminado, tiene varios bugs y no interactua con el entorno, en cambio, Argon dejo algo completamente funcional y que se actualiza visualmente en tiempo real, interaccion con entorno, logs, A* en vivo, etc.",
+    "kevin_note_verbatim_en": "Argon is indisputably better, for some reason Flash only worked for two minutes and decided it was done, it has several bugs and doesn't interact with the environment, whereas Argon left something fully functional that updates visually in real time, interaction with the environment, logs, live A*, etc.",
     "kevin_note_paraphrase_es": "Indiscutiblemente mejor Argon. Flash trabajó solo dos minutos, decidió que ya había terminado y entregó algo con varios bugs y sin interacción con el entorno. Argon dejó algo completo que se actualiza en tiempo real, con interacción, bitácora y A* en vivo.",
     "kevin_note_en": "Undisputed win for Argon. Flash quit after 2 minutes with multiple bugs and zero entity interaction; Argon delivered a full interactive RPG + live A*.",
     "argon_features": [
@@ -403,9 +478,21 @@ export const CHALLENGES: ChallengeData[] = [
       "Biomas Cripta, Volcán y Arcano; semilla PRNG (ej. ARGON-CRYPT-77); construcción paso a paso",
       "7 sliders incluido tamaño de cuadrícula (72 x 46 por defecto) y velocidad de animación"
     ],
+    "argon_features_en": [
+      "Collision-free BSP with AABB padding, MST with Kruskal + a percentage of extra loops, 1x1 logical doors",
+      "Custom A* with click (start) and Shift+click (destination); Dijkstra heat map",
+      "Explorer Mode [E]: fog of war with FOV via raycasting (adjustable radius)",
+      "Mini RPG: HP 100/100, chests, sentinels/enemies, traps, boss; live event log",
+      "Crypt, Volcano and Arcane biomes; PRNG seed (e.g. ARGON-CRYPT-77); step-by-step construction",
+      "7 sliders including grid size (72 x 46 by default) and animation speed"
+    ],
     "flash_features": [
       "BSP con conexión por ramas hermanas + ciclos extra, A*, mapa Dijkstra, paso a paso",
       "Biomas Cripta, Volcán, Arcano; modo explorador con FOV y niebla; cofres que se abren"
+    ],
+    "flash_features_en": [
+      "BSP connected through sibling branches + extra loops, A*, Dijkstra map, step by step",
+      "Crypt, Volcano, Arcane biomes; explorer mode with FOV and fog; chests that open"
     ],
     "flash_problems": [
       "Se declaró terminado a los 2 minutos (nota de Kevin)",
@@ -413,6 +500,13 @@ export const CHALLENGES: ChallengeData[] = [
       "No tiene slider de tamaño de mapa ni de radio de visión (los pedía el prompt)",
       "Su título dice 'Árbol de Expansión Mínima' pero el código no implementa MST: conecta hermanos del árbol BSP (válido según el prompt, pero la etiqueta es falsa)",
       "Observado en la grabación: durante 'paso a paso' la ruta A* del mapa anterior se dibuja sobre un mapa todavía sin construir, y en modo explorador las antorchas de cuartos no descubiertos brillan a través de la niebla"
+    ],
+    "flash_problems_en": [
+      "Declared itself finished after 2 minutes (Kevin's note)",
+      "Several bugs and no interaction with the environment (Kevin's note): no enemies, no active traps, no HP",
+      "No map-size or vision-radius slider (the prompt asked for them)",
+      "Its title says 'Árbol de Expansión Mínima' (Minimum Spanning Tree) but the code does not implement an MST: it connects siblings of the BSP tree (valid under the prompt, but the label is false)",
+      "Observed in the recording: during 'step by step' the A* route from the previous map is drawn over a map that is not built yet, and in explorer mode the torches of undiscovered rooms glow through the fog"
     ],
     "code_stats": {
       "argon_lines": 1914,
@@ -463,6 +557,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Simulador Falling Sand",
     "name_en": "Falling Sand Cellular Automata",
     "tech": "Canvas 2D + buffer Uint32 / ImageData + autómatas celulares",
+    "tech_en": "Canvas 2D + Uint32 buffer / ImageData + cellular automata",
     "timestamp": "04:04",
     "prompt_gist_es": "Un arenero de píxeles donde dibujas con el mouse: la arena cae y forma pirámides, el agua se esparce y la piedra se queda quieta, además de fuego, lava, ácido y otras reacciones químicas.",
     "prompt_gist_en": "Noita-style pixel physics sandbox manipulating Uint32Array buffers with alternating horizontal sweeps, density displacement, and emergent chemical reactions.",
@@ -480,6 +575,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "Aqui a pesar de que Argon tardo menos de la mitad que Flash, le dio dos vueltas, la interaccion y la complegidad del entendimiento del como interactuan las cosas en el entorno entre si, es 10 veces mejor en el resultado de Argon que en el de Flash",
+    "kevin_note_verbatim_en": "Here, even though Argon took less than half the time Flash did, it ran circles around it, the interaction and the complexity of understanding how things in the environment interact with each other is 10 times better in Argon's result than in Flash's",
     "kevin_note_paraphrase_es": "Argon tardó menos de la mitad que Flash y aun así le dio dos vueltas: su forma de entender cómo interactúan los materiales entre sí es, según Kevin, diez veces mejor.",
     "kevin_note_en": "Argon took less than half the time (4m vs 9m) and delivered emergent material chemistry an order of magnitude richer than Flash.",
     "argon_features": [
@@ -489,14 +585,30 @@ export const CHALLENGES: ChallengeData[] = [
       "Herramientas: pincel, borrador, bomba con proyectiles balísticos, grifo emisor; invertir gravedad; terrario Noita [T]",
       "Cuadrícula 340 x 210 (71,400 celdas); censo de materia por elemento en vivo; bloom térmico"
     ],
+    "argon_features_en": [
+      "12-element palette (sand, water, stone, wood, oil, fire, lava, acid, gunpowder, plant, steam, smoke) + internal obsidian and ember",
+      "Reactions: lava + water = obsidian + steam; acid corrodes stone, sand and wood with toxic smoke; plants grow by absorbing water; fire + oil or gunpowder = deflagration",
+      "Sweep alternated per row and frame + per-cell clock bit; Bresenham strokes",
+      "Tools: brush, eraser, bomb with ballistic projectiles, emitter faucet; invert gravity; Noita terrarium [T]",
+      "340 x 210 grid (71,400 cells); live per-element matter census; thermal bloom"
+    ],
     "flash_features": [
       "Paleta de 12 elementos (arena, agua, piedra, madera, aceite, ácido, fuego, lava, pólvora, obsidiana, hielo, humo) + vapor y chispa",
       "4 terrarios precargados, herramienta 'rayo térmico', sonido, cuadrícula 400 x 250 (100,000 celdas)",
       "Clock por celda y trazo Bresenham"
     ],
+    "flash_features_en": [
+      "12-element palette (sand, water, stone, wood, oil, acid, fire, lava, gunpowder, obsidian, ice, smoke) + steam and spark",
+      "4 preloaded terrariums, 'rayo térmico' (thermal ray) tool, sound, 400 x 250 grid (100,000 cells)",
+      "Per-cell clock and Bresenham strokes"
+    ],
     "flash_problems": [
       "Funcional; Kevin lo juzgó muy inferior en la complejidad de las interacciones entre materiales (opinión subjetiva)",
       "Tardó más del doble (9 contra 4 minutos)"
+    ],
+    "flash_problems_en": [
+      "Functional; Kevin judged it far inferior in the complexity of the interactions between materials (subjective opinion)",
+      "Took more than twice as long (9 vs 4 minutes)"
     ],
     "code_stats": {
       "argon_lines": 1732,
@@ -547,6 +659,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Motor 3D Raycasting",
     "name_en": "3D Raycasting Engine (Wolfenstein DDA)",
     "tech": "Canvas 2D puro (cero WebGL) + DDA + Z-buffer 1D",
+    "tech_en": "Pure Canvas 2D (zero WebGL) + DDA + 1D Z-buffer",
     "timestamp": "04:50",
     "prompt_gist_es": "Un motor tipo Wolfenstein 3D hecho desde cero solo con dibujo en 2D: lanzar un rayo por cada columna de la pantalla para fingir paredes en tres dimensiones, con texturas, puertas y un minimapa.",
     "prompt_gist_en": "First-person 3D raycasting engine built from scratch in pure 2D Canvas (zero WebGL) with DDA grid traversal, fisheye correction toggle, 64x64 procedural textures, and 1D Z-buffer.",
@@ -565,6 +678,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": true,
     "kevin_note_verbatim": "Aqui no hay de donde defender a Flash, el resultado para haber tardado mas de 4 veces lo que Argon es deplorable, es injugable, no hay interaccion mas que con las puertas, el mundo se rompe, en cambio, Argon con los 4 minutos que demoro en dar el resultado, es 100 veces mejor, jugable y con interaccion en el entorno, Argon esta siendo mas eficiente, efectivo y rapido.",
+    "kevin_note_verbatim_en": "Here there's no way to defend Flash, the result, considering it took more than 4 times as long as Argon, is deplorable, it's unplayable, there's no interaction except with the doors, the world breaks, whereas Argon, with the 4 minutes it took to deliver the result, is 100 times better, playable and with interaction with the environment, Argon is being more efficient, more effective and faster.",
     "kevin_note_paraphrase_es": "Aquí no hay forma de defender a Flash: tardó más de cuatro veces lo que Argon y el resultado es injugable, solo puedes interactuar con las puertas y el mundo se rompe. Argon, en 4 minutos, entregó algo jugable y con interacción: más eficiente, efectivo y rápido.",
     "kevin_note_en": "No defense for Flash: it took 4.25x longer (17m vs 4m) and produced an unplayable broken world due to unrounded Uint32Array indices. Argon is fast, solid, and playable.",
     "argon_features": [
@@ -574,15 +688,32 @@ export const CHALLENGES: ChallengeData[] = [
       "Vista dividida 2D/3D [TAB], minimapa con cono DDA en tiempo real, 160/320/640 rayos",
       "Sliders de FOV y alcance de antorcha/niebla, suelo texturizado, reiniciar nivel; PointerLock"
     ],
+    "argon_features_en": [
+      "DDA with toggleable fisheye correction [P] and an on-screen formula",
+      "64x64 procedural textures: mossy stone, bloody brick, tech steel, sliding door, runic altar",
+      "Plasma cannon [Click/F] and targets: orbs and drones with a counter",
+      "Split 2D/3D view [TAB], minimap with a real-time DDA cone, 160/320/640 rays",
+      "FOV and torch/fog range sliders, textured floor, restart level; PointerLock"
+    ],
     "flash_features": [
       "DDA, minimapa con cono de rayos, corrección de ojo de pez, FOV, resolución y niebla",
       "Audio procedural, linterna/disparo, puertas"
     ],
+    "flash_features_en": [
+      "DDA, minimap with a ray cone, fisheye correction, FOV, resolution and fog",
+      "Procedural audio, flashlight/shot, doors"
+    ],
     "flash_problems": [
       "Injugable y 'el mundo se rompe' (nota de Kevin): las paredes se ven como rejas o peines con huecos",
-      "Causa verificada en el código: drawStart = -lineHeight/2 + halfH sin redondear; cuando la altura de la columna es impar el índice queda en .5 y JavaScript ignora silenciosamente las escrituras a índices no enteros de un Uint32Array, así que esas columnas nunca se pintan",
+      "Causa verificada en el código: drawStart = -lineHeight/2 + halfH sin redondear; cuando la altura de la columna es impar, la fila de inicio termina en .5 y, como los 4 anchos de pantalla de Flash (640, 480, 320 y 240) son pares, el índice y * screenW + x del Uint32Array sale entero pero desfasado medio renglón: esas tiras de pared se pintan fuera de su columna",
       "Solo hay interacción con puertas (nota de Kevin)",
       "Tardó 17 minutos, el más lento de Flash después del árbol fractal"
+    ],
+    "flash_problems_en": [
+      "Unplayable and 'the world breaks' (Kevin's note): the walls look like bars or combs with gaps",
+      "Cause verified in the code: drawStart = -lineHeight/2 + halfH without rounding; when the column height is odd, the starting row ends in .5 and, because all 4 of Flash's screen widths (640, 480, 320 and 240) are even, the Uint32Array index y * screenW + x comes out as an integer but shifted half a row: those wall strips get painted outside their column",
+      "The only interaction is with doors (Kevin's note)",
+      "Took 17 minutes, Flash's slowest after the fractal tree"
     ],
     "code_stats": {
       "argon_lines": 1829,
@@ -596,8 +727,8 @@ export const CHALLENGES: ChallengeData[] = [
       "argon": "WOLF-DDA // Motor 3D de Raycasting Trigonómetrico Puro [Sin WebGL]",
       "flash": "Wolfenstein 3D Style // Pure 2D Canvas Raycasting Engine"
     },
-    "fun_angle_es": "Medio píxel rompió el mundo de Flash: dividió la altura de cada pared entre dos sin redondear, y en las columnas impares JavaScript simplemente no pinta nada. Argon usó un corrimiento de bits que siempre da un entero... y lo hizo en 4 minutos contra 17.",
-    "fun_angle_en": "Half a pixel broke Flash's world: dividing odd column heights by 2 without rounding produced .5 float indices in Uint32Array, causing JavaScript to silently skip every odd wall slice. Argon used bitwise >> 1 and shipped a playable shooter in 4 minutes vs Flash's 17.",
+    "fun_angle_es": "Medio píxel rompió el mundo de Flash: dividió la altura de cada pared entre dos sin redondear, y en las columnas de altura impar JavaScript pinta la tira de pared medio renglón fuera de su lugar. Argon usó un corrimiento de bits que siempre da un entero... y lo hizo en 4 minutos contra 17.",
+    "fun_angle_en": "Half a pixel broke Flash's world: dividing odd column heights by 2 without rounding left a .5 in the starting row, and at Flash's even screen widths that shifted every odd-height wall slice half a row out of its column in the Uint32Array. Argon used bitwise >> 1 and shipped a playable shooter in 4 minutes vs Flash's 17.",
     "speed_ratio": "Argon 4.25x más rápido (13 min menos)",
     "speed_ratio_en": "Argon 4.25x faster (13 min less)",
     "faster_model": "argon",
@@ -633,6 +764,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Sprites Espaciales 8-Bits",
     "name_en": "8-Bit Procedural Spaceship Forge",
     "tech": "Canvas 2D pixel-perfect + simetría bilateral + sombreado HSL con hue shifting",
+    "tech_en": "Pixel-perfect Canvas 2D + bilateral symmetry + HSL shading with hue shifting",
     "timestamp": "05:54",
     "prompt_gist_es": "Un generador de naves espaciales en pixel art de ocho bits: cada recarga crea una nave única y simétrica, con colores coherentes, sombreado y un modo para pilotarla y disparar.",
     "prompt_gist_en": "8-bit procedural spaceship hangar using bilateral symmetry, anatomical density masks, automatic 2D normal shading, HSL hue-shifted faction palettes, and playable test flight.",
@@ -651,6 +783,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "En este caso, la interfaz no se rompe, pero las naves generadas, el simulador, efectos y demas, sin duda y de nuevo se lo lleva Argon, en este caso, Flash tardo mas de tres veces lo que Argon y aun asi volvio a salir victorioso en esta comparativa",
+    "kevin_note_verbatim_en": "In this case, the interface doesn't break, but the generated ships, the simulator, effects and so on, without a doubt and once again Argon takes it, in this case, Flash took more than three times as long as Argon and even so Argon came out victorious again in this comparison",
     "kevin_note_paraphrase_es": "La interfaz de Flash no se rompe, pero en naves generadas, simulador y efectos gana Argon otra vez, y eso que Flash tardó más del triple.",
     "kevin_note_en": "Flash's UI works, but Argon's generated ships, 4-stage pipeline viewer, and arcade test-flight simulator win decisively in less than a third of the time (4m vs 13m).",
     "argon_features": [
@@ -660,14 +793,30 @@ export const CHALLENGES: ChallengeData[] = [
       "Vuelo de prueba [V]: movimiento en 8 direcciones, postquemador, láseres desde los cañones generados, rocas y drones con puntos y explosiones de píxeles",
       "Ficha de nave con stats, escuadrón generado clicable, descarga PNG"
     ],
+    "argon_features_en": [
+      "4 classes (interceptor, shmup fighter, cruiser, mothership) and 12x12 to 32x32 matrices",
+      "7 HSL color archetypes with hue shifting (including GameBoy DMG-01) and 4 outline styles",
+      "4-stage pipeline viewer: probability mask, binary matrix, regions, final sprite",
+      "Test flight [V]: 8-direction movement, afterburner, lasers from the generated cannons, rocks and drones with points and pixel explosions",
+      "Ship card with stats, clickable generated squadron, PNG download"
+    ],
     "flash_features": [
       "5 clases, matrices 16x16 a 32x32, 7 paletas, 3 estilos de contorno",
       "Sliders morfológicos (densidad de fuselaje, envergadura, blindaje), visor de 4 capas",
       "Vuelo de prueba con blancos, exportación PNG y spritesheet, sonido"
     ],
+    "flash_features_en": [
+      "5 classes, 16x16 to 32x32 matrices, 7 palettes, 3 outline styles",
+      "Morphology sliders (fuselage density, wingspan, armor), 4-layer viewer",
+      "Test flight with targets, PNG and spritesheet export, sound"
+    ],
     "flash_problems": [
       "Funcional; Kevin lo juzgó inferior en las naves generadas, el simulador y los efectos",
       "Tardó 13 minutos contra 4"
+    ],
+    "flash_problems_en": [
+      "Functional; Kevin judged it inferior in the generated ships, the simulator and the effects",
+      "Took 13 minutes vs 4"
     ],
     "code_stats": {
       "argon_lines": 1708,
@@ -717,6 +866,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Reloj Analógico Neumórfico",
     "name_en": "Neumorphic Pure CSS Chronograph",
     "tech": "HTML + CSS puro (@keyframes, gradientes cónicos y radiales, :checked); JS solo para sincronizar la hora al cargar",
+    "tech_en": "Pure HTML + CSS (@keyframes, conic and radial gradients, :checked); JS only to sync the time on load",
     "timestamp": "06:40",
     "prompt_gist_es": "Un reloj de lujo hecho solo con HTML y CSS: las manecillas giran con animaciones de CSS, y JavaScript solo se usa una vez para poner la hora correcta al abrir la página.",
     "prompt_gist_en": "Haute horlogerie neumorphic analog watch driven 100% by CSS @keyframes and conic/radial gradients, using JavaScript only once on load to sync system time.",
@@ -735,6 +885,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "Aqui ambos cumplieron, en cuanto a funcionalidad, los dos cumplen al pie de la letra, el tema es que a pesar de que Argon tardo la mitad de tiempo que Flash, Argon de nuevo gana en tanto a calidad del producto entregado, es mas agradable y vistoso de ver, de nuevo, Argon ganando en eficiencia y calidad",
+    "kevin_note_verbatim_en": "Here both delivered, in terms of functionality, both follow it to the letter, the thing is that even though Argon took half the time Flash did, Argon again wins in terms of the quality of the delivered product, it's more pleasant and eye-catching to look at, once again, Argon winning on efficiency and quality",
     "kevin_note_paraphrase_es": "Los dos cumplieron al pie de la letra. Aun así, Argon tardó la mitad y gana en calidad: su reloj es más agradable y vistoso. Otra vez Argon gana en eficiencia y calidad.",
     "kevin_note_en": "Both models fulfilled every CSS rule to the letter; Argon wins on visual horology craftsmanship and finished in half the time (2m vs 4m).",
     "argon_features": [
@@ -744,12 +895,26 @@ export const CHALLENGES: ChallengeData[] = [
       "Tourbillon girando y volante oscilando con @keyframes, subesfera GMT 24H, ventana de fecha",
       "Cristal de zafiro conmutable con hover; JS de sincronización de 43 líneas"
     ],
+    "argon_features_en": [
+      "100% CSS animation: hours 43200s, minutes 3600s, seconds hand steps(480) at 8 Hz, no rAF or setInterval",
+      "3 finishes via :checked radios (Soft Clay, Carbon Titanium, Nocturnal Luxury Super-LumiNova)",
+      "3 seconds-hand cadences (28,800 A/h, continuous sweep, 1 Hz quartz)",
+      "Rotating tourbillon and oscillating balance wheel with @keyframes, GMT 24H sub-dial, date window",
+      "Toggleable sapphire crystal with hover; 43-line sync JS"
+    ],
     "flash_features": [
       "También 100% CSS: 3 temas, 3 cadencias, tourbillon volante, día y fecha, cristal con backdrop-filter",
       "Usa el selector :has() para los temas; JS de sincronización de 62 líneas"
     ],
+    "flash_features_en": [
+      "Also 100% CSS: 3 themes, 3 cadences, flying tourbillon, day and date, crystal with backdrop-filter",
+      "Uses the :has() selector for the themes; 62-line sync JS"
+    ],
     "flash_problems": [
       "Ninguno funcional (nota de Kevin: ambos cumplen); solo estética inferior según Kevin"
+    ],
+    "flash_problems_en": [
+      "No functional problems (Kevin's note: both deliver); only inferior aesthetics according to Kevin"
     ],
     "code_stats": {
       "argon_lines": 1229,
@@ -796,6 +961,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Árbol Fractal con Viento",
     "name_en": "Fractal Tree with Perlin Wind",
     "tech": "Canvas 2D + L-systems estocásticos + cinemática directa (FK) + ruido Perlin/fBM",
+    "tech_en": "Canvas 2D + stochastic L-systems + forward kinematics (FK) + Perlin/fBM noise",
     "timestamp": "07:12",
     "prompt_gist_es": "Un árbol generado con recursividad cuyas ramas se mecen con un viento natural hecho con ruido matemático; el mouse sopla, las hojas se desprenden y puedes cambiar de especie.",
     "prompt_gist_en": "Stochastic L-system fractal tree with precomputed skeleton, Leonardo da Vinci branch tapering, hierarchical forward kinematics, Perlin/fBM wind field, and leaf detachment.",
@@ -814,6 +980,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "Mismo caso que los anteriores, mejores graficos, mejores configuraciones, interaccion mas realista, actualizacion en tiempo real, y todo esto en menos de 1/5 del tiempo que le costo a Flash hacerlo, Argon es una maquina de eficiencia y calidad.",
+    "kevin_note_verbatim_en": "Same case as the previous ones, better graphics, better settings, more realistic interaction, real-time updates, and all this in less than 1/5 of the time it took Flash to do it, Argon is an efficiency and quality machine.",
     "kevin_note_paraphrase_es": "Igual que los anteriores: mejores gráficos, mejores configuraciones, interacción más realista y actualización en tiempo real, y todo en menos de una quinta parte del tiempo que le tomó a Flash. Argon es una máquina de eficiencia y calidad.",
     "kevin_note_en": "Better graphics, deeper botanical settings, more realistic wind kinematics, and real-time updates in less than 1/5 of Flash's time (4m vs 22m).",
     "argon_features": [
@@ -823,14 +990,30 @@ export const CHALLENGES: ChallengeData[] = [
       "Viento: fuerza, turbulencia fBM, frecuencia; ráfaga vendaval [G]; campo vectorial [V]; esqueleto FK [K]",
       "Racimos de follaje precalculados (5/3/2 por rama terminal/subterminal) que se desprenden y rebrotan"
     ],
+    "argon_features_en": [
+      "Accumulated angle per branch θ(d,t) = θ_parent + θ_local + Δθ_Perlin + spring; flexibility k0·(d+0.18)^1.65",
+      "4 species on keys 1-4 (Sakura, weeping willow, autumn oak, bioluminescent)",
+      "Depth from 5 to 11 levels, angle, asymmetry, length decay and Da Vinci tapering",
+      "Wind: strength, fBM turbulence, frequency; gale gust [G]; vector field [V]; FK skeleton [K]",
+      "Precomputed foliage clusters (5/3/2 per terminal/subterminal branch) that detach and regrow"
+    ],
     "flash_features": [
       "4 especies (Sakura, sauce, roble dorado, árbol de almas), viento, ráfagas, turbulencia, profundidad 5-11, flexibilidad",
       "Campo de viento, caída de hojas, pantalla completa"
+    ],
+    "flash_features_en": [
+      "4 species (Sakura, willow, golden oak, tree of souls), wind, gusts, turbulence, depth 5-11, flexibility",
+      "Wind field, falling leaves, fullscreen"
     ],
     "flash_problems": [
       "Funcional; Kevin lo juzgó inferior en gráficos, configuración e interacción",
       "Tardó 22 minutos: la prueba más lenta de todo el benchmark",
       "Telemetría observada en la grabación: 120 FPS con 1,023 ramas, 46 a 106 FPS con 4,095 y 40 FPS con 7,165"
+    ],
+    "flash_problems_en": [
+      "Functional; Kevin judged it inferior in graphics, settings and interaction",
+      "Took 22 minutes: the slowest run of the entire benchmark",
+      "Telemetry observed in the recording: 120 FPS with 1,023 branches, 46 to 106 FPS with 4,095 and 40 FPS with 7,165"
     ],
     "code_stats": {
       "argon_lines": 1371,
@@ -881,6 +1064,7 @@ export const CHALLENGES: ChallengeData[] = [
     "name_es": "Spirograph Paramétrico",
     "name_en": "Parametric Spirograph & Guilloche",
     "tech": "Canvas 2D doble buffer + hipotrocoides/epitrocoides + MCD de Euclides",
+    "tech_en": "Double-buffered Canvas 2D + hypotrochoids/epitrochoids + Euclid's GCD",
     "timestamp": "08:04",
     "prompt_gist_es": "Un espirógrafo digital, como el juguete de ruedas dentadas, que va dibujando curvas hipnóticas que cambian de color, y que calcula exactamente cuántas vueltas necesita para cerrar la figura.",
     "prompt_gist_en": "Dual-canvas parametric plotter for hypotrochoids, epitrochoids, and 3-rotor guilloche engravings with Euclidean GCD/LCM exact cycle closure and velocity-based HSL calligraphy.",
@@ -899,6 +1083,7 @@ export const CHALLENGES: ChallengeData[] = [
     "winner": "argon",
     "flash_broken": false,
     "kevin_note_verbatim": "Aqui ambos hicieron bien su trabajo, el unico detalle es la calidad de personalizacion que nos permitio Argon, dando asi la posibilidad de conseguir mandalas que lleguen 40,000.00 rad, y esto 2.5 veces mas rapido que Flash, es indiscutible, Argon es una mejora significativa a los modelos previos de Gemini en tanto a generacion, entendimiento y eficiencia.",
+    "kevin_note_verbatim_en": "Here both did their job well, the only detail is the quality of customization Argon allowed us, thus making it possible to get mandalas that reach 40,000.00 rad, and this 2.5 times faster than Flash, it's indisputable, Argon is a significant improvement over the previous Gemini models in terms of generation, understanding and efficiency.",
     "kevin_note_paraphrase_es": "Los dos hicieron bien su trabajo; la diferencia es cuánto deja personalizar Argon, al punto de lograr mandalas de hasta 40,000 radianes, y 2.5 veces más rápido que Flash. Para Kevin, Argon es una mejora significativa sobre los Gemini anteriores en generación, entendimiento y eficiencia.",
     "kevin_note_en": "Both did great work, with Argon winning on customization depth (multi-rotor mandalas reaching tens of thousands of radians) and 2.5x faster generation (4m vs 10m).",
     "argon_features": [
@@ -908,13 +1093,28 @@ export const CHALLENGES: ChallengeData[] = [
       "Engranajes guía [G], warp 100% [W], añadir capa [L], auto-stop, exportar PNG [P]",
       "Telemetría de la pluma: coordenadas, velocidad v(t), radio polar, micro-segmentos"
     ],
+    "argon_features_en": [
+      "Hypotrochoid/epitrochoid + a 3rd guilloché rotor that can be combined with either mode",
+      "Exact closure with the GCD and, with the 3rd rotor, the least common multiple of the revolutions (e.g. R=204, r=145, r2=33: 1,595 revolutions = 10,021.68 rad)",
+      "6 presets, 4 HSL color modes, 2-280 sub-steps per frame, velocity-based calligraphic stroke width",
+      "Guide gears [G], 100% warp [W], add layer [L], auto-stop, PNG export [P]",
+      "Pen telemetry: coordinates, velocity v(t), polar radius, micro-segments"
+    ],
     "flash_features": [
       "Hipotrocoide, epitrocoide y modo guilloché (3R); 6 presets; 7 paletas; 3 modos de fusión óptica",
       "MCD, vueltas y pétalos; warp, capas, limpiar, exportar PNG, bucle continuo"
     ],
+    "flash_features_en": [
+      "Hypotrochoid, epitrochoid and guilloché mode (3R); 6 presets; 7 palettes; 3 optical blend modes",
+      "GCD, revolutions and petals; warp, layers, clear, PNG export, continuous loop"
+    ],
     "flash_problems": [
       "Funcional (nota de Kevin: ambos hicieron bien su trabajo)",
       "En modo guilloché el cierre se calcula solo con R y r, ignorando el tercer engranaje, y su frecuencia usa un factor arbitrario de 2.5 (R/r2·2.5), así que el 100% de progreso no coincide con el cierre real"
+    ],
+    "flash_problems_en": [
+      "Functional (Kevin's note: both did their job well)",
+      "In guilloché mode the closure is computed only from R and r, ignoring the third gear, and its frequency uses an arbitrary factor of 2.5 (R/r2·2.5), so 100% progress does not match the real closure"
     ],
     "code_stats": {
       "argon_lines": 1621,

@@ -12,6 +12,8 @@ export interface Ep02ChallengeData {
   name_es: string;
   name_en: string;
   tech: string;
+  /** English twin of `tech`; set only where `tech` contains Spanish words. */
+  tech_en?: string;
   timestamp_es: string;
   timestamp_en: string;
   prompt_gist_es: string;
@@ -38,9 +40,17 @@ export interface Ep02ChallengeData {
   opus_slow_fps: boolean;
   kevin_note_es: string;
   kevin_note_en: string;
+  /** Faithful English translation of `kevin_note_es`, set only where `kevin_note_en` adds or changes wording; quote this one. */
+  kevin_note_verbatim_en?: string;
   argon_features: string[];
+  /** English twin of `argon_features` (same length and order). */
+  argon_features_en?: string[];
   opus_features: string[];
+  /** English twin of `opus_features` (same length and order). */
+  opus_features_en?: string[];
   opus_observations: string[];
+  /** English twin of `opus_observations` (same length and order). */
+  opus_observations_en?: string[];
   code_stats: {
     argon_lines: number;
     opus_lines: number;
@@ -116,6 +126,7 @@ export const EP02_CHALLENGES: Ep02ChallengeData[] = [
     name_es: "Tela Física con Desgarro (Verlet)",
     name_en: "Tearable Cloth Physics (Verlet)",
     tech: "Integrador de Verlet + Solver Gauss-Seidel + Bisturí Láser + Viento Simplex",
+    tech_en: "Verlet Integrator + Gauss-Seidel Solver + Laser Scalpel + Simplex Wind",
     timestamp_es: "01:12",
     timestamp_en: "01:15",
     prompt_gist_es:
@@ -175,6 +186,8 @@ Escribe el archivo completo y funcional en la carpeta \`01-tela-verlet/index.htm
       "Gana Gemini 4 Argon. Fue 4.62x más rápido (6.68 min vs 30.87 min), 4.7x más barato ($0.65 vs $3.05 USD) y corre a 120 FPS clavados con osciloscopio de tensión y chispas térmicas. Opus activó cizalla + flexión (18,430 enlaces) con 30 iteraciones de relajación por defecto en CPU, hundiendo su framerate a 28 FPS.",
     kevin_note_en:
       "Gemini 4 Argon wins decisively. It finished 4.62x faster (6.68m vs 30.87m), cost 4.7x less ($0.65 vs $3.05 USD), and runs at a locked 120 FPS with a live tension oscilloscope and thermal sparks. Opus enabled shear + bend constraints (18,430 links) with 30 relaxation iterations per frame on the CPU, dropping its frame rate to 28 FPS.",
+    kevin_note_verbatim_en:
+      "Gemini 4 Argon wins. It was 4.62x faster (6.68 min vs 30.87 min), 4.7x cheaper ($0.65 vs $3.05 USD) and runs at a locked 120 FPS with a tension oscilloscope and thermal sparks. Opus enabled shear + bend (18,430 links) with 30 relaxation iterations by default on the CPU, sinking its framerate to 28 FPS.",
     argon_features: [
       "120 FPS estables con malla 72x44 (3,168 partículas y 6,228 enlaces estructurales)",
       "Osciloscopio de tensión mecánica en vivo en el panel lateral y chispas térmicas al romper fibras",
@@ -182,14 +195,30 @@ Escribe el archivo completo y funcional en la carpeta \`01-tela-verlet/index.htm
       "5 presets de anclaje: Cortina, Bandera, Hamaca 4 Esquinas, Puente Colgante y Dosel Central",
       "Entregado en solo 2 pasos de agente (6.68 minutos, $0.65 USD)",
     ],
+    argon_features_en: [
+      "Stable 120 FPS with a 72x44 mesh (3,168 particles and 6,228 structural links)",
+      "Live mechanical tension oscilloscope in the side panel and thermal sparks when fibers break",
+      "4 render modes: Tension Map, Lambertian Volumetric Shading, Cyberpunk Neon and Hybrid",
+      "5 anchor presets: Curtain, Flag, 4-Corner Hammock, Suspension Bridge and Central Canopy",
+      "Delivered in just 2 agent steps (6.68 minutes, $0.65 USD)",
+    ],
     opus_features: [
       "Malla de 3,696 nodos con enlaces estructurales, de cizalla y de flexión activables (hasta 18,430 enlaces)",
       "5 presets de anclaje: Cortina, Bandera, Red 4 Esquinas, Puente y Puerta",
       "4 modos visuales: Tensión, Volumétrico, Neón y Mixto con chispas al desgarrar",
     ],
+    opus_features_en: [
+      "3,696-node mesh with toggleable structural, shear and bend links (up to 18,430 links)",
+      "5 anchor presets: Curtain, Flag, 4-Corner Net, Bridge and Door",
+      "4 visual modes: Tension, Volumetric, Neon and Mixed with sparks on tearing",
+    ],
     opus_observations: [
       "Por defecto inicia con Cizalla + Flexión activadas (18,430 enlaces) y 30 iteraciones de solver en CPU, cayendo a 28 FPS (6.28 ms de física por frame)",
       "Tardó 30.87 minutos (28 pasos de agente) y consumió $3.05 USD en tokens",
+    ],
+    opus_observations_en: [
+      "By default it starts with Shear + Bend enabled (18,430 links) and 30 solver iterations on the CPU, dropping to 28 FPS (6.28 ms of physics per frame)",
+      "Took 30.87 minutes (28 agent steps) and consumed $3.05 USD in tokens",
     ],
     code_stats: {
       argon_lines: 2766,
@@ -239,6 +268,7 @@ Escribe el archivo completo y funcional en la carpeta \`01-tela-verlet/index.htm
     name_es: "Fluidos Navier-Stokes en GPU",
     name_en: "GPU Navier-Stokes Fluids",
     tech: "WebGL2 + FBOs Flotantes Ping-Pong + Solver Jacobi + Confinamiento de Vorticidad",
+    tech_en: "WebGL2 + Ping-Pong Float FBOs + Jacobi Solver + Vorticity Confinement",
     timestamp_es: "02:28",
     timestamp_en: "02:26",
     prompt_gist_es:
@@ -299,6 +329,8 @@ Escribe el archivo completo y funcional en la carpeta \`02-fluidos-navier-stokes
       "Ambos entregaron simuladores CFD espectaculares a 120 FPS. El punto es para Gemini 4 Argon por lograrlo en 10.00 minutos contra 18.47 de Opus ($1.40 vs $2.05 USD), sumando post-procesado GPU Bloom multicapa, partículas lagrangianas trazadoras y dibujo libre de muros.",
     kevin_note_en:
       "Both models delivered spectacular 120 FPS GPU fluid solvers. Gemini 4 Argon takes the point for finishing in 10.00 minutes vs Opus's 18.47 minutes ($1.40 vs $2.05 USD) while adding multi-pass GPU Bloom post-processing, Lagrangian tracer particles, and freehand wall drawing.",
+    kevin_note_verbatim_en:
+      "Both delivered spectacular CFD simulators at 120 FPS. The point goes to Gemini 4 Argon for doing it in 10.00 minutes versus Opus's 18.47 ($1.40 vs $2.05 USD), adding multi-layer GPU Bloom post-processing, Lagrangian tracer particles and freehand wall drawing.",
     argon_features: [
       "WebGL2 RGBA16F ping-pong FBOs a 120 FPS con post-procesado GPU Bloom HDR multicapa",
       "4 modos científicos (Tinta + Bloom, Velocidad Vectorial, Vorticidad Curl y Presión Poisson)",
@@ -306,13 +338,28 @@ Escribe el archivo completo y funcional en la carpeta \`02-fluidos-navier-stokes
       "5 escenas rápidas: Túnel de Karman, Colisión de Jets, Explosión Radial, Doble Cilindro y Cámara Limpia",
       "Sondas de partículas lagrangianas y vectores de flujo superpuestos en tiempo real",
     ],
+    argon_features_en: [
+      "WebGL2 RGBA16F ping-pong FBOs at 120 FPS with multi-layer HDR GPU Bloom post-processing",
+      "4 scientific modes (Ink + Bloom, Vector Velocity, Curl Vorticity and Poisson Pressure)",
+      "Interactive tools: Inject Fluid, Move SDF Cylinder and Draw Free Walls",
+      "5 quick scenes: Karman Tunnel, Jet Collision, Radial Explosion, Double Cylinder and Clean Chamber",
+      "Lagrangian particle probes and flow vectors overlaid in real time",
+    ],
     opus_features: [
       "Calle de Vórtices de Karman clásica con 4 toberas coloreadas y sombreado pseudo-Schlieren con relieve 3D",
       "5 modos visuales incluyendo Schlieren / Gradiente de Densidad (|∇ρ|)",
       "Herramientas para mover cilindro, pintar barreras y borrar obstáculos a 120 FPS",
     ],
+    opus_features_en: [
+      "Classic Karman vortex street with 4 colored nozzles and pseudo-Schlieren shading with 3D relief",
+      "5 visual modes including Schlieren / Density Gradient (|∇ρ|)",
+      "Tools to move the cylinder, paint barriers and erase obstacles at 120 FPS",
+    ],
     opus_observations: [
       "Excelente acabado científico, pero tardó 18.47 minutos (85% más tiempo) y costó $2.05 USD frente a $1.40 USD de Argon",
+    ],
+    opus_observations_en: [
+      "Excellent scientific finish, but it took 18.47 minutes (85% more time) and cost $2.05 USD versus Argon's $1.40 USD",
     ],
     code_stats: {
       argon_lines: 2506,
@@ -362,6 +409,7 @@ Escribe el archivo completo y funcional en la carpeta \`02-fluidos-navier-stokes
     name_es: "Cuerpos Blandos 3D y Gelatina SDF",
     name_en: "3D Soft Bodies & SDF Jelly Physics",
     tech: "Three.js + Retícula Volumétrica XPBD + Conservación de Volumen (Efecto Poisson) + Fresnel",
+    tech_en: "Three.js + XPBD Volumetric Lattice + Volume Conservation (Poisson Effect) + Fresnel",
     timestamp_es: "03:36",
     timestamp_en: "03:33",
     prompt_gist_es:
@@ -422,14 +470,29 @@ Escribe el archivo completo y funcional en la carpeta \`03-cuerpo-blando-sdf/ind
       "Osciloscopio en tiempo real de Energía Cinética (Ek), Potencial Elástica (Ep) y razón de volumen V/V0",
       "Prensa Hidráulica (Pisotón Masivo), Explosión Radial, Vórtice Centrífugo, Gravedad Cero y Bullet Time 0.25x",
     ],
+    argon_features_en: [
+      "Locked 120 FPS with 5 active bodies (270 mass nodes, 2,521 links and 13,568 triangles)",
+      "4 morphologies (Gummy Bear, Torus, Beveled Cube and Capsule) with simultaneous Skin + Skeleton view [X]",
+      "Real-time oscilloscope of Kinetic Energy (Ek), Elastic Potential Energy (Ep) and the V/V0 volume ratio",
+      "Hydraulic Press (Massive Stomp), Radial Explosion, Centrifugal Vortex, Zero Gravity and 0.25x Bullet Time",
+    ],
     opus_features: [
       "6 morfologías XPBD: Osito de Goma, Cubo Biselado, Toroide, Cápsula, Pudín/Flan y Gota/Estrella",
       "6 sabores neón (Fresa, Lima, Arándano, Mango, Uva y Menta) con transmisión subsurface y reflejos de piso",
       "Terminó 3.87 minutos antes que Argon (30.87 min vs 34.74 min)",
       "Medidor en vivo de desviación de volumen (ΔV +0.8%) y energías cinética/potencial en Joules",
     ],
+    opus_features_en: [
+      "6 XPBD morphologies: Gummy Bear, Beveled Cube, Torus, Capsule, Pudding/Flan and Drop/Star",
+      "6 neon flavors (Strawberry, Lime, Blueberry, Mango, Grape and Mint) with subsurface transmission and floor reflections",
+      "Finished 3.87 minutes before Argon (30.87 min vs 34.74 min)",
+      "Live volume-deviation meter (ΔV +0.8%) and kinetic/potential energies in Joules",
+    ],
     opus_observations: [
       "Corre a 82 FPS con 5 cuerpos (367 nodos y 3,907 resortes) frente a los 120 FPS de Argon, y costó $3.08 vs $1.98 USD",
+    ],
+    opus_observations_en: [
+      "Runs at 82 FPS with 5 bodies (367 nodes and 3,907 springs) versus Argon's 120 FPS, and cost $3.08 vs $1.98 USD",
     ],
     code_stats: {
       argon_lines: 2543,
@@ -479,6 +542,7 @@ Escribe el archivo completo y funcional en la carpeta \`03-cuerpo-blando-sdf/ind
     name_es: "Motor Voxel 3D (Estilo Minecraft)",
     name_en: "3D Voxel Engine (Minecraft-Style)",
     tech: "Three.js + Atlas 16x16 NearestFilter + Face Culling + Ciclo Día/Noche + Raycasting",
+    tech_en: "Three.js + 16x16 NearestFilter Atlas + Face Culling + Day/Night Cycle + Raycasting",
     timestamp_es: "04:47",
     timestamp_en: "04:37",
     prompt_gist_es:
@@ -534,19 +598,35 @@ Escribe el archivo completo y funcional en la carpeta \`04-voxel-minecraft/index
       "Empate técnico en ingeniería visual donde el punto va para Gemini 4 Argon por eficiencia radical: entregó en 6.99 minutos (2 pasos, $0.67 USD) un mundo de 66,684 voxels a 120 FPS con iconos 3D isométricos en el Hotbar. Opus tardó 23.65 minutos ($2.51 USD), pero construyó un motor masivo de 2.58 millones de voxels con Ambient Occlusion por vértice e iluminación BFS.",
     kevin_note_en:
       "A high-contrast engineering tie where Gemini 4 Argon takes the point on radical efficiency: in just 6.99 minutes (2 steps, $0.67 USD) it delivered a 66,684-voxel world at 120 FPS with isometric 3D hotbar icons. Opus took 23.65 minutes ($2.51 USD) to build a massive 2.58-million-voxel chunk engine with per-vertex Ambient Occlusion and BFS light propagation.",
+    kevin_note_verbatim_en:
+      "A technical tie in visual engineering where the point goes to Gemini 4 Argon for radical efficiency: in 6.99 minutes (2 steps, $0.67 USD) it delivered a 66,684-voxel world at 120 FPS with isometric 3D icons in the Hotbar. Opus took 23.65 minutes ($2.51 USD), but it built a massive engine of 2.58 million voxels with per-vertex Ambient Occlusion and BFS lighting.",
     argon_features: [
       "Entregado en solo 2 pasos de agente (6.99 min, $0.67 USD) corriendo a 120 FPS clavados",
       "66,684 voxels totales con Face Culling (solo 10,889 bloques expuestos en GPU vía InstancedMesh)",
       "Hotbar con cubos 3D isométricos renderizados a partir del atlas pixel-art 16x16",
       "Modo Órbita + Modo Primera Persona FPS [F] con física de salto y colisión, y Explosión TNT [X]",
     ],
+    argon_features_en: [
+      "Delivered in just 2 agent steps (6.99 min, $0.67 USD) running at a locked 120 FPS",
+      "66,684 total voxels with Face Culling (only 10,889 exposed blocks on the GPU via InstancedMesh)",
+      "Hotbar with isometric 3D cubes rendered from the 16x16 pixel-art atlas",
+      "Orbit Mode + First-Person FPS Mode [F] with jump and collision physics, and TNT Explosion [X]",
+    ],
     opus_features: [
       "Escala masiva: 2,586,165 voxels activos en 213 chunks (radio de 7 chunks) a 120 FPS",
       "Oclusión Ambiental (AO) por vértice, propagación de luz BFS para bloques emisivos y nubes 3D",
       "Minimapa superior derecho en vivo y vista previa del atlas procedural 16x16 en el HUD",
     ],
+    opus_features_en: [
+      "Massive scale: 2,586,165 active voxels in 213 chunks (7-chunk radius) at 120 FPS",
+      "Per-vertex Ambient Occlusion (AO), BFS light propagation for emissive blocks and 3D clouds",
+      "Live minimap in the top-right corner and a preview of the procedural 16x16 atlas in the HUD",
+    ],
     opus_observations: [
       "Tardó 3.38x más tiempo (23.65 min vs 6.99 min) y costó 3.75x más ($2.51 vs $0.67 USD)",
+    ],
+    opus_observations_en: [
+      "Took 3.38x longer (23.65 min vs 6.99 min) and cost 3.75x more ($2.51 vs $0.67 USD)",
     ],
     code_stats: {
       argon_lines: 2569,
@@ -652,11 +732,19 @@ Escribe el archivo completo y funcional en la carpeta \`05-sintetizador-fm/index
       "Segundo punto para Claude Opus 5.5. Aunque Argon terminó antes (24.07 min vs 30.23 min) y costó 3.6x menos ($0.85 vs $3.08 USD), Opus entregó una estación DAW completa (`KRONOS-FM // DX-808`) con 8 pistas (sumando línea Acid 303, Pad de Acordes y Clap), 4 compases encadenables (A/B/C/D), Goniómetro X-Y Lissajous y Espectrograma.",
     kevin_note_en:
       "Second point for Claude Opus 5.5. Although Argon finished faster (24.07m vs 30.23m) and cost 3.6x less ($0.85 vs $3.08 USD), Opus delivered a full-blown DAW workstation (`KRONOS-FM // DX-808`) featuring 8 tracks (adding an Acid 303 line, Chord Pad, and Clap), 4 chainable bars (A/B/C/D), an X-Y Lissajous Goniometer, and a Waterfall Spectrogram.",
+    kevin_note_verbatim_en:
+      "Second point for Claude Opus 5.5. Although Argon finished earlier (24.07 min vs 30.23 min) and cost 3.6x less ($0.85 vs $3.08 USD), Opus delivered a complete DAW station (`KRONOS-FM // DX-808`) with 8 tracks (adding an Acid 303 line, Chord Pad and Clap), 4 chainable bars (A/B/C/D), an X-Y Lissajous Goniometer and a Spectrogram.",
     argon_features: [
       "8 voces polifónicas FM con 4 canciones demo (Cyberpunk Outrun, 8-Bit Boss, Acid Lab, Blade Synth) y 6 presets de timbre",
       "6 pistas de secuenciador (Lead, Bass, Kick, Snare, Hat Closed, Hat Open) con controles Mute [M] por pista",
       "Doble pantalla CRT simultánea: Osciloscopio en dominio del tiempo + Analizador FFT con retención de picos",
       "3.6x más económico en tokens ($0.85 USD contra $3.08 USD de Opus)",
+    ],
+    argon_features_en: [
+      "8 polyphonic FM voices with 4 demo songs (Cyberpunk Outrun, 8-Bit Boss, Acid Lab, Blade Synth) and 6 timbre presets",
+      "6 sequencer tracks (Lead, Bass, Kick, Snare, Hat Closed, Hat Open) with per-track Mute [M] controls",
+      "Simultaneous dual CRT display: time-domain Oscilloscope + FFT Analyzer with peak hold",
+      "3.6x cheaper in tokens ($0.85 USD versus Opus's $3.08 USD)",
     ],
     opus_features: [
       "Estación DAW de 8 pistas: Lead FM, Pad Acorde, Bajo FM, Acid 303, Kick 808, Snare, Clap y Hi-Hat",
@@ -664,8 +752,17 @@ Escribe el archivo completo y funcional en la carpeta \`05-sintetizador-fm/index
       "4 modos de visualización CRT: Dual (Onda + FFT), Osciloscopio + Lissajous X-Y, Espectro FFT con notas y Cascada (Espectrograma)",
       "8 presets de parche FM y teclado de 3 octavas (C3 a B5)",
     ],
+    opus_features_en: [
+      "8-track DAW station: FM Lead, Chord Pad, FM Bass, Acid 303, 808 Kick, Snare, Clap and Hi-Hat",
+      "4 bar banks (A, B, C, D) with A-D Chain mode (64 total steps) and 5 complete demo songs",
+      "4 CRT display modes: Dual (Wave + FFT), Oscilloscope + X-Y Lissajous, FFT Spectrum with notes and Waterfall (Spectrogram)",
+      "8 FM patch presets and a 3-octave keyboard (C3 to B5)",
+    ],
     opus_observations: [
       "Tardó 30.23 minutos (27 pasos de agente) y costó $3.08 USD",
+    ],
+    opus_observations_en: [
+      "Took 30.23 minutes (27 agent steps) and cost $3.08 USD",
     ],
     code_stats: {
       argon_lines: 2586,
@@ -715,6 +812,7 @@ Escribe el archivo completo y funcional en la carpeta \`05-sintetizador-fm/index
     name_es: "Mesa de Pinball Cyberpunk con CCD",
     name_en: "Cyberpunk Pinball Table with CCD",
     tech: "Sub-stepping 16-20x (960-1200 Hz) + CCD Círculo-Segmento + ω×r Flippers + Multiball",
+    tech_en: "16-20x Sub-stepping (960-1200 Hz) + Circle-Segment CCD + ω×r Flippers + Multiball",
     timestamp_es: "07:16",
     timestamp_en: "07:01",
     prompt_gist_es:
@@ -779,13 +877,28 @@ Escribe el archivo completo y funcional en la carpeta \`06-pinball-ccd/index.htm
       "Botón directo TEST MULTIBALL (3X) en el HUD para auditar colisiones bola-bola al instante",
       "Entregado en solo 3 pasos de agente (7.65 min, $0.70 USD)",
     ],
+    argon_features_en: [
+      "3 active flippers (2 lower + 1 upper-right flipper to cross over to the neon ramp)",
+      "20 CCD sub-steps per frame (1,200 Hz / 361,560 checks per second) with zero tunneling",
+      "5 reactive bumpers, 2 target banks (CYBER and NEXUS), orbital ramp, spinner and Kickback laser shields",
+      "Direct TEST MULTIBALL (3X) button in the HUD to audit ball-ball collisions instantly",
+      "Delivered in just 3 agent steps (7.65 min, $0.70 USD)",
+    ],
     opus_features: [
       "3 flippers (2 inferiores + 1 superior izquierdo), 5 bumpers, 6 drop targets y rampa SKYWAY RAMP",
       "Pantalla Dot-Matrix Display (DMD) ámbar estilo arcade clásico y telemetría de transferencia ω×r",
       "Botón de Multiball [M], Nudge [T] con sensor de TILT y modo Debug Físico [D]",
     ],
+    opus_features_en: [
+      "3 flippers (2 lower + 1 upper-left), 5 bumpers, 6 drop targets and a SKYWAY RAMP",
+      "Classic arcade-style amber Dot-Matrix Display (DMD) and ω×r transfer telemetry",
+      "Multiball button [M], Nudge [T] with a TILT sensor and Physics Debug mode [D]",
+    ],
     opus_observations: [
       "Tardó 3.21x más tiempo (24.57 min vs 7.65 min) y costó 3.55x más ($2.49 vs $0.70 USD)",
+    ],
+    opus_observations_en: [
+      "Took 3.21x longer (24.57 min vs 7.65 min) and cost 3.55x more ($2.49 vs $0.70 USD)",
     ],
     code_stats: {
       argon_lines: 2749,

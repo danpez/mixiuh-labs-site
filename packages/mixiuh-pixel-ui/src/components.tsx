@@ -1309,7 +1309,14 @@ const SEQ_TRACKS = [
   { name: "PERC (HIT)", sound: "click" as PixelSoundName, pitch: 0.9, color: "#FF3355" },
 ];
 
-export function PixelAudioSequencer() {
+export interface PixelAudioSequencerProps {
+  /** Accessible name of each cell, e.g. (track, step) => `${track} step ${step}` */
+  cellLabel?: (track: string, step: number) => string;
+}
+
+export function PixelAudioSequencer({
+  cellLabel = (track, step) => `${track} paso ${step}`,
+}: PixelAudioSequencerProps = {}) {
   const [grid, setGrid] = useState<boolean[][]>([
     [true, false, false, true, false, true, false, false],
     [false, false, true, false, true, false, false, true],
@@ -1391,7 +1398,7 @@ export function PixelAudioSequencer() {
                   <button
                     key={cIdx}
                     type="button"
-                    aria-label={`${tr.name} paso ${cIdx + 1}`}
+                    aria-label={cellLabel(tr.name, cIdx + 1)}
                     aria-pressed={active}
                     onClick={() => toggleCell(rIdx, cIdx)}
                     className={`h-6 border transition cursor-pointer ${
@@ -2677,6 +2684,9 @@ export function PixelCollapse({
 }: PixelCollapseProps) {
   const [openIds, setOpenIds] = useState<string[]>(defaultOpenIds);
   const accent = TONE_STYLES[tone].hex;
+  // Scoped ids: two collapses with the same item ids never share a panel id
+  const baseId = useId();
+  const panelId = (id: string) => `${baseId}-panel-${id}`;
 
   const toggleItem = (id: string) => {
     const isOpen = openIds.includes(id);
@@ -2704,7 +2714,8 @@ export function PixelCollapse({
               type="button"
               onClick={() => toggleItem(item.id)}
               aria-expanded={isOpen}
-              aria-controls={`px-collapse-${item.id}`}
+              // Closed panels are not rendered, so only reference an existing one
+              aria-controls={isOpen ? panelId(item.id) : undefined}
               className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-3 cursor-pointer transition ${
                 isOpen ? "bg-[#151D2E]" : "bg-[#111622] hover:bg-[#151D2E]"
               }`}
@@ -2744,7 +2755,7 @@ export function PixelCollapse({
             </button>
             {isOpen && (
               <div
-                id={`px-collapse-${item.id}`}
+                id={panelId(item.id)}
                 className="p-3.5 bg-[#090B10] border-t-2 border-[#1E2638] text-xs sm:text-sm text-[#CBD5E1] leading-relaxed"
               >
                 {item.content}
