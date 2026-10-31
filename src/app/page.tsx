@@ -153,7 +153,7 @@ export default function MixiuhLabsHomePage() {
 
   // CC02 Roblox 3D 3-Giants interactive comparator state
   const [cc02Model, setCc02Model] = useState<
-    "astra" | "argon" | "opus" | "triple"
+    "astra" | "argon" | "opus" | "opus_fixed" | "triple"
   >("astra");
 
   // Video & Glossary state
@@ -3328,6 +3328,16 @@ export default function MixiuhLabsHomePage() {
                       <span>Claude Opus 5.5 High ($9.91 · Sin 3D)</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
+                    <a
+                      href="/demos/cc02-roblox/claude-opus-5.5-fixed.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-xl bg-[#B794F6] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{lang === "es" ? "Bonus: Opus 5.5 Reparado (1 Línea · 60 FPS)" : "Bonus: Opus 5.5 Fixed (1 Line · 60 FPS)"}</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
                   </div>
                 </div>
 
@@ -3428,7 +3438,17 @@ export default function MixiuhLabsHomePage() {
                             : "bg-[#060B14] text-[#B794F6] border border-[#B794F6]/40"
                         }`}
                       >
-                        Claude Opus 5.5 High ($9.91 · Crash 3D)
+                        Claude Opus 5.5 High ($9.91 · Sin 3D)
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("opus_fixed")}
+                        className={`px-3 py-1.5 rounded-lg font-bold cursor-pointer transition ${
+                          cc02Model === "opus_fixed"
+                            ? "bg-[#F472B6] text-[#060B14]"
+                            : "bg-[#060B14] text-[#F472B6] border border-[#F472B6]/40"
+                        }`}
+                      >
+                        {lang === "es" ? "Bonus: Opus 5.5 Reparado (1 Línea)" : "Bonus: Opus 5.5 Fixed (1 Line)"}
                       </button>
                       <button
                         onClick={() => setCc02Model("triple")}
@@ -3486,6 +3506,8 @@ export default function MixiuhLabsHomePage() {
                           ? "/demos/cc02-roblox/gpt-6-astra.html"
                           : cc02Model === "argon"
                           ? "/demos/cc02-roblox/gemini-4-argon.html"
+                          : cc02Model === "opus_fixed"
+                          ? "/demos/cc02-roblox/claude-opus-5.5-fixed.html"
                           : "/demos/cc02-roblox/claude-opus-5.5.html"
                       }
                       title={`Roblox 3D - ${cc02Model}`}
