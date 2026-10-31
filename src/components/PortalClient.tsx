@@ -2185,6 +2185,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                     },
                   ]}
                   data={CARBON_TELEMETRY_DATA}
+                  // One decimal, as in the official table (65.2% next to 69.0%, not 69%)
+                  formatValue={(v) => `${v.toFixed(1)}%`}
                 />
 
                 {/* Labels wrap instead of truncating ("TERMINAL-BE…") in the 3-column row */}

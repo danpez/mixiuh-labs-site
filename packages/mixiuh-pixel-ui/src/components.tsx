@@ -2160,7 +2160,9 @@ export function PixelSelect({
                     />
                   )}
                   <div className="min-w-0">
-                    <div className="text-xs font-bold truncate">{opt.label}</div>
+                    {/* Wraps rather than truncates: in narrow columns the badge
+                        beside it would otherwise cut the name ("Gemini 4 Ca…") */}
+                    <div className="text-xs font-bold break-words">{opt.label}</div>
                     {opt.sublabel && (
                       <div className="text-[10px] text-[#94A3B8] truncate">
                         {opt.sublabel}

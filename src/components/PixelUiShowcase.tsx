@@ -831,7 +831,7 @@ pixelToast.show({ title: "${es ? "GUARDADO" : "SAVED"}", tone: "emerald", icon: 
             ? `Copiar JSX: ${component}`
             : `Copy JSX: ${component}`
         }
-        className={`${className} shrink-0 whitespace-nowrap text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer`}
+        className={`${className} shrink-0 inline-flex items-center justify-center min-h-6 whitespace-nowrap text-[#090B10] font-pixel text-[10px] font-bold cursor-pointer`}
       >
         {copied ? (es ? "COPIADO" : "COPIED") : es ? "COPIAR JSX" : "COPY JSX"}
       </button>

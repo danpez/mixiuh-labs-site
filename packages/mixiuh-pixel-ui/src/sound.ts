@@ -41,6 +41,14 @@ class PixelSoundSynthesizer {
   private getContext(): AudioContext | null {
     if (typeof window === "undefined") return null;
     if (!this.ctx) {
+      // Browsers refuse to start audio before the first user gesture and log a
+      // warning for every attempt (e.g. a typewriter effect on load): stay
+      // silent until the page has been interacted with. Browsers without the
+      // User Activation API keep the previous behaviour.
+      const activation = (
+        navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }
+      ).userActivation;
+      if (activation && !activation.hasBeenActive) return null;
       const AudioCtx =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext })
