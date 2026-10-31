@@ -2069,7 +2069,8 @@ export function PixelSelect({
         className={`w-full bg-[#090B10] hover:bg-[#111622] text-left text-[#F5F2EB] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center justify-between gap-2 cursor-pointer transition ${FRAME_2} ${FOCUS_RING} ${sizePad}`}
         style={frameStyle(accent)}
       >
-        <div className="flex flex-1 items-center gap-2 min-w-0">
+        {/* Never shrinks while the badge can give way; capped to leave the chevron room */}
+        <div className="flex grow shrink-0 basis-auto items-center gap-2 min-w-0 max-w-[calc(100%-0.5rem-14px)]">
           {selected?.icon && (
             <PixelIcon name={selected.icon} size={14} color={accent} />
           )}
@@ -2086,13 +2087,28 @@ export function PixelSelect({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center min-w-0">
           {selected?.badge && (
-            <span
-              className="px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10]"
-              style={{ backgroundColor: accent }}
-            >
-              {selected.badge}
+            // The badge also gives way to the label. The invisible copy sizes
+            // the slot (and keeps today's height); when the slot gets narrower
+            // than the badge, the badge wraps onto a clipped second line, so it
+            // shows whole or not at all (the option list still shows it).
+            <span className="relative min-w-0 overflow-hidden">
+              <span
+                aria-hidden="true"
+                className="invisible block mr-1.5 px-1.5 py-0.5 font-pixel text-[10px] font-bold whitespace-nowrap"
+              >
+                {selected.badge}
+              </span>
+              <span className="absolute inset-0 pr-1.5 flex flex-wrap items-center overflow-hidden">
+                <span className="h-full" />
+                <span
+                  className="shrink-0 px-1.5 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] whitespace-nowrap"
+                  style={{ backgroundColor: accent }}
+                >
+                  {selected.badge}
+                </span>
+              </span>
             </span>
           )}
           <PixelIcon
@@ -2345,6 +2361,9 @@ export function PixelAutocomplete({
           onFocus={() => {
             if (open) return;
             setActiveIdx(-1);
+            // Opened from the field, the list follows its text: every option
+            // while it shows the picked label, the matches when it holds typed text
+            setFiltering(query !== selectedLabel);
             setOpen(true);
           }}
           onChange={(e) => {
