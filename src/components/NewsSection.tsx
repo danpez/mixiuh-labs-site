@@ -71,9 +71,39 @@ const OFF_TABLE_BENCHMARKS = CARBON_FULL_BENCHMARKS.filter(
   .map((row) => row.benchmark)
   .join(" + ");
 
+/**
+ * Comparison table below sm: its benchmark name column is pinned (sticky) while
+ * the scores swipe under it. Against collapsed borders Chrome paints sticky
+ * cells up to a pixel off (row separators step and the Carbon tint shows
+ * through), so on phones the table uses separate borders and its cells draw
+ * the separators that its rows draw on wider screens. Keyboard focus stays
+ * clear of the pinned column too: Tab scrolls a sort button out from under it
+ * (scroll padding), and the scroller's focus ring is drawn just outside its
+ * edge, where the pinned cells cannot cover it.
+ */
+const PHONE_TABLE_CLASS =
+  "max-sm:[&_table]:border-separate max-sm:[&_table]:border-spacing-0 " +
+  "max-sm:[&_thead_th]:border-b-2 max-sm:[&_thead_th]:border-b-[#2A344B] " +
+  "max-sm:[&_tbody_td]:border-b max-sm:[&_tbody_td]:border-b-[#1E2638] " +
+  "max-sm:[&_tbody_tr:last-child_td]:border-b-0 " +
+  "max-sm:[&_div:has(>table)]:scroll-pl-36 " +
+  "max-sm:[&_div:has(>table)]:focus-visible:outline-offset-0";
+
 /** The English version of an image when the asset has one. */
 function assetSrc(asset: OfficialChartAsset, es: boolean): string {
   return !es && asset.src_en ? asset.src_en : asset.src;
+}
+
+/**
+ * In-page jump that keeps the shareable #noticias hash: scrolls to the link's
+ * section and moves focus there too (like the skip link), so the next Tab
+ * continues from that section instead of the link left far above.
+ */
+function jumpToSection(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  const target = document.getElementById(e.currentTarget.hash.slice(1));
+  target?.scrollIntoView();
+  target?.focus({ preventScroll: true });
 }
 
 type HeroView = "video" | "short" | "A" | "B" | "C" | "table";
@@ -352,11 +382,7 @@ export default function NewsSection({
 
               <a
                 href="#explorador-capitulos-carbon"
-                onClick={(e) => {
-                  // Scroll within the news view without replacing the shareable #noticias hash
-                  e.preventDefault();
-                  document.getElementById("explorador-capitulos-carbon")?.scrollIntoView();
-                }}
+                onClick={jumpToSection}
                 className="px-4 py-2.5 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5 shadow-[4px_4px_0_#040508]"
               >
                 <PixelIcon name="sparkles" size={16} />
@@ -369,11 +395,7 @@ export default function NewsSection({
 
               <a
                 href="#tabla-oficial-benchmarks-carbon"
-                onClick={(e) => {
-                  // Scroll within the news view without replacing the shareable #noticias hash
-                  e.preventDefault();
-                  document.getElementById("tabla-oficial-benchmarks-carbon")?.scrollIntoView();
-                }}
+                onClick={jumpToSection}
                 className="px-4 py-2.5 shadow-[4px_4px_0_#040508] bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
               >
                 <PixelIcon name="file" size={16} />
@@ -515,10 +537,12 @@ export default function NewsSection({
                   </video>
                 </div>
               ) : activeHeroThumb === "short" ? (
-                <div className="relative aspect-video bg-[#090B10] flex items-center justify-center p-2">
+                <div className="relative aspect-video max-sm:aspect-auto bg-[#090B10] flex items-center justify-center p-2">
                   {/* No <track> on purpose: the Short has its own script with
                       burned-in (open) word-by-word captions. carbon_captions_*.vtt
-                      belong to the long report and do not match this audio. */}
+                      belong to the long report and do not match this audio.
+                      Phones size the player by the card's width: inside the
+                      16:9 box it would be under 90px wide. */}
                   <video
                     key={`carbon-short-${lang}`}
                     controls
@@ -529,7 +553,7 @@ export default function NewsSection({
                         ? "/brand/thumbs/carbon_short_cover_es.jpg"
                         : "/brand/thumbs/carbon_short_cover_en.jpg"
                     }
-                    className="h-full max-h-[340px] aspect-[9/16] border border-[#00E5FF]/40 object-contain bg-black shadow-[4px_4px_0_#040508]"
+                    className="h-full max-h-[340px] aspect-[9/16] max-sm:h-auto max-sm:w-full max-sm:max-w-[20rem] max-sm:max-h-[75svh] border border-[#00E5FF]/40 object-contain bg-black shadow-[4px_4px_0_#040508]"
                   >
                     <source
                       src={
@@ -589,7 +613,12 @@ export default function NewsSection({
       {/* =====================================================================
           2. INTERACTIVE 8-CHAPTER CONCEPTUAL & TELEMETRY EXPLORER
          ===================================================================== */}
-      <section id="explorador-capitulos-carbon" className="space-y-5">
+      {/* tabIndex -1: focus target of the "N Capitulos Interactivos" jump link */}
+      <section
+        id="explorador-capitulos-carbon"
+        tabIndex={-1}
+        className="space-y-5 focus:outline-none"
+      >
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#2A344B] pb-4">
           <div>
             <div className="font-mono-hud text-xs font-bold text-[#00E5FF] uppercase mb-1">
@@ -879,7 +908,12 @@ export default function NewsSection({
       {/* =====================================================================
           3. OFFICIAL BENCHMARK COMPARISON TABLE (counts: CARBON_BENCHMARK_STATS)
          ===================================================================== */}
-      <section id="tabla-oficial-benchmarks-carbon" className="space-y-3">
+      {/* tabIndex -1: focus target of the "Tabla (N Benchmarks)" jump link */}
+      <section
+        id="tabla-oficial-benchmarks-carbon"
+        tabIndex={-1}
+        className="space-y-3 focus:outline-none"
+      >
         <div className="space-y-1">
           <div className="font-mono-hud text-xs font-bold text-[#00E5FF] uppercase">
             {es
@@ -915,7 +949,7 @@ export default function NewsSection({
           // gets squeezed beside them (its text is 16px on touch screens). On
           // phones the search also takes its own row and "Exportar CSV" wraps below.
           toolbarLayout="stacked"
-          className="[&_table]:min-w-[880px]"
+          className={`sm:[&_table]:min-w-[880px] ${PHONE_TABLE_CLASS}`}
           rows={CARBON_FULL_BENCHMARKS.filter(
             (row) => domainFilter === "all" || row.domain === domainFilter
           )}
@@ -958,6 +992,13 @@ export default function NewsSection({
               }))}
             />
           }
+          // Phones: no "#" column, a narrow name column (the subtitle is only
+          // read out) and no 880px minimum (the score columns keep their
+          // content width), so the name and two scores fit at rest. The name
+          // column stays put while the scores swipe under it (PHONE_TABLE_CLASS);
+          // its cells take their row's stripe/hover colour (bg-inherit) so
+          // nothing shows through. Its edge is a border, not a box-shadow: the
+          // table's inline sort underline would replace a shadow on its header.
           columns={[
             {
               key: "n",
@@ -966,17 +1007,33 @@ export default function NewsSection({
               render: (r) => (
                 <span className="font-bold text-[#00E5FF]">{String(r.n).padStart(2, "0")}</span>
               ),
+              headerClassName: "max-sm:hidden",
+              className: "max-sm:hidden",
             },
             {
               key: "benchmark",
-              header: es ? "Benchmark y que mide" : "Benchmark & what it tests",
+              header: (
+                <>
+                  <span className="sm:hidden">Benchmark</span>
+                  <span className="max-sm:hidden">
+                    {es ? "Benchmark y que mide" : "Benchmark & what it tests"}
+                  </span>
+                </>
+              ),
+              headerText: es ? "Benchmark y que mide" : "Benchmark & what it tests",
               value: (r) => `${r.benchmark} ${es ? r.subtitle_es : r.subtitle_en}`,
               render: (r) => (
-                <div className="min-w-[200px]">
+                <div className="sm:min-w-[200px]">
                   <div className="font-bold text-white">{r.benchmark}</div>
-                  <div className="text-[11px] text-[#94A3B8]">{es ? r.subtitle_es : r.subtitle_en}</div>
+                  <div className="max-sm:sr-only text-[11px] text-[#94A3B8]">
+                    {es ? r.subtitle_es : r.subtitle_en}
+                  </div>
                 </div>
               ),
+              headerClassName:
+                "max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-36 max-sm:bg-[#090B10] max-sm:border-r max-sm:border-r-[#2A344B]",
+              className:
+                "max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-36 max-sm:bg-inherit max-sm:border-r max-sm:border-r-[#2A344B]",
             },
             ...MODEL_COLUMNS.map((m) => ({
               key: m.key,
@@ -999,9 +1056,12 @@ export default function NewsSection({
               header: es ? "Puesto de Carbon y margen" : "Carbon rank & margin",
               value: (r) => (es ? r.highlight_es : r.highlight_en),
               sortable: false,
+              // Phones: a wrapped block with a whole-pixel line height. The
+              // inherited 14.67px one leaves rows on sub-pixel offsets, where
+              // the pinned name cells drift a pixel from their row's separator.
               render: (r) => (
                 <span
-                  className={`inline-block px-2.5 py-1 font-bold text-[11px] ${
+                  className={`inline-block max-sm:block max-sm:min-w-44 max-sm:leading-4 px-2.5 py-1 font-bold text-[11px] ${
                     r.winner === "carbon"
                       ? "bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40"
                       : "bg-[#1A2132] text-[#EAE5D9]"
@@ -1250,7 +1310,7 @@ export default function NewsSection({
               aria-labelledby={zoomTitleId}
               aria-describedby={zoomDescId}
               onClick={(e) => e.stopPropagation()}
-              className="max-w-6xl w-full bg-[#111622] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]"
+              className="max-w-6xl w-full max-sm:max-h-full max-sm:flex max-sm:flex-col bg-[#111622] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]"
             >
               <div className="px-5 py-3.5 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between gap-4">
                 <div>
@@ -1273,14 +1333,24 @@ export default function NewsSection({
                   <PixelIcon name="close" size={20} />
                 </button>
               </div>
-              <div className="p-4 sm:p-6 bg-white flex items-center justify-center max-h-[78vh] overflow-auto">
+              {/* Phones: fitting the chart to the screen would leave its text
+                  about 5px tall, so it opens at a readable width (up to 56rem,
+                  never upscaled) and pans inside this box. Start-aligned there:
+                  centred overflow could not be scrolled back to the left. The
+                  dialog is a column capped at the screen height, so this box
+                  takes what the header and caption leave. */}
+              <PixelSwipeHint
+                hideFrom="sm"
+                label={es ? "Desliza para recorrer la imagen" : "Swipe to pan the image"}
+              />
+              <div className="p-4 sm:p-6 bg-white flex items-start justify-start sm:items-center sm:justify-center max-h-[78vh] overflow-auto max-sm:overscroll-contain">
                 <img
                   src={assetSrc(zoomedAsset, es)}
                   alt={es ? zoomedAsset.title_es : zoomedAsset.title_en}
-                  className="max-h-[72vh] w-auto object-contain"
+                  className="max-h-[72vh] w-auto object-contain max-sm:max-h-none max-sm:max-w-[56rem] max-sm:shrink-0"
                 />
               </div>
-              <div className="px-5 py-3 bg-[#090B10] border-t border-[#2A344B] text-xs text-[#94A3B8] flex items-center justify-between gap-4">
+              <div className="px-5 py-3 bg-[#090B10] border-t border-[#2A344B] text-xs text-[#94A3B8] flex max-sm:flex-col max-sm:items-start max-sm:gap-2 items-center justify-between gap-4">
                 <span id={zoomDescId}>
                   {es ? zoomedAsset.desc_es : zoomedAsset.desc_en}
                 </span>

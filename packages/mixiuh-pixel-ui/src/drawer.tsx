@@ -17,7 +17,9 @@ import {
   focusFirst,
   getPanelStops,
   getTabbables,
+  isTopModalLayer,
   lockPageScroll,
+  pushModalLayer,
 } from "./focus";
 
 /* ============================================================================
@@ -42,8 +44,8 @@ const hasNode = (node: React.ReactNode) =>
   node !== undefined && node !== null && node !== false && node !== "";
 
 /* ----------------------------------------------------------------------------
-   Focus trap shared by every open drawer (helpers and page scroll lock live
-   in ./focus)
+   Focus trap (helpers, the modal stack shared with usePixelDialog and the
+   command palette, and the page scroll lock live in ./focus)
    ---------------------------------------------------------------------------- */
 
 /**
@@ -58,9 +60,6 @@ function focusEdge(
 ) {
   if (!focusFirst(last ? [...stops].reverse() : stops)) panel.focus();
 }
-
-/** Open panels, newest last: keys pressed outside every panel go to the top one. */
-const openPanels: HTMLElement[] = [];
 
 /* ----------------------------------------------------------------------------
    PixelDrawer — modal side panel (role="dialog") & PixelSheet — bottom sheet
@@ -125,7 +124,8 @@ const PANEL_SIZE = {
  * `initialFocusRef`), Tab and Shift+Tab wrap inside it (a body with content
  * to scroll is a stop of its own), Escape or a press on the backdrop closes
  * it, page scroll is locked while it is open and focus returns to the opener
- * on close.
+ * on close. It stacks with other drawers, usePixelDialog dialogs and the
+ * command palette: only the modal in front answers Escape and Tab.
  */
 export function PixelDrawer({
   open,
@@ -184,7 +184,7 @@ export function PixelDrawer({
     const body = bodyRef.current;
     const opener = openerRef.current;
     const unlockScroll = lockPageScroll();
-    openPanels.push(panel);
+    const removeLayer = pushModalLayer(panelRef);
     pixelSound.play("cartridgeInsert");
 
     // Next frame, once the press that opened it has done its own focusing
@@ -209,13 +209,14 @@ export function PixelDrawer({
     });
 
     // Keys pressed with focus outside the panel: on <body> after a focused
-    // control unmounted, or on a toast stacked above the backdrop
+    // control unmounted, or on a toast stacked above the backdrop. A modal
+    // opened on top of this one answers them itself.
     const onDocumentKeyDown = (e: KeyboardEvent) => {
       if (
         e.defaultPrevented ||
         e.isComposing ||
         treeKeyRef.current === e ||
-        openPanels[openPanels.length - 1] !== panel
+        !isTopModalLayer(panelRef)
       ) {
         return;
       }
@@ -232,8 +233,7 @@ export function PixelDrawer({
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", onDocumentKeyDown);
-      const index = openPanels.lastIndexOf(panel);
-      if (index >= 0) openPanels.splice(index, 1);
+      removeLayer();
       unlockScroll();
       // Back to the opener, unless the app already moved focus elsewhere
       const current = document.activeElement;
@@ -246,7 +246,15 @@ export function PixelDrawer({
   if (!shown) return null;
 
   const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.defaultPrevented || e.nativeEvent.isComposing) return;
+    // A modal opened on top answers its own keys, also one rendered inside
+    // this drawer, whose keys bubble through here in the React tree
+    if (
+      e.defaultPrevented ||
+      e.nativeEvent.isComposing ||
+      !isTopModalLayer(panelRef)
+    ) {
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();

@@ -25,7 +25,7 @@ imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
 | `src/floating.tsx` (**new in 2.5**) | `PixelTooltip`, `PixelPopover` and the `usePixelFloating` positioning hook (flip + viewport clamp). |
 | `src/drawer.tsx` (**new in 2.5**) | `PixelDrawer` (left/right/bottom modal panel with focus trap) and `PixelSheet`. |
 | `src/context-menu.tsx` (**new in 2.5**) | `PixelContextMenu` (right click, Shift+F10 / Menu key, roving focus, typeahead). |
-| `src/motion.ts` · `src/storage.ts` | `usePrefersReducedMotion()` · `usePixelPref()` (hydration-safe, tab-synced localStorage preferences). |
+| `src/motion.ts` · `src/storage.ts` | `usePrefersReducedMotion()` · `usePixelPref()` (hydration-safe, tab-synced localStorage preferences; when storage is blocked or full, a change still applies for the rest of the visit). |
 | `src/ambient.tsx` | Procedural AI-ecosystem background canvas (auto-disabled for reduced motion). |
 | `src/cursor.tsx` | 5 pixel-art cursor presets plus the system cursor (`PIXEL_CURSOR_PRESETS`) + `usePixelCursor()`. |
 | `src/scroll-reveal.tsx` | Pixel-by-pixel "materialize on scroll" observer. |
@@ -44,6 +44,12 @@ All optional: leaving one out keeps the Spanish default text or the current beha
 - `PixelMultiLineChart`: `categoryLabel` (what each x-axis point is) and `formatValue(v)` (value text in the readout and the screen-reader table, e.g. `(v) => v.toFixed(1) + "%"` keeps "42.0%").
 - `PixelCopyButton`: `failedLabel`, the toast title when copying fails.
 - `PixelDataTable`: `toolbarLayout="stacked"` gives the `toolbar` slot its own row; under 640px the search takes the full width with the export button below it.
+- `PixelTooltip`: `className` replaces the wrapper's default `inline-flex` (e.g. `"hidden sm:inline-flex"` when the trigger itself is hidden on phones, so the empty wrapper adds no gap).
+- `PixelBackToTop`: `focusTargetId`, the id of the element that takes focus (without scrolling) before the page scrolls up, usually `<main>`, so the next Tab continues from the top of the page.
+- `PixelCommandPalette`: `resultsLabel(count)`, the result count announced in a polite status region once typing pauses for 400 ms (default "1 resultado" / "N resultados"; `emptyLabel` is announced when nothing matches).
+- `PixelWindow`: `minimizeLabel` / `expandLabel`, the tooltip and the start of the accessible name of the titlebar button (defaults "Minimizar ventana" / "Expandir ventana").
+- `Pixel3DCRTWorkstation` items: `thumbAlt`, the alt text of the channel screenshot (defaults to the visible `title`; set it when the image has text the title doesn't say).
+- `usePixelFloating` also returns `overlapsAnchor`: true when the viewport clamp leaves the floating element on top of its anchor (`PixelTooltip` then lets clicks through to the anchor).
 
 ---
 
@@ -138,11 +144,16 @@ the font family names.
 - `PixelSelect` is a listbox button (Arrow / Home / End / Escape) and `PixelAutocomplete` a `combobox` (Arrow keys highlight through `aria-activedescendant`, Enter picks, Escape closes); both close when you click or tab away.
 - `PixelKeycap` hotkeys ignore typing in fields, Ctrl / Cmd / Alt shortcuts and key auto-repeat (`hotkey={false}` turns them off).
 - `PixelTabs` implements `role="tablist"` with Arrow / Home / End keys.
-- `PixelCommandPalette` is a modal `role="dialog"` with a `combobox` + `listbox`, focus restore and scroll lock.
+- `PixelCommandPalette` is a modal `role="dialog"` with a `combobox` + `listbox`, focus restore and scroll lock; it announces the result count after a short typing pause.
+- `PixelDrawer` / `PixelSheet`, `usePixelDialog` and `PixelCommandPalette` share one modal stack: only the top modal answers Escape and Tab, and a dialog opened inside a popover or another modal keeps its own keys.
 - `PixelToaster` announces messages through `aria-live="polite"`.
-- `PixelDataTable` uses `aria-sort`, announces result counts and sort changes; `PixelDrawer` traps focus; `PixelContextMenu` implements the WAI-ARIA menu pattern; `PixelTooltip` wires `aria-describedby`.
+- `PixelDataTable` uses `aria-sort`, announces result counts and sort changes; `PixelDrawer` traps focus; `PixelContextMenu` implements the WAI-ARIA menu pattern.
+- `PixelTooltip` wires `aria-describedby`, stays open while the pointer moves onto it and closes with Escape (WCAG 1.4.13). `PixelPopover` follows its trigger when the page scrolls it away instead of sticking to the screen edge.
+- `PixelWindow`'s minimize button has a full name ("Minimizar ventana: <title>") and `aria-expanded`; the CRT `PWR` button exposes `aria-pressed`.
+- `PixelCollapse` titles wrap instead of being cut off; on phones `PixelMultiLineChart` scrolls the chosen point into view.
 - `PixelIcon` cuts its "holes" with an SVG mask, so icons stay readable in any color on any background (active states never collapse into solid blocks).
 - `prefers-reduced-motion: reduce` disables the ambient canvas, the scroll materializer and CSS animations.
+- Printing (or saving as PDF) shows every card, including the ones still waiting for the scroll materializer, and hides the skip link.
 
 ## Maintaining the kit
 

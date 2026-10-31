@@ -369,6 +369,12 @@ const EP04_TABLE_LABELS_EN: Partial<PixelDataTableLabels> = {
     `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
 };
 
+/** English labels of the PixelWindow minimize button (the library defaults to Spanish). */
+const PIXEL_WINDOW_LABELS_EN = {
+  minimizeLabel: "Minimize window",
+  expandLabel: "Expand window",
+};
+
 /** Components named by each "COPY JSX" button (its accessible name and confirmation). */
 const COPY_JSX_TARGETS: Record<string, string> = {
   "comp-input": "PixelInput",
@@ -632,6 +638,8 @@ export default function PixelUiShowcase({
   released,
 }: PixelUiShowcaseProps) {
   const es = lang === "es";
+  // Spread into every PixelWindow
+  const windowLabels = es ? {} : PIXEL_WINDOW_LABELS_EN;
   const { enabled: soundEnabled, play, toggle: toggleSound } = usePixelSound();
   // Prefix for the ids that label each selector group and SFX card
   const uid = useId();
@@ -1028,6 +1036,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 1: CUSTOM PIXEL MOUSE & PROCEDURAL AI ECOSYSTEM CONTROLS */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? "01 // PERSONALIZACION DE CURSOR PIXEL-ART Y ECOSISTEMA IA DE FONDO"
@@ -1190,6 +1199,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 2: 8-BIT STEP SEQUENCER & WEBAUDIO SYNTHESIZER (ONE CARD PER LIBRARY SOUND) */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? "02 // SECUENCIADOR CHIPTUNE 8-BIT + SINTETIZADOR WEBAUDIO"
@@ -1252,6 +1262,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 3: 16 ANIMATED SPRITES + 8 PIXEL-ART MINI SCENES */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? `03 // ${SPRITE_COUNT} SPRITES PIXEL-ART ANIMADOS Y ${SCENE_COUNT} ESCENAS PROCEDURALES`
@@ -1355,6 +1366,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
         {/* SECTION 4: 3.5" FLOPPY DISK CARDS, BUTTONS & RPG DIALOG */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <PixelWindow
+            {...windowLabels}
             title={
               es
                 ? "04 // DISQUETES 3.5 PULGADAS Y CONTROLES DE HARDWARE"
@@ -1438,6 +1450,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </PixelWindow>
 
           <PixelWindow
+            {...windowLabels}
             title={
               es
                 ? "05 // DIALOGO RPG Y GRAFICAS DE TELEMETRIA"
@@ -1497,6 +1510,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 5B: PRO FORM, SELECT, AUTOCOMPLETE, CHECKS, COLLAPSE, CALENDAR & CHARTS STUDIO */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? "06 // PERSONALIZADOR INTERACTIVO: INPUTS, SELECTS, AUTOCOMPLETE, CHECKS, COLLAPSE, CALENDARIO Y GRAFICAS"
@@ -1865,6 +1879,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 6: CRISP 16x16 PIXEL SVG ICONS WITH CATEGORY FILTERS, BRANDS & SEARCH */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? `07 // ${ICON_COUNT} ICONOS VECTORIALES PIXEL-ART EN GRILLA 16x16 (INCLUYE MARCAS Y REDES)`
@@ -2147,6 +2162,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 8: NAVIGATION & OVERLAY SUITE (shipped in v2.3, see the library README) */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? "08 // DESDE v2.3: COMMAND PALETTE, TOASTS, TABS Y COPIA"
@@ -2274,6 +2290,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 9: PHASE 2 COMPLETE (v2.5) — DATA TABLE, TOOLTIP, POPOVER, DRAWER, SHEET, CONTEXT MENU */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? "09 // FASE 2 COMPLETA v2.5: DATATABLE, TOOLTIP, POPOVER, DRAWER Y MENU CONTEXTUAL"
@@ -2363,6 +2380,12 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                     </PixelTooltip>
                   ))}
                 </div>
+                {/* Touch screens: PixelTooltip deliberately ignores taps */}
+                <p className="hidden pointer-coarse:block font-mono-hud text-[11px] text-[#94A3B8]">
+                  {lang === "es"
+                    ? "El tooltip aparece con hover o foco de teclado, no al tocar."
+                    : "The tooltip shows on hover or keyboard focus, not on tap."}
+                </p>
                 <div className="font-pixel text-[11px] text-[#00E5FF] pt-2">{"<PixelPopover />"}</div>
                 <PixelPopover
                   trigger={
@@ -2463,6 +2486,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 10: MASTER ROADMAP & COMPETITIVE BENCHMARK MATRIX VS TOP UI LIBRARIES */}
         <PixelWindow
+          {...windowLabels}
           title={
             es
               ? "10 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"

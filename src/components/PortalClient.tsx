@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useEffectEvent, useRef } from "react";
 import { LAB_GLOSSARY, YOUTUBE_LINKS } from "@/data/glossary";
 import {
   CARBON_BENCHMARK_STATS,
@@ -31,6 +31,7 @@ import {
   PixelProceduralAmbientBg,
   PixelScrollMaterializer,
   PixelSocialBar,
+  PixelSwipeHint,
   ALL_PIXEL_ICON_NAMES,
   PIXEL_CURSOR_PRESETS,
   PixelBackToTop,
@@ -139,6 +140,97 @@ function hashFor(
   }
 }
 
+interface ViewTarget {
+  view: MainView;
+  ep?: DossierEpisode;
+  foroTab?: ForoSubTab;
+}
+
+/** View a URL fragment opens (respecting embargoes); null for any other fragment, e.g. an in-page anchor. */
+function viewForHash(h: string, rel: ReleasedState): ViewTarget | null {
+  // Empty or #top: back button to the portal root
+  if (!h || h === "top") return { view: "blog" };
+  if (
+    (h === "noticias" || h === "radar-mixiuh" || h === "gemini-4-carbon") &&
+    rel.carbon01
+  ) {
+    return { view: "noticias" };
+  }
+  if (h === "ep04-escalera-claude" && rel.ep04) return { view: "dossiers", ep: "ep04" };
+  if (h === "ep03-superpowers-kit" && rel.ep03) return { view: "dossiers", ep: "ep03" };
+  if (h === DOSSIER_HASH.ep02) return { view: "dossiers", ep: "ep02" };
+  if (h === DOSSIER_HASH.ep01) return { view: "dossiers", ep: "ep01" };
+  if (h === "comentario-al-codigo" && rel.cc01) return { view: "comunidad" };
+  if (h === "dossier" || h === "matriz" || h === "laboratorios") return { view: "dossiers" };
+  if (h === "arena") return { view: "arena" };
+  if (h === "pixel-ui" || h === "pixelui" || h === "ui-kit") return { view: "pixelui" };
+  if (h === "foro") return { view: "foro", foroTab: "hilos" };
+  if (h === "glosario" || h === "ecosistema") return { view: "foro", foroTab: "glosario" };
+  return null;
+}
+
+/** Home tab title (the Spanish one is the metadata default in layout.tsx). */
+const SITE_TITLE = {
+  es: "Mixiuh Labs | Benchmarks Zero-Shot de IA, Arena de Demos y Foro Tecnico",
+  en: "Mixiuh Labs | Zero-Shot AI Benchmarks, Demo Arena & Tech Forum",
+} as const;
+
+const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
+  ep04: { es: "Laboratorio EP04: Escalera Claude 5.5", en: "Lab EP04: Claude 5.5 Ladder" },
+  ep03: {
+    es: "Laboratorio EP03: Argon High Sin Kit vs Superpowers Kit",
+    en: "Lab EP03: Argon High Raw vs Superpowers Kit",
+  },
+  ep02: {
+    es: "Laboratorio EP02: Gemini 4 Argon vs Claude Opus 5.5",
+    en: "Lab EP02: Gemini 4 Argon vs Claude Opus 5.5",
+  },
+  ep01: {
+    es: "Laboratorio EP01: Gemini 4 Argon vs Gemini 3.8 Flash",
+    en: "Lab EP01: Gemini 4 Argon vs Gemini 3.8 Flash",
+  },
+};
+
+/** Name of each view: its tab title ("<name> | Mixiuh Labs") and what a view switch announces. */
+function viewName(
+  view: MainView,
+  ep: DossierEpisode,
+  foroTab: ForoSubTab,
+  lang: "es" | "en"
+): string {
+  const es = lang === "es";
+  switch (view) {
+    case "blog":
+      return es ? "Inicio" : "Home";
+    case "dossiers":
+      return DOSSIER_NAME[ep][lang];
+    case "comunidad":
+      return es
+        ? "Del Comentario al Codigo #01: OVERFIT Studio 3D"
+        : "From Comment to Code #01: OVERFIT Studio 3D";
+    case "noticias":
+      return es ? "Noticias IA #01: Gemini 4 Carbon" : "AI News #01: Gemini 4 Carbon";
+    case "arena":
+      return es ? "Arena de Demos" : "Demo Arena";
+    case "pixelui":
+      return `Mixiuh Pixel UI v${PIXEL_UI_VERSION}`;
+    case "foro":
+      return foroTab === "glosario"
+        ? es
+          ? "Glosario Tecnico"
+          : "Technical Glossary"
+        : es
+        ? "Foro Tecnico"
+        : "Technical Forum";
+  }
+}
+
+/** Result count the command palette announces while the visitor types. */
+const PALETTE_RESULTS_LABEL = {
+  es: (n: number) => (n === 1 ? "1 resultado" : `${n} resultados`),
+  en: (n: number) => (n === 1 ? "1 result" : `${n} results`),
+} as const;
+
 function writeHash(hash: string, mode: "push" | "replace") {
   const url = `${window.location.pathname}${window.location.search}${
     hash ? `#${hash}` : ""
@@ -177,6 +269,18 @@ const TENITO_COMMENT_ES =
   "Si ahora con esa textura le pides hacer una playera y también le pides que te de un mockup en blanco para editarlo ahora puedes crear una marca de ropa ?";
 const TENITO_COMMENT_EN =
   "If you now take that texture and ask it to make a T-shirt, and also ask it to give you a blank mockup to edit, can you now create a clothing brand?";
+
+/**
+ * English alt text of the covers with Spanish text baked in (there are no
+ * English versions): the Spanish text plus its translation, like the tenito
+ * comment's alt. Keyed by image path; other images keep their usual alt.
+ */
+const SPANISH_COVER_ALT_EN: Partial<Record<string, string>> = {
+  "/brand/thumbs/cc01_thumb_A.jpg": `OVERFIT Studio 3D cover A, in Spanish: "De comentario a marca. Reto de @tenito03 · OVERFIT" (English: "From a comment to a brand. @tenito03 challenge · OVERFIT")`,
+  "/brand/thumbs/cc01_thumb_B.jpg": `OVERFIT Studio 3D cover B, in Spanish: "10 diseños IA 3D. Coleccion Guerra de Pesos" (English: "10 3D AI designs. Weight War collection")`,
+  "/brand/thumbs/cc01_thumb_C.jpg": `OVERFIT Studio 3D cover C, in Spanish: "Mockups 300 GSM. Frente + espalda + redes" (English: "300 GSM mockups. Front + back + social media")`,
+  "/brand/thumbs/ep03_thumb_A.jpg": `Lab EP03 cover "Raw vs Superkit", the raw side labelled in Spanish: "IA sin kit" (English: "AI without a kit")`,
+};
 
 /**
  * Carbon figures on the home page come from the official Google DeepMind rows
@@ -239,6 +343,8 @@ interface BlogArticle {
   scoreBadge_es: string;
   scoreBadge_en: string;
   thumb: string;
+  /** Set only where the cover has an English version. */
+  thumb_en?: string;
   title_es: string;
   title_en: string;
   excerpt_es: string;
@@ -364,6 +470,87 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  // Tab title per view, dossier episode and language (home keeps the site title).
+  // Next's metadata <title> can commit after this effect and write back its
+  // static default, so the title is re-applied whenever <head> changes.
+  const currentViewName = viewName(mainView, dossierEp, foroSubTab, lang);
+  const pageTitle =
+    mainView === "blog" ? SITE_TITLE[lang] : `${currentViewName} | Mixiuh Labs`;
+  useEffect(() => {
+    document.title = pageTitle;
+    const observer = new MutationObserver(() => {
+      if (document.title !== pageTitle) document.title = pageTitle;
+    });
+    observer.observe(document.head, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    return () => observer.disconnect();
+  }, [pageTitle]);
+
+  // A view switch (never the first load) is announced in the live region at the
+  // end of the page and moves focus to the new view's <main>. In-place selectors
+  // (dossier disks, EP04 modes, filters) don't come through here.
+  const headerRef = useRef<HTMLElement>(null);
+  const [viewSwitch, setViewSwitch] = useState({ id: 0, name: "" });
+  const announceViewSwitch = (name: string) =>
+    setViewSwitch((prev) => ({ id: prev.id + 1, name }));
+  useEffect(() => {
+    if (!viewSwitch.id) return;
+    // Runs after the commit that mounted the new view's <main id="contenido">
+    const frame = requestAnimationFrame(() => {
+      // A visitor on a persistent header control keeps their place there, and
+      // so does one in an open modal (the palette and settings drawer outlive
+      // the view, e.g. on a Back step while they are open)
+      const current = document.activeElement;
+      if (headerRef.current?.contains(current) || current?.closest('[aria-modal="true"]')) {
+        return;
+      }
+      document.getElementById("contenido")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [viewSwitch.id]);
+
+  // Phone section strip: after every view change, deep link, reload or language
+  // switch, centre the current section's tab in it. Only the strip scrolls
+  // (never the page), and nothing happens when it fits or is hidden (lg up).
+  const mobileNavRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const centreActiveTab = () => {
+      const strip = mobileNavRef.current;
+      const tab = strip?.querySelector<HTMLElement>("[data-mobile-tab-active]");
+      if (!strip || !tab || strip.scrollWidth <= strip.clientWidth) return;
+      const stripBox = strip.getBoundingClientRect();
+      const tabBox = tab.getBoundingClientRect();
+      strip.scrollTo({
+        left:
+          strip.scrollLeft +
+          tabBox.left -
+          stripBox.left -
+          (strip.clientWidth - tabBox.width) / 2,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    };
+    centreActiveTab();
+    // Web fonts that arrive later resize the tabs: centre again once they are in
+    if (document.fonts.status !== "loading") return;
+    let current = true;
+    document.fonts.ready.then(() => {
+      if (current) centreActiveTab();
+    });
+    return () => {
+      current = false;
+    };
+  }, [mainView, lang, released]);
+
+  // Back/forward and typed fragments switch views too (named in the current language)
+  const onHistoryViewSwitch = useEffectEvent((target: ViewTarget) => {
+    announceViewSwitch(
+      viewName(target.view, target.ep ?? dossierEp, target.foroTab ?? foroSubTab, lang)
+    );
+  });
+
   // After hydration: switch from the build clock to the visitor's live clock and
   // the URL hash (respecting embargo dates unless ?preview=all). This is the one
   // place where state is synchronised from external systems on mount.
@@ -380,52 +567,42 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     setArenaMode(rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02_ep01");
 
     const applyHash = () => {
-      const h = window.location.hash.replace("#", "");
-      if (!h || h === "top") {
-        // Back button to the portal root
-        setMainView("blog");
-        return;
+      const target = viewForHash(window.location.hash.replace("#", ""), rel);
+      if (!target) return null;
+      setMainView(target.view);
+      if (target.ep) {
+        setDossierEp(target.ep);
+        if (target.ep === "ep02" || target.ep === "ep01") setActiveEpisode(target.ep);
       }
-      if (
-        (h === "noticias" ||
-          h === "radar-mixiuh" ||
-          h === "gemini-4-carbon") &&
-        rel.carbon01
-      ) {
-        setMainView("noticias");
-      } else if (h === "ep04-escalera-claude" && rel.ep04) {
-        setMainView("dossiers");
-        setDossierEp("ep04");
-      } else if (h === "ep03-superpowers-kit" && rel.ep03) {
-        setMainView("dossiers");
-        setDossierEp("ep03");
-      } else if (h === DOSSIER_HASH.ep02 || h === DOSSIER_HASH.ep01) {
-        const ep = h === DOSSIER_HASH.ep02 ? "ep02" : "ep01";
-        setMainView("dossiers");
-        setDossierEp(ep);
-        setActiveEpisode(ep);
-      } else if (h === "comentario-al-codigo" && rel.cc01) {
-        setMainView("comunidad");
-      } else if (h === "dossier" || h === "matriz" || h === "laboratorios") {
-        setMainView("dossiers");
-      } else if (h === "arena") {
-        setMainView("arena");
-      } else if (h === "pixel-ui" || h === "pixelui" || h === "ui-kit") {
-        setMainView("pixelui");
-      } else if (h === "foro") {
-        setMainView("foro");
-        setForoSubTab("hilos");
-      } else if (h === "glosario" || h === "ecosistema") {
-        setMainView("foro");
-        setForoSubTab("glosario");
-      }
+      if (target.foroTab) setForoSubTab(target.foroTab);
+      return target;
     };
     applyHash();
-    window.addEventListener("hashchange", applyHash);
-    window.addEventListener("popstate", applyHash);
+
+    // The boot script in layout.tsx hides #contenido while a deep link or a
+    // saved language is pending. Both are applied by now (the saved language
+    // re-renders right after hydration): reveal it once they are painted.
+    let revealFrame = requestAnimationFrame(() => {
+      revealFrame = requestAnimationFrame(() => {
+        document.documentElement.removeAttribute("data-boot-view");
+        document.documentElement.removeAttribute("data-boot-lang");
+      });
+    });
+
+    // One fragment step fires popstate, then hashchange: handle it once
+    let handledUrl = "";
+    const onHistoryStep = (e: Event) => {
+      if (e instanceof HashChangeEvent && e.newURL === handledUrl) return;
+      handledUrl = window.location.href;
+      const target = applyHash();
+      if (target) onHistoryViewSwitch(target);
+    };
+    window.addEventListener("hashchange", onHistoryStep);
+    window.addEventListener("popstate", onHistoryStep);
     return () => {
-      window.removeEventListener("hashchange", applyHash);
-      window.removeEventListener("popstate", applyHash);
+      cancelAnimationFrame(revealFrame);
+      window.removeEventListener("hashchange", onHistoryStep);
+      window.removeEventListener("popstate", onHistoryStep);
     };
   }, []);
 
@@ -448,6 +625,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     ) {
       setMainView("blog");
       writeHash("", "push");
+      announceViewSwitch(viewName("blog", dossierEp, foroSubTab, lang));
       return;
     }
     setMainView(view);
@@ -469,6 +647,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     }
     if (foroTab) setForoSubTab(foroTab);
     writeHash(hashFor(view, nextEp, foroTab ?? foroSubTab), "push");
+    announceViewSwitch(viewName(view, nextEp, foroTab ?? foroSubTab, lang));
     scrollToTop();
   };
 
@@ -538,6 +717,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       setMainView("arena");
     }
     writeHash("arena", "push");
+    announceViewSwitch(viewName("arena", dossierEp, foroSubTab, lang));
     scrollToTop();
   };
 
@@ -546,11 +726,13 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     setMainView("foro");
     setForoSubTab("glosario");
     writeHash("glosario", "push");
+    announceViewSwitch(viewName("foro", dossierEp, "glosario", lang));
     scrollToTop();
   };
 
+  const glossaryQuery = glossarySearch.trim();
   const filteredGlossary = LAB_GLOSSARY.filter((item) => {
-    const q = glossarySearch.trim().toLowerCase();
+    const q = glossaryQuery.toLowerCase();
     if (!q) return true;
     return (
       item.term.toLowerCase().includes(q) ||
@@ -559,6 +741,26 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       (item.plain_en ?? "").toLowerCase().includes(q)
     );
   });
+
+  // Glossary search results for screen readers: nothing for an empty query,
+  // otherwise the count or the visible no-results text, debounced while typing
+  const glossaryCount = filteredGlossary.length;
+  const glossaryNoResults =
+    lang === "es"
+      ? `Sin resultados para "${glossaryQuery}"`
+      : `No results for "${glossaryQuery}"`;
+  const glossaryStatusText = !glossaryQuery
+    ? ""
+    : glossaryCount === 0
+    ? glossaryNoResults
+    : lang === "es"
+    ? `${glossaryCount} ${glossaryCount === 1 ? "concepto" : "conceptos"}`
+    : `${glossaryCount} ${glossaryCount === 1 ? "term" : "terms"}`;
+  const [glossaryStatus, setGlossaryStatus] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setGlossaryStatus(glossaryStatusText), 400);
+    return () => window.clearTimeout(timer);
+  }, [glossaryStatusText]);
 
   // English mode shows the English twins of the data where they exist
   const glossaryTerm = (g: (typeof LAB_GLOSSARY)[number]) =>
@@ -580,6 +782,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       scoreBadge_es: "NUEVO #1 MUNDIAL",
       scoreBadge_en: "NEW #1 WORLDWIDE",
       thumb: "/brand/thumbs/carbon_thumb_A.jpg",
+      thumb_en: "/brand/thumbs/carbon_thumb_A_en.jpg",
       title_es:
         "Google Anuncia Gemini 4 Carbon: El Nuevo #1 Mundial (14 Dias Despues de Argon) y el Salto a $4/$20 USD",
       title_en:
@@ -612,9 +815,9 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       title_en:
         "Claude Haiku 5.5 vs. Sonnet 5.5 vs. Opus 5.5: Which Tier Is Actually Worth Your Money? ($1.54 vs $12.22 vs $29.94)",
       excerpt_es:
-        "Corrimos 18 pruebas aisladas en Claude Code CLI con los 3 niveles de Claude 5.5 en 6 retos extremos. Opus 5.5 gano los primeros 3 retos de fisica y shaders (3-0), pero Haiku 5.5 sorprendio construyendo el Estudio Acido 3D a 61 FPS por solo $0.21 USD (24x mas barato que Opus), y Sonnet 5.5 gano los ultimos 2 retos duplicando los FPS del Path Tracer (29 vs 15 FPS) y arrancando Pong en vivo en la consola CHIP-8.",
+        "Corrimos 18 pruebas aisladas en Claude Code CLI con los 3 niveles de Claude 5.5 en 6 retos extremos. Opus 5.5 gano los primeros 3 retos de fisica y shaders (3-0), pero Haiku 5.5 sorprendio construyendo el Estudio Acido 3D a 61 FPS por solo $0.21 USD (24x mas barato que Opus), y Sonnet 5.5 gano los ultimos 2 retos sacando casi 1.5 veces los FPS de Opus en el Path Tracer (22 vs 15 FPS) y arrancando Pong en vivo en la consola CHIP-8.",
       excerpt_en:
-        "We ran 18 isolated Claude Code CLI benchmarks across all 3 tiers of Claude 5.5 in 6 extreme challenges. Opus 5.5 swept the first 3 physics and shader rounds (3-0), but Haiku 5.5 stunned by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus), and Sonnet 5.5 won the final 2 challenges—doubling Path Tracer FPS (29 vs 15 FPS) and booting live Pong on the CHIP-8 console.",
+        "We ran 18 isolated Claude Code CLI benchmarks across all 3 tiers of Claude 5.5 in 6 extreme challenges. Opus 5.5 swept the first 3 physics and shader rounds (3-0), but Haiku 5.5 stunned by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus), and Sonnet 5.5 won the final 2 challenges—running the Path Tracer at about 1.5x Opus's FPS (22 vs 15 FPS) and booting live Pong on the CHIP-8 console.",
       metrics: [
         { label_es: "MARCADOR", label_en: "SCORE", val: "3 - 2 - 1" },
         { label_es: "HAIKU 5.5", label_en: "HAIKU 5.5", val: "$1.54 · 87m" },
@@ -641,9 +844,9 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       title_en:
         "Gemini 4 Argon High Raw vs. Mixiuh Superpowers Kit: Do You Still Need Skills & Memory Kits Today?",
       excerpt_es:
-        "Corrimos 12 instancias reales y aisladas en la terminal de Antigravity. Gemini 4 Argon High sin kit gano 2 retos clave (Arcade Bullet-Hell con 1,829 balas en 51m y Red Zero-Trust 3D en 5 pasos por $0.74 USD), pero el Superpowers Kit gano 4-2 en el global (276m vs 302m), entregando 70,406 ord/s en HFT Zero-GC y corrigiendo ventanas con el Auto-Debugger MCP.",
+        "Corrimos 12 instancias reales y aisladas en la terminal de Antigravity. Gemini 4 Argon High sin kit gano 2 retos clave (Arcade Bullet-Hell con 1,829 balas en 51m y Red Zero-Trust 3D en 5 pasos por $0.74 USD), pero el Superpowers Kit gano 4-2 en el global (276m vs 302m): el HUD de su Terminal HFT Zero-GC marca 70,406 ord/s frente a 11,073 sin kit (una formula, no una medicion) y el Auto-Debugger MCP corrigio el solapamiento de ventanas.",
       excerpt_en:
-        "We executed 12 real isolated runs in the Antigravity CLI. Raw Gemini 4 Argon High won 2 key rounds (Bullet-Hell Boss Rush with 1,829 bullets in 51m and 3D Zero-Trust Network in 5 steps for $0.74 USD), while the Superpowers Kit won 4-2 overall (276m vs 302m), delivering 70,406 ord/s in Zero-GC HFT and fixing overlapping windows via the MCP Auto-Debugger.",
+        "We executed 12 real isolated runs in the Antigravity CLI. Raw Gemini 4 Argon High won 2 key rounds (Bullet-Hell Boss Rush with 1,829 bullets in 51m and 3D Zero-Trust Network in 5 steps for $0.74 USD), while the Superpowers Kit won 4-2 overall (276m vs 302m): its Zero-GC HFT Terminal's HUD reads 70,406 ord/s vs Raw AI's 11,073 (a formula, not a measurement), and the MCP Auto-Debugger fixed overlapping windows.",
       metrics: [
         { label_es: "MARCADOR", label_en: "SCORE", val: "4 - 2 Kit" },
         { label_es: "TIEMPO TOTAL", label_en: "TOTAL TIME", val: "276m vs 302m" },
@@ -686,8 +889,9 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       id: "ep02" as ReleaseKey,
       filter: "laboratorios" as const,
       date: "21 Oct 2026",
-      readTime_es: "08:06 Video · 12 Demos",
-      readTime_en: "08:06 Video · 12 Demos",
+      // The ES and EN cuts differ (captions end at 10:08 and 9:50)
+      readTime_es: "~10 min Video · 12 Demos",
+      readTime_en: "~10 min Video · 12 Demos",
       badge_es: "LABORATORIO EP02 · DUELO DE TITANES HIGH",
       badge_en: "LAB EP02 · HIGH TITAN DUEL",
       accentColor: EPISODE_ACCENT.ep02,
@@ -865,6 +1069,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             timeMetric: "276m vs 302m",
             costMetric: "$10.85 vs $7.69",
             thumb: "/brand/thumbs/ep03_thumb_A.jpg",
+            thumbAlt: lang === "en" ? SPANISH_COVER_ALT_EN["/brand/thumbs/ep03_thumb_A.jpg"] : undefined,
             accentHex: "#10B981",
             character: "mixiuh" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep03"),
@@ -894,6 +1099,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             timeMetric: "BLENDER + GLB",
             costMetric: "EXPORT 4K",
             thumb: "/brand/thumbs/cc01_thumb_A.jpg",
+            thumbAlt: lang === "en" ? SPANISH_COVER_ALT_EN["/brand/thumbs/cc01_thumb_A.jpg"] : undefined,
             accentHex: "#FFD100",
             character: "flash" as const,
             onLaunchPrimary: () => navigateToView("comunidad"),
@@ -940,6 +1146,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     label_es: string;
     label_en: string;
     count?: number;
+    /** Command palette search terms (default: the view id). */
+    keywords?: string;
   }[] = [
     {
       view: "blog" as const,
@@ -994,6 +1202,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       label_es: "Noticias IA",
       label_en: "AI News",
       count: 1,
+      keywords: "noticias news radar carbon gemini deepmind especial special",
       show: released.carbon01,
     },
     {
@@ -1048,7 +1257,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
           label: es ? item.label_es : item.label_en,
           hint: item.count !== undefined ? String(item.count) : undefined,
           icon: item.icon,
-          keywords: item.view,
+          keywords: item.keywords ?? item.view,
           onSelect: () => navigateToView(item.view),
         })),
         {
@@ -1060,6 +1269,22 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
           keywords: "glossary diccionario terminos",
           onSelect: () => navigateToView("foro", undefined, "glosario"),
         },
+        // The home hero's headline story, findable by name
+        ...(released.carbon01
+          ? [
+              {
+                id: "news-carbon01",
+                group: es ? "Noticias IA" : "AI News",
+                label: es ? "Especial Gemini 4 Carbon" : "Gemini 4 Carbon Special",
+                hint: `${CARBON_TABLE_EVALS} evals`,
+                icon: "broadcast" as const,
+                tone: "cyan" as const,
+                keywords:
+                  "carbon gemini google deepmind noticias news radar especial special video benchmarks precio price api",
+                onSelect: () => navigateToView("noticias"),
+              },
+            ]
+          : []),
         ...(
           [
             { ep: "ep04" as const, label: es ? "EP04 · Escalera Claude 5.5 (Haiku vs Sonnet vs Opus)" : "EP04 · Claude 5.5 Ladder (Haiku vs Sonnet vs Opus)", tone: "cyan" as const, show: released.ep04 },
@@ -1206,14 +1431,19 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
         </a>
 
         {/* FULL-WIDTH OPAQUE PIXEL-ART HEADER: one data-driven nav for desktop + mobile */}
-        <header className="sticky top-0 z-50 bg-[#090B10] border-b-3 border-[#FFD100] shadow-[0_4px_0_#040508] w-full">
-          <div className="w-full px-2 sm:px-3 lg:px-4">
-            <div className="h-14 flex items-center justify-between gap-2 flex-nowrap">
+        <header
+          ref={headerRef}
+          className="sticky top-0 z-50 bg-[#090B10] border-b-3 border-[#FFD100] shadow-[0_4px_0_#040508] w-full"
+        >
+          {/* Below 360px the padding, gaps and wordmark tighten so the whole
+              control group (EN included) fits down to 320px */}
+          <div className="w-full px-2 max-[360px]:px-1.5 sm:px-3 lg:px-4">
+            <div className="h-14 flex items-center justify-between gap-2 max-[360px]:gap-1 flex-nowrap">
               {/* Left: Clean Mixiuh Labs Brand Logo */}
               <a
                 {...viewLink("blog")}
                 aria-label={lang === "es" ? "Mixiuh Labs, inicio" : "Mixiuh Labs, home"}
-                className="flex items-center gap-2 shrink-0 group cursor-pointer text-left"
+                className="flex items-center gap-2 max-[360px]:gap-1.5 shrink-0 group cursor-pointer text-left"
               >
                 <div className="p-1 bg-[#FFD100] border-2 border-[#090B10] shadow-[2px_2px_0_#00E5FF]">
                   <img
@@ -1222,7 +1452,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                     className="h-5 w-5 sm:h-6 sm:w-6 shrink-0"
                   />
                 </div>
-                <span className="font-pixel text-xs sm:text-sm font-bold tracking-wider text-white whitespace-nowrap lg:hidden xl:inline">
+                <span className="font-pixel text-xs max-[360px]:text-[10px] sm:text-sm font-bold tracking-wider max-[360px]:tracking-normal text-white whitespace-nowrap lg:hidden xl:inline">
                   MIXIUH <span className="text-[#FFD100]">LABS</span>
                 </span>
               </a>
@@ -1294,7 +1524,9 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   <PixelIcon name="settings" size={12} />
                 </button>
 
-                <PixelTooltip placement="bottom" content={lang === "es" ? `Cursor: ${cursorLabel(cursorStyle)}` : `Cursor: ${cursorLabel(cursorStyle)}`}>
+                {/* Phones reach these from the settings drawer: their tooltip
+                    wrappers hide with them, so they leave no gap in the row */}
+                <PixelTooltip placement="bottom" className="hidden sm:inline-flex" content={lang === "es" ? `Cursor: ${cursorLabel(cursorStyle)}` : `Cursor: ${cursorLabel(cursorStyle)}`}>
                 <button
                   type="button"
                   onClick={cycleCursorStyle}
@@ -1309,7 +1541,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 </button>
                 </PixelTooltip>
 
-                <PixelTooltip placement="bottom" content={`${lang === "es" ? "Fondo IA" : "AI background"}: ${ambientLabel(ambientMode)}`}>
+                <PixelTooltip placement="bottom" className="hidden sm:inline-flex" content={`${lang === "es" ? "Fondo IA" : "AI background"}: ${ambientLabel(ambientMode)}`}>
                 <button
                   type="button"
                   onClick={cycleAmbientMode}
@@ -1377,7 +1609,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   ))}
                 </div>
 
-                <PixelTooltip placement="bottom" content={"X @MixiuhLabs"}>
+                <PixelTooltip placement="bottom" className="hidden sm:inline-flex" content={"X @MixiuhLabs"}>
                 <a
                   href="https://x.com/MixiuhLabs"
                   target="_blank"
@@ -1390,7 +1622,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 </a>
                 </PixelTooltip>
 
-                <PixelTooltip placement="bottom" content={"YouTube Mixiuh Labs"}>
+                <PixelTooltip placement="bottom" className="hidden sm:inline-flex" content={"YouTube Mixiuh Labs"}>
                 <a
                   href={
                     lang === "es"
@@ -1411,6 +1643,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
 
             {/* Mobile / tablet scrollable tab strip (same data as desktop) */}
             <nav
+              ref={mobileNavRef}
               aria-label={lang === "es" ? "Secciones" : "Sections"}
               className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-2.5 pt-1 font-mono-hud text-[11px] whitespace-nowrap"
             >
@@ -1798,8 +2031,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1.5 leading-relaxed">
                       {lang === "es"
-                        ? `+50 componentes, ${ALL_PIXEL_ICON_NAMES.length} iconos 16x16, graficas, consolas 3D, paleta de comandos y sintetizador WebAudio 8-bit. Libre para uso comercial con credito.`
-                        : `50+ components, ${ALL_PIXEL_ICON_NAMES.length} 16x16 icons, charts, 3D consoles, a command palette & WebAudio 8-bit synth. Free for commercial use with credit.`}
+                        ? `+45 componentes, ${ALL_PIXEL_ICON_NAMES.length} iconos 16x16, graficas, consolas 3D, paleta de comandos y sintetizador WebAudio 8-bit. Libre para uso comercial con credito.`
+                        : `45+ components, ${ALL_PIXEL_ICON_NAMES.length} 16x16 icons, charts, 3D consoles, a command palette & WebAudio 8-bit synth. Free for commercial use with credit.`}
                     </p>
                   </div>
                 </div>
@@ -1900,8 +2133,12 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                       >
                         {/* Below the fold: lazy also keeps it out of the <head> preloads React adds for eager images */}
                         <img
-                          src={art.thumb}
-                          alt={lang === "es" ? art.title_es : art.title_en}
+                          src={lang === "es" ? art.thumb : (art.thumb_en ?? art.thumb)}
+                          alt={
+                            lang === "es"
+                              ? art.title_es
+                              : (SPANISH_COVER_ALT_EN[art.thumb] ?? art.title_en)
+                          }
                           loading="lazy"
                           decoding="async"
                           className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
@@ -2155,6 +2392,18 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             >
               {/* Left 7 Cols: Multi-Series Pixel Telemetry Chart + Donut Gauges */}
               <div className="lg:col-span-7 space-y-4">
+                {/* The plot never shrinks below 1:1, so narrow phones pan it
+                    sideways: the hint is the chart card's top strip there */}
+                <div>
+                <PixelSwipeHint
+                  hideFrom="sm"
+                  className="border-x-2 border-t-2 shadow-[5px_5px_0_#040508] text-center"
+                  label={
+                    lang === "es"
+                      ? "Desliza para ver los 4 benchmarks"
+                      : "Swipe to see all 4 benchmarks"
+                  }
+                />
                 <PixelMultiLineChart
                   title={
                     lang === "es"
@@ -2188,6 +2437,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   // One decimal, as in the official table (65.2% next to 69.0%, not 69%)
                   formatValue={(v) => `${v.toFixed(1)}%`}
                 />
+                </div>
 
                 {/* Labels wrap instead of truncating ("TERMINAL-BE…") in the 3-column row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">
@@ -2318,11 +2568,12 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                       : "SECTION 02 · FROM COMMENT TO CODE"}
                   </span>
                 </div>
-                <h2 className="font-display text-xl sm:text-2xl font-black text-white">
+                {/* Banner text, not a heading: the article <h1> below is the first heading */}
+                <p className="font-display text-xl sm:text-2xl font-black text-white">
                   {lang === "es"
                     ? "Retos y Preguntas de la Comunidad Convertidos en Software 3D Real"
                     : "Community Questions & Challenges Turned Into Live 3D Software"}
-                </h2>
+                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
@@ -2423,20 +2674,23 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 </div>
 
                 <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {(["A", "B", "C"] as const).map((variant) => (
-                    <img
-                      key={variant}
-                      src={`/brand/thumbs/cc01_thumb_${variant}.jpg`}
-                      alt={
-                        lang === "es"
-                          ? `Miniatura ${variant} OVERFIT`
-                          : `OVERFIT thumbnail ${variant}`
-                      }
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
-                    />
-                  ))}
+                  {(["A", "B", "C"] as const).map((variant) => {
+                    const src = `/brand/thumbs/cc01_thumb_${variant}.jpg`;
+                    return (
+                      <img
+                        key={variant}
+                        src={src}
+                        alt={
+                          lang === "es"
+                            ? `Miniatura ${variant} OVERFIT`
+                            : (SPANISH_COVER_ALT_EN[src] ?? `OVERFIT thumbnail ${variant}`)
+                        }
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2491,6 +2745,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
          ===================================================================== */}
       {mainView === "arena" && (
         <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 py-6">
+          {/* The view's title for heading navigation (no visible title here) */}
+          <h1 className="sr-only">{currentViewName}</h1>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
             <div className="p-3 shadow-[6px_6px_0_#040508] bg-[#111622] border-2 border-[#A855F7]/40 flex flex-wrap items-center justify-between gap-3">
               <div
@@ -2609,6 +2865,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
          ===================================================================== */}
       {mainView === "foro" && (
         <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 py-6">
+          {/* Forum or glossary title above the sections' own h2s */}
+          <h1 className="sr-only">{currentViewName}</h1>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
             <PixelTabs
               ariaLabel={lang === "es" ? "Foro y glosario" : "Forum & glossary"}
@@ -2680,24 +2938,33 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                         }
                         className="w-full pl-10 pr-4 py-2 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] text-xs text-white placeholder:text-[#94A3B8]"
                       />
+                      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+                        {glossaryStatus}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filteredGlossary.map((g) => (
-                      <div
-                        key={g.term}
-                        className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] hover:border-[#00E5FF]/40 transition"
-                      >
-                        <div className="font-mono-hud text-xs font-bold text-[#00E5FF] mb-1">
-                          {glossaryTerm(g)}
+                  {glossaryCount > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {filteredGlossary.map((g) => (
+                        <div
+                          key={g.term}
+                          className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] hover:border-[#00E5FF]/40 transition"
+                        >
+                          <div className="font-mono-hud text-xs font-bold text-[#00E5FF] mb-1">
+                            {glossaryTerm(g)}
+                          </div>
+                          <p className="text-xs text-[#F5F2EB]/90 leading-relaxed">
+                            {glossaryPlain(g)}
+                          </p>
                         </div>
-                        <p className="text-xs text-[#F5F2EB]/90 leading-relaxed">
-                          {glossaryPlain(g)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] font-mono-hud text-xs text-[#CBD5E1] break-words">
+                      {glossaryNoResults}
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
@@ -2812,6 +3079,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             : "Search sections, episodes, demos, settings or terms..."
         }
         emptyLabel={es ? "Sin resultados. Prueba con otra palabra." : "No results. Try another word."}
+        resultsLabel={PALETTE_RESULTS_LABEL[lang]}
         footerHint={
           es
             ? "↑↓ navegar · ENTER abrir · ESC cerrar"
@@ -2843,15 +3111,13 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       >
         <div className="space-y-6 font-mono-hud text-xs">
           <section className="space-y-2">
-            <h3 className="font-pixel text-[11px] text-[#FFD100]">
-              {es ? "SONIDO 8-BIT" : "8-BIT SOUND"}
-            </h3>
+            {/* Named by its purpose: on/off is the switch state (aria-checked + knob) */}
             <PixelToggle
               checked={sfxEnabled}
               onChange={(next) => {
                 if (next !== sfxEnabled) toggleSfx();
               }}
-              label={sfxEnabled ? (es ? "Activado" : "On") : es ? "Silenciado" : "Muted"}
+              label={es ? "Sonido 8-bit" : "8-bit sound"}
             />
           </section>
 
@@ -2941,8 +3207,16 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
           </section>
         </div>
       </PixelDrawer>
+      {/* View switches: the new view's name (a new node per switch, so a
+          repeated name is read again) */}
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {viewSwitch.id > 0 && <span key={viewSwitch.id}>{viewSwitch.name}</span>}
+      </p>
       <PixelToaster />
-      <PixelBackToTop label={es ? "Volver arriba" : "Back to top"} />
+      <PixelBackToTop
+        label={es ? "Volver arriba" : "Back to top"}
+        focusTargetId="contenido"
+      />
     </div>
   );
 }

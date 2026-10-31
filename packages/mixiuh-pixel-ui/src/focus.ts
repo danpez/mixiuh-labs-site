@@ -1,5 +1,6 @@
 /* ============================================================================
-   FOCUS & MODAL HELPERS (INTERNAL): TAB STOPS, FOCUS MOVES, SCROLL LOCK
+   FOCUS & MODAL HELPERS (INTERNAL): TAB STOPS, FOCUS MOVES, MODAL STACK,
+   SCROLL LOCK
    Shared by PixelDrawer, PixelPopover, PixelContextMenu, PixelCommandPalette
    and usePixelDialog. Not exported from index.ts.
    ============================================================================ */
@@ -115,6 +116,43 @@ export function finishVisibilityTransitions(root: Element): void {
     if (pending.length === 0) return;
     pending.forEach((animation) => animation.finish());
   }
+}
+
+/** A modal panel, held by its ref: the stack reads the element when asked. */
+export interface ModalLayer {
+  readonly current: HTMLElement | null;
+}
+
+/** Open modal layers (drawers, dialogs, the command palette), newest last. */
+const modalLayers: ModalLayer[] = [];
+
+/**
+ * Puts a modal layer on top of the open ones until the returned function
+ * runs. Only the top layer answers Escape and keeps Tab inside, so nested
+ * modals (a dialog opened from a drawer, a drawer from a dialog, the palette
+ * over either) leave every key to the one in front, whatever order their
+ * listeners run in. Layers may close in any order.
+ */
+export function pushModalLayer(layer: ModalLayer): () => void {
+  modalLayers.push(layer);
+  let removed = false;
+  return () => {
+    // A second call must not remove another registration of the same layer
+    if (removed) return;
+    removed = true;
+    const index = modalLayers.lastIndexOf(layer);
+    if (index >= 0) modalLayers.splice(index, 1);
+  };
+}
+
+/** True when `layer` is the newest open modal layer. */
+export function isTopModalLayer(layer: ModalLayer): boolean {
+  return modalLayers[modalLayers.length - 1] === layer;
+}
+
+/** True when `node` is inside the panel of an open modal layer. */
+export function isInModalLayer(node: Node): boolean {
+  return modalLayers.some((layer) => !!layer.current?.contains(node));
 }
 
 let scrollLocks = 0;

@@ -19,6 +19,7 @@ import {
   finishVisibilityTransitions,
   getPanelStops,
   getTabbables,
+  isInModalLayer,
 } from "./focus";
 
 /* ============================================================================
@@ -70,6 +71,11 @@ export interface PixelFloatingResult {
    * an arrow keeps pointing at the anchor after clamping. 0 until measured.
    */
   arrowOffset: number;
+  /**
+   * True when the viewport clamp left the element over its own anchor (no
+   * room on either side). False until measured.
+   */
+  overlapsAnchor: boolean;
 }
 
 interface FloatingPosition {
@@ -77,6 +83,7 @@ interface FloatingPosition {
   left: number;
   placement: PixelPlacement;
   arrowOffset: number;
+  overlapsAnchor: boolean;
 }
 
 const VIEWPORT_MARGIN = 8;
@@ -134,24 +141,41 @@ function computeFloatingPosition(
   else if (placement === "left") left = anchor.left - offset - width;
   else left = anchor.right + offset;
 
-  // Stay on screen; anything larger than the viewport sticks to the top/left
-  left = Math.round(clamp(left, VIEWPORT_MARGIN, vw - VIEWPORT_MARGIN - width));
-  top = Math.round(clamp(top, VIEWPORT_MARGIN, vh - VIEWPORT_MARGIN - height));
+  // Stay on screen; anything larger than the viewport sticks to the top/left.
+  // Not along an axis the anchor has scrolled completely out of view on: the
+  // element then leaves with its anchor instead of staying pinned to the edge
+  // (over a sticky header, say). The other axis keeps its clamp.
+  const anchorOutX = anchor.right < 0 || anchor.left > vw;
+  const anchorOutY = anchor.bottom < 0 || anchor.top > vh;
+  if (!anchorOutX) {
+    left = clamp(left, VIEWPORT_MARGIN, vw - VIEWPORT_MARGIN - width);
+  }
+  if (!anchorOutY) {
+    top = clamp(top, VIEWPORT_MARGIN, vh - VIEWPORT_MARGIN - height);
+  }
+  left = Math.round(left);
+  top = Math.round(top);
+  const overlapsAnchor =
+    left < anchor.right &&
+    left + width > anchor.left &&
+    top < anchor.bottom &&
+    top + height > anchor.top;
 
   const arrowOffset = Math.round(
     placement === "top" || placement === "bottom"
       ? clamp(centerX - left, ARROW_INSET, width - ARROW_INSET)
       : clamp(centerY - top, ARROW_INSET, height - ARROW_INSET)
   );
-  return { top, left, placement, arrowOffset };
+  return { top, left, placement, arrowOffset, overlapsAnchor };
 }
 
 /**
  * Places a `position: fixed` (usually portaled) element next to its anchor:
  * flips to the opposite side when the preferred one has no room, clamps to the
- * viewport with an 8px margin and follows resize, scroll and size changes
- * while `open`. Mount the floating element in the same render that opens it
- * and spread `style` on it.
+ * viewport with an 8px margin (except along an axis the anchor has scrolled
+ * out of view on, so the element scrolls away with it) and follows resize,
+ * scroll and size changes while `open`. Mount the floating element in the
+ * same render that opens it and spread `style` on it.
  */
 export function usePixelFloating(
   anchorRef: React.RefObject<HTMLElement | null>,
@@ -188,7 +212,8 @@ export function usePixelFloating(
         prev.top === next.top &&
         prev.left === next.left &&
         prev.placement === next.placement &&
-        prev.arrowOffset === next.arrowOffset
+        prev.arrowOffset === next.arrowOffset &&
+        prev.overlapsAnchor === next.overlapsAnchor
           ? prev
           : next
       );
@@ -221,12 +246,18 @@ export function usePixelFloating(
   }, [open, placement, offset, anchorRef, floatingRef]);
 
   if (!open || !position) {
-    return { style: HIDDEN_FLOATING_STYLE, placement, arrowOffset: 0 };
+    return {
+      style: HIDDEN_FLOATING_STYLE,
+      placement,
+      arrowOffset: 0,
+      overlapsAnchor: false,
+    };
   }
   return {
     style: { position: "fixed", top: position.top, left: position.left },
     placement: position.placement,
     arrowOffset: position.arrowOffset,
+    overlapsAnchor: position.overlapsAnchor,
   };
 }
 
@@ -249,9 +280,21 @@ export interface PixelTooltipProps {
   tone?: PixelTone;
   /** Keep the child but never show the tooltip. */
   disabled?: boolean;
+  /**
+   * Classes of the wrapper span around the child (default "inline-flex").
+   * They replace the default, e.g. "hidden sm:inline-flex" when the child is
+   * hidden on phones, so the empty wrapper leaves no gap in a flex row.
+   */
+  className?: string;
 }
 
 type DescribableProps = { "aria-describedby"?: string };
+
+/**
+ * Ms a hover tooltip stays up after the pointer leaves the anchor or the
+ * tooltip, so the pointer can cross the gap between them (WCAG 1.4.13).
+ */
+const TOOLTIP_HIDE_DELAY = 120;
 
 /** 8x6px notch poking out of the edge that faces the anchor. */
 const NOTCH_CLASS: Record<PixelPlacement, string> = {
@@ -272,8 +315,10 @@ function isKeyboardFocus(target: EventTarget): boolean {
 }
 
 /**
- * Hint shown on hover (after `delay`) or keyboard focus. Escape hides it
- * wherever focus is, so a hover-only tooltip can be dismissed too.
+ * Hint shown on hover (after `delay`) or keyboard focus. The pointer can move
+ * onto it without it closing (unless no room left it over its own anchor:
+ * then clicks pass through to the anchor), and Escape hides it wherever focus
+ * is, so a hover-only tooltip can be dismissed too.
  */
 export function PixelTooltip({
   content,
@@ -282,11 +327,13 @@ export function PixelTooltip({
   delay = 300,
   tone = "chalk",
   disabled = false,
+  className = "inline-flex",
 }: PixelTooltipProps) {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [focusOpen, setFocusOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  // Pending hover show (after `delay`) or hide (after TOOLTIP_HIDE_DELAY)
   const timerRef = useRef<number | undefined>(undefined);
   // Last Escape that dismissed the tooltip (seen first, in the capture phase)
   const escapeRef = useRef<KeyboardEvent | null>(null);
@@ -319,6 +366,16 @@ export function PixelTooltip({
     setFocusOpen(false);
   }, [cancelHover]);
 
+  // The pointer left the anchor or the tooltip: entering either one again
+  // before the delay runs out (cancelHover) keeps it open
+  const hideHoverSoon = useCallback(() => {
+    cancelHover();
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = undefined;
+      setHoverOpen(false);
+    }, TOOLTIP_HIDE_DELAY);
+  }, [cancelHover]);
+
   // Escape dismisses it wherever focus is, also after a plain hover (WCAG
   // 1.4.13). The key still reaches the focused element afterwards.
   useEffect(() => {
@@ -349,7 +406,7 @@ export function PixelTooltip({
     <>
       <span
         ref={anchorRef}
-        className="inline-flex"
+        className={className}
         onPointerEnter={(e) => {
           // Skip touch, and events bubbling from portals the child renders
           if (
@@ -359,6 +416,7 @@ export function PixelTooltip({
           ) {
             return;
           }
+          // Also cancels a pending hide: back from the tooltip, it stays open
           cancelHover();
           timerRef.current = window.setTimeout(
             () => setHoverOpen(true),
@@ -367,8 +425,7 @@ export function PixelTooltip({
         }}
         onPointerLeave={(e) => {
           if (e.pointerType === "touch") return;
-          cancelHover();
-          setHoverOpen(false);
+          hideHoverSoon();
         }}
         onPointerDown={hide}
         onFocus={(e) => {
@@ -400,9 +457,17 @@ export function PixelTooltip({
             role="tooltip"
             data-placement={floating.placement}
             style={floating.style}
+            // Hoverable (WCAG 1.4.13): the pointer can rest on it
+            onPointerEnter={(e) => {
+              if (e.pointerType !== "touch") cancelHover();
+            }}
+            onPointerLeave={(e) => {
+              if (e.pointerType !== "touch") hideHoverSoon();
+            }}
             // w-max: its width must not depend on `left`, or content growing
-            // near the right edge wraps and creeps back 8px per frame
-            className={`pointer-events-none z-[99] w-max max-w-[min(16rem,calc(100vw-16px))] px-2 py-1 font-pixel text-[10px] leading-snug break-words border-2 ${edge} shadow-[3px_3px_0_#040508] ${t.bg} ${t.text}`}
+            // near the right edge wraps and creeps back 8px per frame. Pushed
+            // over its anchor (narrow screens), clicks go through to the anchor.
+            className={`${floating.overlapsAnchor ? "pointer-events-none " : ""}z-[99] w-max max-w-[min(16rem,calc(100vw-16px))] px-2 py-1 font-pixel text-[10px] leading-snug break-words border-2 ${edge} shadow-[3px_3px_0_#040508] ${t.bg} ${t.text}`}
           >
             {content}
             <span
@@ -677,7 +742,10 @@ export function PixelPopover({
   };
 
   const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.defaultPrevented || e.nativeEvent.isComposing) return;
+    // Keys from a modal opened inside the popover (a dialog rendered in its children reaches it through React bubbling) belong to that modal
+    if (e.defaultPrevented || e.nativeEvent.isComposing || (e.target instanceof Node && isInModalLayer(e.target))) {
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();

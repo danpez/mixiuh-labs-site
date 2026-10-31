@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { CHALLENGES } from "@/data/labsData";
 import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES, EP03_HONESTY_NOTES } from "@/data/ep03Data";
@@ -45,6 +46,27 @@ export interface DossierViewProps {
 const ep04OkRuns = (tier: "haiku" | "sonnet" | "opus") =>
   `${EP04_CHALLENGES.filter((c) => c[tier].status === "ok").length}/${EP04_CHALLENGES.length} OK`;
 
+/*
+ * Phones (below sm) swipe the comparison tables sideways. There the "#" column
+ * is hidden and the challenge-name column stays pinned at the left, narrow and
+ * opaque (its background follows the row's hover and selection), so every value
+ * keeps its row label and two value columns fit beside it. Value columns snap to
+ * the pinned column's edge. From sm up the tables are unchanged.
+ */
+/** Table: tighter cell padding on phones. */
+const PIN_TABLE = "max-sm:[&_th]:px-3 max-sm:[&_td]:px-3";
+/** Scroller: snaps value columns to the right edge of the 120px pinned column. */
+const PIN_SCROLLER = "overflow-x-auto max-sm:snap-x max-sm:scroll-pl-30";
+/** Pinned name cell of the dark header and footer rows. */
+const PIN_BAR_CELL = "max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-30 max-sm:min-w-30 max-sm:bg-[#090B10]";
+/** Pinned name cell of a body row (whose <tr> has `group/row`). */
+const pinCell = (selected = false) =>
+  `max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-30 max-sm:min-w-30 transition ${
+    selected ? "max-sm:bg-[#1A2132]" : "max-sm:bg-[#111622] max-sm:group-hover/row:bg-[#1A2132]"
+  }`;
+/** Header cell of a value column: a snap point. */
+const SNAP_COL = "max-sm:snap-start";
+
 /**
  * Videos / Labs view: the EP04 to EP01 dossiers, their tables and demo
  * comparators. Loaded on demand, so the episode datasets stay off the home page.
@@ -75,6 +97,21 @@ export default function DossierView({
   /** "p" (pasos) is the Spanish shorthand for agent steps in the EP03 figures. */
   const stepsUnit = lang === "es" ? "p" : " steps";
 
+  // The EP04 "Ejecutar Demo" buttons unmount with the 3-way composite they sit
+  // in, so focus moves into the demo pane that replaces it instead of <body>.
+  // The pane is then scrolled to its top (below the sticky header, via the
+  // page's scroll-padding): focus() alone can leave its title bar under the
+  // header on short phones.
+  const ep04DemoPaneRef = useRef<HTMLDivElement>(null);
+  const launchEp04Demo = (tier: "haiku" | "sonnet" | "opus") => {
+    setEp04Mode(tier);
+    requestAnimationFrame(() => {
+      const pane = ep04DemoPaneRef.current;
+      pane?.focus({ preventScroll: true });
+      pane?.scrollIntoView({ block: "start" });
+    });
+  };
+
   const isEp02 = dossierEp === "ep02";
 
   return (
@@ -94,11 +131,12 @@ export default function DossierView({
                 : "SECTION 01 · EMPIRICAL VIDEOS & LABS"}
             </span>
           </div>
-          <h1 className="font-display text-xl sm:text-2xl font-black text-white">
+          {/* Banner text, not a heading: each episode's title below is the view's <h1> */}
+          <p className="font-display text-xl sm:text-2xl font-black text-white">
             {lang === "es"
               ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP04)"
               : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP04)"}
-          </h1>
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
@@ -202,7 +240,8 @@ export default function DossierView({
                 <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#10B981] text-[#090B10] font-bold">
                   DISK 03
                 </span>
-                <span className="text-[#FFD100]">4-2 · 276m vs 302m</span>
+                {/* "min", not "m": the pixel font has no lowercase, and "M" reads as millions */}
+                <span className="text-[#FFD100]">4-2 · 276&nbsp;min vs 302&nbsp;min</span>
               </div>
               <div className="font-display text-sm font-black text-white mt-2 truncate">
                 {lang === "es"
@@ -253,7 +292,7 @@ export default function DossierView({
               <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#F5F2EB] text-[#090B10] font-bold">
                 DISK 01
               </span>
-              <span className="text-[#94A3B8]">10-0 · 55m vs 94m</span>
+              <span className="text-[#94A3B8]">10-0 · 55&nbsp;min vs 94&nbsp;min</span>
             </div>
             <div className="font-display text-sm font-black text-white mt-2 truncate">
               Gemini 4 Argon vs. Gemini 3.8 Flash
@@ -300,8 +339,8 @@ export default function DossierView({
 
             <p className="text-sm sm:text-base text-[#94A3B8] leading-relaxed max-w-4xl">
               {lang === "es"
-                ? "Enfrentamos a los 3 niveles de Claude 5.5 en 18 ejecuciones aisladas (6 retos extremos x 3 modelos). Opus 5.5 gano 3 puntos en fisica multicapa y shaders cientificos (Rover Verlet, Bio-Red Tokio GPU y Puente XPBD), Sonnet 5.5 gano 2 puntos en los retos finales (Path Tracer WebGL2 a 29 FPS vs 15 FPS de Opus y Consola Retro CHIP-8 con Pong en vivo mientras Opus olvido ensamblar la ROM), y Haiku 5.5 gano 1 punto historico al construir el Estudio Acido 3D a 61 FPS por solo $0.21 USD (24 veces mas barato que Opus)."
-                : "We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 extreme challenges x 3 models). Opus 5.5 won 3 points on multi-pass physics and scientific shaders (Verlet Rover, Tokyo GPU Bio-Network, and XPBD Bridge), Sonnet 5.5 won 2 points in the final challenges (WebGL2 Path Tracer at 29 FPS vs Opus's 15 FPS and Retro CHIP-8 Console booting live Pong while Opus left a 0-byte ROM), and Haiku 5.5 won 1 historic ROI point by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus)."}
+                ? "Enfrentamos a los 3 niveles de Claude 5.5 en 18 ejecuciones aisladas (6 retos extremos x 3 modelos). Opus 5.5 gano 3 puntos en fisica multicapa y shaders cientificos (Rover Verlet, Bio-Red Tokio GPU y Puente XPBD), Sonnet 5.5 gano 2 puntos en los retos finales (Path Tracer WebGL2 a 22 FPS vs 15 FPS de Opus y Consola Retro CHIP-8 con Pong en vivo mientras Opus olvido ensamblar la ROM), y Haiku 5.5 gano 1 punto historico al construir el Estudio Acido 3D a 61 FPS por solo $0.21 USD (24 veces mas barato que Opus)."
+                : "We pitted all 3 tiers of Claude 5.5 across 18 isolated runs (6 extreme challenges x 3 models). Opus 5.5 won 3 points on multi-pass physics and scientific shaders (Verlet Rover, Tokyo GPU Bio-Network, and XPBD Bridge), Sonnet 5.5 won 2 points in the final challenges (WebGL2 Path Tracer at 22 FPS vs Opus's 15 FPS and Retro CHIP-8 Console booting live Pong while Opus left a 0-byte ROM), and Haiku 5.5 won 1 historic ROI point by building a 61 FPS 3D Acid Studio for $0.21 USD (24x cheaper than Opus)."}
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -465,10 +504,10 @@ export default function DossierView({
                           ? ch4.winner_label_es
                           : ch4.winner_label_en}
                       </div>
-                      <h3 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
+                      <h2 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
                         0{ch4.n}.{" "}
                         {lang === "es" ? ch4.name_es : ch4.name_en}
-                      </h3>
+                      </h2>
                       <p className="text-xs sm:text-sm text-[#94A3B8] mt-1">
                         {lang === "es" ? ch4.sub_es : ch4.sub_en}
                       </p>
@@ -560,7 +599,7 @@ export default function DossierView({
                                 </div>
                               </div>
                               <button
-                                onClick={() => setEp04Mode(t.id)}
+                                onClick={() => launchEp04Demo(t.id)}
                                 className="w-full py-2 font-bold text-[#090B10] hover:brightness-110 transition cursor-pointer"
                                 style={{ backgroundColor: t.col }}
                               >
@@ -577,9 +616,15 @@ export default function DossierView({
                     {(ep04Mode === "haiku" ||
                       ep04Mode === "sonnet" ||
                       ep04Mode === "opus") && (
-                      <div className="space-y-3">
+                      <div
+                        ref={ep04DemoPaneRef}
+                        tabIndex={-1}
+                        role="group"
+                        aria-labelledby="ep04-demo-pane-label"
+                        className="space-y-3 focus:outline-none"
+                      >
                         <div className="flex items-center justify-between font-mono-hud text-xs bg-[#090B10] px-4 py-2.5 shadow-[4px_4px_0_#040508] border border-[#2A344B]">
-                          <span className="text-[#00E5FF] font-bold">
+                          <span id="ep04-demo-pane-label" className="text-[#00E5FF] font-bold">
                             {ep04Mode.toUpperCase()} 5.5 ·{" "}
                             {ch4[ep04Mode].min} min · $
                             {ch4[ep04Mode].usd.toFixed(2)} USD ·{" "}
@@ -602,7 +647,9 @@ export default function DossierView({
                         <iframe
                           allowFullScreen
                           src={ch4[ep04Mode].demoUrl}
-                          title={`${ch4.dir}-${ep04Mode}`}
+                          title={`Claude ${ep04Mode.charAt(0).toUpperCase()}${ep04Mode.slice(1)} 5.5: ${
+                            lang === "es" ? ch4.name_es : ch4.name_en
+                          }`}
                           className="w-full h-[620px] shadow-[4px_4px_0_#040508] border border-[#2A344B] bg-black"
                         />
                       </div>
@@ -707,8 +754,8 @@ export default function DossierView({
 
             <p className="text-sm sm:text-base text-[#94A3B8] leading-relaxed max-w-4xl">
               {lang === "es"
-                ? "Ejecutamos 12 instancias aisladas de `agy --model gemini-4-argon-high --effort high` en 6 sistemas extremos. A diferencia de los modelos del ano pasado, Gemini 4 Argon High sin kit NO entrego codigo roto en ningun reto e incluso gano 2 puntos (Reto 03 Arcade Bullet-Hell con 1,829 proyectiles activos en 51m vs 69m, y Reto 04 Red Zero-Trust 3D en solo 5 pasos de agente por $0.74 USD). Sin embargo, el Mixiuh Superpowers Kit gano 4 a 2 en el global y ahorro 26 minutos totales (276m vs 302m), logrando 70,406 ord/s en la Terminal HFT Zero-GC (6.3x mas rapido y mas barato), compilando el estudio DAG GLSL 10 minutos antes al mismo precio y corrigiendo con el Auto-Debugger MCP el solapamiento de ventanas en MixiuhOS."
-                : "We ran 12 isolated instances of `agy --model gemini-4-argon-high --effort high` across 6 extreme systems. Unlike last year's models, Raw Gemini 4 Argon High shipped zero broken apps and won 2 rounds outright (Ch 03 Bullet-Hell Boss Rush with 1,829 active bullets in 51m vs 69m, and Ch 04 3D Zero-Trust Network in just 5 agent steps for $0.74 USD). However, the Mixiuh Superpowers Kit won 4-2 overall and saved 26 total minutes (276m vs 302m), delivering 70,406 ord/s in the Zero-GC HFT Terminal (6.3x higher throughput, faster and cheaper), compiling the DAG GLSL Studio 10 minutes earlier for the exact same cost, and catching overlapping startup windows in MixiuhOS via the MCP Auto-Debugger."}
+                ? "Ejecutamos 12 instancias aisladas de `agy --model gemini-4-argon-high --effort high` en 6 sistemas extremos. A diferencia de los modelos del ano pasado, Gemini 4 Argon High sin kit NO entrego codigo roto en ningun reto e incluso gano 2 puntos (Reto 03 Arcade Bullet-Hell con 1,829 proyectiles activos en 51m vs 69m, y Reto 04 Red Zero-Trust 3D en solo 5 pasos de agente por $0.74 USD). Sin embargo, el Mixiuh Superpowers Kit gano 4 a 2 en el global y ahorro 26 minutos totales (276m vs 302m), terminando la Terminal HFT Zero-GC mas rapido y mas barato (su HUD marca 70,406 vs 11,073 ord/s, pero esa cifra sale de una formula, no de una medicion), compilando el estudio DAG GLSL 10 minutos antes al mismo precio y corrigiendo con el Auto-Debugger MCP el solapamiento de ventanas en MixiuhOS."
+                : "We ran 12 isolated instances of `agy --model gemini-4-argon-high --effort high` across 6 extreme systems. Unlike last year's models, Raw Gemini 4 Argon High shipped zero broken apps and won 2 rounds outright (Ch 03 Bullet-Hell Boss Rush with 1,829 active bullets in 51m vs 69m, and Ch 04 3D Zero-Trust Network in just 5 agent steps for $0.74 USD). However, the Mixiuh Superpowers Kit won 4-2 overall and saved 26 total minutes (276m vs 302m), finishing the Zero-GC HFT Terminal faster and cheaper (its HUD reads 70,406 vs 11,073 ord/s, but that figure comes from a formula, not a measurement), compiling the DAG GLSL Studio 10 minutes earlier for the exact same cost, and catching overlapping startup windows in MixiuhOS via the MCP Auto-Debugger."}
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -815,35 +862,37 @@ export default function DossierView({
             </div>
 
             <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left border-collapse">
+            <div className={PIN_SCROLLER}>
+              <table className={`w-full min-w-[620px] sm:min-w-[860px] text-left border-collapse ${PIN_TABLE}`}>
                 <thead>
                   <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
-                    <th className="py-3.5 px-4">#</th>
-                    <th className="py-3.5 px-4">
-                      {lang === "es"
-                        ? "Reto y Skill Evaluado"
-                        : "Challenge & Evaluated Skill"}
+                    <th className="py-3.5 px-4 hidden sm:table-cell">#</th>
+                    {/* The focus line under each name shows from sm up, and so does its header word */}
+                    <th className={`py-3.5 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "Reto" : "Challenge"}
+                      <span className="hidden sm:inline">
+                        {lang === "es" ? " y enfoque" : " & focus"}
+                      </span>
                     </th>
-                    <th className="py-3.5 px-4 text-[#FFD100]">
+                    <th className={`py-3.5 px-4 text-[#FFD100] ${SNAP_COL}`}>
                       {lang === "es"
                         ? "IA Sin Kit (Reloj / Loc / FPS)"
                         : "Raw AI (Clock / Loc / FPS)"}
                     </th>
-                    <th className="py-3.5 px-4 text-[#FFD100]">
+                    <th className={`py-3.5 px-4 text-[#FFD100] ${SNAP_COL}`}>
                       {lang === "es"
                         ? "Sin Kit Tokens / USD"
                         : "Raw Tokens / USD"}
                     </th>
-                    <th className="py-3.5 px-4 text-[#10B981]">
+                    <th className={`py-3.5 px-4 text-[#10B981] ${SNAP_COL}`}>
                       {lang === "es"
                         ? "Superpowers Kit (Reloj / Loc / FPS)"
                         : "Superpowers Kit (Clock / Loc / FPS)"}
                     </th>
-                    <th className="py-3.5 px-4 text-[#10B981]">
+                    <th className={`py-3.5 px-4 text-[#10B981] ${SNAP_COL}`}>
                       Superkit Tokens / USD
                     </th>
-                    <th className="py-3.5 px-4">
+                    <th className={`py-3.5 px-4 ${SNAP_COL}`}>
                       {lang === "es" ? "Ganador" : "Winner"}
                     </th>
                   </tr>
@@ -853,18 +902,18 @@ export default function DossierView({
                     <tr
                       key={ch.n}
                       onClick={() => setEp03ChallengeN(ch.n)}
-                      className={`hover:bg-[#1A2132] transition cursor-pointer ${
+                      className={`group/row hover:bg-[#1A2132] transition cursor-pointer ${
                         ep03ChallengeN === ch.n ? "bg-[#1A2132]" : ""
                       }`}
                     >
-                      <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF]">
+                      <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF] hidden sm:table-cell">
                         0{ch.n}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className={`py-3.5 px-4 ${pinCell(ep03ChallengeN === ch.n)}`}>
                         <div className="font-bold text-white">
                           {lang === "es" ? ch.name_es : ch.name_en}
                         </div>
-                        <div className="text-xs text-[#10B981] font-mono-hud">
+                        <div className="hidden sm:block text-xs text-[#10B981] font-mono-hud">
                           {ch.skill}
                         </div>
                       </td>
@@ -924,8 +973,10 @@ export default function DossierView({
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#090B10] border-t-2 border-[#10B981]/40 font-mono-hud text-xs font-bold">
-                    <td className="py-4 px-4 text-[#00E5FF]">TOTAL</td>
-                    <td className="py-4 px-4 text-white">
+                    <td className="py-4 px-4 text-[#00E5FF] hidden sm:table-cell">TOTAL</td>
+                    <td className={`py-4 px-4 text-white ${PIN_BAR_CELL}`}>
+                      {/* The "#" column holds TOTAL from sm up */}
+                      <span className="block sm:hidden text-[#00E5FF]">TOTAL</span>
                       {lang === "es"
                         ? "6 Retos Extremos (12 Corridas Reales agy CLI)"
                         : "6 Extreme Challenges (12 Real agy CLI Runs)"}
@@ -978,7 +1029,7 @@ export default function DossierView({
                       <span
                         className={`px-1.5 py-0.5 font-bold ${
                           ch.winner === "superkit"
-                            ? "bg-[#10B981]/20 text-[#10B981]"
+                            ? "bg-[#10B981]/15 text-[#10B981]"
                             : "bg-[#FFD100]/20 text-[#FFD100]"
                         }`}
                       >
@@ -1002,6 +1053,7 @@ export default function DossierView({
                 EP03_CHALLENGES[0];
               const vanillaUrl = `/demos/ia-sin-kit/${cur.dir}/index.html`;
               const superkitUrl = `/demos/ia-superpowers-kit/${cur.dir}/index.html`;
+              const curName = lang === "es" ? cur.name_es : cur.name_en;
               return (
                 <div className="bg-[#090B10] border-2 border-[#10B981]/50 overflow-hidden shadow-[6px_6px_0_#040508]">
                   <div className="p-4 sm:p-5 bg-[#1A2132] border-b border-[#2A344B] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -1021,10 +1073,9 @@ export default function DossierView({
                           tok)
                         </span>
                       </div>
-                      <h3 className="font-display text-lg sm:text-xl font-black text-white">
-                        0{cur.n}.{" "}
-                        {lang === "es" ? cur.name_es : cur.name_en}
-                      </h3>
+                      <h2 className="font-display text-lg sm:text-xl font-black text-white">
+                        0{cur.n}. {curName}
+                      </h2>
                       <p className="text-xs text-[#94A3B8] max-w-3xl">
                         {lang === "es" ? cur.verdict_es : cur.verdict_en}
                       </p>
@@ -1054,9 +1105,10 @@ export default function DossierView({
                       <div className="flex flex-col">
                         <div className="px-3 py-2 bg-[#111622] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                           <span className="text-[#FFD100] font-bold">
+                            {/* No left/right words: the columns stack below lg */}
                             {lang === "es"
-                              ? "IZQUIERDA · GEMINI 4 ARGON HIGH SIN KIT —"
-                              : "LEFT · GEMINI 4 ARGON HIGH RAW —"}{" "}
+                              ? "GEMINI 4 ARGON HIGH SIN KIT —"
+                              : "GEMINI 4 ARGON HIGH RAW —"}{" "}
                             {fpsNote(cur.vanilla_fps, cur.vanilla_fps_en)}
                           </span>
                           <div className="flex items-center gap-3">
@@ -1081,7 +1133,7 @@ export default function DossierView({
                         <iframe
                           allowFullScreen
                           src={vanillaUrl}
-                          title={`Raw AI ${cur.dir}`}
+                          title={`${lang === "es" ? "IA sin kit" : "Raw AI"}: ${curName}`}
                           className="w-full h-[540px] border-0 bg-[#090B10]"
                         />
                       </div>
@@ -1089,8 +1141,8 @@ export default function DossierView({
                         <div className="px-3 py-2 bg-[#111622] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                           <span className="text-[#10B981] font-bold">
                             {lang === "es"
-                              ? "DERECHA · IA + MIXIUH SUPERPOWERS KIT —"
-                              : "RIGHT · AI + MIXIUH SUPERPOWERS KIT —"}{" "}
+                              ? "IA + MIXIUH SUPERPOWERS KIT —"
+                              : "AI + MIXIUH SUPERPOWERS KIT —"}{" "}
                             {fpsNote(cur.superkit_fps, cur.superkit_fps_en)}
                           </span>
                           <div className="flex items-center gap-3">
@@ -1115,7 +1167,7 @@ export default function DossierView({
                         <iframe
                           allowFullScreen
                           src={superkitUrl}
-                          title={`Superkit ${cur.dir}`}
+                          title={`${lang === "es" ? "IA + Superpowers Kit" : "AI + Superpowers Kit"}: ${curName}`}
                           className="w-full h-[540px] border-0 bg-[#090B10]"
                         />
                       </div>
@@ -1129,7 +1181,11 @@ export default function DossierView({
                       src={
                         ep03Mode === "superkit" ? superkitUrl : vanillaUrl
                       }
-                      title={`EP03 ${ep03Mode} ${cur.dir}`}
+                      title={`${
+                        ep03Mode === "superkit"
+                          ? lang === "es" ? "IA + Superpowers Kit" : "AI + Superpowers Kit"
+                          : lang === "es" ? "IA sin kit" : "Raw AI"
+                      }: ${curName}`}
                       className="w-full h-[640px] border-0 bg-[#090B10]"
                     />
                   )}
@@ -1384,7 +1440,7 @@ export default function DossierView({
 
             {/* Right Video Preview */}
             <div className="lg:col-span-5 bg-[#111622] border-2 border-[#00E5FF]/30 overflow-hidden shadow-[6px_6px_0_#040508]">
-              <div className="p-3 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between">
+              <div className="p-3 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
                 <div
                   role="group"
                   aria-label={lang === "es" ? "Clip de video" : "Video clip"}
@@ -1415,6 +1471,7 @@ export default function DossierView({
                 </div>
                 <span className="font-mono-hud text-xs text-[#00E5FF]">
                   {isEp02 ? "EP02 · 4K60" : "EP01 · 4K60"}
+                  {lang === "en" && " · Spanish audio"}
                 </span>
               </div>
               <div className="relative bg-black aspect-video">
@@ -1453,6 +1510,21 @@ export default function DossierView({
                   />
                 </video>
               </div>
+              {/* The clips exist only in Spanish: point English visitors to the English cut */}
+              {lang === "en" && (
+                <div className="px-3 py-2.5 bg-[#1A2132] border-t border-[#2A344B] font-mono-hud text-xs">
+                  <a
+                    href={isEp02 ? YOUTUBE_LINKS.ep02_en : YOUTUBE_LINKS.ep01_en}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#00E5FF] hover:text-white inline-flex items-center gap-1.5"
+                  >
+                    <PixelIcon name="play" size={12} />
+                    <span>Watch in English on YouTube</span>
+                    <PixelIcon name="external" size={12} />
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1470,28 +1542,32 @@ export default function DossierView({
               </h2>
             </div>
             <PixelSwipeHint label={lang === "es" ? "Desliza para ver todas las columnas" : "Swipe to see every column"} />
-            <div className="overflow-x-auto">
+            <div className={PIN_SCROLLER}>
               {isEp02 ? (
-                <table className="w-full min-w-[860px] text-left border-collapse">
+                <table className={`w-full min-w-[600px] sm:min-w-[860px] text-left border-collapse ${PIN_TABLE}`}>
                   <thead>
                     <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
-                      <th className="py-3.5 px-4">#</th>
-                      <th className="py-3.5 px-4">
-                        {lang === "es" ? "Reto y Stack" : "Challenge & Stack"}
+                      <th className="py-3.5 px-4 hidden sm:table-cell">#</th>
+                      {/* The stack line under each name shows from sm up, and so does its header word */}
+                      <th className={`py-3.5 px-4 ${PIN_BAR_CELL}`}>
+                        {lang === "es" ? "Reto" : "Challenge"}
+                        <span className="hidden sm:inline">
+                          {lang === "es" ? " y Stack" : " & Stack"}
+                        </span>
                       </th>
-                      <th className="py-3.5 px-4 text-[#FFD100]">
+                      <th className={`py-3.5 px-4 text-[#FFD100] ${SNAP_COL}`}>
                         Claude Opus 5.5
                       </th>
-                      <th className="py-3.5 px-4 text-[#FFD100]">
+                      <th className={`py-3.5 px-4 text-[#FFD100] ${SNAP_COL}`}>
                         Opus Tokens / USD
                       </th>
-                      <th className="py-3.5 px-4 text-[#C084FC]">
+                      <th className={`py-3.5 px-4 text-[#C084FC] ${SNAP_COL}`}>
                         Gemini 4 Argon
                       </th>
-                      <th className="py-3.5 px-4 text-[#C084FC]">
+                      <th className={`py-3.5 px-4 text-[#C084FC] ${SNAP_COL}`}>
                         Argon Tokens / USD
                       </th>
-                      <th className="py-3.5 px-4">
+                      <th className={`py-3.5 px-4 ${SNAP_COL}`}>
                         {lang === "es" ? "Ganador" : "Winner"}
                       </th>
                     </tr>
@@ -1501,16 +1577,16 @@ export default function DossierView({
                       <tr
                         key={ch.n}
                         onClick={() => handleJumpToArena("ep02", ch.n)}
-                        className="hover:bg-[#1A2132] transition cursor-pointer"
+                        className="group/row hover:bg-[#1A2132] transition cursor-pointer"
                       >
-                        <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF]">
+                        <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF] hidden sm:table-cell">
                           0{ch.n}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className={`py-3.5 px-4 ${pinCell()}`}>
                           <div className="font-bold text-white">
                             {lang === "es" ? ch.name_es : ch.name_en}
                           </div>
-                          <div className="text-xs text-[#94A3B8]">
+                          <div className="hidden sm:block text-xs text-[#94A3B8]">
                             {lang === "en" ? (ch.tech_en ?? ch.tech) : ch.tech}
                           </div>
                         </td>
@@ -1542,20 +1618,20 @@ export default function DossierView({
                   </tbody>
                 </table>
               ) : (
-                <table className="w-full min-w-[680px] text-left border-collapse">
+                <table className={`w-full min-w-[470px] sm:min-w-[680px] text-left border-collapse ${PIN_TABLE}`}>
                   <thead>
                     <tr className="bg-[#090B10] border-b border-[#2A344B] font-mono-hud text-[11px] uppercase text-[#94A3B8]">
-                      <th className="py-3.5 px-4">#</th>
-                      <th className="py-3.5 px-4">
+                      <th className="py-3.5 px-4 hidden sm:table-cell">#</th>
+                      <th className={`py-3.5 px-4 ${PIN_BAR_CELL}`}>
                         {lang === "es" ? "Reto" : "Challenge"}
                       </th>
-                      <th className="py-3.5 px-4 text-[#FFD100]">
+                      <th className={`py-3.5 px-4 text-[#FFD100] ${SNAP_COL}`}>
                         Gemini 3.8 Flash
                       </th>
-                      <th className="py-3.5 px-4 text-[#C084FC]">
+                      <th className={`py-3.5 px-4 text-[#C084FC] ${SNAP_COL}`}>
                         Gemini 4 Argon
                       </th>
-                      <th className="py-3.5 px-4">
+                      <th className={`py-3.5 px-4 ${SNAP_COL}`}>
                         {lang === "es" ? "Relacion" : "Speed ratio"}
                       </th>
                     </tr>
@@ -1565,12 +1641,12 @@ export default function DossierView({
                       <tr
                         key={ch.n}
                         onClick={() => handleJumpToArena("ep01", ch.n)}
-                        className="hover:bg-[#1A2132] transition cursor-pointer"
+                        className="group/row hover:bg-[#1A2132] transition cursor-pointer"
                       >
-                        <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF]">
+                        <td className="py-3.5 px-4 font-mono-hud font-bold text-[#00E5FF] hidden sm:table-cell">
                           {String(ch.n).padStart(2, "0")}
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-white">
+                        <td className={`py-3.5 px-4 font-bold text-white ${pinCell()}`}>
                           {lang === "es" ? ch.name_es : ch.name_en}
                         </td>
                         <td className="py-3.5 px-4 font-mono-hud text-[#FFD100]">

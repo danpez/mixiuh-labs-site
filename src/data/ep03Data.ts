@@ -1,6 +1,7 @@
 export interface Ep03ChallengeData {
   n: number;
   dir: string;
+  /** The challenge's technical focus. Not a Kit skill number: Kit v1.0 has 5 general skills plus memory. */
   skill: string;
   name_es: string;
   name_en: string;
@@ -59,7 +60,7 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
   {
     n: 1,
     dir: "01-galaxia-nbody",
-    skill: "Skill 01 · High-FPS WebGL & Barnes-Hut Octree",
+    skill: "High-FPS WebGL & Barnes-Hut Octree",
     name_es: "Colision Galactica N-Body 3D",
     name_en: "3D N-Body Galaxy Collision",
     world_es: "MUNDO 01 · ASTROFISICA GPU",
@@ -87,22 +88,24 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     vs_still: "/stills/ep03/ep03_vs_01_galaxia.png",
     timestamp_es: "01:14",
     timestamp_en: "01:21",
-    verdict_es: "Aunque Argon Sin Kit termino 4 minutos antes ($0.88 vs $1.61), limito la escena a 16,384 puntos simples sin post-procesado. El Skill 01 guio la implementacion de 20,000 particulas por GPU Instancing con Bloom HDR, lente gravitacional de Einstein interactiva y sintesis WebAudio.",
-    verdict_en: "While Raw Argon finished 4 minutes earlier ($0.88 vs $1.61), it capped the scene at 16,384 basic points without post-processing. Skill 01 guided a 20,000-star GPU-instanced simulation with HDR Bloom, interactive Einstein gravitational lensing, and WebAudio synthesis.",
+    verdict_es: "Aunque Argon Sin Kit termino 4 minutos antes ($0.88 vs $1.61), limito la escena a 16,384 puntos simples sin post-procesado. El Kit (5 skills + memoria) guio la implementacion de 20,000 particulas por GPU Instancing con Bloom HDR, lente gravitacional de Einstein interactiva y sintesis WebAudio.",
+    verdict_en: "While Raw Argon finished 4 minutes earlier ($0.88 vs $1.61), it capped the scene at 16,384 basic points without post-processing. The Kit (5 skills + memory) guided a 20,000-star GPU-instanced simulation with HDR Bloom, interactive Einstein gravitational lensing, and WebAudio synthesis.",
     prompt_verbatim: `Crea un simulador interactivo 3D de Colision Galactica N-Body (Via Lactea vs Andromeda) en un unico archivo index.html autocontenido. Debe renderizar decenas de miles de estrellas en tiempo real con fisica gravitacional de agujeros negros supermasivos, lente gravitacional de Einstein, post-procesado de brillo (Bloom), telemetria en vivo (FPS, energia cinetica/potencial, radio de marea), presets de colision, camara orbital e inyeccion de agujeros negros con clic.`,
   },
   {
     n: 2,
     dir: "02-terminal-trading",
-    skill: "Skill 02 · Zero-GC Canvas RingBuffer",
+    skill: "Zero-GC Canvas RingBuffer",
     name_es: "Terminal de Trading HFT Zero-GC",
     name_en: "Zero-GC HFT Trading Terminal",
     world_es: "MUNDO 02 · MICROESTRUCTURA FINANCIERA",
     world_en: "WORLD 02 · FINANCIAL MICROSTRUCTURE",
-    tech: "Canvas 2D / WebGL + Float64Array RingBuffer + Motor Matching Limit/Market",
-    tech_en: "Canvas 2D / WebGL + Float64Array RingBuffer + Limit/Market Matching Engine",
-    sub_es: "70,406 ordenes/seg con buffers pre-alocados Float64Array (16 min mas rapido y mas barato) vs 11,073 ordenes/seg sin kit",
-    sub_en: "70,406 orders/sec with pre-allocated Float64Array buffers (16 min faster & cheaper) vs 11,073 orders/sec raw",
+    tech: "Canvas 2D / WebGL + Buffers Float32Array Pre-asignados + Motor Matching Limit/Market",
+    tech_en: "Canvas 2D / WebGL + Pre-allocated Float32Array Buffers + Limit/Market Matching Engine",
+    // ord/s: what each build's HUD shows. Both compute it with a formula of
+    // volatility, OFI and Math.random(); neither counts orders.
+    sub_es: "16 min mas rapido y mas barato, con velas, libro e historial en buffers Float32Array pre-asignados; su HUD marca 70,406 vs 11,073 ord/s sin kit, una formula y no una medicion",
+    sub_en: "16 min faster & cheaper, with candles, order book & history in pre-allocated Float32Array buffers; its HUD reads 70,406 vs 11,073 ord/s raw, a formula rather than a measurement",
     winner: "superkit",
     vanilla_min: 58,
     superkit_min: 42,
@@ -116,19 +119,19 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     superkit_lines: 1219,
     vanilla_kb: 47.7,
     superkit_kb: 49.4,
-    vanilla_fps: "60 FPS (11,073 ord/s)",
-    superkit_fps: "60 FPS (70,406 ord/s)",
+    vanilla_fps: "60 FPS (HUD: 11,073 ord/s)",
+    superkit_fps: "60 FPS (HUD: 70,406 ord/s)",
     vs_still: "/stills/ep03/ep03_vs_02_trading.png",
     timestamp_es: "01:56",
     timestamp_en: "01:58",
-    verdict_es: "Victoria rotunda del Superpowers Kit en tiempo, costo y arquitectura: termino 16 minutos antes (42m vs 58m), costo menos ($1.40 vs $1.60 USD) y proceso 70,406 ordenes/segundo (6.3x mas que las 11,073 ord/s sin kit) gracias al patron RingBuffer en Float64Array.",
-    verdict_en: "Clean sweep for the Superpowers Kit in speed, cost, and throughput: finished 16 minutes faster (42m vs 58m), cost less ($1.40 vs $1.60 USD), and processed 70,406 orders/second (6.3x higher than Raw AI's 11,073 ord/s) thanks to pre-allocated Float64Array ring buffers.",
+    verdict_es: "Victoria rotunda del Superpowers Kit en tiempo, costo y arquitectura: termino 16 minutos antes (42m vs 58m), costo menos ($1.40 vs $1.60 USD) y guardo velas, libro de ordenes e historial en buffers Float32Array pre-asignados. Su HUD marca 70,406 ord/s frente a 11,073 sin kit, pero esa cifra sale de una formula (volatilidad, OFI y Math.random()), no de una medicion.",
+    verdict_en: "Clean sweep for the Superpowers Kit in speed, cost, and architecture: finished 16 minutes faster (42m vs 58m), cost less ($1.40 vs $1.60 USD), and kept candles, the order book and history in pre-allocated Float32Array buffers. Its HUD reads 70,406 ord/s vs Raw AI's 11,073, but that figure comes from a formula (volatility, OFI and Math.random()), not a measurement.",
     prompt_verbatim: `Construye una Terminal de Trading Institucional de Alta Frecuencia (HFT) en un unico archivo index.html. Debe incluir grafico de velas con indicadores EMA/VWAP y bandas de liquidez, mapa de profundidad L2 (Depth Chart), libro de ordenes (Orderbook) de alta velocidad, cinta de ejecuciones (Time & Sales), simulador de algoritmos institucionales (TWAP, Iceberg, Flash Crash, Pump) y panel de ejecucion de ordenes con calculo de PnL y latencia en microsegundos.`,
   },
   {
     n: 3,
     dir: "03-arcade-boss-rush",
-    skill: "Skill 03 · Spatial Hash & Procedural WebAudio",
+    skill: "Spatial Hash & Procedural WebAudio",
     name_es: "Arcade Bullet-Hell Boss Rush",
     name_en: "Bullet-Hell Arcade Boss Rush",
     world_es: "MUNDO 03 · GAME ENGINE & DANMAKU",
@@ -163,7 +166,7 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
   {
     n: 4,
     dir: "04-red-zero-trust",
-    skill: "Skill 04 · Zero-Trust Packet Graph & WAF",
+    skill: "Zero-Trust Packet Graph & WAF",
     name_es: "Red Ciber-Defensa Zero-Trust 3D",
     name_en: "3D Zero-Trust Cyber Defense",
     world_es: "MUNDO 04 · CIBERSEGURIDAD & SOC 3D",
@@ -198,7 +201,7 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
   {
     n: 5,
     dir: "05-motor-nodos-ia",
-    skill: "Skill 05 · Topological DAG & Cycle Guard",
+    skill: "Topological DAG & Cycle Guard",
     name_es: "Motor de Nodos IA + Shaders GLSL (DAG)",
     name_en: "AI Node & GLSL Shader Studio (DAG)",
     world_es: "MUNDO 05 · COMPILADOR GRAFICO DAG",
@@ -369,7 +372,7 @@ export const EP03_HONESTY_NOTES = [
     en: "Why Raw AI won Challenges 03 & 04: In Bullet-Hell Boss Rush (Ch 03), the Kit's conservative particle-budget guardrails capped projectiles at 432 and took 69 min ($2.32), whereas Raw AI unleashed 1,829 simultaneous bullets in 51 min ($1.09). In 3D Zero-Trust (Ch 04), Raw AI finished in just 5 agent steps ($0.74 vs $2.04).",
   },
   {
-    es: "Por que el Superpowers Kit gano 4-2 en el global y ahorro 26 minutos (276m vs 302m): En sistemas con cuellos de botella de memoria (Reto 02 HFT: 70,406 vs 11,073 ord/s, 16 min mas rapido y mas barato), compiladores de grafos (Reto 05 DAG: 33m vs 43m al mismo precio) y gestores multi-ventana (Reto 06 MixiuhOS), los Skills de arquitectura y el Auto-Debugger MCP marcaron una diferencia decisiva.",
-    en: "Why the Superpowers Kit won 4-2 overall and saved 26 minutes (276m vs 302m): In memory-bottlenecked systems (Ch 02 HFT: 70,406 vs 11,073 ord/s, 16 min faster and cheaper), graph compilers (Ch 05 DAG: 33m vs 43m at the exact same cost), and multi-window desktops (Ch 06 MixiuhOS), architectural Skills and the MCP Auto-Debugger made a decisive difference.",
+    es: "Por que el Superpowers Kit gano 4-2 en el global y ahorro 26 minutos (276m vs 302m): En sistemas con cuellos de botella de memoria (Reto 02 HFT: 16 min mas rapido y mas barato, con buffers Float32Array pre-asignados; los 70,406 vs 11,073 ord/s de su HUD salen de una formula, no de una medicion), compiladores de grafos (Reto 05 DAG: 33m vs 43m al mismo precio) y gestores multi-ventana (Reto 06 MixiuhOS), los Skills de arquitectura y el Auto-Debugger MCP marcaron una diferencia decisiva.",
+    en: "Why the Superpowers Kit won 4-2 overall and saved 26 minutes (276m vs 302m): In memory-bottlenecked systems (Ch 02 HFT: 16 min faster and cheaper, with pre-allocated Float32Array buffers; the 70,406 vs 11,073 ord/s on its HUD come from a formula, not a measurement), graph compilers (Ch 05 DAG: 33m vs 43m at the exact same cost), and multi-window desktops (Ch 06 MixiuhOS), architectural Skills and the MCP Auto-Debugger made a decisive difference.",
   },
 ];

@@ -744,9 +744,13 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
       text_en:
         "Carbon simultaneously leads in knowledge work (53.9% AutomationBench, $16,484 on Vending-Bench 2), research mathematics (80.0% RiemannBench), and multimodal understanding (72.5% Chartography).",
     },
-    chart_img: "/stills/noticias/carbon/05_exploitgym.png",
-    chart_title_es: "Grafica Oficial Google DeepMind · ExploitGym (54.8%)",
-    chart_title_en: "Official Google DeepMind Chart · ExploitGym (54.8%)",
+    // Every figure in this chapter (Vending-Bench 2, RiemannBench, Agents' Last
+    // Exam, Chartography) comes from the master table; ExploitGym is chapter 03's.
+    chart_img: "/stills/noticias/carbon/03_evals_table.png",
+    chart_title_es:
+      "Tabla Oficial Google DeepMind · Vending-Bench 2, RiemannBench y Agents' Last Exam",
+    chart_title_en:
+      "Official Google DeepMind Table · Vending-Bench 2, RiemannBench & Agents' Last Exam",
   },
   {
     idx: 7,

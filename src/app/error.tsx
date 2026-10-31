@@ -1,7 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
+
+// A view chunk that could not be downloaded (a redeploy changed the chunk
+// hashes, or the connection dropped). React.lazy and the bundler runtime keep
+// the failed import, so reset() would fail again: only a reload fetches it.
+const isChunkLoadError = (error: Error) =>
+  error.name === "ChunkLoadError" ||
+  /Failed to load chunk|Loading chunk|dynamically imported module/i.test(
+    error.message ?? ""
+  );
+
+// When this page last reloaded itself after a chunk error (sessionStorage)
+const CHUNK_RELOAD_KEY = "mixiuh_chunk_reload";
+
+/**
+ * Whether a chunk error may reload the page by itself: once a minute at most,
+ * and never where the flag cannot be stored (that could loop forever).
+ */
+function claimAutoReload(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY));
+    if (Date.now() - last < 60_000) return false;
+    const now = String(Date.now());
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, now);
+    return sessionStorage.getItem(CHUNK_RELOAD_KEY) === now;
+  } catch {
+    return false;
+  }
+}
 
 export default function Error({
   error,
@@ -10,9 +37,26 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const chunkError = isChunkLoadError(error);
+
   useEffect(() => {
     console.error(error);
-  }, [error]);
+    // The #hash survives the reload, so the visitor lands on the same view.
+    // Offline, it would only swap this screen for the browser's error page.
+    if (chunkError && navigator.onLine && claimAutoReload()) {
+      window.location.reload();
+    }
+  }, [error, chunkError]);
+
+  useEffect(() => {
+    if (!chunkError) return;
+    // Back/forward can restore this screen from the page cache: load it again
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [chunkError]);
 
   return (
     <main className="min-h-screen labs-grid-bg flex items-center justify-center px-4 py-16">
@@ -38,17 +82,21 @@ export default function Error({
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={reset}
+              // A failed chunk only loads again with a reload (it keeps the #hash)
+              onClick={() => (chunkError ? window.location.reload() : reset())}
               className="px-btn bg-[#FFD100] text-[#090B10] px-5 py-3 text-xs sm:text-sm"
             >
               Reintentar / Retry
             </button>
-            <Link
+            {/* A full page load: a client-side <Link> from /#foro to / keeps the
+                pathname, so this boundary would stay on screen */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a
               href="/"
               className="px-btn bg-[#131824] text-[#F5F2EB] px-4 py-3 text-xs sm:text-sm"
             >
-              Volver al inicio
-            </Link>
+              Volver al inicio / Back home
+            </a>
           </div>
         </div>
       </div>

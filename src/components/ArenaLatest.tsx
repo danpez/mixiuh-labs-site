@@ -17,6 +17,7 @@ export interface ArenaLatestProps {
 /**
  * Arena of the newest episodes (EP04, EP03): challenge picker and live demos.
  * Loaded on demand, like the EP02/EP01 arena, so their data stays off the home page.
+ * The Arena view supplies the page's <h1>, so the challenge title here is an <h2>.
  */
 export default function ArenaLatest({
   lang,
@@ -77,14 +78,15 @@ export default function ArenaLatest({
         const haikuUrl = cur.haiku.demoUrl;
         const sonnetUrl = cur.sonnet.demoUrl;
         const opusUrl = cur.opus.demoUrl;
+        const name = lang === "es" ? cur.name_es : cur.name_en;
         return (
           <div className="bg-[#090B10] border-2 border-[#00E5FF] overflow-hidden shadow-[6px_6px_0_#040508]">
             <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-lg font-black text-white">
+                <h2 className="font-display text-lg font-black text-white">
                   {lang === "es" ? "EP04 Reto" : "EP04 Challenge"} 0{cur.n}:{" "}
-                  {lang === "es" ? cur.name_es : cur.name_en}
-                </h3>
+                  {name}
+                </h2>
                 <p className="text-xs text-[#CBD5E1] mt-1">
                   {lang === "es" ? cur.verdict_es : cur.verdict_en}
                 </p>
@@ -103,7 +105,7 @@ export default function ArenaLatest({
               <div className="flex flex-col">
                 <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
                   <span className="font-pixel text-[10px] text-[#10B981] font-bold">
-                    CLAUDE HAIKU 5.5 (${cur.haiku.usd.toFixed(2)} · {cur.haiku.min}m)
+                    CLAUDE HAIKU 5.5 (${cur.haiku.usd.toFixed(2)} · {cur.haiku.min}&nbsp;min)
                   </span>
                   <a
                     href={haikuUrl}
@@ -117,7 +119,7 @@ export default function ArenaLatest({
                 <iframe
                         allowFullScreen
                   src={haikuUrl}
-                  title={`Haiku ${cur.dir}`}
+                  title={`Claude Haiku 5.5: ${name}`}
                   className="w-full h-[520px] border-0 bg-[#090B10]"
                 />
               </div>
@@ -126,7 +128,7 @@ export default function ArenaLatest({
               <div className="flex flex-col">
                 <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
                   <span className="font-pixel text-[10px] text-[#FFD100] font-bold">
-                    CLAUDE SONNET 5.5 (${cur.sonnet.usd.toFixed(2)} · {cur.sonnet.min}m)
+                    CLAUDE SONNET 5.5 (${cur.sonnet.usd.toFixed(2)} · {cur.sonnet.min}&nbsp;min)
                   </span>
                   <a
                     href={sonnetUrl}
@@ -140,7 +142,7 @@ export default function ArenaLatest({
                 <iframe
                         allowFullScreen
                   src={sonnetUrl}
-                  title={`Sonnet ${cur.dir}`}
+                  title={`Claude Sonnet 5.5: ${name}`}
                   className="w-full h-[520px] border-0 bg-[#090B10]"
                 />
               </div>
@@ -149,7 +151,7 @@ export default function ArenaLatest({
               <div className="flex flex-col">
                 <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
                   <span className="font-pixel text-[10px] text-[#C084FC] font-bold">
-                    CLAUDE OPUS 5.5 (${cur.opus.usd.toFixed(2)} · {cur.opus.min}m)
+                    CLAUDE OPUS 5.5 (${cur.opus.usd.toFixed(2)} · {cur.opus.min}&nbsp;min)
                   </span>
                   <a
                     href={opusUrl}
@@ -163,7 +165,7 @@ export default function ArenaLatest({
                 <iframe
                         allowFullScreen
                   src={opusUrl}
-                  title={`Opus ${cur.dir}`}
+                  title={`Claude Opus 5.5: ${name}`}
                   className="w-full h-[520px] border-0 bg-[#090B10]"
                 />
               </div>
@@ -215,14 +217,17 @@ export default function ArenaLatest({
           EP03_CHALLENGES[0];
         const vanillaUrl = `/demos/ia-sin-kit/${cur.dir}/index.html`;
         const superkitUrl = `/demos/ia-superpowers-kit/${cur.dir}/index.html`;
+        const name = lang === "es" ? cur.name_es : cur.name_en;
+        const rawLabel = lang === "es" ? "IA SIN KIT" : "RAW AI";
+        const kitLabel = lang === "es" ? "IA + SUPERPOWERS KIT" : "AI + SUPERPOWERS KIT";
         return (
           <div className="bg-[#090B10] border-2 border-[#10B981]/50 overflow-hidden shadow-[6px_6px_0_#040508]">
             <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-lg font-black text-white">
+                <h2 className="font-display text-lg font-black text-white">
                   {lang === "es" ? "EP03 Reto" : "EP03 Challenge"} 0{cur.n}:{" "}
-                  {lang === "es" ? cur.name_es : cur.name_en}
-                </h3>
+                  {name}
+                </h2>
                 <p className="text-xs text-[#94A3B8]">
                   {lang === "es" ? cur.verdict_es : cur.verdict_en}
                 </p>
@@ -236,19 +241,50 @@ export default function ArenaLatest({
                   : "Open Full EP03 Dossier →"}
               </button>
             </div>
+            {/* Each column names its run: they sit side by side from lg and stack below it */}
             <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
-              <iframe
-                        allowFullScreen
-                src={vanillaUrl}
-                title={`Raw ${cur.dir}`}
-                className="w-full h-[560px] border-0 bg-[#090B10]"
-              />
-              <iframe
-                        allowFullScreen
-                src={superkitUrl}
-                title={`Superkit ${cur.dir}`}
-                className="w-full h-[560px] border-0 bg-[#090B10]"
-              />
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                    {rawLabel}
+                  </span>
+                  <a
+                    href={vanillaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 bg-[#131824] text-[#FFD100] border border-[#FFD100]/50 text-[10px] font-bold"
+                  >
+                    {fpsNote(cur.vanilla_fps, cur.vanilla_fps_en)} ↗
+                  </a>
+                </div>
+                <iframe
+                  allowFullScreen
+                  src={vanillaUrl}
+                  title={`${lang === "es" ? "IA sin kit" : "Raw AI"}: ${name}`}
+                  className="w-full h-[560px] border-0 bg-[#090B10]"
+                />
+              </div>
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#10B981] font-bold">
+                    {kitLabel}
+                  </span>
+                  <a
+                    href={superkitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 bg-[#131824] text-[#10B981] border border-[#10B981]/50 text-[10px] font-bold"
+                  >
+                    {fpsNote(cur.superkit_fps, cur.superkit_fps_en)} ↗
+                  </a>
+                </div>
+                <iframe
+                  allowFullScreen
+                  src={superkitUrl}
+                  title={`${lang === "es" ? "IA + Superpowers Kit" : "AI + Superpowers Kit"}: ${name}`}
+                  className="w-full h-[560px] border-0 bg-[#090B10]"
+                />
+              </div>
             </div>
           </div>
         );

@@ -203,6 +203,15 @@ export default function DemoArenaSection({
   const opponentShortName = isEp02 ? "Opus 5.5" : "Flash";
   const opponentFullName = isEp02 ? "Claude Opus 5.5" : "Gemini 3.8 Flash";
 
+  // The source viewer reads public/demos/<model>/<dir>/index.html, the same
+  // file each demo URL serves, so its labels show that path
+  const argonSourcePath = (
+    isEp02 ? ep02Challenge.demo_urls.argon : ep01Challenge.demo_urls.argon
+  ).replace(/^\//, "");
+  const opponentSourcePath = (
+    isEp02 ? ep02Challenge.demo_urls.opus : ep01Challenge.demo_urls.flash
+  ).replace(/^\//, "");
+
   return (
     <section id="arena" className="py-14 border-t border-[#00E5FF]/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1292,7 +1301,7 @@ export default function DemoArenaSection({
                             : "bg-[#111622] text-[#94A3B8] border border-[#2A344B]"
                         }`}
                       >
-                        gemini-4-argon/{activeDir}/index.html (
+                        {argonSourcePath} (
                         {isEp02
                           ? ep02Challenge.code_stats.argon_lines
                           : ep01Challenge.code_stats.argon_lines}{" "}
@@ -1307,8 +1316,7 @@ export default function DemoArenaSection({
                             : "bg-[#111622] text-[#94A3B8] border border-[#2A344B]"
                         }`}
                       >
-                        {isEp02 ? "claude-opus-5.5" : "gemini-3.8-flash"}/
-                        {activeDir}/index.html (
+                        {opponentSourcePath} (
                         {isEp02
                           ? ep02Challenge.code_stats.opus_lines
                           : ep01Challenge.code_stats.flash_lines}{" "}

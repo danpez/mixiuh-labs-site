@@ -13,7 +13,13 @@ import { pixelSound, type PixelSoundName } from "./sound";
 import { PixelIcon, type PixelIconName } from "./icons";
 import { PIXEL_TONE_STYLES, type PixelTone } from "./components";
 import { prefersReducedMotion } from "./motion";
-import { getTabbables, lockPageScroll } from "./focus";
+import {
+  getTabbables,
+  isInModalLayer,
+  isTopModalLayer,
+  lockPageScroll,
+  pushModalLayer,
+} from "./focus";
 
 /* ============================================================================
    12. NAVIGATION & OVERLAY SUITE (v2.3): TABS, COPY, TOASTS, COMMAND PALETTE
@@ -378,7 +384,14 @@ export interface PixelCommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   title?: string;
   placeholder?: string;
+  /** Shown, and announced to screen readers, when nothing matches. */
   emptyLabel?: string;
+  /**
+   * Screen-reader text for the number of matches (default "1 resultado" /
+   * "N resultados"). A polite status region announces it, or `emptyLabel`,
+   * once typing pauses; nothing while the query is empty.
+   */
+  resultsLabel?: (count: number) => string;
   footerHint?: string;
   /** Listen for Ctrl/Cmd+K globally (default true). */
   hotkey?: boolean;
@@ -390,6 +403,12 @@ const normalizeSearch = (value: string) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 
+const defaultResultsLabel = (count: number) =>
+  count === 1 ? "1 resultado" : `${count} resultados`;
+
+/** Ms without typing before the result count is announced. */
+const STATUS_DELAY = 400;
+
 export function PixelCommandPalette({
   items,
   open,
@@ -397,11 +416,15 @@ export function PixelCommandPalette({
   title = "MIXIUH LABS // COMMAND BIOS",
   placeholder = "Escribe un comando o busca...",
   emptyLabel = "Sin resultados",
+  resultsLabel = defaultResultsLabel,
   footerHint = "↑↓ navegar · ENTER abrir · ESC cerrar",
   hotkey = true,
 }: PixelCommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  // Text of the status region, set once typing pauses (see statusText)
+  const [announced, setAnnounced] = useState("");
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -431,16 +454,19 @@ export function PixelCommandPalette({
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
     pixelSound.play("powerup", { volume: 0.5 });
     const unlockScroll = lockPageScroll();
+    const removeLayer = pushModalLayer(panelRef);
     const raf = requestAnimationFrame(() => inputRef.current?.focus());
     // The field handles its own keys. With focus anywhere else (<body> after
     // a press on the dialog's text, the ESC button, a scrolled list) Escape
     // still closes and Tab goes back to the field. Capture phase: this top
-    // layer answers before a drawer underneath it.
+    // layer answers before a drawer underneath it. A modal opened on top of
+    // the palette answers for itself.
     const onDocumentKeyDown = (e: KeyboardEvent) => {
       if (
         e.defaultPrevented ||
         e.isComposing ||
-        e.target === inputRef.current
+        e.target === inputRef.current ||
+        !isTopModalLayer(panelRef)
       ) {
         return;
       }
@@ -456,9 +482,11 @@ export function PixelCommandPalette({
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", onDocumentKeyDown, true);
+      removeLayer();
       unlockScroll();
       setQuery("");
       setActive(0);
+      setAnnounced("");
       const prev = restoreFocusRef.current;
       if (prev && document.contains(prev)) prev.focus({ preventScroll: true });
     };
@@ -492,6 +520,24 @@ export function PixelCommandPalette({
     optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, open]);
 
+  // Screen-reader status for a non-empty query: the result count, or the
+  // empty label. It changes once typing pauses, so a quickly typed word is
+  // one announcement instead of one per key. Nothing for an empty query.
+  const statusText = query.trim()
+    ? results.length > 0
+      ? resultsLabel(results.length)
+      : emptyLabel
+    : "";
+  useEffect(() => {
+    if (!open || !statusText) return;
+    const timer = window.setTimeout(
+      () => setAnnounced(statusText),
+      STATUS_DELAY
+    );
+    return () => window.clearTimeout(timer);
+  }, [open, statusText]);
+  const liveText = statusText ? announced : "";
+
   if (!open) return null;
 
   const run = (item: PixelCommandItem) => {
@@ -515,12 +561,12 @@ export function PixelCommandPalette({
       e.preventDefault();
       const item = results[activeIndex];
       if (item) run(item);
-    } else if (e.key === "Escape") {
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      // A modal opened on top of the palette answers these itself
+      if (!isTopModalLayer(panelRef)) return;
+      // Escape closes; Tab keeps focus inside the dialog
       e.preventDefault();
-      onOpenChange(false);
-    } else if (e.key === "Tab") {
-      // Keep focus inside the dialog
-      e.preventDefault();
+      if (e.key === "Escape") onOpenChange(false);
     }
   };
 
@@ -537,6 +583,7 @@ export function PixelCommandPalette({
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -577,6 +624,8 @@ export function PixelCommandPalette({
             onChange={(e) => {
               setQuery(e.target.value);
               setActive(0);
+              // The next query's count waits for its own pause too
+              if (!e.target.value.trim()) setAnnounced("");
             }}
             onKeyDown={onInputKeyDown}
             placeholder={placeholder}
@@ -587,6 +636,16 @@ export function PixelCommandPalette({
           <span className="hidden sm:inline-flex items-center gap-1 font-mono-hud text-[10px] text-[#94A3B8]">
             {results.length}
           </span>
+        </div>
+
+        {/* Always rendered, so screen readers track it from the start */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="px-sr-only"
+        >
+          {liveText}
         </div>
 
         <div
@@ -669,11 +728,19 @@ export function PixelCommandPalette({
 export interface PixelBackToTopProps {
   threshold?: number;
   label?: string;
+  /**
+   * Id of the element that takes focus on press, before the page scrolls
+   * up: usually the `<main>` a skip link targets (give it tabIndex={-1} if it
+   * is not focusable). The button unmounts near the top, and without a
+   * target focus falls to <body>, so the next Tab would leave the page.
+   */
+  focusTargetId?: string;
 }
 
 export function PixelBackToTop({
   threshold = 640,
   label = "Volver arriba",
+  focusTargetId,
 }: PixelBackToTopProps) {
   const visible = useSyncExternalStore(
     (cb) => {
@@ -693,6 +760,11 @@ export function PixelBackToTop({
       title={label}
       onClick={() => {
         pixelSound.play("jump");
+        if (focusTargetId) {
+          document
+            .getElementById(focusTargetId)
+            ?.focus({ preventScroll: true });
+        }
         window.scrollTo({
           top: 0,
           behavior: prefersReducedMotion() ? "auto" : "smooth",
@@ -742,8 +814,24 @@ export function PixelSwipeHint({
 /* ----------------------------------------------------------------------------
    usePixelDialog — modal behaviour for custom dialogs (focus in, trap, Escape,
    scroll lock, focus restore). Attach the returned ref to the dialog panel and
-   give it role="dialog" aria-modal="true" aria-labelledby={...}.
+   give it role="dialog" aria-modal="true" aria-labelledby={...}. It stacks
+   with PixelDrawer, PixelCommandPalette and other usePixelDialog dialogs: only
+   the modal in front answers Escape and Tab.
    ---------------------------------------------------------------------------- */
+
+/** Roles of the popups a dialog may open: popovers, menus, listboxes. */
+const POPUP_SELECTOR =
+  '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
+
+/**
+ * True when `target` is in a popup outside every modal panel: a popover,
+ * menu or listbox opened from the dialog and portaled out of its panel, which
+ * moves focus with Tab by itself.
+ */
+function isInPortaledPopup(target: Element): boolean {
+  const popup = target.closest(POPUP_SELECTOR);
+  return !!popup && !isInModalLayer(popup);
+}
 
 export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
   open: boolean,
@@ -771,6 +859,7 @@ export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
     const opener = openerRef.current;
     const openPanel = panelRef.current;
     const unlockScroll = lockPageScroll();
+    const removeLayer = pushModalLayer(panelRef);
 
     const raf = requestAnimationFrame(() => {
       const panel = panelRef.current;
@@ -787,9 +876,19 @@ export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      // Already handled (a menu or popover inside closed on it), or the key
-      // belongs to an IME composition
-      if (e.defaultPrevented || e.isComposing) return;
+      // Already handled (a menu or popover inside closed on it), stopped by a
+      // handler inside (a tooltip that only hid on this Escape: with React's
+      // root on the document, as in Next.js, stopPropagation cannot keep the
+      // key from this listener), the key belongs to an IME composition, or a
+      // modal opened on top of this one (drawer, dialog, palette) answers it
+      if (
+        e.defaultPrevented ||
+        e.cancelBubble ||
+        e.isComposing ||
+        !isTopModalLayer(panelRef)
+      ) {
+        return;
+      }
       if (e.key === "Escape") {
         e.preventDefault();
         onCloseRef.current();
@@ -798,6 +897,16 @@ export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
       if (e.key !== "Tab") return;
       const panel = panelRef.current;
       if (!panel) return;
+      // A popover, menu or listbox opened from the dialog runs its own Tab
+      // handling. A Tab from <body> or from the page still comes back in.
+      const target = e.target;
+      if (
+        target instanceof Element &&
+        !panel.contains(target) &&
+        isInPortaledPopup(target)
+      ) {
+        return;
+      }
       const list = getTabbables(panel);
       if (list.length === 0) {
         e.preventDefault();
@@ -831,6 +940,7 @@ export function usePixelDialog<T extends HTMLElement = HTMLDivElement>(
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", onKeyDown);
+      removeLayer();
       unlockScroll();
       // Back to the opener, unless the app already moved focus elsewhere
       const current = document.activeElement;

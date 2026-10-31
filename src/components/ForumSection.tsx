@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useCallback, useId, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   PixelIcon,
@@ -378,13 +385,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
             ch.skill,
           ],
           content_es: [
-            `Skill evaluado en el reto: ${ch.skill} (${ch.tech}).`,
+            `Enfoque del reto: ${ch.skill} (${ch.tech}).`,
             `Reloj y rendimiento en Antigravity CLI (Gemini 4 Argon High): Con el Superpowers Kit tardo ${ch.superkit_min} minutos (${ch.superkit_lines} lineas / ${ch.superkit_kb} KB · ${ch.superkit_fps}) contra ${ch.vanilla_min} minutos de Gemini 4 Argon High Sin Kit (${ch.vanilla_lines} lineas / ${ch.vanilla_kb} KB · ${ch.vanilla_fps}).`,
             `Telemetria de tokens y factura API: Superpowers Kit consumio ${ch.superkit_tok} tokens (${ch.superkit_steps} pasos de agente) por $${ch.superkit_usd.toFixed(2)} USD. IA Sin Kit consumio ${ch.vanilla_tok} tokens (${ch.vanilla_steps} pasos de agente) por $${ch.vanilla_usd.toFixed(2)} USD.`,
             `Veredicto del arbitro (Kevin Gonzalez): ${ch.verdict_es}`,
           ],
           content_en: [
-            `Evaluated Skill: ${ch.skill} (${ch.tech_en ?? ch.tech}).`,
+            `Challenge focus: ${ch.skill} (${ch.tech_en ?? ch.tech}).`,
             `Clock & performance in Antigravity CLI (Gemini 4 Argon High): With the Superpowers Kit it took ${ch.superkit_min} minutes (${ch.superkit_lines} lines / ${ch.superkit_kb} KB · ${ch.superkit_fps_en ?? ch.superkit_fps}) versus ${ch.vanilla_min} minutes for Raw Gemini 4 Argon High (${ch.vanilla_lines} lines / ${ch.vanilla_kb} KB · ${ch.vanilla_fps_en ?? ch.vanilla_fps}).`,
             `Token telemetry & API bill: Superpowers Kit consumed ${ch.superkit_tok} tokens (${ch.superkit_steps} agent steps) for $${ch.superkit_usd.toFixed(2)} USD. Raw AI consumed ${ch.vanilla_tok} tokens (${ch.vanilla_steps} agent steps) for $${ch.vanilla_usd.toFixed(2)} USD.`,
             `Referee verdict (Kevin Gonzalez): ${ch.verdict_en}`,
@@ -551,10 +558,34 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       threadDetailRef.current?.focus({ preventScroll: true });
     });
   };
-  // On phones the thread detail sits below the list: bring it into view on select
+  // The reader is not a live region (it would queue the whole thread). On
+  // phones it sits below the list, so selecting moves focus there; on desktop
+  // focus stays in the list and a polite status names the opened thread.
+  const [threadAnnouncement, setThreadAnnouncement] = useState("");
+  // A language switch drops it, so the status never keeps a string in the
+  // other language (adjusting state during render avoids an extra effect pass)
+  const [announcementLang, setAnnouncementLang] = useState(lang);
+  if (announcementLang !== lang) {
+    setAnnouncementLang(lang);
+    setThreadAnnouncement("");
+  }
   const selectThread = (id: string) => {
     setSelectedThreadId(id);
-    if (window.matchMedia("(max-width: 1023px)").matches) revealThreadDetail();
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setThreadAnnouncement("");
+      revealThreadDetail();
+      return;
+    }
+    const thread = threads.find((t) => t.id === id);
+    if (!thread) return;
+    // Backticks only mark inline code in titles; they are not read aloud
+    const title = (lang === "es" ? thread.title_es : thread.title_en).replace(
+      /`/g,
+      ""
+    );
+    setThreadAnnouncement(
+      lang === "es" ? `Hilo abierto: ${title}` : `Thread opened: ${title}`
+    );
   };
 
   // Comment composer state
@@ -610,6 +641,34 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     threads.find((t) => t.id === selectedThreadId) ||
     filteredThreads[0] ||
     threads[0];
+  // The reader keeps the open thread while the visitor filters, and says so
+  // when the current search or category no longer lists it
+  const activeThreadFilteredOut =
+    !!activeThread && !filteredThreads.some((t) => t.id === activeThread.id);
+
+  // Empty list text, and what the search status reads: nothing while the box
+  // is empty, otherwise the number of matching threads or the empty text
+  const trimmedQuery = searchQuery.trim();
+  const emptyListText = trimmedQuery
+    ? lang === "es"
+      ? `Sin resultados para "${trimmedQuery}"`
+      : `No results for "${trimmedQuery}"`
+    : lang === "es"
+    ? "No hay hilos en esta categoria"
+    : "No threads in this category";
+  const searchStatusText = !trimmedQuery
+    ? ""
+    : filteredThreads.length === 0
+    ? emptyListText
+    : lang === "es"
+    ? `${filteredThreads.length} ${filteredThreads.length === 1 ? "hilo" : "hilos"}`
+    : `${filteredThreads.length} ${filteredThreads.length === 1 ? "thread" : "threads"}`;
+  // Spoken after a pause in typing, never on load (the PixelDataTable pattern)
+  const [searchStatus, setSearchStatus] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchStatus(searchStatusText), 400);
+    return () => window.clearTimeout(timer);
+  }, [searchStatusText]);
 
   const activeThreadEpisode: "ep04" | "ep03" | "ep02" | "ep01" =
     activeThread?.episode === "ep01"
@@ -730,8 +789,10 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     setNewTitle("");
     setNewBody("");
     // Open the new thread and move focus to it: the reader is off-screen from
-    // the trigger on every layout (APG: focus may go to the item just created)
+    // the trigger on every layout (APG: focus may go to the item just created).
+    // The status would still name the previously opened thread, so clear it.
     setSelectedThreadId(created.id);
+    setThreadAnnouncement("");
     revealThreadDetail();
   };
 
@@ -905,10 +966,16 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
         {/* Category Filter Bar + Search */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div
+            role="group"
+            aria-label={lang === "es" ? "Categorias del foro" : "Forum categories"}
+            className="flex flex-wrap items-center gap-1.5"
+          >
             {categories.map((cat) => (
               <button
                 key={cat.id}
+                type="button"
+                aria-pressed={activeCategory === cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-mono-hud text-xs font-bold transition cursor-pointer ${
                   activeCategory === cat.id
@@ -935,13 +1002,23 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               }
               className="w-full pl-10 pr-4 py-2 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] text-xs sm:text-sm text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#00E5FF]"
             />
+            <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+              {searchStatus}
+            </p>
           </div>
         </div>
 
         {/* Two-Column Forum Layout: Left Thread Feed (5 cols), Right Active Thread Reader (7 cols) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Thread List */}
-          <div className="lg:col-span-5 space-y-3 max-h-[60vh] lg:max-h-[880px] overflow-y-auto pr-1">
+          {/* Left Column: Thread List. `relative` makes this scroller the
+              containing block of the cards' sr-only text, so it is clipped
+              here instead of stretching the page below the footer. */}
+          <div className="relative lg:col-span-5 space-y-3 max-h-[60vh] lg:max-h-[880px] overflow-y-auto pr-1">
+            {filteredThreads.length === 0 && (
+              <p className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] font-mono-hud text-xs text-[#CBD5E1]">
+                {emptyListText}
+              </p>
+            )}
             {filteredThreads.map((thread) => {
               const isSelected = thread.id === activeThread?.id;
               const isUpvoted = !!upvotedIds[thread.id];
@@ -1025,9 +1102,16 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
             <div
               ref={threadDetailRef}
               tabIndex={-1}
-              aria-live="polite"
               className="lg:col-span-7 focus:outline-none bg-[#111622] border-2 border-[#00E5FF]/30 p-5 sm:p-8 shadow-[6px_6px_0_#040508]"
             >
+              {activeThreadFilteredOut && (
+                <p className="mb-4 px-3 py-2 bg-[#090B10] border border-[#FFD100]/40 font-mono-hud text-xs text-[#FFD100]">
+                  {lang === "es"
+                    ? "Este hilo no esta entre los resultados de la busqueda o categoria actual."
+                    : "This thread is not among the results for the current search or category."}
+                </p>
+              )}
+
               {/* Top Meta & Upvote */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#2A344B]">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1308,6 +1392,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               </div>
             </div>
           )}
+          <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {threadAnnouncement}
+          </p>
         </div>
       </div>
 

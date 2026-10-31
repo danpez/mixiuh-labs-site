@@ -4,9 +4,11 @@ import React, {
   useState,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from "react";
+import { prefersReducedMotion } from "./motion";
 import { pixelSound, type PixelSoundName } from "./sound";
 import { PIXEL_UI_VERSION } from "./version";
 import {
@@ -325,8 +327,10 @@ export function PixelKeycap({
       <span className="font-pixel text-sm font-bold leading-none">
         {keyLabel}
       </span>
+      {/* Full-strength tone text: an opacity would blend the tone into it and
+          drop coral and violet captions below 4.5:1 */}
       {caption && (
-        <span className="font-mono-hud text-[10px] opacity-75 mt-1 uppercase">
+        <span className="font-mono-hud text-[10px] mt-1 uppercase">
           {caption}
         </span>
       )}
@@ -535,6 +539,16 @@ export interface PixelWindowProps {
   statusRight?: string;
   children: React.ReactNode;
   className?: string;
+  /**
+   * Tooltip of the titlebar "-" button while the window is open (default
+   * "Minimizar ventana"). Its accessible name is this text, ": " and `title`.
+   */
+  minimizeLabel?: string;
+  /**
+   * Tooltip of the same button while the window is minimized (default
+   * "Expandir ventana"). Its accessible name is this text, ": " and `title`.
+   */
+  expandLabel?: string;
 }
 
 export function PixelWindow({
@@ -545,9 +559,13 @@ export function PixelWindow({
   statusRight,
   children,
   className = "",
+  minimizeLabel = "Minimizar ventana",
+  expandLabel = "Expandir ventana",
 }: PixelWindowProps) {
   const [minimized, setMinimized] = useState(false);
   const t = TONE_STYLES[tone];
+  const bodyId = useId();
+  const toggleLabel = minimized ? expandLabel : minimizeLabel;
 
   return (
     <div
@@ -563,8 +581,10 @@ export function PixelWindow({
           <span className="font-pixel text-xs font-bold min-w-0 break-words sm:truncate">
             {title}
           </span>
+          {/* Full-strength tone text, like the title: an opacity would blend
+              the tone in and drop violet below 4.5:1 */}
           {subtitle && (
-            <span className="hidden sm:inline-block font-mono-hud text-[10px] opacity-80 truncate">
+            <span className="hidden sm:inline-block font-mono-hud text-[10px] truncate">
               {"// "}
               {subtitle}
             </span>
@@ -577,10 +597,14 @@ export function PixelWindow({
               pixelSound.play("click");
               setMinimized(!minimized);
             }}
+            aria-label={`${toggleLabel}: ${title}`}
+            aria-expanded={!minimized}
+            // The body is not rendered while minimized, so only reference it when open
+            aria-controls={minimized ? undefined : bodyId}
             className="w-6 h-6 bg-[#090B10] text-[#F5F2EB] font-mono-hud text-[11px] font-bold flex items-center justify-center hover:bg-[#FF3355] cursor-pointer"
-            title={minimized ? "Expand window" : "Minimize window"}
+            title={toggleLabel}
           >
-            {minimized ? "+" : "-"}
+            <span aria-hidden="true">{minimized ? "+" : "-"}</span>
           </button>
           <span aria-hidden="true" className="w-6 h-6 bg-[#090B10] text-[#F5F2EB] font-mono-hud text-[11px] font-bold flex items-center justify-center">
             □
@@ -588,7 +612,11 @@ export function PixelWindow({
         </div>
       </div>
 
-      {!minimized && <div className="p-4 sm:p-5">{children}</div>}
+      {!minimized && (
+        <div id={bodyId} className="p-4 sm:p-5">
+          {children}
+        </div>
+      )}
 
       {(statusLeft || statusRight) && (
         <div className="px-3.5 py-1.5 bg-[#090B10] border-t border-white/10 flex items-center justify-between font-mono-hud text-[10px] text-[#94A3B8]">
@@ -790,6 +818,8 @@ export interface PocketConsoleCartridgeItem {
   timeMetric: string;
   costMetric: string;
   thumb: string;
+  /** Alt text of the channel screenshot (default: the visible title). */
+  thumbAlt?: string;
   accentHex: string;
   character: PixelSpriteCharacter;
   onLaunchPrimary: () => void;
@@ -873,7 +903,9 @@ export function Pixel3DCRTWorkstation({
           degaussing ? "px-degauss-active" : ""
         }`}
       >
-        {/* Monitor Top Ventilation Slots & Model Plate */}
+        {/* Monitor Top Ventilation Slots & Model Plate. Below sm the labels of
+            the monitor wrap instead of truncating to fragments ("MIXIUH LAB…");
+            from sm up they keep the constant-height single-line layout */}
         <div className="flex items-center justify-between gap-2 mb-2.5">
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -881,7 +913,7 @@ export function Pixel3DCRTWorkstation({
                 poweredOn ? "bg-[#10B981]" : "bg-[#FF3355]"
               }`}
             />
-            <span className="font-pixel text-[10px] font-bold tracking-wider truncate">
+            <span className="font-pixel text-[10px] font-bold tracking-wider min-w-0 break-words sm:truncate">
               {headerLabel ??
                 (lang === "es"
                   ? "MIXIUH LABS // MONITOR DE PRUEBAS"
@@ -900,10 +932,10 @@ export function Pixel3DCRTWorkstation({
 
         {/* CRT Recessed Dark Glass Tube — Constant Height Whether Powered ON or OFF */}
         <div className="px-3d-screen-bezel p-2.5 sm:p-3 text-[#F5F2EB] space-y-2.5 overflow-hidden">
-          {/* Top OSD Telemetry Bar inside CRT (Constant Height) */}
-          <div className="flex items-center justify-between gap-2 font-mono-hud text-[10px] min-w-0 h-5">
+          {/* Top OSD Telemetry Bar inside CRT (Constant Height from sm up) */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 font-mono-hud text-[10px] min-w-0 sm:h-5">
             <span
-              className="px-2 py-0.5 font-bold text-[#090B10] truncate"
+              className="px-2 py-0.5 font-bold text-[#090B10] min-w-0 break-words sm:truncate"
               style={{
                 backgroundColor: poweredOn ? current.accentHex : "#475569",
               }}
@@ -941,7 +973,7 @@ export function Pixel3DCRTWorkstation({
                 <>
                   <img
                     src={current.thumb}
-                    alt={current.title}
+                    alt={current.thumbAlt ?? current.title}
                     className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
                   />
                   {/* Subtle CRT Scanline Overlay */}
@@ -969,11 +1001,11 @@ export function Pixel3DCRTWorkstation({
             </div>
           )}
 
-          {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box (Constant Height) */}
+          {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box (Constant Height from sm up) */}
           <div className="p-2.5 bg-[#111622] border border-[#2A344B] min-w-0">
             <div className="flex items-center justify-between gap-2 mb-1">
               <span
-                className="font-pixel text-[10px] font-bold truncate"
+                className="font-pixel text-[10px] font-bold min-w-0 break-words sm:truncate"
                 style={{
                   color: poweredOn ? current.accentHex : "#94A3B8",
                 }}
@@ -1039,7 +1071,11 @@ export function Pixel3DCRTWorkstation({
               type="button"
               onClick={triggerDegauss}
               className="px-2.5 py-1.5 bg-[#00E5FF] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer"
-              title="Magnetic CRT Degauss Coil"
+              title={
+                lang === "es"
+                  ? "Bobina de desmagnetizacion del CRT"
+                  : "Magnetic CRT Degauss Coil"
+              }
             >
               DEGAUSS
             </button>
@@ -1047,19 +1083,29 @@ export function Pixel3DCRTWorkstation({
               type="button"
               onClick={cyclePhosphorMode}
               className="px-2.5 py-1.5 bg-[#FFD100] text-[#090B10] border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer"
-              title="Cycle CRT Phosphor Filter (RGB / Amber / Green / Mono)"
+              title={
+                lang === "es"
+                  ? "Cambiar el filtro de fosforo del CRT (RGB / Ambar / Verde / Mono)"
+                  : "Cycle CRT Phosphor Filter (RGB / Amber / Green / Mono)"
+              }
             >
               CRT: {crtMode.toUpperCase()}
             </button>
+            {/* The name stays "PWR" (its visible label); the on/off state is aria-pressed */}
             <button
               type="button"
               onClick={togglePower}
+              aria-pressed={poweredOn}
               className={`px-2.5 py-1.5 border-2 border-[#090B10] shadow-[2px_2px_0_#040508] active:translate-y-0.5 font-pixel text-[10px] font-bold cursor-pointer ${
                 poweredOn
                   ? "bg-[#10B981] text-[#090B10]"
                   : "bg-[#FF3355] text-[#090B10]"
               }`}
-              title="Toggle CRT Power"
+              title={
+                lang === "es"
+                  ? "Encender o apagar el monitor CRT"
+                  : "Toggle CRT power"
+              }
             >
               PWR
             </button>
@@ -1073,7 +1119,7 @@ export function Pixel3DCRTWorkstation({
         <div className="flex items-center justify-between gap-3 px-2 py-1.5 bg-[#090B10] text-[#F5F2EB] border-2 border-[#040508]">
           <div className="flex items-center gap-2 min-w-0">
             <PixelIcon name="floppy" size={13} color="#FFD100" />
-            <span className="font-mono-hud text-[10px] font-bold text-[#94A3B8] truncate">
+            <span className="font-mono-hud text-[10px] font-bold text-[#94A3B8] min-w-0 break-words sm:truncate">
               DRIVE A: // {current.code}_MASTER.ROM
             </span>
           </div>
@@ -1383,16 +1429,21 @@ export function PixelAudioSequencer({
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      {/* Below sm the track name and its 8 steps take a full row each, so
+          every step stays at least 24px wide on a 360px phone */}
+      <div className="space-y-2.5 sm:space-y-1.5">
         {SEQ_TRACKS.map((tr, rIdx) => (
-          <div key={tr.name} className="grid grid-cols-12 gap-1.5 items-center">
+          <div
+            key={tr.name}
+            className="grid grid-cols-12 gap-x-1.5 gap-y-1 items-center"
+          >
             <span
-              className="col-span-4 sm:col-span-3 font-pixel text-[10px] truncate"
+              className="col-span-12 sm:col-span-3 font-pixel text-[10px] truncate"
               style={{ color: tr.color }}
             >
               {tr.name}
             </span>
-            <div className="col-span-8 sm:col-span-9 grid grid-cols-8 gap-1">
+            <div className="col-span-12 sm:col-span-9 grid grid-cols-8 gap-1">
               {grid[rIdx].map((active, cIdx) => {
                 const isCur = playing && step === cIdx;
                 return (
@@ -2776,12 +2827,14 @@ export function PixelCollapse({
                   size={15}
                   color={isOpen ? accent : "#94A3B8"}
                 />
+                {/* Titles wrap next to the badge instead of truncating, so a
+                    phone shows the whole question */}
                 <div className="min-w-0">
-                  <div className="font-display text-xs sm:text-sm font-bold text-white truncate">
+                  <div className="font-display text-xs sm:text-sm font-bold text-white break-words">
                     {item.title}
                   </div>
                   {item.subtitle && (
-                    <div className="text-[11px] text-[#94A3B8] truncate">
+                    <div className="text-[11px] text-[#94A3B8] break-words">
                       {item.subtitle}
                     </div>
                   )}
@@ -3182,6 +3235,38 @@ export interface PixelMultiLineChartProps {
   formatValue?: (value: number) => string;
 }
 
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * Centres x point `i` of a PixelMultiLineChart in its sideways scroller
+ * (phones, where the plot keeps its 1:1 width). Only the scroller moves,
+ * never the page, and nothing happens when the whole plot fits. With
+ * `ifHidden`, it also leaves a point whose label is fully in view alone.
+ */
+function centerChartPoint(
+  scroller: HTMLElement | null,
+  i: number | null,
+  { smooth = true, ifHidden = false } = {}
+) {
+  const label =
+    i === null ? null : scroller?.querySelector(`[data-px-point="${i}"]`);
+  if (!scroller || !label || scroller.scrollWidth <= scroller.clientWidth) {
+    return;
+  }
+  const box = label.getBoundingClientRect();
+  const view = scroller.getBoundingClientRect();
+  if (ifHidden && box.left >= view.left && box.right <= view.right) return;
+  scroller.scrollTo({
+    left:
+      scroller.scrollLeft +
+      (box.left + box.right) / 2 -
+      view.left -
+      scroller.clientWidth / 2,
+    behavior: smooth && !prefersReducedMotion() ? "smooth" : "auto",
+  });
+}
+
 export function PixelMultiLineChart({
   title,
   subtitle,
@@ -3195,8 +3280,26 @@ export function PixelMultiLineChart({
 }: PixelMultiLineChartProps) {
   const [hiddenKeys, setHiddenKeys] = useState<string[]>([]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(data.length - 1);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  // The point picked when the chart mounts (the last one by default)
+  const firstIdx = useRef(hoverIdx);
   const valueText = (v: number | undefined) =>
     v === undefined ? "—" : formatValue ? formatValue(v) : `${v}${unit}`;
+
+  // Picking a point with a chip also scrolls the plot to it on phones
+  const pickPoint = (i: number) => {
+    setHoverIdx(i);
+    centerChartPoint(scrollerRef.current, i);
+  };
+
+  // A phone first shows the left edge of the plot: if the picked point starts
+  // out of view, bring it in before paint (sideways only, the page stays put)
+  useIsoLayoutEffect(() => {
+    centerChartPoint(scrollerRef.current, firstIdx.current, {
+      smooth: false,
+      ifHidden: true,
+    });
+  }, []);
 
   const toggleSeries = (k: string) => {
     pixelSound.play("click");
@@ -3267,7 +3370,7 @@ export function PixelMultiLineChart({
       </div>
 
       {/* Never scale below 1:1 so axis labels stay readable; phones scroll sideways */}
-      <div className="relative overflow-x-auto">
+      <div ref={scrollerRef} className="relative overflow-x-auto">
       <svg
         viewBox={`0 0 ${w} ${h}`}
         role={title ? "img" : undefined}
@@ -3346,6 +3449,7 @@ export function PixelMultiLineChart({
         {data.map((d, i) => (
           <text
             key={d.label}
+            data-px-point={i}
             x={getX(i)}
             y={h - 9}
             textAnchor="middle"
@@ -3401,8 +3505,8 @@ export function PixelMultiLineChart({
                 key={`${d.label}-${i}`}
                 type="button"
                 aria-pressed={isOn}
-                onClick={() => setHoverIdx(i)}
-                onFocus={() => setHoverIdx(i)}
+                onClick={() => pickPoint(i)}
+                onFocus={() => pickPoint(i)}
                 onMouseEnter={() => setHoverIdx(i)}
                 className={`px-2 py-1 border text-[10px] font-bold cursor-pointer transition ${
                   isOn

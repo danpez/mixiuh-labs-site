@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Poppins, Space_Mono, Silkscreen, Pixelify_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
@@ -40,6 +41,30 @@ const pixelifySans = Pixelify_Sans({
   variable: "--font-pixelify",
   display: "swap",
 });
+
+// Pixelify Sans draws 5 like S, 0 like O and ( like {, so headings read
+// "Opus S.S". Their digits and $ % ( ) . come from Jersey 10 instead (OFL,
+// fonts/Jersey10-OFL.txt; Google Fonts subset of just those characters),
+// scaled to Pixelify's cap height. It has one weight: declared for all of them,
+// so bold headings never get a smeared synthetic bold. globals.css puts it first
+// in the heading stack.
+const headingDigits = localFont({
+  src: "./fonts/Jersey10-digits.woff2",
+  weight: "100 900",
+  variable: "--font-heading-digits",
+  display: "swap",
+  adjustFontFallback: false,
+  declarations: [
+    { prop: "unicode-range", value: "U+0024-0025, U+0028-0029, U+002E, U+0030-0039" },
+    { prop: "size-adjust", value: "121%" },
+  ],
+});
+
+// Runs before first paint. The hash view (#foro...) and a saved English
+// preference only apply after hydration, so until then #contenido would show
+// the Spanish home: these attributes hide it (globals.css) and PortalClient
+// removes them once both apply. The timeout reveals it if the app never boots.
+const BOOT_SCRIPT = `(function(){var d=document.documentElement;try{var h=location.hash;if(h&&h!=="#"&&h!=="#top")d.setAttribute("data-boot-view","");if(localStorage.getItem("mixiuh_lang")==="en")d.setAttribute("data-boot-lang","en")}catch(e){}setTimeout(function(){d.removeAttribute("data-boot-view");d.removeAttribute("data-boot-lang")},3000)})()`;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://labs.mixiuh.online"),
@@ -139,9 +164,12 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${inter.variable} ${poppins.variable} ${spaceMono.variable} ${silkscreen.variable} ${pixelifySans.variable}`}
+      className={`${inter.variable} ${poppins.variable} ${spaceMono.variable} ${silkscreen.variable} ${pixelifySans.variable} ${headingDigits.variable}`}
+      // The boot script adds its data-boot-* attributes before hydration
+      suppressHydrationWarning
     >
       <body className="min-h-screen bg-[#090B10] text-[#F5F2EB] antialiased selection:bg-[#FFD100] selection:text-[#090B10]">
+        <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
