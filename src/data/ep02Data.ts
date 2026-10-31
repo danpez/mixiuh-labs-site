@@ -235,7 +235,7 @@ Escribe el archivo completo y funcional en la carpeta \`01-tela-verlet/index.htm
     fun_angle_es:
       "Opus quiso lucirse activando 18,430 enlaces (estructurales, cizalla y flexión) con 30 pasadas de relajación por cuadro en un solo hilo de JavaScript: su propio HUD confiesa 28 FPS. Argon calibró la malla a 120 FPS clavados en menos de 7 minutos y por 65 centavos.",
     fun_angle_en:
-      "Opus tried to flex by enabling 18,430 constraints (structural, shear, and bend) at 30 solver iterations per frame on a single JS thread—its own HUD confesses 28 FPS. Argon calibrated its solver for a locked 120 FPS in under 7 minutes for 65 cents.",
+      "Opus tried to flex by enabling 18,430 constraints (structural, shear, and bend) with 30 relaxation passes per frame on a single JS thread—its own HUD confesses 28 FPS. Argon calibrated its solver for a locked 120 FPS in under 7 minutes for 65 cents.",
     speed_ratio_es: "Argon 4.62x más rápido (-24.2 min)",
     speed_ratio_en: "Argon 4.62x faster (-24.2 min)",
     cost_ratio_es: "Argon 4.69x más barato ($0.65 vs $3.05)",
@@ -480,13 +480,13 @@ Escribe el archivo completo y funcional en la carpeta \`03-cuerpo-blando-sdf/ind
       "6 morfologías XPBD: Osito, Cubo, Toroide, Cápsula, Flan y Esfera",
       "Paleta de 9 colores neón con material de transmisión física, Fresnel y subsurface simulado, y reflejo planar real del piso",
       "Terminó 3.87 minutos antes que Argon (30.87 min vs 34.74 min)",
-      "Medidor en vivo de desviación de volumen (ΔV +0.8%) y energías cinética/potencial en Joules",
+      "Medidor en vivo de volumen medio V/V0 y desviación máxima de volumen, más energías cinética y elástica en Joules",
     ],
     opus_features_en: [
       "6 XPBD morphologies: Bear, Cube, Torus, Capsule, Flan and Sphere",
       "9-color neon palette with a physical transmission material, Fresnel and faked subsurface, plus a true planar floor reflection",
       "Finished 3.87 minutes before Argon (30.87 min vs 34.74 min)",
-      "Live volume-deviation meter (ΔV +0.8%) and kinetic/potential energies in Joules",
+      "Live meter of mean volume V/V0 and maximum volume deviation, plus kinetic and elastic energies in Joules",
     ],
     opus_observations: [
       "Corre a 82 FPS con sus 7 cuerpos iniciales (2,562 nodos de masa y 23,298 resortes) frente a los 120 FPS de Argon, y costó $3.08 vs $1.98 USD",

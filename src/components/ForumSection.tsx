@@ -330,9 +330,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
           ],
           content_en: [
             `Challenge category: ${ch.world_en} — ${ch.sub_en}.`,
-            `Claude Haiku 5.5: ${ch.haiku.min} min · $${ch.haiku.usd.toFixed(2)} USD · ${ch.haiku.tok} tok · ${ch.haiku.lines} lines · ${ch.haiku.fps}.`,
-            `Claude Sonnet 5.5: ${ch.sonnet.min} min · $${ch.sonnet.usd.toFixed(2)} USD · ${ch.sonnet.tok} tok · ${ch.sonnet.lines} lines · ${ch.sonnet.fps}.`,
-            `Claude Opus 5.5: ${ch.opus.min} min · $${ch.opus.usd.toFixed(2)} USD · ${ch.opus.tok} tok · ${ch.opus.lines} lines · ${ch.opus.fps}.`,
+            `Claude Haiku 5.5: ${ch.haiku.min} min · $${ch.haiku.usd.toFixed(2)} USD · ${ch.haiku.tok} tok · ${ch.haiku.lines} lines · ${ch.haiku.fps_en ?? ch.haiku.fps}.`,
+            `Claude Sonnet 5.5: ${ch.sonnet.min} min · $${ch.sonnet.usd.toFixed(2)} USD · ${ch.sonnet.tok} tok · ${ch.sonnet.lines} lines · ${ch.sonnet.fps_en ?? ch.sonnet.fps}.`,
+            `Claude Opus 5.5: ${ch.opus.min} min · $${ch.opus.usd.toFixed(2)} USD · ${ch.opus.tok} tok · ${ch.opus.lines} lines · ${ch.opus.fps_en ?? ch.opus.fps}.`,
             `Forensic verdict: ${ch.verdict_en}`,
           ],
           comments: [],
@@ -384,8 +384,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
             `Veredicto del arbitro (Kevin Gonzalez): ${ch.verdict_es}`,
           ],
           content_en: [
-            `Evaluated Skill: ${ch.skill} (${ch.tech}).`,
-            `Clock & performance in Antigravity CLI (Gemini 4 Argon High): With the Superpowers Kit it took ${ch.superkit_min} minutes (${ch.superkit_lines} lines / ${ch.superkit_kb} KB · ${ch.superkit_fps}) versus ${ch.vanilla_min} minutes for Raw Gemini 4 Argon High (${ch.vanilla_lines} lines / ${ch.vanilla_kb} KB · ${ch.vanilla_fps}).`,
+            `Evaluated Skill: ${ch.skill} (${ch.tech_en ?? ch.tech}).`,
+            `Clock & performance in Antigravity CLI (Gemini 4 Argon High): With the Superpowers Kit it took ${ch.superkit_min} minutes (${ch.superkit_lines} lines / ${ch.superkit_kb} KB · ${ch.superkit_fps_en ?? ch.superkit_fps}) versus ${ch.vanilla_min} minutes for Raw Gemini 4 Argon High (${ch.vanilla_lines} lines / ${ch.vanilla_kb} KB · ${ch.vanilla_fps_en ?? ch.vanilla_fps}).`,
             `Token telemetry & API bill: Superpowers Kit consumed ${ch.superkit_tok} tokens (${ch.superkit_steps} agent steps) for $${ch.superkit_usd.toFixed(2)} USD. Raw AI consumed ${ch.vanilla_tok} tokens (${ch.vanilla_steps} agent steps) for $${ch.vanilla_usd.toFixed(2)} USD.`,
             `Referee verdict (Kevin Gonzalez): ${ch.verdict_en}`,
           ],

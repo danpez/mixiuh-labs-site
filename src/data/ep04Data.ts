@@ -4,6 +4,8 @@ export interface Ep04TierMetric {
   tok: string;
   lines: number;
   fps: string;
+  /** English twin of `fps`; set only where `fps` contains Spanish words. */
+  fps_en?: string;
   status: "ok" | "broken";
   demoUrl: string;
   stillUrl: string;
@@ -17,6 +19,8 @@ export interface Ep04ChallengeData {
   world_es: string;
   world_en: string;
   tech: string;
+  /** English twin of `tech`; set only where `tech` contains Spanish words. */
+  tech_en?: string;
   sub_es: string;
   sub_en: string;
   winner: "opus" | "sonnet" | "haiku";
@@ -59,6 +63,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
     world_es: "RETO 01 · FISICA ARTICULADA Y LEY DE HOOKE",
     world_en: "CHALLENGE 01 · ARTICULATED VERLET & HOOKE PHYSICS",
     tech: "Canvas 2D + Solver Verlet Multi-Iteracion + Amortiguadores Hooke + Osciloscopio en Vivo",
+    tech_en: "Canvas 2D + Multi-Iteration Verlet Solver + Hooke Shock Absorbers + Live Oscilloscope",
     sub_es: "Opus ($6.81) construyo puente colgante de tablones, crateres lunares y faro volumetrico; Haiku ($0.35) funciono a 60 FPS y Sonnet ($2.51) trunco el JS",
     sub_en: "Opus ($6.81) built a rope-plank bridge, lunar craters & volumetric beam; Haiku ($0.35) ran at 60 FPS while Sonnet ($2.51) truncated JS",
     winner: "opus",
@@ -70,6 +75,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "1.14M",
       lines: 952,
       fps: "60 FPS (Rover Funcional)",
+      fps_en: "60 FPS (Functional Rover)",
       status: "ok",
       demoUrl: "/demos/claude-haiku-5.5/01-rover-suspension/index.html",
       stillUrl: "/stills/ep04/01-rover-suspension_haiku.png",
@@ -80,6 +86,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "1.02M",
       lines: 1024,
       fps: "ROTO (SyntaxError EOF)",
+      fps_en: "BROKEN (SyntaxError EOF)",
       status: "broken",
       demoUrl: "/demos/claude-sonnet-5.5/01-rover-suspension/index.html",
       stillUrl: "/stills/ep04/01-rover-suspension_sonnet.png",
@@ -90,6 +97,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "865k",
       lines: 1222,
       fps: "61 FPS (Puente Colgante + Faro)",
+      fps_en: "61 FPS (Suspension Bridge + Headlight)",
       status: "ok",
       demoUrl: "/demos/claude-opus-5.5/01-rover-suspension/index.html",
       stillUrl: "/stills/ep04/01-rover-suspension_opus.png",
@@ -107,6 +115,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
     world_es: "RETO 02 · SHADERS PING-PONG EN WEBGL2",
     world_en: "CHALLENGE 02 · WEBGL2 PING-PONG FLOAT SHADERS",
     tech: "WebGL2 + Texturas Flotantes Ping-Pong (RGBA16F) + Difusion Quimiotactica + Grafo Tokio",
+    tech_en: "WebGL2 + Ping-Pong Float Textures (RGBA16F) + Chemotactic Diffusion + Tokyo Graph",
     sub_es: "Opus ($2.55) mapeo 28 estaciones reales de Tokio con 60,000 agentes GPU a 60 FPS; Sonnet ($0.79) saturo el centro y Haiku ($0.06) fallo en GLSL",
     sub_en: "Opus ($2.55) mapped 28 real Tokyo stations with 60,000 GPU agents at 60 FPS; Sonnet ($0.79) overexposed center & Haiku ($0.06) failed GLSL",
     winner: "opus",
@@ -118,6 +127,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "97k",
       lines: 867,
       fps: "ROTO (GLSL vec3 -> vec4)",
+      fps_en: "BROKEN (GLSL vec3 -> vec4)",
       status: "broken",
       demoUrl: "/demos/claude-haiku-5.5/02-slime-feromonas/index.html",
       stillUrl: "/stills/ep04/02-slime-feromonas_haiku.png",
@@ -128,6 +138,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "110k",
       lines: 827,
       fps: "60 FPS (Centro Saturado)",
+      fps_en: "60 FPS (Overexposed Center)",
       status: "ok",
       demoUrl: "/demos/claude-sonnet-5.5/02-slime-feromonas/index.html",
       stillUrl: "/stills/ep04/02-slime-feromonas_sonnet.png",
@@ -138,6 +149,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "260k",
       lines: 1275,
       fps: "60 FPS (28 Estaciones Tokio)",
+      fps_en: "60 FPS (28 Tokyo Stations)",
       status: "ok",
       demoUrl: "/demos/claude-opus-5.5/02-slime-feromonas/index.html",
       stillUrl: "/stills/ep04/02-slime-feromonas_opus.png",
@@ -155,6 +167,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
     world_es: "RETO 03 · INGENIERIA CIVIL Y SOLVER XPBD",
     world_en: "CHALLENGE 03 · CIVIL ENGINEERING & XPBD SOLVER",
     tech: "Canvas 2D + Solver XPBD 20 Sub-Pasos + Mapa de Calor de Esfuerzo + Colapso Progresivo",
+    tech_en: "Canvas 2D + 20-Substep XPBD Solver + Stress Heat Map + Progressive Collapse",
     sub_es: "Los 3 lograron 60 FPS (Haiku $0.30, Sonnet $1.98), pero Opus ($3.58) incluyo etiquetas de % de estres en cada viga, pilares submarinos y deflexion en mm",
     sub_en: "All 3 hit 60 FPS (Haiku $0.30, Sonnet $1.98), but Opus ($3.58) added per-beam stress % labels, underwater piers & mm deflection",
     winner: "opus",
@@ -166,6 +179,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "880k",
       lines: 877,
       fps: "61 FPS (Cercha + Camion 20t)",
+      fps_en: "61 FPS (Truss + 20t Truck)",
       status: "ok",
       demoUrl: "/demos/claude-haiku-5.5/03-puente-estructural/index.html",
       stillUrl: "/stills/ep04/03-puente-estructural_haiku.png",
@@ -176,6 +190,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "780k",
       lines: 1311,
       fps: "60 FPS (Tren 4 Vagones)",
+      fps_en: "60 FPS (4-Car Train)",
       status: "ok",
       demoUrl: "/demos/claude-sonnet-5.5/03-puente-estructural/index.html",
       stillUrl: "/stills/ep04/03-puente-estructural_sonnet.png",
@@ -186,6 +201,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "690k",
       lines: 1535,
       fps: "61 FPS (XPBD 20x + % por Viga)",
+      fps_en: "61 FPS (XPBD 20x + % per Beam)",
       status: "ok",
       demoUrl: "/demos/claude-opus-5.5/03-puente-estructural/index.html",
       stillUrl: "/stills/ep04/03-puente-estructural_opus.png",
@@ -203,6 +219,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
     world_es: "RETO 04 · SINTESIS WEB AUDIO Y VISUALIZADOR FFT 3D",
     world_en: "CHALLENGE 04 · WEB AUDIO SYNTHESIS & 3D FFT VISUALIZER",
     tech: "Web Audio API (TB-303 + TR-909 + Overdrive + Delay) + Tunel/Terreno 3D Reactivo al Espectro",
+    tech_en: "Web Audio API (TB-303 + TR-909 + Overdrive + Delay) + Spectrum-Reactive 3D Tunnel/Terrain",
     sub_es: "Batacazo historico: Haiku ($0.21, 8.7m) entrego terreno 3D de particulas, osciloscopio, 7 perillas y secuenciador a 61 FPS costando 24x menos que Opus ($5.00)",
     sub_en: "Historic upset: Haiku ($0.21, 8.7m) built a 3D particle terrain, oscilloscope, 7 knobs & sequencer at 61 FPS costing 24x less than Opus ($5.00)",
     winner: "haiku",
@@ -214,6 +231,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "610k",
       lines: 948,
       fps: "61 FPS (24x Mas Barato)",
+      fps_en: "61 FPS (24x Cheaper)",
       status: "ok",
       demoUrl: "/demos/claude-haiku-5.5/04-sintetizador-acido-3d/index.html",
       stillUrl: "/stills/ep04/04-sintetizador-acido-3d_haiku.png",
@@ -224,6 +242,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "485k",
       lines: 1176,
       fps: "50 FPS (Tunel Holodome)",
+      fps_en: "50 FPS (Holodome Tunnel)",
       status: "ok",
       demoUrl: "/demos/claude-sonnet-5.5/04-sintetizador-acido-3d/index.html",
       stillUrl: "/stills/ep04/04-sintetizador-acido-3d_sonnet.png",
@@ -251,6 +270,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
     world_es: "RETO 05 · RAY TRACING MONTE CARLO EN TIEMPO REAL",
     world_en: "CHALLENGE 05 · REAL-TIME MONTE CARLO RAY TRACING",
     tech: "WebGL2 Fragment Path Tracer + Acumulacion Temporal Ping-Pong + Dispersion Cromatica + Denoiser A-Trous",
+    tech_en: "WebGL2 Fragment Path Tracer + Ping-Pong Temporal Accumulation + Chromatic Dispersion + A-Trous Denoiser",
     sub_es: "Sonnet ($1.67, 13.9m) rindio 29 FPS con dispersion cromatica arcoiris en cristal, duplicando los 15 FPS de Opus ($5.05, 31.4m)",
     sub_en: "Sonnet ($1.67, 13.9m) hit 29 FPS with rainbow chromatic glass dispersion, doubling Opus's 15 FPS ($5.05, 31.4m)",
     winner: "sonnet",
@@ -262,6 +282,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "640k",
       lines: 1136,
       fps: "37 FPS (Escena Basica)",
+      fps_en: "37 FPS (Basic Scene)",
       status: "ok",
       demoUrl: "/demos/claude-haiku-5.5/05-pathtracer-bvh/index.html",
       stillUrl: "/stills/ep04/05-pathtracer-bvh_haiku.png",
@@ -272,6 +293,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "246k",
       lines: 1556,
       fps: "29 FPS (Cornell Box + Arcoiris)",
+      fps_en: "29 FPS (Cornell Box + Rainbow)",
       status: "ok",
       demoUrl: "/demos/claude-sonnet-5.5/05-pathtracer-bvh/index.html",
       stillUrl: "/stills/ep04/05-pathtracer-bvh_sonnet.png",
@@ -282,6 +304,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "944k",
       lines: 1163,
       fps: "15 FPS (Shader Pesado)",
+      fps_en: "15 FPS (Heavy Shader)",
       status: "ok",
       demoUrl: "/demos/claude-opus-5.5/05-pathtracer-bvh/index.html",
       stillUrl: "/stills/ep04/05-pathtracer-bvh_opus.png",
@@ -299,6 +322,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
     world_es: "RETO 06 · ARQUITECTURA DE COMPUTADORAS Y EMULACION",
     world_en: "CHALLENGE 06 · COMPUTER ARCHITECTURE & CPU EMULATION",
     tech: "CPU 35 Opcodes (4KB RAM, V0-VF, I, PC, SP) + Monitor CRT Curvo + Desensamblador + Ensamblador ASM",
+    tech_en: "35-Opcode CPU (4KB RAM, V0-VF, I, PC, SP) + Curved CRT Monitor + Disassembler + ASM Assembler",
     sub_es: "Sonnet ($3.75) y Haiku ($0.48) arrancaron jugando Pong en vivo a 60 FPS; Opus ($6.93, 41.6m) olvido auto-ensamblar la ROM al iniciar (ROM: 0 B)",
     sub_en: "Sonnet ($3.75) & Haiku ($0.48) booted live Pong at 60 FPS; Opus ($6.93, 41.6m) forgot to auto-assemble its ROM on boot (ROM: 0 B)",
     winner: "sonnet",
@@ -310,6 +334,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "1.50M",
       lines: 1218,
       fps: "60 FPS (Cyber Pong en Vivo)",
+      fps_en: "60 FPS (Live Cyber Pong)",
       status: "ok",
       demoUrl: "/demos/claude-haiku-5.5/06-consola-retro-cpu/index.html",
       stillUrl: "/stills/ep04/06-consola-retro-cpu_haiku.png",
@@ -320,6 +345,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "1.36M",
       lines: 2111,
       fps: "60 FPS (CRT Curvo + 9,598 IPS)",
+      fps_en: "60 FPS (Curved CRT + 9,598 IPS)",
       status: "ok",
       demoUrl: "/demos/claude-sonnet-5.5/06-consola-retro-cpu/index.html",
       stillUrl: "/stills/ep04/06-consola-retro-cpu_sonnet.png",
@@ -330,6 +356,7 @@ export const EP04_CHALLENGES: Ep04ChallengeData[] = [
       tok: "942k",
       lines: 2265,
       fps: "BUG ARRANQUE (ROM 0 B)",
+      fps_en: "BOOT BUG (ROM 0 B)",
       status: "broken",
       demoUrl: "/demos/claude-opus-5.5/06-consola-retro-cpu/index.html",
       stillUrl: "/stills/ep04/06-consola-retro-cpu_opus.png",

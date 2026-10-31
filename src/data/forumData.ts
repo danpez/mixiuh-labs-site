@@ -381,8 +381,8 @@ function recordTickZeroGC(price, size, side, now) {
     episode: "ep02",
     badge_es: "AUTOPSIA DE RENDIMIENTO · EP02 N01",
     badge_en: "PERFORMANCE AUTOPSY · EP02 L01",
-    title_es: "Nivel 1 (Tela Verlet): Por que los 18,430 enlaces y 30 iteraciones de Claude Opus 5.5 hundieron el CPU a 28 FPS mientras Argon clavo 120 FPS",
-    title_en: "Level 1 (Verlet Cloth): Why Claude Opus 5.5's 18,430 Links & 30 Solver Iterations Tanked CPU to 28 FPS While Argon Locked 120 FPS",
+    title_es: "Nivel 1 (Tela Verlet): Por que los 18,430 enlaces y las 30 relajaciones por frame de Claude Opus 5.5 hundieron el CPU a 28 FPS mientras Argon clavo 120 FPS",
+    title_en: "Level 1 (Verlet Cloth): Why Claude Opus 5.5's 18,430 Links & 30 Relaxations per Frame Tanked CPU to 28 FPS While Argon Locked 120 FPS",
     excerpt_es: "Mas restricciones no siempre significa mejor ingenieria en tiempo real: analizamos los 18,430 enlaces y las 30 relajaciones por frame de Opus frente a los 5,602 enlaces y 14 iteraciones de Argon.",
     excerpt_en: "More constraints don't always mean better real-time engineering: dissecting Opus's 18,430 links and 30 relaxations per frame vs Argon's 5,602 links and 14 iterations.",
     author: "Kevin Gonzalez",
@@ -434,7 +434,7 @@ this.enableShear = false;`,
     content_en: [
       "Level 01 of Episode 02 called for a dense Verlet cloth mesh built from scratch with a mechanical tension heatmap and a laser scalpel cutter.",
       "Gemini 4 Argon finished the challenge in just 2 agent steps (6.68 minutes and $0.65 USD). Its simulator holds a rock-solid 120 FPS even while slicing fabric with the laser scalpel, firing radial shockwaves, and plotting peak tension on a live oscilloscope.",
-      "Claude Opus 5.5 took 30.87 minutes (28 agent steps and $3.05 USD). While its UI is clean, it fell into a classic unbudgeted over-engineering trap: enabling structural, shear, and bend constraints by default (18,430 total links) at 30 solver iterations per frame, dropping performance to 28 FPS on its own telemetry counter."
+      "Claude Opus 5.5 took 30.87 minutes (28 agent steps and $3.05 USD). While its UI is clean, it fell into a classic unbudgeted over-engineering trap: enabling structural, shear, and bend constraints by default (18,430 total links) with 30 relaxation iterations per frame, dropping performance to 28 FPS on its own telemetry counter."
     ],
     comments: []
   },

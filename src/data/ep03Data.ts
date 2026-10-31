@@ -7,6 +7,8 @@ export interface Ep03ChallengeData {
   world_es: string;
   world_en: string;
   tech: string;
+  /** English twin of `tech`; set only where `tech` contains Spanish words. */
+  tech_en?: string;
   sub_es: string;
   sub_en: string;
   winner: "superkit" | "raw";
@@ -23,7 +25,11 @@ export interface Ep03ChallengeData {
   vanilla_kb: number;
   superkit_kb: number;
   vanilla_fps: string;
+  /** English twin of `vanilla_fps`; set only where `vanilla_fps` has Spanish words or word order. */
+  vanilla_fps_en?: string;
   superkit_fps: string;
+  /** English twin of `superkit_fps`; set only where `superkit_fps` has Spanish words or word order. */
+  superkit_fps_en?: string;
   vs_still: string;
   timestamp_es: string;
   timestamp_en: string;
@@ -75,7 +81,9 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     vanilla_kb: 40.3,
     superkit_kb: 48.0,
     vanilla_fps: "60 FPS (16k sin Bloom)",
+    vanilla_fps_en: "60 FPS (16k, no Bloom)",
     superkit_fps: "60 FPS (20k + Bloom HDR)",
+    superkit_fps_en: "60 FPS (20k + HDR Bloom)",
     vs_still: "/stills/ep03/ep03_vs_01_galaxia.png",
     timestamp_es: "01:14",
     timestamp_en: "01:21",
@@ -92,6 +100,7 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     world_es: "MUNDO 02 · MICROESTRUCTURA FINANCIERA",
     world_en: "WORLD 02 · FINANCIAL MICROSTRUCTURE",
     tech: "Canvas 2D / WebGL + Float64Array RingBuffer + Motor Matching Limit/Market",
+    tech_en: "Canvas 2D / WebGL + Float64Array RingBuffer + Limit/Market Matching Engine",
     sub_es: "70,406 ordenes/seg con buffers pre-alocados Float64Array (16 min mas rapido y mas barato) vs 11,073 ordenes/seg sin kit",
     sub_en: "70,406 orders/sec with pre-allocated Float64Array buffers (16 min faster & cheaper) vs 11,073 orders/sec raw",
     winner: "superkit",
@@ -141,7 +150,9 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     vanilla_kb: 47.4,
     superkit_kb: 57.6,
     vanilla_fps: "60 FPS (1,829 balas)",
+    vanilla_fps_en: "60 FPS (1,829 bullets)",
     superkit_fps: "60 FPS (432 balas)",
+    superkit_fps_en: "60 FPS (432 bullets)",
     vs_still: "/stills/ep03/ep03_vs_03_arcade.png",
     timestamp_es: "02:39",
     timestamp_en: "02:38",
@@ -174,7 +185,9 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     vanilla_kb: 44.3,
     superkit_kb: 52.1,
     vanilla_fps: "60 FPS (5 pasos · $0.74)",
+    vanilla_fps_en: "60 FPS (5 steps · $0.74)",
     superkit_fps: "60 FPS (21 pasos · $2.04)",
+    superkit_fps_en: "60 FPS (21 steps · $2.04)",
     vs_still: "/stills/ep03/ep03_vs_04_zerotrust.png",
     timestamp_es: "03:25",
     timestamp_en: "03:21",
@@ -207,6 +220,7 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     vanilla_kb: 44.3,
     superkit_kb: 52.8,
     vanilla_fps: "60 FPS (Sin PiP 3D)",
+    vanilla_fps_en: "60 FPS (No 3D PiP)",
     superkit_fps: "60 FPS (DAG + PiP SDF)",
     vs_still: "/stills/ep03/ep03_vs_05_nodos.png",
     timestamp_es: "04:12",
@@ -240,7 +254,9 @@ export const EP03_CHALLENGES: Ep03ChallengeData[] = [
     vanilla_kb: 55.1,
     superkit_kb: 65.5,
     vanilla_fps: "60 FPS (Ventanas solapadas)",
+    vanilla_fps_en: "60 FPS (Overlapping Windows)",
     superkit_fps: "60 FPS (4 Apps + Dock macOS)",
+    superkit_fps_en: "60 FPS (4 Apps + macOS Dock)",
     vs_still: "/stills/ep03/ep03_vs_06_mixiuh_os.png",
     timestamp_es: "04:54",
     timestamp_en: "04:39",
