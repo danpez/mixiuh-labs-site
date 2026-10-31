@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { pixelSound, type PixelSoundName } from "./sound";
+import { PIXEL_UI_VERSION } from "./version";
 import {
   PixelIcon,
   PixelSprite,
@@ -17,6 +18,8 @@ export type PixelTone =
   | "violet"
   | "chalk"
   | "ink";
+
+export type PixelColorTone = PixelTone;
 
 const TONE_STYLES: Record<
   PixelTone,
@@ -78,6 +81,9 @@ const TONE_STYLES: Record<
     cardClass: "px-card",
   },
 };
+
+/** Tone -> Tailwind classes + hex lookup shared by every Pixel UI component. */
+export const PIXEL_TONE_STYLES = TONE_STYLES;
 
 /* ============================================================================
    1. TACTILE PIXEL BUTTON & 3D KEYCAP
@@ -419,7 +425,8 @@ export function PixelWindow({
           <span className="font-pixel text-xs font-bold truncate">{title}</span>
           {subtitle && (
             <span className="hidden sm:inline-block font-mono-hud text-[10px] opacity-80 truncate">
-              // {subtitle}
+              {"// "}
+              {subtitle}
             </span>
           )}
         </div>
@@ -484,7 +491,7 @@ export function PixelFloppyCard({
       <div className="absolute top-0 left-6 right-10 h-9 bg-[#CBD5E1] border-x-2 border-b-2 border-[#090B10] flex items-center justify-between px-3 transition-transform duration-200 group-hover:translate-x-2">
         <div className="w-4 h-6 bg-[#090B10]" />
         <span className="font-pixel text-[9px] text-[#090B10] font-bold">
-          {diskCode} // {capacity}
+          {diskCode} {"//"} {capacity}
         </span>
       </div>
 
@@ -717,7 +724,9 @@ export function Pixel3DCRTWorkstation({
               }`}
             />
             <span className="font-pixel text-[10px] font-bold tracking-wider truncate">
-              MIXIUH CRT-9000 // LAB WORKSTATION
+              {lang === "es"
+                ? "MIXIUH LABS // MONITOR DE PRUEBAS"
+                : "MIXIUH LABS // BENCHMARK MONITOR"}
             </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -730,88 +739,69 @@ export function Pixel3DCRTWorkstation({
           </div>
         </div>
 
-        {/* CRT Recessed Dark Glass Tube */}
+        {/* CRT Recessed Dark Glass Tube — Constant Height Whether Powered ON or OFF */}
         <div className="px-3d-screen-bezel p-2.5 sm:p-3 text-[#F5F2EB] space-y-2.5 overflow-hidden">
+          {/* Top OSD Telemetry Bar inside CRT (Constant Height) */}
+          <div className="flex items-center justify-between gap-2 font-mono-hud text-[10px] min-w-0 h-5">
+            <span
+              className="px-2 py-0.5 font-bold text-[#090B10] truncate"
+              style={{
+                backgroundColor: poweredOn ? current.accentHex : "#475569",
+              }}
+            >
+              {poweredOn ? current.kicker : "STANDBY // CRT POWER OFF"}
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center gap-1 text-[#00E5FF] font-bold">
+                <PixelIcon name="clock" size={11} color="#00E5FF" />
+                <span>{current.timeMetric}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-[#FFD100] font-bold">
+                <PixelIcon name="coin" size={11} color="#FFD100" />
+                <span>{current.costMetric}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* 16:9 CRT Phosphor Screen with Scanlines (Identical aspect-video dimensions ON or OFF) */}
           {poweredOn ? (
-            <>
-              {/* Top OSD Telemetry Bar inside CRT */}
-              <div className="flex items-center justify-between gap-2 font-mono-hud text-[10px] min-w-0">
-                <span
-                  className="px-2 py-0.5 font-bold text-[#090B10] truncate"
-                  style={{ backgroundColor: current.accentHex }}
-                >
-                  {current.kicker}
-                </span>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="inline-flex items-center gap-1 text-[#00E5FF] font-bold">
-                    <PixelIcon name="clock" size={11} color="#00E5FF" />
-                    <span>{current.timeMetric}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[#FFD100] font-bold">
-                    <PixelIcon name="coin" size={11} color="#FFD100" />
-                    <span>{current.costMetric}</span>
+            <div
+              onClick={() => {
+                pixelSound.play("powerup");
+                current.onLaunchPrimary();
+              }}
+              className={`relative aspect-video overflow-hidden border-2 border-[#2A344B] bg-[#05070B] group cursor-pointer ${filterClass}`}
+            >
+              {staticFlash ? (
+                <div className="w-full h-full px-dither-checker bg-[#1E293B] flex items-center justify-center">
+                  <span className="font-pixel text-sm text-[#FFD100]">
+                    TUNING CH 0{idx + 1} {"//"} {current.code}...
                   </span>
                 </div>
-              </div>
-
-              {/* 16:9 CRT Phosphor Screen with Scanlines & Click-to-Play */}
-              <div
-                onClick={() => {
-                  pixelSound.play("powerup");
-                  current.onLaunchPrimary();
-                }}
-                className={`relative aspect-video overflow-hidden border-2 border-[#2A344B] bg-[#05070B] group cursor-pointer ${filterClass}`}
-              >
-                {staticFlash ? (
-                  <div className="w-full h-full px-dither-checker bg-[#1E293B] flex items-center justify-center">
-                    <span className="font-pixel text-sm text-[#FFD100]">
-                      TUNING CH 0{idx + 1} // {current.code}...
-                    </span>
+              ) : (
+                <>
+                  <img
+                    src={current.thumb}
+                    alt={current.title}
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
+                  />
+                  {/* Subtle CRT Scanline Overlay */}
+                  <div className="absolute inset-0 px-crt-scanlines pointer-events-none" />
+                  {/* Top-Left Green OSD Channel Indicator */}
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#090B10] border border-[#10B981] font-pixel text-[10px] text-[#10B981]">
+                    CH 0{idx + 1} · {current.code}
                   </div>
-                ) : (
-                  <>
-                    <img
-                      src={current.thumb}
-                      alt={current.title}
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
-                    />
-                    {/* Subtle CRT Scanline Overlay */}
-                    <div className="absolute inset-0 px-crt-scanlines pointer-events-none" />
-                    {/* Top-Left Green OSD Channel Indicator */}
-                    <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#090B10]/90 border border-[#10B981]/60 font-pixel text-[10px] text-[#10B981]">
-                      CH 0{idx + 1} · {current.code}
-                    </div>
-                    {/* Floating Character Sprite in Corner */}
-                    <div className="absolute bottom-2 right-2 p-1 bg-[#090B10]/90 border border-white/25">
-                      <PixelSprite character={current.character} size={28} />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box */}
-              <div className="p-2.5 bg-[#111622] border border-[#2A344B] min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span
-                    className="font-pixel text-[10px] font-bold truncate"
-                    style={{ color: current.accentHex }}
-                  >
-                    {current.verdict}
-                  </span>
-                  <span className="font-mono-hud text-[9px] text-[#94A3B8] shrink-0">
-                    60Hz LOCK
-                  </span>
-                </div>
-                <div className="font-display text-xs sm:text-sm font-black text-white leading-snug line-clamp-1">
-                  {current.title}
-                </div>
-              </div>
-            </>
+                  {/* Floating Character Sprite in Corner */}
+                  <div className="absolute bottom-2 right-2 p-1 bg-[#090B10] border border-white/25">
+                    <PixelSprite character={current.character} size={28} />
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
-            /* CRT Powered Off State (Horizontal White Phosphor Dot/Line) */
             <div
               onClick={togglePower}
-              className="aspect-video bg-[#040508] border-2 border-[#1E2638] flex flex-col items-center justify-center gap-3 cursor-pointer"
+              className="relative aspect-video overflow-hidden bg-[#040508] border-2 border-[#1E2638] flex flex-col items-center justify-center gap-3 cursor-pointer"
             >
               <div className="w-2/3 h-0.5 bg-[#F5F2EB] shadow-[0_0_12px_#00E5FF]" />
               <span className="font-pixel text-[10px] text-[#94A3B8]">
@@ -819,6 +809,30 @@ export function Pixel3DCRTWorkstation({
               </span>
             </div>
           )}
+
+          {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box (Constant Height) */}
+          <div className="p-2.5 bg-[#111622] border border-[#2A344B] min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span
+                className="font-pixel text-[10px] font-bold truncate"
+                style={{
+                  color: poweredOn ? current.accentHex : "#94A3B8",
+                }}
+              >
+                {poweredOn
+                  ? current.verdict
+                  : lang === "es"
+                  ? "TUBO CATODICO EN REPOSO · PRESIONA PWR PARA ENCENDER"
+                  : "CRT TUBE IN STANDBY · PRESS PWR TO RESUME"}
+              </span>
+              <span className="font-mono-hud text-[9px] text-[#94A3B8] shrink-0">
+                {poweredOn ? "60Hz LOCK" : "0Hz OFF"}
+              </span>
+            </div>
+            <div className="font-display text-xs sm:text-sm font-black text-white leading-snug truncate">
+              {current.title}
+            </div>
+          </div>
 
           {/* Physical VHF Channel Push-Buttons inside Monitor Bezel */}
           <div className="grid grid-cols-5 gap-1 pt-0.5">
@@ -1292,7 +1306,7 @@ export function PixelDialogBox({
               {speaker}
             </span>
             {role && (
-              <span className="text-[10px] text-[#94A3B8]">// {role}</span>
+              <span className="text-[10px] text-[#94A3B8]">{`// ${role}`}</span>
             )}
           </div>
           <span className="text-[10px] text-[#94A3B8]">
@@ -1386,7 +1400,7 @@ export function PixelCreditBadge({
         <PixelSprite character="mixiuh" size={22} animate={false} />
         <div>
           <div className="font-pixel text-[10px] leading-none">
-            MIXIUH PIXEL UI v2.0
+            {`MIXIUH PIXEL UI v${PIXEL_UI_VERSION}`}
           </div>
           <div className="text-[9px] font-bold opacity-80">
             OPEN SOURCE · LABS.MIXIUH.ONLINE
@@ -1405,7 +1419,7 @@ export function PixelCreditBadge({
           <PixelSprite character="mixiuh" size={28} />
           <div>
             <span className="font-pixel text-[#FFD100] font-bold">
-              BUILT WITH MIXIUH PIXEL UI v2.0
+              {`BUILT WITH MIXIUH PIXEL UI v${PIXEL_UI_VERSION}`}
             </span>
             <p className="text-[11px] text-[#94A3B8]">
               Free Open-Source Pixel-Art & Retro 3D CRT Component System by
@@ -1439,3 +1453,1344 @@ export function PixelCreditBadge({
     </a>
   );
 }
+
+/* ============================================================================
+   10. PIXEL-ART SOCIAL MEDIA & COMMUNITY REDIRECT BAR (<PixelSocialBar />)
+   ============================================================================ */
+
+export interface PixelSocialLinkItem {
+  id: string;
+  label: string;
+  sublabel?: string;
+  href: string;
+  icon: PixelIconName;
+  accentHex: string;
+}
+
+export interface PixelSocialBarProps {
+  links?: PixelSocialLinkItem[];
+  compact?: boolean;
+  className?: string;
+}
+
+export const DEFAULT_MIXIUH_SOCIAL_LINKS: PixelSocialLinkItem[] = [
+  {
+    id: "youtube-es",
+    label: "YouTube ES",
+    sublabel: "@MixiuhLabsES",
+    href: "https://www.youtube.com/@MixiuhLabsES",
+    icon: "youtube",
+    accentHex: "#FF3355",
+  },
+  {
+    id: "youtube-en",
+    label: "YouTube EN",
+    sublabel: "@MixiuhLabsEN",
+    href: "https://www.youtube.com/@MixiuhLabsEN",
+    icon: "youtube",
+    accentHex: "#FFD100",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    sublabel: "@labs.mixiuh",
+    href: "https://www.instagram.com/labs.mixiuh",
+    icon: "instagram",
+    accentHex: "#F472B6",
+  },
+  {
+    id: "tiktok",
+    label: "TikTok",
+    sublabel: "@mixiuhlabs",
+    href: "https://www.tiktok.com/@mixiuhlabs",
+    icon: "tiktok",
+    accentHex: "#00E5FF",
+  },
+  {
+    id: "x",
+    label: "X",
+    sublabel: "@MixiuhLabs",
+    href: "https://x.com/MixiuhLabs",
+    icon: "x",
+    accentHex: "#F5F2EB",
+  },
+  {
+    id: "github",
+    label: "GitHub",
+    sublabel: "Open Source",
+    href: "https://github.com/mixiuh/mixiuh-labs-site",
+    icon: "github",
+    accentHex: "#10B981",
+  },
+  {
+    id: "web",
+    label: "Mixiuh Web",
+    sublabel: "mixiuh.online",
+    href: "https://mixiuh.online",
+    icon: "globe",
+    accentHex: "#A855F7",
+  },
+];
+
+export function PixelSocialBar({
+  links = DEFAULT_MIXIUH_SOCIAL_LINKS,
+  compact = false,
+  className = "",
+}: PixelSocialBarProps) {
+  if (compact) {
+    return (
+      <div className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+        {links.map((item) => (
+          <a
+            key={item.id}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => pixelSound.play("coin")}
+            title={`${item.label} (${item.sublabel || item.href})`}
+            className="px-2.5 py-1.5 bg-[#111622] hover:bg-[#090B10] border-2 border-[#090B10] shadow-[3px_3px_0_#040508] inline-flex items-center gap-1.5 font-pixel text-[10px] font-bold text-[#F5F2EB] transition hover:-translate-y-0.5"
+            style={{ outline: `1px solid ${item.accentHex}` }}
+          >
+            <PixelIcon name={item.icon} size={13} color={item.accentHex} />
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 ${className}`}
+    >
+      {links.map((item) => (
+        <a
+          key={item.id}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => pixelSound.play("coin")}
+          className="p-3 bg-[#111622] hover:bg-[#171E2E] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center gap-2.5 transition hover:-translate-y-0.5"
+          style={{ outline: `2px solid ${item.accentHex}` }}
+        >
+          <div
+            className="w-8 h-8 border-2 border-[#090B10] flex items-center justify-center shrink-0"
+            style={{ backgroundColor: item.accentHex }}
+          >
+            <PixelIcon name={item.icon} size={16} color="#090B10" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-pixel text-[10px] font-bold text-white truncate">
+              {item.label}
+            </div>
+            {item.sublabel && (
+              <div
+                className="font-mono-hud text-[10px] font-bold truncate"
+                style={{ color: item.accentHex }}
+              >
+                {item.sublabel}
+              </div>
+            )}
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================================
+   11. PRO FORM, NAVIGATION, COLLAPSE, CALENDAR & DATA-VIZ SUITE (v2.2)
+   ============================================================================ */
+
+export interface PixelInputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+  label?: string;
+  helperText?: string;
+  errorText?: string;
+  tone?: PixelColorTone;
+  size?: "sm" | "md" | "lg";
+  iconLeft?: PixelIconName;
+  iconRight?: PixelIconName;
+  clearable?: boolean;
+  onClear?: () => void;
+}
+
+export function PixelInput({
+  label,
+  helperText,
+  errorText,
+  tone = "cyan",
+  size = "md",
+  iconLeft,
+  iconRight,
+  clearable = false,
+  onClear,
+  className = "",
+  value,
+  onChange,
+  ...rest
+}: PixelInputProps) {
+  const accent = TONE_STYLES[tone].hex;
+  const borderHex = errorText ? "#FF3355" : accent;
+  const sizePad =
+    size === "sm"
+      ? "px-2.5 py-1.5 text-xs"
+      : size === "lg"
+      ? "px-4 py-3 text-sm"
+      : "px-3 py-2 text-xs sm:text-sm";
+
+  return (
+    <div className={`space-y-1.5 font-mono-hud ${className}`}>
+      {label && (
+        <label className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase">
+          {label}
+        </label>
+      )}
+      <div
+        className="relative flex items-center bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508]"
+        style={{ outline: `2px solid ${borderHex}` }}
+      >
+        {iconLeft && (
+          <span className="pl-3 pr-1 flex items-center shrink-0">
+            <PixelIcon name={iconLeft} size={14} color={borderHex} />
+          </span>
+        )}
+        <input
+          value={value}
+          onChange={(e) => {
+            pixelSound.play("dialogBlip");
+            onChange?.(e);
+          }}
+          className={`w-full bg-transparent text-[#F5F2EB] placeholder:text-[#64748B] focus:outline-none font-mono-hud ${sizePad}`}
+          {...rest}
+        />
+        {clearable && value && String(value).length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              pixelSound.play("click");
+              onClear?.();
+            }}
+            className="pr-2.5 pl-1 text-[#94A3B8] hover:text-[#FF3355] cursor-pointer"
+            title="Clear"
+          >
+            <PixelIcon name="close" size={13} color="currentColor" />
+          </button>
+        )}
+        {iconRight && (
+          <span className="pr-3 pl-1 flex items-center shrink-0">
+            <PixelIcon name={iconRight} size={14} color={borderHex} />
+          </span>
+        )}
+      </div>
+      {errorText ? (
+        <p className="text-[11px] text-[#FF3355] font-bold flex items-center gap-1">
+          <PixelIcon name="bug" size={12} color="#FF3355" />
+          <span>{errorText}</span>
+        </p>
+      ) : helperText ? (
+        <p className="text-[11px] text-[#94A3B8]">{helperText}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export interface PixelSelectOption {
+  value: string;
+  label: string;
+  sublabel?: string;
+  badge?: string;
+  icon?: PixelIconName;
+}
+
+export interface PixelSelectProps {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: PixelSelectOption[];
+  placeholder?: string;
+  tone?: PixelColorTone;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
+
+export function PixelSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = "Seleccionar opcion...",
+  tone = "yellow",
+  size = "md",
+  className = "",
+}: PixelSelectProps) {
+  const [open, setOpen] = useState(false);
+  const accent = TONE_STYLES[tone].hex;
+  const selected = options.find((o) => o.value === value);
+  const sizePad =
+    size === "sm"
+      ? "px-2.5 py-1.5 text-xs"
+      : size === "lg"
+      ? "px-4 py-3 text-sm"
+      : "px-3 py-2 text-xs sm:text-sm";
+
+  return (
+    <div className={`relative space-y-1.5 font-mono-hud ${className}`}>
+      {label && (
+        <label className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase">
+          {label}
+        </label>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          pixelSound.play("click");
+          setOpen((prev) => !prev);
+        }}
+        className={`w-full bg-[#090B10] hover:bg-[#111622] text-left text-[#F5F2EB] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center justify-between gap-2 cursor-pointer transition ${sizePad}`}
+        style={{ outline: `2px solid ${accent}` }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {selected?.icon && (
+            <PixelIcon name={selected.icon} size={14} color={accent} />
+          )}
+          <span className="font-bold truncate">
+            {selected ? selected.label : placeholder}
+          </span>
+          {selected?.sublabel && (
+            <span className="text-[11px] text-[#94A3B8] truncate hidden sm:inline">
+              · {selected.sublabel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {selected?.badge && (
+            <span
+              className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10]"
+              style={{ backgroundColor: accent }}
+            >
+              {selected.badge}
+            </span>
+          )}
+          <PixelIcon
+            name={open ? "chevron-up" : "chevron-down"}
+            size={14}
+            color={accent}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 right-0 z-50 mt-1 bg-[#090B10] border-2 border-[#090B10] shadow-[6px_6px_0_#040508] max-h-60 overflow-y-auto divide-y divide-[#1E2638]"
+          style={{ outline: `2px solid ${accent}` }}
+        >
+          {options.map((opt) => {
+            const isSel = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  pixelSound.play("coin");
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`w-full px-3 py-2.5 text-left flex items-center justify-between gap-2 cursor-pointer transition ${
+                  isSel
+                    ? "bg-[#172033] text-white font-bold"
+                    : "hover:bg-[#111622] text-[#CBD5E1]"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {opt.icon && (
+                    <PixelIcon
+                      name={opt.icon}
+                      size={14}
+                      color={isSel ? accent : "#94A3B8"}
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold truncate">{opt.label}</div>
+                    {opt.sublabel && (
+                      <div className="text-[10px] text-[#94A3B8] truncate">
+                        {opt.sublabel}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {opt.badge && (
+                    <span
+                      className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10]"
+                      style={{ backgroundColor: accent }}
+                    >
+                      {opt.badge}
+                    </span>
+                  )}
+                  {isSel && <PixelIcon name="check" size={13} color={accent} />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface PixelAutocompleteProps {
+  label?: string;
+  options: PixelSelectOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  tone?: PixelColorTone;
+  className?: string;
+}
+
+export function PixelAutocomplete({
+  label,
+  options,
+  value,
+  onChange,
+  placeholder = "Escribe para filtrar...",
+  tone = "emerald",
+  className = "",
+}: PixelAutocompleteProps) {
+  const accent = TONE_STYLES[tone].hex;
+  const selectedObj = options.find((o) => o.value === value);
+  const [query, setQuery] = useState(selectedObj?.label || "");
+  const [open, setOpen] = useState(false);
+
+  const filtered = options.filter(
+    (o) =>
+      o.label.toLowerCase().includes(query.trim().toLowerCase()) ||
+      (o.sublabel &&
+        o.sublabel.toLowerCase().includes(query.trim().toLowerCase())) ||
+      (o.badge && o.badge.toLowerCase().includes(query.trim().toLowerCase()))
+  );
+
+  return (
+    <div className={`relative space-y-1.5 font-mono-hud ${className}`}>
+      {label && (
+        <label className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase">
+          {label}
+        </label>
+      )}
+      <div
+        className="flex items-center bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508]"
+        style={{ outline: `2px solid ${accent}` }}
+      >
+        <span className="pl-3 pr-1 flex items-center shrink-0">
+          <PixelIcon name="search" size={14} color={accent} />
+        </span>
+        <input
+          type="text"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            pixelSound.play("dialogBlip");
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          placeholder={placeholder}
+          className="w-full px-2.5 py-2 bg-transparent text-xs sm:text-sm text-[#F5F2EB] placeholder:text-[#64748B] focus:outline-none"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              pixelSound.play("click");
+              setQuery("");
+              setOpen(true);
+            }}
+            className="px-2 text-[#94A3B8] hover:text-white cursor-pointer"
+          >
+            <PixelIcon name="close" size={12} />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            pixelSound.play("click");
+            setOpen((o) => !o);
+          }}
+          className="px-2.5 py-2 border-l border-[#1E2638] text-[#94A3B8] hover:text-white cursor-pointer"
+        >
+          <PixelIcon
+            name={open ? "chevron-up" : "chevron-down"}
+            size={13}
+            color={accent}
+          />
+        </button>
+      </div>
+
+      {open && (
+        <div
+          className="absolute left-0 right-0 z-50 mt-1 bg-[#090B10] border-2 border-[#090B10] shadow-[6px_6px_0_#040508] max-h-56 overflow-y-auto divide-y divide-[#1E2638]"
+          style={{ outline: `2px solid ${accent}` }}
+        >
+          {filtered.length === 0 ? (
+            <div className="p-3 text-xs text-[#94A3B8] flex items-center justify-between">
+              <span>Sin coincidencias para &ldquo;{query}&rdquo;</span>
+              <PixelIcon name="ghost" size={14} color="#FF3355" />
+            </div>
+          ) : (
+            filtered.map((opt) => {
+              const isSel = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    pixelSound.play("powerup");
+                    onChange(opt.value);
+                    setQuery(opt.label);
+                    setOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 cursor-pointer transition ${
+                    isSel
+                      ? "bg-[#172033] text-white font-bold"
+                      : "hover:bg-[#111622] text-[#CBD5E1]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {opt.icon && (
+                      <PixelIcon name={opt.icon} size={14} color={accent} />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">
+                        {opt.label}
+                      </div>
+                      {opt.sublabel && (
+                        <div className="text-[10px] text-[#94A3B8] truncate">
+                          {opt.sublabel}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {opt.badge && (
+                    <span
+                      className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10] shrink-0"
+                      style={{ backgroundColor: accent }}
+                    >
+                      {opt.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface PixelCheckboxProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+  tone?: PixelColorTone;
+  disabled?: boolean;
+  className?: string;
+}
+
+export function PixelCheckbox({
+  checked,
+  onChange,
+  label,
+  description,
+  tone = "yellow",
+  disabled = false,
+  className = "",
+}: PixelCheckboxProps) {
+  const accent = TONE_STYLES[tone].hex;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) return;
+        pixelSound.play(checked ? "toggleOff" : "toggleOn");
+        onChange(!checked);
+      }}
+      className={`group flex items-start gap-3 text-left font-mono-hud cursor-pointer select-none ${
+        disabled ? "opacity-50 cursor-not-allowed" : ""
+      } ${className}`}
+    >
+      <div
+        className="w-5 h-5 mt-0.5 border-2 border-[#090B10] shadow-[2px_2px_0_#040508] flex items-center justify-center shrink-0 transition"
+        style={{
+          backgroundColor: checked ? accent : "#090B10",
+          outline: `2px solid ${checked ? accent : "#475569"}`,
+        }}
+      >
+        {checked && <PixelIcon name="check" size={13} color="#090B10" />}
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs sm:text-sm font-bold text-[#F5F2EB] group-hover:text-white">
+          {label}
+        </div>
+        {description && (
+          <div className="text-[11px] text-[#94A3B8] leading-snug">
+            {description}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+export interface PixelRadioOption {
+  value: string;
+  label: string;
+  description?: string;
+  badge?: string;
+}
+
+export interface PixelRadioGroupProps {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: PixelRadioOption[];
+  tone?: PixelColorTone;
+  className?: string;
+}
+
+export function PixelRadioGroup({
+  label,
+  value,
+  onChange,
+  options,
+  tone = "cyan",
+  className = "",
+}: PixelRadioGroupProps) {
+  const accent = TONE_STYLES[tone].hex;
+  return (
+    <div className={`space-y-2 font-mono-hud ${className}`}>
+      {label && (
+        <div className="font-pixel text-[10px] font-bold text-[#F5F2EB] uppercase">
+          {label}
+        </div>
+      )}
+      <div className="space-y-2">
+        {options.map((opt) => {
+          const active = opt.value === value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                pixelSound.play("click");
+                onChange(opt.value);
+              }}
+              className={`w-full p-2.5 border-2 border-[#090B10] shadow-[3px_3px_0_#040508] text-left flex items-center justify-between gap-3 cursor-pointer transition ${
+                active ? "bg-[#161F33]" : "bg-[#090B10] hover:bg-[#111622]"
+              }`}
+              style={{ outline: `2px solid ${active ? accent : "#2A344B"}` }}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className="w-4 h-4 border-2 border-[#090B10] flex items-center justify-center shrink-0"
+                  style={{
+                    backgroundColor: "#090B10",
+                    outline: `2px solid ${active ? accent : "#64748B"}`,
+                  }}
+                >
+                  {active && (
+                    <div
+                      className="w-2 h-2"
+                      style={{ backgroundColor: accent }}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white truncate">
+                    {opt.label}
+                  </div>
+                  {opt.description && (
+                    <div className="text-[11px] text-[#94A3B8] truncate">
+                      {opt.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {opt.badge && (
+                <span
+                  className="px-1.5 py-0.5 font-pixel text-[9px] font-bold text-[#090B10] shrink-0"
+                  style={{ backgroundColor: accent }}
+                >
+                  {opt.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export interface PixelCollapseItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  icon?: PixelIconName;
+  content: React.ReactNode;
+}
+
+export interface PixelCollapseProps {
+  items: PixelCollapseItem[];
+  defaultOpenIds?: string[];
+  allowMultiple?: boolean;
+  tone?: PixelColorTone;
+  className?: string;
+}
+
+export function PixelCollapse({
+  items,
+  defaultOpenIds = [],
+  allowMultiple = true,
+  tone = "yellow",
+  className = "",
+}: PixelCollapseProps) {
+  const [openIds, setOpenIds] = useState<string[]>(defaultOpenIds);
+  const accent = TONE_STYLES[tone].hex;
+
+  const toggleItem = (id: string) => {
+    const isOpen = openIds.includes(id);
+    pixelSound.play(isOpen ? "toggleOff" : "toggleOn");
+    if (allowMultiple) {
+      setOpenIds((prev) =>
+        isOpen ? prev.filter((item) => item !== id) : [...prev, id]
+      );
+    } else {
+      setOpenIds(isOpen ? [] : [id]);
+    }
+  };
+
+  return (
+    <div className={`space-y-2.5 font-mono-hud ${className}`}>
+      {items.map((item) => {
+        const isOpen = openIds.includes(item.id);
+        return (
+          <div
+            key={item.id}
+            className="bg-[#090B10] border-2 border-[#090B10] shadow-[4px_4px_0_#040508]"
+            style={{ outline: `2px solid ${isOpen ? accent : "#2A344B"}` }}
+          >
+            <button
+              type="button"
+              onClick={() => toggleItem(item.id)}
+              aria-expanded={isOpen}
+              aria-controls={`px-collapse-${item.id}`}
+              className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-3 cursor-pointer transition ${
+                isOpen ? "bg-[#151D2E]" : "bg-[#111622] hover:bg-[#151D2E]"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <PixelIcon
+                  name={item.icon || (isOpen ? "folder-open" : "folder")}
+                  size={15}
+                  color={isOpen ? accent : "#94A3B8"}
+                />
+                <div className="min-w-0">
+                  <div className="font-display text-xs sm:text-sm font-bold text-white truncate">
+                    {item.title}
+                  </div>
+                  {item.subtitle && (
+                    <div className="text-[11px] text-[#94A3B8] truncate">
+                      {item.subtitle}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {item.badge && (
+                  <span
+                    className="px-2 py-0.5 font-pixel text-[9px] font-bold text-[#090B10]"
+                    style={{ backgroundColor: accent }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+                <PixelIcon
+                  name={isOpen ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color={accent}
+                />
+              </div>
+            </button>
+            {isOpen && (
+              <div
+                id={`px-collapse-${item.id}`}
+                className="p-3.5 bg-[#090B10] border-t-2 border-[#1E2638] text-xs sm:text-sm text-[#CBD5E1] leading-relaxed"
+              >
+                {item.content}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export interface PixelCalendarEvent {
+  date: string; // YYYY-MM-DD
+  label: string;
+  tone?: PixelColorTone;
+}
+
+export interface PixelCalendarProps {
+  selectedDate?: string; // YYYY-MM-DD
+  onSelectDate?: (date: string) => void;
+  events?: PixelCalendarEvent[];
+  tone?: PixelColorTone;
+  lang?: "es" | "en";
+  className?: string;
+}
+
+export function PixelCalendar({
+  selectedDate = "2026-10-30",
+  onSelectDate,
+  events = [],
+  tone = "cyan",
+  lang = "es",
+  className = "",
+}: PixelCalendarProps) {
+  const initialParts = selectedDate.split("-").map(Number);
+  const [year, setYear] = useState(initialParts[0] || 2026);
+  const [month, setMonth] = useState((initialParts[1] || 10) - 1); // 0-indexed
+  const accent = TONE_STYLES[tone].hex;
+
+  const monthNamesEs = [
+    "ENERO",
+    "FEBRERO",
+    "MARZO",
+    "ABRIL",
+    "MAYO",
+    "JUNIO",
+    "JULIO",
+    "AGOSTO",
+    "SEPTIEMBRE",
+    "OCTUBRE",
+    "NOVIEMBRE",
+    "DICIEMBRE",
+  ];
+  const monthNamesEn = [
+    "JANUARY",
+    "FEBRUARY",
+    "MARCH",
+    "APRIL",
+    "MAY",
+    "JUNE",
+    "JULY",
+    "AUGUST",
+    "SEPTEMBER",
+    "OCTOBER",
+    "NOVEMBER",
+    "DECEMBER",
+  ];
+  const weekDaysEs = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"];
+  const weekDaysEn = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const startOffset = (firstDayOfMonth + 6) % 7; // Monday = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const prevMonth = () => {
+    pixelSound.play("click");
+    if (month === 0) {
+      setMonth(11);
+      setYear((y) => y - 1);
+    } else {
+      setMonth((m) => m - 1);
+    }
+  };
+
+  const nextMonth = () => {
+    pixelSound.play("click");
+    if (month === 11) {
+      setMonth(0);
+      setYear((y) => y + 1);
+    } else {
+      setMonth((m) => m + 1);
+    }
+  };
+
+  const formatIso = (d: number) =>
+    `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  const activeEvent = events.find((e) => e.date === selectedDate);
+
+  return (
+    <div
+      className={`bg-[#090B10] border-2 border-[#090B10] shadow-[5px_5px_0_#040508] p-3.5 font-mono-hud space-y-3 ${className}`}
+      style={{ outline: `2px solid ${accent}` }}
+    >
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between gap-2 bg-[#111622] p-2 border border-[#2A344B]">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="px-2 py-1 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
+        >
+          <PixelIcon name="chevron-left" size={13} color={accent} />
+        </button>
+        <div className="flex items-center gap-1.5 font-pixel text-xs font-bold text-white">
+          <PixelIcon name="calendar" size={13} color={accent} />
+          <span>
+            {(lang === "es" ? monthNamesEs : monthNamesEn)[month]} {year}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="px-2 py-1 bg-[#090B10] hover:bg-[#1E293B] border border-[#2A344B] cursor-pointer"
+        >
+          <PixelIcon name="chevron-right" size={13} color={accent} />
+        </button>
+      </div>
+
+      {/* Days of Week Header */}
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {(lang === "es" ? weekDaysEs : weekDaysEn).map((wd) => (
+          <div
+            key={wd}
+            className="font-pixel text-[9px] text-[#94A3B8] py-1 bg-[#111622]"
+          >
+            {wd}
+          </div>
+        ))}
+
+        {Array.from({ length: startOffset }).map((_, i) => (
+          <div key={`empty-${i}`} className="h-8 bg-[#06080C]" />
+        ))}
+
+        {Array.from({ length: daysInMonth }).map((_, idx) => {
+          const day = idx + 1;
+          const iso = formatIso(day);
+          const isSelected = iso === selectedDate;
+          const ev = events.find((e) => e.date === iso);
+          const evHex = ev
+            ? TONE_STYLES[ev.tone || "yellow"].hex
+            : undefined;
+
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => {
+                pixelSound.play(ev ? "coin" : "click");
+                onSelectDate?.(iso);
+              }}
+              className={`relative h-8 font-mono-hud text-xs font-bold border transition cursor-pointer flex flex-col items-center justify-center ${
+                isSelected
+                  ? "text-[#090B10] border-[#090B10] shadow-[2px_2px_0_#FFFFFF]"
+                  : "bg-[#111622] hover:bg-[#1A2336] text-[#F5F2EB] border-[#1E2638]"
+              }`}
+              style={{
+                backgroundColor: isSelected ? accent : undefined,
+              }}
+            >
+              <span>{day}</span>
+              {ev && (
+                <span
+                  className="w-1.5 h-1.5"
+                  style={{
+                    backgroundColor: isSelected ? "#090B10" : evHex,
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected Date / Event Telemetry Footer */}
+      <div className="p-2.5 bg-[#111622] border border-[#2A344B] flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="px-2 py-0.5 font-pixel text-[9px] font-bold text-[#090B10] shrink-0"
+            style={{ backgroundColor: accent }}
+          >
+            {selectedDate}
+          </span>
+          <span className="text-[#CBD5E1] font-bold truncate">
+            {activeEvent
+              ? activeEvent.label
+              : lang === "es"
+              ? "Fecha activa en calendario"
+              : "Active calendar date"}
+          </span>
+        </div>
+        <PixelIcon name="clock" size={13} color={accent} />
+      </div>
+    </div>
+  );
+}
+
+export interface PixelSliderProps {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+  tone?: PixelColorTone;
+  className?: string;
+}
+
+export function PixelSlider({
+  label,
+  value,
+  min = 0,
+  max = 100,
+  step = 1,
+  unit = "",
+  onChange,
+  tone = "emerald",
+  className = "",
+}: PixelSliderProps) {
+  const accent = TONE_STYLES[tone].hex;
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+  const totalBlocks = 16;
+  const activeBlocks = Math.round((pct / 100) * totalBlocks);
+
+  return (
+    <div className={`space-y-1.5 font-mono-hud ${className}`}>
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-pixel text-[10px] font-bold text-[#F5F2EB]">
+          {label}
+        </span>
+        <span
+          className="px-2 py-0.5 font-pixel text-[10px] font-bold text-[#090B10]"
+          style={{ backgroundColor: accent }}
+        >
+          {value}
+          {unit}
+        </span>
+      </div>
+      <div className="relative p-2 bg-[#090B10] border-2 border-[#2A344B]">
+        <div className="grid grid-cols-16 gap-1 pointer-events-none">
+          {Array.from({ length: totalBlocks }).map((_, i) => (
+            <div
+              key={i}
+              className="h-3.5 transition-colors"
+              style={{
+                backgroundColor: i < activeBlocks ? accent : "#151C2B",
+              }}
+            />
+          ))}
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => {
+            pixelSound.play("hover");
+            onChange(Number(e.target.value));
+          }}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+      </div>
+    </div>
+  );
+}
+
+export interface PixelMultiSeriesPoint {
+  label: string;
+  values: Record<string, number>;
+}
+
+export interface PixelMultiSeriesConfig {
+  key: string;
+  name: string;
+  color: string;
+}
+
+export interface PixelMultiLineChartProps {
+  title?: string;
+  subtitle?: string;
+  series: PixelMultiSeriesConfig[];
+  data: PixelMultiSeriesPoint[];
+  maxY?: number;
+  unit?: string;
+  className?: string;
+}
+
+export function PixelMultiLineChart({
+  title,
+  subtitle,
+  series,
+  data,
+  maxY = 100,
+  unit = "%",
+  className = "",
+}: PixelMultiLineChartProps) {
+  const [hiddenKeys, setHiddenKeys] = useState<string[]>([]);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(data.length - 1);
+
+  const toggleSeries = (k: string) => {
+    pixelSound.play("click");
+    setHiddenKeys((prev) =>
+      prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]
+    );
+  };
+
+  const w = 520;
+  const h = 210;
+  const padL = 38;
+  const padR = 18;
+  const padT = 18;
+  const padB = 30;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const getX = (i: number) =>
+    padL + (data.length <= 1 ? plotW / 2 : (i / (data.length - 1)) * plotW);
+  const getY = (v: number) =>
+    padT + plotH - (Math.max(0, Math.min(maxY, v)) / maxY) * plotH;
+
+  return (
+    <div
+      className={`p-4 bg-[#090B10] border-2 border-[#2A344B] shadow-[5px_5px_0_#040508] font-mono-hud space-y-3 ${className}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          {title && (
+            <div className="font-pixel text-xs font-bold text-[#FFD100]">
+              {title}
+            </div>
+          )}
+          {subtitle && (
+            <div className="text-[11px] text-[#94A3B8]">{subtitle}</div>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {series.map((s) => {
+            const hidden = hiddenKeys.includes(s.key);
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => toggleSeries(s.key)}
+                className={`px-2 py-1 border text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition ${
+                  hidden
+                    ? "bg-[#090B10] text-[#64748B] border-[#1E2638]"
+                    : "bg-[#131824] text-white border-[#2A344B]"
+                }`}
+              >
+                <span
+                  className="w-2.5 h-2.5 inline-block border border-[#090B10]"
+                  style={{ backgroundColor: hidden ? "#475569" : s.color }}
+                />
+                <span>{s.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="w-full h-48 bg-[#06080D] border border-[#1E2638]"
+        style={{ shapeRendering: "crispEdges" }}
+      >
+        {/* Horizontal Grid Lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
+          const y = padT + plotH * (1 - t);
+          const val = Math.round(maxY * t);
+          return (
+            <g key={idx}>
+              <line
+                x1={padL}
+                y1={y}
+                x2={w - padR}
+                y2={y}
+                stroke="#151D2E"
+                strokeWidth="1"
+              />
+              <text
+                x={padL - 6}
+                y={y + 3}
+                textAnchor="end"
+                fill="#64748B"
+                fontSize="9"
+                fontFamily="monospace"
+              >
+                {val}
+                {unit}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Series Polylines & Pixel Nodes */}
+        {series
+          .filter((s) => !hiddenKeys.includes(s.key))
+          .map((s) => {
+            const pts = data
+              .map((d, i) => `${getX(i)},${getY(d.values[s.key] ?? 0)}`)
+              .join(" ");
+            return (
+              <g key={s.key}>
+                <polyline
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth="2.5"
+                  points={pts}
+                />
+                {data.map((d, i) => {
+                  const cx = getX(i);
+                  const cy = getY(d.values[s.key] ?? 0);
+                  return (
+                    <rect
+                      key={`${s.key}-${i}`}
+                      x={cx - 3.5}
+                      y={cy - 3.5}
+                      width="7"
+                      height="7"
+                      fill={s.color}
+                      stroke="#090B10"
+                      strokeWidth="1.5"
+                      className="cursor-pointer"
+                      onMouseEnter={() => setHoverIdx(i)}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+
+        {/* X Axis Labels */}
+        {data.map((d, i) => (
+          <text
+            key={d.label}
+            x={getX(i)}
+            y={h - 8}
+            textAnchor="middle"
+            fill={hoverIdx === i ? "#FFD100" : "#94A3B8"}
+            fontSize="9"
+            fontFamily="monospace"
+            fontWeight="bold"
+          >
+            {d.label}
+          </text>
+        ))}
+      </svg>
+
+      {hoverIdx !== null && data[hoverIdx] && (
+        <div className="p-2 bg-[#111622] border border-[#2A344B] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="font-pixel text-[10px] text-[#FFD100]">
+            BENCHMARK: {data[hoverIdx].label}
+          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            {series
+              .filter((s) => !hiddenKeys.includes(s.key))
+              .map((s) => (
+                <span
+                  key={s.key}
+                  className="font-bold"
+                  style={{ color: s.color }}
+                >
+                  {s.name}: {data[hoverIdx].values[s.key]}
+                  {unit}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface PixelDonutGaugeProps {
+  label: string;
+  sublabel?: string;
+  value: number;
+  maxValue?: number;
+  displayValue?: string;
+  tone?: PixelColorTone;
+  className?: string;
+}
+
+export function PixelDonutGauge({
+  label,
+  sublabel,
+  value,
+  maxValue = 100,
+  displayValue,
+  tone = "cyan",
+  className = "",
+}: PixelDonutGaugeProps) {
+  const accent = TONE_STYLES[tone].hex;
+  const pct = Math.max(0, Math.min(1, value / maxValue));
+  const segments = 16;
+  const activeCount = Math.round(pct * segments);
+
+  return (
+    <div
+      className={`p-3.5 bg-[#090B10] border-2 border-[#2A344B] shadow-[4px_4px_0_#040508] flex items-center gap-3.5 font-mono-hud ${className}`}
+    >
+      <svg
+        width="68"
+        height="68"
+        viewBox="0 0 68 68"
+        className="shrink-0"
+        style={{ shapeRendering: "crispEdges" }}
+      >
+        {Array.from({ length: segments }).map((_, i) => {
+          const angle = (i / segments) * Math.PI * 2 - Math.PI / 2;
+          const r = 25;
+          const x = Math.round(34 + Math.cos(angle) * r) - 3;
+          const y = Math.round(34 + Math.sin(angle) * r) - 3;
+          const active = i < activeCount;
+          return (
+            <rect
+              key={i}
+              x={x}
+              y={y}
+              width="6"
+              height="6"
+              fill={active ? accent : "#1A2234"}
+            />
+          );
+        })}
+        <text
+          x="34"
+          y="37"
+          textAnchor="middle"
+          fill="#F5F2EB"
+          fontSize="11"
+          fontFamily="monospace"
+          fontWeight="bold"
+        >
+          {displayValue || `${Math.round(pct * 100)}%`}
+        </text>
+      </svg>
+      <div className="min-w-0">
+        <div
+          className="font-pixel text-[10px] font-bold truncate"
+          style={{ color: accent }}
+        >
+          {label}
+        </div>
+        {sublabel && (
+          <div className="text-xs text-[#CBD5E1] font-bold mt-0.5 leading-snug">
+            {sublabel}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

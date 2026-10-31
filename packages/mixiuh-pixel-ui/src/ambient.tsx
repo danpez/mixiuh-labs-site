@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { usePrefersReducedMotion } from "./motion";
 
 export type AmbientSimulationMode =
   | "ai-ecosystem"
@@ -70,9 +71,12 @@ export function PixelProceduralAmbientBg({
   className = "",
 }: PixelProceduralAmbientBgProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Motion-sensitive visitors get the static grid background only
+  const reducedMotion = usePrefersReducedMotion();
+  const active = mode !== "off" && !reducedMotion;
 
   useEffect(() => {
-    if (mode === "off") return;
+    if (!active) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -453,9 +457,9 @@ export function PixelProceduralAmbientBg({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("click", handleClick);
     };
-  }, [mode]);
+  }, [mode, active]);
 
-  if (mode === "off") return null;
+  if (!active) return null;
 
   return (
     <canvas

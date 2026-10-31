@@ -1,55 +1,128 @@
-# `@mixiuh/pixel-ui` v1.0.0 — Mixiuh Pixel UI
+# `@mixiuh/pixel-ui` v2.3.0 — Mixiuh Pixel UI
 
-> **The World's Most Complete Pixel-Art + Playdate 3D Hardware UI Library.**
+> Pixel-art + Playdate 3D hardware UI library for React / Next.js + Tailwind CSS v4.
 > Built by **Mixiuh Labs** (`https://labs.mixiuh.online`).
-> **100% Free for Commercial & Personal Use** worldwide — just credit **Mixiuh Labs** where you use it!
+> **100% free for commercial & personal use** worldwide — just credit **Mixiuh Labs** where you use it.
+
+This folder is the **single source of truth** of the library. The Mixiuh Labs site
+imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
+`npm run pixel-ui:kit` publishes the CDN stylesheet and the downloadable ZIP to
+`/public/pixel-ui/` (it also runs automatically before every `next build`).
 
 ---
 
-## What's Inside `@mixiuh/pixel-ui`
+## What's inside
 
-1. **Playdate Minimalist + 3D Hardware Contrast System (`pixel-ui.css`)**:
-   - Signature high-contrast limited palette (`Signal Yellow #FFD100`, `Electric Cyan #00E5FF`, `Signal Coral #FF3355`, `Arcade Emerald #10B981`, `Argon Violet #A855F7`, `Warm Chalk #F5F2EB`, `Deep Carbon Ink #090B10`).
-   - Stepped pixel corners (`.px-step-sm`, `.px-step-md`), hard offset shadows (`.px-card`, `.px-btn`), 1-bit Bayer dithering textures (`.px-dither-dots`, `.px-dither-checker`, `.px-hazard-stripe`), and 3D hardware shells (`.px-3d-console-shell`, `.px-3d-cartridge`, `.px-3d-keycap`).
-2. **Procedural WebAudio 8-Bit Sound Engine (`sound.ts`)**:
-   - 12 real-time procedural sound effects (`click`, `hover`, `crank`, `coin`, `powerup`, `laser`, `jump`, `hit`, `dialogBlip`, `cartridgeInsert`, `achievement`, `toggleOn`/`toggleOff`) with zero external MP3 dependencies.
-3. **52 Grid-Aligned 16x16 Vector Pixel Icons & 8 Animated AI Sprites (`icons.tsx`)**:
-   - Zero Unicode emojis. Every icon is rendered on a crisp `16x16` SVG grid (`shapeRendering="crispEdges"`).
-4. **40+ Tactile Components, 3D Consoles & Pixel Charts (`components.tsx`)**:
-   - `<Pixel3DPocketConsole />`, `<Pixel3DCartridge />`, `<PixelCrank />`, `<PixelKeycap />`, `<PixelButton />`, `<PixelToggle />`, `<PixelCard />`, `<PixelWindow />`, `<PixelDialogBox />`, `<PixelBarChart />`, `<PixelVersusBar />`, `<PixelSparkline />`, `<PixelTelemetryPill />`, and `<PixelCreditBadge />`.
+| Module | Contents |
+| --- | --- |
+| `styles/pixel-ui.css` | Design tokens (`--px-*`), opaque spec cards (`.px-card-*`), tactile buttons (`.px-btn`), stepped corners, 1-bit dithering, 3D CRT / cartridge / keycap shells, `.px-kbd`, `.px-backdrop`, `.px-skip-link`, pixel focus ring and `prefers-reduced-motion` support. |
+| `src/sound.ts` | Procedural WebAudio 8-bit synth: 13 SFX (`click`, `hover`, `coin`, `powerup`, `achievement`, …) + `usePixelSound()`. Zero MP3 files. |
+| `src/icons.tsx` | 200+ grid-aligned 16x16 SVG icons (28 brands), 16 animated sprites, 8 scenes. `shapeRendering="crispEdges"`, zero emojis. |
+| `src/components.tsx` | Buttons, keycaps, toggles, VHF crank, cards, OS windows, floppies, cartridges, 3D CRT workstation, dialog box, charts (bar, versus, sparkline, multi-line, donut), forms (input, select, autocomplete, checkbox, radio, slider), collapse, calendar, social bar, credit badge. |
+| `src/overlays.tsx` (**new in 2.3**) | `PixelCommandPalette` (Ctrl/Cmd+K), `PixelToaster` + `pixelToast`, `PixelTabs`, `PixelCopyButton` + `copyTextToClipboard`, `PixelBackToTop`. |
+| `src/motion.ts` (**new in 2.3**) | `usePrefersReducedMotion()` / `prefersReducedMotion()`. |
+| `src/ambient.tsx` | Procedural AI-ecosystem background canvas (auto-disabled for reduced motion). |
+| `src/cursor.tsx` | 6 pixel-art cursor presets + `usePixelCursor()`. |
+| `src/scroll-reveal.tsx` | Pixel-by-pixel "materialize on scroll" observer. |
+| `src/version.ts` | `PIXEL_UI_VERSION` (kept in sync with `package.json`). |
 
 ---
 
-## Quick Start
+## Quick start
 
-### Option A: CDN / Plain HTML
+### Option A — CDN / plain HTML (CSS classes only)
+
 ```html
 <link rel="stylesheet" href="https://labs.mixiuh.online/pixel-ui/mixiuh-pixel-ui.css" />
+
+<button class="px-btn" style="background:#FFD100;padding:.6rem 1rem">PLAY</button>
+<div class="px-card-cyan" style="padding:1rem">Opaque pixel spec card</div>
 ```
 
-### Option B: React / Next.js + Tailwind CSS
-Copy the `src/lib/mixiuh-pixel-ui` folder into your project and import:
-```tsx
-import {
-  PixelButton,
-  PixelCard,
-  PixelWindow,
-  Pixel3DCartridge,
-  PixelCrank,
-  PixelBarChart,
-  PixelDialogBox,
-  PixelIcon,
-  PixelCreditBadge,
-  usePixelSound,
-} from "@/lib/mixiuh-pixel-ui";
-```
+The CDN build already loads the fonts (Pixelify Sans, Silkscreen, Space Mono, Inter).
+
+### Option B — React / Next.js + Tailwind CSS v4
+
+1. Download `https://labs.mixiuh.online/pixel-ui/mixiuh-pixel-ui-kit.zip` and copy the
+   `mixiuh-pixel-ui/` folder into your repo (e.g. `packages/mixiuh-pixel-ui`).
+2. Point an alias at it in `tsconfig.json`:
+
+   ```json
+   { "compilerOptions": { "paths": { "@mixiuh/pixel-ui": ["./packages/mixiuh-pixel-ui/src/index.ts"] } } }
+   ```
+
+3. Import the styles and let Tailwind scan the components in your global CSS:
+
+   ```css
+   @import "tailwindcss";
+   @import "../../packages/mixiuh-pixel-ui/styles/pixel-ui.css";
+   @source "../../packages/mixiuh-pixel-ui/src";
+   ```
+
+4. Use it:
+
+   ```tsx
+   import {
+     PixelButton,
+     PixelCard,
+     PixelTabs,
+     PixelCommandPalette,
+     PixelToaster,
+     pixelToast,
+     PixelCreditBadge,
+   } from "@mixiuh/pixel-ui";
+
+   export function App() {
+     const [open, setOpen] = useState(false);
+     return (
+       <>
+         <PixelButton tone="yellow" icon="play" onClick={() => pixelToast.show({ title: "READY!" })}>
+           Start
+         </PixelButton>
+         <PixelCommandPalette
+           open={open}
+           onOpenChange={setOpen}
+           items={[{ id: "home", label: "Home", icon: "home", onSelect: () => {} }]}
+         />
+         <PixelToaster />
+         <PixelCreditBadge variant="hardware" />
+       </>
+     );
+   }
+   ```
+
+Optional fonts (Next.js): expose `--font-pixelify`, `--font-pixel`, `--font-space-mono`,
+`--font-inter` and `--font-poppins` with `next/font/google`; otherwise the CSS falls back to
+the font family names.
 
 ---
 
-## Free Commercial & Personal License (With Attribution)
+## Accessibility
 
-`@mixiuh/pixel-ui` is free to use in any personal, indie, studio, or commercial project worldwide as long as you include credit to **Mixiuh Labs (`https://labs.mixiuh.online`)**:
+- Square, high-contrast `:focus-visible` ring on every interactive element.
+- `PixelTabs` implements `role="tablist"` with Arrow / Home / End keys.
+- `PixelCommandPalette` is a modal `role="dialog"` with a `combobox` + `listbox`, focus restore and scroll lock.
+- `PixelToaster` announces messages through `aria-live="polite"`.
+- `prefers-reduced-motion: reduce` disables the ambient canvas, the scroll materializer and CSS animations.
+
+## Maintaining the kit
+
+```bash
+npm run pixel-ui:kit   # regenerate public/pixel-ui/{mixiuh-pixel-ui.css,mixiuh-pixel-ui-kit.zip}
+```
+
+Bump `version` in `package.json` **and** `src/version.ts` together; the script refuses to
+build when they differ. The output is deterministic, so an unchanged library leaves git clean.
+
+---
+
+## Free commercial & personal license (with attribution)
+
+`@mixiuh/pixel-ui` is free to use in any personal, indie, studio, or commercial project
+worldwide as long as you include credit to **Mixiuh Labs (`https://labs.mixiuh.online`)**:
 
 ```tsx
 <PixelCreditBadge variant="hardware" />
 ```
+
+See [`LICENSE`](./LICENSE).

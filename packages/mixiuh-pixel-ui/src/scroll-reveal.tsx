@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { prefersReducedMotion } from "./motion";
 
 const PALETTE_SPARKS = [
   "#FFD100",
@@ -114,10 +115,10 @@ export interface PixelScrollMaterializerProps {
  */
 export function PixelScrollMaterializer({
   watchKey = "default",
-  selector = "[data-px-reveal], .px-card, .px-card-yellow, .px-card-cyan, .px-card-emerald, .px-card-coral, .px-card-violet, .px-card-chalk, article, main .rounded-2xl, main .rounded-3xl",
+  selector = "[data-px-reveal], .px-card, .px-card-yellow, .px-card-cyan, .px-card-emerald, .px-card-coral, .px-card-violet, .px-card-chalk, article",
 }: PixelScrollMaterializerProps) {
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || prefersReducedMotion()) return;
 
     const seenInCurrentPass = new WeakSet<HTMLElement>();
     let seedCounter = 1;

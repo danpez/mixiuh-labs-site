@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { PixelIcon, copyTextToClipboard } from "@mixiuh/pixel-ui";
 import {
   INITIAL_FORUM_THREADS,
   INITIAL_EP02_PROPOSALS,
@@ -16,17 +17,6 @@ import {
   getReleasedStatus,
   type ReleasedState,
 } from "@/data/releaseSchedule";
-import {
-  MessageSquare,
-  ArrowUp,
-  Search,
-  Plus,
-  Send,
-  Play,
-  Copy,
-  Check,
-  X,
-} from "lucide-react";
 
 interface Props {
   lang: "es" | "en";
@@ -44,7 +34,7 @@ function formatInlineCode(text: string): React.ReactNode {
       return (
         <code
           key={idx}
-          className="px-1.5 py-0.5 rounded bg-[#060B14] border border-[#22A2DD]/30 font-mono-hud text-[#5EEAD4] text-[0.9em]"
+          className="px-1.5 py-0.5 bg-[#090B10] border border-[#00E5FF]/30 font-mono-hud text-[#00E5FF] text-[0.9em]"
         >
           {part.slice(1, -1)}
         </code>
@@ -54,21 +44,41 @@ function formatInlineCode(text: string): React.ReactNode {
   });
 }
 
+function isCuratedThreadReleased(t: ForumThread, rel: ReleasedState) {
+  if (t.episode === "carbon01" && !rel.carbon01) return false;
+  if (t.episode === "ep04" && !rel.ep04) return false;
+  if (t.episode === "ep03" && !rel.ep03) return false;
+  if (t.episode === "cc01" && !rel.cc01) return false;
+  return true;
+}
+
+/** Same thread list size the forum renders (curated + one thread per released challenge). */
+export function countForumThreads(rel: ReleasedState): number {
+  return (
+    INITIAL_FORUM_THREADS.filter((t) => isCuratedThreadReleased(t, rel)).length +
+    (rel.ep04 ? EP04_CHALLENGES.length : 0) +
+    (rel.ep03 ? EP03_CHALLENGES.length : 0) +
+    EP02_CHALLENGES.length +
+    CHALLENGES.length
+  );
+}
+
 export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   const rel = useMemo<ReleasedState>(
     () => released ?? getReleasedStatus(),
     [released]
   );
 
+  // Latest published lab episode drives the copy (log range, prompt count, next vote)
+  const latestEp = rel.ep04 ? 4 : rel.ep03 ? 3 : 2;
+  const nextEp = String(latestEp + 1).padStart(2, "0");
+  const promptCount = 10 + 6 + (rel.ep03 ? 6 : 0) + (rel.ep04 ? 6 : 0);
+
   // Combine curated threads with individual prompt/audit threads for released episodes only (zero spoilers)
   const defaultThreads = useMemo<ForumThread[]>(() => {
-    const releasedCuratedThreads = INITIAL_FORUM_THREADS.filter((t) => {
-      if (t.episode === "carbon01" && !rel.carbon01) return false;
-      if (t.episode === "ep04" && !rel.ep04) return false;
-      if (t.episode === "ep03" && !rel.ep03) return false;
-      if (t.episode === "cc01" && !rel.cc01) return false;
-      return true;
-    });
+    const releasedCuratedThreads = INITIAL_FORUM_THREADS.filter((t) =>
+      isCuratedThreadReleased(t, rel)
+    );
 
     const ep04Threads: ForumThread[] = rel.ep04
       ? EP04_CHALLENGES.map((ch) => ({
@@ -469,12 +479,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       },
       {
         id: "benchmarks",
-        label_es: rel.ep03
-          ? "Dossiers y Benchmarks (EP01/EP02/EP03)"
-          : "Dossiers y Benchmarks (EP01/EP02)",
-        label_en: rel.ep03
-          ? "Dossiers & Benchmarks (EP01/EP02/EP03)"
-          : "Dossiers & Benchmarks (EP01/EP02)",
+        label_es: `Dossiers y Benchmarks (EP01 – EP0${latestEp})`,
+        label_en: `Dossiers & Benchmarks (EP01 – EP0${latestEp})`,
       },
       {
         id: "autopsias",
@@ -483,12 +489,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       },
       {
         id: "prompts",
-        label_es: rel.ep03
-          ? "Los 22 Prompts Zero-Shot"
-          : "Los 16 Prompts Zero-Shot",
-        label_en: rel.ep03
-          ? "All 22 Zero-Shot Prompts"
-          : "All 16 Zero-Shot Prompts",
+        label_es: `Los ${promptCount} Prompts Zero-Shot`,
+        label_en: `All ${promptCount} Zero-Shot Prompts`,
       },
       {
         id: "pipeline",
@@ -503,45 +505,45 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     ];
 
   return (
-    <section id="foro" className="scroll-mt-24 py-14 border-t border-[#22A2DD]/15">
+    <section id="foro" className="scroll-mt-24 py-14 border-t border-[#00E5FF]/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#11283F] border border-[#22A2DD]/30 text-[#5EEAD4] text-xs font-mono-hud uppercase tracking-wider mb-3">
-              <MessageSquare className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#1A2132] border border-[#00E5FF]/30 text-[#00E5FF] text-xs font-mono-hud uppercase tracking-wider mb-3">
+              <PixelIcon name="message" size={14} />
               {lang === "es"
-                ? "FORO TECNICO MIXIUH LABS · BITACORA DE PRUEBAS EP01 + EP02"
-                : "MIXIUH LABS TECHNICAL FORUM · EP01 + EP02 EXPERIMENT LOG"}
+                ? `FORO TECNICO MIXIUH LABS · BITACORA DE PRUEBAS EP01 – EP0${latestEp}`
+                : `MIXIUH LABS TECHNICAL FORUM · EP01 – EP0${latestEp} EXPERIMENT LOG`}
             </div>
             <h2 className="font-display text-2xl sm:text-4xl font-black text-white tracking-tight">
               {lang === "es"
                 ? "Foro de Pruebas, Autopsias de Codigo y Comunidad"
                 : "Experiment Forum, Code Autopsies & Community"}
             </h2>
-            <p className="text-[#8FA3B8] text-sm sm:text-base mt-2 max-w-3xl">
+            <p className="text-[#94A3B8] text-sm sm:text-base mt-2 max-w-3xl">
               {lang === "es"
-                ? "Explora el analisis forense de los Episodios 01 y 02, inspecciona por que Claude Opus 5.5 cayo a 28 FPS en la tela Verlet o por que su factura triplico los tokens, copia los 16 prompts y vota por el Episodio 03."
-                : "Explore the forensic breakdown of Episodes 01 and 02, inspect why Claude Opus 5.5 dropped to 28 FPS on the Verlet cloth or why its token bill was 2.6x higher, copy all 16 prompts, and vote on Episode 03."}
+                ? `Explora el analisis forense de los Episodios 01 al 0${latestEp}, inspecciona por que Claude Opus 5.5 cayo a 28 FPS en la tela Verlet o por que su factura triplico los tokens, copia los ${promptCount} prompts y vota por el Episodio ${nextEp}.`
+                : `Explore the forensic breakdown of Episodes 01 to 0${latestEp}, inspect why Claude Opus 5.5 dropped to 28 FPS on the Verlet cloth or why its token bill was 2.6x higher, copy all ${promptCount} prompts, and vote on Episode ${nextEp}.`}
             </p>
           </div>
 
           <button
             onClick={() => setShowNewThreadModal(true)}
-            className="self-start lg:self-end px-5 py-3 rounded-xl bg-[#22A2DD] hover:brightness-110 text-[#060B14] font-mono-hud text-xs font-bold transition flex items-center gap-2 shadow-[0_0_24px_rgba(34,162,221,0.3)] cursor-pointer"
+            className="self-start lg:self-end px-5 py-3 bg-[#00E5FF] hover:brightness-110 text-[#090B10] font-mono-hud text-xs font-bold transition flex items-center gap-2 shadow-[4px_4px_0_#040508] cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <PixelIcon name="plus" size={16} />
             {lang === "es"
               ? "Publicar Hilo / Proponer Reto"
               : "Post Thread / Propose Challenge"}
           </button>
         </div>
 
-        {/* Episode 03 Voting Board */}
-        <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#0B1D30] via-[#11283F]/90 to-[#0B1D30] border border-[#22A2DD]/30">
+        {/* Next-episode Voting Board */}
+        <div className="mb-10 p-5 sm:p-6 shadow-[6px_6px_0_#040508] bg-[#111622] border-2 border-[#00E5FF]/30">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
-              <div className="text-xs font-mono-hud uppercase text-[#FBBF24] font-bold flex flex-wrap items-center gap-1.5">
+              <div className="text-xs font-mono-hud uppercase text-[#FFD100] font-bold flex flex-wrap items-center gap-1.5">
                 <span>
                   {lang === "es"
                     ? "PIZARRA DE VOTACION ACTIVA · PROXIMO VIDEO EN YOUTUBE ("
@@ -551,7 +553,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   href="https://www.youtube.com/@MixiuhLabsES"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#5EEAD4] hover:underline"
+                  className="text-[#00E5FF] hover:underline"
                 >
                   @MixiuhLabsES
                 </a>
@@ -560,7 +562,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   href="https://www.youtube.com/@MixiuhLabsEN"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#B794F6] hover:underline"
+                  className="text-[#A855F7] hover:underline"
                 >
                   @MixiuhLabsEN
                 </a>
@@ -568,11 +570,11 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               </div>
               <h3 className="font-display text-lg sm:text-xl font-bold text-white mt-0.5">
                 {lang === "es"
-                  ? "¿Que modelos o reto extremo metemos al laboratorio en el Episodio 03?"
-                  : "Which models or extreme challenge should we test in Episode 03?"}
+                  ? `¿Que modelos o reto extremo metemos al laboratorio en el Episodio ${nextEp}?`
+                  : `Which models or extreme challenge should we test in Episode ${nextEp}?`}
               </h3>
             </div>
-            <span className="font-mono-hud text-xs text-[#5EEAD4]">
+            <span className="font-mono-hud text-xs text-[#00E5FF]">
               {lang === "es"
                 ? "Haz clic en una tarjeta para sumar tu voto"
                 : "Click a card to cast your vote"}
@@ -585,39 +587,39 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               return (
                 <div
                   key={prop.id}
-                  className={`p-4 rounded-xl border transition flex flex-col justify-between ${
+                  className={`p-4 shadow-[4px_4px_0_#040508] border transition flex flex-col justify-between ${
                     voted
-                      ? "bg-[#060B14] border-[#34D399] shadow-[0_0_16px_rgba(52,211,153,0.18)]"
-                      : "bg-[#060B14]/70 border-white/10 hover:border-[#22A2DD]/50"
+                      ? "bg-[#090B10] border-[#10B981] shadow-[4px_4px_0_#040508]"
+                      : "bg-[#090B10] border-[#2A344B] hover:border-[#00E5FF]/50"
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="px-2 py-0.5 rounded bg-[#22A2DD]/15 text-[#5EEAD4] font-mono-hud text-[10px] font-bold">
+                      <span className="px-2 py-0.5 bg-[#00E5FF]/15 text-[#00E5FF] font-mono-hud text-[10px] font-bold">
                         {prop.models}
                       </span>
-                      <span className="font-mono-hud text-[10px] text-[#8FA3B8]">
+                      <span className="font-mono-hud text-[10px] text-[#94A3B8]">
                         {lang === "es" ? prop.status_es : prop.status_en}
                       </span>
                     </div>
                     <h4 className="font-display text-sm font-bold text-white leading-snug mb-2">
                       {lang === "es" ? prop.title_es : prop.title_en}
                     </h4>
-                    <p className="text-xs text-[#8FA3B8] leading-relaxed mb-4">
+                    <p className="text-xs text-[#94A3B8] leading-relaxed mb-4">
                       {lang === "es" ? prop.description_es : prop.description_en}
                     </p>
                   </div>
 
                   <button
                     onClick={() => handleVoteProposal(prop.id)}
-                    className={`w-full py-2 px-3 rounded-lg font-mono-hud text-xs font-bold flex items-center justify-between transition cursor-pointer ${
+                    className={`w-full py-2 px-3 font-mono-hud text-xs font-bold flex items-center justify-between transition cursor-pointer ${
                       voted
-                        ? "bg-[#34D399] text-[#060B14]"
-                        : "bg-[#11283F] text-white hover:bg-[#22A2DD] hover:text-[#060B14]"
+                        ? "bg-[#10B981] text-[#090B10]"
+                        : "bg-[#1A2132] text-white hover:bg-[#00E5FF] hover:text-[#090B10]"
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
-                      <ArrowUp className="w-3.5 h-3.5" />
+                      <PixelIcon name="arrow-up" size={14} />
                       {voted
                         ? lang === "es"
                           ? "Voto Registrado"
@@ -641,10 +643,10 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-3.5 py-2 rounded-xl font-mono-hud text-xs font-bold transition cursor-pointer ${
+                className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-mono-hud text-xs font-bold transition cursor-pointer ${
                   activeCategory === cat.id
-                    ? "bg-[#22A2DD] text-[#060B14]"
-                    : "bg-[#0B1D30] text-[#8FA3B8] hover:text-white border border-white/10"
+                    ? "bg-[#00E5FF] text-[#090B10]"
+                    : "bg-[#111622] text-[#94A3B8] hover:text-white border border-[#2A344B]"
                 }`}
               >
                 {lang === "es" ? cat.label_es : cat.label_en}
@@ -653,7 +655,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
           </div>
 
           <div className="relative w-full lg:w-80">
-            <Search className="w-4 h-4 text-[#8FA3B8] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <PixelIcon name="search" size={16} className="text-[#94A3B8] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
@@ -663,7 +665,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   ? "Buscar Opus, Verlet, tokens, CCD, Uint32Array..."
                   : "Search Opus, Verlet, tokens, CCD, Uint32Array..."
               }
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1D30] border border-white/15 text-xs sm:text-sm text-white placeholder:text-[#8FA3B8] focus:outline-none focus:border-[#22A2DD]"
+              className="w-full pl-10 pr-4 py-2 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] text-xs sm:text-sm text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#00E5FF]"
             />
           </div>
         </div>
@@ -679,27 +681,27 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                 <div
                   key={thread.id}
                   onClick={() => setSelectedThreadId(thread.id)}
-                  className={`p-4 rounded-xl border transition cursor-pointer ${
+                  className={`p-4 shadow-[4px_4px_0_#040508] border transition cursor-pointer ${
                     isSelected
-                      ? "bg-[#11283F] border-[#22A2DD] shadow-[0_0_24px_rgba(34,162,221,0.18)]"
-                      : "bg-[#0B1D30]/90 border-white/10 hover:border-white/25 hover:bg-[#0B1D30]"
+                      ? "bg-[#1A2132] border-[#00E5FF] shadow-[4px_4px_0_#040508]"
+                      : "bg-[#111622] border-[#2A344B] hover:border-[#3A4560] hover:bg-[#111622]"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <span
-                      className={`px-2 py-0.5 rounded font-mono-hud text-[10px] font-bold ${
+                      className={`px-2 py-0.5 font-mono-hud text-[10px] font-bold ${
                         thread.category === "autopsias"
-                          ? "bg-[#F43F5E]/20 text-[#F43F5E] border border-[#F43F5E]/30"
+                          ? "bg-[#FF3355]/20 text-[#FF3355] border border-[#FF3355]/30"
                           : thread.category === "benchmarks"
-                          ? "bg-[#B794F6]/20 text-[#B794F6] border border-[#B794F6]/30"
+                          ? "bg-[#A855F7]/20 text-[#A855F7] border border-[#A855F7]/30"
                           : thread.category === "pipeline"
-                          ? "bg-[#34D399]/20 text-[#34D399] border border-[#34D399]/30"
-                          : "bg-[#22A2DD]/20 text-[#5EEAD4] border border-[#22A2DD]/30"
+                          ? "bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/30"
+                          : "bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/30"
                       }`}
                     >
                       {lang === "es" ? thread.badge_es : thread.badge_en}
                     </span>
-                    <span className="font-mono-hud text-[11px] text-[#8FA3B8]">
+                    <span className="font-mono-hud text-[11px] text-[#94A3B8]">
                       {thread.readTime} · {thread.createdAt}
                     </span>
                   </div>
@@ -710,18 +712,18 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     )}
                   </h3>
 
-                  <p className="text-xs text-[#8FA3B8] line-clamp-2 leading-relaxed mb-3">
+                  <p className="text-xs text-[#94A3B8] line-clamp-2 leading-relaxed mb-3">
                     {formatInlineCode(
                       lang === "es" ? thread.excerpt_es : thread.excerpt_en
                     )}
                   </p>
 
-                  <div className="flex items-center justify-between text-xs font-mono-hud text-[#8FA3B8]">
+                  <div className="flex items-center justify-between text-xs font-mono-hud text-[#94A3B8]">
                     <span>{thread.author}</span>
                     <div className="flex items-center gap-3">
                       <span
                         className={
-                          isUpvoted ? "text-[#34D399] font-bold" : "text-[#5EEAD4]"
+                          isUpvoted ? "text-[#10B981] font-bold" : "text-[#00E5FF]"
                         }
                       >
                         ▲ {thread.upvotes}
@@ -739,16 +741,16 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
           {/* Right Column: Active Thread Detail Reader */}
           {activeThread && (
-            <div className="lg:col-span-7 rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/30 p-5 sm:p-8 shadow-2xl">
+            <div className="lg:col-span-7 bg-[#111622] border-2 border-[#00E5FF]/30 p-5 sm:p-8 shadow-[6px_6px_0_#040508]">
               {/* Top Meta & Upvote */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#2A344B]">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-md bg-[#11283F] border border-[#22A2DD]/40 font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                  <span className="px-2.5 py-1 bg-[#1A2132] border border-[#00E5FF]/40 font-mono-hud text-xs font-bold text-[#00E5FF]">
                     {lang === "es"
                       ? activeThread.badge_es
                       : activeThread.badge_en}
                   </span>
-                  <span className="text-xs font-mono-hud text-[#8FA3B8]">
+                  <span className="text-xs font-mono-hud text-[#94A3B8]">
                     {activeThread.createdAt} · {activeThread.readTime}
                   </span>
                 </div>
@@ -762,9 +764,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                           activeThread.relatedChallengeN!
                         )
                       }
-                      className="px-3 py-1.5 rounded-lg bg-[#B794F6] text-[#060B14] font-mono-hud text-xs font-bold flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer"
+                      className="px-3 py-1.5 bg-[#A855F7] text-[#090B10] font-mono-hud text-xs font-bold flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer"
                     >
-                      <Play className="w-3.5 h-3.5" />
+                      <PixelIcon name="play" size={14} />
                       {lang === "es"
                         ? `Jugar ${activeThreadEpisode.toUpperCase()} Reto ${activeThread.relatedChallengeN}`
                         : `Play ${activeThreadEpisode.toUpperCase()} Challenge ${activeThread.relatedChallengeN}`}
@@ -772,13 +774,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   )}
                   <button
                     onClick={() => handleUpvoteThread(activeThread.id)}
-                    className={`px-3.5 py-1.5 rounded-lg font-mono-hud text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-3.5 py-1.5 font-mono-hud text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                       upvotedIds[activeThread.id]
-                        ? "bg-[#34D399] text-[#060B14] border-[#34D399]"
-                        : "bg-[#11283F] text-white border-white/15 hover:border-[#34D399]"
+                        ? "bg-[#10B981] text-[#090B10] border-[#10B981]"
+                        : "bg-[#1A2132] text-white border-[#2A344B] hover:border-[#10B981]"
                     }`}
                   >
-                    <ArrowUp className="w-3.5 h-3.5" />
+                    <PixelIcon name="arrow-up" size={14} />
                     <span>{activeThread.upvotes}</span>
                   </button>
                 </div>
@@ -790,9 +792,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   lang === "es" ? activeThread.title_es : activeThread.title_en
                 )}
               </h3>
-              <div className="text-xs font-mono-hud text-[#8FA3B8] mb-5">
+              <div className="text-xs font-mono-hud text-[#94A3B8] mb-5">
                 {activeThread.author} —{" "}
-                <span className="text-[#5EEAD4]">
+                <span className="text-[#00E5FF]">
                   {lang === "es"
                     ? activeThread.authorRole_es
                     : activeThread.authorRole_en}
@@ -804,7 +806,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                 {activeThread.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-2.5 py-0.5 rounded-full bg-[#060B14] border border-white/10 font-mono-hud text-[11px] text-[#8FA3B8]"
+                    className="px-2.5 py-0.5 bg-[#090B10] border border-[#2A344B] font-mono-hud text-[11px] text-[#94A3B8]"
                   >
                     #{tag}
                   </span>
@@ -812,7 +814,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               </div>
 
               {/* Body Paragraphs */}
-              <div className="space-y-4 text-sm sm:text-base text-[#F5F7FA]/90 leading-relaxed">
+              <div className="space-y-4 text-sm sm:text-base text-[#F5F2EB]/90 leading-relaxed">
                 {(lang === "es"
                   ? activeThread.content_es
                   : activeThread.content_en
@@ -823,39 +825,39 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
               {/* Forensic Code Comparison Box (if present) */}
               {activeThread.codeComparison && (
-                <div className="mt-6 rounded-xl bg-[#060B14] border border-[#F43F5E]/30 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-[#11283F] border-b border-white/10 font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                <div className="mt-6 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#FF3355]/30 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-[#1A2132] border-b border-[#2A344B] font-mono-hud text-xs font-bold text-[#00E5FF]">
                     {lang === "es"
                       ? activeThread.codeComparison.title_es
                       : activeThread.codeComparison.title_en}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#2A344B]">
                     <div className="p-4">
-                      <div className="text-[11px] font-mono-hud font-bold text-[#FBBF24] mb-2">
+                      <div className="text-[11px] font-mono-hud font-bold text-[#FFD100] mb-2">
                         {lang === "es"
                           ? activeThread.codeComparison.leftLabel_es ||
                             "[IZQUIERDA] GEMINI 3.8 FLASH (BUG / OMISION)"
                           : activeThread.codeComparison.leftLabel_en ||
                             "[LEFT] GEMINI 3.8 FLASH (BUG / OMISSION)"}
                       </div>
-                      <pre className="text-xs font-mono-hud text-[#F5F7FA] whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                      <pre className="text-xs font-mono-hud text-[#F5F2EB] whitespace-pre-wrap overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.flashCode}
                       </pre>
                     </div>
                     <div className="p-4">
-                      <div className="text-[11px] font-mono-hud font-bold text-[#B794F6] mb-2">
+                      <div className="text-[11px] font-mono-hud font-bold text-[#A855F7] mb-2">
                         {lang === "es"
                           ? activeThread.codeComparison.rightLabel_es ||
                             "[DERECHA] GEMINI 4 ARGON (SOLUCION EXACTA)"
                           : activeThread.codeComparison.rightLabel_en ||
                             "[RIGHT] GEMINI 4 ARGON (EXACT SOLUTION)"}
                       </div>
-                      <pre className="text-xs font-mono-hud text-[#34D399] whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                      <pre className="text-xs font-mono-hud text-[#10B981] whitespace-pre-wrap overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.argonCode}
                       </pre>
                     </div>
                   </div>
-                  <div className="p-4 bg-[#0B1D30]/80 border-t border-white/10 text-xs text-[#8FA3B8] leading-relaxed">
+                  <div className="p-4 bg-[#111622] border-t border-[#2A344B] text-xs text-[#94A3B8] leading-relaxed">
                     <strong className="text-white font-mono-hud">
                       {lang === "es" ? "Diagnostico Tecnico: " : "Technical Diagnosis: "}
                     </strong>
@@ -870,43 +872,43 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
               {/* Verbatim Prompt Box if thread is linked to a challenge */}
               {linkedPromptVerbatim && (
-                <div className="mt-6 rounded-xl bg-[#060B14] border border-[#22A2DD]/30 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-[#11283F] border-b border-white/10 flex items-center justify-between gap-2">
-                    <span className="font-mono-hud text-xs font-bold text-[#5EEAD4]">
+                <div className="mt-6 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/30 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between gap-2">
+                    <span className="font-mono-hud text-xs font-bold text-[#00E5FF]">
                       {lang === "es"
                         ? `Prompt Oficial Zero-Shot — ${activeThreadEpisode.toUpperCase()} Reto ${activeThread.relatedChallengeN}`
                         : `Official Zero-Shot Prompt — ${activeThreadEpisode.toUpperCase()} Challenge ${activeThread.relatedChallengeN}`}
                     </span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(linkedPromptVerbatim);
+                        void copyTextToClipboard(linkedPromptVerbatim);
                         setCopiedPromptInThread(true);
                         setTimeout(() => setCopiedPromptInThread(false), 2000);
                       }}
-                      className="px-3 py-1 rounded bg-[#22A2DD] text-[#060B14] font-mono-hud text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1 bg-[#00E5FF] text-[#090B10] font-mono-hud text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                     >
                       {copiedPromptInThread ? (
                         <>
-                          <Check className="w-3 h-3" />
+                          <PixelIcon name="check" size={12} />
                           {lang === "es" ? "Copiado" : "Copied"}
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3" />
+                          <PixelIcon name="copy" size={12} />
                           {lang === "es" ? "Copiar Prompt" : "Copy Prompt"}
                         </>
                       )}
                     </button>
                   </div>
-                  <pre className="p-4 text-xs font-mono-hud text-[#F5F7FA]/90 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
+                  <pre className="p-4 text-xs font-mono-hud text-[#F5F2EB]/90 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
                     {linkedPromptVerbatim}
                   </pre>
                 </div>
               )}
 
               {/* Comments Section */}
-              <div className="mt-8 pt-6 border-t border-white/10">
-                <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#5EEAD4] font-bold mb-4">
+              <div className="mt-8 pt-6 border-t border-[#2A344B]">
+                <h4 className="font-mono-hud text-xs uppercase tracking-wider text-[#00E5FF] font-bold mb-4">
                   {lang === "es"
                     ? `COMENTARIOS Y APORTES TECNICOS (${activeThread.comments.length})`
                     : `TECHNICAL COMMENTS & DISCUSSION (${activeThread.comments.length})`}
@@ -914,7 +916,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
                 <div className="space-y-3 mb-6">
                   {activeThread.comments.length === 0 ? (
-                    <div className="p-4 rounded-xl bg-[#060B14]/60 border border-white/10 text-xs text-[#8FA3B8]">
+                    <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B] text-xs text-[#94A3B8]">
                       {lang === "es"
                         ? "Se el primero en comentar este analisis o compartir tus resultados replicando el prompt."
                         : "Be the first to comment on this analysis or share your results replicating the prompt."}
@@ -923,20 +925,20 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     activeThread.comments.map((c) => (
                       <div
                         key={c.id}
-                        className="p-4 rounded-xl bg-[#060B14] border border-white/10"
+                        className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B]"
                       >
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="text-xs font-mono-hud">
                             <span className="font-bold text-white">
                               {c.author}
                             </span>{" "}
-                            <span className="text-[#5EEAD4]">· {c.role}</span>
+                            <span className="text-[#00E5FF]">· {c.role}</span>
                           </div>
-                          <span className="text-[11px] font-mono-hud text-[#8FA3B8]">
+                          <span className="text-[11px] font-mono-hud text-[#94A3B8]">
                             {c.createdAt}
                           </span>
                         </div>
-                        <p className="text-xs sm:text-sm text-[#F5F7FA]/90 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-[#F5F2EB]/90 leading-relaxed">
                           {lang === "es" ? c.body_es : c.body_en}
                         </p>
                       </div>
@@ -947,7 +949,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                 {/* Add Comment Form */}
                 <form
                   onSubmit={handleAddComment}
-                  className="p-4 rounded-xl bg-[#060B14] border border-[#22A2DD]/25 space-y-3"
+                  className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/25 space-y-3"
                 >
                   <div className="text-xs font-mono-hud text-white font-bold">
                     {lang === "es"
@@ -962,7 +964,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       placeholder={
                         lang === "es" ? "Tu nombre o alias" : "Your name or handle"
                       }
-                      className="px-3 py-2 rounded-lg bg-[#0B1D30] border border-white/10 text-xs text-white placeholder:text-[#8FA3B8] focus:outline-none focus:border-[#22A2DD]"
+                      className="px-3 py-2 bg-[#111622] border border-[#2A344B] text-xs text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#00E5FF]"
                     />
                     <input
                       type="text"
@@ -973,7 +975,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                           ? "Especialidad (ej. Frontend, IA, Shaders)"
                           : "Role (e.g. Graphics Dev, AI Engineer)"
                       }
-                      className="px-3 py-2 rounded-lg bg-[#0B1D30] border border-white/10 text-xs text-white placeholder:text-[#8FA3B8] focus:outline-none focus:border-[#22A2DD]"
+                      className="px-3 py-2 bg-[#111622] border border-[#2A344B] text-xs text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#00E5FF]"
                     />
                   </div>
                   <textarea
@@ -985,14 +987,14 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                         ? "Escribe tu observacion sobre el codigo, propon una variacion del prompt o comparte que modelo probaste..."
                         : "Write your code observation, suggest a prompt tweak, or share which model you tested..."
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-[#0B1D30] border border-white/10 text-xs sm:text-sm text-white placeholder:text-[#8FA3B8] focus:outline-none focus:border-[#22A2DD]"
+                    className="w-full px-3 py-2 bg-[#111622] border border-[#2A344B] text-xs sm:text-sm text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#00E5FF]"
                   />
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="px-4 py-2 rounded-lg bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 py-2 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Send className="w-3.5 h-3.5" />
+                      <PixelIcon name="send" size={14} />
                       {lang === "es" ? "Publicar Comentario" : "Post Comment"}
                     </button>
                   </div>
@@ -1005,9 +1007,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
 
       {/* Modal for Creating a New Thread */}
       {showNewThreadModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-[#0B1D30] border border-[#22A2DD]/40 p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+        <div className="fixed inset-0 z-50 px-backdrop flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-[#111622] border-2 border-[#00E5FF]/40 p-6 shadow-[6px_6px_0_#040508]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#2A344B]">
               <h3 className="font-display text-lg font-bold text-white">
                 {lang === "es"
                   ? "Publicar Nuevo Hilo / Proponer Experimento"
@@ -1015,16 +1017,16 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               </h3>
               <button
                 onClick={() => setShowNewThreadModal(false)}
-                className="p-1.5 rounded-lg bg-white/5 text-[#8FA3B8] hover:text-white cursor-pointer"
+                className="p-1.5 bg-[#1A2132] text-[#94A3B8] hover:text-white cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <PixelIcon name="close" size={16} />
               </button>
             </div>
 
             <form onSubmit={handleCreateThread} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono-hud text-[#8FA3B8] mb-1">
+                  <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
                     {lang === "es" ? "Autor / Alias" : "Author / Handle"}
                   </label>
                   <input
@@ -1032,11 +1034,11 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     value={newAuthor}
                     onChange={(e) => setNewAuthor(e.target.value)}
                     placeholder="Ej. Kevin Gonzalez"
-                    className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs text-white"
+                    className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono-hud text-[#8FA3B8] mb-1">
+                  <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
                     {lang === "es" ? "Categoria" : "Category"}
                   </label>
                   <select
@@ -1046,7 +1048,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                         e.target.value as Exclude<ForumCategory, "all">
                       )
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs text-white"
+                    className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
                   >
                     <option value="propuestas">Propuestas Episodio 03</option>
                     <option value="benchmarks">Dossiers y Benchmarks</option>
@@ -1058,7 +1060,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-mono-hud text-[#8FA3B8] mb-1">
+                <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
                   {lang === "es" ? "Titulo del Hilo" : "Thread Title"}
                 </label>
                 <input
@@ -1071,12 +1073,12 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       ? "Ej. Propuesta EP03: Gemini 4 Argon vs GPT-5.4 High en WebGPU"
                       : "E.g. EP03 Proposal: Gemini 4 Argon vs GPT-5.4 High in WebGPU"
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs sm:text-sm text-white"
+                  className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs sm:text-sm text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono-hud text-[#8FA3B8] mb-1">
+                <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
                   {lang === "es"
                     ? "Etiquetas (separadas por coma)"
                     : "Tags (comma-separated)"}
@@ -1085,12 +1087,12 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                   type="text"
                   value={newTags}
                   onChange={(e) => setNewTags(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs text-white"
+                  className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono-hud text-[#8FA3B8] mb-1">
+                <label className="block text-xs font-mono-hud text-[#94A3B8] mb-1">
                   {lang === "es"
                     ? "Desarrollo Tecnico / Reglas del Reto"
                     : "Technical Breakdown / Challenge Spec"}
@@ -1105,7 +1107,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       ? "Describe la hipotesis, el prompt utilizado o las condiciones de la prueba..."
                       : "Describe the hypothesis, prompt used, or benchmark conditions..."
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-[#060B14] border border-white/15 text-xs sm:text-sm text-white"
+                  className="w-full px-3 py-2 bg-[#090B10] border border-[#2A344B] text-xs sm:text-sm text-white"
                 />
               </div>
 
@@ -1113,13 +1115,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                 <button
                   type="button"
                   onClick={() => setShowNewThreadModal(false)}
-                  className="px-4 py-2 rounded-lg bg-white/5 text-xs font-mono-hud text-[#8FA3B8] cursor-pointer"
+                  className="px-4 py-2 bg-[#1A2132] text-xs font-mono-hud text-[#94A3B8] cursor-pointer"
                 >
                   {lang === "es" ? "Cancelar" : "Cancel"}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#22A2DD] text-[#060B14] font-mono-hud text-xs font-bold cursor-pointer"
+                  className="px-5 py-2 bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer"
                 >
                   {lang === "es" ? "Publicar en el Foro" : "Publish to Forum"}
                 </button>

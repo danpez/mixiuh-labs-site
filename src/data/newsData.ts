@@ -130,7 +130,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     idx: 1,
     id: "ch01-podio-mundial",
     timestamp: "00:00",
-    accent: "#38BDF8",
+    accent: "#00E5FF",
     kicker_es: "CAPITULO 01 · ESTRATEGIA DUAL DE GOOGLE DEEPMIND",
     kicker_en: "CHAPTER 01 · GOOGLE DEEPMIND DUAL STRATEGY",
     title_es: "¿Que es Gemini 4 Carbon y como encaja con Argon? (59 pts #1 Mundial)",
@@ -158,7 +158,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "HEAVY ARTILLERY",
         pill2_es: "RAZONAMIENTO PROFUNDO",
         pill2_en: "DEEP REASONING",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "PODIO MUNDIAL",
@@ -180,7 +180,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 65.0,
         label_es: "59 PTS (#1 MUNDIAL)",
         label_en: "59 PTS (WORLD #1)",
-        color: "#38BDF8",
+        color: "#00E5FF",
         isCarbon: true,
       },
       {
@@ -251,7 +251,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "10,000 REPO FILES",
         pill2_es: "96.2% GRAPHWALKS",
         pill2_en: "96.2% GRAPHWALKS",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "DIA 2 · AUDITORIA",
@@ -283,7 +283,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 11.0,
         label_es: "9.6% (#1 · 2.2X ARGON)",
         label_en: "9.6% (#1 · 2.2X ARGON)",
-        color: "#38BDF8",
+        color: "#00E5FF",
         isCarbon: true,
       },
       {
@@ -336,7 +336,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     idx: 3,
     id: "ch03-cyber-trident",
     timestamp: "00:53",
-    accent: "#38BDF8",
+    accent: "#00E5FF",
     kicker_es: "CAPITULO 03 · DOMINIO EN CIBERSEGURIDAD DEFENSIVA",
     kicker_en: "CHAPTER 03 · DEFENSIVE CYBERSECURITY DOMINANCE",
     title_es: "¿Que significan SEC-bench Pro (88.2%) y ExploitGym (54.8%) en ciberseguridad?",
@@ -354,7 +354,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "SEC-BENCH PRO",
         pill2_es: "SOFTWARE REAL",
         pill2_en: "PRODUCTION CODE",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "PASO 2 · SANDBOX",
@@ -395,7 +395,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 62.0,
         label_es: "42.4% (#2)",
         label_en: "42.4% (#2)",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         model: "GEMINI 4 ARGON",
@@ -457,7 +457,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "CWE-BENCH",
         pill2_es: "PARCHE DE RAIZ",
         pill2_en: "ROOT-CAUSE PATCH",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "GOOGLE CHROME",
@@ -477,7 +477,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "100% IMMUNE",
         pill2_es: "15/15 BLOQUEADOS",
         pill2_en: "15/15 BLOCKED",
-        color: "#FBBF24",
+        color: "#FFD100",
       },
     ],
     bars_title_es: "CWE-BENCH · PARCHES FUNCIONALES POR ENTORNO (PASS@1 %)",
@@ -489,7 +489,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 80.0,
         label_es: "71.0% (#1 EN ANTIGRAVITY)",
         label_en: "71.0% (#1 ON ANTIGRAVITY)",
-        color: "#38BDF8",
+        color: "#00E5FF",
         isCarbon: true,
       },
       {
@@ -560,7 +560,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "IN WEB & PDFS",
         pill2_es: "GPT-6 CAE 8.5%",
         pill2_en: "GPT-6 FAILS 8.5%",
-        color: "#EF4444",
+        color: "#FF3355",
       },
       {
         tag_es: "ESCUDO CARBON",
@@ -580,7 +580,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "LESS HALLUCINATION",
         pill2_es: "0% ATAJOS TERMINAL",
         pill2_en: "0% TERMINAL CHEATS",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
     ],
     bars_title_es: "GRAY SWAN IPI · TASA DE ATAQUE EXITOSO (MENOR ES MEJOR)",
@@ -601,7 +601,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 56.0,
         label_es: "0.7%",
         label_en: "0.7%",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         model: "CLAUDE OPUS 5.5",
@@ -617,7 +617,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 56.0,
         label_es: "8.5% A 52.7% VULNERADOS",
         label_en: "8.5% TO 52.7% BREACHED",
-        color: "#F43F5E",
+        color: "#FF3355",
       },
     ],
     explanation_es:
@@ -645,7 +645,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     idx: 6,
     id: "ch06-vending-domains",
     timestamp: "02:20",
-    accent: "#FBBF24",
+    accent: "#FFD100",
     kicker_es: "CAPITULO 06 · NEGOCIOS, MATEMATICAS RIEMANN Y CONTROL DE PC",
     kicker_en: "CHAPTER 06 · BUSINESS SIM, RIEMANN MATH & COMPUTER USE",
     title_es: "¿Que es Vending-Bench 2 ($16,484 USD), Matematicas Riemann (80%) y Uso de PC?",
@@ -673,7 +673,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "RESEARCH MATH",
         pill2_es: "ARGON: 76.0%",
         pill2_en: "ARGON: 76.0%",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "AGENTS EXAM",
@@ -704,7 +704,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 17800.0,
         label_es: "$15,515 USD (#2)",
         label_en: "$15,515 USD (#2)",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         model: "GEMINI 4 ARGON",
@@ -748,7 +748,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     idx: 7,
     id: "ch07-fairwind-precio",
     timestamp: "02:53",
-    accent: "#F59E0B",
+    accent: "#FFD100",
     kicker_es: "CAPITULO 07 · ACCESO FAIRWIND Y LETRA PEQUENA DEL PRECIO",
     kicker_en: "CHAPTER 07 · FAIRWIND ACCESS & PRICING FINE PRINT",
     title_es: "Acceso Fairwind y la Letra Pequena del Precio ($2/$10 sube al doble: $4/$20 USD)",
@@ -766,7 +766,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "CYBER DEFENDERS",
         pill2_es: "PRONTO AI STUDIO",
         pill2_en: "AI STUDIO SOON",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "PRECIO PROMO",
@@ -786,7 +786,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "DOUBLES (2X)",
         pill2_es: "20% < OPUS 5.5",
         pill2_en: "20% < OPUS 5.5",
-        color: "#F59E0B",
+        color: "#FFD100",
       },
     ],
     bars_title_es: "PRECIO DE SALIDA POR 1 MILLON DE TOKENS (<=200K · USD)",
@@ -807,7 +807,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 27.0,
         label_es: "$2 IN / $10 OUT (FIJO)",
         label_en: "2 IN / $10 OUT (FIXED)",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         model: "CARBON (POST-PROMO)",
@@ -815,7 +815,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 27.0,
         label_es: "$4 IN / $20 OUT (2X)",
         label_en: "$4 IN / $20 OUT (2X)",
-        color: "#F59E0B",
+        color: "#FFD100",
       },
       {
         model: "CLAUDE OPUS 5.5",
@@ -851,7 +851,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
     idx: 8,
     id: "ch08-expectativas-mixiuh",
     timestamp: "03:22",
-    accent: "#22D3EE",
+    accent: "#00E5FF",
     kicker_es: "CAPITULO 08 · LO QUE VIENE EN EL LABORATORIO MIXIUH LABS",
     kicker_en: "CHAPTER 08 · WHAT COMES NEXT IN MIXIUH LABS",
     title_es: "¿Que esperamos de Gemini 4 Carbon cuando lo probemos en vivo en Mixiuh Labs?",
@@ -869,7 +869,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         pill1_en: "PHYSICS SHADERS",
         pill2_es: "1 SOLO INTENTO",
         pill2_en: "SINGLE ATTEMPT",
-        color: "#38BDF8",
+        color: "#00E5FF",
       },
       {
         tag_es: "RETO 02 · CYBER",
@@ -901,7 +901,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 65.0,
         label_es: "59 PTS (#1 MUNDIAL)",
         label_en: "59 PTS (WORLD #1)",
-        color: "#38BDF8",
+        color: "#00E5FF",
         isCarbon: true,
       },
       {
@@ -926,7 +926,7 @@ export const CARBON_CHAPTERS: NewsChapterItem[] = [
         max: 100.0,
         label_es: "0.0% VULNERADO (100% ESCUDO)",
         label_en: "0.0% BREACHED (100% SHIELD)",
-        color: "#FBBF24",
+        color: "#FFD100",
       },
     ],
     explanation_es:
@@ -1241,7 +1241,7 @@ export const CARBON_PRICING_TABLE = [
     model_en: "Gemini 4 Carbon (Standard Post-Promo)",
     badge_es: "SUBE AL DOBLE (2X)",
     badge_en: "DOUBLES (2X)",
-    color: "#F59E0B",
+    color: "#FFD100",
     input_200k: "$4.00 USD",
     output_200k: "$20.00 USD",
     input_long: "$6.00 USD",
@@ -1255,7 +1255,7 @@ export const CARBON_PRICING_TABLE = [
     model_en: "Gemini 4 Argon (Fixed Rate)",
     badge_es: "FLUJO DIARIO",
     badge_en: "DAILY WORKFLOW",
-    color: "#38BDF8",
+    color: "#00E5FF",
     input_200k: "$2.00 USD",
     output_200k: "$10.00 USD",
     input_long: "$3.00 USD",
@@ -1292,7 +1292,7 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     desc_en:
       "Full benchmark table published by Google DeepMind comparing Gemini 4 Carbon against Gemini 4 Argon, GPT-6 Astra, and Claude Opus 5.5.",
     src: "/stills/noticias/carbon/03_evals_table.png",
-    accent: "#38BDF8",
+    accent: "#00E5FF",
   },
   {
     id: "secbench-pro",
@@ -1318,7 +1318,7 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     desc_en:
       "Percentage of vulnerabilities where the agent builds a working proof-of-concept inside an isolated sandbox (54.8% vs Opus's 34.5%).",
     src: "/stills/noticias/carbon/05_exploitgym.png",
-    accent: "#38BDF8",
+    accent: "#00E5FF",
   },
   {
     id: "cwebench",
@@ -1357,6 +1357,6 @@ export const CARBON_OFFICIAL_GALLERY: OfficialChartAsset[] = [
     desc_en:
       "Mixiuh Labs editorial cover highlighting the 3 core pillars: 72-Hour Agent (9.6% SWE-sweep), 71% on Antigravity, and 0.0% Breached.",
     src: "/brand/thumbs/carbon_thumb_A.jpg",
-    accent: "#38BDF8",
+    accent: "#00E5FF",
   },
 ];

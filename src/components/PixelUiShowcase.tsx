@@ -9,8 +9,6 @@ import {
   PixelWindow,
   PixelFloppyCard,
   PixelBarChart,
-  PixelVersusBar,
-  PixelSparkline,
   PixelAudioSequencer,
   PixelDialogBox,
   PixelTelemetryPill,
@@ -32,7 +30,12 @@ import {
   ALL_PIXEL_ICON_NAMES,
   PIXEL_ICON_CATEGORIES,
   PIXEL_CURSOR_PRESETS,
+  copyTextToClipboard,
   usePixelSound,
+  PIXEL_UI_VERSION,
+  PixelTabs,
+  PixelCopyButton,
+  pixelToast,
   type PixelColorTone,
   type PixelSoundName,
   type PixelSpriteCharacter,
@@ -41,7 +44,7 @@ import {
   type PixelIconCategoryId,
   type PixelCursorStyle,
   type AmbientSimulationMode,
-} from "@/lib/mixiuh-pixel-ui";
+} from "@mixiuh/pixel-ui";
 
 const SOUND_PRESETS: {
   id: PixelSoundName;
@@ -190,9 +193,26 @@ export default function PixelUiShowcase({
   const [demoRadio, setDemoRadio] = useState("60fps");
   const [demoSlider, setDemoSlider] = useState(60);
   const [demoCalDate, setDemoCalDate] = useState("2026-10-30");
+  const [demoTab, setDemoTab] = useState<"palette" | "toasts" | "a11y">(
+    "palette"
+  );
+
+  const overlaySnippet = `import {
+  PixelCommandPalette,
+  PixelToaster,
+  pixelToast,
+  PixelTabs,
+} from "@mixiuh/pixel-ui";
+
+<PixelCommandPalette open={open} onOpenChange={setOpen} items={[
+  { id: "home", label: "Inicio", icon: "home", onSelect: goHome },
+]} />
+<PixelToaster />
+
+pixelToast.show({ title: "GUARDADO", tone: "emerald", icon: "check" });`;
 
   const copyCode = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    void copyTextToClipboard(text);
     play("coin");
     setCopiedSnippet(id);
     setTimeout(() => setCopiedSnippet(null), 2000);
@@ -208,7 +228,7 @@ export default function PixelUiShowcase({
     n.toLowerCase().includes(iconSearch.trim().toLowerCase())
   );
 
-  const creditSnippet = `<!-- Mixiuh Pixel UI v2.0 (Free Commercial & Personal Use with Attribution) -->
+  const creditSnippet = `<!-- Mixiuh Pixel UI v${PIXEL_UI_VERSION} (Free Commercial & Personal Use with Attribution) -->
 <link rel="stylesheet" href="https://labs.mixiuh.online/pixel-ui/mixiuh-pixel-ui.css" />
 
 <!-- React / Next.js Attribution Component -->
@@ -223,13 +243,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
   return (
     <div className="py-8 sm:py-10 space-y-10 relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-        {/* HERO BANNER — RETRO CRT COMPUTER & OPEN SOURCE PIXEL UI v2.0 */}
+        {/* HERO BANNER — RETRO CRT COMPUTER & OPEN SOURCE PIXEL UI */}
         <div className="bg-[#FFD100] text-[#090B10] border-3 border-[#090B10] shadow-[8px_8px_0_#040508] p-6 sm:p-10 relative overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7 space-y-4">
               <div className="inline-flex flex-wrap items-center gap-2">
                 <span className="px-3 py-1 bg-[#090B10] text-[#FFD100] font-pixel text-xs font-bold">
-                  @MIXIUH/PIXEL-UI v2.0.0
+                  {`@MIXIUH/PIXEL-UI v${PIXEL_UI_VERSION}`}
                 </span>
                 <span className="px-3 py-1 bg-[#F5F2EB] text-[#090B10] border-2 border-[#090B10] font-mono-hud text-xs font-bold">
                   {lang === "es"
@@ -260,8 +280,8 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <PixelIcon name="download" size={16} color="#FFD100" />
                   <span>
                     {lang === "es"
-                      ? "Descargar Libreria v2.0 (.ZIP)"
-                      : "Download Library v2.0 (.ZIP)"}
+                      ? `Descargar Libreria v${PIXEL_UI_VERSION} (.ZIP)`
+                      : `Download Library v${PIXEL_UI_VERSION} (.ZIP)`}
                   </span>
                 </a>
 
@@ -294,7 +314,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
             {/* Right: Retro VHF Tuner Dial & 3D Mechanical Keycaps */}
             <div className="lg:col-span-5 bg-[#090B10] text-[#F5F2EB] border-3 border-[#090B10] shadow-[6px_6px_0_rgba(0,0,0,0.35)] p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/15 pb-2.5 font-mono-hud text-xs">
+              <div className="flex items-center justify-between border-b border-[#2A344B] pb-2.5 font-mono-hud text-xs">
                 <span className="font-pixel text-[#FFD100]">
                   CRT-9000 DECK // HARDWARE TEST
                 </span>
@@ -331,7 +351,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 </div>
               </div>
 
-              <div className="p-3 bg-[#131824] border border-white/15 font-mono-hud text-xs space-y-1.5">
+              <div className="p-3 bg-[#131824] border border-[#2A344B] font-mono-hud text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[#94A3B8]">
                     {lang === "es"
@@ -518,7 +538,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   <p className="text-xs text-[#94A3B8] leading-snug">
                     {lang === "es" ? s.desc_es : s.desc_en}
                   </p>
-                  <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between font-mono-hud text-[10px]">
+                  <div className="mt-3 pt-2 border-t border-[#2A344B] flex items-center justify-between font-mono-hud text-[10px]">
                     <code className="text-[#00E5FF]">{`play("${s.id}")`}</code>
                     <span className="px-1.5 py-0.5 bg-[#FFD100] text-[#090B10] font-bold">
                       PLAY ▶
@@ -539,7 +559,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           statusRight="CRISP 16x16 SVG"
         >
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2A344B] pb-3">
               <span className="font-pixel text-xs text-[#10B981]">
                 A. GALERIA DE 16 SPRITES (<code className="text-white">&lt;PixelSprite /&gt;</code>)
               </span>
@@ -556,7 +576,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                     className={`px-2.5 py-1 font-pixel text-[10px] border cursor-pointer ${
                       spriteMotion === m
                         ? "bg-[#10B981] text-[#090B10] border-[#090B10] font-bold"
-                        : "bg-[#131824] text-[#94A3B8] border-white/15"
+                        : "bg-[#131824] text-[#94A3B8] border-[#2A344B]"
                     }`}
                   >
                     {m.toUpperCase()}
@@ -637,7 +657,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 />
               </div>
 
-              <div className="pt-3 border-t border-white/10 flex flex-wrap gap-2">
+              <div className="pt-3 border-t border-[#2A344B] flex flex-wrap gap-2">
                 <PixelButton tone="yellow" icon="crt-tv">
                   CRT YELLOW
                 </PixelButton>
@@ -685,7 +705,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             <div className="space-y-4">
               <PixelDialogBox
                 speaker="MIXIUH BIOS"
-                role="MIXIUH PIXEL UI v2.0"
+                role={`MIXIUH PIXEL UI v${PIXEL_UI_VERSION}`}
                 character="crt-monitor"
                 tone="cyan"
                 messages={[
@@ -802,7 +822,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Column 1: PixelInput + PixelSlider */}
               <div className="p-4 bg-[#131824] border-2 border-[#2A344B] space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex items-center justify-between border-b border-[#2A344B] pb-2">
                   <span className="font-pixel text-[10px] text-[#FFD100]">
                     &lt;PixelInput /&gt; &amp; &lt;PixelSlider /&gt;
                   </span>
@@ -859,7 +879,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
               {/* Column 2: PixelSelect + PixelAutocomplete */}
               <div className="p-4 bg-[#131824] border-2 border-[#2A344B] space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex items-center justify-between border-b border-[#2A344B] pb-2">
                   <span className="font-pixel text-[10px] text-[#00E5FF]">
                     &lt;PixelSelect /&gt; &amp; &lt;PixelAutocomplete /&gt;
                   </span>
@@ -975,7 +995,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
               {/* Column 3: PixelCheckbox & PixelRadioGroup */}
               <div className="p-4 bg-[#131824] border-2 border-[#2A344B] space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex items-center justify-between border-b border-[#2A344B] pb-2">
                   <span className="font-pixel text-[10px] text-[#10B981]">
                     &lt;PixelCheckbox /&gt; &amp; &lt;PixelRadioGroup /&gt;
                   </span>
@@ -1220,7 +1240,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </div>
         </PixelWindow>
 
-        {/* SECTION 6: 198 CRISP 16x16 PIXEL SVG ICONS WITH CATEGORY FILTERS, BRANDS & SEARCH */}
+        {/* SECTION 6: CRISP 16x16 PIXEL SVG ICONS WITH CATEGORY FILTERS, BRANDS & SEARCH */}
         <PixelWindow
           title={`07 // ${ALL_PIXEL_ICON_NAMES.length} ICONOS VECTORIALES PIXEL-ART EN GRILLA 16x16 (INCLUYE MARCAS Y REDES)`}
           subtitle="Incluye YouTube, X, Instagram, Facebook, TikTok, Google, GitHub, Discord, Vercel y todas las categorias UI"
@@ -1340,7 +1360,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       className={`px-2 py-0.5 font-pixel text-[9px] border cursor-pointer ${
                         iconSize === sz
                           ? "bg-[#FFD100] text-[#090B10] border-[#090B10]"
-                          : "bg-[#090B10] text-[#94A3B8] border-white/15"
+                          : "bg-[#090B10] text-[#94A3B8] border-[#2A344B]"
                       }`}
                     >
                       {sz}PX
@@ -1395,7 +1415,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
         {/* SECTION 6: FREE COMMERCIAL LICENSE & 1-LINE ATTRIBUTION GENERATOR */}
         <div className="bg-[#111622] border-2 border-[#FFD100] shadow-[6px_6px_0_#040508] p-6 sm:p-8 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-white/10 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#2A344B] pb-4">
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#FFD100] text-[#090B10] font-pixel text-[10px] font-bold mb-2">
                 LICENCIA ABIERTA MIXIUH (CC-BY 4.0 / MIT CON ATRIBUCION)
@@ -1464,17 +1484,139 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
           </div>
         </div>
 
-        {/* SECTION 8: MASTER ROADMAP & COMPETITIVE BENCHMARK MATRIX VS TOP UI LIBRARIES */}
+        {/* SECTION 8: NEW IN v2.3 — NAVIGATION & OVERLAY SUITE */}
         <PixelWindow
-          title="08 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"
+          title={`08 // NUEVO EN v${PIXEL_UI_VERSION}: COMMAND PALETTE, TOASTS, TABS Y COPIA`}
           subtitle={
             lang === "es"
-              ? "Que tenemos hoy en v2.2, como se compara frente a shadcn/ui, MUI, Ant Design y NES.css, y las siguientes fases de evolucion"
-              : "What we have today in v2.2, how it compares against shadcn/ui, MUI, Ant Design & NES.css, and upcoming roadmap phases"
+              ? "Primera entrega de la Fase 2 del roadmap, accesible con teclado y lector de pantalla"
+              : "First Phase 2 roadmap drop, fully keyboard & screen-reader friendly"
+          }
+          tone="cyan"
+          statusLeft="WAI-ARIA · KEYBOARD · REDUCED MOTION"
+          statusRight="Ctrl+K"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 font-mono-hud text-xs">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="font-pixel text-[10px] text-[#00E5FF]">
+                  {"<PixelTabs />"}
+                </div>
+                <PixelTabs
+                  ariaLabel="Demo tabs"
+                  tone="cyan"
+                  wrap
+                  value={demoTab}
+                  onChange={setDemoTab}
+                  items={[
+                    { id: "palette", label: "Command Palette", icon: "command" },
+                    { id: "toasts", label: "Toasts", icon: "bell" },
+                    { id: "a11y", label: lang === "es" ? "Accesibilidad" : "Accessibility", icon: "eye" },
+                  ]}
+                />
+                <div className="p-3.5 bg-[#090B10] border-2 border-[#2A344B] text-[#CBD5E1] leading-relaxed min-h-[96px]">
+                  {demoTab === "palette" &&
+                    (lang === "es"
+                      ? "Pulsa Ctrl+K (o Cmd+K) en cualquier parte del sitio: busca secciones, episodios, demos de la Arena, ajustes y los terminos del glosario sin tocar el mouse."
+                      : "Press Ctrl+K (or Cmd+K) anywhere on the site: search sections, episodes, Arena demos, settings and glossary terms without touching the mouse.")}
+                  {demoTab === "toasts" &&
+                    (lang === "es"
+                      ? "pixelToast.show() es una API global: llamala desde cualquier evento y <PixelToaster /> la anuncia con aria-live y un blip 8-bit."
+                      : "pixelToast.show() is a global API: call it from any event and <PixelToaster /> announces it via aria-live with an 8-bit blip.")}
+                  {demoTab === "a11y" &&
+                    (lang === "es"
+                      ? "Las tabs se mueven con flechas, Inicio y Fin. Todo el kit muestra un anillo de foco pixel y respeta prefers-reduced-motion (sin fondo animado ni reveal)."
+                      : "Tabs move with arrow keys, Home and End. The whole kit shows a pixel focus ring and honours prefers-reduced-motion (no animated background or reveal).")}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new KeyboardEvent("keydown", { key: "k", ctrlKey: true })
+                    )
+                  }
+                  className="px-btn bg-[#FFD100] text-[#090B10] px-4 py-2.5 text-xs"
+                >
+                  <PixelIcon name="command" size={14} />
+                  <span>
+                    {lang === "es" ? "Abrir Command Palette" : "Open Command Palette"}
+                  </span>
+                  <kbd className="px-kbd">Ctrl K</kbd>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="font-pixel text-[10px] text-[#00E5FF]">
+                  {"pixelToast.show({ ... })"}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { tone: "emerald", icon: "check", es: "Guardado", en: "Saved" },
+                      { tone: "cyan", icon: "broadcast", es: "Nuevo episodio", en: "New episode" },
+                      { tone: "yellow", icon: "trophy", es: "Logro desbloqueado", en: "Achievement unlocked" },
+                      { tone: "coral", icon: "bug", es: "Error de compilacion", en: "Build error" },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.tone}
+                      type="button"
+                      onClick={() =>
+                        pixelToast.show({
+                          title: (lang === "es" ? t.es : t.en).toUpperCase(),
+                          description: `tone="${t.tone}" · icon="${t.icon}"`,
+                          tone: t.tone,
+                          icon: t.icon,
+                          sound: t.tone === "yellow" ? "achievement" : t.tone === "coral" ? "hit" : "dialogBlip",
+                        })
+                      }
+                      className="px-btn bg-[#131824] text-[#F5F2EB] px-3 py-2 text-[11px]"
+                    >
+                      <PixelIcon name={t.icon} size={12} />
+                      <span>{lang === "es" ? t.es : t.en}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] text-[#00E5FF]">
+                    {"<PixelCopyButton />"}
+                  </span>
+                  <PixelCopyButton
+                    text={overlaySnippet}
+                    tone="cyan"
+                    size="xs"
+                    label={lang === "es" ? "Copiar" : "Copy"}
+                    copiedLabel={lang === "es" ? "Copiado" : "Copied"}
+                    toastTitle={lang === "es" ? "SNIPPET COPIADO" : "SNIPPET COPIED"}
+                  />
+                </div>
+                <pre className="p-3.5 bg-[#090B10] border-2 border-[#2A344B] text-[11px] text-[#F5F2EB] whitespace-pre-wrap leading-relaxed overflow-x-auto">
+                  {overlaySnippet}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </PixelWindow>
+
+        {/* SECTION 8: MASTER ROADMAP & COMPETITIVE BENCHMARK MATRIX VS TOP UI LIBRARIES */}
+        <PixelWindow
+          title="09 // ROADMAP DE @MIXIUH/PIXEL-UI Y COMPARATIVA CONTRA LIBRERIAS UI PROFESIONALES"
+          subtitle={
+            lang === "es"
+              ? `Que tenemos hoy en v${PIXEL_UI_VERSION}, como se compara frente a shadcn/ui, MUI, Ant Design y NES.css, y las siguientes fases de evolucion`
+              : `What we have today in v${PIXEL_UI_VERSION}, how it compares against shadcn/ui, MUI, Ant Design & NES.css, and upcoming roadmap phases`
           }
           tone="yellow"
-          statusLeft="v2.2.0 PRODUCTION READY"
-          statusRight="ROADMAP v2.2 -> v4.0"
+          statusLeft={`v${PIXEL_UI_VERSION} PRODUCTION READY`}
+          statusRight={`ROADMAP v${PIXEL_UI_VERSION} -> v4.0`}
         >
           <div className="space-y-6 font-mono-hud text-xs">
             {/* Comparative Matrix Table */}
@@ -1483,7 +1625,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 <thead>
                   <tr className="bg-[#090B10] text-[#FFD100] font-pixel text-[10px] border-b-2 border-[#2A344B]">
                     <th className="p-3">CAPACIDAD / SISTEMA</th>
-                    <th className="p-3 text-[#00E5FF]">@MIXIUH/PIXEL-UI v2.2</th>
+                    <th className="p-3 text-[#00E5FF]">{`@MIXIUH/PIXEL-UI v${PIXEL_UI_VERSION}`}</th>
                     <th className="p-3 text-[#94A3B8]">shadcn/ui + Radix</th>
                     <th className="p-3 text-[#94A3B8]">MUI / Ant Design</th>
                     <th className="p-3 text-[#94A3B8]">NES.css / Pixel-Retro</th>
@@ -1495,7 +1637,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       Formularios Pro (Input, Select, Autocomplete, Checks, Radio, Slider, Calendar)
                     </td>
                     <td className="p-3 text-[#10B981] font-bold">
-                      INCLUIDO (v2.2 con Audio 8-Bit + Tones)
+                      INCLUIDO (desde v2.2, con Audio 8-Bit + Tones)
                     </td>
                     <td className="p-3">Incluido (Estilo corporativo plano)</td>
                     <td className="p-3">Incluido (Pesado, sin pixel-art)</td>
@@ -1530,11 +1672,22 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                       Iconografia Vectorial Pixel-Art + Marcas (YouTube, X, Instagram, TikTok, Google)
                     </td>
                     <td className="p-3 text-[#10B981] font-bold">
-                      198 ICONOS 16x16 NATIVOS (Cero Emojis)
+                      {`${ALL_PIXEL_ICON_NAMES.length} ICONOS 16x16 NATIVOS (Cero Emojis)`}
                     </td>
                     <td className="p-3">Usa Lucide (Lineas curvas)</td>
                     <td className="p-3">Material Icons (Curvos)</td>
                     <td className="p-3">Menos de 25 iconos</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 font-bold text-white">
+                      Navegacion Pro y Accesibilidad (Command Palette Ctrl+K, Tabs con teclado, Toasts, foco visible, prefers-reduced-motion)
+                    </td>
+                    <td className="p-3 text-[#10B981] font-bold">
+                      INCLUIDO (v2.3 · WAI-ARIA + teclado)
+                    </td>
+                    <td className="p-3">Incluido (cmdk + Radix por separado)</td>
+                    <td className="p-3">Parcial (sin Command Palette)</td>
+                    <td className="p-3 text-[#FF3355]">No existe</td>
                   </tr>
                   <tr>
                     <td className="p-3 font-bold text-white">
@@ -1555,13 +1708,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 bg-[#090B10] border-2 border-[#10B981] space-y-2">
                 <div className="px-2 py-0.5 bg-[#10B981] text-[#090B10] font-pixel text-[9px] font-bold inline-block">
-                  FASE 1 · COMPLETADO HOY (v2.2)
+                  FASE 1 · COMPLETADO (v2.2)
                 </div>
                 <h3 className="font-display text-sm font-black text-white">
                   Core Pixel-Art, Hardware 3D, Formularios y Graficas
                 </h3>
                 <ul className="space-y-1 text-[11px] text-[#CBD5E1]">
-                  <li>+ 198 iconos 16x16 + 28 marcas (X, YT, IG, TikTok, Google)</li>
+                  <li>{`+ ${ALL_PIXEL_ICON_NAMES.length} iconos 16x16 + 28 marcas (X, YT, IG, TikTok, Google)`}</li>
                   <li>+ Monitor CRT 3D + Disquetes 3.5&quot; + Keycaps</li>
                   <li>+ Input, Select, Autocomplete, Checkbox, Radio, Slider</li>
                   <li>+ Collapse, Calendar, MultiLineChart, DonutGauge</li>
@@ -1571,15 +1724,16 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
 
               <div className="p-4 bg-[#090B10] border-2 border-[#00E5FF] space-y-2">
                 <div className="px-2 py-0.5 bg-[#00E5FF] text-[#090B10] font-pixel text-[9px] font-bold inline-block">
-                  FASE 2 · OVERLAYS Y TABLAS DE DATOS (v2.5)
+                  {`FASE 2 · EN PROGRESO (v${PIXEL_UI_VERSION} -> v2.5)`}
                 </div>
                 <h3 className="font-display text-sm font-black text-white">
-                  DataGrid Virtualizado, Command Palette y Notificaciones
+                  Command Palette, Notificaciones, DataGrid y Overlays
                 </h3>
                 <ul className="space-y-1 text-[11px] text-[#CBD5E1]">
+                  <li className="text-[#10B981]">✓ PixelCommandPalette (Ctrl+K / Cmd+K estilo BIOS)</li>
+                  <li className="text-[#10B981]">✓ PixelToaster + pixelToast (alertas con fanfarria)</li>
+                  <li className="text-[#10B981]">✓ PixelTabs, PixelCopyButton y PixelBackToTop</li>
                   <li>+ PixelDataTable (Ordenamiento, filtros, paginacion, export CSV)</li>
-                  <li>+ PixelCommandPalette (Atajo Cmd+K / Ctrl+K estilo terminal BIOS)</li>
-                  <li>+ PixelToast &amp; Achievement Banner (Alertas flotantes con fanfarria)</li>
                   <li>+ PixelDrawer, PixelSheet, PixelTooltip &amp; PixelPopover</li>
                   <li>+ PixelContextMenu (Menu clic derecho pixel-art)</li>
                 </ul>
