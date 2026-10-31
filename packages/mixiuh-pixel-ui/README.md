@@ -41,9 +41,9 @@ All optional: leaving one out keeps the Spanish default text or the current beha
 - `PixelFloppyCard`: `sectorLabel` / `loadLabel`, the two texts of the label footer.
 - `Pixel3DCRTWorkstation`: `headerLabel`, the model plate on the monitor chassis.
 - `PixelDialogBox`: `nextLabel`, the prompt beside the blinking arrow.
-- `PixelMultiLineChart`: `categoryLabel` (what each x-axis point is) and `formatValue(v)` (value text in the readout and the screen-reader table, e.g. `(v) => v.toFixed(1) + "%"` keeps "42.0%").
+- `PixelMultiLineChart`: `categoryLabel` (what each x-axis point is) and `formatValue(v)` (value text in the readout and the screen-reader table, e.g. `(v) => v.toFixed(1) + "%"` keeps "42.0%"); `scrollLabel`, the name of the plot's sideways scroller, which is a focusable region only while the plot is wider than its box (defaults to `title`, else "Grafica de lineas").
 - `PixelCopyButton`: `failedLabel`, the toast title when copying fails.
-- `PixelDataTable`: `toolbarLayout="stacked"` gives the `toolbar` slot its own row; under 640px the search takes the full width with the export button below it.
+- `PixelDataTable`: `toolbarLayout="stacked"` gives the `toolbar` slot its own row; under 640px the search takes the full width with the export button below it. `labels.sortReset` is announced when a third press restores the original order (default "Orden original"; it is a required key of `PixelDataTableLabels`, so a full labels object needs it, while `labels` itself stays partial).
 - `PixelTooltip`: `className` replaces the wrapper's default `inline-flex` (e.g. `"hidden sm:inline-flex"` when the trigger itself is hidden on phones, so the empty wrapper adds no gap).
 - `PixelBackToTop`: `focusTargetId`, the id of the element that takes focus (without scrolling) before the page scrolls up, usually `<main>`, so the next Tab continues from the top of the page.
 - `PixelCommandPalette`: `resultsLabel(count)`, the result count announced in a polite status region once typing pauses for 400 ms (default "1 resultado" / "N resultados"; `emptyLabel` is announced when nothing matches).
@@ -147,7 +147,7 @@ the font family names.
 - `PixelCommandPalette` is a modal `role="dialog"` with a `combobox` + `listbox`, focus restore and scroll lock; it announces the result count after a short typing pause.
 - `PixelDrawer` / `PixelSheet`, `usePixelDialog` and `PixelCommandPalette` share one modal stack: only the top modal answers Escape and Tab, and a dialog opened inside a popover or another modal keeps its own keys.
 - `PixelToaster` announces messages through `aria-live="polite"`.
-- `PixelDataTable` uses `aria-sort`, announces result counts and sort changes; `PixelDrawer` traps focus; `PixelContextMenu` implements the WAI-ARIA menu pattern.
+- `PixelDataTable` uses `aria-sort` and announces result counts and sort changes; a column button cycles ascending, descending, then back to the original order (`initialSort` or the order of `rows`). A table or chart that scrolls sideways becomes a named, focusable region only while it overflows. `PixelDrawer` traps focus; `PixelContextMenu` implements the WAI-ARIA menu pattern.
 - `PixelTooltip` wires `aria-describedby`, stays open while the pointer moves onto it and closes with Escape (WCAG 1.4.13). `PixelPopover` follows its trigger when the page scrolls it away instead of sticking to the screen edge.
 - `PixelWindow`'s minimize button has a full name ("Minimizar ventana: <title>") and `aria-expanded`; the CRT `PWR` button exposes `aria-pressed`.
 - `PixelCollapse` titles wrap instead of being cut off; on phones `PixelMultiLineChart` scrolls the chosen point into view.

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EP04_CHALLENGES, type Ep04ChallengeData } from "@/data/ep04Data";
 import { EP02_BENCHMARK_TOTALS } from "@/data/ep02Data";
 import {
@@ -367,6 +367,7 @@ const EP04_TABLE_LABELS_EN: Partial<PixelDataTableLabels> = {
   sortHint: "Sort by",
   sortStatus: (column, direction) =>
     `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
+  sortReset: "Original order",
 };
 
 /** English labels of the PixelWindow minimize button (the library defaults to Spanish). */
@@ -629,6 +630,22 @@ export interface PixelUiShowcaseProps {
   released?: ReleasedState;
 }
 
+/** True while the element's content is wider than its box (re-measured on resize), like PixelDataTable's scroller. */
+function useOverflowsX(ref: React.RefObject<HTMLElement | null>) {
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setOverflowing(el.scrollWidth > el.clientWidth + 1);
+    });
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [ref]);
+  return overflowing;
+}
+
 export default function PixelUiShowcase({
   lang,
   cursorStyle = "cyber-arrow",
@@ -641,7 +658,7 @@ export default function PixelUiShowcase({
   // Spread into every PixelWindow
   const windowLabels = es ? {} : PIXEL_WINDOW_LABELS_EN;
   const { enabled: soundEnabled, play, toggle: toggleSound } = usePixelSound();
-  // Prefix for the ids that label each selector group and SFX card
+  // Prefix for the ids that label each selector group
   const uid = useId();
   const [tunerAngle, setTunerAngle] = useState(90);
   const [switchA, setSwitchA] = useState(true);
@@ -675,6 +692,9 @@ export default function PixelUiShowcase({
   );
   const [demoDrawer, setDemoDrawer] = useState(false);
   const [demoSheet, setDemoSheet] = useState(false);
+  // The comparison matrix scrolls sideways on phones: a named tab stop only then
+  const matrixRef = useRef<HTMLDivElement>(null);
+  const matrixOverflowing = useOverflowsX(matrixRef);
 
   // Release calendar built like the home one (shared labels, tones and date in
   // @/data/calendar): the timestamps that gate the content (published
@@ -1226,26 +1246,22 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                 // A real button (Enter / Space). Inner spans keep valid button
                 // content; items-stretch + text-left undo the UA button defaults
                 // so it looks exactly like the former card div.
+                // Named by its whole visible text (label, description, call, PLAY),
+                // so speech input can use any of it; the hidden verb leads.
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => play(s.id)}
-                  aria-label={
-                    lang === "es" ? `Reproducir ${s.label}` : `Play ${s.label}`
-                  }
-                  aria-describedby={`${uid}-sfx-${s.id}`}
                   className="p-3.5 bg-[#131824] border-2 border-[#2A344B] hover:border-[#FFD100] shadow-[4px_4px_0_#040508] active:translate-y-0.5 cursor-pointer transition flex flex-col items-stretch justify-between text-left"
                 >
                   <span className="flex items-center justify-between gap-2 mb-2">
                     <span className="font-pixel text-xs font-bold text-[#FFD100]">
+                      <span className="sr-only">{es ? "Reproducir " : "Play "}</span>
                       {s.label}
                     </span>
                     <PixelIcon name="volume-on" size={14} color="#00E5FF" />
                   </span>
-                  <span
-                    id={`${uid}-sfx-${s.id}`}
-                    className="block text-xs text-[#94A3B8] leading-snug"
-                  >
+                  <span className="block text-xs text-[#94A3B8] leading-snug">
                     {lang === "es" ? s.desc_es : s.desc_en}
                   </span>
                   <span className="mt-3 pt-2 border-t border-[#2A344B] flex items-center justify-between font-mono-hud text-[10px]">
@@ -1327,8 +1343,8 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   }
                   aria-label={
                     lang === "es"
-                      ? `Copiar JSX de ${sp.name} (${sp.role_es})`
-                      : `Copy JSX for ${sp.name} (${sp.role_en})`
+                      ? `Copiar JSX de ${sp.name}, ${sp.role_es}`
+                      : `Copy JSX for ${sp.name}, ${sp.role_en}`
                   }
                   className="p-3 bg-[#131824] border-2 border-[#2A344B] hover:border-[#10B981] flex flex-col items-center text-center cursor-pointer transition"
                 >
@@ -1339,7 +1355,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   />
                   <span className="font-pixel text-[10px] text-[#F5F2EB] mt-2 truncate w-full">
                     {sp.name}
-                  </span>
+                  </span>{" "}
                   <span className="font-mono-hud text-[10px] text-[#94A3B8] truncate w-full">
                     {lang === "es" ? sp.role_es : sp.role_en}
                   </span>
@@ -2507,7 +2523,13 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               <PixelSwipeHint
                 label={lang === "es" ? "Desliza para comparar" : "Swipe to compare"}
               />
-              <div className="overflow-x-auto">
+              <div
+                ref={matrixRef}
+                role={matrixOverflowing ? "region" : undefined}
+                aria-label={matrixOverflowing ? (es ? "Matriz comparativa" : "Comparison matrix") : undefined}
+                tabIndex={matrixOverflowing ? 0 : undefined}
+                className="overflow-x-auto focus-visible:outline-offset-[-3px]"
+              >
               <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
                   <tr className="bg-[#090B10] text-[#FFD100] font-pixel text-[10px] border-b-2 border-[#2A344B]">

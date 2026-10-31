@@ -1533,7 +1533,9 @@ export function PixelDialogBox({
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${speaker}: ${fullText}`}
+      // Every visible text in reading order (the typed line is hidden from
+      // assistive tech while it types), so the name matches what is on screen
+      aria-label={`${speaker}${role ? ` // ${role}` : ""} [${msgIdx + 1}/${messages.length}] ${fullText} ${nextLabel}`}
       onClick={handleNext}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

@@ -69,7 +69,8 @@ function ViewLoading() {
   return (
     <div
       role="status"
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"
+      // A full screen tall, so the footer never flashes into view and then jumps away while the view loads
+      className="max-w-7xl mx-auto min-h-svh px-4 sm:px-6 lg:px-8 py-16"
     >
       <div className="p-6 bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] font-pixel text-[11px] text-[#FFD100]">
         CARGANDO MODULO // LOADING

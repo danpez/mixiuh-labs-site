@@ -185,6 +185,14 @@ export default function NewsSection({
     return scroller ? watchOverflow(scroller, setPriceOverflowing) : undefined;
   }, []);
 
+  // Key-facts ticker: one long line that scrolls sideways on most widths.
+  const tickerRef = useRef<HTMLDivElement>(null);
+  const [tickerOverflowing, setTickerOverflowing] = useState(false);
+  useEffect(() => {
+    const ticker = tickerRef.current;
+    return ticker ? watchOverflow(ticker, setTickerOverflowing) : undefined;
+  }, []);
+
   const activeChapter =
     CARBON_CHAPTERS.find((c) => c.idx === activeChapterIdx) ||
     CARBON_CHAPTERS[0];
@@ -649,7 +657,13 @@ export default function NewsSection({
             </div>
 
             {/* Live Key Ticker Strip */}
-            <div className="p-3 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B] font-mono-hud text-[11px] text-[#EAE5D9] flex items-center gap-2.5 overflow-x-auto whitespace-nowrap">
+            <div
+              ref={tickerRef}
+              role={tickerOverflowing ? "region" : undefined}
+              aria-label={tickerOverflowing ? (es ? "Datos clave" : "Key facts") : undefined}
+              tabIndex={tickerOverflowing ? 0 : undefined}
+              className="p-3 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B] font-mono-hud text-[11px] text-[#EAE5D9] flex items-center gap-2.5 overflow-x-auto whitespace-nowrap focus-visible:outline-offset-[-3px]"
+            >
               <span className="px-2 py-0.5 bg-[#B31935] text-white font-bold shrink-0">
                 {es ? "DATOS CLAVE" : "KEY FACTS"}
               </span>
@@ -905,10 +919,11 @@ export default function NewsSection({
                 <button
                   type="button"
                   onClick={() => setZoomedAsset(chapterZoomAsset)}
+                  // Starts with the visible title, then the visible "Ampliar" (WCAG label in name)
                   aria-label={
                     es
-                      ? `Ampliar: ${activeChapter.chart_title_es}`
-                      : `Zoom: ${activeChapter.chart_title_en}`
+                      ? `${activeChapter.chart_title_es}, ampliar`
+                      : `${activeChapter.chart_title_en}, zoom`
                   }
                   className="block w-full text-left shadow-[6px_6px_0_#040508] bg-[#090B10] border-2 border-[#2A344B] overflow-hidden cursor-zoom-in group"
                 >
@@ -917,7 +932,7 @@ export default function NewsSection({
                       {es
                         ? activeChapter.chart_title_es
                         : activeChapter.chart_title_en}
-                    </span>
+                    </span>{" "}
                     <span className="text-[#00E5FF] font-bold shrink-0 ml-2">
                       {es ? "Ampliar ↗" : "Zoom ↗"}
                     </span>
@@ -1026,6 +1041,7 @@ export default function NewsSection({
                   sortHint: "Sort by",
                   sortStatus: (column, direction) =>
                     `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
+                  sortReset: "Original order",
                 }
           }
           toolbar={
