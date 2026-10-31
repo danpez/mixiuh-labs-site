@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useCallback, useId, useMemo, useState } from "react";
 import { EP04_CHALLENGES, type Ep04ChallengeData } from "@/data/ep04Data";
 import { EP02_BENCHMARK_TOTALS } from "@/data/ep02Data";
 import {
@@ -630,20 +630,26 @@ export interface PixelUiShowcaseProps {
   released?: ReleasedState;
 }
 
-/** True while the element's content is wider than its box (re-measured on resize), like PixelDataTable's scroller. */
-function useOverflowsX(ref: React.RefObject<HTMLElement | null>) {
+/**
+ * A callback ref plus whether its element's content is wider than its box
+ * (re-measured on resize), like PixelDataTable's scroller. A ref callback, so
+ * it follows the element when PixelWindow remounts its body after minimizing.
+ */
+function useOverflowsX() {
   const [overflowing, setOverflowing] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
+  const ref = useCallback((el: HTMLElement | null) => {
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       setOverflowing(el.scrollWidth > el.clientWidth + 1);
     });
     observer.observe(el);
     if (el.firstElementChild) observer.observe(el.firstElementChild);
-    return () => observer.disconnect();
-  }, [ref]);
-  return overflowing;
+    return () => {
+      observer.disconnect();
+      setOverflowing(false);
+    };
+  }, []);
+  return [ref, overflowing] as const;
 }
 
 export default function PixelUiShowcase({
@@ -693,8 +699,7 @@ export default function PixelUiShowcase({
   const [demoDrawer, setDemoDrawer] = useState(false);
   const [demoSheet, setDemoSheet] = useState(false);
   // The comparison matrix scrolls sideways on phones: a named tab stop only then
-  const matrixRef = useRef<HTMLDivElement>(null);
-  const matrixOverflowing = useOverflowsX(matrixRef);
+  const [matrixRef, matrixOverflowing] = useOverflowsX();
 
   // Release calendar built like the home one (shared labels, tones and date in
   // @/data/calendar): the timestamps that gate the content (published
@@ -1304,7 +1309,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
               <div
                 role="group"
                 aria-labelledby={`${uid}-motion-label`}
-                className="flex items-center gap-1.5 font-mono-hud text-xs"
+                className="flex flex-wrap items-center gap-1.5 font-mono-hud text-xs"
               >
                 <span id={`${uid}-motion-label`} className="text-[#94A3B8] mr-1">
                   {es ? "ANIMACION:" : "ANIMATION:"}

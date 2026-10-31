@@ -112,7 +112,10 @@ export function PixelTabs<T extends string = string>({
             disabled={item.disabled}
             onClick={() => select(item.id)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={`shrink-0 inline-flex items-center gap-1.5 font-bold whitespace-nowrap border-2 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`shrink-0 inline-flex items-center gap-1.5 font-bold border-2 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+              // wrap: a label wider than the whole row (a phone) wraps instead of overflowing
+              wrap ? "max-w-full text-left" : "whitespace-nowrap"
+            } ${
               size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
             } ${
               active
@@ -409,6 +412,16 @@ const defaultResultsLabel = (count: number) =>
 /** Ms without typing before the result count is announced. */
 const STATUS_DELAY = 400;
 
+/** The control that opened the popup holding `node` (the element whose aria-controls names it), if any. */
+function popupTriggerOf(node: Element | null): HTMLElement | null {
+  for (let el = node; el; el = el.parentElement) {
+    if (!el.id) continue;
+    const trigger = document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(el.id)}"]`);
+    if (trigger && !el.contains(trigger)) return trigger;
+  }
+  return null;
+}
+
 export function PixelCommandPalette({
   items,
   open,
@@ -428,6 +441,7 @@ export function PixelCommandPalette({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const restoreFallbackRef = useRef<HTMLElement | null>(null);
   const onOpenChangeRef = useRef(onOpenChange);
   const listId = useId();
 
@@ -452,6 +466,9 @@ export function PixelCommandPalette({
   useEffect(() => {
     if (!open) return;
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    // A popover the focus was in closes when the palette takes focus: its
+    // trigger is where focus goes back to then
+    restoreFallbackRef.current = popupTriggerOf(restoreFocusRef.current);
     pixelSound.play("powerup", { volume: 0.5 });
     const unlockScroll = lockPageScroll();
     const removeLayer = pushModalLayer(panelRef);
@@ -488,7 +505,8 @@ export function PixelCommandPalette({
       setActive(0);
       setAnnounced("");
       const prev = restoreFocusRef.current;
-      if (prev && document.contains(prev)) prev.focus({ preventScroll: true });
+      const target = prev && document.contains(prev) ? prev : restoreFallbackRef.current;
+      if (target && document.contains(target)) target.focus({ preventScroll: true });
     };
   }, [open]);
 

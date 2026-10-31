@@ -1591,6 +1591,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 <div
                   role="group"
                   aria-label={lang === "es" ? "Idioma" : "Language"}
+                  data-lang-switch=""
                   className="inline-flex bg-[#111622] p-0.5 border-2 border-[#2A344B]"
                 >
                   {(["es", "en"] as const).map((code) => (
@@ -1649,6 +1650,12 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             <nav
               ref={mobileNavRef}
               aria-label={lang === "es" ? "Secciones" : "Sections"}
+              // Chromium leaves a half-visible focused tab where it is: reveal it
+              onFocus={(e) => {
+                if (e.target !== e.currentTarget) {
+                  e.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+                }
+              }}
               className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-2.5 pt-1 font-mono-hud text-[11px] whitespace-nowrap"
             >
               {navItems.map((item) => {
@@ -2665,6 +2672,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   <div className="overflow-hidden bg-white p-2">
                     <img
                       src="/brand/thumbs/tenito_comment.png"
+                      width={1840}
+                      height={492}
                       loading="lazy"
                       decoding="async"
                       alt={

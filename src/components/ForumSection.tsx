@@ -1280,7 +1280,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                           }
                         />
                       </div>
-                      <pre className="text-xs font-mono-hud text-[#F5F2EB] whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                      <pre className="text-xs font-mono-hud text-[#F5F2EB] whitespace-pre-wrap [overflow-wrap:anywhere] overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.flashCode}
                       </pre>
                     </div>
@@ -1298,7 +1298,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                           }
                         />
                       </div>
-                      <pre className="text-xs font-mono-hud text-[#10B981] whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                      <pre className="text-xs font-mono-hud text-[#10B981] whitespace-pre-wrap [overflow-wrap:anywhere] overflow-x-auto leading-relaxed">
                         {activeThread.codeComparison.argonCode}
                       </pre>
                     </div>
@@ -1346,7 +1346,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       )}
                     </button>
                   </div>
+                  {/* key: every thread opens its prompt at the top */}
                   <pre
+                    key={activeThread.id}
                     ref={promptBoxRef}
                     role={promptOverflowing ? "region" : undefined}
                     aria-label={promptOverflowing ? (lang === "es" ? "Prompt oficial completo" : "Full official prompt") : undefined}

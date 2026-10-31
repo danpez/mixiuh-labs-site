@@ -604,6 +604,13 @@ export function PixelDataTable<T>({
         role={regionLabelled ? "region" : undefined}
         aria-labelledby={regionLabelled ? captionId : undefined}
         tabIndex={overflowing ? 0 : undefined}
+        // A focused header button half outside the scroller stays half hidden
+        // in Chromium: bring it into view (honours scroll-padding)
+        onFocus={(e) => {
+          if (e.target !== e.currentTarget) {
+            e.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+          }
+        }}
         // Positioned, so visually hidden nodes (caption, sort hints) stay
         // inside the scroller instead of widening the page
         className="relative overflow-x-auto focus-visible:outline-offset-[-3px]"
