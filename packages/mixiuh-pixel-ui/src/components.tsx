@@ -655,9 +655,10 @@ export function PixelFloppyCard({
         <p className="font-mono-hud text-[11px] text-[#090B10]/80 leading-relaxed">
           {description}
         </p>
-        <div className="pt-1 border-t border-[#090B10]/20 flex items-center justify-between font-pixel text-[10px]">
+        {/* One row when both fit; otherwise the chip drops whole to its own row, right-aligned */}
+        <div className="pt-1 border-t border-[#090B10]/20 flex flex-wrap items-center justify-between gap-x-1 gap-y-1 font-pixel text-[10px]">
           <span>{sectorLabel}</span>
-          <span className="px-1.5 py-0.5 bg-[#090B10] text-[#FFD100]">
+          <span className="ml-auto px-1.5 py-0.5 bg-[#090B10] text-[#FFD100] whitespace-nowrap">
             {loadLabel} <span aria-hidden="true">▶</span>
           </span>
         </div>
@@ -2068,7 +2069,7 @@ export function PixelSelect({
         className={`w-full bg-[#090B10] hover:bg-[#111622] text-left text-[#F5F2EB] border-2 border-[#090B10] shadow-[4px_4px_0_#040508] flex items-center justify-between gap-2 cursor-pointer transition ${FRAME_2} ${FOCUS_RING} ${sizePad}`}
         style={frameStyle(accent)}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-1 items-center gap-2 min-w-0">
           {selected?.icon && (
             <PixelIcon name={selected.icon} size={14} color={accent} />
           )}
@@ -2076,8 +2077,12 @@ export function PixelSelect({
             {selected ? selected.label : placeholder}
           </span>
           {selected?.sublabel && (
-            <span className="text-[11px] text-[#94A3B8] truncate hidden sm:inline">
-              · {selected.sublabel}
+            // The label keeps priority: the sublabel only fills the room left
+            // beside it, and is left out (not cut to "· …") under 5rem of room.
+            <span className="@container flex-1 min-w-0 hidden sm:block">
+              <span className="hidden @min-[5rem]:block text-[11px] text-[#94A3B8] truncate">
+                · {selected.sublabel}
+              </span>
             </span>
           )}
         </div>
@@ -2199,6 +2204,9 @@ export function PixelAutocomplete({
   const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
   const [query, setQuery] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
+  // The text filters the list only after the user types in it: a picked label
+  // (or one set by the parent) keeps every option on show, and so does the toggle.
+  const [filtering, setFiltering] = useState(false);
   // Option highlighted with the arrow keys (focus stays in the input); -1 = none
   const [activeIdx, setActiveIdx] = useState(-1);
   const baseId = useId();
@@ -2219,19 +2227,22 @@ export function PixelAutocomplete({
   if (value !== synced.value || selectedLabel !== synced.label) {
     if (value !== synced.value || query === synced.label) {
       setQuery(selectedLabel);
+      setFiltering(false);
     }
     setSynced({ value, label: selectedLabel });
   }
 
   useDismissOutside(open, rootRef, setOpen);
 
-  const needle = query.trim().toLowerCase();
-  const filtered = options.filter(
-    (o) =>
-      o.label.toLowerCase().includes(needle) ||
-      (o.sublabel && o.sublabel.toLowerCase().includes(needle)) ||
-      (o.badge && o.badge.toLowerCase().includes(needle))
-  );
+  const needle = filtering ? query.trim().toLowerCase() : "";
+  const filtered = needle
+    ? options.filter(
+        (o) =>
+          o.label.toLowerCase().includes(needle) ||
+          (o.sublabel && o.sublabel.toLowerCase().includes(needle)) ||
+          (o.badge && o.badge.toLowerCase().includes(needle))
+      )
+    : options;
   const activeIndex = open && activeIdx < filtered.length ? activeIdx : -1;
 
   // Keep the highlighted option visible inside the scrolling list
@@ -2239,6 +2250,20 @@ export function PixelAutocomplete({
     if (activeIndex < 0) return;
     optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
+
+  // Opened on the full list: bring the picked option into view. Only the list
+  // scrolls (scrollIntoView could also move the page on a phone).
+  useEffect(() => {
+    const list = listRef.current;
+    if (!open || filtering || !list) return;
+    const picked = list.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!picked) return;
+    const top = picked.offsetTop;
+    const bottom = top + picked.offsetHeight;
+    if (top < list.scrollTop || bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = top - (list.clientHeight - picked.offsetHeight) / 2;
+    }
+  }, [open, filtering]);
 
   // The list is about to unmount: move focus out of it so it is not lost.
   // The toggle (not the input) avoids popping the phone keyboard up again.
@@ -2252,6 +2277,7 @@ export function PixelAutocomplete({
     pixelSound.play("powerup");
     onChange(opt.value);
     setQuery(opt.label);
+    setFiltering(false);
     keepFocusOnClose();
     setOpen(false);
   };
@@ -2324,6 +2350,7 @@ export function PixelAutocomplete({
           onChange={(e) => {
             pixelSound.play("dialogBlip");
             setQuery(e.target.value);
+            setFiltering(true);
             setActiveIdx(-1);
             setOpen(true);
           }}
@@ -2359,7 +2386,9 @@ export function PixelAutocomplete({
           onClick={() => {
             pixelSound.play("click");
             setActiveIdx(-1);
-            setOpen((o) => !o);
+            // Opening from the toggle always lists every option
+            if (!open) setFiltering(false);
+            setOpen(!open);
           }}
           className={`px-2.5 py-2 border-l border-[#1E2638] text-[#94A3B8] hover:text-white cursor-pointer ${FOCUS_RING_INSET}`}
         >
@@ -3123,6 +3152,13 @@ export interface PixelMultiLineChartProps {
    * and the screen-reader table column, and prefixes the readout in capitals.
    */
   categoryLabel?: string;
+  /**
+   * Text of each data value in the readout and the screen-reader table
+   * (default: the number followed by `unit`, so 42.0 reads "42%"). Return the
+   * whole text, unit included: `(v) => v.toFixed(1) + "%"` keeps "42.0%".
+   * The y-axis ticks keep `unit`.
+   */
+  formatValue?: (value: number) => string;
 }
 
 export function PixelMultiLineChart({
@@ -3134,9 +3170,12 @@ export function PixelMultiLineChart({
   unit = "%",
   className = "",
   categoryLabel = "Benchmark",
+  formatValue,
 }: PixelMultiLineChartProps) {
   const [hiddenKeys, setHiddenKeys] = useState<string[]>([]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(data.length - 1);
+  const valueText = (v: number | undefined) =>
+    v === undefined ? "—" : formatValue ? formatValue(v) : `${v}${unit}`;
 
   const toggleSeries = (k: string) => {
     pixelSound.play("click");
@@ -3318,11 +3357,7 @@ export function PixelMultiLineChart({
               <tr key={`${d.label}-${i}`}>
                 <th scope="row">{d.label}</th>
                 {series.map((s) => (
-                  <td key={s.key}>
-                    {d.values[s.key] === undefined
-                      ? "—"
-                      : `${d.values[s.key]}${unit}`}
-                  </td>
+                  <td key={s.key}>{valueText(d.values[s.key])}</td>
                 ))}
               </tr>
             ))}
@@ -3377,8 +3412,7 @@ export function PixelMultiLineChart({
                     className="font-bold"
                     style={{ color: s.color }}
                   >
-                    {s.name}: {data[hoverIdx].values[s.key]}
-                    {unit}
+                    {s.name}: {valueText(data[hoverIdx].values[s.key])}
                   </span>
                 ))}
             </div>

@@ -914,7 +914,8 @@ export default function NewsSection({
           // Toolbar rows: the domain tabs get the first row, so the search never
           // gets squeezed beside them (its text is 16px on touch screens). On
           // phones the search also takes its own row and "Exportar CSV" wraps below.
-          className="[&_table]:min-w-[880px] [&_div:has(>[role=tablist])]:basis-full max-sm:[&_div:has(>input[type=search])]:basis-full"
+          toolbarLayout="stacked"
+          className="[&_table]:min-w-[880px]"
           rows={CARBON_FULL_BENCHMARKS.filter(
             (row) => domainFilter === "all" || row.domain === domainFilter
           )}

@@ -98,6 +98,12 @@ export interface PixelDataTableProps<T> {
   exportFileName?: string;
   /** Extra controls rendered at the start of the toolbar (e.g. category tabs). */
   toolbar?: React.ReactNode;
+  /**
+   * "inline" (default): `toolbar`, search and export share one wrapping row.
+   * "stacked": `toolbar` gets a row of its own, and under 640px the search
+   * takes the full width with the export button on the row below it.
+   */
+  toolbarLayout?: "inline" | "stacked";
   /** Makes rows clickable and focusable (Enter/Space activate, ↑/↓/Home/End move between rows). */
   onRowClick?: (row: T) => void;
   /** Extra row classes; `index` is the position in the sorted & filtered result. */
@@ -289,6 +295,7 @@ export function PixelDataTable<T>({
   pageSize = 0,
   exportFileName,
   toolbar,
+  toolbarLayout = "inline",
   onRowClick,
   rowClassName,
   labels,
@@ -479,6 +486,7 @@ export function PixelDataTable<T>({
 
   const hasExtraToolbar = toolbar != null && typeof toolbar !== "boolean";
   const hasToolbar = searchable || Boolean(exportFileName) || hasExtraToolbar;
+  const stacked = toolbarLayout === "stacked";
   const headPad = dense ? "px-2.5 py-2" : "px-3 py-2.5";
   const cellPad = dense ? "px-2.5 py-1.5" : "px-3 py-2.5";
   const regionLabelled = overflowing && Boolean(caption);
@@ -502,13 +510,21 @@ export function PixelDataTable<T>({
       {hasToolbar && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 bg-[#090B10] border-b-2 border-[#2A344B]">
           {hasExtraToolbar && (
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <div
+              className={`flex flex-wrap items-center gap-2 min-w-0 ${
+                stacked ? "basis-full" : ""
+              }`}
+            >
               {toolbar}
             </div>
           )}
 
           {searchable && (
-            <div className="relative flex-1 min-w-[11rem] max-w-sm">
+            <div
+              className={`relative flex-1 min-w-[11rem] max-w-sm ${
+                stacked ? "max-sm:basis-full max-sm:max-w-none" : ""
+              }`}
+            >
               <label htmlFor={searchId} className="px-sr-only">
                 {l.search}
               </label>

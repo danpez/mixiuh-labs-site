@@ -27,9 +27,23 @@ imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
 | `src/context-menu.tsx` (**new in 2.5**) | `PixelContextMenu` (right click, Shift+F10 / Menu key, roving focus, typeahead). |
 | `src/motion.ts` · `src/storage.ts` | `usePrefersReducedMotion()` · `usePixelPref()` (hydration-safe, tab-synced localStorage preferences). |
 | `src/ambient.tsx` | Procedural AI-ecosystem background canvas (auto-disabled for reduced motion). |
-| `src/cursor.tsx` | 6 pixel-art cursor presets + `usePixelCursor()`. |
+| `src/cursor.tsx` | 5 pixel-art cursor presets plus the system cursor (`PIXEL_CURSOR_PRESETS`) + `usePixelCursor()`. |
 | `src/scroll-reveal.tsx` | Pixel-by-pixel "materialize on scroll" observer. |
 | `src/version.ts` | `PIXEL_UI_VERSION` (kept in sync with `package.json`). |
+
+### Optional text & layout props
+
+All optional: leaving one out keeps the Spanish default text or the current behaviour.
+
+- `PixelAutocomplete`: `clearLabel` / `toggleLabel` (accessible names of the clear and open/close buttons), `emptyLabel` (text before the quoted query when nothing matches). Typing filters the list; the toggle always lists every option.
+- `PixelKeycap` and `PixelCommandPalette`: `hotkey={false}` stops the page-wide key (Ctrl/Cmd+K for the palette).
+- `PixelAudioSequencer`: `cellLabel(track, step)`, the accessible name of each step cell.
+- `PixelFloppyCard`: `sectorLabel` / `loadLabel`, the two texts of the label footer.
+- `Pixel3DCRTWorkstation`: `headerLabel`, the model plate on the monitor chassis.
+- `PixelDialogBox`: `nextLabel`, the prompt beside the blinking arrow.
+- `PixelMultiLineChart`: `categoryLabel` (what each x-axis point is) and `formatValue(v)` (value text in the readout and the screen-reader table, e.g. `(v) => v.toFixed(1) + "%"` keeps "42.0%").
+- `PixelCopyButton`: `failedLabel`, the toast title when copying fails.
+- `PixelDataTable`: `toolbarLayout="stacked"` gives the `toolbar` slot its own row; under 640px the search takes the full width with the export button below it.
 
 ---
 

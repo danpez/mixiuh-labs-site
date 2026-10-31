@@ -291,6 +291,12 @@ export interface PixelCopyButtonProps {
   copiedLabel?: string;
   /** Optional toast shown after copying. */
   toastTitle?: string;
+  /**
+   * Title of the toast shown when copying fails (default
+   * "No se pudo copiar / Copy failed"). The failure toast appears when
+   * `toastTitle` or `failedLabel` is set.
+   */
+  failedLabel?: string;
   tone?: PixelTone;
   size?: "xs" | "sm" | "md";
   className?: string;
@@ -301,6 +307,7 @@ export function PixelCopyButton({
   label = "Copiar",
   copiedLabel = "Copiado",
   toastTitle,
+  failedLabel,
   tone = "ink",
   size = "sm",
   className = "",
@@ -327,9 +334,14 @@ export function PixelCopyButton({
         const ok = await copyTextToClipboard(text);
         setCopied(ok);
         pixelSound.play(ok ? "coin" : "hit");
-        if (toastTitle) {
+        // A failure toast goes with `toastTitle`, or on its own once `failedLabel` is set
+        let title = toastTitle;
+        if (!ok && (toastTitle || failedLabel)) {
+          title = failedLabel || "No se pudo copiar / Copy failed";
+        }
+        if (title) {
           pixelToast.show({
-            title: ok ? toastTitle : "No se pudo copiar / Copy failed",
+            title,
             tone: ok ? "emerald" : "coral",
             icon: ok ? "check" : "close",
             sound: null,

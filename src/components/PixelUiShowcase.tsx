@@ -1840,6 +1840,8 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                   maxY={EP04_CHART_MAX_Y}
                   unit=" min"
                   categoryLabel={es ? "Reto" : "Challenge"}
+                  // Run times are logged to 0.1 min: 17.0 stays "17.0 min"
+                  formatValue={(v) => `${v.toFixed(1)} min`}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2268,6 +2270,7 @@ import { PixelCreditBadge } from "@mixiuh/pixel-ui";
                     label={lang === "es" ? "Copiar" : "Copy"}
                     copiedLabel={lang === "es" ? "Copiado" : "Copied"}
                     toastTitle={lang === "es" ? "SNIPPET COPIADO" : "SNIPPET COPIED"}
+                    failedLabel={lang === "es" ? "NO SE PUDO COPIAR" : "COPY FAILED"}
                   />
                 </div>
                 <pre className="p-3.5 bg-[#090B10] border-2 border-[#2A344B] text-[11px] text-[#F5F2EB] whitespace-pre-wrap leading-relaxed overflow-x-auto">

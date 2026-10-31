@@ -246,40 +246,59 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
     views: 3890,
     tags: ["EP03", "Gemini 4 Argon High", "Superpowers Kit", "MCP Auto-Debugger", "Zero-GC", "Benchmark Real"],
     codeComparison: {
-      title_es: "Reto 02 (Terminal HFT): Objetos JS Estandar (11,073 ord/s) vs Skill 02 Float64Array RingBuffer (70,406 ord/s)",
-      title_en: "Challenge 02 (HFT Terminal): Standard JS Objects (11,073 ord/s) vs Skill 02 Float64Array RingBuffer (70,406 ord/s)",
-      leftLabel_es: "[IZQUIERDA] IA SIN KIT (58 MIN · $1.60 USD · 11,073 ORD/S)",
-      leftLabel_en: "[LEFT] RAW AI (58 MIN · $1.60 USD · 11,073 ORD/S)",
-      rightLabel_es: "[DERECHA] IA + SUPERPOWERS KIT (42 MIN · $1.40 USD · 70,406 ORD/S)",
-      rightLabel_en: "[RIGHT] AI + SUPERPOWERS KIT (42 MIN · $1.40 USD · 70,406 ORD/S)",
-      flashCode: `// ia-sin-kit/02-terminal-trading/index.html
-// Asigna objetos { price, size, side, ts } en el heap en cada tick:
-function pushTradeTick(price, size, side) {
-  trades.unshift({ id: ++seq, price, size, side, ts: performance.now() });
-  if (trades.length > 250) trades.pop(); // <-- Presion al Garbage Collector (11,073 ord/s)
+      title_es: "Reto 02 (Terminal HFT): objetos JS con push/shift (sin kit) vs ring buffer Float32Array de 240 muestras (Kit); el ord/s del HUD es una formula en ambos",
+      title_en: "Challenge 02 (HFT Terminal): JS objects with push/shift (raw) vs a 240-sample Float32Array ring buffer (Kit); the HUD's ord/s is a formula in both",
+      leftLabel_es: "[IZQUIERDA] IA SIN KIT (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
+      leftLabel_en: "[LEFT] RAW AI (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
+      rightLabel_es: "[DERECHA] IA + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
+      rightLabel_en: "[RIGHT] AI + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
+      flashCode: `// /demos/ia-sin-kit/02-terminal-trading/index.html (L2434-2447, L3498)
+if (uiThrottleCounter % 2 === 0) {
+  const lat = 9.8 + inst.stressVolMult * 4.2 + Math.abs(inst.ofi) * 6.5 + Math.random() * 3.2;
+  if (isSelected) state.engineLatencyUs = lat;
+  inst.oscHistory.push({
+    vpin: inst.vpin,
+    ofi: inst.ofi,
+    cvd: inst.cvdUSD,
+    sigma: Math.sqrt(inst.hestonVar) * 100,
+    latency: lat
+  });
+  if (inst.oscHistory.length > MAX_OSC_POINTS) {
+    inst.oscHistory.shift();
+  }
+}
+// ...
+const ops = Math.floor(7800 + inst.stressVolMult * 3200 + Math.abs(inst.ofi) * 2400 + Math.random() * 650);`,
+      argonCode: `// /demos/ia-superpowers-kit/02-terminal-trading/index.html (L1215-1219, L1831-1839)
+const MICRO_SAMPLES = 240;
+const histOFI = new Float32Array(MICRO_SAMPLES);
+const histVPIN = new Float32Array(MICRO_SAMPLES);
+const histLatency = new Float32Array(MICRO_SAMPLES);
+let microHead = 0;
+// ...
+ordersPerSec = Math.round(3900 + st.variance * 6500 + Math.abs(st.ofi) * 28 + Math.random() * 650);
+engineLatencyUs = Math.max(7.2, 10.5 + (ordersPerSec / 1800) * 3.8 + (stressState.mode !== 'NORMAL' ? Math.random() * 48 : Math.random() * 4.5));
+
+if (simTickCounter % 2 === 0) {
+  histOFI[microHead] = st.ofi;
+  histVPIN[microHead] = st.vpin;
+  histLatency[microHead] = engineLatencyUs;
+  microHead = (microHead + 1) % MICRO_SAMPLES;
 }`,
-      argonCode: `// ia-superpowers-kit/02-terminal-trading/index.html
-// Skill 02 Zero-GC: RingBuffer pre-alocado en Float64Array (0 allocs por tick)
-const RING_CAP = 16384;
-const tradeRing = new Float64Array(RING_CAP * 4); // [price, size, side, ts]
-function recordTickZeroGC(price, size, side, now) {
-  const base = (head & (RING_CAP - 1)) << 2;
-  tradeRing[base] = price; tradeRing[base + 1] = size; // <-- 70,406 ord/s clavados
-}`,
-      explanation_es: "En el Reto 02 (Terminal HFT), darle al modelo el Skill 02 de arquitectura Zero-GC con RingBuffers pre-alocados no solo sextuplico el throughput de ordenes por segundo (70,406 vs 11,073 ord/s), sino que evito que el agente reescribiera el motor a mitad de camino, terminando 16 minutos antes (42m vs 58m) y costando menos ($1.40 vs $1.60 USD).",
-      explanation_en: "In Challenge 02 (HFT Terminal), equipping the model with Skill 02's Zero-GC Float64Array RingBuffer pattern not only boosted throughput 6.3x (70,406 vs 11,073 ord/s), it prevented the agent from refactoring mid-run—finishing 16 minutes faster (42m vs 58m) and costing less ($1.40 vs $1.60 USD)."
+      explanation_es: "Los dos paneles son copia literal de las lineas citadas; solo se quito la sangria inicial comun. Correccion: la version anterior de este panel citaba codigo que no existe en ninguno de los dos archivos (`trades.unshift`, `RING_CAP`, `tradeRing`, `recordTickZeroGC`), y el unico `Float64Array` del Kit es `candleTime` (L1169). Sin kit, cada muestra del osciloscopio, cada vela (L2385-2401) y cada ejecucion de la cinta Time & Sales (L1822-1831) es un objeto nuevo en un arreglo que crece y se recorta. Con el Kit, velas, libro L2, particulas y osciloscopio viven en arreglos tipados pre-asignados (casi todos `Float32Array`, L1168-1228), con `copyWithin` para desplazar las velas (L1772-1785) y este ring buffer para el osciloscopio; su cinta, en cambio, crea un `div` del DOM por ejecucion (L1460, L1488), asi que esa parte no es Zero-GC. El ord/s del HUD no cuenta ordenes en ninguno de los dos: es una formula de volatilidad, OFI y `Math.random()`, igual que la latencia, asi que 70,406 vs 11,073 no prueba un throughput 6.3x mayor. Lo que si consta en la captura oficial del Reto 02: el Kit termino 16 minutos antes (57.3 vs 73.2 min) y costo menos ($1.56 vs $1.75 USD). Tampoco existe una 'Skill 02 RingBuffer': en el Kit v1.0 la Skill 02 es el Auto-Debugger, y los buffers pre-asignados los pide la Skill 03 ('Cero Basura en el Bucle de Renderizado').",
+      explanation_en: "Both panels are literal copies of the cited lines; only the common leading indentation was removed. Correction: the previous version of this panel quoted code that exists in neither file (`trades.unshift`, `RING_CAP`, `tradeRing`, `recordTickZeroGC`), and the Kit's only `Float64Array` is `candleTime` (L1169). Without the kit, every oscilloscope sample, every candle (L2385-2401) and every Time & Sales execution (L1822-1831) is a new object in an array that grows and gets trimmed. With the Kit, candles, the L2 book, particles and the oscilloscope live in pre-allocated typed arrays (almost all `Float32Array`, L1168-1228), with `copyWithin` to shift the candles (L1772-1785) and this ring buffer for the oscilloscope; its tape, however, creates a DOM `div` per execution (L1460, L1488), so that part is not zero-GC. The HUD's ord/s counts no orders in either build: it is a formula of volatility, OFI and `Math.random()`, just like the latency, so 70,406 vs 11,073 does not prove 6.3x higher throughput. What the official Challenge 02 screenshot does show: the Kit finished 16 minutes sooner (57.3 vs 73.2 min) and cost less ($1.56 vs $1.75 USD). Nor is there a 'Skill 02 RingBuffer': in Kit v1.0, Skill 02 is the Auto-Debugger, and pre-allocated buffers are what Skill 03 asks for (its 'zero garbage in the render loop' rule)."
     },
     content_es: [
       "Con modelos frontera tan capaces como Gemini 4 Argon High, quisimos responder con datos reales una pregunta que todo ingeniero se hace hoy: ¿siguen siendo necesarios los Kits de Skills, bancos de memoria y el Auto-Debugger MCP, o solo queman tokens extra?",
       "Protocolo de Laboratorio: Ejecutamos 12 instancias reales y aisladas de `agy --model gemini-4-argon-high --effort high` (6 en carpetas limpias sin ninguna regla y 6 con el Mixiuh Superpowers Kit v1.0). Primero lo mas importante: ninguna de las 12 entregas fallo ni arrojo errores de consola. Gemini 4 Argon High sin kit es un monstruo por derecho propio.",
       "Cuando Gana la IA Sin Kit (2 puntos): En el Reto 03 (Arcade Bullet-Hell Boss Rush), las reglas conservadoras de presupuesto de particulas del Kit limitaron los proyectiles a 432 y tardaron 69 min ($2.32 USD), mientras que Gemini 4 Argon High sin kit desato patrones Danmaku 4 veces mas densos (1,829 proyectiles activos a 60 FPS) en 51 min ($1.09 USD). En el Reto 04 (Red Zero-Trust 3D), el modelo sin kit resolvio todo en apenas 5 pasos de agente ($0.74 USD vs $2.04 USD de 21 pasos con Kit) con un HUD eBPF/XDP mas limpio.",
-      "Por que el Mixiuh Superpowers Kit Gana 4-2 en el Global (276 min vs 302 min): En sistemas donde la arquitectura de memoria o el estado multi-ventana son criticos, el Kit marco una diferencia contundente: en el Reto 01 (Galaxia N-Body) entrego 20,000 estrellas por GPU Instancing con Bloom HDR y lente de Einstein; en el Reto 02 (Terminal HFT) fue 16 minutos mas rapido, mas barato y 6.3x mas veloz (70,406 ord/s); en el Reto 05 (Motor DAG GLSL) ahorro 10 minutos al mismo precio ($1.41 USD) e incluyo ventana PiP Raymarching 3D; y en el Reto 06 (MixiuhOS Desktop) el Auto-Debugger MCP detecto en el DOM que las ventanas iniciales se solapaban y las distribuyo limpiamente."
+      "Por que el Mixiuh Superpowers Kit Gana 4-2 en el Global (276 min vs 302 min): En sistemas donde la arquitectura de memoria o el estado multi-ventana son criticos, el Kit marco una diferencia contundente: en el Reto 01 (Galaxia N-Body) entrego 20,000 estrellas por GPU Instancing con Bloom HDR y lente de Einstein; en el Reto 02 (Terminal HFT) fue 16 minutos mas rapido y mas barato, y guardo velas, libro e historial en arreglos tipados pre-asignados (la cifra de 70,406 ord/s de su HUD no es una medicion: sale de una formula); en el Reto 05 (Motor DAG GLSL) ahorro 10 minutos al mismo precio ($1.41 USD) e incluyo ventana PiP Raymarching 3D; y en el Reto 06 (MixiuhOS Desktop) el Auto-Debugger MCP detecto en el DOM que las ventanas iniciales se solapaban y las distribuyo limpiamente."
     ],
     content_en: [
       "With frontier models as capable as Gemini 4 Argon High, we wanted to answer with hard data a question every engineer asks today: do you still need Skills Kits, Memory Banks, and MCP Auto-Debuggers, or do they just burn extra tokens?",
       "Lab Protocol: We ran 12 real isolated instances of `agy --model gemini-4-argon-high --effort high` (6 in clean directories with zero rules, and 6 with the Mixiuh Superpowers Kit v1.0). First, the headline finding: zero out of 12 deliverables crashed or threw console errors. Raw Gemini 4 Argon High is a beast in its own right.",
       "When Raw AI Wins (2 points): In Challenge 03 (Bullet-Hell Boss Rush), the Kit's conservative particle-budget guardrails capped active bullets at 432 and took 69 min ($2.32 USD), whereas Raw Gemini 4 Argon High unleashed 4x denser Danmaku spirals (1,829 active bullets at 60 FPS) in 51 min ($1.09 USD). In Challenge 04 (3D Zero-Trust Network), Raw AI finished in just 5 agent steps ($0.74 USD vs $2.04 USD across 21 steps with the Kit) with a cleaner eBPF/XDP quarantine HUD.",
-      "Why the Mixiuh Superpowers Kit Wins 4-2 Overall (276 min vs 302 min): Whenever memory layout or multi-window DOM state is critical, the Kit proved decisive: in Challenge 01 (N-Body Galaxy) it delivered 20,000 GPU-instanced stars with HDR Bloom and Einstein lensing; in Challenge 02 (HFT Terminal) it finished 16 minutes faster, cheaper, and with 6.3x higher order throughput (70,406 ord/s); in Challenge 05 (DAG GLSL Studio) it saved 10 minutes at the exact same $1.41 cost while adding a floating 3D SDF Raymarching PiP viewport; and in Challenge 06 (MixiuhOS Desktop) the MCP Auto-Debugger caught overlapping startup windows in the live DOM and arranged 4 clean multi-window apps."
+      "Why the Mixiuh Superpowers Kit Wins 4-2 Overall (276 min vs 302 min): Whenever memory layout or multi-window DOM state is critical, the Kit proved decisive: in Challenge 01 (N-Body Galaxy) it delivered 20,000 GPU-instanced stars with HDR Bloom and Einstein lensing; in Challenge 02 (HFT Terminal) it finished 16 minutes faster and cheaper, keeping candles, the order book and history in pre-allocated typed arrays (the 70,406 ord/s on its HUD is not a measurement: it comes from a formula); in Challenge 05 (DAG GLSL Studio) it saved 10 minutes at the exact same $1.41 cost while adding a floating 3D SDF Raymarching PiP viewport; and in Challenge 06 (MixiuhOS Desktop) the MCP Auto-Debugger caught overlapping startup windows in the live DOM and arranged 4 clean multi-window apps."
     ],
     comments: []
   },
