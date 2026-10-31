@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useId, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useId,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { pixelSound, type PixelSoundName } from "./sound";
 import { PIXEL_UI_VERSION } from "./version";
 import {
@@ -105,6 +111,8 @@ const FOCUS_WITHIN_RING =
 /** Ring drawn inside the element, for rows of scrolling lists and buttons inside fields. */
 const FOCUS_RING_INSET =
   "focus-visible:outline-2 focus-visible:outline-[#FFD100] focus-visible:-outline-offset-2";
+/** The inset ring on the option picked with the arrow keys while focus stays in a combobox input. */
+const ACTIVE_RING_INSET = "outline-2 outline-[#FFD100] -outline-offset-2";
 
 const frameStyle = (hex: string) =>
   ({ "--px-frame": hex }) as React.CSSProperties;
@@ -129,6 +137,17 @@ function pressableProps(
       }
     },
   };
+}
+
+/** True when a key event comes from a place where the user is typing. */
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
 }
 
 /** Swallow a key so dialogs listening on document (Escape) do not see it. */
@@ -239,6 +258,12 @@ export interface PixelKeycapProps {
   caption?: string;
   tone?: PixelTone;
   onTrigger?: () => void;
+  /**
+   * Also trigger when the matching key is pressed anywhere on the page
+   * (default true). Typing in a field, Ctrl/Cmd/Alt shortcuts, IME
+   * composition and key auto-repeat never trigger it.
+   */
+  hotkey?: boolean;
 }
 
 export function PixelKeycap({
@@ -246,22 +271,37 @@ export function PixelKeycap({
   caption,
   tone = "chalk",
   onTrigger,
+  hotkey = true,
 }: PixelKeycapProps) {
   const [pressed, setPressed] = useState(false);
   const t = TONE_STYLES[tone];
 
   useEffect(() => {
+    if (!hotkey) return;
+    // Autofill can dispatch key events without a `key`
+    const matches = (e: KeyboardEvent) =>
+      typeof e.key === "string" &&
+      e.key.toUpperCase() === keyLabel.toUpperCase();
     const down = (e: KeyboardEvent) => {
-      if (e.key.toUpperCase() === keyLabel.toUpperCase()) {
-        setPressed(true);
-        pixelSound.play("click", { pitchMultiplier: 1.1 });
-        onTrigger?.();
+      if (
+        e.repeat ||
+        e.isComposing ||
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        isTypingTarget(e.target) ||
+        !matches(e)
+      ) {
+        return;
       }
+      setPressed(true);
+      pixelSound.play("click", { pitchMultiplier: 1.1 });
+      onTrigger?.();
     };
+    // Releasing the key always lifts the cap, wherever focus went meanwhile
     const up = (e: KeyboardEvent) => {
-      if (e.key.toUpperCase() === keyLabel.toUpperCase()) {
-        setPressed(false);
-      }
+      if (matches(e)) setPressed(false);
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -269,7 +309,7 @@ export function PixelKeycap({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [keyLabel, onTrigger]);
+  }, [hotkey, keyLabel, onTrigger]);
 
   return (
     <button
@@ -567,6 +607,10 @@ export interface PixelFloppyCardProps {
   description: string;
   tone?: PixelTone;
   onInsert?: () => void;
+  /** Left text of the label footer (default "SECTOR 00 // ZERO-SHOT"). */
+  sectorLabel?: string;
+  /** Text of the label footer chip, shown before "▶" (default "LOAD DISK"). */
+  loadLabel?: string;
 }
 
 export function PixelFloppyCard({
@@ -576,6 +620,8 @@ export function PixelFloppyCard({
   description,
   tone = "cyan",
   onInsert,
+  sectorLabel = "SECTOR 00 // ZERO-SHOT",
+  loadLabel = "LOAD DISK",
 }: PixelFloppyCardProps) {
   const t = TONE_STYLES[tone];
   const insert = () => {
@@ -610,9 +656,9 @@ export function PixelFloppyCard({
           {description}
         </p>
         <div className="pt-1 border-t border-[#090B10]/20 flex items-center justify-between font-pixel text-[10px]">
-          <span>SECTOR 00 // ZERO-SHOT</span>
+          <span>{sectorLabel}</span>
           <span className="px-1.5 py-0.5 bg-[#090B10] text-[#FFD100]">
-            LOAD DISK ▶
+            {loadLabel} <span aria-hidden="true">▶</span>
           </span>
         </div>
       </div>
@@ -754,11 +800,17 @@ export interface PocketConsoleCartridgeItem {
 export interface Pixel3DPocketConsoleProps {
   items: PocketConsoleCartridgeItem[];
   lang?: "es" | "en";
+  /**
+   * Model plate printed on the monitor chassis (default
+   * "MIXIUH LABS // MONITOR DE PRUEBAS", or "... // BENCHMARK MONITOR" in English).
+   */
+  headerLabel?: string;
 }
 
 export function Pixel3DCRTWorkstation({
   items,
   lang = "es",
+  headerLabel,
 }: Pixel3DPocketConsoleProps) {
   const [idx, setIdx] = useState(0);
   const [poweredOn, setPoweredOn] = useState(true);
@@ -829,9 +881,10 @@ export function Pixel3DCRTWorkstation({
               }`}
             />
             <span className="font-pixel text-[10px] font-bold tracking-wider truncate">
-              {lang === "es"
-                ? "MIXIUH LABS // MONITOR DE PRUEBAS"
-                : "MIXIUH LABS // BENCHMARK MONITOR"}
+              {headerLabel ??
+                (lang === "es"
+                  ? "MIXIUH LABS // MONITOR DE PRUEBAS"
+                  : "MIXIUH LABS // BENCHMARK MONITOR")}
             </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -1056,7 +1109,8 @@ export function Pixel3DCRTWorkstation({
             >
               <PixelIcon name="gamepad" size={13} color="#090B10" />
               <span className="truncate">
-                {current.secondaryLabel || "SIMULADOR"}
+                {current.secondaryLabel ||
+                  (lang === "es" ? "SIMULADOR" : "SIMULATOR")}
               </span>
             </button>
           )}
@@ -1076,6 +1130,10 @@ export const Pixel3DPocketConsole = Pixel3DCRTWorkstation;
 export interface PixelBarChartItem {
   label: string;
   value: number;
+  /**
+   * Full-scale value of this bar (e.g. 10 for a score out of 10). Bars
+   * without one share the chart scale: the largest `value` or `maxValue`.
+   */
   maxValue?: number;
   displayValue: string;
   tone?: PixelTone;
@@ -1089,14 +1147,19 @@ export function PixelBarChart({
   items: PixelBarChartItem[];
   segments?: number;
 }) {
-  const maxVal = Math.max(...items.map((i) => i.maxValue || i.value), 1);
+  const cells = Math.max(1, Math.floor(segments));
+  const sharedMax = Math.max(...items.map((i) => i.maxValue || i.value), 1);
 
   return (
     <div className="space-y-3 font-mono-hud">
       {items.map((item) => {
         const t = TONE_STYLES[item.tone || "yellow"];
-        const ratio = Math.min(1, Math.max(0, item.value / maxVal));
-        const activeCount = Math.max(1, Math.round(ratio * segments));
+        const scale =
+          item.maxValue && item.maxValue > 0 ? item.maxValue : sharedMax;
+        const ratio = Math.min(1, Math.max(0, item.value / scale));
+        // Zero lights nothing; any other value lights at least one segment
+        const activeCount =
+          ratio > 0 ? Math.max(1, Math.round(ratio * cells)) : 0;
 
         return (
           <div key={item.label} className="space-y-1">
@@ -1115,8 +1178,13 @@ export function PixelBarChart({
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-16 gap-1 p-1 bg-[#090B10] border-2 border-[#2A344B]">
-              {Array.from({ length: segments }).map((_, idx) => (
+            <div
+              className="grid gap-1 p-1 bg-[#090B10] border-2 border-[#2A344B]"
+              style={{
+                gridTemplateColumns: `repeat(${cells}, minmax(0, 1fr))`,
+              }}
+            >
+              {Array.from({ length: cells }).map((_, idx) => (
                 <div
                   key={idx}
                   className="h-3.5 transition-all duration-150"
@@ -1353,6 +1421,8 @@ export interface PixelDialogBoxProps {
   character?: PixelSpriteCharacter;
   messages: string[];
   tone?: PixelTone;
+  /** Prompt next to the blinking arrow (default "CLICK NEXT"). */
+  nextLabel?: string;
 }
 
 export function PixelDialogBox({
@@ -1361,6 +1431,7 @@ export function PixelDialogBox({
   character = "mixiuh",
   messages,
   tone = "yellow",
+  nextLabel = "CLICK NEXT",
 }: PixelDialogBoxProps) {
   const [msgIdx, setMsgIdx] = useState(0);
   const [charCount, setCharCount] = useState(0);
@@ -1442,8 +1513,8 @@ export function PixelDialogBox({
           <span className="inline-block w-2 h-3.5 bg-[#FFD100] ml-1 animate-px-blink align-middle" />
         </p>
         <div className="mt-2 flex items-center justify-end gap-1 text-[10px] font-bold text-[#FFD100]">
-          <span>CLICK NEXT</span>
-          <span className="animate-px-blink">▼</span>
+          <span>{nextLabel}</span>
+          <span aria-hidden="true" className="animate-px-blink">▼</span>
         </div>
       </div>
     </div>
@@ -1644,7 +1715,8 @@ export const DEFAULT_MIXIUH_SOCIAL_LINKS: PixelSocialLinkItem[] = [
     id: "github",
     label: "GitHub",
     sublabel: "Open Source",
-    href: "https://github.com/mixiuh/mixiuh-labs-site",
+    // Public repository; keep in sync with `repository.url` in package.json
+    href: "https://github.com/danpez/mixiuh-labs-site",
     icon: "github",
     accentHex: "#10B981",
   },
@@ -2100,6 +2172,8 @@ export interface PixelAutocompleteProps {
   clearLabel?: string;
   /** Accessible name and tooltip of the open/close button (default "Mostrar opciones"). */
   toggleLabel?: string;
+  /** Text shown before the quoted query when nothing matches (default "Sin coincidencias para"). */
+  emptyLabel?: string;
 }
 
 export function PixelAutocomplete({
@@ -2112,34 +2186,86 @@ export function PixelAutocomplete({
   className = "",
   clearLabel = "Limpiar",
   toggleLabel = "Mostrar opciones",
+  emptyLabel = "Sin coincidencias para",
 }: PixelAutocompleteProps) {
   const accent = TONE_STYLES[tone].hex;
-  const selectedObj = options.find((o) => o.value === value);
-  const [query, setQuery] = useState(selectedObj?.label || "");
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+  const [query, setQuery] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
+  // Option highlighted with the arrow keys (focus stays in the input); -1 = none
+  const [activeIdx, setActiveIdx] = useState(-1);
   const baseId = useId();
+  const labelId = `${baseId}-label`;
   const inputId = `${baseId}-input`;
   const listId = `${baseId}-list`;
+  const optionId = (i: number) => `${listId}-opt-${i}`;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Show the selected label again when the parent changes `value`, or when the
+  // selected option is relabelled (e.g. a language switch) while the field
+  // still shows the old label. Text the user is typing is left alone.
+  const [synced, setSynced] = useState({ value, label: selectedLabel });
+  if (value !== synced.value || selectedLabel !== synced.label) {
+    if (value !== synced.value || query === synced.label) {
+      setQuery(selectedLabel);
+    }
+    setSynced({ value, label: selectedLabel });
+  }
 
   useDismissOutside(open, rootRef, setOpen);
 
+  const needle = query.trim().toLowerCase();
   const filtered = options.filter(
     (o) =>
-      o.label.toLowerCase().includes(query.trim().toLowerCase()) ||
-      (o.sublabel &&
-        o.sublabel.toLowerCase().includes(query.trim().toLowerCase())) ||
-      (o.badge && o.badge.toLowerCase().includes(query.trim().toLowerCase()))
+      o.label.toLowerCase().includes(needle) ||
+      (o.sublabel && o.sublabel.toLowerCase().includes(needle)) ||
+      (o.badge && o.badge.toLowerCase().includes(needle))
   );
+  const activeIndex = open && activeIdx < filtered.length ? activeIdx : -1;
+
+  // Keep the highlighted option visible inside the scrolling list
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
 
   // The list is about to unmount: move focus out of it so it is not lost.
   // The toggle (not the input) avoids popping the phone keyboard up again.
   const keepFocusOnClose = () => {
     if (listRef.current?.contains(document.activeElement)) {
       toggleRef.current?.focus();
+    }
+  };
+
+  const choose = (opt: PixelSelectOption) => {
+    pixelSound.play("powerup");
+    onChange(opt.value);
+    setQuery(opt.label);
+    keepFocusOnClose();
+    setOpen(false);
+  };
+
+  // WAI-ARIA combobox keys: arrows move the highlight (opening the list
+  // first), Alt+ArrowDown only opens it, Enter picks the highlighted option.
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) setOpen(true);
+      const n = filtered.length;
+      if (n === 0 || e.altKey) return;
+      if (e.key === "ArrowDown") {
+        setActiveIdx(activeIndex < n - 1 ? activeIndex + 1 : 0);
+      } else {
+        setActiveIdx(activeIndex > 0 ? activeIndex - 1 : n - 1);
+      }
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      // Pick the option instead of submitting a surrounding form
+      e.preventDefault();
+      choose(filtered[activeIndex]);
     }
   };
 
@@ -2156,6 +2282,7 @@ export function PixelAutocomplete({
     >
       {label && (
         <label
+          id={labelId}
           htmlFor={inputId}
           className="block font-pixel text-[10px] font-bold text-[#F5F2EB] tracking-wider uppercase"
         >
@@ -2173,14 +2300,27 @@ export function PixelAutocomplete({
           ref={inputRef}
           id={inputId}
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={
+            activeIndex >= 0 ? optionId(activeIndex) : undefined
+          }
           autoComplete="off"
           value={query}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (open) return;
+            setActiveIdx(-1);
+            setOpen(true);
+          }}
           onChange={(e) => {
             pixelSound.play("dialogBlip");
             setQuery(e.target.value);
+            setActiveIdx(-1);
             setOpen(true);
           }}
+          onKeyDown={onInputKeyDown}
           placeholder={placeholder}
           className="w-full px-2.5 py-2 bg-transparent text-xs sm:text-sm text-[#F5F2EB] placeholder:text-[#94A3B8] focus:outline-none"
         />
@@ -2192,6 +2332,7 @@ export function PixelAutocomplete({
             onClick={() => {
               pixelSound.play("click");
               setQuery("");
+              setActiveIdx(-1);
               setOpen(true);
               // This button unmounts with the text: continue typing in the field
               inputRef.current?.focus();
@@ -2210,6 +2351,7 @@ export function PixelAutocomplete({
           aria-controls={open ? listId : undefined}
           onClick={() => {
             pixelSound.play("click");
+            setActiveIdx(-1);
             setOpen((o) => !o);
           }}
           className={`px-2.5 py-2 border-l border-[#1E2638] text-[#94A3B8] hover:text-white cursor-pointer ${FOCUS_RING_INSET}`}
@@ -2226,30 +2368,38 @@ export function PixelAutocomplete({
         <div
           ref={listRef}
           id={listId}
+          // A listbox only while it holds options; the empty state is plain text
+          role={filtered.length > 0 ? "listbox" : undefined}
+          aria-labelledby={filtered.length > 0 && label ? labelId : undefined}
           className="absolute left-0 right-0 z-50 mt-1 bg-[#090B10] border-2 border-[#090B10] shadow-[6px_6px_0_#040508] max-h-56 overflow-y-auto divide-y divide-[#1E2638]"
           style={{ outline: `2px solid ${accent}` }}
         >
           {filtered.length === 0 ? (
             <div className="p-3 text-xs text-[#94A3B8] flex items-center justify-between">
-              <span>Sin coincidencias para &ldquo;{query}&rdquo;</span>
+              <span>
+                {emptyLabel} &ldquo;{query}&rdquo;
+              </span>
               <PixelIcon name="ghost" size={14} color="#FF3355" />
             </div>
           ) : (
-            filtered.map((opt) => {
+            filtered.map((opt, i) => {
               const isSel = opt.value === value;
               return (
                 <button
                   key={opt.value}
-                  type="button"
-                  aria-pressed={isSel}
-                  onClick={() => {
-                    pixelSound.play("powerup");
-                    onChange(opt.value);
-                    setQuery(opt.label);
-                    keepFocusOnClose();
-                    setOpen(false);
+                  ref={(el) => {
+                    optionRefs.current[i] = el;
                   }}
+                  id={optionId(i)}
+                  type="button"
+                  role="option"
+                  aria-selected={isSel}
+                  // Reached with the arrow keys from the input, not with Tab
+                  tabIndex={-1}
+                  onClick={() => choose(opt)}
                   className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 cursor-pointer transition ${FOCUS_RING_INSET} ${
+                    i === activeIndex ? ACTIVE_RING_INSET : ""
+                  } ${
                     isSel
                       ? "bg-[#172033] text-white font-bold"
                       : "hover:bg-[#111622] text-[#CBD5E1]"
@@ -2614,7 +2764,8 @@ export interface PixelCalendarEvent {
 }
 
 export interface PixelCalendarProps {
-  selectedDate?: string; // YYYY-MM-DD
+  /** Highlighted day (YYYY-MM-DD). Without it the calendar opens on the viewer's current month. */
+  selectedDate?: string;
   onSelectDate?: (date: string) => void;
   events?: PixelCalendarEvent[];
   tone?: PixelColorTone;
@@ -2622,17 +2773,49 @@ export interface PixelCalendarProps {
   className?: string;
 }
 
+/** "YYYY-MM-DD" -> year * 12 + month index, or null when missing or malformed. */
+function isoMonthKey(iso?: string): number | null {
+  const m = iso ? /^(\d{4})-(\d{2})/.exec(iso) : null;
+  if (!m) return null;
+  const month = Number(m[2]);
+  return month >= 1 && month <= 12 ? Number(m[1]) * 12 + month - 1 : null;
+}
+
+const subscribeNever = () => () => {};
+/** The viewer's current month. Only the browser knows it: the server snapshot is null. */
+const getCurrentMonthKey = (): number | null => {
+  const now = new Date();
+  return now.getFullYear() * 12 + now.getMonth();
+};
+const getNoMonthKey = (): number | null => null;
+
 export function PixelCalendar({
-  selectedDate = "2026-10-30",
+  selectedDate,
   onSelectDate,
   events = [],
   tone = "cyan",
   lang = "es",
   className = "",
 }: PixelCalendarProps) {
-  const initialParts = selectedDate.split("-").map(Number);
-  const [year, setYear] = useState(initialParts[0] || 2026);
-  const [month, setMonth] = useState((initialParts[1] || 10) - 1); // 0-indexed
+  // Month on screen: the one browsed to with the arrows, else the month of
+  // selectedDate, else the viewer's current month. A new selectedDate brings
+  // the grid back to its month.
+  const [browsedKey, setBrowsedKey] = useState<number | null>(null);
+  const [prevSelected, setPrevSelected] = useState(selectedDate);
+  if (selectedDate !== prevSelected) {
+    setPrevSelected(selectedDate);
+    setBrowsedKey(null);
+  }
+  const currentKey = useSyncExternalStore(
+    subscribeNever,
+    getCurrentMonthKey,
+    getNoMonthKey
+  );
+  // null only while server-rendering (and hydrating) a calendar without
+  // selectedDate: the grid stays empty until the browser knows the month
+  const shownKey = browsedKey ?? isoMonthKey(selectedDate) ?? currentKey;
+  const year = shownKey === null ? 0 : Math.floor(shownKey / 12);
+  const month = shownKey === null ? 0 : shownKey % 12; // 0-indexed
   const accent = TONE_STYLES[tone].hex;
 
   const monthNamesEs = [
@@ -2668,29 +2851,18 @@ export function PixelCalendar({
   const prevLabel = lang === "es" ? "Mes anterior" : "Previous month";
   const nextLabel = lang === "es" ? "Mes siguiente" : "Next month";
 
-  const firstDayOfMonth = new Date(year, month, 1).getDay();
-  const startOffset = (firstDayOfMonth + 6) % 7; // Monday = 0
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset =
+    shownKey === null ? 0 : (new Date(year, month, 1).getDay() + 6) % 7; // Monday = 0
+  const daysInMonth =
+    shownKey === null ? 0 : new Date(year, month + 1, 0).getDate();
 
-  const prevMonth = () => {
+  const shiftMonth = (delta: number) => {
+    if (shownKey === null) return;
     pixelSound.play("click");
-    if (month === 0) {
-      setMonth(11);
-      setYear((y) => y - 1);
-    } else {
-      setMonth((m) => m - 1);
-    }
+    setBrowsedKey(shownKey + delta);
   };
-
-  const nextMonth = () => {
-    pixelSound.play("click");
-    if (month === 11) {
-      setMonth(0);
-      setYear((y) => y + 1);
-    } else {
-      setMonth((m) => m + 1);
-    }
-  };
+  const prevMonth = () => shiftMonth(-1);
+  const nextMonth = () => shiftMonth(1);
 
   const formatIso = (d: number) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -2717,7 +2889,8 @@ export function PixelCalendar({
           <PixelIcon name="calendar" size={13} color={accent} />
           {/* Announces the new month after the arrows */}
           <span aria-live="polite" aria-atomic="true">
-            {(lang === "es" ? monthNamesEs : monthNamesEn)[month]} {year}
+            {shownKey !== null &&
+              `${(lang === "es" ? monthNamesEs : monthNamesEn)[month]} ${year}`}
           </span>
         </div>
         <button
@@ -2812,25 +2985,27 @@ export function PixelCalendar({
         })}
       </div>
 
-      {/* Selected Date / Event Telemetry Footer */}
-      <div className="p-2.5 bg-[#111622] border border-[#2A344B] flex items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="px-2 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] shrink-0"
-            style={{ backgroundColor: accent }}
-          >
-            {selectedDate}
-          </span>
-          <span className="text-[#CBD5E1] font-bold truncate">
-            {activeEvent
-              ? activeEvent.label
-              : lang === "es"
-              ? "Fecha activa en calendario"
-              : "Active calendar date"}
-          </span>
+      {/* Selected Date / Event Telemetry Footer (only when a date is selected) */}
+      {selectedDate && (
+        <div className="p-2.5 bg-[#111622] border border-[#2A344B] flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="px-2 py-0.5 font-pixel text-[10px] font-bold text-[#090B10] shrink-0"
+              style={{ backgroundColor: accent }}
+            >
+              {selectedDate}
+            </span>
+            <span className="text-[#CBD5E1] font-bold truncate">
+              {activeEvent
+                ? activeEvent.label
+                : lang === "es"
+                ? "Fecha activa en calendario"
+                : "Active calendar date"}
+            </span>
+          </div>
+          <PixelIcon name="clock" size={13} color={accent} />
         </div>
-        <PixelIcon name="clock" size={13} color={accent} />
-      </div>
+      )}
     </div>
   );
 }
@@ -2932,6 +3107,11 @@ export interface PixelMultiLineChartProps {
   maxY?: number;
   unit?: string;
   className?: string;
+  /**
+   * What each x-axis point is (default "Benchmark"): names the point picker
+   * and the screen-reader table column, and prefixes the readout in capitals.
+   */
+  categoryLabel?: string;
 }
 
 export function PixelMultiLineChart({
@@ -2942,6 +3122,7 @@ export function PixelMultiLineChart({
   maxY = 100,
   unit = "%",
   className = "",
+  categoryLabel = "Benchmark",
 }: PixelMultiLineChartProps) {
   const [hiddenKeys, setHiddenKeys] = useState<string[]>([]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(data.length - 1);
@@ -3113,7 +3294,7 @@ export function PixelMultiLineChart({
           {title && <caption>{title}</caption>}
           <thead>
             <tr>
-              <th scope="col">Benchmark</th>
+              <th scope="col">{categoryLabel}</th>
               {series.map((s) => (
                 <th key={s.key} scope="col">
                   {s.name}
@@ -3141,7 +3322,11 @@ export function PixelMultiLineChart({
 
       {/* Keyboard and touch twin of hovering the pixel nodes */}
       {data.length > 0 && (
-        <div role="group" aria-label="Benchmark" className="flex flex-wrap gap-1.5">
+        <div
+          role="group"
+          aria-label={categoryLabel}
+          className="flex flex-wrap gap-1.5"
+        >
           {data.map((d, i) => {
             const isOn = hoverIdx === i;
             return (
@@ -3170,7 +3355,7 @@ export function PixelMultiLineChart({
         {hoverIdx !== null && data[hoverIdx] && (
           <div className="p-2 bg-[#111622] border border-[#2A344B] flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="font-pixel text-[10px] text-[#FFD100]">
-              BENCHMARK: {data[hoverIdx].label}
+              {categoryLabel.toUpperCase()}: {data[hoverIdx].label}
             </span>
             <div className="flex flex-wrap items-center gap-3">
               {series

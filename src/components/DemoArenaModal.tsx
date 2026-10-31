@@ -153,12 +153,17 @@ export default function DemoArenaSection({
 
           {/* Episode Switcher + Bonus Gummy Bears Toggle */}
           <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-end">
-            <div className="inline-flex shadow-[4px_4px_0_#040508] bg-[#111622] p-1 border border-[#00E5FF]/30">
+            <div
+              role="group"
+              aria-label={lang === "es" ? "Episodio de la arena" : "Arena episode"}
+              className="inline-flex shadow-[4px_4px_0_#040508] bg-[#111622] p-1 border border-[#00E5FF]/30"
+            >
               <button
                 onClick={() => {
                   setShowBonus(false);
                   onChangeEpisode("ep02");
                 }}
+                aria-pressed={isEp02 && !showBonus}
                 className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition cursor-pointer ${
                   isEp02 && !showBonus
                     ? "bg-[#00E5FF] text-[#090B10]"
@@ -172,6 +177,7 @@ export default function DemoArenaSection({
                   setShowBonus(false);
                   onChangeEpisode("ep01");
                 }}
+                aria-pressed={!isEp02 && !showBonus}
                 className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition cursor-pointer ${
                   !isEp02 && !showBonus
                     ? "bg-[#00E5FF] text-[#090B10]"
@@ -187,6 +193,7 @@ export default function DemoArenaSection({
                 setShowBonus(!showBonus);
                 if (!showBonus) setActiveTab("argon");
               }}
+              aria-pressed={showBonus}
               className={`px-3.5 py-2.5 shadow-[4px_4px_0_#040508] font-mono-hud text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer ${
                 showBonus
                   ? "bg-[#A855F7]/20 border-[#A855F7] text-white shadow-[4px_4px_0_#040508]"
@@ -201,7 +208,11 @@ export default function DemoArenaSection({
 
         {/* Challenge Selector Grid: 6 cards for EP02, 10 cards for EP01 */}
         {isEp02 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-6">
+          <div
+            role="group"
+            aria-label={lang === "es" ? "Retos del EP02" : "EP02 challenges"}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-6"
+          >
             {EP02_CHALLENGES.map((ch) => {
               const isSelected = !showBonus && ch.n === ep02Challenge.n;
               const isOpusWin = ch.winner === "opus";
@@ -212,6 +223,7 @@ export default function DemoArenaSection({
                     setShowBonus(false);
                     onSelectChallengeN(ch.n);
                   }}
+                  aria-pressed={isSelected}
                   className={`group relative text-left p-3 shadow-[4px_4px_0_#040508] border transition-all cursor-pointer ${
                     isSelected
                       ? "bg-[#1A2132] border-[#A855F7] shadow-[4px_4px_0_#040508]"
@@ -252,7 +264,11 @@ export default function DemoArenaSection({
             })}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-6">
+          <div
+            role="group"
+            aria-label={lang === "es" ? "Niveles del EP01" : "EP01 levels"}
+            className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-6"
+          >
             {CHALLENGES.map((ch) => {
               const isSelected = !showBonus && ch.n === ep01Challenge.n;
               return (
@@ -262,6 +278,7 @@ export default function DemoArenaSection({
                     setShowBonus(false);
                     onSelectChallengeN(ch.n);
                   }}
+                  aria-pressed={isSelected}
                   className={`group relative text-left p-2.5 shadow-[4px_4px_0_#040508] border transition-all cursor-pointer ${
                     isSelected
                       ? "bg-[#1A2132] border-[#A855F7] shadow-[4px_4px_0_#040508]"
@@ -558,9 +575,14 @@ export default function DemoArenaSection({
 
           {/* Mode Switcher Toolbar */}
           <div className="px-4 sm:px-6 py-3 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div
+              role="group"
+              aria-label={lang === "es" ? "Modo de la arena" : "Arena mode"}
+              className="flex flex-wrap items-center gap-1.5"
+            >
               <button
                 onClick={() => setActiveTab("argon")}
+                aria-pressed={activeTab === "argon"}
                 className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "argon"
                     ? "bg-[#A855F7] text-[#090B10]"
@@ -579,6 +601,7 @@ export default function DemoArenaSection({
                 <>
                   <button
                     onClick={() => setActiveTab("split")}
+                    aria-pressed={activeTab === "split"}
                     className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                       activeTab === "split"
                         ? "bg-[#00E5FF] text-[#090B10]"
@@ -593,6 +616,7 @@ export default function DemoArenaSection({
 
                   <button
                     onClick={() => setActiveTab("opponent")}
+                    aria-pressed={activeTab === "opponent"}
                     className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                       activeTab === "opponent"
                         ? "bg-[#FFD100] text-[#090B10]"
@@ -607,6 +631,7 @@ export default function DemoArenaSection({
 
                   <button
                     onClick={() => setActiveTab("prompt")}
+                    aria-pressed={activeTab === "prompt"}
                     className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                       activeTab === "prompt"
                         ? "bg-[#10B981] text-[#090B10]"
@@ -625,6 +650,7 @@ export default function DemoArenaSection({
 
                   <button
                     onClick={() => setActiveTab("stills")}
+                    aria-pressed={activeTab === "stills"}
                     className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                       activeTab === "stills"
                         ? "bg-[#00E5FF] text-[#090B10]"
@@ -639,6 +665,7 @@ export default function DemoArenaSection({
 
               <button
                 onClick={() => setActiveTab("source")}
+                aria-pressed={activeTab === "source"}
                 className={`px-3.5 py-2 font-mono-hud text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "source"
                     ? "bg-white text-[#090B10]"
@@ -1126,11 +1153,18 @@ export default function DemoArenaSection({
           {activeTab === "source" && (
             <div className="p-5 sm:p-6 bg-[#090B10]">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2">
+                <div
+                  role={showBonus ? undefined : "group"}
+                  aria-label={
+                    showBonus ? undefined : lang === "es" ? "Archivo fuente" : "Source file"
+                  }
+                  className="flex items-center gap-2"
+                >
                   {!showBonus && (
                     <>
                       <button
                         onClick={() => setSourceModel("argon")}
+                        aria-pressed={sourceModel === "argon"}
                         className={`px-3.5 py-1.5 font-mono-hud text-xs font-bold cursor-pointer ${
                           sourceModel === "argon"
                             ? "bg-[#A855F7] text-[#090B10]"
@@ -1145,6 +1179,7 @@ export default function DemoArenaSection({
                       </button>
                       <button
                         onClick={() => setSourceModel("opponent")}
+                        aria-pressed={sourceModel === "opponent"}
                         className={`px-3.5 py-1.5 font-mono-hud text-xs font-bold cursor-pointer ${
                           sourceModel === "opponent"
                             ? "bg-[#FFD100] text-[#090B10]"

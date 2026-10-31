@@ -2,7 +2,8 @@
 
 > Pixel-art + Playdate 3D hardware UI library for React / Next.js + Tailwind CSS v4.
 > Built by **Mixiuh Labs** (`https://labs.mixiuh.online`).
-> **100% free for commercial & personal use** worldwide — just credit **Mixiuh Labs** where you use it.
+> **100% free for commercial & personal use** worldwide, with a visible credit and link back to
+> **Mixiuh Labs** (`https://labs.mixiuh.online`). See [License](#license).
 
 This folder is the **single source of truth** of the library. The Mixiuh Labs site
 imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
@@ -45,6 +46,11 @@ imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
 
 The CDN build already loads the fonts (Pixelify Sans, Silkscreen, Space Mono, Inter).
 
+Besides the classes, the stylesheet themes the page itself: dark `html` / `body` background and
+chalk text, the Inter body font, Pixelify Sans titles with a 2px drop shadow on `h1`–`h4`, smooth
+scrolling with room for a sticky header, `overflow-x: clip` and yellow scrollbars. Load it on pages
+meant to look like Mixiuh Pixel UI, or override those element rules after it.
+
 ### Option B — React / Next.js + Tailwind CSS v4
 
 1. Download `https://labs.mixiuh.online/pixel-ui/mixiuh-pixel-ui-kit.zip` and copy the
@@ -59,17 +65,23 @@ The CDN build already loads the fonts (Pixelify Sans, Silkscreen, Space Mono, In
 
    ```css
    @import "tailwindcss";
-   @import "../../packages/mixiuh-pixel-ui/styles/pixel-ui.css";
+   @import "../../packages/mixiuh-pixel-ui/styles/pixel-ui.css" layer(components);
    @source "../../packages/mixiuh-pixel-ui/src";
    ```
 
-4. Use it:
+   Keep `layer(components)`: Tailwind utilities must be able to override the library. Imported
+   without a layer, rules such as `.px-btn { position: relative }` beat every utility, so classes
+   like `fixed` (the `PixelBackToTop` keycap) or `tracking-tight` on titles are silently ignored.
+
+4. Use it (the components use hooks, so in the Next.js App Router this is a client component):
 
    ```tsx
+   "use client";
+
+   import { useState } from "react";
    import {
      PixelButton,
      PixelCard,
-     PixelTabs,
      PixelCommandPalette,
      PixelToaster,
      pixelToast,
@@ -80,13 +92,17 @@ The CDN build already loads the fonts (Pixelify Sans, Silkscreen, Space Mono, In
      const [open, setOpen] = useState(false);
      return (
        <>
-         <PixelButton tone="yellow" icon="play" onClick={() => pixelToast.show({ title: "READY!" })}>
-           Start
-         </PixelButton>
+         <PixelCard tone="cyan" kicker="LAB 01" title="Hello, pixels">
+           <PixelButton tone="yellow" icon="play" onClick={() => pixelToast.show({ title: "READY!" })}>
+             Start
+           </PixelButton>
+         </PixelCard>
          <PixelCommandPalette
            open={open}
            onOpenChange={setOpen}
-           items={[{ id: "home", label: "Home", icon: "home", onSelect: () => {} }]}
+           items={[
+             { id: "home", label: "Home", icon: "home", onSelect: () => pixelToast.show({ title: "HOME" }) },
+           ]}
          />
          <PixelToaster />
          <PixelCreditBadge variant="hardware" />
@@ -103,7 +119,10 @@ the font family names.
 
 ## Accessibility
 
-- Square, high-contrast `:focus-visible` ring on every interactive element.
+- Square, high-contrast `:focus-visible` ring on every interactive element (field wrappers show it while their input has focus).
+- Form controls expose their state: `PixelToggle` is a `switch`, `PixelCheckbox` a `checkbox`, `PixelRadioGroup` a `radiogroup` with Arrow-key `radio`s; every field label is wired to its control.
+- `PixelSelect` is a listbox button (Arrow / Home / End / Escape) and `PixelAutocomplete` a `combobox` (Arrow keys highlight through `aria-activedescendant`, Enter picks, Escape closes); both close when you click or tab away.
+- `PixelKeycap` hotkeys ignore typing in fields, Ctrl / Cmd / Alt shortcuts and key auto-repeat (`hotkey={false}` turns them off).
 - `PixelTabs` implements `role="tablist"` with Arrow / Home / End keys.
 - `PixelCommandPalette` is a modal `role="dialog"` with a `combobox` + `listbox`, focus restore and scroll lock.
 - `PixelToaster` announces messages through `aria-live="polite"`.
@@ -122,13 +141,16 @@ build when they differ. The output is deterministic, so an unchanged library lea
 
 ---
 
-## Free commercial & personal license (with attribution)
+## License
 
-`@mixiuh/pixel-ui` is free to use in any personal, indie, studio, or commercial project
-worldwide as long as you include credit to **Mixiuh Labs (`https://labs.mixiuh.online`)**:
+`@mixiuh/pixel-ui` is released under the **Mixiuh Open Attribution License** ([`LICENSE`](./LICENSE)):
+a permissive MIT-style grant, free for any personal, indie, studio or commercial project worldwide,
+with one condition. Every website, app, game, video or product that uses it must show a **visible
+credit and link back to Mixiuh Labs (`https://labs.mixiuh.online`)** in its footer, its About /
+Credits screen, or its public README / documentation:
 
 ```tsx
 <PixelCreditBadge variant="hardware" />
 ```
 
-See [`LICENSE`](./LICENSE).
+Plain HTML / text alternative: `UI powered by Mixiuh Pixel UI — Mixiuh Labs (https://labs.mixiuh.online)`.

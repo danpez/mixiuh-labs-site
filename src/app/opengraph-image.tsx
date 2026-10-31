@@ -3,12 +3,14 @@ import { ImageResponse } from "next/og";
 /*
  * Evergreen share card for every link to labs.mixiuh.online: Open Graph here,
  * and X through twitter-image.tsx, which re-exports this file. It never names
- * an episode, so a new release cannot make it stale.
+ * an episode, so a new release cannot make it stale. If you change the card,
+ * also bump the revision in twitter-image.tsx (it explains why).
  *
  * Everything is local: next/og's bundled default font (Geist Regular) and the
  * brand's own pixel paths, so neither the build nor a request touches the
- * network. Keep the copy inside Geist's Latin coverage (ASCII plus "·"): a
- * missing glyph or an emoji makes next/og download a fallback font at render.
+ * network. Geist covers ASCII and the Latin-1 letters and punctuation (Spanish
+ * accents, "¿", "¡" and the "·" used here), but no emoji: a glyph it lacks, or
+ * any emoji, makes next/og download a fallback font at render.
  */
 
 export const alt =

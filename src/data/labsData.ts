@@ -255,7 +255,7 @@ export const CHALLENGES: ChallengeData[] = [
       "flash": "GENOM-X // Visualizador 3D de ADN Cyberpunk"
     },
     "fun_angle_es": "Flash presume 18,480 partículas en su panel... pero ese número está escrito a mano en su HTML (líneas 748 y 753, #live-particles-val y #part-count) y nunca se actualiza; en su código hay 17,840 (14,640 en la hélice + 3,200 de polvo). Argon pone 24,500 por defecto y su contador sí es real.",
-    "fun_angle_en": "Flash's HUD boasts 18,480 particles... but that number is typed by hand into its HTML (lines 748 and 753, #live-particles-val and #part-count) and never updates; its code has 17,840 (14,640 in the helix + 3,200 dust). Argon defaults to 24,500 and its counter is real.",
+    "fun_angle_en": "Flash's HUD boasts 18,480 particles... but that number is typed by hand into its HTML (lines 748 and 753, #live-particles-val and #part-count) and never updates; its code has 17,840 (14,640 in the helix + 3,200 dust particles). Argon defaults to 24,500 and its counter is real.",
     "speed_ratio": "Argon 1.4x más rápido (2 min menos)",
     "speed_ratio_en": "Argon 1.4x faster (2 min less)",
     "faster_model": "argon",

@@ -186,6 +186,15 @@ const ARTICLE_HASH: Record<ReleaseKey, string> = {
   ep01: "ep01-argon-vs-flash",
 };
 
+/**
+ * Verbatim text of the Instagram comment shown as an image in CC01
+ * (/brand/thumbs/tenito_comment.png); it is the image's text alternative.
+ */
+const TENITO_COMMENT_ES =
+  "Si ahora con esa textura le pides hacer una playera y también le pides que te de un mockup en blanco para editarlo ahora puedes crear una marca de ropa ?";
+const TENITO_COMMENT_EN =
+  "If you now take that texture and ask it to make a T-shirt, and also ask it to give you a blank mockup to edit, can you now create a clothing brand?";
+
 const AMBIENT_MODES: AmbientSimulationMode[] = [
   "ai-ecosystem",
   "neural-packets",
@@ -2244,7 +2253,7 @@ export default function MixiuhLabsHomePage() {
               <div className="flex items-center justify-between gap-2 font-pixel text-[10px] text-[#FFD100]">
                 <div className="flex items-center gap-2">
                   <PixelIcon name="floppy" size={14} color="#FFD100" />
-                  <span>
+                  <span id="dossier-disk-label">
                     {lang === "es"
                       ? "SELECCIONA EL DISQUETE / LABORATORIO A INSPECCIONAR:"
                       : "SELECT THE FLOPPY DISK / LAB EPISODE TO INSPECT:"}
@@ -2254,6 +2263,8 @@ export default function MixiuhLabsHomePage() {
               </div>
 
               <div
+                role="group"
+                aria-labelledby="dossier-disk-label"
                 className={`grid grid-cols-1 ${
                   released.ep04
                     ? "sm:grid-cols-2 lg:grid-cols-4"
@@ -2268,6 +2279,7 @@ export default function MixiuhLabsHomePage() {
                       playSfx("cartridgeInsert");
                       selectDossierEp("ep04");
                     }}
+                    aria-pressed={dossierEp === "ep04"}
                     className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
                       dossierEp === "ep04"
                         ? "bg-[#182235] border-[#FF3355]"
@@ -2294,6 +2306,7 @@ export default function MixiuhLabsHomePage() {
                       playSfx("cartridgeInsert");
                       selectDossierEp("ep03");
                     }}
+                    aria-pressed={dossierEp === "ep03"}
                     className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
                       dossierEp === "ep03"
                         ? "bg-[#182235] border-[#10B981]"
@@ -2317,6 +2330,7 @@ export default function MixiuhLabsHomePage() {
                     playSfx("cartridgeInsert");
                     handleEpisodeChange("ep02");
                   }}
+                  aria-pressed={dossierEp === "ep02"}
                   className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
                     dossierEp === "ep02"
                       ? "bg-[#182235] border-[#A855F7]"
@@ -2341,6 +2355,7 @@ export default function MixiuhLabsHomePage() {
                     playSfx("cartridgeInsert");
                     handleEpisodeChange("ep01");
                   }}
+                  aria-pressed={dossierEp === "ep01"}
                   className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
                     dossierEp === "ep01"
                       ? "bg-[#182235] border-[#F5F2EB]"
@@ -2471,6 +2486,8 @@ export default function MixiuhLabsHomePage() {
                     <div className="space-y-5">
                       <div
                         data-px-reveal="true"
+                        role="group"
+                        aria-label={lang === "es" ? "Retos del EP04" : "EP04 challenges"}
                         className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5"
                       >
                         {EP04_CHALLENGES.map((ch) => {
@@ -2488,6 +2505,7 @@ export default function MixiuhLabsHomePage() {
                                 playSfx("click");
                                 setEp04ChallengeN(ch.n);
                               }}
+                              aria-pressed={active}
                               className={`p-3 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
                                 active
                                   ? "bg-[#182235] border-[#00E5FF]"
@@ -2984,13 +3002,18 @@ export default function MixiuhLabsHomePage() {
 
                 {/* EP03 Interactive 12-Demo Comparator */}
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                  <div
+                    role="group"
+                    aria-label={lang === "es" ? "Retos del EP03" : "EP03 challenges"}
+                    className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+                  >
                     {EP03_CHALLENGES.map((ch) => {
                       const active = ep03ChallengeN === ch.n;
                       return (
                         <button
                           key={ch.n}
                           onClick={() => setEp03ChallengeN(ch.n)}
+                          aria-pressed={active}
                           className={`p-3 shadow-[4px_4px_0_#040508] border-2 text-left transition cursor-pointer ${
                             active
                               ? "bg-[#182235] border-[#10B981]"
@@ -3394,9 +3417,14 @@ export default function MixiuhLabsHomePage() {
                   {/* Right Video Preview */}
                   <div className="lg:col-span-5 bg-[#111622] border-2 border-[#00E5FF]/30 overflow-hidden shadow-[6px_6px_0_#040508]">
                     <div className="p-3 bg-[#1A2132] border-b border-[#2A344B] flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
+                      <div
+                        role="group"
+                        aria-label={lang === "es" ? "Clip de video" : "Video clip"}
+                        className="flex items-center gap-1.5"
+                      >
                         <button
                           onClick={() => setActiveVideoClip("hook")}
+                          aria-pressed={activeVideoClip === "hook"}
                           className={`px-3 py-1 font-mono-hud text-xs font-bold cursor-pointer ${
                             activeVideoClip === "hook"
                               ? "bg-[#00E5FF] text-[#090B10]"
@@ -3407,6 +3435,7 @@ export default function MixiuhLabsHomePage() {
                         </button>
                         <button
                           onClick={() => setActiveVideoClip("boss")}
+                          aria-pressed={activeVideoClip === "boss"}
                           className={`px-3 py-1 font-mono-hud text-xs font-bold cursor-pointer ${
                             activeVideoClip === "boss"
                               ? "bg-[#FF3355] text-[#090B10]"
@@ -3444,6 +3473,15 @@ export default function MixiuhLabsHomePage() {
                               : "/videos/ep01-boss.mp4"
                           }
                           type="video/mp4"
+                        />
+                        {/* Spanish narration: per-clip cuts of the episode VTTs,
+                            offsets checked against each clip's audio pauses */}
+                        <track
+                          kind="captions"
+                          src={`/captions/${isEp02 ? "ep02" : "ep01"}-${activeVideoClip}.es.vtt`}
+                          srcLang="es"
+                          label="Español"
+                          default
                         />
                       </video>
                     </div>
@@ -3671,7 +3709,11 @@ export default function MixiuhLabsHomePage() {
                   <div className="overflow-hidden bg-white p-2">
                     <img
                       src="/brand/thumbs/tenito_comment.png"
-                      alt="Comentario de @tenito03"
+                      alt={
+                        lang === "es"
+                          ? `Comentario de @tenito03 en Instagram: "${TENITO_COMMENT_ES}"`
+                          : `Instagram comment by @tenito03, in Spanish: "${TENITO_COMMENT_ES}" (English: "${TENITO_COMMENT_EN}")`
+                      }
                       className="w-full h-auto object-contain"
                     />
                   </div>
@@ -3746,15 +3788,23 @@ export default function MixiuhLabsHomePage() {
         <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
             <div className="p-3 shadow-[6px_6px_0_#040508] bg-[#111622] border-2 border-[#A855F7]/40 flex flex-wrap items-center justify-between gap-3">
-              <div className="font-mono-hud text-xs font-bold text-[#C084FC]">
+              <div
+                id="arena-mode-label"
+                className="font-mono-hud text-xs font-bold text-[#C084FC]"
+              >
                 {lang === "es"
                   ? `MODO DE ARENA INTERACTIVA (${totalDemosCount} DEMOS PUBLICADAS):`
                   : `INTERACTIVE ARENA MODE (${totalDemosCount} PUBLISHED DEMOS):`}
               </div>
-              <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+              <div
+                role="group"
+                aria-labelledby="arena-mode-label"
+                className="flex flex-wrap items-center gap-2 font-mono-hud text-xs"
+              >
                 {released.ep04 && (
                   <button
                     onClick={() => setArenaMode("ep04")}
+                    aria-pressed={arenaMode === "ep04"}
                     className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
                       arenaMode === "ep04"
                         ? "bg-[#00E5FF] text-[#090B10]"
@@ -3767,6 +3817,7 @@ export default function MixiuhLabsHomePage() {
                 {released.ep03 && (
                   <button
                     onClick={() => setArenaMode("ep03")}
+                    aria-pressed={arenaMode === "ep03"}
                     className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
                       arenaMode === "ep03"
                         ? "bg-[#10B981] text-[#090B10]"
@@ -3781,6 +3832,7 @@ export default function MixiuhLabsHomePage() {
                     playSfx("click");
                     selectArenaEpisode("ep02");
                   }}
+                  aria-pressed={arenaMode === "ep02_ep01" && activeEpisode === "ep02"}
                   className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
                     arenaMode === "ep02_ep01" && activeEpisode === "ep02"
                       ? "bg-[#A855F7] text-[#090B10]"
@@ -3794,6 +3846,7 @@ export default function MixiuhLabsHomePage() {
                     playSfx("click");
                     selectArenaEpisode("ep01");
                   }}
+                  aria-pressed={arenaMode === "ep02_ep01" && activeEpisode === "ep01"}
                   className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
                     arenaMode === "ep02_ep01" && activeEpisode === "ep01"
                       ? "bg-[#00E5FF] text-[#090B10]"
@@ -3816,11 +3869,16 @@ export default function MixiuhLabsHomePage() {
 
           {released.ep04 && arenaMode === "ep04" ? (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <div
+                role="group"
+                aria-label={lang === "es" ? "Retos del EP04" : "EP04 challenges"}
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+              >
                 {EP04_CHALLENGES.map((ch) => (
                   <button
                     key={ch.n}
                     onClick={() => setEp04ChallengeN(ch.n)}
+                    aria-pressed={ep04ChallengeN === ch.n}
                     className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
                       ep04ChallengeN === ch.n
                         ? "bg-[#1A2132] border-[#00E5FF]"
@@ -3952,11 +4010,16 @@ export default function MixiuhLabsHomePage() {
             </div>
           ) : released.ep03 && arenaMode === "ep03" ? (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <div
+                role="group"
+                aria-label={lang === "es" ? "Retos del EP03" : "EP03 challenges"}
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+              >
                 {EP03_CHALLENGES.map((ch) => (
                   <button
                     key={ch.n}
                     onClick={() => setEp03ChallengeN(ch.n)}
+                    aria-pressed={ep03ChallengeN === ch.n}
                     className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
                       ep03ChallengeN === ch.n
                         ? "bg-[#1A2132] border-[#10B981]"
