@@ -151,6 +151,11 @@ export default function MixiuhLabsHomePage() {
   >("triple");
   const [copiedEp04Prompt, setCopiedEp04Prompt] = useState(false);
 
+  // CC02 Roblox 3D 3-Giants interactive comparator state
+  const [cc02Model, setCc02Model] = useState<
+    "astra" | "argon" | "opus" | "triple"
+  >("astra");
+
   // Video & Glossary state
   const [activeVideoClip, setActiveVideoClip] = useState<"hook" | "boss">(
     "hook"
@@ -280,8 +285,36 @@ export default function MixiuhLabsHomePage() {
 
   const isEp02 = dossierEp === "ep02";
 
-  // Blog Cards Data (All 6 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
+  // Blog Cards Data (All 7 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
   const BLOG_ARTICLES = [
+    {
+      id: "cc02" as ReleaseKey,
+      filter: "comunidad" as const,
+      date: "31 Oct 2026",
+      readTime: "Video 4K60 · 3 Motores Roblox 3D",
+      badge_es: "DEL COMENTARIO AL CODIGO #02 · RETO ROBLOX 3D",
+      badge_en: "FROM COMMENT TO CODE #02 · 3D ROBLOX CHALLENGE",
+      accentColor: "#34D399",
+      scoreBadge_es: "ASTRA 2 · ARGON 1 · OPUS 0",
+      scoreBadge_en: "ASTRA 2 · ARGON 1 · OPUS 0",
+      thumb: "/brand/thumbs/cc02_thumb_A.png",
+      title_es:
+        "Le Pedi un Juego Tipo ROBLOX 3D a Gemini 4 Argon High vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($0 Plus)",
+      title_en:
+        "I Asked Gemini 4 Argon High vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($0 Plus) to Build a 3D ROBLOX Game",
+      excerpt_es:
+        "Un suscriptor en Instagram nos reto a enfrentar a los 3 gigantes en modo HIGH creando un juego tipo ROBLOX 3D completo (circuito Obby de 10 etapas, 6 bots IA con chat y modo Roblox Studio 3D). GPT-6 Astra High termino primero en 18.9 min con 4,727 lineas a 61 FPS ($0 extra en ChatGPT Plus), Gemini 4 Argon High entrego el mejor modo Roblox Studio 3D con Gizmo wireframe por $0.32 USD equivalentes, y Claude Opus 5.5 High tardo 55.1 min y $9.91 USD dejando la escena 3D en negro.",
+      excerpt_en:
+        "An Instagram subscriber challenged us to pit the 3 AI Giants in HIGH mode building a complete 3D ROBLOX game (10-stage Obby course, 6 AI bots with chat, and live 3D Roblox Studio mode). GPT-6 Astra High finished first in 18.9 min with 4,727 lines at 61 FPS ($0 extra on ChatGPT Plus), Gemini 4 Argon High built the best 3D Studio wireframe Gizmo for $0.32 USD equivalent, and Claude Opus 5.5 High spent 55.1 min and $9.91 USD only to crash its 3D WebGL scene.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "2 - 1 - 0 Astra" },
+        { label_es: "GPT-6 ASTRA", label_en: "GPT-6 ASTRA", val: "18.9m · 4,727 Lín ($0 Plus)" },
+        { label_es: "ARGON HIGH", label_en: "ARGON HIGH", val: "27.2m · 2,578 Lín ($0.32)" },
+        { label_es: "OPUS 5.5 HIGH", label_en: "OPUS 5.5 HIGH", val: "55.1m · $9.91 (3D Crash)" },
+      ],
+      onOpenDossier: () => navigateToView("comunidad"),
+      onOpenArena: () => navigateToView("comunidad"),
+    },
     {
       id: "carbon01" as ReleaseKey,
       filter: "noticias" as const,
@@ -466,18 +499,52 @@ export default function MixiuhLabsHomePage() {
     12 +
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 12 : 0) +
-    (released.ep04 ? 18 : 0);
+    (released.ep04 ? 18 : 0) +
+    (released.cc02 ? 3 : 0);
   const totalPromptsCount =
-    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0);
+    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0) + (released.cc02 ? 1 : 0);
   const totalForumThreadsCount =
     totalPromptsCount +
     5 +
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 1 : 0) +
     (released.ep04 ? 1 : 0) +
-    (released.carbon01 ? 1 : 0);
+    (released.carbon01 ? 1 : 0) +
+    (released.cc02 ? 1 : 0);
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.cc02
+      ? [
+          {
+            id: "cc02",
+            code: "CC.02",
+            kicker:
+              lang === "es"
+                ? "COMENTARIO AL CODIGO #02 · ROBLOX 3D"
+                : "COMMENT TO CODE #02 · 3D ROBLOX",
+            title:
+              lang === "es"
+                ? "Roblox 3D: GPT-6 Astra vs Argon vs Opus 5.5"
+                : "3D Roblox: GPT-6 Astra vs Argon vs Opus 5.5",
+            verdict:
+              lang === "es"
+                ? "ASTRA 2 - ARGON 1 - OPUS 0 ($9.91 CRASH)"
+                : "ASTRA 2 - ARGON 1 - OPUS 0 ($9.91 CRASH)",
+            timeMetric: "18.9m vs 27.2m vs 55.1m",
+            costMetric: "$0 Plus vs $0.32 vs $9.91",
+            thumb: "/brand/thumbs/cc02_thumb_A.png",
+            accentHex: "#34D399",
+            character: "argon" as const,
+            onLaunchPrimary: () => navigateToView("comunidad"),
+            onLaunchSecondary: () => navigateToView("noticias"),
+            primaryLabel:
+              lang === "es"
+                ? "JUGAR LOS 3 ROBLOX 3D EN VIVO"
+                : "PLAY ALL 3 LIVE 3D ROBLOX GAMES",
+            secondaryLabel: "CARBON #1",
+          },
+        ]
+      : []),
     ...(released.carbon01
       ? [
           {
@@ -1169,24 +1236,26 @@ export default function MixiuhLabsHomePage() {
                 <div>
                   <div className="px-4 py-2 bg-[#FFD100] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
                     <span>02 // COMENTARIO AL CODIGO</span>
-                    <span>@TENITO03</span>
+                    <span>CC02 + CC01</span>
                   </div>
                   <div className="p-4">
                     <h2 className="font-display text-base sm:text-lg font-black text-white">
                       {lang === "es"
-                        ? "OVERFIT Studio 3D · Ropa IA 300 GSM"
-                        : "OVERFIT Studio 3D · 300 GSM Streetwear"}
+                        ? "ROBLOX 3D (3 Gigantes) + OVERFIT 3D"
+                        : "3D ROBLOX (3 Giants) + OVERFIT 3D"}
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1.5 leading-relaxed">
                       {lang === "es"
-                        ? "3 maniquies esculpidos en Blender Cycles (Hombre, Mujer, Mesa) y 10 estampados satiricos en 2K con exportacion 4K."
-                        : "3 Blender Cycles mannequins (Male, Female, Flat-Lay) and 10 satirical 2K prints with 4K export."}
+                        ? "Duelo Roblox 3D en modo HIGH (GPT-6 Astra vs Argon vs Opus 5.5) y estudio de ropa 300 GSM en Blender Cycles."
+                        : "HIGH mode 3D Roblox showdown (GPT-6 Astra vs Argon vs Opus 5.5) & 300 GSM Blender Cycles streetwear studio."}
                     </p>
                   </div>
                 </div>
                 <div className="px-4 py-2.5 bg-[#090B10] border-t border-white/10 flex items-center justify-between font-mono-hud text-xs">
                   <span className="text-[#FFD100] font-bold">
-                    {lang === "es" ? "Abrir Estudio 3D →" : "Open 3D Studio →"}
+                    {lang === "es"
+                      ? "Jugar Roblox 3D + Estudio →"
+                      : "Play 3D Roblox + Studio →"}
                   </span>
                   <PixelIcon name="sparkles" size={14} color="#FFD100" />
                 </div>
@@ -1291,9 +1360,9 @@ export default function MixiuhLabsHomePage() {
                       },
                       {
                         id: "comunidad" as const,
-                        show: released.cc01,
-                        es: "Comentario al Codigo (1)",
-                        en: "Comment to Code (1)",
+                        show: released.cc01 || released.cc02,
+                        es: `Comentario al Codigo (${(released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0)})`,
+                        en: `Comment to Code (${(released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0)})`,
                       },
                       {
                         id: "noticias" as const,
@@ -3218,6 +3287,214 @@ export default function MixiuhLabsHomePage() {
                 </button>
               </div>
             </div>
+
+            {/* CC02: 3D ROBLOX CHALLENGE (GEMINI 4 ARGON HIGH vs CLAUDE OPUS 5.5 HIGH vs GPT-6 ASTRA HIGH) */}
+            {released.cc02 && (
+              <div className="rounded-2xl bg-[#0B1D30] border-2 border-[#34D399]/55 p-6 sm:p-8 shadow-2xl space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="px-3.5 py-1 rounded-full bg-[#34D399]/15 border border-[#34D399]/50 font-mono-hud text-xs font-bold text-[#34D399]">
+                    {lang === "es"
+                      ? "SERIE DEL COMENTARIO AL CODIGO #02 · RETO ROBLOX 3D (3 GIGANTES EN HIGH)"
+                      : "FROM COMMENT TO CODE SERIES #02 · 3D ROBLOX CHALLENGE (3 GIANTS IN HIGH)"}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href="/demos/cc02-roblox/gpt-6-astra.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-xl bg-[#34D399] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>GPT-6 Astra High ($0 Plus · 61 FPS)</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <a
+                      href="/demos/cc02-roblox/gemini-4-argon.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-xl bg-[#22D3EE] text-[#060B14] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Gemini 4 Argon High ($0.32 · 60 FPS)</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <a
+                      href="/demos/cc02-roblox/claude-opus-5.5.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#B794F6]/50 text-[#B794F6] font-mono-hud text-xs font-bold hover:bg-[#11283F] transition inline-flex items-center gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Claude Opus 5.5 High ($9.91 · 3D Crash)</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                <h1 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
+                  {lang === "es"
+                    ? "Reto de Suscriptor en IG: Juego Tipo ROBLOX 3D Completo en 1 Intento — Gemini 4 Argon High vs. Claude Opus 5.5 High vs. GPT-6 Astra High"
+                    : "IG Subscriber Challenge: Complete 3D ROBLOX Engine in 1 Shot — Gemini 4 Argon High vs. Claude Opus 5.5 High vs. GPT-6 Astra High"}
+                </h1>
+
+                <p className="text-sm sm:text-base text-[#C4D3E3] leading-relaxed">
+                  {lang === "es"
+                    ? "Pusimos a prueba la suscripcion activa de ChatGPT Plus dentro de la terminal oficial de Codex CLI (GPT-6 Astra High) frente a Gemini 4 Argon High y Claude Opus 5.5 High (Claude Code CLI) con exactamente el mismo prompt zero-shot: crear un circuito Mega-Obby 3D de 10 etapas en el cielo, fisica ragdoll OOF en 6 piezas, 6 bots NPC multijugador con chat en vivo y un editor interactivo estilo Roblox Studio 3D a 60 FPS."
+                    : "We tested an active ChatGPT Plus subscription inside the official Codex CLI (GPT-6 Astra High) against Gemini 4 Argon High and Claude Opus 5.5 High (Claude Code CLI) using the exact same zero-shot prompt: build a 10-stage aerial Mega-Obby 3D course, 6-piece OOF ragdoll physics, 6 autonomous multiplayer NPC bots with live chat, and an interactive 3D Roblox Studio level editor at 60 FPS."}
+                </p>
+
+                {/* Telemetry Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  <div className="p-4 rounded-xl bg-[#060B14] border border-[#34D399]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#34D399]">
+                      MARCADOR TRIPLE (3 RONDAS)
+                    </div>
+                    <div className="font-display text-2xl font-black text-white mt-1">
+                      2 - 1 - 0
+                    </div>
+                    <div className="font-mono-hud text-[11px] text-[#94A8BE] mt-1">
+                      Astra 2 pts · Argon 1 pt · Opus 0 pts
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#060B14] border border-[#34D399]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#34D399]">
+                      1º GPT-6 ASTRA HIGH (CODEX CLI)
+                    </div>
+                    <div className="font-display text-2xl font-black text-white mt-1">
+                      18.9m · 4,727 Lín
+                    </div>
+                    <div className="font-mono-hud text-[11px] text-[#34D399] mt-1">
+                      $0 Extra en Plus ($1.11 eq) · 61 FPS · Studs 3D
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#060B14] border border-[#22D3EE]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#22D3EE]">
+                      2º GEMINI 4 ARGON HIGH (ULTRA)
+                    </div>
+                    <div className="font-display text-2xl font-black text-white mt-1">
+                      27.2m · 2,578 Lín
+                    </div>
+                    <div className="font-mono-hud text-[11px] text-[#22D3EE] mt-1">
+                      $0.32 USD equiv. · 60 FPS · Mejor Studio Gizmo 3D
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#060B14] border border-[#FB7185]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#FB7185]">
+                      3º CLAUDE OPUS 5.5 HIGH (CLAUDE CODE)
+                    </div>
+                    <div className="font-display text-2xl font-black text-white mt-1">
+                      55.1m · $9.91 USD
+                    </div>
+                    <div className="font-mono-hud text-[11px] text-[#FB7185] mt-1">
+                      4.53M tokens (38 pasos) · CRASH 3D (index z)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interactive Simulator Switcher */}
+                <div className="rounded-2xl bg-[#060B14] border-2 border-[#34D399]/50 overflow-hidden shadow-2xl">
+                  <div className="px-4 py-3 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono-hud text-xs font-bold text-white">
+                      {lang === "es"
+                        ? "SIMULADOR ROBLOX 3D EN VIVO · ALTERNA ENTRE LOS 3 MODELOS O PRUEBA EL MODO ROBLOX STUDIO 3D"
+                        : "LIVE 3D ROBLOX SIMULATOR · SWITCH BETWEEN ALL 3 MODELS OR TEST LIVE 3D ROBLOX STUDIO MODE"}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 font-mono-hud text-xs">
+                      <button
+                        onClick={() => setCc02Model("astra")}
+                        className={`px-3 py-1.5 rounded-lg font-bold cursor-pointer transition ${
+                          cc02Model === "astra"
+                            ? "bg-[#34D399] text-[#060B14]"
+                            : "bg-[#060B14] text-[#34D399] border border-[#34D399]/40"
+                        }`}
+                      >
+                        GPT-6 Astra High (18.9m · 4,727 Lín)
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("argon")}
+                        className={`px-3 py-1.5 rounded-lg font-bold cursor-pointer transition ${
+                          cc02Model === "argon"
+                            ? "bg-[#22D3EE] text-[#060B14]"
+                            : "bg-[#060B14] text-[#22D3EE] border border-[#22D3EE]/40"
+                        }`}
+                      >
+                        Gemini 4 Argon High ($0.32 · 60 FPS)
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("opus")}
+                        className={`px-3 py-1.5 rounded-lg font-bold cursor-pointer transition ${
+                          cc02Model === "opus"
+                            ? "bg-[#B794F6] text-[#060B14]"
+                            : "bg-[#060B14] text-[#B794F6] border border-[#B794F6]/40"
+                        }`}
+                      >
+                        Claude Opus 5.5 High ($9.91 · Crash 3D)
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("triple")}
+                        className={`px-3 py-1.5 rounded-lg font-bold cursor-pointer transition ${
+                          cc02Model === "triple"
+                            ? "bg-[#FBBF24] text-[#060B14]"
+                            : "bg-[#060B14] text-[#FBBF24] border border-[#FBBF24]/40"
+                        }`}
+                      >
+                        {lang === "es" ? "Comparativa Triple" : "Triple View"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {cc02Model === "triple" ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-white/15 bg-[#04060A]">
+                      <div>
+                        <div className="px-3 py-2 bg-[#060B14] text-[#22D3EE] font-mono-hud text-[11px] font-bold flex justify-between">
+                          <span>GEMINI 4 ARGON HIGH (27.2m · $0.32 eq)</span>
+                          <span>60 FPS · STUDIO WIN</span>
+                        </div>
+                        <iframe
+                          src="/demos/cc02-roblox/gemini-4-argon.html"
+                          title="Roblox 3D - Gemini 4 Argon High"
+                          className="w-full h-[640px] border-0 bg-[#04060A]"
+                        />
+                      </div>
+                      <div>
+                        <div className="px-3 py-2 bg-[#060B14] text-[#FB7185] font-mono-hud text-[11px] font-bold flex justify-between">
+                          <span>CLAUDE OPUS 5.5 HIGH (55.1m · $9.91 USD)</span>
+                          <span>3D CRASH (index z)</span>
+                        </div>
+                        <iframe
+                          src="/demos/cc02-roblox/claude-opus-5.5.html"
+                          title="Roblox 3D - Claude Opus 5.5 High"
+                          className="w-full h-[640px] border-0 bg-[#04060A]"
+                        />
+                      </div>
+                      <div>
+                        <div className="px-3 py-2 bg-[#060B14] text-[#34D399] font-mono-hud text-[11px] font-bold flex justify-between">
+                          <span>GPT-6 ASTRA HIGH (18.9m · $0 Plus)</span>
+                          <span>61 FPS · GANADOR 2-1</span>
+                        </div>
+                        <iframe
+                          src="/demos/cc02-roblox/gpt-6-astra.html"
+                          title="Roblox 3D - GPT-6 Astra High"
+                          className="w-full h-[640px] border-0 bg-[#04060A]"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <iframe
+                      src={
+                        cc02Model === "astra"
+                          ? "/demos/cc02-roblox/gpt-6-astra.html"
+                          : cc02Model === "argon"
+                          ? "/demos/cc02-roblox/gemini-4-argon.html"
+                          : "/demos/cc02-roblox/claude-opus-5.5.html"
+                      }
+                      title={`Roblox 3D - ${cc02Model}`}
+                      className="w-full h-[780px] border-0 bg-[#04060A]"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="rounded-2xl bg-[#0B1D30] border border-[#FBBF24]/40 p-6 sm:p-8 shadow-2xl space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
