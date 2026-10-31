@@ -728,6 +728,25 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
       ?.prompt_verbatim;
   }, [activeThread, activeThreadEpisode]);
 
+  // The verbatim prompt box scrolls when the prompt is long: like the tables,
+  // it is a named tab stop only then. Re-attached for each prompt, so the
+  // ResizeObserver's first callback measures the new text.
+  const [promptOverflowing, setPromptOverflowing] = useState(false);
+  const promptBoxRef = useCallback(
+    (box: HTMLPreElement | null) => {
+      if (!box || !linkedPromptVerbatim || typeof ResizeObserver === "undefined") return;
+      const observer = new ResizeObserver(() => {
+        setPromptOverflowing(box.scrollHeight > box.clientHeight + 1);
+      });
+      observer.observe(box);
+      return () => {
+        observer.disconnect();
+        setPromptOverflowing(false);
+      };
+    },
+    [linkedPromptVerbatim]
+  );
+
   // Votes only toggle the visitor's flag; the shown count is derived from it
   const handleUpvoteThread = (id: string) => {
     const next = toggleFlag(upvotedIds, id);
@@ -1046,9 +1065,11 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
               here instead of stretching the page below the footer. Its 5px
               padding holds the cards' keyboard focus ring (2px at a 3px offset)
               and their shadow; negative margins and a 5px taller cap keep the
-              cards and the visible window where they were, and the scroll
-              padding keeps the whole ring in view when Tab scrolls the list. */}
-          <div className="relative lg:col-span-5 space-y-3 max-h-[calc(60vh+5px)] lg:max-h-[885px] overflow-y-auto -mt-[5px] -ml-[5px] -mr-px p-[5px] scroll-py-[5px]">
+              cards and the visible window where they were. The cards' 5px
+              scroll margin keeps the whole ring in view when Tab scrolls the
+              list and the page (a scroll padding here would only cover the
+              list, so the page could still park the ring below the screen). */}
+          <div className="relative lg:col-span-5 space-y-3 max-h-[calc(60vh+5px)] lg:max-h-[885px] overflow-y-auto -mt-[5px] -ml-[5px] -mr-px p-[5px]">
             {filteredThreads.length === 0 && (
               <p className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] font-mono-hud text-xs text-[#CBD5E1]">
                 {emptyListText}
@@ -1070,7 +1091,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       selectThread(thread.id);
                     }
                   }}
-                  className={`p-4 shadow-[4px_4px_0_#040508] border transition cursor-pointer ${
+                  className={`p-4 shadow-[4px_4px_0_#040508] border transition cursor-pointer scroll-my-[5px] ${
                     isSelected
                       ? "bg-[#1A2132] border-[#00E5FF] shadow-[4px_4px_0_#040508]"
                       : "bg-[#111622] border-[#2A344B] hover:border-[#3A4560] hover:bg-[#111622]"
@@ -1184,8 +1205,8 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                     aria-pressed={!!upvotedIds[activeThread.id]}
                     aria-label={
                       lang === "es"
-                        ? `Votar este hilo (${threadVotes(activeThread)} votos)`
-                        : `Upvote this thread (${threadVotes(activeThread)} votes)`
+                        ? `Votar este hilo, ${threadVotes(activeThread)} votos`
+                        : `Upvote this thread, ${threadVotes(activeThread)} votes`
                     }
                     className={`px-3.5 py-1.5 font-mono-hud text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                       upvotedIds[activeThread.id]
@@ -1325,7 +1346,13 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
                       )}
                     </button>
                   </div>
-                  <pre className="p-4 text-xs font-mono-hud text-[#F5F2EB]/90 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
+                  <pre
+                    ref={promptBoxRef}
+                    role={promptOverflowing ? "region" : undefined}
+                    aria-label={promptOverflowing ? (lang === "es" ? "Prompt oficial completo" : "Full official prompt") : undefined}
+                    tabIndex={promptOverflowing ? 0 : undefined}
+                    className="p-4 text-xs font-mono-hud text-[#F5F2EB]/90 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed focus-visible:outline-offset-[-3px]"
+                  >
                     {linkedPromptVerbatim}
                   </pre>
                 </div>
