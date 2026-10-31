@@ -17,10 +17,8 @@ import {
   EP04_BENCHMARK_TOTALS,
   EP04_CHALLENGES,
 } from "@/data/ep04Data";
-import DemoArenaSection from "@/components/DemoArenaModal";
-import ForumSection, { countForumThreads } from "@/components/ForumSection";
-import NewsSection from "@/components/NewsSection";
-import PixelUiShowcase from "@/components/PixelUiShowcase";
+import dynamic from "next/dynamic";
+import { countForumThreads } from "@/data/forumStats";
 import {
   Pixel3DCRTWorkstation,
   PixelCalendar,
@@ -43,6 +41,7 @@ import {
   pixelToast,
   prefersReducedMotion,
   usePixelCursor,
+  usePixelPref,
   usePixelSound,
   type AmbientSimulationMode,
   type PixelCalendarEvent,
@@ -52,11 +51,40 @@ import {
   type PocketConsoleCartridgeItem,
 } from "@mixiuh/pixel-ui";
 import {
+  BUILD_TIME,
   getReleasedStatus,
   RELEASE_TIMESTAMPS_CST,
   type ReleaseKey,
   type ReleasedState,
 } from "@/data/releaseSchedule";
+
+// Heavy views (and their data) load on demand: the home page never ships them
+function ViewLoading() {
+  return (
+    <div
+      role="status"
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"
+    >
+      <div className="p-6 bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] font-pixel text-[11px] text-[#FFD100]">
+        CARGANDO MODULO // LOADING
+        <span className="inline-block w-2 h-3 bg-[#FFD100] ml-2 align-middle animate-px-blink" />
+      </div>
+    </div>
+  );
+}
+
+const DemoArenaSection = dynamic(() => import("@/components/DemoArenaModal"), {
+  loading: ViewLoading,
+});
+const ForumSection = dynamic(() => import("@/components/ForumSection"), {
+  loading: ViewLoading,
+});
+const NewsSection = dynamic(() => import("@/components/NewsSection"), {
+  loading: ViewLoading,
+});
+const PixelUiShowcase = dynamic(() => import("@/components/PixelUiShowcase"), {
+  loading: ViewLoading,
+});
 
 type MainView =
   | "blog"
@@ -152,40 +180,23 @@ const AMBIENT_MODES: AmbientSimulationMode[] = [
 const PREF_LANG_KEY = "mixiuh_lang";
 const PREF_AMBIENT_KEY = "mixiuh_ambient";
 
-function readPref(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writePref(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // storage unavailable (private mode): preferences just won't persist
-  }
-}
+const isLang = (value: string): value is "es" | "en" =>
+  value === "es" || value === "en";
+const isAmbientMode = (value: string): value is AmbientSimulationMode =>
+  (AMBIENT_MODES as string[]).includes(value);
 
 export default function MixiuhLabsHomePage() {
-  const [lang, setLangState] = useState<"es" | "en">("es");
+  // Persisted, tab-synced and hydration-safe (static HTML renders "es" first)
+  const [lang, setLang] = usePixelPref(PREF_LANG_KEY, "es", isLang);
   const { enabled: sfxEnabled, play: playSfx, toggle: toggleSfx } =
     usePixelSound();
   const { cursorStyle, setCursorStyle } = usePixelCursor("cyber-arrow");
-  const [ambientMode, setAmbientModeState] =
-    useState<AmbientSimulationMode>("ai-ecosystem");
+  const [ambientMode, setAmbientMode] = usePixelPref<AmbientSimulationMode>(
+    PREF_AMBIENT_KEY,
+    "ai-ecosystem",
+    isAmbientMode
+  );
   const [paletteOpen, setPaletteOpen] = useState(false);
-
-  const setLang = (next: "es" | "en") => {
-    setLangState(next);
-    writePref(PREF_LANG_KEY, next);
-  };
-
-  const setAmbientMode = (next: AmbientSimulationMode) => {
-    setAmbientModeState(next);
-    writePref(PREF_AMBIENT_KEY, next);
-  };
 
   const cursorLabel = (id: string) => {
     const preset = PIXEL_CURSOR_PRESETS.find((p) => p.id === id);
@@ -225,13 +236,15 @@ export default function MixiuhLabsHomePage() {
       sound: null,
     });
   };
+  // First render uses the build clock (matches the static HTML); the mount
+  // effect below switches to the visitor's live clock.
   const [released, setReleased] = useState<ReleasedState>(() =>
-    getReleasedStatus()
+    getReleasedStatus(BUILD_TIME)
   );
   const [mainView, setMainView] = useState<MainView>("blog");
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
-    const r = getReleasedStatus();
+    const r = getReleasedStatus(BUILD_TIME);
     if (r.ep04) return "ep04";
     if (r.ep03) return "ep03";
     return "ep02";
@@ -242,7 +255,7 @@ export default function MixiuhLabsHomePage() {
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
   const [arenaMode, setArenaMode] = useState<"ep04" | "ep03" | "ep02_ep01">(
     () => {
-      const r = getReleasedStatus();
+      const r = getReleasedStatus(BUILD_TIME);
       if (r.ep04) return "ep04";
       if (r.ep03) return "ep03";
       return "ep02_ep01";
@@ -268,36 +281,25 @@ export default function MixiuhLabsHomePage() {
   const [glossarySearch, setGlossarySearch] = useState("");
   const [foroSubTab, setForoSubTab] = useState<ForoSubTab>("hilos");
 
-  // Restore saved language / background preferences
-  useEffect(() => {
-    const savedLang = readPref(PREF_LANG_KEY);
-    if (savedLang === "es" || savedLang === "en") setLangState(savedLang);
-    const savedAmbient = readPref(PREF_AMBIENT_KEY) as AmbientSimulationMode | null;
-    if (savedAmbient && AMBIENT_MODES.includes(savedAmbient)) {
-      setAmbientModeState(savedAmbient);
-    }
-  }, []);
-
   // Keep <html lang> in sync for screen readers, hyphenation & translation tools
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  // Sync release status + URL hash navigation (respecting embargo dates unless ?preview=all)
+  // After hydration: switch from the build clock to the visitor's live clock and
+  // the URL hash (respecting embargo dates unless ?preview=all). This is the one
+  // place where state is synchronised from external systems on mount.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const previewAll = params.get("preview") === "all";
     const rel = getReleasedStatus(new Date(), previewAll);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- live clock only exists after hydration
     setReleased(rel);
 
-    if (!rel.ep04 && !rel.ep03) {
-      setDossierEp((prev) =>
-        prev === "ep04" || prev === "ep03" ? "ep02" : prev
-      );
-      setArenaMode("ep02_ep01");
-    } else if (!rel.ep04 && rel.ep03) {
-      setDossierEp((prev) => (prev === "ep04" ? "ep03" : prev));
-    }
+    // Default episode/arena = newest published one (content may have been
+    // released after this HTML was built); the hash below can override it.
+    setDossierEp(rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02");
+    setArenaMode(rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02_ep01");
 
     const applyHash = () => {
       const h = window.location.hash.replace("#", "");
@@ -641,6 +643,10 @@ export default function MixiuhLabsHomePage() {
   ];
 
   const releasedArticles = BLOG_ARTICLES.filter((a) => released[a.id]);
+  // Home hero features the most recently released production (never an embargoed one)
+  const heroArticle = [...releasedArticles].sort((a, b) =>
+    RELEASE_TIMESTAMPS_CST[b.id].localeCompare(RELEASE_TIMESTAMPS_CST[a.id])
+  )[0];
   const filteredArticles = releasedArticles.filter(
     (a) => blogFilter === "all" || a.filter === blogFilter
   );
@@ -1333,102 +1339,179 @@ export default function MixiuhLabsHomePage() {
 
               {/* Main 2-Column Playdate Flat + 3D Stage */}
               <div className="p-6 sm:p-8 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                {/* Left Column: Clean Flat Editorial Protagonist */}
+                {/* Left Column: editorial protagonist = latest released production */}
                 <div className="lg:col-span-7 space-y-5">
-                  <div className="inline-flex flex-wrap items-center gap-2">
-                    <span className="px-3 py-1 bg-[#00E5FF] text-[#090B10] border-2 border-[#090B10] font-pixel text-[10px] font-bold">
+                  {heroArticle?.id === "carbon01" ? (
+                    <>
+                    <div className="inline-flex flex-wrap items-center gap-2">
+                      <span className="px-3 py-1 bg-[#00E5FF] text-[#090B10] border-2 border-[#090B10] font-pixel text-[10px] font-bold">
+                        {lang === "es"
+                          ? "ULTIMA HORA · RADAR MIXIUH NOTICIAS IA #01"
+                          : "BREAKING · MIXIUH AI NEWS RADAR #01"}
+                      </span>
+                      <span className="px-2.5 py-1 bg-[#090B10] text-[#10B981] border border-[#10B981] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5">
+                        <PixelIcon name="trophy" size={12} color="#10B981" />
+                        <span>19 EVALS DEEPMIND</span>
+                      </span>
+                    </div>
+
+                    <h1 className="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.06] px-extrude-title">
+                      {lang === "es" ? (
+                        <>
+                          Google Anuncia{" "}
+                          <span className="text-[#00E5FF]">Gemini 4 Carbon</span>:
+                          El Nuevo{" "}
+                          <span className="text-[#FFD100]">#1 Mundial</span> y el
+                          Salto a{" "}
+                          <span className="text-[#FF3355]">$4/$20 USD</span>
+                        </>
+                      ) : (
+                        <>
+                          Google Unveils{" "}
+                          <span className="text-[#00E5FF]">Gemini 4 Carbon</span>:
+                          The New{" "}
+                          <span className="text-[#FFD100]">#1 Worldwide</span> &
+                          the <span className="text-[#FF3355]">$4/$20 USD</span>{" "}
+                          Jump
+                        </>
+                      )}
+                    </h1>
+
+                    <p className="text-sm sm:text-base text-[#CBD5E1] leading-relaxed">
                       {lang === "es"
-                        ? "ULTIMA HORA · RADAR MIXIUH NOTICIAS IA #01"
-                        : "BREAKING · MIXIUH AI NEWS RADAR #01"}
-                    </span>
-                    <span className="px-2.5 py-1 bg-[#090B10] text-[#10B981] border border-[#10B981] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5">
-                      <PixelIcon name="trophy" size={12} color="#10B981" />
-                      <span>19 EVALS DEEPMIND</span>
-                    </span>
-                  </div>
+                        ? "A solo 14 dias de lanzar Argon, Google DeepMind publica Gemini 4 Carbon. Desglosamos los 8 capitulos del reporte en 4K60: como destrona a Claude Opus 5.5 en Terminal-Bench Hard (54.5% vs 53.0%), su dominio en ciberseguridad defensiva (84.0% en SecBench) y por que duplicar la tarifa API ($4/$20 USD) sigue costando 20% menos que Opus ($5/$25)."
+                        : "Just 14 days after launching Argon, Google DeepMind releases Gemini 4 Carbon. We break down all 8 chapters in 4K60: how it dethrones Claude Opus 5.5 on Terminal-Bench Hard (54.5% vs 53.0%), sweeps defensive cybersecurity (84.0% on SecBench), and why doubling the API rate ($4/$20 USD) still costs 20% less than Opus ($5/$25)."}
+                    </p>
 
-                  <h1 className="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.06] px-extrude-title">
-                    {lang === "es" ? (
-                      <>
-                        Google Anuncia{" "}
-                        <span className="text-[#00E5FF]">Gemini 4 Carbon</span>:
-                        El Nuevo{" "}
-                        <span className="text-[#FFD100]">#1 Mundial</span> y el
-                        Salto a{" "}
-                        <span className="text-[#FF3355]">$4/$20 USD</span>
-                      </>
-                    ) : (
-                      <>
-                        Google Unveils{" "}
-                        <span className="text-[#00E5FF]">Gemini 4 Carbon</span>:
-                        The New{" "}
-                        <span className="text-[#FFD100]">#1 Worldwide</span> &
-                        the <span className="text-[#FF3355]">$4/$20 USD</span>{" "}
-                        Jump
-                      </>
-                    )}
-                  </h1>
-
-                  <p className="text-sm sm:text-base text-[#CBD5E1] leading-relaxed">
-                    {lang === "es"
-                      ? "A solo 14 dias de lanzar Argon, Google DeepMind publica Gemini 4 Carbon. Desglosamos los 8 capitulos del reporte en 4K60: como destrona a Claude Opus 5.5 en Terminal-Bench Hard (54.5% vs 53.0%), su dominio en ciberseguridad defensiva (84.0% en SecBench) y por que duplicar la tarifa API ($4/$20 USD) sigue costando 20% menos que Opus ($5/$25)."
-                      : "Just 14 days after launching Argon, Google DeepMind releases Gemini 4 Carbon. We break down all 8 chapters in 4K60: how it dethrones Claude Opus 5.5 on Terminal-Bench Hard (54.5% vs 53.0%), sweeps defensive cybersecurity (84.0% on SecBench), and why doubling the API rate ($4/$20 USD) still costs 20% less than Opus ($5/$25)."}
-                  </p>
-
-                  {/* Standard Mixiuh Telemetry Strip ([CLOCK + MIN] & [COIN + $ USD]) */}
-                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
-                    <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#00E5FF] text-[#F5F2EB] font-bold inline-flex items-center gap-1.5">
-                      <PixelIcon name="clock" size={13} color="#00E5FF" />
-                      <span>TERMINAL HARD: 54.5% (#1)</span>
-                    </span>
-                    <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#FFD100] text-[#FFD100] font-bold inline-flex items-center gap-1.5">
-                      <PixelIcon name="coin" size={13} color="#FFD100" />
-                      <span>API: $4 / $20 USD (-20% VS OPUS)</span>
-                    </span>
-                    <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#10B981] text-[#10B981] font-bold inline-flex items-center gap-1.5">
-                      <PixelIcon name="shield" size={13} color="#10B981" />
-                      <span>SECBENCH: 84.0% (#1)</span>
-                    </span>
-                  </div>
-
-                  {/* Tactile Hardware Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-3 pt-1">
-                    <button
-                      onClick={() => navigateToView("noticias")}
-                      className="px-btn bg-[#FFD100] text-[#090B10] px-5 py-3 text-xs sm:text-sm"
-                    >
-                      <PixelIcon name="play" size={15} color="#090B10" />
-                      <span>
-                        {lang === "es"
-                          ? "Ver Video + Especial Gemini 4 Carbon"
-                          : "Watch Video + Gemini 4 Carbon Special"}
+                    {/* Standard Mixiuh Telemetry Strip ([CLOCK + MIN] & [COIN + $ USD]) */}
+                    <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                      <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#00E5FF] text-[#F5F2EB] font-bold inline-flex items-center gap-1.5">
+                        <PixelIcon name="clock" size={13} color="#00E5FF" />
+                        <span>TERMINAL HARD: 54.5% (#1)</span>
                       </span>
-                    </button>
-
-                    <button
-                      onClick={() => navigateToView("dossiers", "ep04")}
-                      className="px-btn bg-[#00E5FF] text-[#090B10] px-4 py-3 text-xs sm:text-sm"
-                    >
-                      <PixelIcon name="cartridge" size={15} color="#090B10" />
-                      <span>
-                        {lang === "es"
-                          ? "Laboratorio EP04: Escalera Claude 5.5"
-                          : "Lab EP04: Claude 5.5 Ladder"}
+                      <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#FFD100] text-[#FFD100] font-bold inline-flex items-center gap-1.5">
+                        <PixelIcon name="coin" size={13} color="#FFD100" />
+                        <span>API: $4 / $20 USD (-20% VS OPUS)</span>
                       </span>
-                    </button>
-
-                    <button
-                      onClick={() => navigateToView("pixelui")}
-                      className="px-btn bg-[#F5F2EB] text-[#090B10] px-4 py-3 text-xs sm:text-sm"
-                    >
-                      <PixelIcon name="console" size={15} color="#090B10" />
-                      <span>
-                        {lang === "es"
-                          ? "Mixiuh Pixel UI (Gratis)"
-                          : "Mixiuh Pixel UI (Free)"}
+                      <span className="px-3 py-1.5 bg-[#090B10] border-2 border-[#10B981] text-[#10B981] font-bold inline-flex items-center gap-1.5">
+                        <PixelIcon name="shield" size={13} color="#10B981" />
+                        <span>SECBENCH: 84.0% (#1)</span>
                       </span>
-                    </button>
-                  </div>
+                    </div>
+
+                    {/* Tactile Hardware Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <button
+                        onClick={() => navigateToView("noticias")}
+                        className="px-btn bg-[#FFD100] text-[#090B10] px-5 py-3 text-xs sm:text-sm"
+                      >
+                        <PixelIcon name="play" size={15} color="#090B10" />
+                        <span>
+                          {lang === "es"
+                            ? "Ver Video + Especial Gemini 4 Carbon"
+                            : "Watch Video + Gemini 4 Carbon Special"}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => navigateToView("dossiers", "ep04")}
+                        className="px-btn bg-[#00E5FF] text-[#090B10] px-4 py-3 text-xs sm:text-sm"
+                      >
+                        <PixelIcon name="cartridge" size={15} color="#090B10" />
+                        <span>
+                          {lang === "es"
+                            ? "Laboratorio EP04: Escalera Claude 5.5"
+                            : "Lab EP04: Claude 5.5 Ladder"}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => navigateToView("pixelui")}
+                        className="px-btn bg-[#F5F2EB] text-[#090B10] px-4 py-3 text-xs sm:text-sm"
+                      >
+                        <PixelIcon name="console" size={15} color="#090B10" />
+                        <span>
+                          {lang === "es"
+                            ? "Mixiuh Pixel UI (Gratis)"
+                            : "Mixiuh Pixel UI (Free)"}
+                        </span>
+                      </button>
+                    </div>
+                    </>
+                  ) : heroArticle ? (
+                    <>
+                      <div className="inline-flex flex-wrap items-center gap-2">
+                        <span
+                          className="px-3 py-1 text-[#090B10] border-2 border-[#090B10] font-pixel text-[10px] font-bold"
+                          style={{ backgroundColor: heroArticle.accentColor }}
+                        >
+                          {lang === "es" ? heroArticle.badge_es : heroArticle.badge_en}
+                        </span>
+                        <span className="px-2.5 py-1 bg-[#090B10] text-[#FFD100] border border-[#FFD100] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5">
+                          <PixelIcon name="trophy" size={12} color="#FFD100" />
+                          <span>
+                            {lang === "es"
+                              ? heroArticle.scoreBadge_es
+                              : heroArticle.scoreBadge_en}
+                          </span>
+                        </span>
+                      </div>
+
+                      <h1 className="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.06] px-extrude-title">
+                        {lang === "es" ? heroArticle.title_es : heroArticle.title_en}
+                      </h1>
+
+                      <p className="text-sm sm:text-base text-[#CBD5E1] leading-relaxed">
+                        {lang === "es" ? heroArticle.excerpt_es : heroArticle.excerpt_en}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                        {heroArticle.metrics.slice(0, 3).map((m, idx) => (
+                          <span
+                            key={m.label_es}
+                            className="px-3 py-1.5 bg-[#090B10] border-2 font-bold inline-flex items-center gap-1.5 text-[#F5F2EB]"
+                            style={{
+                              borderColor: idx === 0 ? heroArticle.accentColor : "#2A344B",
+                            }}
+                          >
+                            <span className="text-[#94A3B8]">
+                              {lang === "es" ? m.label_es : m.label_en}:
+                            </span>
+                            <span>{m.val}</span>
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <button
+                          onClick={heroArticle.onOpenDossier}
+                          className="px-btn text-[#090B10] px-5 py-3 text-xs sm:text-sm"
+                          style={{ backgroundColor: heroArticle.accentColor }}
+                        >
+                          <PixelIcon name="play" size={15} color="#090B10" />
+                          <span>{lang === "es" ? "Abrir Produccion" : "Open Production"}</span>
+                        </button>
+                        <button
+                          onClick={heroArticle.onOpenArena}
+                          className="px-btn bg-[#131824] text-[#F5F2EB] px-4 py-3 text-xs sm:text-sm"
+                        >
+                          <PixelIcon name="gamepad" size={15} />
+                          <span>{lang === "es" ? "Probar Demos" : "Play Demos"}</span>
+                        </button>
+                        <button
+                          onClick={() => navigateToView("pixelui")}
+                          className="px-btn bg-[#F5F2EB] text-[#090B10] px-4 py-3 text-xs sm:text-sm"
+                        >
+                          <PixelIcon name="console" size={15} color="#090B10" />
+                          <span>
+                            {lang === "es"
+                              ? "Mixiuh Pixel UI (Gratis)"
+                              : "Mixiuh Pixel UI (Free)"}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
 
                 {/* Right Column: Interactive 3D Retro CRT Monitor Workstation */}

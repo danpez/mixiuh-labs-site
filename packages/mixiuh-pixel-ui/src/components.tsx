@@ -1259,9 +1259,13 @@ export function PixelDialogBox({
   const fullText = messages[msgIdx] || "";
   const t = TONE_STYLES[tone];
 
-  useEffect(() => {
+  // Restart the typewriter whenever the visible message changes (adjusting
+  // state during render avoids an extra effect pass with stale text)
+  const [typedText, setTypedText] = useState(fullText);
+  if (typedText !== fullText) {
+    setTypedText(fullText);
     setCharCount(0);
-  }, [msgIdx, fullText]);
+  }
 
   useEffect(() => {
     if (charCount >= fullText.length) return;
@@ -1289,11 +1293,20 @@ export function PixelDialogBox({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${speaker}: ${fullText}`}
       onClick={handleNext}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleNext();
+        }
+      }}
       className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[6px_6px_0_#040508] flex items-start gap-4 cursor-pointer select-none"
       style={{ borderColor: t.hex }}
     >
-      <div className="p-2 bg-[#131824] border-2 border-white/15 shrink-0">
+      <div className="p-2 bg-[#131824] border-2 border-[#2A344B] shrink-0">
         <PixelSprite character={character} size={48} />
       </div>
       <div className="flex-1 min-w-0 font-mono-hud">
@@ -1313,7 +1326,10 @@ export function PixelDialogBox({
             [{msgIdx + 1}/{messages.length}]
           </span>
         </div>
-        <p className="text-xs sm:text-sm text-[#F5F2EB] leading-relaxed min-h-[42px]">
+        <p
+          aria-hidden="true"
+          className="text-xs sm:text-sm text-[#F5F2EB] leading-relaxed min-h-[42px]"
+        >
           {fullText.slice(0, charCount)}
           <span className="inline-block w-2 h-3.5 bg-[#FFD100] ml-1 animate-px-blink align-middle" />
         </p>

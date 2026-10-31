@@ -1,5 +1,6 @@
 export * from "./version";
 export * from "./motion";
+export * from "./storage";
 export * from "./sound";
 export * from "./icons";
 export * from "./components";

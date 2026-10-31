@@ -35,12 +35,15 @@ export default function DemoArenaSection({
   const [copiedCode, setCopiedCode] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
   const [sourceModel, setSourceModel] = useState<"argon" | "opponent">("argon");
-  const [sourceData, setSourceData] = useState<{
+  // Source viewer state is keyed by the requested file so a slow or failed
+  // response can never show another challenge's code
+  const [sourceState, setSourceState] = useState<{
+    key: string;
+    ok: boolean;
     code: string;
     lines: number;
     kb: number;
   } | null>(null);
-  const [loadingSource, setLoadingSource] = useState(false);
   const [showBonus, setShowBonus] = useState(false);
 
   const isEp02 = activeEpisode === "ep02";
@@ -57,31 +60,40 @@ export default function DemoArenaSection({
     ? ep02Challenge.dir
     : ep01Challenge.dir;
 
+  const sourceApiModel = showBonus
+    ? "argon"
+    : sourceModel === "argon"
+    ? "argon"
+    : isEp02
+    ? "opus"
+    : "flash";
+  const sourceKey = `${sourceApiModel}/${activeDir}`;
+
   useEffect(() => {
-    if (activeTab === "source") {
-      setLoadingSource(true);
-      const apiModel = showBonus
-        ? "argon"
-        : sourceModel === "argon"
-        ? "argon"
-        : isEp02
-        ? "opus"
-        : "flash";
-      fetch(`/api/source?model=${apiModel}&dir=${activeDir}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.code) {
-            setSourceData({
-              code: data.code,
-              lines: data.lines,
-              kb: data.kb,
-            });
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoadingSource(false));
-    }
-  }, [activeTab, sourceModel, activeDir, showBonus, isEp02]);
+    if (activeTab !== "source") return;
+    const controller = new AbortController();
+    const failed = { key: sourceKey, ok: false, code: "", lines: 0, kb: 0 };
+    fetch(`/api/source?model=${sourceApiModel}&dir=${activeDir}`, {
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setSourceState(
+          typeof data.code === "string"
+            ? { key: sourceKey, ok: true, code: data.code, lines: data.lines, kb: data.kb }
+            : failed
+        );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setSourceState(failed);
+      });
+    return () => controller.abort();
+  }, [activeTab, sourceApiModel, activeDir, sourceKey]);
+
+  const sourceData =
+    sourceState?.key === sourceKey && sourceState.ok ? sourceState : null;
+  const sourceFailed = sourceState?.key === sourceKey && !sourceState.ok;
+  const loadingSource = activeTab === "source" && sourceState?.key !== sourceKey;
 
   const activePromptVerbatim = isEp02
     ? ep02Challenge.prompt_verbatim
@@ -1165,10 +1177,22 @@ export default function DemoArenaSection({
               </div>
 
               {loadingSource ? (
-                <div className="py-16 text-center font-mono-hud text-sm text-[#94A3B8]">
+                <div
+                  role="status"
+                  className="py-16 text-center font-mono-hud text-sm text-[#94A3B8]"
+                >
                   {lang === "es"
                     ? "Cargando archivo index.html original..."
                     : "Loading original index.html file..."}
+                </div>
+              ) : sourceFailed ? (
+                <div
+                  role="alert"
+                  className="py-16 text-center font-mono-hud text-sm text-[#FF3355]"
+                >
+                  {lang === "es"
+                    ? "No se pudo cargar el index.html. Vuelve a intentarlo o abre la demo en pestaña completa."
+                    : "Could not load index.html. Try again or open the demo in a full tab."}
                 </div>
               ) : (
                 <pre className="p-4 shadow-[4px_4px_0_#040508] bg-[#111622] border border-[#2A344B] text-xs font-mono-hud text-[#F5F2EB] overflow-x-auto max-h-[520px] overflow-y-auto leading-relaxed">

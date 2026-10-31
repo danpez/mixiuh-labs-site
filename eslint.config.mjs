@@ -7,9 +7,6 @@ export default defineConfig([
   ...nextTs,
   {
     rules: {
-      // Window-only state (localStorage prefs, URL hash, release clock) is read after
-      // hydration on purpose so the static HTML matches the server render.
-      "react-hooks/set-state-in-effect": "warn",
       // Demos, thumbnails and pixel sprites are served unoptimized (next.config images.unoptimized).
       "@next/next/no-img-element": "off",
     },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { pixelSound } from "./sound";
+import { usePixelPref } from "./storage";
 
 export type PixelCursorStyle =
   | "cyber-arrow"
@@ -159,21 +160,19 @@ const CURSOR_SVGS: Record<
   },
 };
 
+const isPixelCursorStyle = (value: string): value is PixelCursorStyle =>
+  PIXEL_CURSOR_PRESETS.some((p) => p.id === value);
+
 export function usePixelCursor(initial: PixelCursorStyle = "cyber-arrow") {
-  const [cursorStyle, setCursorStyle] = useState<PixelCursorStyle>(initial);
+  // Persisted + synced across tabs; hydration renders `initial` first
+  const [cursorStyle, setCursorStyle] = usePixelPref(
+    "mixiuh_pixel_cursor",
+    initial,
+    isPixelCursorStyle
+  );
   const [trailEnabled, setTrailEnabled] = useState<boolean>(true);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(
-      "mixiuh_pixel_cursor"
-    ) as PixelCursorStyle | null;
-    if (saved && PIXEL_CURSOR_PRESETS.some((p) => p.id === saved)) {
-      setCursorStyle(saved);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("mixiuh_pixel_cursor", cursorStyle);
     const styleElId = "mixiuh-pixel-cursor-style";
     let styleEl = document.getElementById(styleElId) as HTMLStyleElement | null;
     if (!styleEl) {

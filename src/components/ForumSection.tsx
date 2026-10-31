@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { PixelIcon, copyTextToClipboard } from "@mixiuh/pixel-ui";
 import {
   INITIAL_FORUM_THREADS,
@@ -9,6 +9,7 @@ import {
   type ForumThread,
   type Ep02Proposal,
 } from "@/data/forumData";
+import { isCuratedThreadReleased } from "@/data/forumStats";
 import { CHALLENGES } from "@/data/labsData";
 import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES } from "@/data/ep03Data";
@@ -44,23 +45,13 @@ function formatInlineCode(text: string): React.ReactNode {
   });
 }
 
-function isCuratedThreadReleased(t: ForumThread, rel: ReleasedState) {
-  if (t.episode === "carbon01" && !rel.carbon01) return false;
-  if (t.episode === "ep04" && !rel.ep04) return false;
-  if (t.episode === "ep03" && !rel.ep03) return false;
-  if (t.episode === "cc01" && !rel.cc01) return false;
-  return true;
-}
-
-/** Same thread list size the forum renders (curated + one thread per released challenge). */
-export function countForumThreads(rel: ReleasedState): number {
-  return (
-    INITIAL_FORUM_THREADS.filter((t) => isCuratedThreadReleased(t, rel)).length +
-    (rel.ep04 ? EP04_CHALLENGES.length : 0) +
-    (rel.ep03 ? EP03_CHALLENGES.length : 0) +
-    EP02_CHALLENGES.length +
-    CHALLENGES.length
-  );
+function readStoredJson<T>(key: string): T | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function ForumSection({ lang, onJumpToArena, released }: Props) {
@@ -266,16 +257,23 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     });
   }, [rel]);
 
-  const [threads, setThreads] = useState<ForumThread[]>(defaultThreads);
+  // The forum only mounts on the client (the prerendered view is always the home
+  // page), so saved votes/threads can be read directly in the state initializers.
+  const [threads, setThreads] = useState<ForumThread[]>(() => {
+    const saved = readStoredJson<ForumThread[]>("mlabs_custom_threads_v1");
+    return Array.isArray(saved) ? [...saved, ...defaultThreads] : defaultThreads;
+  });
   const [proposals, setProposals] = useState<Ep02Proposal[]>(defaultProposals);
   const [activeCategory, setActiveCategory] = useState<ForumCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string>(
     defaultThreads[0]?.id || "thread-ep02-dossier"
   );
-  const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>({});
+  const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>(
+    () => readStoredJson<Record<string, boolean>>("mlabs_upvotes_v1") ?? {}
+  );
   const [votedProposals, setVotedProposals] = useState<Record<string, boolean>>(
-    {}
+    () => readStoredJson<Record<string, boolean>>("mlabs_prop_votes_v1") ?? {}
   );
 
   // Comment composer state
@@ -291,31 +289,9 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
     useState<Exclude<ForumCategory, "all">>("propuestas");
   const [newAuthor, setNewAuthor] = useState("");
   const [newTags, setNewTags] = useState(
-    rel.ep03 ? "EP03, Benchmark, Zero-Shot" : "EP02, Benchmark, Zero-Shot"
+    `EP0${latestEp}, Benchmark, Zero-Shot`
   );
   const [newBody, setNewBody] = useState("");
-
-  // Load saved threads/votes from localStorage
-  useEffect(() => {
-    setProposals(defaultProposals);
-    try {
-      const savedUpvotes = localStorage.getItem("mlabs_upvotes_v1");
-      if (savedUpvotes) setUpvotedIds(JSON.parse(savedUpvotes));
-
-      const savedPropVotes = localStorage.getItem("mlabs_prop_votes_v1");
-      if (savedPropVotes) setVotedProposals(JSON.parse(savedPropVotes));
-
-      const savedCustomThreads = localStorage.getItem("mlabs_custom_threads_v1");
-      if (savedCustomThreads) {
-        const parsed: ForumThread[] = JSON.parse(savedCustomThreads);
-        setThreads([...parsed, ...defaultThreads]);
-      } else {
-        setThreads(defaultThreads);
-      }
-    } catch {
-      setThreads(defaultThreads);
-    }
-  }, [defaultThreads, defaultProposals]);
 
   const filteredThreads = useMemo(() => {
     return threads.filter((t) => {

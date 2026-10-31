@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Poppins, Space_Mono, Silkscreen, Pixelify_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
@@ -39,23 +39,31 @@ const pixelifySans = Pixelify_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://labs.mixiuh.online"),
-  title:
-    "Mixiuh Labs | Gemini 4 Argon vs Claude Opus 5.5 · Foro y Benchmarks Zero-Shot",
+  title: {
+    default:
+      "Mixiuh Labs | Benchmarks Zero-Shot de IA, Arena de Demos y Foro Tecnico",
+    template: "%s | Mixiuh Labs",
+  },
   description:
-    "Aqui no se opina: se prueba. Laboratorio interactivo y foro tecnico de Mixiuh Labs. Episodio 02: Gemini 4 Argon vs. Claude Opus 5.5 (4-2, $6.26 vs $16.26 USD, 12 motores en vivo) y Episodio 01: Argon vs. 3.8 Flash (10-0, 20 demos).",
+    "Aqui no se opina: se prueba. Laboratorio de Mixiuh Labs con benchmarks zero-shot de IA (Escalera Claude 5.5, Gemini 4 Argon vs Opus 5.5, Superpowers Kit), demos jugables en la Arena, facturas reales de tokens, Noticias IA (Gemini 4 Carbon), foro tecnico y la libreria gratuita Mixiuh Pixel UI.",
   keywords: [
     "Mixiuh Labs",
-    "Gemini 4 Argon",
     "Claude Opus 5.5",
+    "Claude Sonnet 5.5",
+    "Claude Haiku 5.5",
+    "Gemini 4 Argon",
+    "Gemini 4 Carbon",
     "Gemini 3.8 Flash",
     "Zero-Shot Coding Benchmark",
     "Antigravity",
+    "Claude Code",
     "Foro IA",
-    "Voicefy",
-    "Reelfy",
+    "Mixiuh Pixel UI",
+    "Pixel Art UI",
     "Mixiuh",
   ],
   authors: [{ name: "Kevin Gonzalez", url: "https://mixiuh.online" }],
+  alternates: { canonical: "/" },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -68,10 +76,9 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title:
-      "Mixiuh Labs | Gemini 4 Argon vs. Claude Opus 5.5 (6 Retos Extremos y la Factura Real)",
+    title: "Mixiuh Labs | Aqui no se opina: se prueba",
     description:
-      "Aqui no se opina: se prueba. Juega las 32 simulaciones zero-shot en tu navegador (EP02 Argon vs Opus 5.5 + EP01 Argon vs Flash), audita la factura real de tokens ($6.26 vs $16.26 USD) y participa en el foro de ingenieria.",
+      "Benchmarks zero-shot de IA con la factura real de tokens: juega cada demo en tu navegador (Claude 5.5, Gemini 4 Argon, Superpowers Kit), lee las autopsias del foro y descarga gratis Mixiuh Pixel UI.",
     url: "https://labs.mixiuh.online",
     siteName: "Mixiuh Labs",
     images: [
@@ -83,16 +90,48 @@ export const metadata: Metadata = {
       },
     ],
     locale: "es_MX",
+    alternateLocale: ["en_US"],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title:
-      "Mixiuh Labs | Gemini 4 Argon vs. Claude Opus 5.5 (4-2 · $6.26 vs $16.26 USD)",
+    title: "Mixiuh Labs | Aqui no se opina: se prueba",
     description:
-      "Aqui no se opina: se prueba. 6 retos extremos zero-shot, 32 demos jugables en vivo, telemetria de tokens y foro de ingenieria.",
+      "Benchmarks zero-shot de IA, demos jugables en vivo, telemetria de tokens, foro de ingenieria y la libreria Mixiuh Pixel UI.",
     images: ["/brand/thumbs/ep02_x-card_1200x675.png"],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#090B10",
+  colorScheme: "dark",
+};
+
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://labs.mixiuh.online/#org",
+      name: "Mixiuh Labs",
+      url: "https://labs.mixiuh.online",
+      logo: "https://labs.mixiuh.online/icon-512.png",
+      sameAs: [
+        "https://x.com/MixiuhLabs",
+        "https://www.youtube.com/@MixiuhLabsES",
+        "https://www.youtube.com/@MixiuhLabsEN",
+        "https://mixiuh.online",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://labs.mixiuh.online/#website",
+      url: "https://labs.mixiuh.online",
+      name: "Mixiuh Labs",
+      inLanguage: ["es-MX", "en"],
+      publisher: { "@id": "https://labs.mixiuh.online/#org" },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -106,6 +145,10 @@ export default function RootLayout({
       className={`${inter.variable} ${poppins.variable} ${spaceMono.variable} ${silkscreen.variable} ${pixelifySans.variable}`}
     >
       <body className="min-h-screen bg-[#090B10] text-[#F5F2EB] antialiased selection:bg-[#FFD100] selection:text-[#090B10]">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+        />
         {children}
         <Analytics />
       </body>

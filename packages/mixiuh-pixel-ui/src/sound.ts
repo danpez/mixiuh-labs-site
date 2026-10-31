@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import { readPixelPref, writePixelPref } from "./storage";
 
 export type PixelSoundName =
   | "click"
@@ -22,6 +23,8 @@ export interface PixelSoundOptions {
   volume?: number;
 }
 
+const SFX_PREF_KEY = "mixiuh_pixel_sfx";
+
 class PixelSoundSynthesizer {
   private ctx: AudioContext | null = null;
   private enabled: boolean = true;
@@ -29,11 +32,9 @@ class PixelSoundSynthesizer {
   private listeners: Set<(enabled: boolean) => void> = new Set();
 
   constructor() {
-    if (typeof window !== "undefined") {
-      const saved = window.localStorage.getItem("mixiuh_pixel_sfx");
-      if (saved !== null) {
-        this.enabled = saved === "1";
-      }
+    const saved = readPixelPref(SFX_PREF_KEY);
+    if (saved !== null) {
+      this.enabled = saved === "1";
     }
   }
 
@@ -61,7 +62,7 @@ class PixelSoundSynthesizer {
   public setEnabled(val: boolean): void {
     this.enabled = val;
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("mixiuh_pixel_sfx", val ? "1" : "0");
+      writePixelPref(SFX_PREF_KEY, val ? "1" : "0");
     }
     this.listeners.forEach((fn) => fn(this.enabled));
     if (val) {
@@ -330,13 +331,17 @@ class PixelSoundSynthesizer {
 
 export const pixelSound = new PixelSoundSynthesizer();
 
-export function usePixelSound() {
-  const [enabled, setEnabledState] = useState<boolean>(true);
+const subscribeSound = (onChange: () => void) => pixelSound.subscribe(onChange);
+const getSoundEnabled = () => pixelSound.isEnabled();
+// Server + hydration render assume sound on; the stored preference applies right after.
+const getServerSoundEnabled = () => true;
 
-  useEffect(() => {
-    setEnabledState(pixelSound.isEnabled());
-    return pixelSound.subscribe((val) => setEnabledState(val));
-  }, []);
+export function usePixelSound() {
+  const enabled = useSyncExternalStore(
+    subscribeSound,
+    getSoundEnabled,
+    getServerSoundEnabled
+  );
 
   const play = useCallback(
     (name: PixelSoundName, opts?: PixelSoundOptions) => {

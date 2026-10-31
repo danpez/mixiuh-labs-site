@@ -55,3 +55,12 @@ export function getReleasedStatus(
     carbon01: isContentReleased("carbon01", now, previewAll),
   };
 }
+
+/**
+ * Moment the static HTML was generated. Use it for the first render of any
+ * release-gated UI (server prerender + hydration must match), then switch to
+ * the live clock after mount.
+ */
+export const BUILD_TIME = new Date(
+  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-10-31T00:00:00-06:00"
+);
