@@ -252,7 +252,7 @@ export const INITIAL_FORUM_THREADS: ForumThread[] = [
       leftLabel_en: "[LEFT] RAW AI (73.2 MIN · $1.75 USD · HUD: 11,073 ORD/S)",
       rightLabel_es: "[DERECHA] IA + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
       rightLabel_en: "[RIGHT] AI + SUPERPOWERS KIT (57.3 MIN · $1.56 USD · HUD: 70,406 ORD/S)",
-      flashCode: `// /demos/ia-sin-kit/02-terminal-trading/index.html (L2434-2447, L3498)
+      flashCode: `// ia-sin-kit/02-terminal-trading/index.html · L2434-2447, L3498
 if (uiThrottleCounter % 2 === 0) {
   const lat = 9.8 + inst.stressVolMult * 4.2 + Math.abs(inst.ofi) * 6.5 + Math.random() * 3.2;
   if (isSelected) state.engineLatencyUs = lat;
@@ -267,15 +267,15 @@ if (uiThrottleCounter % 2 === 0) {
     inst.oscHistory.shift();
   }
 }
-// ...
+// …
 const ops = Math.floor(7800 + inst.stressVolMult * 3200 + Math.abs(inst.ofi) * 2400 + Math.random() * 650);`,
-      argonCode: `// /demos/ia-superpowers-kit/02-terminal-trading/index.html (L1215-1219, L1831-1839)
+      argonCode: `// ia-superpowers-kit/02-terminal-trading/index.html · L1215-1219, L1831-1839
 const MICRO_SAMPLES = 240;
 const histOFI = new Float32Array(MICRO_SAMPLES);
 const histVPIN = new Float32Array(MICRO_SAMPLES);
 const histLatency = new Float32Array(MICRO_SAMPLES);
 let microHead = 0;
-// ...
+// …
 ordersPerSec = Math.round(3900 + st.variance * 6500 + Math.abs(st.ofi) * 28 + Math.random() * 650);
 engineLatencyUs = Math.max(7.2, 10.5 + (ordersPerSec / 1800) * 3.8 + (stressState.mode !== 'NORMAL' ? Math.random() * 48 : Math.random() * 4.5));
 
@@ -285,8 +285,8 @@ if (simTickCounter % 2 === 0) {
   histLatency[microHead] = engineLatencyUs;
   microHead = (microHead + 1) % MICRO_SAMPLES;
 }`,
-      explanation_es: "Los dos paneles son copia literal de las lineas citadas; solo se quito la sangria inicial comun. Correccion: la version anterior de este panel citaba codigo que no existe en ninguno de los dos archivos (`trades.unshift`, `RING_CAP`, `tradeRing`, `recordTickZeroGC`), y el unico `Float64Array` del Kit es `candleTime` (L1169). Sin kit, cada muestra del osciloscopio, cada vela (L2385-2401) y cada ejecucion de la cinta Time & Sales (L1822-1831) es un objeto nuevo en un arreglo que crece y se recorta. Con el Kit, velas, libro L2, particulas y osciloscopio viven en arreglos tipados pre-asignados (casi todos `Float32Array`, L1168-1228), con `copyWithin` para desplazar las velas (L1772-1785) y este ring buffer para el osciloscopio; su cinta, en cambio, crea un `div` del DOM por ejecucion (L1460, L1488), asi que esa parte no es Zero-GC. El ord/s del HUD no cuenta ordenes en ninguno de los dos: es una formula de volatilidad, OFI y `Math.random()`, igual que la latencia, asi que 70,406 vs 11,073 no prueba un throughput 6.3x mayor. Lo que si consta en la captura oficial del Reto 02: el Kit termino 16 minutos antes (57.3 vs 73.2 min) y costo menos ($1.56 vs $1.75 USD). Tampoco existe una 'Skill 02 RingBuffer': en el Kit v1.0 la Skill 02 es el Auto-Debugger, y los buffers pre-asignados los pide la Skill 03 ('Cero Basura en el Bucle de Renderizado').",
-      explanation_en: "Both panels are literal copies of the cited lines; only the common leading indentation was removed. Correction: the previous version of this panel quoted code that exists in neither file (`trades.unshift`, `RING_CAP`, `tradeRing`, `recordTickZeroGC`), and the Kit's only `Float64Array` is `candleTime` (L1169). Without the kit, every oscilloscope sample, every candle (L2385-2401) and every Time & Sales execution (L1822-1831) is a new object in an array that grows and gets trimmed. With the Kit, candles, the L2 book, particles and the oscilloscope live in pre-allocated typed arrays (almost all `Float32Array`, L1168-1228), with `copyWithin` to shift the candles (L1772-1785) and this ring buffer for the oscilloscope; its tape, however, creates a DOM `div` per execution (L1460, L1488), so that part is not zero-GC. The HUD's ord/s counts no orders in either build: it is a formula of volatility, OFI and `Math.random()`, just like the latency, so 70,406 vs 11,073 does not prove 6.3x higher throughput. What the official Challenge 02 screenshot does show: the Kit finished 16 minutes sooner (57.3 vs 73.2 min) and cost less ($1.56 vs $1.75 USD). Nor is there a 'Skill 02 RingBuffer': in Kit v1.0, Skill 02 is the Auto-Debugger, and pre-allocated buffers are what Skill 03 asks for (its 'zero garbage in the render loop' rule)."
+      explanation_es: "Los dos paneles son copia literal de las lineas que cita su encabezado; solo se quito la sangria inicial comun y `// …` marca los tramos omitidos. Correccion: la version anterior de este panel citaba codigo que no existe en ninguno de los dos archivos (`trades.unshift`, `RING_CAP`, `tradeRing`, `recordTickZeroGC`), y el unico `Float64Array` del Kit es `candleTime` (L1169). Sin kit, cada muestra del osciloscopio, cada vela (L2385-2401) y cada ejecucion de la cinta Time & Sales (L1822-1831) es un objeto nuevo en un arreglo que crece y se recorta. Con el Kit, velas, libro L2, particulas y osciloscopio viven en arreglos tipados pre-asignados (casi todos `Float32Array`, L1168-1228), con `copyWithin` para desplazar las velas (L1772-1785) y este ring buffer para el osciloscopio; su cinta, en cambio, crea un `div` del DOM por ejecucion (L1460, L1488), asi que esa parte no es Zero-GC. El ord/s del HUD no cuenta ordenes en ninguno de los dos: es una formula de volatilidad, OFI y `Math.random()`, igual que la latencia, asi que 70,406 vs 11,073 no prueba un throughput 6.3x mayor. Lo que si consta en la captura oficial del Reto 02: el Kit termino 16 minutos antes (57.3 vs 73.2 min) y costo menos ($1.56 vs $1.75 USD). Tampoco existe una 'Skill 02 RingBuffer': en el Kit v1.0 la Skill 02 es el Auto-Debugger, y los buffers pre-asignados los pide la Skill 03 ('Cero Basura en el Bucle de Renderizado').",
+      explanation_en: "Both panels are literal copies of the lines cited in their header; only the common leading indentation was removed, and `// …` marks omitted ranges. Correction: the previous version of this panel quoted code that exists in neither file (`trades.unshift`, `RING_CAP`, `tradeRing`, `recordTickZeroGC`), and the Kit's only `Float64Array` is `candleTime` (L1169). Without the kit, every oscilloscope sample, every candle (L2385-2401) and every Time & Sales execution (L1822-1831) is a new object in an array that grows and gets trimmed. With the Kit, candles, the L2 book, particles and the oscilloscope live in pre-allocated typed arrays (almost all `Float32Array`, L1168-1228), with `copyWithin` to shift the candles (L1772-1785) and this ring buffer for the oscilloscope; its tape, however, creates a DOM `div` per execution (L1460, L1488), so that part is not zero-GC. The HUD's ord/s counts no orders in either build: it is a formula of volatility, OFI and `Math.random()`, just like the latency, so 70,406 vs 11,073 does not prove 6.3x higher throughput. What the official Challenge 02 screenshot does show: the Kit finished 16 minutes sooner (57.3 vs 73.2 min) and cost less ($1.56 vs $1.75 USD). Nor is there a 'Skill 02 RingBuffer': in Kit v1.0, Skill 02 is the Auto-Debugger, and pre-allocated buffers are what Skill 03 asks for (its 'zero garbage in the render loop' rule)."
     },
     content_es: [
       "Con modelos frontera tan capaces como Gemini 4 Argon High, quisimos responder con datos reales una pregunta que todo ingeniero se hace hoy: ¿siguen siendo necesarios los Kits de Skills, bancos de memoria y el Auto-Debugger MCP, o solo queman tokens extra?",
@@ -420,7 +420,7 @@ if (simTickCounter % 2 === 0) {
       leftLabel_en: "[LEFT] CLAUDE OPUS 5.5 (28 FPS · 30.87 MIN · $3.05)",
       rightLabel_es: "[DERECHA] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
       rightLabel_en: "[RIGHT] GEMINI 4 ARGON (120 FPS · 6.68 MIN · $0.65)",
-      flashCode: `// /demos/opus/01-tela-verlet/index.html · lineas 192-198 (copia literal)
+      flashCode: `// opus/01-tela-verlet/index.html · L192-198
 const P = {
   gravity: 9.81, iters: 10, substeps: 3, damping: 0.993,
   tear: 0.4, stiff: 1.0, grabR: 46,
@@ -428,7 +428,7 @@ const P = {
   mode: 'tension', preset: 'curtain', res: '72x44',
   shear: true, bend: true, paused: false, tool: 'grab'
 };`,
-      argonCode: `// /demos/argon/01-tela-verlet/index.html · lineas 1048-1060 (copia literal, sin sangria)
+      argonCode: `// argon/01-tela-verlet/index.html · L1048-1060
 // Dimensiones de malla superiores al mínimo requerido (68 columnas x 42 filas = 2,856 partículas)
 this.cols = 68;
 this.rows = 42;
@@ -442,8 +442,8 @@ this.tearThreshold = 2.85;
 this.stiffness = 0.96;
 this.grabRadius = 64;
 this.enableShear = false;`,
-      explanation_es: "En simulacion fisica sobre un hilo principal de JavaScript (presupuesto de 8.33 ms por cuadro a 120 Hz), Opus arranca su malla de 72x44 (3,168 nodos) con cizalla y flexion activadas (`shear: true, bend: true`), asi que su solver relaja 18,430 enlaces con `iters: 10` x `substeps: 3`: 30 relajaciones por frame, como indica su propio HUD, que ademas marca 6.28 ms en 'Física / frame' y 28 FPS. Argon arranca con 68x42 (2,856 particulas), solo sus 5,602 enlaces estructurales (`enableShear = false`) y 14 iteraciones Gauss-Seidel, y se mantiene en 120 FPS. Los dos guardan la tela en arreglos tipados: la diferencia esta en cuantos enlaces y pasadas resuelve cada uno por defecto.",
-      explanation_en: "In single-threaded JavaScript physics (an 8.33 ms frame budget at 120 Hz), Opus starts its 72x44 mesh (3,168 nodes) with shear and bend enabled (`shear: true, bend: true`), so its solver relaxes 18,430 links with `iters: 10` x `substeps: 3`: 30 relaxations per frame, as its own HUD states, which also shows 6.28 ms under 'Física / frame' and 28 FPS. Argon starts at 68x42 (2,856 particles) with only its 5,602 structural links (`enableShear = false`) and 14 Gauss-Seidel iterations, and holds 120 FPS. Both keep the cloth in typed arrays: the difference is how many links and passes each one solves by default."
+      explanation_es: "Los dos paneles son copia literal de las lineas que cita su encabezado; solo se quito la sangria inicial comun. En simulacion fisica sobre un hilo principal de JavaScript (presupuesto de 8.33 ms por cuadro a 120 Hz), Opus arranca su malla de 72x44 (3,168 nodos) con cizalla y flexion activadas (`shear: true, bend: true`), asi que su solver relaja 18,430 enlaces con `iters: 10` x `substeps: 3`: 30 relajaciones por frame, como indica su propio HUD, que ademas marca 6.28 ms en 'Física / frame' y 28 FPS. Argon arranca con 68x42 (2,856 particulas), solo sus 5,602 enlaces estructurales (`enableShear = false`) y 14 iteraciones Gauss-Seidel, y se mantiene en 120 FPS. Los dos guardan la tela en arreglos tipados: la diferencia esta en cuantos enlaces y pasadas resuelve cada uno por defecto.",
+      explanation_en: "Both panels are literal copies of the lines cited in their header; only the common leading indentation was removed. In single-threaded JavaScript physics (an 8.33 ms frame budget at 120 Hz), Opus starts its 72x44 mesh (3,168 nodes) with shear and bend enabled (`shear: true, bend: true`), so its solver relaxes 18,430 links with `iters: 10` x `substeps: 3`: 30 relaxations per frame, as its own HUD states, which also shows 6.28 ms under 'Física / frame' and 28 FPS. Argon starts at 68x42 (2,856 particles) with only its 5,602 structural links (`enableShear = false`) and 14 Gauss-Seidel iterations, and holds 120 FPS. Both keep the cloth in typed arrays: the difference is how many links and passes each one solves by default."
     },
     content_es: [
       "El Nivel 01 del Episodio 02 pedia una malla densa de tela con integracion de Verlet desde cero, mapa de calor de tension mecanica y corte con bisturi laser.",
@@ -571,37 +571,32 @@ this.enableShear = false;`,
     codeComparison: {
       title_es: "Comparativa directa del calculo de columna vertical en el bucle DDA",
       title_en: "Direct comparison of vertical column bounds in the DDA loop",
-      flashCode: `// gemini-3.8-flash/motor-raycasting/index.html (Lineas 1262-1264, 1296 y 1309)
-// Tardo 17 minutos. Cuando lineHeight es IMPAR, -lineHeight / 2 termina en .5
+      flashCode: `// flash/motor-raycasting/index.html · L1262-1264, L1296, L1309-1310
 const lineHeight = Math.floor(screenH / perpWallDist);
-const drawStart = Math.max(0, -lineHeight / 2 + halfH); // <-- BUG CRITICO: Flotante .5 si lineHeight es impar
+const drawStart = Math.max(0, -lineHeight / 2 + halfH);
 const drawEnd = Math.min(screenH - 1, lineHeight / 2 + halfH);
-
+// …
 for (let y = drawStart; y <= drawEnd; y++) {
-  // ...textura, sombreado y niebla (lineas 1297-1307)...
-  // Con y = 142.5 y screenW = 320 (resolucion por defecto) el indice es 45,600 + x:
-  // la tira cae medio renglon (160 px) fuera de su columna. Con ancho impar, Uint32Array la ignoraria.
+  // …
   screenBuf32[y * screenW + x] = packColor(r, g, b);
 }`,
-      argonCode: `// gemini-4-argon/motor-raycasting/index.html (Lineas 1310-1315, 1341 y 1347-1349)
-// Tardo 4 minutos (4.25x mas rapido). Corrimiento de bits garantiza entero 32-bit:
+      argonCode: `// argon/motor-raycasting/index.html · L1310-1315, L1341, L1347-1351
 const lineHeight = Math.floor((SCREEN_H / effectiveDist) * fovScale);
 
-const rawStart = - (lineHeight >> 1) + horizon; // <-- Division entera por desplazamiento de bits (siempre entero)
+const rawStart = - (lineHeight >> 1) + horizon;
 const rawEnd = (lineHeight >> 1) + horizon;
 const drawStart = Math.max(0, rawStart);
 const drawEnd = Math.min(SCREEN_H - 1, rawEnd);
-
+// …
 for (let y = drawStart; y <= drawEnd; y++) {
-  // ...textura y sombreado (lineas 1342-1345)...
-  // Indice 100% entero garantizado en cada iteracion:
+  // …
   const rowIdx = y * SCREEN_W + col;
   for (let s = 0; s < colStep && col + s < SCREEN_W; s++) {
     frameBuffer[rowIdx + s] = shadedTexel;
   }
 }`,
-      explanation_es: "En la especificacion ECMAScript para TypedArrays (`Uint32Array`), cualquier acceso `arr[idx]` donde `idx` no es un CanonicalNumericIndexString entero valido (como `45120.5`) no lanza excepcion en consola: simplemente no escribe nada en el buffer (y si el `.5` se cancela con un ancho de renglon par, la escritura cae medio renglon desfasada). Como `lineHeight` alterna entre par e impar segun la distancia perpendicular del rayo, la mitad de las tiras verticales desaparecen y las paredes parecen rejas.",
-      explanation_en: "Under the ECMAScript specification for TypedArrays (`Uint32Array`), any indexed write `arr[idx]` where `idx` is a non-integer float (like `45120.5`) throws zero console errors: it silently discards the write (and when the `.5` cancels out against an even row width, the write lands half a row off instead). Because `lineHeight` alternates between even and odd integers as perpendicular distance changes, half the vertical wall strips vanish, turning solid walls into broken cages."
+      explanation_es: "Los dos paneles son copia literal de las lineas que cita su encabezado; solo se quito la sangria inicial comun y `// …` marca los tramos omitidos. En Flash, `halfH` es entero (`Math.floor(screenH / 2) + pitchOffset`, L1123), asi que cuando `lineHeight` es impar y la pared no llena la pantalla, el `.5` de `-lineHeight / 2` pasa a `drawStart` y a cada `y` del bucle. En la especificacion ECMAScript para TypedArrays (`Uint32Array`), cualquier acceso `arr[idx]` donde `idx` no es un CanonicalNumericIndexString entero valido (como `45120.5`) no lanza excepcion en consola: simplemente no escribe nada en el buffer (y si el `.5` se cancela con un ancho de renglon par, la escritura cae medio renglon desfasada). Con la resolucion por defecto de Flash (320x200), por ejemplo, `y = 142.5` da el indice `45600 + x`: la tira cae medio renglon (160 px) fuera de su columna. Como `lineHeight` alterna entre par e impar segun la distancia perpendicular del rayo, la mitad de las tiras verticales desaparecen y las paredes parecen rejas. En Argon, `lineHeight >> 1` siempre es entero y `horizon` tambien (`(SCREEN_H >> 1) + bobOffset`, con `bobOffset` redondeado por `Math.round`, L1114-1115), asi que `y` y `rowIdx` nunca llevan decimales.",
+      explanation_en: "Both panels are literal copies of the lines cited in their header; only the common leading indentation was removed, and `// …` marks omitted ranges. In Flash, `halfH` is an integer (`Math.floor(screenH / 2) + pitchOffset`, L1123), so when `lineHeight` is odd and the wall does not fill the screen, the `.5` from `-lineHeight / 2` carries into `drawStart` and into every `y` of the loop. Under the ECMAScript specification for TypedArrays (`Uint32Array`), any indexed write `arr[idx]` where `idx` is a non-integer float (like `45120.5`) throws zero console errors: it silently discards the write (and when the `.5` cancels out against an even row width, the write lands half a row off instead). At Flash's default resolution (320x200), for example, `y = 142.5` gives index `45600 + x`: the strip lands half a row (160 px) away from its column. Because `lineHeight` alternates between even and odd integers as perpendicular distance changes, half the vertical wall strips vanish, turning solid walls into broken cages. In Argon, `lineHeight >> 1` is always an integer and so is `horizon` (`(SCREEN_H >> 1) + bobOffset`, with `bobOffset` rounded by `Math.round`, L1114-1115), so `y` and `rowIdx` never carry a fraction."
     },
     content_es: [
       "El Nivel 6 (Motor 3D Raycasting estilo Wolfenstein 3D sin WebGL) era el jefe del torneo. Ambos modelos eligieron el camino de mayor rendimiento para Canvas 2D: crear un `ImageData` y envolver su buffer en un `Uint32Array` para pintar cada texel de 32 bits (`0xAABBGGRR`) directamente en memoria.",
@@ -653,26 +648,21 @@ for (let y = drawStart; y <= drawEnd; y++) {
     codeComparison: {
       title_es: "Inspeccion de las lineas 748 y 753 de Flash frente al contador dinamico de Argon",
       title_en: "Inspecting lines 748 and 753 of Flash vs Argon's dynamic particle counter",
-      flashCode: `<!-- gemini-3.8-flash/visualizador-adn/index.html (Lineas 748 y 753) -->
+      flashCode: `// flash/visualizador-adn/index.html · L748, L753
 <span class="telemetry-val highlight-cyan" id="live-particles-val">18,480 PTS</span>
-<span class="telemetry-val highlight-cyan" id="part-count">18,480</span>
-
-<script>
-  // En el script de Flash (lineas 976-982):
-  // Helice: 4,800 x 2 hebras + 120 peldanos x 42 = 14,640 particulas + Polvo ambiental: 3,200 = 17,840 reales.
-  // Ninguna linea de JS actualiza jamas #live-particles-val ni #part-count, ni existe slider de densidad.
-</script>`,
-      argonCode: `// gemini-4-argon/visualizador-adn/index.html (Lineas 636, 1116 y 1372-1374)
-// Slider de densidad en vivo: 10,000 a 40,000 particulas de la helice (22,000 por defecto)
-// + 2,500 esporas ambientales = 24,500 particulas totales en el HUD
+// …
+<span class="telemetry-val highlight-cyan" id="part-count">18,480</span>`,
+      argonCode: `// argon/visualizador-adn/index.html · L636, L1116, L1372-1375
+<input type="range" id="slider-density" min="10000" max="40000" step="2000" value="22000" />
+// …
 function buildDNASystem(totalCount) {
-  // ...reconstruye hebras (68%) y peldanos de bases (32%) con totalCount particulas...
+  // …
   document.getElementById('val-dna-particles').textContent = totalCount.toLocaleString('en-US');
   document.getElementById('val-total-particles').textContent =
     (totalCount + PARAMS.ambientParticleCount).toLocaleString('en-US');
 }`,
-      explanation_es: "El prompt exigia explicitamente un HUD con contador de particulas en tiempo real y un control deslizante para modificar la densidad de particulas en caliente. Flash omitio el slider de densidad, instancio 17,840 particulas fijas y escribio `18,480` directamente en el HTML.",
-      explanation_en: "The prompt explicitly required a real-time HUD particle counter and a live slider to adjust particle density on the fly. Flash omitted the density slider, instantiated 17,840 fixed particles, and hardcoded `18,480` in the static HTML."
+      explanation_es: "Los dos paneles son copia literal de las lineas que cita su encabezado; solo se quito la sangria inicial comun y `// …` marca los tramos omitidos. El prompt exigia explicitamente un HUD con contador de particulas en tiempo real y un control deslizante para modificar la densidad de particulas en caliente. Flash omitio el slider de densidad, instancio 17,840 particulas fijas y escribio `18,480` directamente en el HTML. Los ids `live-particles-val` y `part-count` solo aparecen en esas dos lineas: ninguna linea de JavaScript los actualiza. Sus constantes (L976-979, L982) dan 4,800 x 2 hebras + 120 peldanos x 42 = 14,640 particulas de helice, mas 3,200 de polvo ambiental: 17,840. En Argon, `#slider-density` (L636) llama a `buildDNASystem` en cada cambio (L1465-1468); la funcion reparte `totalCount` en 68% para las dos hebras y 32% para los peldanos (L1139-1141) y reescribe los dos contadores del HUD (L1372-1374): 22,000 por defecto + 2,500 de polvo (`ambientParticleCount`, L722) = 24,500.",
+      explanation_en: "Both panels are literal copies of the lines cited in their header; only the common leading indentation was removed, and `// …` marks omitted ranges. The prompt explicitly required a real-time HUD particle counter and a live slider to adjust particle density on the fly. Flash omitted the density slider, instantiated 17,840 fixed particles, and hardcoded `18,480` in the static HTML. The `live-particles-val` and `part-count` ids appear only on those two lines: no line of JavaScript ever updates them. Its constants (L976-979, L982) give 4,800 x 2 strands + 120 rungs x 42 = 14,640 helix particles, plus 3,200 ambient dust: 17,840. In Argon, `#slider-density` (L636) calls `buildDNASystem` on every change (L1465-1468); the function splits `totalCount` into 68% for the two strands and 32% for the rungs (L1139-1141) and rewrites both HUD counters (L1372-1374): 22,000 by default + 2,500 dust (`ambientParticleCount`, L722) = 24,500."
     },
     content_es: [
       "En el Nivel 2 pedimos un Visualizador de ADN 3D con mas de 10,000 particulas sometidas a repulsión del cursor y retorno elástico amortiguado por Ley de Hooke ($F = -k \\cdot d - c \\cdot v$), mas un HUD con contador de particulas y slider de densidad.",
