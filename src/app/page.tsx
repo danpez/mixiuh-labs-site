@@ -153,8 +153,12 @@ export default function MixiuhLabsHomePage() {
 
   // CC02 Roblox 3D 3-Giants interactive comparator state
   const [cc02Model, setCc02Model] = useState<
-    "astra" | "argon" | "opus" | "opus_fixed" | "triple"
+    "astra" | "argon" | "opus" | "opus_fixed" | "triple" | "prompt"
   >("astra");
+  const [comunidadEp, setComunidadEp] = useState<"all" | "cc02" | "cc01">(
+    "all"
+  );
+  const [copiedCc02Prompt, setCopiedCc02Prompt] = useState(false);
 
   // Video & Glossary state
   const [activeVideoClip, setActiveVideoClip] = useState<"hook" | "boss">(
@@ -494,13 +498,15 @@ export default function MixiuhLabsHomePage() {
   const totalEpisodesCount = releasedArticles.length;
   const totalLabsCount =
     2 + (released.ep03 ? 1 : 0) + (released.ep04 ? 1 : 0);
+  const totalComunidadCount =
+    (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
     21 +
     12 +
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 12 : 0) +
     (released.ep04 ? 18 : 0) +
-    (released.cc02 ? 3 : 0);
+    (released.cc02 ? 4 : 0);
   const totalPromptsCount =
     10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0) + (released.cc02 ? 1 : 0);
   const totalForumThreadsCount =
@@ -763,7 +769,9 @@ export default function MixiuhLabsHomePage() {
                       color={mainView === "comunidad" ? "#090B10" : "#FFD100"}
                     />
                     <span>
-                      {lang === "es" ? "Comentario al Codigo" : "Comment to Code"}
+                      {lang === "es"
+                        ? `Comentario al Codigo (${totalComunidadCount})`
+                        : `Comment to Code (${totalComunidadCount})`}
                     </span>
                   </button>
                 )}
@@ -986,7 +994,9 @@ export default function MixiuhLabsHomePage() {
                       : "bg-[#111622] text-[#94A3B8]"
                   }`}
                 >
-                  {lang === "es" ? "Comentario al Codigo" : "Comment to Code"}
+                  {lang === "es"
+                    ? `Comentario al Codigo (${totalComunidadCount})`
+                    : `Comment to Code (${totalComunidadCount})`}
                 </button>
               )}
               {released.carbon01 && (
@@ -1125,6 +1135,23 @@ export default function MixiuhLabsHomePage() {
 
                   {/* Tactile Hardware Action Buttons */}
                   <div className="flex flex-wrap items-center gap-3 pt-1">
+                    {released.cc02 && (
+                      <button
+                        onClick={() => {
+                          setComunidadEp("cc02");
+                          navigateToView("comunidad");
+                        }}
+                        className="px-btn bg-[#10B981] text-[#090B10] px-5 py-3 text-xs sm:text-sm"
+                      >
+                        <PixelIcon name="gamepad" size={15} color="#090B10" />
+                        <span>
+                          {lang === "es"
+                            ? "Nuevo: Reto ROBLOX 3D (CC02 · 3 Gigantes + Bonus)"
+                            : "New: 3D ROBLOX Challenge (CC02 · 3 Giants + Bonus)"}
+                        </span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => navigateToView("noticias")}
                       className="px-btn bg-[#FFD100] text-[#090B10] px-5 py-3 text-xs sm:text-sm"
@@ -1487,6 +1514,10 @@ export default function MixiuhLabsHomePage() {
                             ? lang === "es"
                               ? "Abrir Noticia + Video"
                               : "Open News + Video"
+                            : art.id === "cc02"
+                            ? lang === "es"
+                              ? "Jugar ROBLOX 3D (4 Demos)"
+                              : "Play 3D ROBLOX (4 Demos)"
                             : art.filter === "comunidad"
                             ? lang === "es"
                               ? "Abrir OVERFIT Studio 3D"
@@ -1703,7 +1734,7 @@ export default function MixiuhLabsHomePage() {
               <div className="lg:col-span-5 space-y-4">
                 <PixelCalendar
                   lang={lang}
-                  selectedDate="2026-10-30"
+                  selectedDate="2026-10-31"
                   tone="yellow"
                   events={[
                     {
@@ -1735,6 +1766,11 @@ export default function MixiuhLabsHomePage() {
                       date: "2026-10-30",
                       label: "Noticias IA #01: Gemini 4 Carbon + Pixel UI v2.2",
                       tone: "cyan",
+                    },
+                    {
+                      date: "2026-10-31",
+                      label: "CC02: ROBLOX 3D (Astra vs Argon vs Opus + Bonus)",
+                      tone: "emerald",
                     },
                   ]}
                 />
@@ -3269,6 +3305,42 @@ export default function MixiuhLabsHomePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                {released.cc02 && (
+                  <>
+                    <button
+                      onClick={() => setComunidadEp("all")}
+                      className={`px-3 py-2 rounded-xl font-bold cursor-pointer ${
+                        comunidadEp === "all"
+                          ? "bg-[#FFD100] text-[#060B14]"
+                          : "bg-[#060B14] border border-white/15 text-[#CBD5E1]"
+                      }`}
+                    >
+                      {lang === "es" ? "Todos (2)" : "All (2)"}
+                    </button>
+                    <button
+                      onClick={() => setComunidadEp("cc02")}
+                      className={`px-3 py-2 rounded-xl font-bold cursor-pointer ${
+                        comunidadEp === "cc02"
+                          ? "bg-[#34D399] text-[#060B14]"
+                          : "bg-[#060B14] border border-[#34D399]/50 text-[#34D399]"
+                      }`}
+                    >
+                      {lang === "es"
+                        ? "#02 ROBLOX 3D (3 Gigantes + Bonus)"
+                        : "#02 3D ROBLOX (3 Giants + Bonus)"}
+                    </button>
+                    <button
+                      onClick={() => setComunidadEp("cc01")}
+                      className={`px-3 py-2 rounded-xl font-bold cursor-pointer ${
+                        comunidadEp === "cc01"
+                          ? "bg-[#FBBF24] text-[#060B14]"
+                          : "bg-[#060B14] border border-[#FBBF24]/50 text-[#FBBF24]"
+                      }`}
+                    >
+                      #01 OVERFIT Studio 3D (@tenito03)
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => navigateToView("dossiers", "ep04")}
                   className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#34D399]/40 text-[#34D399] hover:bg-[#11283F] font-bold cursor-pointer"
@@ -3277,19 +3349,11 @@ export default function MixiuhLabsHomePage() {
                     ? "Ir a Videos / Laboratorios →"
                     : "Go to Videos / Labs →"}
                 </button>
-                <button
-                  onClick={() => navigateToView("noticias")}
-                  className="px-3.5 py-2 rounded-xl bg-[#060B14] border border-[#22D3EE]/40 text-[#22D3EE] hover:bg-[#11283F] font-bold cursor-pointer"
-                >
-                  {lang === "es"
-                    ? "Ir a Noticias IA (Carbon) →"
-                    : "Go to AI News (Carbon) →"}
-                </button>
               </div>
             </div>
 
             {/* CC02: 3D ROBLOX CHALLENGE (GEMINI 4 ARGON HIGH vs CLAUDE OPUS 5.5 HIGH vs GPT-6 ASTRA HIGH) */}
-            {released.cc02 && (
+            {released.cc02 && (comunidadEp === "all" || comunidadEp === "cc02") && (
               <div className="rounded-2xl bg-[#0B1D30] border-2 border-[#34D399]/55 p-6 sm:p-8 shadow-2xl space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="px-3.5 py-1 rounded-full bg-[#34D399]/15 border border-[#34D399]/50 font-mono-hud text-xs font-bold text-[#34D399]">
@@ -3460,10 +3524,90 @@ export default function MixiuhLabsHomePage() {
                       >
                         {lang === "es" ? "Comparativa Triple" : "Triple View"}
                       </button>
+                      <button
+                        onClick={() => setCc02Model("prompt")}
+                        className={`px-3 py-1.5 rounded-lg font-bold cursor-pointer transition ${
+                          cc02Model === "prompt"
+                            ? "bg-[#00E5FF] text-[#060B14]"
+                            : "bg-[#060B14] text-[#00E5FF] border border-[#00E5FF]/40"
+                        }`}
+                      >
+                        {lang === "es"
+                          ? "Prompt + Autopsia Línea 1062"
+                          : "Prompt + Line 1062 Autopsy"}
+                      </button>
                     </div>
                   </div>
 
-                  {cc02Model === "triple" ? (
+                  {cc02Model === "prompt" ? (
+                    <div className="p-5 sm:p-6 bg-[#060B14] space-y-5">
+                      <div className="p-4 rounded-xl bg-[#0B1D30] border border-[#F472B6]/50 space-y-3">
+                        <div className="font-mono-hud text-xs font-bold text-[#F472B6]">
+                          {lang === "es"
+                            ? "AUTOPSIA FORENSE LÍNEA 1062 (CLAUDE OPUS 5.5 HIGH) · EL CARÁCTER 'z' QUE APAGÓ UN MUNDO 3D DE $9.91 USD"
+                            : "FORENSIC AUTOPSY LINE 1062 (CLAUDE OPUS 5.5 HIGH) · THE 'z' CHARACTER THAT BLACKED OUT A $9.91 USD 3D WORLD"}
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 font-mono-hud text-xs">
+                          <div className="p-3.5 rounded-lg bg-[#04060A] border border-[#FB7185]/50">
+                            <div className="text-[#FB7185] font-bold mb-1.5">
+                              {lang === "es"
+                                ? "ORIGINAL ZERO-SHOT (Línea 1062 · Crash Three.js)"
+                                : "ORIGINAL ZERO-SHOT (Line 1062 · Three.js Crash)"}
+                            </div>
+                            <pre className="text-[#F5F7FA] whitespace-pre-wrap">
+{`const idx = axis === 0 ? 0 : axis === 1 ? 1 : 'z';
+pos.setComponent(idx, val);
+// Error: index is out of range: z`}
+                            </pre>
+                          </div>
+                          <div className="p-3.5 rounded-lg bg-[#04060A] border border-[#34D399]/50">
+                            <div className="text-[#34D399] font-bold mb-1.5">
+                              {lang === "es"
+                                ? "BONUS REPARADO (1 Carácter: 'z' -> 2 · 60 FPS)"
+                                : "REPAIRED BONUS (1 Character: 'z' -> 2 · 60 FPS)"}
+                            </div>
+                            <pre className="text-[#F5F7FA] whitespace-pre-wrap">
+{`const idx = axis === 0 ? 0 : axis === 1 ? 1 : 2;
+pos.setComponent(idx, val);
+// Desbloquea 10 islas Obby, Studio 3D y bots a 60 FPS`}
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-[#0B1D30] border border-[#00E5FF]/40 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono-hud text-xs font-bold text-[#00E5FF]">
+                            {lang === "es"
+                              ? "PROMPT EXACTO (1 SOLO INTENTO PARA LAS 3 ETAPAS · MODO HIGH)"
+                              : "VERBATIM PROMPT (1 SINGLE ATTEMPT FOR ALL 3 STAGES · HIGH MODE)"}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const promptText = `Construye en UN UNICO ARCHIVO HTML autocontenido (index.html) un motor y juego 3D completo tipo ROBLOX ("MixiuhBlox 3D: Obby + Studio + Bot Lobby") a 60 FPS con Three.js r128:\n1. Circuito Obby 3D de 10 Islas en el Cielo + Personaje Blocky articulado de 6 piezas con desarme Ragdoll al caer a la lava.\n2. Modo Constructor Roblox Studio 3D en Vivo (colocar, mover, escalar, pintar bloques, rampas, trampolines, spinners y lava con previsualización en la cuadrícula).\n3. Multijugador Simulado con 6 Jugadores Bots IA corriendo el circuito en vivo, globos de chat 3D sobre sus cabezas y tabla de líderes.`;
+                              navigator.clipboard.writeText(promptText);
+                              setCopiedCc02Prompt(true);
+                              setTimeout(() => setCopiedCc02Prompt(false), 2000);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-[#060B14] text-white font-mono-hud text-xs inline-flex items-center gap-1.5 cursor-pointer border border-white/15"
+                          >
+                            {copiedCc02Prompt ? (
+                              <Check className="w-3.5 h-3.5 text-[#34D399]" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                            <span>{copiedCc02Prompt ? "Copiado" : "Copiar Prompt"}</span>
+                          </button>
+                        </div>
+                        <pre className="text-xs sm:text-sm text-[#F5F7FA] whitespace-pre-wrap font-mono-hud leading-relaxed">
+{`Construye en UN UNICO ARCHIVO HTML autocontenido (index.html) un motor y juego 3D completo tipo ROBLOX ("MixiuhBlox 3D: Obby + Studio + Bot Lobby") a 60 FPS con Three.js r128:
+1. Circuito Obby 3D de 10 Islas en el Cielo + Personaje Blocky articulado de 6 piezas con desarme Ragdoll al caer a la lava.
+2. Modo Constructor Roblox Studio 3D en Vivo (colocar, mover, escalar, pintar bloques, rampas, trampolines, spinners y lava con previsualización en la cuadrícula).
+3. Multijugador Simulado con 6 Jugadores Bots IA corriendo el circuito en vivo, globos de chat 3D sobre sus cabezas y tabla de líderes.`}
+                        </pre>
+                      </div>
+                    </div>
+                  ) : cc02Model === "triple" ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-white/15 bg-[#04060A]">
                       <div>
                         <div className="px-3 py-2 bg-[#060B14] text-[#22D3EE] font-mono-hud text-[11px] font-bold flex justify-between">
@@ -3515,9 +3659,136 @@ export default function MixiuhLabsHomePage() {
                     />
                   )}
                 </div>
+
+                {/* Single-Attempt Total Time & 3-Stage Evaluation Table */}
+                <div className="rounded-xl bg-[#060B14] border border-white/15 overflow-hidden">
+                  <div className="px-4 py-3 bg-[#11283F] border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono-hud text-xs font-bold text-[#34D399]">
+                      {lang === "es"
+                        ? "TABLA DE TIEMPO TOTAL (1 SOLO INTENTO) Y EVALUACIÓN DE LAS 3 ETAPAS + BONUS EXTENDIDO"
+                        : "SINGLE-ATTEMPT TOTAL TIME & 3-STAGE EVALUATION MATRIX + EXTENDED BONUS"}
+                    </span>
+                    <span className="font-mono-hud text-[11px] text-[#CBD5E1]">
+                      {lang === "es"
+                        ? "Cada IA construyó las 3 etapas dentro de una única corrida continua"
+                        : "Each AI built all 3 stages in a single continuous run"}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse font-mono-hud text-xs">
+                      <thead>
+                        <tr className="bg-[#04060A] border-b border-white/10 text-[#94A3B8]">
+                          <th className="py-3 px-4">
+                            {lang === "es" ? "Etapa / Métrica" : "Stage / Metric"}
+                          </th>
+                          <th className="py-3 px-4 text-[#22D3EE]">
+                            Gemini 4 Argon High
+                          </th>
+                          <th className="py-3 px-4 text-[#B794F6]">
+                            Claude Opus 5.5 High
+                          </th>
+                          <th className="py-3 px-4 text-[#34D399]">
+                            GPT-6 Astra High
+                          </th>
+                          <th className="py-3 px-4">
+                            {lang === "es" ? "Ganador" : "Winner"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        <tr className="bg-[#0B1D30]/50 font-bold">
+                          <td className="py-3 px-4 text-[#FFD100]">
+                            {lang === "es"
+                              ? "TIEMPO Y COSTO TOTAL (1 INTENTO PARA LAS 3 ETAPAS)"
+                              : "TOTAL TIME & COST (1 SINGLE ATTEMPT FOR ALL 3 STAGES)"}
+                          </td>
+                          <td className="py-3 px-4 text-[#22D3EE]">
+                            27.2 min · $0.32 USD · 2,578 Lín
+                          </td>
+                          <td className="py-3 px-4 text-[#FB7185]">
+                            55.1 min · $9.91 USD · 2,413 Lín
+                          </td>
+                          <td className="py-3 px-4 text-[#34D399]">
+                            18.9 min · $1.11 USD · 4,727 Lín
+                          </td>
+                          <td className="py-3 px-4 text-[#34D399]">
+                            ASTRA (1.44x vs Argon)
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 text-white">
+                            01. Circuito Obby 3D (10 Islas + Ragdoll)
+                          </td>
+                          <td className="py-3 px-4 text-[#CBD5E1]">
+                            60 FPS · 10 Etapas + Ragdoll
+                          </td>
+                          <td className="py-3 px-4 text-[#FB7185]">
+                            Sin 3D (Error línea 1062)
+                          </td>
+                          <td className="py-3 px-4 text-[#34D399] font-bold">
+                            61 FPS · Relieve Studs 3D + 10 Islas
+                          </td>
+                          <td className="py-3 px-4 text-[#34D399] font-bold">
+                            GPT-6 ASTRA (1-0-0)
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 text-white">
+                            02. Modo Constructor Roblox Studio 3D
+                          </td>
+                          <td className="py-3 px-4 text-[#22D3EE] font-bold">
+                            60 FPS · Molde Fantasma 3D en Vivo
+                          </td>
+                          <td className="py-3 px-4 text-[#FB7185]">
+                            Sin Escena 3D
+                          </td>
+                          <td className="py-3 px-4 text-[#CBD5E1]">
+                            61 FPS · Inspector + Export JSON
+                          </td>
+                          <td className="py-3 px-4 text-[#22D3EE] font-bold">
+                            ARGON HIGH (1-1-0)
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 text-white">
+                            03. Multijugador (6 Robots IA + Chat)
+                          </td>
+                          <td className="py-3 px-4 text-[#CBD5E1]">
+                            60 FPS · 6 Robots IA + Chat
+                          </td>
+                          <td className="py-3 px-4 text-[#FB7185]">
+                            Solo Interfaz 2D
+                          </td>
+                          <td className="py-3 px-4 text-[#34D399] font-bold">
+                            61 FPS · 6 Bots + Globos Chat 3D
+                          </td>
+                          <td className="py-3 px-4 text-[#34D399] font-bold">
+                            GPT-6 ASTRA (2-1-0)
+                          </td>
+                        </tr>
+                        <tr className="bg-[#B794F6]/10">
+                          <td className="py-3 px-4 text-[#F472B6] font-bold">
+                            {lang === "es"
+                              ? "BONUS EXTENDIDO: Opus 5.5 Reparado (1 Carácter)"
+                              : "EXTENDED BONUS: Opus 5.5 Fixed (1 Character)"}
+                          </td>
+                          <td className="py-3 px-4 text-[#94A3B8]">—</td>
+                          <td className="py-3 px-4 text-[#F472B6] font-bold">
+                            60 FPS · 10 Islas + Flechas RGB + 8 Bots (axis &apos;z&apos; → 2)
+                          </td>
+                          <td className="py-3 px-4 text-[#94A3B8]">—</td>
+                          <td className="py-3 px-4 text-[#F472B6] font-bold">
+                            {lang === "es" ? "EXTRA SIN PUNTO" : "EXHIBITION BONUS"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
 
+            {(comunidadEp === "all" || comunidadEp === "cc01") && (
             <div className="rounded-2xl bg-[#0B1D30] border border-[#FBBF24]/40 p-6 sm:p-8 shadow-2xl space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="px-3.5 py-1 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/50 font-mono-hud text-xs font-bold text-[#FBBF24]">
@@ -3614,6 +3885,7 @@ export default function MixiuhLabsHomePage() {
                 />
               </div>
             </div>
+            )}
           </div>
         </main>
       )}
@@ -3696,12 +3968,26 @@ export default function MixiuhLabsHomePage() {
                 >
                   EP01: Argon vs 3.8 Flash (20 + Bonus)
                 </button>
+                {released.cc02 && (
+                  <button
+                    onClick={() => {
+                      setComunidadEp("cc02");
+                      navigateToView("comunidad");
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-[#34D399]/20 border border-[#34D399]/60 text-[#34D399] font-bold cursor-pointer"
+                  >
+                    CC02: ROBLOX 3D (3 Gigantes + Bonus)
+                  </button>
+                )}
                 {released.cc01 && (
                   <button
-                    onClick={() => navigateToView("comunidad")}
+                    onClick={() => {
+                      setComunidadEp("cc01");
+                      navigateToView("comunidad");
+                    }}
                     className="px-3.5 py-2 rounded-xl bg-[#FBBF24]/20 border border-[#FBBF24]/50 text-[#FBBF24] font-bold cursor-pointer"
                   >
-                    OVERFIT Studio 3D (1)
+                    CC01: OVERFIT Studio 3D (1)
                   </button>
                 )}
               </div>
@@ -4077,7 +4363,9 @@ export default function MixiuhLabsHomePage() {
                   onClick={() => navigateToView("comunidad")}
                   className="text-[#FFD100] hover:text-white font-bold cursor-pointer"
                 >
-                  Del Comentario al Codigo (#01)
+                  {released.cc02
+                    ? "Del Comentario al Codigo (#01–#02)"
+                    : "Del Comentario al Codigo (#01)"}
                 </button>
               )}
               {released.carbon01 && (

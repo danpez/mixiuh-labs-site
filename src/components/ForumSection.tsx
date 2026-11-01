@@ -63,6 +63,7 @@ export default function ForumSection({ lang, onJumpToArena, released }: Props) {
   // Combine curated threads with individual prompt/audit threads for released episodes only (zero spoilers)
   const defaultThreads = useMemo<ForumThread[]>(() => {
     const releasedCuratedThreads = INITIAL_FORUM_THREADS.filter((t) => {
+      if (t.episode === "cc02" && !rel.cc02) return false;
       if (t.episode === "carbon01" && !rel.carbon01) return false;
       if (t.episode === "ep04" && !rel.ep04) return false;
       if (t.episode === "ep03" && !rel.ep03) return false;

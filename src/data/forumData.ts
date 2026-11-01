@@ -35,7 +35,7 @@ export interface ForumThread {
   readTime: string;
   upvotes: number;
   views: number;
-  episode?: "ep01" | "ep02" | "ep03" | "ep04" | "cc01" | "carbon01";
+  episode?: "ep01" | "ep02" | "ep03" | "ep04" | "cc01" | "carbon01" | "cc02";
   relatedChallengeN?: number;
   tags: string[];
   codeComparison?: {
@@ -138,6 +138,62 @@ export const INITIAL_EP02_PROPOSALS: Ep02Proposal[] = [
 ];
 
 export const INITIAL_FORUM_THREADS: ForumThread[] = [
+  {
+    id: "thread-cc02-roblox-3-gigantes",
+    slug: "del-comentario-al-codigo-02-roblox-3d-argon-vs-opus-vs-gpt-6-astra-bonus",
+    category: "benchmarks",
+    pinned: true,
+    episode: "cc02",
+    badge_es: "DEL COMENTARIO AL CODIGO #02 · RETO ROBLOX 3D (3 GIGANTES + BONUS)",
+    badge_en: "FROM COMMENT TO CODE #02 · 3D ROBLOX CHALLENGE (3 GIANTS + BONUS)",
+    title_es: "Juego Tipo ROBLOX 3D en 1 Intento: GPT-6 Astra High ($1.11) vs. Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) + La Autopsia de 1 Letra en la Linea 1062",
+    title_en: "Zero-Shot 3D ROBLOX Engine: GPT-6 Astra High ($1.11) vs. Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) + The 1-Character Autopsy on Line 1062",
+    excerpt_es: "Un suscriptor en Instagram pidio enfrentar a los 3 gigantes en modo HIGH haciendo un juego tipo ROBLOX 3D completo. GPT-6 Astra gano 2-1-0 en 18.9 min ($1.11 USD), Argon gano el modo Studio 3D por $0.32 USD (27.2 min) y Opus 5.5 ($9.91 USD, 55.1 min) rompio su escena 3D por un caracter ('z' en lugar de 2) que reparamos en el Bonus Extendido.",
+    excerpt_en: "An Instagram subscriber challenged us to pit the 3 Giants in HIGH mode building a full 3D ROBLOX game. GPT-6 Astra won 2-1-0 in 18.9 min ($1.11 USD), Argon won 3D Studio mode for $0.32 USD (27.2 min), and Opus 5.5 ($9.91 USD, 55.1 min) crashed its 3D scene over a single character ('z' instead of 2) which we unlocked in the Extended Bonus.",
+    author: "Kevin Gonzalez",
+    authorRole_es: "Arbitro y Arquitecto · Mixiuh Labs",
+    authorRole_en: "Referee & Architect · Mixiuh Labs",
+    createdAt: "2026-10-31",
+    readTime: "7 min",
+    upvotes: 614,
+    views: 5890,
+    tags: ["Del Comentario al Codigo #02", "ROBLOX 3D", "GPT-6 Astra High", "Gemini 4 Argon High", "Claude Opus 5.5 High", "Autopsia Linea 1062"],
+    codeComparison: {
+      title_es: "Autopsia Forense Linea 1062 (Claude Opus 5.5 High): El caracter 'z' que apago un mundo 3D de 2,413 lineas ($9.91 USD)",
+      title_en: "Forensic Autopsy Line 1062 (Claude Opus 5.5 High): The 'z' character that blacked out a 2,413-line 3D world ($9.91 USD)",
+      leftLabel_es: "[ORIGINAL ZERO-SHOT] LINEA 1062 · CRASH 3D EN THREE.VECTOR3.SETCOMPONENT()",
+      leftLabel_en: "[ORIGINAL ZERO-SHOT] LINE 1062 · 3D CRASH IN THREE.VECTOR3.SETCOMPONENT()",
+      rightLabel_es: "[BONUS EXTENDIDO REPARADO] 1 CARACTER CAMBIADO ('z' -> 2) · 60 FPS DESBLOQUEADO",
+      rightLabel_en: "[REPAIRED EXTENDED BONUS] 1 CHARACTER CHANGED ('z' -> 2) · 60 FPS UNLOCKED",
+      flashCode: `// claude-opus-5.5/index.html (Linea 1062)
+// Three.js Vector3.setComponent(index, value) exige indice numerico 0, 1 o 2:
+const idx = axis === 0 ? 0 : axis === 1 ? 1 : 'z';
+pos.setComponent(idx, val); // <-- Error: index is out of range: z`,
+      argonCode: `// claude-opus-5.5-fixed/index.html (Linea 1062)
+// Reemplazando 'z' por 2 sin tocar ninguna otra linea de las 2,413:
+const idx = axis === 0 ? 0 : axis === 1 ? 1 : 2;
+pos.setComponent(idx, val); // <-- Desbloquea las 10 islas Obby, Studio 3D y bots a 60 FPS`,
+      explanation_es: "Claude Opus 5.5 High tardo 55.1 minutos y consumio 4.53 millones de tokens ($9.91 USD) para programar 2,413 lineas con un circuito Obby de 10 etapas, modo Studio 3D con flechas RGB de traslacion y 8 bots con IA. Pero en la linea 1062 escribio 'z' en vez de 2 dentro de Vector3.setComponent(), abortando el constructor del mundo 3D. Al corregir ese unico caracter en el Bonus Extendido, todo el juego oculto cobro vida a 60 FPS.",
+      explanation_en: "Claude Opus 5.5 High spent 55.1 minutes and 4.53M tokens ($9.91 USD) coding 2,413 lines with a 10-stage Obby course, 3D Studio mode with RGB gizmo arrows, and 8 AI bots. Yet on line 1062 it wrote 'z' instead of 2 inside Vector3.setComponent(), aborting world generation. Fixing that single character in the Extended Bonus unlocked the entire hidden game at 60 FPS."
+    },
+    content_es: [
+      "Un comentario en Instagram nos pidio enfrentar a los tres modelos mas grandes del momento en modo HIGH construyendo un juego tipo ROBLOX 3D completo en un solo archivo HTML autocontenido: Gemini 4 Argon High, Claude Opus 5.5 High y GPT-6 Astra High.",
+      "Importante sobre el Tiempo Total (1 Solo Intento): Cada modelo genero las 3 etapas evaluadas (01. Circuito Obby de 10 islas + Ragdoll, 02. Modo Roblox Studio 3D en vivo y 03. Multijugador con 6 robots IA y chat) dentro de una unica corrida continua: GPT-6 Astra High tardo 18.9 minutos en total ($1.11 USD, 4,727 lineas), Gemini 4 Argon High tardo 27.2 minutos en total ($0.32 USD, 2,578 lineas) y Claude Opus 5.5 High tardo 55.1 minutos en total ($9.91 USD, 2,413 lineas).",
+      "1. Etapa 01 (Circuito Obby 3D de 10 Islas y Fisica Ragdoll): Punto para GPT-6 Astra High (1-0-0). Esculpio cada pieza con botones circulares en relieve tipo Lego/Roblox, texturas procedurales, 10 etapas con rodillos giratorios, puentes que desaparecen y desarme fisico en 6 piezas al caer.",
+      "2. Etapa 02 (Modo Constructor Roblox Studio 3D en Vivo): Punto para Gemini 4 Argon High (1-1-0). Por solo $0.32 USD construyo la mejor herramienta de edicion: proyecta un molde 3D semitransparente en vivo sobre el suelo antes de colocar cada bloque, rampa, resorte o bloque de lava.",
+      "3. Etapa 03 (Multijugador con 6 Robots IA, Globos de Chat 3D y Tabla de Lideres): Punto y victoria 2-1-0 para GPT-6 Astra High. Sus 6 bots saltan con fisica real, caen a la lava, reaparecen en su checkpoint y muestran globos de texto flotantes en 3D sobre la cabeza.",
+      "4. Bonus Extendido (¿Que habria pasado si Opus 5.5 no cometia el error de la linea 1062?): En la corrida original sin intervencion el punto no cuenta, pero reparamos ese unico caracter ('z' -> 2) para mostrar la obra oculta de Opus 5.5: un circuito de 10 etapas en espiral ascendente, Studio 3D con flechas RGB y bots corriendo a 60 FPS."
+    ],
+    content_en: [
+      "An Instagram subscriber challenged us to pit the three largest frontier models in HIGH reasoning mode building a complete single-file 3D ROBLOX game: Gemini 4 Argon High, Claude Opus 5.5 High, and GPT-6 Astra High.",
+      "Single-Attempt Total Time Clarification: Each model built all 3 evaluated stages (01. 10-Island Obby + Ragdoll, 02. Live 3D Roblox Studio Mode, and 03. 6-Bot AI Multiplayer + Chat) in a single continuous zero-shot run: GPT-6 Astra High took 18.9 minutes total ($1.11 USD, 4,727 lines), Gemini 4 Argon High took 27.2 minutes total ($0.32 USD, 2,578 lines), and Claude Opus 5.5 High took 55.1 minutes total ($9.91 USD, 2,413 lines).",
+      "1. Stage 01 (10-Island 3D Obby Course & Ragdoll Physics): Point for GPT-6 Astra High (1-0-0). It sculpted raised cylindrical studs on every block, procedural textures, rotating spinners, disappearing bridges, and 6-limb ragdoll detachment.",
+      "2. Stage 02 (Live 3D Roblox Studio Builder Mode): Point for Gemini 4 Argon High (1-1-0). For just $0.32 USD it built the best live placement tool: a semi-transparent 3D ghost preview that snaps to the grid before placing blocks, ramps, jump pads, or lava.",
+      "3. Stage 03 (6-Bot AI Multiplayer, 3D Chat Bubbles & Leaderboard): Point and 2-1-0 victory for GPT-6 Astra High. Its 6 bots jump with real physics, fall into lava, respawn at checkpoints, and display 3D floating chat bubbles above their heads.",
+      "4. Extended Bonus (What if Opus 5.5 hadn't hit the line 1062 bug?): While the zero-shot score remains 0, fixing that single character ('z' -> 2) unlocked Opus 5.5's hidden 2,413-line engine at 60 FPS."
+    ],
+    comments: []
+  },
   {
     id: "thread-carbon01-news",
     slug: "radar-mixiuh-noticias-ia-01-google-gemini-4-carbon-59-pts",
