@@ -16,10 +16,15 @@ export const CALENDAR_LABELS: Record<ReleaseKey, { es: string; en: string }> = {
   ep03: { es: "EP03: Sin Kit vs Superpowers Kit (4-2)", en: "EP03: Raw vs Superpowers Kit (4-2)" },
   ep04: { es: "EP04: Escalera Claude 5.5 (18 corridas)", en: "EP04: Claude 5.5 Ladder (18 runs)" },
   carbon01: { es: "Noticias IA #01: Gemini 4 Carbon", en: "AI News #01: Gemini 4 Carbon" },
+  cc02: {
+    es: "CC02: ROBLOX 3D (Astra vs Argon vs Opus + Bonus)",
+    en: "CC02: 3D ROBLOX (Astra vs Argon vs Opus + Bonus)",
+  },
 };
 
 /** Calendar tone of each production (the same accent as its blog card). */
 export const CALENDAR_TONES: Record<ReleaseKey, PixelTone> = {
+  cc02: "emerald",
   carbon01: "cyan",
   ep04: "coral",
   ep03: "emerald",

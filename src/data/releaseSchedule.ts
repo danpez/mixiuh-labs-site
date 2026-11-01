@@ -6,7 +6,7 @@
  * exacta de publicacion en redes sociales (YouTube / Instagram / TikTok / X).
  */
 
-export type ReleaseKey = "ep01" | "ep02" | "cc01" | "ep03" | "ep04" | "carbon01";
+export type ReleaseKey = "ep01" | "ep02" | "cc01" | "ep03" | "ep04" | "carbon01" | "cc02";
 
 export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   // EP01: Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos) — Publicado Vie 16 Oct 2026 11:00 CST
@@ -21,6 +21,8 @@ export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   ep04: "2026-10-28T11:00:00-06:00",
   // NOTICIAS IA #01 (Radar Mixiuh): Google Gemini 4 Carbon (#1 Mundial) — Jue 29 Oct 2026 15:00 CST
   carbon01: "2026-10-29T15:00:00-06:00",
+  // Del Comentario al Codigo #02 (Juego Tipo ROBLOX 3D: Argon High vs Opus 5.5 High vs GPT-6 Astra High + Bonus) — Sab 31 Oct 2026
+  cc02: "2026-10-31T00:00:00-06:00",
 };
 
 export interface ReleasedState {
@@ -30,6 +32,7 @@ export interface ReleasedState {
   ep03: boolean;
   ep04: boolean;
   carbon01: boolean;
+  cc02: boolean;
 }
 
 export function isContentReleased(
@@ -53,6 +56,7 @@ export function getReleasedStatus(
     ep03: isContentReleased("ep03", now, previewAll),
     ep04: isContentReleased("ep04", now, previewAll),
     carbon01: isContentReleased("carbon01", now, previewAll),
+    cc02: isContentReleased("cc02", now, previewAll),
   };
 }
 

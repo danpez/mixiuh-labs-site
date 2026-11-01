@@ -161,7 +161,7 @@ function viewForHash(h: string, rel: ReleasedState): ViewTarget | null {
   if (h === "ep03-superpowers-kit" && rel.ep03) return { view: "dossiers", ep: "ep03" };
   if (h === DOSSIER_HASH.ep02) return { view: "dossiers", ep: "ep02" };
   if (h === DOSSIER_HASH.ep01) return { view: "dossiers", ep: "ep01" };
-  if (h === "comentario-al-codigo" && rel.cc01) return { view: "comunidad" };
+  if (h === "comentario-al-codigo" && (rel.cc01 || rel.cc02)) return { view: "comunidad" };
   if (h === "dossier" || h === "matriz" || h === "laboratorios") return { view: "dossiers" };
   if (h === "arena") return { view: "arena" };
   if (h === "pixel-ui" || h === "pixelui" || h === "ui-kit") return { view: "pixelui" };
@@ -207,8 +207,8 @@ function viewName(
       return DOSSIER_NAME[ep][lang];
     case "comunidad":
       return es
-        ? "Del Comentario al Codigo #01: OVERFIT Studio 3D"
-        : "From Comment to Code #01: OVERFIT Studio 3D";
+        ? "Del Comentario al Codigo (#01–#02): ROBLOX 3D + OVERFIT Studio 3D"
+        : "From Comment to Code (#01–#02): 3D ROBLOX + OVERFIT Studio 3D";
     case "noticias":
       return es ? "Noticias IA #01: Gemini 4 Carbon" : "AI News #01: Gemini 4 Carbon";
     case "arena":
@@ -244,6 +244,7 @@ function writeHash(hash: string, mode: "push" | "replace") {
 
 /** One accent per production, shared by blog cards, calendar, CRT and floppy selector. */
 const EPISODE_ACCENT: Record<ReleaseKey, string> = {
+  cc02: "#10B981",
   carbon01: "#00E5FF",
   ep04: "#FF3355",
   ep03: "#10B981",
@@ -254,6 +255,7 @@ const EPISODE_ACCENT: Record<ReleaseKey, string> = {
 
 /** Deep link of each production (used by the share popover). */
 const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  cc02: "comentario-al-codigo",
   carbon01: "noticias",
   ep04: "ep04-escalera-claude",
   ep03: "ep03-superpowers-kit",
@@ -461,6 +463,14 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   const [ep04ChallengeN, setEp04ChallengeN] = useState<number>(4);
   const [ep04Mode, setEp04Mode] = useState<Ep04Mode>("triple");
 
+  // CC02 Roblox 3D 3-Giants interactive comparator state
+  const [cc02Model, setCc02Model] = useState<
+    "astra" | "argon" | "opus" | "opus_fixed" | "triple" | "prompt"
+  >("astra");
+  const [comunidadEp, setComunidadEp] = useState<"all" | "cc02" | "cc01">(
+    "all"
+  );
+
   // Video & Glossary state
   const [activeVideoClip, setActiveVideoClip] = useState<VideoClip>("hook");
   const [glossarySearch, setGlossarySearch] = useState("");
@@ -621,7 +631,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   ) => {
     playSfx("click");
     if (
-      (view === "comunidad" && !released.cc01 && !released.ep03) ||
+      (view === "comunidad" && !released.cc01 && !released.cc02 && !released.ep03) ||
       (view === "noticias" && !released.carbon01)
     ) {
       setMainView("blog");
@@ -769,8 +779,43 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   const glossaryPlain = (g: (typeof LAB_GLOSSARY)[number]) =>
     lang === "es" ? g.plain_es : (g.plain_en ?? g.plain_es);
 
-  // Blog Cards Data (All 6 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
+  // Blog Cards Data (All 7 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
   const BLOG_ARTICLES: BlogArticle[] = [
+    {
+      id: "cc02" as ReleaseKey,
+      filter: "comunidad" as const,
+      date: "31 Oct 2026",
+      readTime_es: "Video 4K60 · 4 Motores Roblox 3D",
+      readTime_en: "4K60 Video · 4 3D Roblox Engines",
+      badge_es: "DEL COMENTARIO AL CODIGO #02 · RETO ROBLOX 3D",
+      badge_en: "FROM COMMENT TO CODE #02 · 3D ROBLOX CHALLENGE",
+      accentColor: EPISODE_ACCENT.cc02,
+      scoreBadge_es: "ASTRA 2 · ARGON 1 · OPUS 0",
+      scoreBadge_en: "ASTRA 2 · ARGON 1 · OPUS 0",
+      thumb: "/brand/thumbs/cc02_thumb_A.png",
+      title_es:
+        "Le Pedi un Juego Tipo ROBLOX 3D a Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($1.11) + Bonus Opus Reparado",
+      title_en:
+        "I Asked Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($1.11) to Build a 3D ROBLOX Game + Fixed Opus Bonus",
+      excerpt_es:
+        "Un suscriptor en Instagram nos reto a enfrentar a los 3 gigantes en modo HIGH creando un juego tipo ROBLOX 3D completo en un solo intento (circuito Obby de 10 islas, 6 robots IA con chat y modo Roblox Studio 3D). GPT-6 Astra High termino primero en 18.9 min con 4,727 lineas a 61 FPS por $1.11 USD (2-1), Gemini 4 Argon High entrego el mejor modo Roblox Studio 3D por $0.32 USD (27.2 min), y Claude Opus 5.5 High tardo 55.1 min ($9.91 USD) rompiendo su escena 3D en la linea 1062 — que reparamos en el Bonus Extendido.",
+      excerpt_en:
+        "An Instagram subscriber challenged us to pit the 3 AI Giants in HIGH mode building a complete 3D ROBLOX game in a single attempt (10-island Obby course, 6 AI robots with chat, and live 3D Roblox Studio mode). GPT-6 Astra High finished first in 18.9 min with 4,727 lines at 61 FPS for $1.11 USD (2-1), Gemini 4 Argon High built the best 3D Studio preview tool for $0.32 USD (27.2 min), and Claude Opus 5.5 High spent 55.1 min ($9.91 USD) crashing on line 1062 — which we unlocked in the Extended Bonus.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "2 - 1 - 0 Astra" },
+        { label_es: "GPT-6 ASTRA", label_en: "GPT-6 ASTRA", val: "18.9m · 4,727 Lín ($1.11)", val_en: "18.9m · 4,727 LoC ($1.11)" },
+        { label_es: "ARGON HIGH", label_en: "ARGON HIGH", val: "27.2m · 2,578 Lín ($0.32)", val_en: "27.2m · 2,578 LoC ($0.32)" },
+        { label_es: "OPUS 5.5 HIGH", label_en: "OPUS 5.5 HIGH", val: "55.1m · $9.91 (+Bonus 60FPS)", val_en: "55.1m · $9.91 (+60FPS Bonus)" },
+      ],
+      onOpenDossier: () => {
+        setComunidadEp("cc02");
+        navigateToView("comunidad");
+      },
+      onOpenArena: () => {
+        setComunidadEp("cc02");
+        navigateToView("comunidad");
+      },
+    },
     {
       id: "carbon01" as ReleaseKey,
       filter: "noticias" as const,
@@ -961,14 +1006,17 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   const totalEpisodesCount = releasedArticles.length;
   const totalLabsCount =
     2 + (released.ep03 ? 1 : 0) + (released.ep04 ? 1 : 0);
+  const totalComunidadCount =
+    (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
     21 +
     12 +
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 12 : 0) +
-    (released.ep04 ? 18 : 0);
+    (released.ep04 ? 18 : 0) +
+    (released.cc02 ? 4 : 0);
   const totalPromptsCount =
-    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0);
+    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0) + (released.cc02 ? 1 : 0);
   // Same size as the forum's thread list (counted on the server, see forumCounts.ts)
   const totalForumThreadsCount = (
     Object.keys(forumCounts.byRelease) as ReleaseKey[]
@@ -994,6 +1042,41 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.cc02
+      ? [
+          {
+            id: "cc02",
+            code: "CC.02",
+            kicker:
+              lang === "es"
+                ? "COMENTARIO AL CODIGO #02 · ROBLOX 3D"
+                : "COMMENT TO CODE #02 · 3D ROBLOX",
+            title:
+              lang === "es"
+                ? "Roblox 3D: GPT-6 Astra vs Argon vs Opus 5.5"
+                : "3D Roblox: GPT-6 Astra vs Argon vs Opus 5.5",
+            verdict:
+              lang === "es"
+                ? "ASTRA 2 - ARGON 1 - OPUS 0 (+BONUS 60FPS)"
+                : "ASTRA 2 - ARGON 1 - OPUS 0 (+60FPS BONUS)",
+            timeMetric: "18.9m vs 27.2m vs 55.1m",
+            costMetric: "$1.11 vs $0.32 vs $9.91",
+            thumb: "/brand/thumbs/cc02_thumb_A.png",
+            accentHex: "#10B981",
+            character: "argon" as const,
+            onLaunchPrimary: () => {
+              setComunidadEp("cc02");
+              navigateToView("comunidad");
+            },
+            onLaunchSecondary: () => navigateToView("noticias"),
+            primaryLabel:
+              lang === "es"
+                ? "JUGAR LOS 4 ROBLOX 3D EN VIVO"
+                : "PLAY ALL 4 LIVE 3D ROBLOX GAMES",
+            secondaryLabel: "CARBON #1",
+          },
+        ]
+      : []),
     ...(released.carbon01
       ? [
           {
@@ -1189,7 +1272,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       short_en: "Community",
       label_es: "Comentario al Codigo",
       label_en: "Comment to Code",
-      show: released.cc01,
+      count: totalComunidadCount,
+      show: released.cc01 || released.cc02,
     },
     {
       view: "noticias" as const,
@@ -1966,24 +2050,26 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                         ? "02 // COMENTARIO AL CODIGO"
                         : "02 // COMMENT TO CODE"}
                     </span>
-                    <span>@TENITO03</span>
+                    <span>CC02 + CC01</span>
                   </div>
                   <div className="p-4">
                     <h2 className="font-display text-base sm:text-lg font-black text-white">
                       {lang === "es"
-                        ? "OVERFIT Studio 3D · Ropa IA 300 GSM"
-                        : "OVERFIT Studio 3D · 300 GSM Streetwear"}
+                        ? "ROBLOX 3D (3 Gigantes + Bonus) & OVERFIT 3D"
+                        : "3D ROBLOX (3 Giants + Bonus) & OVERFIT 3D"}
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1.5 leading-relaxed">
                       {lang === "es"
-                        ? "3 maniquies esculpidos en Blender Cycles (Hombre, Mujer, Mesa) y 10 estampados satiricos en 2K con exportacion 4K."
-                        : "3 Blender Cycles mannequins (Male, Female, Flat-Lay) and 10 satirical 2K prints with 4K export."}
+                        ? "Duelo Roblox 3D en modo HIGH (GPT-6 Astra vs Argon vs Opus 5.5 + Bonus) y estudio 300 GSM en Blender Cycles."
+                        : "HIGH mode 3D Roblox showdown (GPT-6 Astra vs Argon vs Opus 5.5 + Bonus) & 300 GSM Blender Cycles studio."}
                     </p>
                   </div>
                 </div>
                 <div className="px-4 py-2.5 bg-[#090B10] border-t border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                   <span className="text-[#FFD100] font-bold">
-                    {lang === "es" ? "Abrir Estudio 3D →" : "Open 3D Studio →"}
+                    {lang === "es"
+                      ? "Jugar Roblox 3D + Estudio →"
+                      : "Play 3D Roblox + Studio →"}
                   </span>
                   <PixelIcon name="sparkles" size={14} color="#FFD100" />
                 </div>
@@ -2091,12 +2177,12 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                       label: "Videos / Labs",
                       badge: totalLabsCount,
                     },
-                    ...(released.cc01
+                    ...(released.cc01 || released.cc02
                       ? [
                           {
                             id: "comunidad" as const,
                             label: lang === "es" ? "Comentario al Codigo" : "Comment to Code",
-                            badge: 1,
+                            badge: totalComunidadCount,
                           },
                         ]
                       : []),
@@ -2215,6 +2301,10 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                             ? lang === "es"
                               ? "Abrir Noticia + Video"
                               : "Open News + Video"
+                            : art.id === "cc02"
+                            ? lang === "es"
+                              ? "Jugar ROBLOX 3D (4 Demos)"
+                              : "Play 3D ROBLOX (4 Demos)"
                             : art.filter === "comunidad"
                             ? lang === "es"
                               ? "Abrir OVERFIT Studio 3D"
@@ -2563,9 +2653,9 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       )}
 
       {/* =====================================================================
-          VIEW 3: SECCION 02 · DEL COMENTARIO AL CODIGO (#01 OVERFIT 3D)
+          VIEW 3: SECCION 02 · DEL COMENTARIO AL CODIGO (#02 ROBLOX 3D & #01 OVERFIT 3D)
          ===================================================================== */}
-      {mainView === "comunidad" && released.cc01 && (
+      {mainView === "comunidad" && (released.cc01 || released.cc02) && (
         <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 py-8 sm:py-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
             {/* Section 02 Header Banner */}
@@ -2575,8 +2665,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   <PixelIcon name="sparkles" size={14} />
                   <span>
                     {lang === "es"
-                      ? "SECCION 02 · DEL COMENTARIO AL CODIGO"
-                      : "SECTION 02 · FROM COMMENT TO CODE"}
+                      ? `SECCION 02 · DEL COMENTARIO AL CODIGO (${totalComunidadCount} EPISODIOS)`
+                      : `SECTION 02 · FROM COMMENT TO CODE (${totalComunidadCount} EPISODES)`}
                   </span>
                 </div>
                 {/* Banner text, not a heading: the article <h1> below is the first heading */}
@@ -2589,24 +2679,533 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
 
               <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
                 <button
-                  onClick={() => navigateToView("dossiers", "ep04")}
-                  className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#10B981]/40 text-[#10B981] hover:bg-[#1A2132] font-bold cursor-pointer"
+                  onClick={() => setComunidadEp("all")}
+                  aria-pressed={comunidadEp === "all"}
+                  className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                    comunidadEp === "all"
+                      ? "bg-[#FFD100] text-[#090B10]"
+                      : "bg-[#090B10] border border-[#2A344B] text-[#94A3B8] hover:text-white"
+                  }`}
                 >
-                  {lang === "es"
-                    ? "Ir a Videos / Laboratorios →"
-                    : "Go to Videos / Labs →"}
+                  {lang === "es" ? `Todos (${totalComunidadCount})` : `All (${totalComunidadCount})`}
                 </button>
+                {released.cc02 && (
+                  <button
+                    onClick={() => setComunidadEp("cc02")}
+                    aria-pressed={comunidadEp === "cc02"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      comunidadEp === "cc02"
+                        ? "bg-[#10B981] text-[#090B10]"
+                        : "bg-[#090B10] border border-[#10B981]/40 text-[#10B981] hover:bg-[#1A2132]"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "#02 ROBLOX 3D (3 Gigantes + Bonus)"
+                      : "#02 ROBLOX 3D (3 Giants + Bonus)"}
+                  </button>
+                )}
+                {released.cc01 && (
+                  <button
+                    onClick={() => setComunidadEp("cc01")}
+                    aria-pressed={comunidadEp === "cc01"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      comunidadEp === "cc01"
+                        ? "bg-[#FFD100] text-[#090B10]"
+                        : "bg-[#090B10] border border-[#FFD100]/40 text-[#FFD100] hover:bg-[#1A2132]"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "#01 OVERFIT Studio 3D (@tenito03)"
+                      : "#01 OVERFIT Studio 3D (@tenito03)"}
+                  </button>
+                )}
                 <button
-                  onClick={() => navigateToView("noticias")}
-                  className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/40 text-[#00E5FF] hover:bg-[#1A2132] font-bold cursor-pointer"
+                  onClick={() => navigateToView("dossiers", "ep04")}
+                  className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#2A344B] text-[#94A3B8] hover:text-white font-bold cursor-pointer"
                 >
                   {lang === "es"
-                    ? "Ir a Noticias IA (Carbon) →"
-                    : "Go to AI News (Carbon) →"}
+                    ? "Ir a Videos / Labs →"
+                    : "Go to Videos / Labs →"}
                 </button>
               </div>
             </div>
 
+            {/* =====================================================================
+                EPISODE #02: JUEGO TIPO ROBLOX 3D (GEMINI 4 ARGON vs CLAUDE OPUS 5.5 vs GPT-6 ASTRA + BONUS OPUS REPARADO)
+               ===================================================================== */}
+            {released.cc02 && (comunidadEp === "all" || comunidadEp === "cc02") && (
+              <div className="bg-[#111622] border-2 border-[#10B981]/50 p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="px-3.5 py-1 bg-[#10B981]/15 border border-[#10B981]/50 font-mono-hud text-xs font-bold text-[#10B981]">
+                    {lang === "es"
+                      ? "SERIE DEL COMENTARIO AL CODIGO #02 · RETO COMUNIDAD INSTAGRAM · EDICION EXTENDIDA"
+                      : "FROM COMMENT TO CODE SERIES #02 · INSTAGRAM COMMUNITY CHALLENGE · EXTENDED EDITION"}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href="/demos/cc02-roblox/gpt-6-astra.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 shadow-[4px_4px_0_#040508] bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                    >
+                      <PixelIcon name="play" size={14} />
+                      <span>
+                        {lang === "es"
+                          ? "Jugar GPT-6 Astra (Ganador)"
+                          : "Play GPT-6 Astra (Winner)"}
+                      </span>
+                      <PixelIcon name="external" size={14} />
+                    </a>
+                    <a
+                      href="/demos/cc02-roblox/gemini-4-argon.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 shadow-[4px_4px_0_#040508] bg-[#00E5FF] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                    >
+                      <PixelIcon name="play" size={14} />
+                      <span>
+                        {lang === "es"
+                          ? "Jugar Gemini 4 Argon (7 Jugadores)"
+                          : "Play Gemini 4 Argon (7 Players)"}
+                      </span>
+                      <PixelIcon name="external" size={14} />
+                    </a>
+                    <a
+                      href="/demos/cc02-roblox/claude-opus-5.5-fixed.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 shadow-[4px_4px_0_#040508] bg-[#A855F7] text-[#090B10] font-mono-hud text-xs font-bold hover:brightness-110 transition inline-flex items-center gap-1.5"
+                    >
+                      <PixelIcon name="wrench" size={14} />
+                      <span>
+                        {lang === "es"
+                          ? "Bonus: Jugar Opus 5.5 Reparado"
+                          : "Bonus: Play Repaired Opus 5.5"}
+                      </span>
+                      <PixelIcon name="external" size={14} />
+                    </a>
+                  </div>
+                </div>
+
+                <h1 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
+                  {lang === "es"
+                    ? "Juego Tipo ROBLOX 3D en 1 Intento: Gemini 4 Argon High vs Claude Opus 5.5 High vs GPT-6 Astra High (+ Bonus Opus Reparado)"
+                    : "ROBLOX-Style 3D Game in 1 Attempt: Gemini 4 Argon High vs Claude Opus 5.5 High vs GPT-6 Astra High (+ Repaired Opus Bonus)"}
+                </h1>
+
+                <p className="text-sm text-[#CBD5E1] leading-relaxed">
+                  {lang === "es"
+                    ? "Un seguidor en Instagram nos pidio enfrentar a los 3 modelos mas potentes del planeta (en razonamiento High) creando un juego tipo Roblox 3D completo en un solo archivo HTML (Modo Jugar Obby 3D con Lava + Modo Construir + Fisica de Bots). Cada modelo hizo 1 sola entrega continua de principio a fin y evaluamos el resultado en 3 etapas clave. Ademas, incluimos la Edicion Extendida (2da Oportunidad) donde reparamos unicamente la linea 1062 de Claude Opus 5.5 para descubrir el juego de 1,452 lineas que habia programado."
+                    : "An Instagram follower asked us to pit the 3 most powerful frontier models (in High reasoning) against each other building a complete 3D Roblox-style game in a single HTML file (3D Lava Obby Play Mode + Studio Build Mode + Bot Physics). Each model performed 1 single continuous run from start to finish and we evaluated the output across 3 core stages. Plus, we include the Extended Edition (2nd Chance) where we patched only line 1062 of Claude Opus 5.5 to unlock the 1,452-line game it had built."}
+                </p>
+
+                {/* Telemetry Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border-2 border-[#FFD100]/45">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#FFD100] uppercase">
+                      {lang === "es" ? "MARCADOR OFICIAL ZERO-SHOT" : "OFFICIAL ZERO-SHOT SCORE"}
+                    </div>
+                    <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                      2 - 1 - 0
+                    </div>
+                    <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
+                      {lang === "es"
+                        ? "Astra 2 pts · Argon 1 pt · Opus 0 pts"
+                        : "Astra 2 pts · Argon 1 pt · Opus 0 pts"}
+                    </div>
+                  </div>
+
+                  <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border-2 border-[#10B981]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#10B981] uppercase">
+                      {lang === "es" ? "1º GPT-6 ASTRA HIGH (GANADOR)" : "1ST GPT-6 ASTRA HIGH (WINNER)"}
+                    </div>
+                    <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                      18.9m <span className="text-sm text-[#10B981]">· $1.11</span>
+                    </div>
+                    <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
+                      {lang === "es"
+                        ? "1,713 lineas · 60 FPS · Gana Etapas 01 y 02"
+                        : "1,713 lines · 60 FPS · Wins Stages 01 & 02"}
+                    </div>
+                  </div>
+
+                  <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border-2 border-[#00E5FF]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#00E5FF] uppercase">
+                      {lang === "es" ? "2º GEMINI 4 ARGON HIGH (MEJOR ROI)" : "2ND GEMINI 4 ARGON HIGH (BEST ROI)"}
+                    </div>
+                    <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                      27.2m <span className="text-sm text-[#00E5FF]">· $0.32</span>
+                    </div>
+                    <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
+                      {lang === "es"
+                        ? "1,027 lineas · 60 FPS · Gana Etapa 03 (7 Jugadores)"
+                        : "1,027 lines · 60 FPS · Wins Stage 03 (7 Players)"}
+                    </div>
+                  </div>
+
+                  <div className="p-4 shadow-[4px_4px_0_#040508] bg-[#090B10] border-2 border-[#A855F7]/50">
+                    <div className="font-mono-hud text-[11px] font-bold text-[#C084FC] uppercase">
+                      {lang === "es" ? "3º CLAUDE OPUS 5.5 HIGH (+ BONUS)" : "3RD CLAUDE OPUS 5.5 HIGH (+ BONUS)"}
+                    </div>
+                    <div className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+                      55.1m <span className="text-sm text-[#FF3355]">· $9.91</span>
+                    </div>
+                    <div className="font-mono-hud text-xs text-[#94A3B8] mt-1">
+                      {lang === "es"
+                        ? "1,452 lineas · 0 FPS (Bug L1062) → 60 FPS Reparado"
+                        : "1,452 lines · 0 FPS (L1062 Bug) → 60 FPS Repaired"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Thumbnails A/B/C */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(["A", "B", "C"] as const).map((variant) => (
+                    <img
+                      key={variant}
+                      src={`/brand/thumbs/cc02_thumb_${variant}.png`}
+                      alt={
+                        lang === "es"
+                          ? `Miniatura ${variant} Reto ROBLOX 3D`
+                          : `ROBLOX 3D Challenge Thumbnail ${variant}`
+                      }
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full aspect-video object-cover shadow-[4px_4px_0_#040508] border border-[#2A344B]"
+                    />
+                  ))}
+                </div>
+
+                {/* Single-Attempt Total Time & 3-Stage Evaluation Breakdown */}
+                <div className="bg-[#090B10] border-2 border-[#2A344B] p-4 sm:p-5 shadow-[4px_4px_0_#040508] space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-mono-hud text-xs font-bold text-[#FFD100] uppercase">
+                      {lang === "es"
+                        ? "TIEMPO Y COSTO TOTAL (1 SOLO INTENTO PARA LAS 3 ETAPAS) + DESGLOSE DE EVALUACION"
+                        : "TOTAL TIME & COST (1 SINGLE ATTEMPT FOR ALL 3 STAGES) + EVALUATION BREAKDOWN"}
+                    </div>
+                    <span className="px-2.5 py-0.5 bg-[#10B981]/15 border border-[#10B981]/40 font-mono-hud text-[11px] font-bold text-[#10B981]">
+                      {lang === "es"
+                        ? "1 ENTREGA CONTINUA POR MODELO (NO X3)"
+                        : "1 CONTINUOUS RUN PER MODEL (NOT X3)"}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse font-mono-hud text-xs">
+                      <thead>
+                        <tr className="border-b border-[#2A344B] text-[#94A3B8]">
+                          <th className="py-2 pr-3">{lang === "es" ? "ETAPA / METRICA" : "STAGE / METRIC"}</th>
+                          <th className="py-2 px-3 text-[#00E5FF]">GEMINI 4 ARGON HIGH</th>
+                          <th className="py-2 px-3 text-[#C084FC]">CLAUDE OPUS 5.5 HIGH</th>
+                          <th className="py-2 px-3 text-[#10B981]">GPT-6 ASTRA HIGH</th>
+                          <th className="py-2 pl-3 text-[#FFD100]">{lang === "es" ? "GANADOR" : "WINNER"}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1E2638] text-[#F5F2EB]">
+                        <tr className="bg-[#111622]/70 font-bold">
+                          <td className="py-2.5 pr-3 text-[#FFD100]">
+                            {lang === "es"
+                              ? "ENTREGA TOTAL (1 Intento Completo)"
+                              : "TOTAL DELIVERY (1 Complete Run)"}
+                          </td>
+                          <td className="py-2.5 px-3 text-[#00E5FF]">27.2 min · $0.32 USD (1,027 L)</td>
+                          <td className="py-2.5 px-3 text-[#FF3355]">55.1 min · $9.91 USD (1,452 L)</td>
+                          <td className="py-2.5 px-3 text-[#10B981]">18.9 min · $1.11 USD (1,713 L)</td>
+                          <td className="py-2.5 pl-3 text-[#10B981]">
+                            {lang === "es" ? "ASTRA (Mas Rapido)" : "ASTRA (Fastest)"}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2.5 pr-3">
+                            {lang === "es"
+                              ? "Etapa 01 · Mundo Obby 3D + Avatar + Lava"
+                              : "Stage 01 · 3D Obby World + Avatar + Lava"}
+                          </td>
+                          <td className="py-2.5 px-3">60 FPS · Islas flotantes y lava</td>
+                          <td className="py-2.5 px-3 text-[#FF3355]">0 FPS · Crash L1062 (setComponent)</td>
+                          <td className="py-2.5 px-3 text-[#10B981]">60 FPS · Sky-Citadel + 4 Checkpoints</td>
+                          <td className="py-2.5 pl-3 font-bold text-[#10B981]">GPT-6 ASTRA (0-0-1)</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2.5 pr-3">
+                            {lang === "es"
+                              ? "Etapa 02 · Modo Estudio / Construir en Vivo"
+                              : "Stage 02 · Live Studio / Build Mode"}
+                          </td>
+                          <td className="py-2.5 px-3">60 FPS · Raycaster + 8 colores</td>
+                          <td className="py-2.5 px-3 text-[#FF3355]">0 FPS · Inaccesible sin parche</td>
+                          <td className="py-2.5 px-3 text-[#10B981]">60 FPS · 5 materiales + Trampolines</td>
+                          <td className="py-2.5 pl-3 font-bold text-[#10B981]">GPT-6 ASTRA (0-0-2)</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2.5 pr-3">
+                            {lang === "es"
+                              ? "Etapa 03 · Fisica, Bots IA y Retorno (ROI)"
+                              : "Stage 03 · Physics, AI Bots & ROI"}
+                          </td>
+                          <td className="py-2.5 px-3 text-[#00E5FF]">60 FPS · 7 Jugadores (6 Bots) · $0.32</td>
+                          <td className="py-2.5 px-3 text-[#FF3355]">0 FPS · $9.91 USD (31x mas caro)</td>
+                          <td className="py-2.5 px-3">60 FPS · 3 Bots · $1.11 USD</td>
+                          <td className="py-2.5 pl-3 font-bold text-[#00E5FF]">GEMINI 4 ARGON (1-0-2)</td>
+                        </tr>
+                        <tr className="bg-[#A855F7]/10">
+                          <td className="py-2.5 pr-3 text-[#C084FC] font-bold">
+                            {lang === "es"
+                              ? "BONUS · 2da Oportunidad Opus 5.5 (Parche L1062)"
+                              : "BONUS · Opus 5.5 2nd Chance (L1062 Patch)"}
+                          </td>
+                          <td className="py-2.5 px-3 text-[#94A3B8]">—</td>
+                          <td className="py-2.5 px-3 text-[#C084FC] font-bold">
+                            60 FPS · 4 Islas, Martillo, Bots y Minijuego
+                          </td>
+                          <td className="py-2.5 px-3 text-[#94A3B8]">—</td>
+                          <td className="py-2.5 pl-3 font-bold text-[#C084FC]">
+                            {lang === "es" ? "RESCATADO (1 LINEA)" : "RESCUED (1 LINE)"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Interactive Simulator Switcher (4 Playable Versions + Triple View + Prompt/Autopsy) */}
+                <div className="bg-[#090B10] border-2 border-[#10B981]/50 overflow-hidden shadow-[6px_6px_0_#040508]">
+                  <div className="px-4 py-3 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                    <span className="font-mono-hud text-xs font-bold text-white">
+                      {lang === "es"
+                        ? "SIMULADOR ROBLOX 3D EN VIVO · PRUEBA LAS 4 VERSIONES EN TU NAVEGADOR"
+                        : "LIVE 3D ROBLOX SIMULATOR · PLAY ALL 4 VERSIONS IN YOUR BROWSER"}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 font-mono-hud text-xs">
+                      <button
+                        onClick={() => setCc02Model("astra")}
+                        className={`px-3 py-1.5 font-bold cursor-pointer ${
+                          cc02Model === "astra"
+                            ? "bg-[#10B981] text-[#090B10]"
+                            : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                        }`}
+                      >
+                        1. GPT-6 Astra ($1.11 · 18.9m)
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("argon")}
+                        className={`px-3 py-1.5 font-bold cursor-pointer ${
+                          cc02Model === "argon"
+                            ? "bg-[#00E5FF] text-[#090B10]"
+                            : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                        }`}
+                      >
+                        2. Gemini 4 Argon ($0.32 · 7 Jugadores)
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("opus")}
+                        className={`px-3 py-1.5 font-bold cursor-pointer ${
+                          cc02Model === "opus"
+                            ? "bg-[#FF3355] text-[#090B10]"
+                            : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                        }`}
+                      >
+                        {lang === "es" ? "3. Opus 5.5 (Fallo Zero-Shot)" : "3. Opus 5.5 (Zero-Shot Crash)"}
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("opus_fixed")}
+                        className={`px-3 py-1.5 font-bold cursor-pointer ${
+                          cc02Model === "opus_fixed"
+                            ? "bg-[#A855F7] text-[#090B10]"
+                            : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                        }`}
+                      >
+                        {lang === "es" ? "4. Bonus: Opus Reparado" : "4. Bonus: Repaired Opus"}
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("triple")}
+                        className={`px-3 py-1.5 font-bold cursor-pointer ${
+                          cc02Model === "triple"
+                            ? "bg-[#FFD100] text-[#090B10]"
+                            : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                        }`}
+                      >
+                        {lang === "es" ? "Comparativa Triple" : "Triple Comparison"}
+                      </button>
+                      <button
+                        onClick={() => setCc02Model("prompt")}
+                        className={`px-3 py-1.5 font-bold cursor-pointer ${
+                          cc02Model === "prompt"
+                            ? "bg-[#F5F2EB] text-[#090B10]"
+                            : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                        }`}
+                      >
+                        {lang === "es" ? "Prompt + Autopsia L1062" : "Prompt + L1062 Autopsy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {cc02Model === "triple" ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                      <div>
+                        <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                          <span className="font-bold text-[#00E5FF]">GEMINI 4 ARGON ($0.32 · 27.2m)</span>
+                          <a
+                            href="/demos/cc02-roblox/gemini-4-argon.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#00E5FF] hover:underline"
+                          >
+                            ↗
+                          </a>
+                        </div>
+                        <iframe
+                          loading="lazy"
+                          src="/demos/cc02-roblox/gemini-4-argon.html"
+                          title="Gemini 4 Argon High - Roblox 3D"
+                          className="w-full h-[540px] border-0 bg-[#090B10]"
+                        />
+                      </div>
+                      <div>
+                        <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                          <span className="font-bold text-[#C084FC]">OPUS 5.5 REPARADO ($9.91 · 55.1m)</span>
+                          <a
+                            href="/demos/cc02-roblox/claude-opus-5.5-fixed.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#C084FC] hover:underline"
+                          >
+                            ↗
+                          </a>
+                        </div>
+                        <iframe
+                          loading="lazy"
+                          src="/demos/cc02-roblox/claude-opus-5.5-fixed.html"
+                          title="Claude Opus 5.5 Repaired - Roblox 3D"
+                          className="w-full h-[540px] border-0 bg-[#090B10]"
+                        />
+                      </div>
+                      <div>
+                        <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                          <span className="font-bold text-[#10B981]">GPT-6 ASTRA ($1.11 · 18.9m)</span>
+                          <a
+                            href="/demos/cc02-roblox/gpt-6-astra.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#10B981] hover:underline"
+                          >
+                            ↗
+                          </a>
+                        </div>
+                        <iframe
+                          loading="lazy"
+                          src="/demos/cc02-roblox/gpt-6-astra.html"
+                          title="GPT-6 Astra High - Roblox 3D"
+                          className="w-full h-[540px] border-0 bg-[#090B10]"
+                        />
+                      </div>
+                    </div>
+                  ) : cc02Model === "prompt" ? (
+                    <div className="p-6 space-y-5 font-mono-hud text-xs text-[#F5F2EB]">
+                      <div className="p-4 bg-[#111622] border border-[#FF3355]/50 space-y-2">
+                        <div className="font-bold text-[#FF3355]">
+                          {lang === "es"
+                            ? "AUTOPSIA FORENSE · ¿POR QUE FALLO CLAUDE OPUS 5.5 EN ZERO-SHOT Y COMO SE REPARO?"
+                            : "FORENSIC AUTOPSY · WHY DID CLAUDE OPUS 5.5 CRASH IN ZERO-SHOT AND HOW WAS IT REPAIRED?"}
+                        </div>
+                        <p className="text-[#CBD5E1] leading-relaxed">
+                          {lang === "es"
+                            ? "En las lineas 714-718 de claude-opus-5.5.html, Opus 5.5 guardo pos como un objeto plano { x, y, z } en lugar de THREE.Vector3. Pero en el bucle animate() (linea 1062) invoco m.p.pos.setComponent(m.axis, ...), lanzando TypeError: m.p.pos.setComponent is not a function en el frame 1. Al reemplazar esa unica llamada por asignacion de eje (m.p.pos[m.axis] = ...), el motor completo de 1,452 lineas corre a 60 FPS."
+                            : "In lines 714-718 of claude-opus-5.5.html, Opus 5.5 stored pos as a plain { x, y, z } object instead of THREE.Vector3. Inside animate() (line 1062) it called m.p.pos.setComponent(m.axis, ...), throwing TypeError: m.p.pos.setComponent is not a function on frame 1. Replacing that single call with direct axis assignment (m.p.pos[m.axis] = ...) unlocks the full 1,452-line engine at 60 FPS."}
+                        </p>
+                        <pre className="p-3 bg-[#090B10] border border-[#2A344B] overflow-x-auto text-[11px] text-[#10B981]">
+{`// [FALLO] claude-opus-5.5.html (Linea 1062 - Zero-Shot Original: 0 FPS)
+m.p.pos.setComponent(m.axis, m.base + offset);
+
+// [REPARADO] claude-opus-5.5-fixed.html (Linea 1062 - 2da Oportunidad: 60 FPS)
+m.p.pos[m.axis] = m.base + offset;`}
+                        </pre>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#00E5FF]">
+                            {lang === "es"
+                              ? "PROMPT EXACTO ZERO-SHOT ENVIADO A LOS 3 GIGANTES:"
+                              : "EXACT ZERO-SHOT PROMPT SENT TO ALL 3 GIANTS:"}
+                          </span>
+                          <PixelCopyButton
+                            text={`Create a complete, self-contained, playable 3D Roblox-style Obby & Voxel Sandbox Studio ("ROBLOX STUDIO / OBBY BUILDER 3D") inside a single index.html file using Three.js (r128 CDN), WebGL, and procedural Web Audio API sound synthesis. Include Play Mode (3D Blocky Avatar with limbs, third-person camera, moving platforms, spinning sweepers, bounce pads, lava floor, 4 checkpoints, coins, and AI bots) and Build/Studio Mode (raycast voxel placement/removal, material palette, save/load, and live HUD telemetry).`}
+                            label={lang === "es" ? "Copiar Prompt" : "Copy Prompt"}
+                          />
+                        </div>
+                        <pre className="p-4 bg-[#111622] border border-[#2A344B] whitespace-pre-wrap text-[11px] text-[#CBD5E1] leading-relaxed">
+{`Create a complete, self-contained, playable 3D Roblox-style Obby & Voxel Sandbox Studio ("ROBLOX STUDIO / OBBY BUILDER 3D") inside a single index.html file using Three.js (r128 CDN), WebGL, and procedural Web Audio API sound synthesis.
+1. Stage 01 (Play Mode): 3D blocky character with articulated limbs, third-person orbital camera, floating Obby islands, moving platforms, rotating obstacle bars, jump pads, lava hazard floor with respawn, 4 checkpoints, collectible coins, and goal trophy.
+2. Stage 02 (Studio / Build Mode): Real-time raycast grid cursor to place/remove 3D blocks, palette of materials/colors (brick, neon, gold, ice, lava, bounce pad), clear/reset, and instant switch between Build and Play.
+3. Stage 03 (Physics, AI Bots & Telemetry HUD): Autonomous AI bot players running and jumping the Obby simultaneously, AABB collision detection, procedural Web Audio SFX, and live FPS/block/coin HUD.`}
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                        <span className="text-[#CBD5E1]">
+                          {cc02Model === "astra"
+                            ? lang === "es"
+                              ? "Viendo: GPT-6 Astra High (Ganador 2 Puntos · 18.9 min · $1.11 USD · 1,713 lineas)"
+                              : "Viewing: GPT-6 Astra High (2-Point Winner · 18.9 min · $1.11 USD · 1,713 lines)"
+                            : cc02Model === "argon"
+                            ? lang === "es"
+                              ? "Viendo: Gemini 4 Argon High (Ganador Etapa 03 · 7 Jugadores [Tu + 6 Bots] · 27.2 min · $0.32 USD)"
+                              : "Viewing: Gemini 4 Argon High (Stage 03 Winner · 7 Players [You + 6 Bots] · 27.2 min · $0.32 USD)"
+                            : cc02Model === "opus"
+                            ? lang === "es"
+                              ? "Viendo: Claude Opus 5.5 High Zero-Shot Original (Se congela en el menu por TypeError en linea 1062)"
+                              : "Viewing: Claude Opus 5.5 High Original Zero-Shot (Freezes on menu due to line 1062 TypeError)"
+                            : lang === "es"
+                            ? "Viendo: BONUS Claude Opus 5.5 Reparado (Parche de 1 sola linea en L1062 · 1,452 lineas desbloqueadas)"
+                            : "Viewing: BONUS Repaired Claude Opus 5.5 (1-line patch at L1062 · 1,452 lines unlocked)"}
+                        </span>
+                        <a
+                          href={
+                            cc02Model === "astra"
+                              ? "/demos/cc02-roblox/gpt-6-astra.html"
+                              : cc02Model === "argon"
+                              ? "/demos/cc02-roblox/gemini-4-argon.html"
+                              : cc02Model === "opus"
+                              ? "/demos/cc02-roblox/claude-opus-5.5.html"
+                              : "/demos/cc02-roblox/claude-opus-5.5-fixed.html"
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-[#10B981] hover:underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Full Screen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        key={cc02Model}
+                        allowFullScreen
+                        loading="lazy"
+                        src={
+                          cc02Model === "astra"
+                            ? "/demos/cc02-roblox/gpt-6-astra.html"
+                            : cc02Model === "argon"
+                            ? "/demos/cc02-roblox/gemini-4-argon.html"
+                            : cc02Model === "opus"
+                            ? "/demos/cc02-roblox/claude-opus-5.5.html"
+                            : "/demos/cc02-roblox/claude-opus-5.5-fixed.html"
+                        }
+                        title={`ROBLOX 3D - ${cc02Model}`}
+                        className="w-full h-[760px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* =====================================================================
+                EPISODE #01: OVERFIT STUDIO 3D (@TENITO03)
+               ===================================================================== */}
+            {released.cc01 && (comunidadEp === "all" || comunidadEp === "cc01") && (
             <div className="bg-[#111622] border-2 border-[#FFD100]/40 p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="px-3.5 py-1 bg-[#FFD100]/15 border border-[#FFD100]/50 font-mono-hud text-xs font-bold text-[#FFD100]">
@@ -2656,11 +3255,11 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 </div>
               </div>
 
-              <h1 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
+              <h2 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
                 {lang === "es"
                   ? "De un Comentario a una Marca de Ropa IA en 3D: OVERFIT Studio 3D (Coleccion Guerra de Pesos)"
                   : "From a Comment to a 3D AI Streetwear Brand: OVERFIT Studio 3D (Weight War Collection)"}
-              </h1>
+              </h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
                 <div className="lg:col-span-5 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#00E5FF]/30 p-4 flex flex-col justify-between gap-3">
@@ -2734,6 +3333,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 />
               </div>
             </div>
+            )}
           </div>
         </main>
       )}
@@ -2833,9 +3433,25 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 >
                   EP01: Argon vs 3.8 Flash (20 + Bonus)
                 </button>
+                {released.cc02 && (
+                  <button
+                    onClick={() => {
+                      setComunidadEp("cc02");
+                      navigateToView("comunidad");
+                    }}
+                    className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#10B981]/20 border border-[#10B981]/50 text-[#10B981] font-bold cursor-pointer"
+                  >
+                    {lang === "es"
+                      ? "CC02: ROBLOX 3D (3 Gigantes + Bonus)"
+                      : "CC02: ROBLOX 3D (3 Giants + Bonus)"}
+                  </button>
+                )}
                 {released.cc01 && (
                   <button
-                    onClick={() => navigateToView("comunidad")}
+                    onClick={() => {
+                      setComunidadEp("cc01");
+                      navigateToView("comunidad");
+                    }}
                     className="px-3.5 py-2 shadow-[4px_4px_0_#040508] bg-[#FFD100]/20 border border-[#FFD100]/50 text-[#FFD100] font-bold cursor-pointer"
                   >
                     OVERFIT Studio 3D (1)
@@ -3041,14 +3657,14 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                   ? "Videos / Laboratorios (EP01–EP04)"
                   : "Videos / Labs (EP01–EP04)"}
               </a>
-              {released.cc01 && (
+              {(released.cc01 || released.cc02) && (
                 <a
                   {...viewLink("comunidad")}
                   className="inline-block py-1.5 text-[#FFD100] hover:text-white font-bold cursor-pointer"
                 >
                   {lang === "es"
-                    ? "Del Comentario al Codigo (#01)"
-                    : "From Comment to Code (#01)"}
+                    ? "Del Comentario al Codigo (#01–#02)"
+                    : "From Comment to Code (#01–#02)"}
                 </a>
               )}
               {released.carbon01 && (
