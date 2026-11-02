@@ -809,7 +809,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       accentColor: EPISODE_ACCENT.ep05,
       scoreBadge_es: "ASTRA 3 · ARGON 2 · OPUS 1",
       scoreBadge_en: "ASTRA 3 · ARGON 2 · OPUS 1",
-      thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_gemini-4-argon_after.png",
+      thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_argon.png",
       title_es:
         "El Torneo de los 3 Gigantes: Gemini 4 Argon High ($1.51) vs. Claude Opus 5.5 High ($32.75) vs. GPT-6 Astra High ($2.74) en 6 Retos 3D + Ronda de Rescate",
       title_en:
@@ -1108,7 +1108,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                 : "ASTRA 3 · ARGON 2 · OPUS 1 (+2 RESCUED)",
             timeMetric: "25.8m vs 194.6m vs 42.9m",
             costMetric: "$1.51 vs $32.75 vs $2.74",
-            thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_gemini-4-argon_after.png",
+            thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_argon.png",
             accentHex: "#10B981",
             character: "argon" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep05"),
