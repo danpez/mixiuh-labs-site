@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Live DJ Launchpad &amp; Synth Stage — Mixiuh Labs</title>
+  <style>
+    :root {
+      --bg-dark: #05070e;
+      --panel-bg: rgba(9, 13, 26, 0.82);
+      --panel-border: rgba(34, 211, 238, 0.28);
+      --cyan: #22d3ee;
+      --magenta: #f472b6;
+      --emerald: #10b981;
+      --amber: #fbbf24;
+      --violet: #a78bfa;
+      --text-main: #f1f5f9;
+      --text-dim: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text-main);
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .hud-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 18px;
+    }
+
+    .hud-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hud-row.bottom {
+      align-items: flex-end;
+    }
+
+    .hud-card {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 0 14px rgba(34, 211, 238, 0.06);
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      animation: pulseGlow 1s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      from { transform: scale(0.85); opacity: 0.7; }
+      to { transform: scale(1.25); opacity: 1; }
+    }
+
+    .brand-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--text-main);
+    }
+
+    .brand-sub {
+      font-size: 10px;
+      color: var(--cyan);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(5, auto);
+      gap: 8px 14px;
+      border-top: 1px solid rgba(148, 163, 184, 0.16);
+      padding-top: 7px;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .metric-val {
+      font-size: 14px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+    }
+
+    .metric-val.cyan { color: var(--cyan); }
+    .metric-val.emerald { color: var(--emerald); }
+    .metric-val.magenta { color: var(--magenta); }
+    .metric-val.amber { color: var(--amber); }
+
+    .preset-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .group-label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .hud-btn {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      padding: 6px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+    }
+
+    .hud-btn:hover {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.14);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn.active {
+      background: rgba(34, 211, 238, 0.22);
+      border-color: var(--cyan);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+    }
+
+    .hud-btn.fx-btn.active {
+      background: rgba(244, 114, 182, 0.28);
+      border-color: var(--magenta);
+      box-shadow: 0 0 14px rgba(244, 114, 182, 0.45);
+    }
+
+    .hud-btn.audio-btn.unmuted {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.2);
+      color: #a7f3d0;
+    }
+
+    .tracks-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 340px;
+    }
+
+    .tracks-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+
+    .track-card {
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 7px;
+      padding: 7px 8px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .track-card.enabled {
+      border-color: var(--track-color, var(--cyan));
+      box-shadow: inset 0 0 10px rgba(34, 211, 238, 0.12);
+    }
+
+    .track-card.muted {
+      opacity: 0.42;
+      border-color: rgba(148, 163, 184, 0.15);
+    }
+
+    .track-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .track-badge {
+      font-size: 8px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 800;
+      background: var(--track-color, var(--cyan));
+      color: #020617;
+    }
+
+    .track-meter-bg {
+      width: 100%;
+      height: 5px;
+      background: rgba(2, 6, 23, 0.8);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .track-meter-fill {
+      height: 100%;
+      width: 40%;
+      background: var(--track-color, var(--cyan));
+      transition: width 0.06s linear;
+    }
+
+    .step-strip {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 3px;
+      padding-top: 2px;
+    }
+
+    .step-led {
+      height: 6px;
+      border-radius: 2px;
+      background: rgba(148, 163, 184, 0.18);
+      transition: all 0.06s ease;
+    }
+
+    .step-led.beat-marker {
+      background: rgba(148, 163, 184, 0.34);
+    }
+
+    .step-led.current {
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      transform: scaleY(1.35);
+    }
+
+    .fx-scope-panel {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .scope-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #scope-canvas {
+      width: 176px;
+      height: 60px;
+      background: rgba(2, 6, 23, 0.9);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      border-radius: 6px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .slider-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      min-width: 58px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 2px;
+      flex: 1;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    .hint-pill {
+      pointer-events: none;
+      align-self: center;
+      background: rgba(9, 13, 26, 0.72);
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .svg-icon {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 900px) {
+      .telemetry-grid {
+        grid-template-columns: repeat(3, auto);
+      }
+      .tracks-panel {
+        min-width: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="hud-layer">
+    <!-- TOP HUD ROW -->
+    <div class="hud-row">
+      <div class="hud-card">
+        <div class="brand-header">
+          <div class="pulse-dot" id="beat-dot"></div>
+          <div>
+            <div class="brand-title">Mixiuh Launchpad Pro MK-IV</div>
+            <div class="brand-sub" id="genre-subtitle">LIVE SEQUENCER // CYBER HOUSE 128 BPM</div>
+          </div>
+        </div>
+        <div class="telemetry-grid">
+          <div class="metric">
+            <span class="metric-label">FPS</span>
+            <span class="metric-val emerald" id="hud-fps">60</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">BPM</span>
+            <span class="metric-val cyan" id="hud-bpm">128</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">BAR.BEAT</span>
+            <span class="metric-val amber" id="hud-step">01.1.1</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">3D MESHES</span>
+            <span class="metric-val" id="hud-entities">142</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">WEB AUDIO</span>
+            <span class="metric-val magenta" id="hud-audio-state">SYNTH READY</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-card preset-group">
+        <div class="group-label">
+          <span>GENRE PRESETS &amp; STAGE CAMERA</span>
+          <span id="active-cam-label">CAM: STUDIO TILT</span>
+        </div>
+        <div class="btn-row">
+          <button class="hud-btn active" data-preset="0" id="preset-btn-0">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            Cyber House 128
+          </button>
+          <button class="hud-btn" data-preset="1" id="preset-btn-1">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            Synthwave 110
+          </button>
+          <button class="hud-btn" data-preset="2" id="preset-btn-2">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            Drum &amp; Bass 170
+          </button>
+        </div>
+        <div class="btn-row">
+          <button class="hud-btn audio-btn" id="btn-audio-toggle">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+            <span id="audio-btn-text">AUDIO: AUTO / CLICK TO BOOST</span>
+          </button>
+          <button class="hud-btn" id="btn-cam-cycle">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            CAM ANGLE
+          </button>
+          <button class="hud-btn" id="btn-randomize">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            REMIX MATRIX
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hint-pill">
+      CLICK 3D SILICONE PADS TO TOGGLE SEQUENCER STEPS &bull; DRAG TO ORBIT STAGE &bull; TRIGGER LIVE DJ FX BELOW
+    </div>
+
+    <!-- BOTTOM HUD ROW -->
+    <div class="hud-row bottom">
+      <div class="hud-card tracks-panel">
+        <div class="group-label">
+          <span>4-CHANNEL LAUNCHPAD STEMS (CLICK TO MUTE / UNMUTE)</span>
+          <span id="active-pads-count">32 PADS ACTIVE</span>
+        </div>
+        <div class="tracks-grid">
+          <div class="track-card enabled" data-track="0" style="--track-color: #22d3ee;">
+            <div class="track-top">
+              <span>01 DRUMS</span>
+              <span class="track-badge" id="badge-track-0">ON</span>
+            </div>
+            <div class="track-meter-bg"><div class="track-meter-fill" id="meter-track-0"></div></div>
+          </div>
+          <div class="track-card enabled" data-track="1" style="--track-color: #10b981;">
+            <div class="track-top">
+              <span>02 ACID 303</span>
+              <span class="track-badge" id="badge-track-1">ON</span>
+            </div>
+            <div class="track-meter-bg"><div class="track-meter-fill" id="meter-track-1"></div></div>
+          </div>
+          <div class="track-card enabled" data-track="2" style="--track-color: #f472b6;">
+            <div class="track-top">
+              <span>03 SYNTH ARP</span>
+              <span class="track-badge" id="badge-track-2">ON</span>
+            </div>
+            <div class="track-meter-bg"><div class="track-meter-fill" id="meter-track-2"></div></div>
+          </div>
+          <div class="track-card enabled" data-track="3" style="--track-color: #fbbf24;">
+            <div class="track-top">
+              <span>04 VOCAL FX</span>
+              <span class="track-badge" id="badge-track-3">ON</span>
+            </div>
+            <div class="track-meter-bg"><div class="track-meter-fill" id="meter-track-3"></div></div>
+          </div>
+        </div>
+        <div class="step-strip" id="step-strip"></div>
+      </div>
+
+      <div class="hud-card fx-scope-panel">
+        <div class="scope-wrap">
+          <div class="group-label">
+            <span>MASTER FFT / WAVE</span>
+            <span id="peak-db-label">-1.4 dB</span>
+          </div>
+          <canvas id="scope-canvas" width="176" height="60"></canvas>
+          <div class="slider-row">
+            <span class="slider-label">LPF CUTOFF</span>
+            <input type="range" id="slider-cutoff" min="180" max="12000" value="8800" />
+          </div>
+        </div>
+
+        <div class="preset-group">
+          <div class="group-label">
+            <span>PERFORMANCE DJ FX &amp; STAGE TRIGGERS</span>
+          </div>
+          <div class="btn-row">
+            <button class="hud-btn fx-btn" id="fx-filter-sweep">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+              Drop Filter Sweep
+            </button>
+            <button class="hud-btn fx-btn" id="fx-stutter">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+              Stutter / Roll
+            </button>
+          </div>
+          <div class="btn-row">
+            <button class="hud-btn fx-btn active" id="fx-lasers">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+              Laser Show
+            </button>
+            <button class="hud-btn fx-btn" id="fx-subdrop">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-6h2v6zm0-8h-2V6h2v2z"/></svg>
+              Bass Impact Drop
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // 1. GENRE PRESETS & MUSICAL SEQUENCER DATA
+      // =========================================================================
+      const TRACK_COLORS_HEX = [0x22d3ee, 0x10b981, 0xf472b6, 0xfbbf24];
+      const TRACK_COLORS_CSS = ['#22d3ee', '#10b981', '#f472b6', '#fbbf24'];
+      const TRACK_NAMES = ['DRUMS 909', 'ACID BASS', 'SYNTH ARP', 'VOCAL CHOP'];
+
+      const GENRE_PRESETS = [
+        {
+          name: 'CYBER HOUSE',
+          bpm: 128,
+          accentColor: 0x22d3ee,
+          laserColorA: 0x22d3ee,
+          laserColorB: 0xf472b6,
+          // 4 rows x 8 pad columns (mapped across 16 steps)
+          padMatrix: [
+            [1, 1, 1, 1, 1, 1, 1, 1], // Row 0: Four-on-the-floor + crisp hats/clap
+            [1, 0, 1, 1, 0, 1, 1, 1], // Row 1: Acid 303 bass groove
+            [1, 1, 0, 1, 1, 0, 1, 1], // Row 2: Cyber minor 9th arpeggio
+            [1, 0, 0, 1, 0, 1, 0, 1]  // Row 3: Formant vocal chop / FX stabs
+          ],
+          bassNotes: [55.0, 55.0, 65.41, 55.0, 73.42, 65.41, 55.0, 82.41, 55.0, 55.0, 65.41, 73.42, 82.41, 73.42, 65.41, 98.0],
+          arpNotes: [220.0, 261.63, 329.63, 392.0, 440.0, 392.0, 329.63, 261.63, 246.94, 293.66, 369.99, 440.0, 493.88, 440.0, 369.99, 329.63],
+          vocalNotes: [440.0, 523.25, 587.33, 659.25, 523.25, 440.0, 392.0, 659.25]
+        },
+        {
+          name: 'SYNTHWAVE',
+          bpm: 110,
+          accentColor: 0xf472b6,
+          laserColorA: 0xf472b6,
+          laserColorB: 0xa78bfa,
+          padMatrix: [
+            [1, 0, 1, 1, 1, 0, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 1, 0, 1, 1, 0, 1],
+            [0, 1, 0, 1, 0, 1, 1, 0]
+          ],
+          bassNotes: [43.65, 43.65, 87.31, 43.65, 51.91, 51.91, 103.83, 51.91, 58.27, 58.27, 116.54, 58.27, 65.41, 65.41, 130.81, 65.41],
+          arpNotes: [349.23, 440.0, 523.25, 698.46, 659.25, 523.25, 440.0, 523.25, 311.13, 392.0, 466.16, 622.25, 587.33, 466.16, 392.0, 466.16],
+          vocalNotes: [523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 440.0, 523.25]
+        },
+        {
+          name: 'DRUM & BASS',
+          bpm: 170,
+          accentColor: 0x10b981,
+          laserColorA: 0x10b981,
+          laserColorB: 0xfbbf24,
+          padMatrix: [
+            [1, 0, 1, 0, 0, 1, 1, 1],
+            [1, 1, 0, 1, 1, 0, 1, 0],
+            [1, 1, 1, 0, 1, 1, 1, 0],
+            [1, 0, 1, 0, 1, 0, 1, 1]
+          ],
+          bassNotes: [41.2, 41.2, 41.2, 82.41, 46.25, 46.25, 43.65, 41.2, 41.2, 41.2, 61.74, 55.0, 49.0, 46.25, 43.65, 41.2],
+          arpNotes: [329.63, 392.0, 493.88, 659.25, 587.33, 493.88, 392.0, 329.63, 369.99, 440.0, 554.37, 739.99, 659.25, 554.37, 440.0, 369.99],
+          vocalNotes: [659.25, 783.99, 987.77, 659.25, 587.33, 739.99, 659.25, 880.0]
+        }
+      ];
+
+      // Live Application State
+      const state = {
+        presetIndex: 0,
+        bpm: 128,
+        currentStep: 0,      // 0..15
+        barCount: 1,
+        stepAccumulator: 0,
+        trackEnabled: [true, true, true, true],
+        trackMeters: [0.65, 0.55, 0.60, 0.45],
+        padMatrix: JSON.parse(JSON.stringify(GENRE_PRESETS[0].padMatrix)),
+        filterSweepActive: false,
+        filterSweepPhase: 0,
+        stutterActive: false,
+        lasersActive: true,
+        bassDropFlash: 0,
+        masterCutoff: 8800,
+        cameraMode: 0,       // 0: Studio Tilt, 1: Top Matrix, 2: Wide Stage, 3: Cinema Orbit
+        audioReady: false,
+        audioMuted: false,
+        beatPulse: 0,
+        kickPulse: 0,
+        snarePulse: 0,
+        fftBins: new Float32Array(64),
+        waveSamples: new Float32Array(128)
+      };
+
+      // Initialize procedural FFT bins so frame 0 already has rich spectral curve
+      for (let i = 0; i < 64; i++) {
+        state.fftBins[i] = 0.25 + 0.45 * Math.exp(-i / 18) + 0.15 * Math.sin(i * 0.4);
+      }
+
+      // Build 16-step LED strip in HUD
+      const stepStripEl = document.getElementById('step-strip');
+      const stepLedEls = [];
+      for (let s = 0; s < 16; s++) {
+        const d = document.createElement('div');
+        d.className = 'step-led' + (s % 4 === 0 ? ' beat-marker' : '');
+        stepStripEl.appendChild(d);
+        stepLedEls.push(d);
+      }
+
+      // =========================================================================
+      // 2. WEB AUDIO API PROCEDURAL SYNTHESIZER ENGINE
+      // =========================================================================
+      let audioCtx = null;
+      let masterGain = null;
+      let masterFilter = null;
+      let analyserNode = null;
+      let analyserFreqData = null;
+      let analyserTimeData = null;
+      let noiseBuffer = null;
+
+      function initAudioEngine() {
+        if (audioCtx) {
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          updateAudioStatusUI();
+          return;
+        }
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          audioCtx = new AudioContextClass();
+
+          masterFilter = audioCtx.createBiquadFilter();
+          masterFilter.type = 'lowpass';
+          masterFilter.frequency.value = state.masterCutoff;
+          masterFilter.Q.value = 2.4;
+
+          masterGain = audioCtx.createGain();
+          masterGain.gain.value = state.audioMuted ? 0.0 : 0.42;
+
+          analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 256;
+          analyserNode.smoothingTimeConstant = 0.78;
+          analyserFreqData = new Uint8Array(analyserNode.frequencyBinCount);
+          analyserTimeData = new Uint8Array(analyserNode.fftSize);
+
+          masterFilter.connect(masterGain);
+          masterGain.connect(analyserNode);
+          analyserNode.connect(audioCtx.destination);
+
+          // Pre-build white noise buffer for snare & hi-hats
+          const sr = audioCtx.sampleRate;
+          noiseBuffer = audioCtx.createBuffer(1, sr * 0.5, sr);
+          const out = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < out.length; i++) {
+            out[i] = Math.random() * 2 - 1;
+          }
+
+          state.audioReady = true;
+          updateAudioStatusUI();
+        } catch (err) {
+          state.audioReady = false;
+        }
+      }
+
+      function updateAudioStatusUI() {
+        const stateEl = document.getElementById('hud-audio-state');
+        const btnEl = document.getElementById('btn-audio-toggle');
+        const textEl = document.getElementById('audio-btn-text');
+        if (audioCtx && audioCtx.state === 'running' && !state.audioMuted) {
+          stateEl.textContent = 'LIVE 48kHz';
+          stateEl.className = 'metric-val emerald';
+          btnEl.classList.add('unmuted');
+          textEl.textContent = 'AUDIO: ON (MUTE)';
+        } else if (state.audioMuted) {
+          stateEl.textContent = 'MUTED';
+          stateEl.className = 'metric-val amber';
+          btnEl.classList.remove('unmuted');
+          textEl.textContent = 'AUDIO: MUTED (UNMUTE)';
+        } else {
+          stateEl.textContent = 'SYNTH READY';
+          stateEl.className = 'metric-val magenta';
+          btnEl.classList.remove('unmuted');
+          textEl.textContent = 'ENABLE LIVE AUDIO';
+        }
+      }
+
+      function triggerKick909(now) {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(145, now);
+        osc.frequency.exponentialRampToValueAtTime(42, now + 0.085);
+        osc.frequency.exponentialRampToValueAtTime(28, now + 0.24);
+
+        gain.gain.setValueAtTime(0.9, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+        osc.connect(gain);
+        gain.connect(masterFilter);
+        osc.start(now);
+        osc.stop(now + 0.27);
+      }
+
+      function triggerSnareClap(now) {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted || !noiseBuffer) return;
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = noiseBuffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1400, now);
+        filter.Q.setValueAtTime(1.2, now);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterFilter);
+        noise.start(now);
+        noise.stop(now + 0.17);
+      }
+
+      function triggerHiHat(now, openHat) {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted || !noiseBuffer) return;
+        const dur = openHat ? 0.14 : 0.045;
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = noiseBuffer;
+
+        const hp = audioCtx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(7500, now);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(openHat ? 0.24 : 0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        noise.connect(hp);
+        hp.connect(gain);
+        gain.connect(masterFilter);
+        noise.start(now);
+        noise.stop(now + dur + 0.01);
+      }
+
+      function triggerAcidBass303(now, freq) {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted) return;
+        const osc = audioCtx.createOscillator();
+        const flt = audioCtx.createBiquadFilter();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+
+        flt.type = 'lowpass';
+        flt.Q.setValueAtTime(9.5, now);
+        flt.frequency.setValueAtTime(freq * 11, now);
+        flt.frequency.exponentialRampToValueAtTime(freq * 1.8, now + 0.14);
+
+        gain.gain.setValueAtTime(0.38, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        osc.connect(flt);
+        flt.connect(gain);
+        gain.connect(masterFilter);
+        osc.start(now);
+        osc.stop(now + 0.17);
+      }
+
+      function triggerSynthArp(now, freq) {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted) return;
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(freq, now);
+        osc2.frequency.setValueAtTime(freq * 1.006, now);
+
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(masterFilter);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.19);
+        osc2.stop(now + 0.19);
+      }
+
+      function triggerVocalChopFX(now, freq) {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted) return;
+        const osc = audioCtx.createOscillator();
+        const formant = audioCtx.createBiquadFilter();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.12, now + 0.09);
+
+        formant.type = 'bandpass';
+        formant.frequency.setValueAtTime(1150, now);
+        formant.Q.setValueAtTime(4.5, now);
+
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(formant);
+        formant.connect(gain);
+        gain.connect(masterFilter);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      }
+
+      function triggerBassSubDropSound() {
+        if (!audioCtx || audioCtx.state !== 'running' || state.audioMuted) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(26, now + 0.75);
+        gain.gain.setValueAtTime(0.85, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.82);
+      }
+
+      // Attempt auto-initialization on load & unlock on any user gesture
+      initAudioEngine();
+      window.addEventListener('pointerdown', function () {
+        if (!audioCtx) initAudioEngine();
+        else if (audioCtx.state === 'suspended') {
+          audioCtx.resume().then(updateAudioStatusUI);
+        }
+      }, { passive: true });
+
+      // =========================================================================
+      // 3. THREE.JS SCENE, CAMERA, RENDERER & STAGE LIGHTING
+      // =========================================================================
+      const container = document.getElementById('canvas-container');
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x04060d);
+      scene.fog = new THREE.FogExp2(0x04060d, 0.018);
+
+      const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 200);
+      const cameraTarget = new THREE.Vector3(0, 1.4, -1.5);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0x1e293b, 1.35);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xe2e8f0, 1.25);
+      keyLight.position.set(8, 18, 12);
+      keyLight.castShadow = true;
+      scene.add(keyLight);
+
+      const stagePointLightLeft = new THREE.PointLight(0x22d3ee, 2.8, 32);
+      stagePointLightLeft.position.set(-9, 6, -5);
+      scene.add(stagePointLightLeft);
+
+      const stagePointLightRight = new THREE.PointLight(0xf472b6, 2.8, 32);
+      stagePointLightRight.position.set(9, 6, -5);
+      scene.add(stagePointLightRight);
+
+      const consoleGlowLight = new THREE.PointLight(0x22d3ee, 1.8, 14);
+      consoleGlowLight.position.set(0, 3.5, 3.2);
+      scene.add(consoleGlowLight);
+
+      // =========================================================================
+      // 4. CONCERT STAGE FLOOR, FREQUENCY RINGS & 64-BAR 3D FFT SPECTRUM
+      // =========================================================================
+      const stageGroup = new THREE.Group();
+      scene.add(stageGroup);
+
+      // Stage reflective dark platform & cyber grid
+      const floorGeo = new THREE.PlaneGeometry(90, 90);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x060913,
+        roughness: 0.22,
+        metalness: 0.75
+      });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.position.y = -1.6;
+      floorMesh.receiveShadow = true;
+      stageGroup.add(floorMesh);
+
+      const gridHelper = new THREE.GridHelper(70, 56, 0x22d3ee, 0x111c35);
+      gridHelper.position.y = -1.58;
+      stageGroup.add(gridHelper);
+
+      // 64-Bar 3D FFT Equalizer Arc behind the Launchpad
+      const NUM_FFT_BARS = 64;
+      const fftBars = [];
+      const fftCaps = [];
+      const fftGroup = new THREE.Group();
+      fftGroup.position.set(0, -1.55, -5.2);
+      stageGroup.add(fftGroup);
+
+      const barBaseGeo = new THREE.BoxGeometry(0.32, 1.0, 0.32);
+      barBaseGeo.translate(0, 0.5, 0); // Pivot at bottom
+      const capGeo = new THREE.BoxGeometry(0.36, 0.12, 0.36);
+
+      for (let i = 0; i < NUM_FFT_BARS; i++) {
+        const t = i / (NUM_FFT_BARS - 1);
+        const angle = (t - 0.5) * Math.PI * 0.88; // Semi-circular arc
+        const radius = 12.2;
+        const x = Math.sin(angle) * radius;
+        const z = -Math.cos(angle) * radius + 6.5;
+
+        const hue = (0.52 + t * 0.38) % 1.0;
+        const barColor = new THREE.Color().setHSL(hue, 0.92, 0.55);
+
+        const barMat = new THREE.MeshStandardMaterial({
+          color: barColor,
+          emissive: barColor,
+          emissiveIntensity: 0.65,
+          roughness: 0.25,
+          metalness: 0.6
+        });
+
+        const barMesh = new THREE.Mesh(barBaseGeo, barMat);
+        barMesh.position.set(x, 0, z);
+        barMesh.lookAt(0, 0, 2);
+        fftGroup.add(barMesh);
+        fftBars.push({
+          mesh: barMesh,
+          baseColor: barColor.clone(),
+          currentScale: 1.5,
+          peakY: 2.0,
+          peakVel: 0
+        });
+
+        const capMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const capMesh = new THREE.Mesh(capGeo, capMat);
+        capMesh.position.set(x, 2.0, z);
+        capMesh.lookAt(0, 2.0, 2);
+        fftGroup.add(capMesh);
+        fftCaps.push(capMesh);
+      }
+
+      // Concentric 3D Frequency Rings behind the stage
+      const freqRings = [];
+      const ringGroup = new THREE.Group();
+      ringGroup.position.set(0, 4.2, -13.5);
+      stageGroup.add(ringGroup);
+
+      for (let r = 0; r < 5; r++) {
+        const ringGeo = new THREE.TorusGeometry(2.4 + r * 1.55, 0.065, 12, 64);
+        const ringColor = r % 2 === 0 ? 0x22d3ee : 0xf472b6;
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: ringColor,
+          wireframe: r % 2 === 1,
+          transparent: true,
+          opacity: 0.72
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.z = -r * 1.1;
+        ringGroup.add(ringMesh);
+        freqRings.push(ringMesh);
+      }
+
+      // Twin Stage Subwoofer Stacks (Left & Right) with vibrating cones
+      const wooferCones = [];
+      function createSubwooferStack(sideX) {
+        const stack = new THREE.Group();
+        stack.position.set(sideX, -1.55, -4.2);
+        stack.rotation.y = sideX < 0 ? 0.35 : -0.35;
+
+        const cabGeo = new THREE.BoxGeometry(2.3, 4.2, 1.8);
+        const cabMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          roughness: 0.45,
+          metalness: 0.7
+        });
+        const cabMesh = new THREE.Mesh(cabGeo, cabMat);
+        cabMesh.position.y = 2.1;
+        stack.add(cabMesh);
+
+        // Neon frame trim
+        const trimGeo = new THREE.EdgesGeometry(cabGeo);
+        const trimMat = new THREE.LineBasicMaterial({ color: 0x22d3ee });
+        const trimLines = new THREE.LineSegments(trimGeo, trimMat);
+        trimLines.position.y = 2.1;
+        stack.add(trimLines);
+
+        // Two speaker cones per cabinet
+        for (let c = 0; c < 2; c++) {
+          const coneY = 1.2 + c * 1.85;
+          const rimGeo = new THREE.TorusGeometry(0.68, 0.07, 12, 32);
+          const rimMat = new THREE.MeshStandardMaterial({
+            color: 0x22d3ee,
+            emissive: 0x22d3ee,
+            emissiveIntensity: 0.5
+          });
+          const rim = new THREE.Mesh(rimGeo, rimMat);
+          rim.position.set(0, coneY, 0.92);
+          stack.add(rim);
+
+          const domeGeo = new THREE.CylinderGeometry(0.22, 0.64, 0.28, 28);
+          domeGeo.rotateX(Math.PI / 2);
+          const domeMat = new THREE.MeshStandardMaterial({
+            color: 0x1e293b,
+            roughness: 0.3,
+            metalness: 0.8
+          });
+          const dome = new THREE.Mesh(domeGeo, domeMat);
+          dome.position.set(0, coneY, 0.84);
+          stack.add(dome);
+          wooferCones.push(dome);
+        }
+
+        stageGroup.add(stack);
+      }
+      createSubwooferStack(-8.2);
+      createSubwooferStack(8.2);
+
+      // Volumetric Concert Lasers (8 sweeping beams from top truss)
+      const laserBeams = [];
+      const laserGroup = new THREE.Group();
+      laserGroup.position.set(0, 8.5, -8.5);
+      stageGroup.add(laserGroup);
+
+      const laserGeo = new THREE.ConeGeometry(0.42, 22, 16, 1, true);
+      laserGeo.translate(0, -11, 0);
+
+      for (let l = 0; l < 8; l++) {
+        const isEven = l % 2 === 0;
+        const laserMat = new THREE.MeshBasicMaterial({
+          color: isEven ? 0x22d3ee : 0xf472b6,
+          transparent: true,
+          opacity: 0.24,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const beam = new THREE.Mesh(laserGeo, laserMat);
+        beam.position.set((l - 3.5) * 2.1, 0, 0);
+        laserGroup.add(beam);
+        laserBeams.push({
+          mesh: beam,
+          phase: l * 0.75,
+          isEven: isEven
+        });
+      }
+
+      // 3D Stage Particle Field (BPM reactive neon dust)
+      const PARTICLE_COUNT = 420;
+      const particleGeo = new THREE.BufferGeometry();
+      const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+      const particleColors = new Float32Array(PARTICLE_COUNT * 3);
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particlePositions[i * 3] = (Math.random() - 0.5) * 34;
+        particlePositions[i * 3 + 1] = Math.random() * 14 - 1.2;
+        particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 26 - 4;
+
+        const c = new THREE.Color(TRACK_COLORS_HEX[i % 4]);
+        particleColors[i * 3] = c.r;
+        particleColors[i * 3 + 1] = c.g;
+        particleColors[i * 3 + 2] = c.b;
+      }
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+      particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+      const particleMat = new THREE.PointsMaterial({
+        size: 0.14,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const particleSystem = new THREE.Points(particleGeo, particleMat);
+      stageGroup.add(particleSystem);
+
+      // =========================================================================
+      // 5. 3D HARDWARE LAUNCHPAD CONSOLE (8x4 SILICONE PADS, 4 FADERS, 4 KNOBS, LED SCREEN)
+      // =========================================================================
+      const consoleGroup = new THREE.Group();
+      consoleGroup.position.set(0, 0.35, 2.3);
+      consoleGroup.rotation.x = 0.38; // Ergonomic live DJ angle facing camera
+      scene.add(consoleGroup);
+
+      // Main Hardware Chassis
+      const chassisGeo = new THREE.BoxGeometry(9.6, 0.48, 5.8);
+      const chassisMat = new THREE.MeshStandardMaterial({
+        color: 0x0b1120,
+        roughness: 0.32,
+        metalness: 0.82
+      });
+      const chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
+      chassisMesh.castShadow = true;
+      chassisMesh.receiveShadow = true;
+      consoleGroup.add(chassisMesh);
+
+      // Glowing Neon Underglow & Chassis Rim
+      const rimBoxGeo = new THREE.BoxGeometry(9.72, 0.14, 5.92);
+      const rimBoxMat = new THREE.MeshStandardMaterial({
+        color: 0x22d3ee,
+        emissive: 0x22d3ee,
+        emissiveIntensity: 0.85,
+        roughness: 0.2
+      });
+      const chassisRim = new THREE.Mesh(rimBoxGeo, rimBoxMat);
+      chassisRim.position.y = -0.14;
+      consoleGroup.add(chassisRim);
+
+      // Built-in 3D OLED Display Screen on Top-Center of the Launchpad Hardware
+      const oledCanvas = document.createElement('canvas');
+      oledCanvas.width = 512;
+      oledCanvas.height = 96;
+      const oledCtx = oledCanvas.getContext('2d');
+      const oledTexture = new THREE.CanvasTexture(oledCanvas);
+
+      const screenBezelGeo = new THREE.BoxGeometry(5.6, 0.1, 1.05);
+      const screenBezelMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.2, metalness: 0.9 });
+      const screenBezel = new THREE.Mesh(screenBezelGeo, screenBezelMat);
+      screenBezel.position.set(0, 0.24, -2.15);
+      consoleGroup.add(screenBezel);
+
+      const screenPlaneGeo = new THREE.PlaneGeometry(5.35, 0.9);
+      const screenPlaneMat = new THREE.MeshBasicMaterial({ map: oledTexture });
+      const screenMesh = new THREE.Mesh(screenPlaneGeo, screenPlaneMat);
+      screenMesh.rotation.x = -Math.PI / 2;
+      screenMesh.position.set(0, 0.30, -2.15);
+      consoleGroup.add(screenMesh);
+
+      // 8x4 Matrix of 3D Translucent Silicone Pads
+      const padObjects = []; // Flattened list for Raycaster
+      const padGrid = [];    // [row 0..3][col 0..7]
+      const padWellGeo = new THREE.BoxGeometry(0.68, 0.06, 0.68);
+      const padCapGeo = new THREE.BoxGeometry(0.60, 0.22, 0.60);
+      const padWellMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.5 });
+
+      const startX = -2.45;
+      const startZ = -1.05;
+      const spacingX = 0.70;
+      const spacingZ = 0.76;
+
+      for (let row = 0; row < 4; row++) {
+        padGrid[row] = [];
+        const rowColorHex = TRACK_COLORS_HEX[row];
+
+        for (let col = 0; col < 8; col++) {
+          const px = startX + col * spacingX;
+          const pz = startZ + row * spacingZ;
+
+          // Pad recessed socket
+          const well = new THREE.Mesh(padWellGeo, padWellMat);
+          well.position.set(px, 0.23, pz);
+          consoleGroup.add(well);
+
+          // Silicone glowing pad cap
+          const padMat = new THREE.MeshStandardMaterial({
+            color: rowColorHex,
+            emissive: rowColorHex,
+            emissiveIntensity: 0.45,
+            roughness: 0.22,
+            metalness: 0.15
+          });
+          const padMesh = new THREE.Mesh(padCapGeo, padMat);
+          padMesh.position.set(px, 0.34, pz);
+          padMesh.castShadow = true;
+          padMesh.userData = { isPad: true, row: row, col: col };
+          consoleGroup.add(padMesh);
+
+          // Top indicator strip on each pad
+          const stripGeo = new THREE.PlaneGeometry(0.42, 0.10);
+          const stripMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+          const stripMesh = new THREE.Mesh(stripGeo, stripMat);
+          stripMesh.rotation.x = -Math.PI / 2;
+          stripMesh.position.set(0, 0.115, -0.16);
+          padMesh.add(stripMesh);
+
+          const padData = {
+            row: row,
+            col: col,
+            mesh: padMesh,
+            mat: padMat,
+            stripMat: stripMat,
+            baseY: 0.34,
+            currentY: 0.34,
+            targetY: 0.34,
+            glowEnergy: 0.0,
+            baseColor: new THREE.Color(rowColorHex)
+          };
+
+          padGrid[row][col] = padData;
+          padObjects.push(padMesh);
+        }
+      }
+
+      // 4 Motorized 3D Faders on the Left Side of the Console
+      const faderHandles = [];
+      const faderSlotGeo = new THREE.BoxGeometry(0.10, 0.06, 2.35);
+      const faderSlotMat = new THREE.MeshBasicMaterial({ color: 0x020617 });
+      const faderCapGeo = new THREE.BoxGeometry(0.34, 0.24, 0.22);
+
+      for (let f = 0; f < 4; f++) {
+        const fx = -4.25 + f * 0.42;
+        const fz = 0.15;
+
+        const slot = new THREE.Mesh(faderSlotGeo, faderSlotMat);
+        slot.position.set(fx, 0.25, fz);
+        consoleGroup.add(slot);
+
+        const capColor = TRACK_COLORS_HEX[f];
+        const capMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          emissive: capColor,
+          emissiveIntensity: 0.55,
+          roughness: 0.3,
+          metalness: 0.8
+        });
+        const handle = new THREE.Mesh(faderCapGeo, capMat);
+        handle.position.set(fx, 0.36, fz - 0.5);
+        consoleGroup.add(handle);
+        faderHandles.push({ mesh: handle, trackIndex: f, baseZ: fz });
+      }
+
+      // 4 Animated 3D Rotary Knobs / Encoders on the Right Side of the Console
+      const rotaryKnobs = [];
+      const knobBaseGeo = new THREE.CylinderGeometry(0.32, 0.36, 0.26, 24);
+      const knobPointerGeo = new THREE.BoxGeometry(0.06, 0.28, 0.22);
+
+      for (let k = 0; k < 4; k++) {
+        const kx = 3.55 + (k % 2) * 0.78;
+        const kz = -0.65 + Math.floor(k / 2) * 1.15;
+
+        const knobGroup = new THREE.Group();
+        knobGroup.position.set(kx, 0.34, kz);
+
+        const baseMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          roughness: 0.3,
+          metalness: 0.85
+        });
+        const cylinder = new THREE.Mesh(knobBaseGeo, baseMat);
+        knobGroup.add(cylinder);
+
+        const ptrColor = TRACK_COLORS_HEX[k];
+        const ptrMat = new THREE.MeshBasicMaterial({ color: ptrColor });
+        const pointer = new THREE.Mesh(knobPointerGeo, ptrMat);
+        pointer.position.set(0, 0.04, -0.12);
+        knobGroup.add(pointer);
+
+        // Glowing LED collar around each knob
+        const collarGeo = new THREE.RingGeometry(0.38, 0.44, 28);
+        collarGeo.rotateX(-Math.PI / 2);
+        const collarMat = new THREE.MeshBasicMaterial({ color: ptrColor, side: THREE.DoubleSide });
+        const collar = new THREE.Mesh(collarGeo, collarMat);
+        collar.position.set(kx, 0.255, kz);
+        consoleGroup.add(collar);
+
+        consoleGroup.add(knobGroup);
+        rotaryKnobs.push(knobGroup);
+      }
+
+      // Shockwave Ring Effect on Pad Trigger
+      const shockwaves = [];
+      const shockGeo = new THREE.RingGeometry(0.2, 0.28, 28);
+      shockGeo.rotateX(-Math.PI / 2);
+
+      function spawnPadShockwave(x, z, colorHex) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          transparent: true,
+          opacity: 0.9,
+          side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(shockGeo, mat);
+        ring.position.set(x, 0.27, z);
+        consoleGroup.add(ring);
+        shockwaves.push({ mesh: ring, mat: mat, age: 0 });
+      }
+
+      // =========================================================================
+      // 6. SEQUENCER STEP ENGINE (128 BPM AUTO-DEMO ACTIVE FROM T = 0.0s)
+      // =========================================================================
+      function executeSequencerStep(stepIndex) {
+        const preset = GENRE_PRESETS[state.presetIndex];
+        const col = stepIndex % 8;
+        const now = audioCtx ? audioCtx.currentTime : 0;
+
+        state.beatPulse = (stepIndex % 4 === 0) ? 1.0 : 0.45;
+
+        // Row 0: DRUMS (Kick, Snare/Clap, Hi-Hat)
+        const drumActive = state.trackEnabled[0] && state.padMatrix[0][col] === 1;
+        if (drumActive) {
+          const pad = padGrid[0][col];
+          pad.currentY = pad.baseY - 0.14;
+          pad.glowEnergy = 1.6;
+          state.trackMeters[0] = 0.98;
+
+          if (state.presetIndex === 2) {
+            // Drum & Bass breakbeat pattern
+            if (stepIndex === 0 || stepIndex === 10) {
+              state.kickPulse = 1.0;
+              triggerKick909(now);
+              spawnPadShockwave(pad.mesh.position.x, pad.mesh.position.z, TRACK_COLORS_HEX[0]);
+            }
+            if (stepIndex === 4 || stepIndex === 12) {
+              state.snarePulse = 1.0;
+              triggerSnareClap(now);
+            }
+            triggerHiHat(now, stepIndex % 2 === 1);
+          } else {
+            // 4-on-the-floor Cyber House / Synthwave
+            if (stepIndex % 4 === 0) {
+              state.kickPulse = 1.0;
+              triggerKick909(now);
+              spawnPadShockwave(pad.mesh.position.x, pad.mesh.position.z, TRACK_COLORS_HEX[0]);
+            }
+            if (stepIndex % 8 === 4) {
+              state.snarePulse = 1.0;
+              triggerSnareClap(now);
+            }
+            if (stepIndex % 2 === 1) {
+              triggerHiHat(now, stepIndex % 4 === 2);
+            }
+          }
+        }
+
+        // Row 1: ACID BASS 303
+        const bassActive = state.trackEnabled[1] && state.padMatrix[1][col] === 1;
+        if (bassActive) {
+          const pad = padGrid[1][col];
+          pad.currentY = pad.baseY - 0.13;
+          pad.glowEnergy = 1.5;
+          state.trackMeters[1] = 0.92;
+          const noteFreq = preset.bassNotes[stepIndex % preset.bassNotes.length];
+          triggerAcidBass303(now, noteFreq);
+        }
+
+        // Row 2: SYNTH ARPEGGIO
+        const arpActive = state.trackEnabled[2] && state.padMatrix[2][col] === 1;
+        if (arpActive) {
+          const pad = padGrid[2][col];
+          pad.currentY = pad.baseY - 0.13;
+          pad.glowEnergy = 1.5;
+          state.trackMeters[2] = 0.88;
+          const arpFreq = preset.arpNotes[stepIndex % preset.arpNotes.length];
+          triggerSynthArp(now, arpFreq);
+        }
+
+        // Row 3: VOCAL CHOP / FX
+        const vocalActive = state.trackEnabled[3] && state.padMatrix[3][col] === 1;
+        if (vocalActive && (stepIndex % 2 === 0 || state.stutterActive)) {
+          const pad = padGrid[3][col];
+          pad.currentY = pad.baseY - 0.13;
+          pad.glowEnergy = 1.5;
+          state.trackMeters[3] = 0.90;
+          const vocFreq = preset.vocalNotes[col % preset.vocalNotes.length];
+          triggerVocalChopFX(now, vocFreq);
+          if (stepIndex % 4 === 0) {
+            spawnPadShockwave(pad.mesh.position.x, pad.mesh.position.z, TRACK_COLORS_HEX[3]);
+          }
+        }
+
+        // Update 16-step HUD strip
+        for (let s = 0; s < 16; s++) {
+          if (s === stepIndex) stepLedEls[s].classList.add('current');
+          else stepLedEls[s].classList.remove('current');
+        }
+
+        const beat = Math.floor(stepIndex / 4) + 1;
+        const sub = (stepIndex % 4) + 1;
+        const barStr = String(state.barCount).padStart(2, '0');
+        document.getElementById('hud-step').textContent = barStr + '.' + beat + '.' + sub;
+      }
+
+      // Fire step 0 immediately at t = 0.0s so the console & stage are alive on frame 1
+      executeSequencerStep(0);
+
+      // =========================================================================
+      // 7. RAYCASTER PAD CLICKING, ORBIT CONTROLS & HUD BUTTONS
+      // =========================================================================
+      const raycaster = new THREE.Raycaster();
+      const pointerNDC = new THREE.Vector2();
+      let isDraggingOrbit = false;
+      let prevPointerX = 0;
+      let prevPointerY = 0;
+      let orbitYaw = 0.0;
+      let orbitPitch = 0.0;
+
+      renderer.domElement.addEventListener('pointerdown', function (e) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(pointerNDC, camera);
+        const hits = raycaster.intersectObjects(padObjects, false);
+
+        if (hits.length > 0) {
+          const hitMesh = hits[0].object;
+          const r = hitMesh.userData.row;
+          const c = hitMesh.userData.col;
+          // Toggle pad in sequencer matrix
+          state.padMatrix[r][c] = state.padMatrix[r][c] ? 0 : 1;
+          const pad = padGrid[r][c];
+          pad.currentY = pad.baseY - 0.16;
+          pad.glowEnergy = 1.9;
+          spawnPadShockwave(pad.mesh.position.x, pad.mesh.position.z, TRACK_COLORS_HEX[r]);
+
+          // Immediate live synth preview on click
+          const now = audioCtx ? audioCtx.currentTime : 0;
+          const preset = GENRE_PRESETS[state.presetIndex];
+          if (r === 0) triggerKick909(now);
+          else if (r === 1) triggerAcidBass303(now, preset.bassNotes[c]);
+          else if (r === 2) triggerSynthArp(now, preset.arpNotes[c]);
+          else if (r === 3) triggerVocalChopFX(now, preset.vocalNotes[c]);
+
+          updateActivePadsCounter();
+          return;
+        }
+
+        isDraggingOrbit = true;
+        prevPointerX = e.clientX;
+        prevPointerY = e.clientY;
+      });
+
+      window.addEventListener('pointermove', function (e) {
+        if (!isDraggingOrbit) return;
+        const dx = e.clientX - prevPointerX;
+        const dy = e.clientY - prevPointerY;
+        prevPointerX = e.clientX;
+        prevPointerY = e.clientY;
+        orbitYaw -= dx * 0.0055;
+        orbitPitch = Math.max(-0.35, Math.min(0.45, orbitPitch + dy * 0.004));
+      });
+
+      window.addEventListener('pointerup', function () {
+        isDraggingOrbit = false;
+      });
+
+      function updateActivePadsCounter() {
+        let count = 0;
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (state.padMatrix[r][c]) count++;
+          }
+        }
+        document.getElementById('active-pads-count').textContent = count + ' / 32 PADS ACTIVE';
+      }
+      updateActivePadsCounter();
+
+      // Genre Preset Switcher
+      function selectPreset(index) {
+        state.presetIndex = index;
+        const p = GENRE_PRESETS[index];
+        state.bpm = p.bpm;
+        state.padMatrix = JSON.parse(JSON.stringify(p.padMatrix));
+
+        document.getElementById('hud-bpm').textContent = String(p.bpm);
+        document.getElementById('genre-subtitle').textContent = 'LIVE SEQUENCER // ' + p.name + ' ' + p.bpm + ' BPM';
+
+        for (let i = 0; i < 3; i++) {
+          const btn = document.getElementById('preset-btn-' + i);
+          if (i === index) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+
+        chassisRim.material.color.setHex(p.accentColor);
+        chassisRim.material.emissive.setHex(p.accentColor);
+        stagePointLightLeft.color.setHex(p.laserColorA);
+        stagePointLightRight.color.setHex(p.laserColorB);
+
+        for (let l = 0; l < laserBeams.length; l++) {
+          laserBeams[l].mesh.material.color.setHex(l % 2 === 0 ? p.laserColorA : p.laserColorB);
+        }
+
+        updateActivePadsCounter();
+      }
+
+      document.querySelectorAll('[data-preset]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          selectPreset(parseInt(btn.getAttribute('data-preset'), 10));
+        });
+      });
+
+      // Track Stem Mute/Unmute Cards
+      document.querySelectorAll('.track-card').forEach(function (card) {
+        card.addEventListener('click', function () {
+          const t = parseInt(card.getAttribute('data-track'), 10);
+          state.trackEnabled[t] = !state.trackEnabled[t];
+          const badge = document.getElementById('badge-track-' + t);
+          if (state.trackEnabled[t]) {
+            card.classList.add('enabled');
+            card.classList.remove('muted');
+            badge.textContent = 'ON';
+          } else {
+            card.classList.remove('enabled');
+            card.classList.add('muted');
+            badge.textContent = 'MUTE';
+          }
+        });
+      });
+
+      // Audio Toggle Button
+      document.getElementById('btn-audio-toggle').addEventListener('click', function () {
+        if (!audioCtx) {
+          initAudioEngine();
+        } else if (audioCtx.state === 'suspended') {
+          audioCtx.resume().then(updateAudioStatusUI);
+        } else {
+          state.audioMuted = !state.audioMuted;
+          if (masterGain && audioCtx) {
+            masterGain.gain.setTargetAtTime(state.audioMuted ? 0.0 : 0.42, audioCtx.currentTime, 0.03);
+          }
+          updateAudioStatusUI();
+        }
+      });
+
+      // Camera View Switcher
+      const CAM_NAMES = ['CAM: STUDIO TILT', 'CAM: TOP MATRIX', 'CAM: WIDE STAGE', 'CAM: CINEMA ORBIT'];
+      document.getElementById('btn-cam-cycle').addEventListener('click', function () {
+        state.cameraMode = (state.cameraMode + 1) % 4;
+        orbitYaw = 0;
+        orbitPitch = 0;
+        document.getElementById('active-cam-label').textContent = CAM_NAMES[state.cameraMode];
+      });
+
+      // Remix Matrix Button
+      document.getElementById('btn-randomize').addEventListener('click', function () {
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 8; c++) {
+            state.padMatrix[r][c] = (r === 0 && c % 2 === 0) ? 1 : (Math.random() > 0.35 ? 1 : 0);
+            padGrid[r][c].glowEnergy = 1.4;
+          }
+        }
+        updateActivePadsCounter();
+      });
+
+      // DJ Performance FX Buttons
+      const btnFilterSweep = document.getElementById('fx-filter-sweep');
+      btnFilterSweep.addEventListener('click', function () {
+        state.filterSweepActive = !state.filterSweepActive;
+        btnFilterSweep.classList.toggle('active', state.filterSweepActive);
+      });
+
+      const btnStutter = document.getElementById('fx-stutter');
+      btnStutter.addEventListener('click', function () {
+        state.stutterActive = !state.stutterActive;
+        btnStutter.classList.toggle('active', state.stutterActive);
+      });
+
+      const btnLasers = document.getElementById('fx-lasers');
+      btnLasers.addEventListener('click', function () {
+        state.lasersActive = !state.lasersActive;
+        btnLasers.classList.toggle('active', state.lasersActive);
+        laserGroup.visible = state.lasersActive;
+      });
+
+      const btnSubDrop = document.getElementById('fx-subdrop');
+      btnSubDrop.addEventListener('click', function () {
+        state.bassDropFlash = 1.0;
+        state.kickPulse = 1.4;
+        triggerBassSubDropSound();
+        for (let c = 0; c < 8; c++) {
+          spawnPadShockwave(padGrid[0][c].mesh.position.x, padGrid[0][c].mesh.position.z, 0x22d3ee);
+        }
+      });
+
+      // Filter Cutoff Slider
+      document.getElementById('slider-cutoff').addEventListener('input', function (e) {
+        state.masterCutoff = parseFloat(e.target.value);
+        if (masterFilter && audioCtx) {
+          masterFilter.frequency.setTargetAtTime(state.masterCutoff, audioCtx.currentTime, 0.02);
+        }
+      });
+
+      // =========================================================================
+      // 8. 2D OLED HARDWARE SCREEN & HUD OSCILLOSCOPE RENDERERS
+      // =========================================================================
+      const scopeCanvas = document.getElementById('scope-canvas');
+      const scopeCtx = scopeCanvas.getContext('2d');
+
+      function updateDisplays(elapsedTime) {
+        // 1) Hardware 3D OLED CanvasTexture
+        oledCtx.fillStyle = '#030712';
+        oledCtx.fillRect(0, 0, 512, 96);
+
+        oledCtx.strokeStyle = 'rgba(34, 211, 238, 0.35)';
+        oledCtx.lineWidth = 2;
+        oledCtx.strokeRect(3, 3, 506, 90);
+
+        const preset = GENRE_PRESETS[state.presetIndex];
+        oledCtx.fillStyle = '#22d3ee';
+        oledCtx.font = 'bold 20px monospace';
+        oledCtx.fillText(preset.name + ' // ' + state.bpm + ' BPM', 16, 30);
+
+        oledCtx.fillStyle = '#f472b6';
+        oledCtx.font = 'bold 15px monospace';
+        const fxText = state.stutterActive ? 'FX: STUTTER ROLL 1/32' : (state.filterSweepActive ? 'FX: DROP SWEEP' : 'FX: MASTER SYNC');
+        oledCtx.fillText(fxText, 16, 56);
+
+        oledCtx.fillStyle = '#10b981';
+        oledCtx.fillText('STEP: ' + String(state.currentStep + 1).padStart(2, '0') + '/16', 16, 80);
+
+        // Mini spectrum bars on right half of 3D OLED screen
+        for (let b = 0; b < 24; b++) {
+          const val = state.fftBins[b * 2];
+          const bh = Math.min(72, val * 68);
+          oledCtx.fillStyle = b % 2 === 0 ? '#22d3ee' : '#a78bfa';
+          oledCtx.fillRect(265 + b * 10, 84 - bh, 7, bh);
+        }
+        oledTexture.needsUpdate = true;
+
+        // 2) HUD 2D Oscilloscope & Spectrum Monitor
+        scopeCtx.fillStyle = '#020617';
+        scopeCtx.fillRect(0, 0, 176, 60);
+
+        // Background FFT bars in HUD scope
+        for (let i = 0; i < 32; i++) {
+          const h = Math.min(56, state.fftBins[i * 2] * 50);
+          scopeCtx.fillStyle = 'rgba(34, 211, 238, 0.25)';
+          scopeCtx.fillRect(i * 5.5, 60 - h, 4, h);
+        }
+
+        // Foreground Waveform line
+        scopeCtx.beginPath();
+        scopeCtx.strokeStyle = '#f472b6';
+        scopeCtx.lineWidth = 1.8;
+        for (let x = 0; x < 176; x++) {
+          const sampleIdx = Math.floor((x / 176) * 128);
+          const wy = 30 + state.waveSamples[sampleIdx] * 22;
+          if (x === 0) scopeCtx.moveTo(x, wy);
+          else scopeCtx.lineTo(x, wy);
+        }
+        scopeCtx.stroke();
+      }
+
+      // =========================================================================
+      // 9. MAIN 60 FPS ANIMATION & TELEMETRY LOOP
+      // =========================================================================
+      document.getElementById('hud-entities').textContent = String(scene.children.length + stageGroup.children.length + consoleGroup.children.length + fftGroup.children.length);
+
+      let lastFrameTime = performance.now();
+      let fpsCounter = 0;
+      let fpsTimer = 0;
+      let totalElapsed = 0;
+
+      function animate(nowMs) {
+        requestAnimationFrame(animate);
+
+        const dt = Math.min(0.05, (nowMs - lastFrameTime) / 1000);
+        lastFrameTime = nowMs;
+        totalElapsed += dt;
+
+        // FPS Telemetry
+        fpsCounter++;
+        fpsTimer += dt;
+        if (fpsTimer >= 0.4) {
+          const currentFps = Math.min(60, Math.round(fpsCounter / fpsTimer));
+          document.getElementById('hud-fps').textContent = String(currentFps);
+          fpsCounter = 0;
+          fpsTimer = 0;
+        }
+
+        // Sequencer Step Clock (16th notes, or 32nd notes when Stutter Roll FX is active)
+        const stepsPerBeat = state.stutterActive ? 8 : 4;
+        const stepDuration = 60.0 / (state.bpm * stepsPerBeat);
+        state.stepAccumulator += dt;
+        if (state.stepAccumulator >= stepDuration) {
+          state.stepAccumulator -= stepDuration;
+          state.currentStep = (state.currentStep + 1) % 16;
+          if (state.currentStep === 0) state.barCount++;
+          executeSequencerStep(state.currentStep);
+        }
+
+        // Filter Sweep Automation if active
+        if (state.filterSweepActive) {
+          state.filterSweepPhase += dt * 2.4;
+          const cutoff = 320 + (Math.sin(state.filterSweepPhase) * 0.5 + 0.5) * 9500;
+          if (masterFilter && audioCtx) {
+            masterFilter.frequency.setTargetAtTime(cutoff, audioCtx.currentTime, 0.02);
+          }
+          document.getElementById('slider-cutoff').value = String(Math.round(cutoff));
+        }
+
+        // Decay Pulses & Track Meters
+        state.beatPulse = Math.max(0, state.beatPulse - dt * 3.8);
+        state.kickPulse = Math.max(0, state.kickPulse - dt * 4.5);
+        state.snarePulse = Math.max(0, state.snarePulse - dt * 5.0);
+        state.bassDropFlash = Math.max(0, state.bassDropFlash - dt * 2.2);
+
+        for (let t = 0; t < 4; t++) {
+          state.trackMeters[t] = Math.max(0.08, state.trackMeters[t] - dt * 1.9);
+          const meterEl = document.getElementById('meter-track-' + t);
+          if (meterEl) {
+            meterEl.style.width = Math.round((state.trackEnabled[t] ? state.trackMeters[t] : 0.04) * 100) + '%';
+          }
+        }
+
+        // Update 64 FFT Bins & Waveform (Real Web Audio Analyser blended with procedural beat synthesis)
+        let hasLiveAudioSpectrum = false;
+        if (analyserNode && audioCtx && audioCtx.state === 'running' && !state.audioMuted) {
+          analyserNode.getByteFrequencyData(analyserFreqData);
+          analyserNode.getByteTimeDomainData(analyserTimeData);
+          let sum = 0;
+          for (let i = 0; i < 64; i++) sum += analyserFreqData[i];
+          if (sum > 10) hasLiveAudioSpectrum = true;
+        }
+
+        for (let i = 0; i < NUM_FFT_BARS; i++) {
+          let targetVal;
+          if (hasLiveAudioSpectrum) {
+            targetVal = (analyserFreqData[i] / 255.0) * 1.25;
+          } else {
+            // High-energy procedural FFT spectrum driven by active tracks & beat pulses
+            const norm = i / NUM_FFT_BARS;
+            const subBand = Math.exp(-norm * 6.0) * (0.45 + state.kickPulse * 0.85) * (state.trackEnabled[0] ? 1.0 : 0.2);
+            const bassBand = Math.exp(-Math.pow((norm - 0.22) * 7.0, 2)) * (0.4 + state.trackMeters[1] * 0.65);
+            const midBand = Math.exp(-Math.pow((norm - 0.52) * 5.5, 2)) * (0.35 + state.trackMeters[2] * 0.65 + Math.sin(totalElapsed * 9 + i * 0.4) * 0.15);
+            const highBand = Math.exp(-Math.pow((norm - 0.82) * 6.0, 2)) * (0.25 + state.snarePulse * 0.55 + state.trackMeters[3] * 0.45);
+            targetVal = Math.min(1.35, subBand + bassBand + midBand + highBand);
+          }
+          state.fftBins[i] += (targetVal - state.fftBins[i]) * Math.min(1.0, dt * 18);
+
+          // Scale 3D Equalizer bar & floating peak-hold cap
+          const barObj = fftBars[i];
+          const heightScale = Math.max(0.25, state.fftBins[i] * 6.8);
+          barObj.mesh.scale.y = heightScale;
+          barObj.mesh.material.emissiveIntensity = 0.4 + state.fftBins[i] * 0.95;
+
+          if (heightScale > barObj.peakY) {
+            barObj.peakY = heightScale + 0.18;
+            barObj.peakVel = 0;
+          } else {
+            barObj.peakVel += dt * 4.8;
+            barObj.peakY = Math.max(heightScale + 0.12, barObj.peakY - barObj.peakVel * dt);
+          }
+          fftCaps[i].position.y = barObj.peakY;
+        }
+
+        // Populate waveform samples
+        for (let s = 0; s < 128; s++) {
+          if (hasLiveAudioSpectrum) {
+            state.waveSamples[s] = (analyserTimeData[s] - 128) / 128.0;
+          } else {
+            const ph = totalElapsed * 14 + s * 0.18;
+            state.waveSamples[s] = (
+              Math.sin(ph) * (0.4 + state.kickPulse * 0.4) +
+              Math.sin(ph * 2.7) * 0.25 * state.trackMeters[1] +
+              Math.cos(ph * 5.3) * 0.2 * state.trackMeters[2]
+            );
+          }
+        }
+
+        // Animate 8x4 3D Silicone Pads (Spring return + Sequencer Playhead Highlight)
+        const playheadCol = state.currentStep % 8;
+        for (let r = 0; r < 4; r++) {
+          const trackOn = state.trackEnabled[r];
+          for (let c = 0; c < 8; c++) {
+            const pad = padGrid[r][c];
+            const isStepActive = state.padMatrix[r][c] === 1;
+            const isPlayhead = (c === playheadCol);
+
+            // Spring physics toward baseY
+            pad.currentY += (pad.baseY - pad.currentY) * Math.min(1.0, dt * 16);
+            pad.mesh.position.y = pad.currentY;
+
+            pad.glowEnergy = Math.max(0, pad.glowEnergy - dt * 4.2);
+
+            let emissiveStrength = 0.12;
+            if (isStepActive && trackOn) {
+              emissiveStrength = 0.55 + pad.glowEnergy * 0.85;
+              if (isPlayhead) emissiveStrength += 0.65;
+            } else if (isPlayhead) {
+              emissiveStrength = 0.35;
+            }
+            pad.mat.emissiveIntensity = emissiveStrength;
+            pad.stripMat.opacity = isStepActive ? 0.92 : 0.2;
+          }
+        }
+
+        // Animate 4 Motorized Faders & 4 Rotary Knobs on the Console
+        for (let f = 0; f < 4; f++) {
+          const fh = faderHandles[f];
+          const targetZ = fh.baseZ + 0.85 - (state.trackEnabled[f] ? state.trackMeters[f] * 1.45 : 0.1);
+          fh.mesh.position.z += (targetZ - fh.mesh.position.z) * Math.min(1.0, dt * 12);
+        }
+        for (let k = 0; k < 4; k++) {
+          rotaryKnobs[k].rotation.y = Math.sin(totalElapsed * (1.5 + k * 0.4)) * 1.35;
+        }
+
+        // Update Pad Shockwave Rings
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.age += dt * 2.8;
+          const sc = 1.0 + sw.age * 3.2;
+          sw.mesh.scale.set(sc, 1, sc);
+          sw.mat.opacity = Math.max(0, 0.9 - sw.age);
+          if (sw.age >= 0.9) {
+            consoleGroup.remove(sw.mesh);
+            sw.mat.dispose();
+            shockwaves.splice(i, 1);
+          }
+        }
+
+        // Animate Stage Frequency Rings, Subwoofers, Volumetric Lasers & Particles
+        for (let r = 0; r < freqRings.length; r++) {
+          const ring = freqRings[r];
+          ring.rotation.z = totalElapsed * (r % 2 === 0 ? 0.45 : -0.35);
+          const pulseScale = 1.0 + state.kickPulse * (0.14 - r * 0.018) + state.bassDropFlash * 0.25;
+          ring.scale.set(pulseScale, pulseScale, 1.0);
+        }
+
+        for (let w = 0; w < wooferCones.length; w++) {
+          wooferCones[w].position.z = 0.84 + state.kickPulse * 0.18;
+        }
+
+        if (state.lasersActive) {
+          for (let l = 0; l < laserBeams.length; l++) {
+            const lb = laserBeams[l];
+            const sweepSpeed = state.stutterActive ? 4.2 : 1.65;
+            lb.mesh.rotation.z = Math.sin(totalElapsed * sweepSpeed + lb.phase) * 0.58;
+            lb.mesh.rotation.x = 0.62 + Math.cos(totalElapsed * 1.3 + lb.phase) * 0.22;
+            lb.mesh.material.opacity = 0.16 + state.beatPulse * 0.24 + state.bassDropFlash * 0.35;
+          }
+        }
+
+        particleSystem.rotation.y = totalElapsed * 0.08;
+        particleSystem.position.y = Math.sin(totalElapsed * 2.0) * 0.3 + state.kickPulse * 0.25;
+
+        // Camera Modes + User Drag Orbit
+        let baseCamX = 0;
+        let baseCamY = 5.4;
+        let baseCamZ = 8.4;
+
+        if (state.cameraMode === 0) {
+          // Studio Tilt (Close hardware + stage behind)
+          baseCamX = Math.sin(totalElapsed * 0.35) * 0.85;
+          baseCamY = 5.15 + Math.cos(totalElapsed * 0.5) * 0.2;
+          baseCamZ = 8.15;
+          cameraTarget.set(0, 1.15, -0.8);
+        } else if (state.cameraMode === 1) {
+          // Top-down Launchpad Matrix View
+          baseCamX = 0;
+          baseCamY = 8.8;
+          baseCamZ = 4.2;
+          cameraTarget.set(0, 0.35, 2.1);
+        } else if (state.cameraMode === 2) {
+          // Wide Arena Concert View
+          baseCamX = Math.sin(totalElapsed * 0.4) * 3.5;
+          baseCamY = 6.5;
+          baseCamZ = 12.2;
+          cameraTarget.set(0, 2.0, -3.5);
+        } else {
+          // Cinema Orbit
+          baseCamX = Math.sin(totalElapsed * 0.55) * 6.8;
+          baseCamY = 4.8 + Math.sin(totalElapsed * 0.8) * 1.1;
+          baseCamZ = 6.8 + Math.cos(totalElapsed * 0.55) * 3.2;
+          cameraTarget.set(0, 1.3, -0.5);
+        }
+
+        const radiusXZ = Math.hypot(baseCamX, baseCamZ);
+        const baseAngle = Math.atan2(baseCamX, baseCamZ) + orbitYaw;
+        camera.position.x = Math.sin(baseAngle) * radiusXZ;
+        camera.position.z = Math.cos(baseAngle) * radiusXZ;
+        camera.position.y = Math.max(1.2, baseCamY + orbitPitch * 7.0);
+        camera.lookAt(cameraTarget);
+
+        // Update 3D OLED & 2D HUD Scope
+        updateDisplays(totalElapsed);
+
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener('resize', function () {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

@@ -1,36 +1,211 @@
 "use client";
 
+import { useState } from "react";
 import { EP03_CHALLENGES } from "@/data/ep03Data";
 import { EP04_CHALLENGES } from "@/data/ep04Data";
+import { EP05_CHALLENGES } from "@/data/ep05Data";
 
 export interface ArenaLatestProps {
   lang: "es" | "en";
-  /** EP04: the three Claude tiers side by side. EP03: raw run next to the kit run. */
-  episode: "ep04" | "ep03";
+  /** EP05: 3 Giants Tournament + Rescue Round. EP04: three Claude tiers. EP03: raw vs kit. */
+  episode: "ep05" | "ep04" | "ep03";
+  ep05ChallengeN?: number;
+  setEp05ChallengeN?: (n: number) => void;
   ep04ChallengeN: number;
   setEp04ChallengeN: (n: number) => void;
   ep03ChallengeN: number;
   setEp03ChallengeN: (n: number) => void;
-  navigateToView: (view: "dossiers", ep: "ep04" | "ep03") => void;
+  navigateToView: (view: "dossiers", ep: "ep05" | "ep04" | "ep03") => void;
 }
 
 /**
- * Arena of the newest episodes (EP04, EP03): challenge picker and live demos.
+ * Arena of the newest episodes (EP05, EP04, EP03): challenge picker and live demos.
  * Loaded on demand, like the EP02/EP01 arena, so their data stays off the home page.
  * The Arena view supplies the page's <h1>, so the challenge title here is an <h2>.
  */
 export default function ArenaLatest({
   lang,
   episode,
+  ep05ChallengeN = 1,
+  setEp05ChallengeN = () => {},
   ep04ChallengeN,
   setEp04ChallengeN,
   ep03ChallengeN,
   setEp03ChallengeN,
   navigateToView,
 }: ArenaLatestProps) {
+  const [showRescuedArgon, setShowRescuedArgon] = useState(true);
   // English mode shows the English twin of a note where the data has one
   const fpsNote = (note: string, note_en?: string) =>
     lang === "es" ? note : (note_en ?? note);
+
+  if (episode === "ep05") {
+    const cur =
+      EP05_CHALLENGES.find((c) => c.n === ep05ChallengeN) || EP05_CHALLENGES[0];
+    const name = lang === "es" ? cur.name_es : cur.name_en;
+    const argonUrl =
+      showRescuedArgon && cur.argon.rescuedDemoUrl
+        ? cur.argon.rescuedDemoUrl
+        : cur.argon.demoUrl;
+    const opusUrl = cur.opus.demoUrl;
+    const astraUrl = cur.astra.demoUrl;
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+        <div
+          role="group"
+          aria-label={lang === "es" ? "Retos del EP05" : "EP05 challenges"}
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+        >
+          {EP05_CHALLENGES.map((ch) => (
+            <button
+              key={ch.n}
+              onClick={() => setEp05ChallengeN(ch.n)}
+              aria-pressed={ep05ChallengeN === ch.n}
+              className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
+                ep05ChallengeN === ch.n
+                  ? "bg-[#1A2132] border-[#10B981]"
+                  : "bg-[#111622] border-[#2A344B]"
+              }`}
+            >
+              <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                <span className="text-[#00E5FF] font-bold">R0{ch.n}</span>
+                <span
+                  className={
+                    ch.winner === "astra"
+                      ? "text-[#10B981] font-bold"
+                      : ch.winner === "argon"
+                      ? "text-[#00E5FF] font-bold"
+                      : "text-[#C084FC] font-bold"
+                  }
+                >
+                  {ch.winner.toUpperCase()} WIN
+                </span>
+              </div>
+              <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                {lang === "es" ? ch.name_es : ch.name_en}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-[#090B10] border-2 border-[#10B981] overflow-hidden shadow-[6px_6px_0_#040508]">
+          <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1 max-w-3xl">
+              <h2 className="font-display text-lg font-black text-white">
+                {lang === "es" ? "EP05 Reto" : "EP05 Round"} 0{cur.n}: {name}
+              </h2>
+              <p className="text-xs text-[#FFD100] font-semibold">
+                {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+              </p>
+              <p className="text-xs text-[#CBD5E1]">
+                {lang === "es" ? cur.verdict_es : cur.verdict_en}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {cur.argon.rescuedDemoUrl && (
+                <button
+                  onClick={() => setShowRescuedArgon((v) => !v)}
+                  className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                    showRescuedArgon
+                      ? "bg-[#FFD100] text-[#090B10]"
+                      : "bg-[#111622] text-[#FFD100] border-[#FFD100]"
+                  }`}
+                >
+                  {showRescuedArgon
+                    ? lang === "es"
+                      ? "ARGON: VIENDO RESCATE 60 FPS (VER 1ER INTENTO)"
+                      : "ARGON: VIEWING 60 FPS RESCUE (SHOW 1ST TRY)"
+                    : lang === "es"
+                    ? "ARGON: VIENDO 1ER INTENTO (ACTIVAR RESCATE 60 FPS)"
+                    : "ARGON: VIEWING 1ST TRY (ENABLE 60 FPS RESCUE)"}
+                </button>
+              )}
+              <button
+                onClick={() => navigateToView("dossiers", "ep05")}
+                className="px-3.5 py-1.5 bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508]"
+              >
+                {lang === "es"
+                  ? "Ver Dossier Completo EP05 →"
+                  : "Open Full EP05 Dossier →"}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+            {/* Column 1: Gemini 4 Argon High */}
+            <div className="flex flex-col">
+              <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                <span className="font-pixel text-[10px] text-[#00E5FF] font-bold">
+                  GEMINI 4 ARGON (${cur.argon.usd.toFixed(2)} · {cur.argon.min}&nbsp;min)
+                </span>
+                <a
+                  href={argonUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 bg-[#131824] text-[#00E5FF] border border-[#00E5FF]/50 text-[10px] font-bold"
+                >
+                  {fpsNote(cur.argon.fps, cur.argon.fps_en)} ↗
+                </a>
+              </div>
+              <iframe
+                allowFullScreen
+                src={argonUrl}
+                title={`Gemini 4 Argon High: ${name}`}
+                className="w-full h-[520px] border-0 bg-[#090B10]"
+              />
+            </div>
+
+            {/* Column 2: Claude Opus 5.5 High */}
+            <div className="flex flex-col">
+              <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                <span className="font-pixel text-[10px] text-[#C084FC] font-bold">
+                  CLAUDE OPUS 5.5 (${cur.opus.usd.toFixed(2)} · {cur.opus.min}&nbsp;min)
+                </span>
+                <a
+                  href={opusUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 bg-[#131824] text-[#C084FC] border border-[#C084FC]/50 text-[10px] font-bold"
+                >
+                  {fpsNote(cur.opus.fps, cur.opus.fps_en)} ↗
+                </a>
+              </div>
+              <iframe
+                allowFullScreen
+                src={opusUrl}
+                title={`Claude Opus 5.5 High: ${name}`}
+                className="w-full h-[520px] border-0 bg-[#090B10]"
+              />
+            </div>
+
+            {/* Column 3: GPT-6 Astra High */}
+            <div className="flex flex-col">
+              <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                <span className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  GPT-6 ASTRA (${cur.astra.usd.toFixed(2)} · {cur.astra.min}&nbsp;min)
+                </span>
+                <a
+                  href={astraUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 bg-[#131824] text-[#10B981] border border-[#10B981]/50 text-[10px] font-bold"
+                >
+                  {fpsNote(cur.astra.fps, cur.astra.fps_en)} ↗
+                </a>
+              </div>
+              <iframe
+                allowFullScreen
+                src={astraUrl}
+                title={`GPT-6 Astra High: ${name}`}
+                className="w-full h-[520px] border-0 bg-[#090B10]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return episode === "ep04" ? (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">

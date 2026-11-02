@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reto 03 · Asedio y Fisica de Destruccion de Castillo 3D</title>
+  <style>
+    :root {
+      --bg-glass: rgba(11, 15, 25, 0.82);
+      --bg-panel: rgba(17, 24, 39, 0.88);
+      --border-subtle: rgba(148, 163, 184, 0.22);
+      --border-accent: rgba(245, 158, 11, 0.55);
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-cyan: #22d3ee;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060911;
+      font-family: var(--font-sans);
+      color: var(--text-main);
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      cursor: crosshair;
+    }
+
+    /* HUD Overlay */
+    .hud-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 18px;
+    }
+
+    .hud-top, .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .hud-bottom {
+      align-items: flex-end;
+    }
+
+    .panel {
+      pointer-events: auto;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Top Left Telemetry Panel */
+    .telemetry-panel {
+      min-width: 340px;
+      max-width: 410px;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(245, 158, 11, 0.16);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+      animation: pulseGlow 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.55; }
+    }
+
+    .sim-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--text-main);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 8px;
+      padding: 6px 8px;
+      text-align: center;
+    }
+
+    .metric-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 2px;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .metric-value.amber { color: var(--accent-amber); }
+    .metric-value.cyan { color: var(--accent-cyan); }
+    .metric-value.red { color: var(--accent-red); }
+    .metric-value.emerald { color: var(--accent-emerald); }
+
+    .destruction-bar-wrap {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 8px;
+      padding: 7px 9px;
+    }
+
+    .destruction-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+    }
+
+    .destruction-track {
+      width: 100%;
+      height: 7px;
+      background: rgba(30, 41, 59, 0.9);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .destruction-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #ef4444 100%);
+      border-radius: 999px;
+      transition: width 0.2s ease-out;
+    }
+
+    /* Top Right Controls */
+    .top-right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      color: var(--text-dim);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .chip-btn:hover {
+      color: var(--text-main);
+      border-color: rgba(248, 250, 252, 0.45);
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .chip-btn.active {
+      color: #0b0f19;
+      background: var(--accent-amber);
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
+    }
+
+    .chip-btn.active-cyan {
+      color: #06131a;
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+    }
+
+    .hint-strip {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .key-pill {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--text-main);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* Bottom Left Ammo Selector */
+    .ammo-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ammo-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(128px, 1fr));
+      gap: 8px;
+    }
+
+    .ammo-card {
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+    }
+
+    .ammo-card:hover {
+      border-color: rgba(245, 158, 11, 0.55);
+      transform: translateY(-2px);
+    }
+
+    .ammo-card.selected {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+    }
+
+    .ammo-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .ammo-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-amber);
+    }
+
+    .ammo-hotkey {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(148, 163, 184, 0.18);
+      color: var(--text-main);
+    }
+
+    .ammo-name {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+
+    .ammo-desc {
+      font-size: 9.5px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Bottom Right Action Buttons */
+    .actions-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 280px;
+    }
+
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--text-main);
+    }
+
+    .action-btn:active {
+      transform: translateY(1px);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #090d16;
+      border-color: #fbbf24;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+    }
+
+    .action-btn.danger {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      color: #fff;
+      border-color: #f87171;
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+    }
+
+    .action-btn.rebuild {
+      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+      color: #06131a;
+      border-color: #38bdf8;
+      box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
+    }
+
+    .action-btn.meteor {
+      background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+      color: #fff;
+      border-color: #c084fc;
+    }
+
+    .svg-icon {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    /* Event Banner */
+    #event-banner {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      z-index: 15;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--border-accent);
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-amber);
+      opacity: 0;
+      transition: all 0.25s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    #event-banner.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 960px) {
+      .ammo-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .telemetry-panel {
+        min-width: 280px;
+      }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="event-banner">IMPACTO BALISTICO REGISTRADO</div>
+
+  <div class="hud-layer">
+    <!-- TOP HUD -->
+    <div class="hud-top">
+      <div class="panel telemetry-panel">
+        <div class="brand-row">
+          <span class="badge-live">
+            <span class="pulse-dot"></span>
+            AUTO-ASEDIO ACTIVO · 2.2S
+          </span>
+          <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);" id="shot-counter-label">DISPAROS: 0</span>
+        </div>
+        <div class="sim-title">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="color: var(--accent-amber);">
+            <path d="M3 21h18M5 21V7l4-3v3l3-2 3 2V4l4 3v14M9 21v-5a3 3 0 0 1 6 0v5"/>
+          </svg>
+          ASEDIO Y FISICA DE DESTRUCCION 3D
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">FPS</div>
+            <div class="metric-value emerald" id="hud-fps">60</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Intactos</div>
+            <div class="metric-value cyan" id="hud-intact">176</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Derribados</div>
+            <div class="metric-value amber" id="hud-fallen">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Barriles</div>
+            <div class="metric-value red" id="hud-barrels">10</div>
+          </div>
+        </div>
+        <div class="destruction-bar-wrap">
+          <div class="destruction-header">
+            <span>Indice de Colapso Estructural</span>
+            <span id="hud-destruction-pct" style="color: var(--accent-amber); font-family: var(--font-mono);">0.0%</span>
+          </div>
+          <div class="destruction-track">
+            <div class="destruction-fill" id="hud-destruction-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel top-right-panel">
+        <div class="control-row">
+          <button class="chip-btn active-cyan" id="btn-autodemo" title="Alternar disparo automatico cada 2.2s">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span id="label-autodemo">Auto-Demo: ON</span>
+          </button>
+          <button class="chip-btn active" id="btn-cam-orbit" data-cam="orbit">Camara Orbital</button>
+          <button class="chip-btn" id="btn-cam-cannon" data-cam="cannon">Vista Canon</button>
+          <button class="chip-btn" id="btn-cam-aerial" data-cam="aerial">Vista Aerea</button>
+          <button class="chip-btn" id="btn-audio" title="Activar/Silenciar Sintetizador Web Audio">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            <span id="label-audio">Audio: ON</span>
+          </button>
+        </div>
+        <div class="hint-strip">
+          <span><span class="key-pill">CLIC</span> Apuntar y Disparar</span>
+          <span><span class="key-pill">ESPACIO</span> Canon</span>
+          <span><span class="key-pill">1-4</span> Municion</span>
+          <span><span class="key-pill">ARRASTRAR</span> Rotar Vista</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM HUD -->
+    <div class="hud-bottom">
+      <div class="panel ammo-panel">
+        <div class="section-label">
+          <span>Selector de Municion de Asedio</span>
+          <span id="active-ammo-tag" style="color: var(--accent-amber); font-family: var(--font-mono);">BALA PESADA DE ACERO</span>
+        </div>
+        <div class="ammo-grid">
+          <div class="ammo-card selected" data-ammo="0" id="ammo-card-0">
+            <div class="ammo-top">
+              <span class="ammo-icon">
+                <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="9.5" cy="9.5" r="2"/></svg>
+              </span>
+              <span class="ammo-hotkey">1</span>
+            </div>
+            <div class="ammo-name">Bala Pesada Acero</div>
+            <div class="ammo-desc">Masa 42kg · Alto Momento</div>
+          </div>
+
+          <div class="ammo-card" data-ammo="1" id="ammo-card-1">
+            <div class="ammo-top">
+              <span class="ammo-icon">
+                <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="11" cy="13" r="7"/><path d="M15.5 8.5L19 5"/><path d="M18 3l3 3"/></svg>
+              </span>
+              <span class="ammo-hotkey">2</span>
+            </div>
+            <div class="ammo-name">Bomba Explosiva</div>
+            <div class="ammo-desc">Onda Radial · Radio 9.5m</div>
+          </div>
+
+          <div class="ammo-card" data-ammo="2" id="ammo-card-2">
+            <div class="ammo-top">
+              <span class="ammo-icon">
+                <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="7" cy="15" r="3.5"/><circle cx="17" cy="15" r="3.5"/><circle cx="12" cy="8" r="3.5"/></svg>
+              </span>
+              <span class="ammo-hotkey">3</span>
+            </div>
+            <div class="ammo-name">Triple Metralla</div>
+            <div class="ammo-desc">3 Sub-Proyectiles Incend.</div>
+          </div>
+
+          <div class="ammo-card" data-ammo="3" id="ammo-card-3">
+            <div class="ammo-top">
+              <span class="ammo-icon">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </span>
+              <span class="ammo-hotkey">4</span>
+            </div>
+            <div class="ammo-name">Meteorito Gigante</div>
+            <div class="ammo-desc">Masa 125kg · Sismo Magma</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel actions-panel">
+        <div class="section-label">
+          <span>Controles Tacticos de Asedio</span>
+          <span style="font-family: var(--font-mono); color: var(--accent-cyan);" id="physics-active-label">CUERPOS: 176</span>
+        </div>
+        <div class="actions-grid">
+          <button class="action-btn primary" id="btn-fire">
+            <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+            Disparar Canon
+          </button>
+          <button class="action-btn danger" id="btn-detonate">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9 12 2"/></svg>
+            Detonar Barriles
+          </button>
+          <button class="action-btn meteor" id="btn-meteor-salvo">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 20L20 4M14 4h6v6M8 12l-4 4"/></svg>
+            Salva Catapulta
+          </button>
+          <button class="action-btn rebuild" id="btn-rebuild">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Reconstruir Castillo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // 1. WEB AUDIO API PROCEDURAL SOUND SYNTHESIZER
+      // =========================================================================
+      class SiegeAudioEngine {
+        constructor() {
+          this.ctx = null;
+          this.enabled = true;
+          this.lastImpactTime = 0;
+        }
+
+        init() {
+          if (this.ctx) return;
+          try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+              this.ctx = new AudioCtx();
+            }
+          } catch (e) {
+            this.ctx = null;
+          }
+        }
+
+        resume() {
+          if (!this.ctx) this.init();
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        }
+
+        playCannonFire(isHeavy = false) {
+          if (!this.enabled) return;
+          this.resume();
+          if (!this.ctx || this.ctx.state !== 'running') return;
+
+          const now = this.ctx.currentTime;
+          // Low punch oscillator
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(isHeavy ? 95 : 135, now);
+          osc.frequency.exponentialRampToValueAtTime(24, now + 0.38);
+
+          gain.gain.setValueAtTime(0.32, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.43);
+
+          // Noise burst for gunpowder blast
+          const bufferSize = Math.floor(this.ctx.sampleRate * 0.28);
+          const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+          }
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(750, now);
+          filter.frequency.exponentialRampToValueAtTime(140, now + 0.26);
+
+          const nGain = this.ctx.createGain();
+          nGain.gain.setValueAtTime(0.26, now);
+          nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+          noise.connect(filter);
+          filter.connect(nGain);
+          nGain.connect(this.ctx.destination);
+          noise.start(now);
+        }
+
+        playExplosion(intensity = 1.0) {
+          if (!this.enabled) return;
+          this.resume();
+          if (!this.ctx || this.ctx.state !== 'running') return;
+
+          const now = this.ctx.currentTime;
+          const dur = 0.65 * Math.min(1.5, Math.max(0.7, intensity));
+          const bufferSize = Math.floor(this.ctx.sampleRate * dur);
+          const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.4);
+          }
+
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(480 * intensity, now);
+          filter.frequency.exponentialRampToValueAtTime(55, now + dur);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(Math.min(0.45, 0.32 * intensity), now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+          noise.start(now);
+
+          // Sub-bass rumble
+          const sub = this.ctx.createOscillator();
+          const subGain = this.ctx.createGain();
+          sub.type = 'sine';
+          sub.frequency.setValueAtTime(80, now);
+          sub.frequency.exponentialRampToValueAtTime(18, now + dur * 0.9);
+          subGain.gain.setValueAtTime(0.35, now);
+          subGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.9);
+          sub.connect(subGain);
+          subGain.connect(this.ctx.destination);
+          sub.start(now);
+          sub.stop(now + dur);
+        }
+
+        playStoneImpact(strength = 0.5) {
+          if (!this.enabled) return;
+          const perfNow = performance.now();
+          if (perfNow - this.lastImpactTime < 55) return;
+          this.lastImpactTime = perfNow;
+
+          if (!this.ctx || this.ctx.state !== 'running') return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          const baseFreq = 110 + Math.random() * 90;
+          osc.frequency.setValueAtTime(baseFreq, now);
+          osc.frequency.exponentialRampToValueAtTime(38, now + 0.09);
+
+          const vol = Math.min(0.18, Math.max(0.02, strength * 0.14));
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(340, now);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        }
+      }
+
+      const sound = new SiegeAudioEngine();
+      window.addEventListener('pointerdown', () => sound.resume(), { once: true });
+      window.addEventListener('keydown', () => sound.resume(), { once: true });
+
+      // =========================================================================
+      // 2. PROCEDURAL TEXTURES FOR STONE, WOOD, BARRELS & GROUND
+      // =========================================================================
+      function createStoneTexture(baseHex, accentHex, noiseAmt) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = baseHex;
+        ctx.fillRect(0, 0, 128, 128);
+
+        // Ashlar masonry courses
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.55)';
+        ctx.lineWidth = 3;
+        for (let y = 0; y < 128; y += 32) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(128, y);
+          ctx.stroke();
+          const offset = (y / 32) % 2 === 0 ? 0 : 32;
+          for (let x = offset; x < 128; x += 64) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + 32);
+            ctx.stroke();
+          }
+        }
+
+        // Weathering speckles
+        for (let i = 0; i < 420; i++) {
+          const x = Math.random() * 128;
+          const y = Math.random() * 128;
+          ctx.fillStyle = Math.random() > 0.5 ? accentHex : 'rgba(0,0,0,0.18)';
+          ctx.globalAlpha = Math.random() * noiseAmt;
+          ctx.fillRect(x, y, 3, 3);
+        }
+        ctx.globalAlpha = 1.0;
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      }
+
+      function createBarrelTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(0, 0, 128, 128);
+
+        // Dark iron hoops
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 14, 128, 12);
+        ctx.fillRect(0, 102, 128, 12);
+
+        // Warning hazard stripe in center
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(0, 54, 128, 20);
+        ctx.fillStyle = '#111827';
+        for (let x = -20; x < 140; x += 24) {
+          ctx.beginPath();
+          ctx.moveTo(x, 54);
+          ctx.lineTo(x + 12, 54);
+          ctx.lineTo(x + 2, 74);
+          ctx.lineTo(x - 10, 74);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      const texStoneLight = createStoneTexture('#94a3b8', '#cbd5e1', 0.25);
+      const texStoneDark = createStoneTexture('#64748b', '#475569', 0.3);
+      const texStoneTrim = createStoneTexture('#cbd5e1', '#f8fafc', 0.2);
+      const texWoodBeam = createStoneTexture('#78350f', '#451a03', 0.35);
+      const texBarrel = createBarrelTexture();
+
+      // =========================================================================
+      // 3. THREE.JS SCENE, CAMERA, LIGHTING & ISLAND ENVIRONMENT
+      // =========================================================================
+      const container = document.getElementById('canvas-container');
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b1325);
+      scene.fog = new THREE.FogExp2(0x0b1325, 0.0068);
+
+      const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.5, 350);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+      container.appendChild(renderer.domElement);
+
+      // Lighting
+      const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 0.72);
+      hemiLight.position.set(0, 60, 0);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffedd5, 1.35);
+      dirLight.position.set(36, 54, 42);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 10;
+      dirLight.shadow.camera.far = 150;
+      const d = 34;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      dirLight.shadow.bias = -0.0005;
+      scene.add(dirLight);
+
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.45);
+      rimLight.position.set(-40, 28, -35);
+      scene.add(rimLight);
+
+      // Dynamic explosion flash light
+      const blastLight = new THREE.PointLight(0xff7700, 0, 48, 1.6);
+      blastLight.position.set(0, 8, 0);
+      scene.add(blastLight);
+
+      // Water / Moat Surroundings
+      const waterGeo = new THREE.PlaneGeometry(360, 360, 36, 36);
+      waterGeo.rotateX(-Math.PI / 2);
+      const waterMat = new THREE.MeshStandardMaterial({
+        color: 0x0c4a6e,
+        roughness: 0.22,
+        metalness: 0.65,
+        flatShading: true
+      });
+      const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+      waterMesh.position.y = -1.6;
+      waterMesh.receiveShadow = true;
+      scene.add(waterMesh);
+
+      // Fortress Island Platform (y = 0 is top surface of fortress plateau)
+      const GROUND_Y = 0.0;
+      const islandGroup = new THREE.Group();
+      scene.add(islandGroup);
+
+      // Main stone/grass plateau
+      const plateauGeo = new THREE.CylinderGeometry(25.5, 29.5, 3.6, 12);
+      const plateauMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        roughness: 0.88,
+        metalness: 0.1
+      });
+      const plateauMesh = new THREE.Mesh(plateauGeo, plateauMat);
+      plateauMesh.position.set(0, -1.8, -2);
+      plateauMesh.receiveShadow = true;
+      islandGroup.add(plateauMesh);
+
+      // Courtyard turf / flagstones surface right at y = -0.15
+      const courtyardGeo = new THREE.CylinderGeometry(23.8, 24.5, 0.3, 12);
+      const courtyardMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        roughness: 0.9,
+        metalness: 0.08
+      });
+      const courtyardMesh = new THREE.Mesh(courtyardGeo, courtyardMat);
+      courtyardMesh.position.set(0, -0.15, -2);
+      courtyardMesh.receiveShadow = true;
+      islandGroup.add(courtyardMesh);
+
+      // Siege Battery Outcrop in foreground (where the cannon stands)
+      const batteryGeo = new THREE.CylinderGeometry(6.8, 9.2, 3.8, 10);
+      const batteryMesh = new THREE.Mesh(batteryGeo, plateauMat);
+      batteryMesh.position.set(0, -1.8, 33.5);
+      batteryMesh.receiveShadow = true;
+      islandGroup.add(batteryMesh);
+
+      // Causeway bridge between cannon battery and castle island
+      const causewayGeo = new THREE.BoxGeometry(5.5, 1.4, 16);
+      const causewayMesh = new THREE.Mesh(causewayGeo, plateauMat);
+      causewayMesh.position.set(0, -0.75, 21.5);
+      causewayMesh.receiveShadow = true;
+      islandGroup.add(causewayMesh);
+
+      // Torch Braziers flanking the causeway
+      const torchFlames = [];
+      function createTorchBrazier(x, z) {
+        const pedestal = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.4, 0.55, 1.6, 8),
+          new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 })
+        );
+        pedestal.position.set(x, 0.8, z);
+        pedestal.castShadow = true;
+        islandGroup.add(pedestal);
+
+        const flame = new THREE.Mesh(
+          new THREE.ConeGeometry(0.36, 0.95, 6),
+          new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+        );
+        flame.position.set(x, 1.9, z);
+        islandGroup.add(flame);
+        torchFlames.push(flame);
+      }
+      createTorchBrazier(-3.4, 15.0);
+      createTorchBrazier(3.4, 15.0);
+      createTorchBrazier(-3.4, 28.0);
+      createTorchBrazier(3.4, 28.0);
+
+      // =========================================================================
+      // 4. 3D ARTICULATED SIEGE CANNON + BALLISTIC TRAJECTORY LINE
+      // =========================================================================
+      const CANNON_ORIGIN = new THREE.Vector3(0, 1.45, 33.0);
+      const cannonGroup = new THREE.Group();
+      cannonGroup.position.copy(CANNON_ORIGIN);
+      scene.add(cannonGroup);
+
+      // Wooden Carriage
+      const carriageMat = new THREE.MeshStandardMaterial({ map: texWoodBeam, roughness: 0.75 });
+      const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.32 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.82, roughness: 0.25 });
+
+      const cheekLeft = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.15, 3.2), carriageMat);
+      cheekLeft.position.set(-0.85, -0.35, 0.2);
+      cheekLeft.castShadow = true;
+      cannonGroup.add(cheekLeft);
+
+      const cheekRight = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.15, 3.2), carriageMat);
+      cheekRight.position.set(0.85, -0.35, 0.2);
+      cheekRight.castShadow = true;
+      cannonGroup.add(cheekRight);
+
+      const carriageBase = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.38, 2.8), carriageMat);
+      carriageBase.position.set(0, -0.65, 0.2);
+      cannonGroup.add(carriageBase);
+
+      // 4 Siege Wheels
+      const wheelGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.32, 16);
+      wheelGeo.rotateZ(Math.PI / 2);
+      const wheelOffsets = [
+        [-1.18, -0.6, -0.8],
+        [1.18, -0.6, -0.8],
+        [-1.18, -0.6, 1.1],
+        [1.18, -0.6, 1.1]
+      ];
+      wheelOffsets.forEach(([wx, wy, wz]) => {
+        const w = new THREE.Mesh(wheelGeo, ironMat);
+        w.position.set(wx, wy, wz);
+        w.castShadow = true;
+        cannonGroup.add(w);
+      });
+
+      // Articulated Barrel Pivot
+      const barrelPivot = new THREE.Group();
+      barrelPivot.position.set(0, 0.25, -0.15);
+      cannonGroup.add(barrelPivot);
+
+      const barrelRecoilGroup = new THREE.Group();
+      barrelPivot.add(barrelRecoilGroup);
+
+      // Main Barrel Tube (oriented along -Z in local space when horizontal)
+      const barrelGeo = new THREE.CylinderGeometry(0.44, 0.64, 3.8, 20);
+      barrelGeo.rotateX(Math.PI / 2);
+      const barrelMesh = new THREE.Mesh(barrelGeo, ironMat);
+      barrelMesh.position.set(0, 0, -1.2);
+      barrelMesh.castShadow = true;
+      barrelRecoilGroup.add(barrelMesh);
+
+      // Brass reinforcing rings
+      const ringGeo = new THREE.TorusGeometry(0.54, 0.08, 10, 20);
+      const ring1 = new THREE.Mesh(ringGeo, brassMat);
+      ring1.position.set(0, 0, -0.4);
+      barrelRecoilGroup.add(ring1);
+
+      const ring2 = new THREE.Mesh( new THREE.TorusGeometry(0.46, 0.07, 10, 20), brassMat);
+      ring2.position.set(0, 0, -2.5);
+      barrelRecoilGroup.add(ring2);
+
+      // Breech Cascabel sphere
+      const breechSphere = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 14), brassMat);
+      breechSphere.position.set(0, 0, 0.82);
+      barrelRecoilGroup.add(breechSphere);
+
+      // Target Reticle on Castle
+      const reticleGroup = new THREE.Group();
+      const reticleOuter = new THREE.Mesh(
+        new THREE.RingGeometry(0.9, 1.18, 24),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+      );
+      const reticleInner = new THREE.Mesh(
+        new THREE.RingGeometry(0.2, 0.35, 16),
+        new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide })
+      );
+      reticleGroup.add(reticleOuter, reticleInner);
+      reticleGroup.position.set(0, 4.5, 8.0);
+      scene.add(reticleGroup);
+
+      // Dotted Ballistic Trajectory Arc (42 dots)
+      const TRAJ_COUNT = 42;
+      const trajGeo = new THREE.BufferGeometry();
+      const trajPositions = new Float32Array(TRAJ_COUNT * 3);
+      trajGeo.setAttribute('position', new THREE.BufferAttribute(trajPositions, 3));
+      const trajMat = new THREE.PointsMaterial({
+        color: 0xfbbf24,
+        size: 0.44,
+        transparent: true,
+        opacity: 0.88
+      });
+      const trajPoints = new THREE.Points(trajGeo, trajMat);
+      scene.add(trajPoints);
+
+      // Also dashed line connecting trajectory points
+      const trajLineMat = new THREE.LineDashedMaterial({
+        color: 0xf59e0b,
+        dashSize: 0.8,
+        gapSize: 0.5,
+        transparent: true,
+        opacity: 0.45
+      });
+      const trajLine = new THREE.Line(trajGeo, trajLineMat);
+      scene.add(trajLine);
+
+      // =========================================================================
+      // 5. RIGID-BODY BLOCK PHYSICS ENGINE & CASTLE BUILDER (~176 BLOCKS)
+      // =========================================================================
+      const GRAVITY = -24.0;
+      const blocks = [];
+      const blockMeshes = [];
+      const castleGroup = new THREE.Group();
+      scene.add(castleGroup);
+
+      // Shared materials for block types
+      const matWallStone = new THREE.MeshStandardMaterial({ map: texStoneLight, roughness: 0.82, metalness: 0.08 });
+      const matTowerStone = new THREE.MeshStandardMaterial({ map: texStoneDark, roughness: 0.85, metalness: 0.12 });
+      const matTrimStone = new THREE.MeshStandardMaterial({ map: texStoneTrim, roughness: 0.72, metalness: 0.1 });
+      const matWoodArch = new THREE.MeshStandardMaterial({ map: texWoodBeam, roughness: 0.78, metalness: 0.05 });
+      const matRoofSpire = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.55, metalness: 0.25 });
+      const matBarrel = new THREE.MeshStandardMaterial({ map: texBarrel, roughness: 0.45, metalness: 0.25 });
+
+      class RigidBlock {
+        constructor(id, x, y, z, w, h, d, type, mass = 1.0) {
+          this.id = id;
+          this.initPos = new THREE.Vector3(x, y, z);
+          this.pos = new THREE.Vector3(x, y, z);
+          this.vel = new THREE.Vector3(0, 0, 0);
+          this.angVel = new THREE.Vector3(0, 0, 0);
+          this.half = new THREE.Vector3(w * 0.5, h * 0.5, d * 0.5);
+          this.size = new THREE.Vector3(w, h, d);
+          this.type = type; // 'wall', 'tower', 'trim', 'wood', 'spire', 'barrel'
+          this.isBarrel = type === 'barrel';
+          this.exploded = false;
+          this.mass = mass;
+          this.invMass = 1.0 / mass;
+          this.sleeping = true;
+          this.sleepTimer = 0;
+          this.fallen = false;
+
+          let geo;
+          let mat;
+          if (this.isBarrel) {
+            geo = new THREE.CylinderGeometry(w * 0.48, w * 0.48, h, 14);
+            mat = matBarrel;
+          } else if (type === 'spire') {
+            geo = new THREE.ConeGeometry(w * 0.62, h, 4);
+            geo.rotateY(Math.PI / 4);
+            mat = matRoofSpire;
+          } else {
+            geo = new THREE.BoxGeometry(w, h, d);
+            if (type === 'tower') mat = matTowerStone;
+            else if (type === 'trim') mat = matTrimStone;
+            else if (type === 'wood') mat = matWoodArch;
+            else mat = matWallStone;
+          }
+
+          this.mesh = new THREE.Mesh(geo, mat);
+          this.mesh.position.copy(this.pos);
+          this.mesh.castShadow = true;
+          this.mesh.receiveShadow = true;
+          this.mesh.userData.block = this;
+          castleGroup.add(this.mesh);
+          blockMeshes.push(this.mesh);
+        }
+
+        wakeUp() {
+          if (this.exploded) return;
+          this.sleeping = false;
+          this.sleepTimer = 0;
+        }
+
+        applyImpulse(ix, iy, iz, torqueScale = 1.0) {
+          if (this.exploded) return;
+          this.wakeUp();
+          this.vel.x += ix * this.invMass;
+          this.vel.y += iy * this.invMass;
+          this.vel.z += iz * this.invMass;
+
+          this.angVel.x += (Math.random() - 0.5) * 3.8 * torqueScale;
+          this.angVel.y += (Math.random() - 0.5) * 3.8 * torqueScale;
+          this.angVel.z += (Math.random() - 0.5) * 3.8 * torqueScale;
+        }
+      }
+
+      function addBlock(x, y, z, w, h, d, type, mass = 1.2) {
+        const b = new RigidBlock(blocks.length, x, y, z, w, h, d, type, mass);
+        blocks.push(b);
+        return b;
+      }
+
+      function buildCastleFortress() {
+        // Clear existing blocks
+        for (let i = 0; i < blocks.length; i++) {
+          castleGroup.remove(blocks[i].mesh);
+          blocks[i].mesh.geometry.dispose();
+        }
+        blocks.length = 0;
+        blockMeshes.length = 0;
+
+        // 1. FOUR CORNER TOWERS (4 towers x 24 blocks = 96 blocks)
+        const towerCenters = [
+          [-11.5, 6.0],  // Front-Left Tower
+          [11.5, 6.0],   // Front-Right Tower
+          [-11.5, -10.0],// Rear-Left Tower
+          [11.5, -10.0]  // Rear-Right Tower
+        ];
+
+        towerCenters.forEach(([tx, tz]) => {
+          const levels = 5;
+          const bh = 1.6;
+          for (let lv = 0; lv < levels; lv++) {
+            const cy = bh * 0.5 + lv * bh;
+            if (lv % 2 === 0) {
+              // North & South slabs + East & West pillars
+              addBlock(tx, cy, tz + 1.4, 3.8, bh, 1.0, 'tower', 1.7);
+              addBlock(tx, cy, tz - 1.4, 3.8, bh, 1.0, 'tower', 1.7);
+              addBlock(tx - 1.4, cy, tz, 1.0, bh, 1.8, 'tower', 1.4);
+              addBlock(tx + 1.4, cy, tz, 1.0, bh, 1.8, 'tower', 1.4);
+            } else {
+              addBlock(tx - 1.4, cy, tz, 1.0, bh, 3.8, 'tower', 1.7);
+              addBlock(tx + 1.4, cy, tz, 1.0, bh, 3.8, 'tower', 1.7);
+              addBlock(tx, cy, tz + 1.4, 1.8, bh, 1.0, 'tower', 1.4);
+              addBlock(tx, cy, tz - 1.4, 1.8, bh, 1.0, 'tower', 1.4);
+            }
+          }
+          // Upper parapet deck
+          const topY = levels * bh + 0.35;
+          addBlock(tx, topY, tz, 4.3, 0.7, 4.3, 'trim', 2.2);
+          // 4 Battlement merlons per corner tower
+          const mY = topY + 0.85;
+          addBlock(tx - 1.45, mY, tz + 1.45, 1.1, 1.0, 1.1, 'trim', 0.9);
+          addBlock(tx + 1.45, mY, tz + 1.45, 1.1, 1.0, 1.1, 'trim', 0.9);
+          addBlock(tx - 1.45, mY, tz - 1.45, 1.1, 1.0, 1.1, 'trim', 0.9);
+          addBlock(tx + 1.45, mY, tz - 1.45, 1.1, 1.0, 1.1, 'trim', 0.9);
+        });
+
+        // 2. FRONT GATEHOUSE, ARCH BRIDGE & TWIN PIERS (26 blocks)
+        const gateZ = 6.0;
+        const pierX = [-4.2, 4.2];
+        pierX.forEach((px) => {
+          for (let lv = 0; lv < 4; lv++) {
+            addBlock(px, 0.8 + lv * 1.6, gateZ, 2.2, 1.6, 2.0, 'wall', 1.8);
+          }
+        });
+
+        // Side curtain walls connecting front gate piers to front corner towers
+        [-7.8, 7.8].forEach((wx) => {
+          for (let lv = 0; lv < 3; lv++) {
+            addBlock(wx, 0.8 + lv * 1.6, gateZ, 4.6, 1.6, 1.5, 'wall', 2.0);
+          }
+          // Merlons on front curtain wall
+          addBlock(wx - 1.2, 5.35, gateZ, 1.2, 1.1, 1.3, 'trim', 0.9);
+          addBlock(wx + 1.2, 5.35, gateZ, 1.2, 1.1, 1.3, 'trim', 0.9);
+        });
+
+        // Central Arch Bridge & Portcullis above the gateway
+        addBlock(-1.6, 0.9, gateZ, 1.1, 1.8, 1.4, 'wood', 1.1);
+        addBlock(1.6, 0.9, gateZ, 1.1, 1.8, 1.4, 'wood', 1.1);
+        addBlock(0, 2.35, gateZ, 4.4, 1.1, 1.6, 'wood', 1.5); // Wooden lintel beam
+        // Stone bridge deck spanning over the gate
+        addBlock(-2.1, 5.3, gateZ, 4.2, 1.2, 2.2, 'trim', 2.1);
+        addBlock(2.1, 5.3, gateZ, 4.2, 1.2, 2.2, 'trim', 2.1);
+        // Gatehouse upper watchtower blocks
+        addBlock(-2.2, 6.7, gateZ, 1.8, 1.6, 1.8, 'wall', 1.4);
+        addBlock(0, 6.7, gateZ, 2.2, 1.6, 1.8, 'wall', 1.5);
+        addBlock(2.2, 6.7, gateZ, 1.8, 1.6, 1.8, 'wall', 1.4);
+        addBlock(0, 8.05, gateZ, 6.6, 1.1, 2.1, 'trim', 2.0);
+        addBlock(-2.3, 9.1, gateZ, 1.1, 1.0, 1.1, 'trim', 0.8);
+        addBlock(0, 9.1, gateZ, 1.1, 1.0, 1.1, 'trim', 0.8);
+        addBlock(2.3, 9.1, gateZ, 1.1, 1.0, 1.1, 'trim', 0.8);
+
+        // 3. LEFT, RIGHT & REAR CURTAIN WALLS (26 blocks)
+        [-11.5, 11.5].forEach((sx) => {
+          [-4.2, 0.2].forEach((sz) => {
+            for (let lv = 0; lv < 3; lv++) {
+              addBlock(sx, 0.8 + lv * 1.6, sz, 1.5, 1.6, 4.1, 'wall', 1.8);
+            }
+            addBlock(sx, 5.3, sz, 1.4, 1.0, 1.6, 'trim', 0.9);
+          });
+        });
+
+        // Rear Curtain Wall (z = -10.0)
+        [-6.2, 0, 6.2].forEach((rx) => {
+          for (let lv = 0; lv < 3; lv++) {
+            addBlock(rx, 0.8 + lv * 1.6, -10.0, 5.6, 1.6, 1.6, 'wall', 2.1);
+          }
+          addBlock(rx, 5.3, -10.0, 1.8, 1.0, 1.5, 'trim', 1.0);
+        });
+
+        // 4. CENTRAL CITADEL KEEP & SUPPORT PILLARS (22 blocks)
+        const keepZ = -2.5;
+        const pillarOffsets = [
+          [-2.6, keepZ + 2.4],
+          [2.6, keepZ + 2.4],
+          [-2.6, keepZ - 2.4],
+          [2.6, keepZ - 2.4]
+        ];
+        // 2 levels of structural pillars supporting the Great Keep
+        for (let lv = 0; lv < 2; lv++) {
+          const py = 1.0 + lv * 2.0;
+          pillarOffsets.forEach(([px, pz]) => {
+            addBlock(px, py, pz, 1.5, 2.0, 1.5, 'tower', 1.9);
+          });
+        }
+        // Keep main floor slab resting on pillars
+        addBlock(0, 4.45, keepZ, 7.0, 0.9, 6.6, 'trim', 3.2);
+        // Keep middle tiers
+        for (let lv = 0; lv < 3; lv++) {
+          const ky = 5.7 + lv * 1.6;
+          addBlock(-2.1, ky, keepZ, 1.6, 1.6, 4.8, 'wall', 1.8);
+          addBlock(2.1, ky, keepZ, 1.6, 1.6, 4.8, 'wall', 1.8);
+          addBlock(0, ky, keepZ + 1.8, 2.4, 1.6, 1.2, 'wall', 1.5);
+          addBlock(0, ky, keepZ - 1.8, 2.4, 1.6, 1.2, 'wall', 1.5);
+        }
+        // Keep crown platform & royal spire
+        addBlock(0, 10.25, keepZ, 6.2, 0.9, 5.8, 'trim', 2.6);
+        addBlock(0, 12.3, keepZ, 4.4, 3.2, 4.4, 'spire', 1.6);
+
+        // 5. EXPLOSIVE RED BARRELS (10 barrels inside courtyard, arch & tower bases)
+        const barrelPositions = [
+          [0, 0.85, 4.0],     // Directly behind the front gate arch
+          [-3.2, 0.85, 3.2],  // Left gate pier base
+          [3.2, 0.85, 3.2],   // Right gate pier base
+          [-8.2, 0.85, 3.8],  // Near Front-Left curtain wall
+          [8.2, 0.85, 3.8],   // Near Front-Right curtain wall
+          [-2.4, 0.85, -0.2], // Under Keep Front-Left pillar
+          [2.4, 0.85, -0.2],  // Under Keep Front-Right pillar
+          [0, 0.85, -2.5],    // Center under Great Keep slab
+          [-7.5, 0.85, -6.5], // Rear-Left courtyard
+          [7.5, 0.85, -6.5]   // Rear-Right courtyard
+        ];
+        barrelPositions.forEach(([bx, by, bz]) => {
+          addBlock(bx, by, bz, 1.25, 1.7, 1.25, 'barrel', 1.1);
+        });
+
+        updateTelemetryHUD();
+      }
+
+      // =========================================================================
+      // 6. PROJECTILES, PARTICLES, SHOCKWAVES & EXPLOSIONS
+      // =========================================================================
+      const AMMO_SPECS = [
+        {
+          name: 'BALA PESADA DE ACERO',
+          speed: 44.0,
+          radius: 0.68,
+          mass: 42.0,
+          blastRadius: 4.4,
+          blastForce: 22.0,
+          color: 0x38bdf8,
+          count: 1
+        },
+        {
+          name: 'BOMBA EXPLOSIVA',
+          speed: 37.0,
+          radius: 0.82,
+          mass: 28.0,
+          blastRadius: 10.5,
+          blastForce: 46.0,
+          color: 0xf59e0b,
+          count: 1
+        },
+        {
+          name: 'DISPARO TRIPLE DE METRALLA',
+          speed: 41.0,
+          radius: 0.56,
+          mass: 22.0,
+          blastRadius: 6.8,
+          blastForce: 28.0,
+          color: 0xef4444,
+          count: 3
+        },
+        {
+          name: 'METEORITO GIGANTE',
+          speed: 35.0,
+          radius: 1.55,
+          mass: 125.0,
+          blastRadius: 14.8,
+          blastForce: 68.0,
+          color: 0xa855f7,
+          count: 1
+        }
+      ];
+
+      let currentAmmoIndex = 0;
+      let totalShotsFired = 0;
+      const projectiles = [];
+      const particles = [];
+      const shockwaves = [];
+
+      // Particle Geometries & Materials
+      const debrisBoxGeo = new THREE.BoxGeometry(0.42, 0.42, 0.42);
+      const smokeSphereGeo = new THREE.DodecahedronGeometry(0.55, 0);
+
+      function spawnParticle(x, y, z, vx, vy, vz, colorHex, scale, life, isDebris = false) {
+        if (particles.length > 260) {
+          const oldest = particles.shift();
+          scene.remove(oldest.mesh);
+          oldest.mesh.material.dispose();
+        }
+        const mat = new THREE.MeshStandardMaterial({
+          color: colorHex,
+          emissive: isDebris ? 0x000000 : colorHex,
+          emissiveIntensity: isDebris ? 0 : 0.45,
+          roughness: 0.7,
+          transparent: true,
+          opacity: 1.0
+        });
+        const mesh = new THREE.Mesh(isDebris ? debrisBoxGeo : smokeSphereGeo, mat);
+        mesh.position.set(x, y, z);
+        mesh.scale.setScalar(scale);
+        scene.add(mesh);
+
+        particles.push({
+          mesh,
+          vel: new THREE.Vector3(vx, vy, vz),
+          rotVel: new THREE.Vector3(
+            (Math.random() - 0.5) * 9,
+            (Math.random() - 0.5) * 9,
+            (Math.random() - 0.5) * 9
+          ),
+          life,
+          maxLife: life,
+          isDebris
+        });
+      }
+
+      function spawnShockwaveRing(x, y, z, maxRadius, colorHex) {
+        const ringGeo = new THREE.RingGeometry(0.4, 1.0, 28);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9
+        });
+        const mesh = new THREE.Mesh(ringGeo, ringMat);
+        mesh.position.set(x, Math.max(0.15, y), z);
+        scene.add(mesh);
+        shockwaves.push({
+          mesh,
+          age: 0,
+          duration: 0.48,
+          maxRadius
+        });
+      }
+
+      let cameraShakeIntensity = 0;
+
+      function triggerBanner(text) {
+        const banner = document.getElementById('event-banner');
+        if (!banner) return;
+        banner.textContent = text;
+        banner.classList.add('visible');
+        clearTimeout(triggerBanner._timer);
+        triggerBanner._timer = setTimeout(() => {
+          banner.classList.remove('visible');
+        }, 1700);
+      }
+
+      function createExplosion(center, radius, force, colorHex = 0xf59e0b, isBarrelBlast = false) {
+        sound.playExplosion(force / 35.0);
+        cameraShakeIntensity = Math.min(1.6, cameraShakeIntensity + force * 0.018);
+
+        blastLight.position.set(center.x, center.y + 2.0, center.z);
+        blastLight.color.setHex(colorHex);
+        blastLight.intensity = 5.5;
+
+        spawnShockwaveRing(center.x, center.y, center.z, radius * 1.15, colorHex);
+
+        // Spawn fire, smoke and stone debris particles
+        const pCount = isBarrelBlast ? 34 : 24;
+        for (let i = 0; i < pCount; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const elev = Math.random() * Math.PI * 0.45;
+          const spd = (5 + Math.random() * 18) * (force / 35);
+          const vx = Math.cos(ang) * Math.cos(elev) * spd;
+          const vy = Math.sin(elev) * spd + 4 + Math.random() * 6;
+          const vz = Math.sin(ang) * Math.cos(elev) * spd;
+          const isDebris = i % 2 === 0;
+          const c = isDebris
+            ? (Math.random() > 0.4 ? 0x94a3b8 : 0x475569)
+            : (Math.random() > 0.45 ? 0xf59e0b : 0xef4444);
+          spawnParticle(
+            center.x + (Math.random() - 0.5) * 1.4,
+            center.y + Math.random() * 1.2,
+            center.z + (Math.random() - 0.5) * 1.4,
+            vx, vy, vz,
+            c,
+            isDebris ? 0.6 + Math.random() * 0.8 : 0.9 + Math.random() * 1.1,
+            0.65 + Math.random() * 0.7,
+            isDebris
+          );
+        }
+
+        // Apply radial impulse to blocks & chain-detonate barrels
+        const chainedBarrels = [];
+        for (let i = 0; i < blocks.length; i++) {
+          const b = blocks[i];
+          if (b.exploded) continue;
+          const dx = b.pos.x - center.x;
+          const dy = b.pos.y - center.y;
+          const dz = b.pos.z - center.z;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          if (dist < radius) {
+            if (b.isBarrel && dist < radius * 0.82) {
+              chainedBarrels.push(b);
+            } else {
+              const falloff = Math.pow(1 - dist / radius, 1.15);
+              const invDist = dist > 0.001 ? 1.0 / dist : 1.0;
+              const nx = dx * invDist;
+              const ny = Math.max(0.35, dy * invDist + 0.45);
+              const nz = dz * invDist;
+              const imp = force * falloff;
+              b.applyImpulse(nx * imp, ny * imp * 1.15, nz * imp, 1.6);
+            }
+          } else if (dist < radius * 1.55) {
+            // Wake up nearby structural blocks so unsupported towers collapse
+            b.wakeUp();
+          }
+        }
+
+        // Trigger chain barrel explosions with slight stagger
+        chainedBarrels.forEach((barrel, idx) => {
+          if (!barrel.exploded) {
+            barrel.exploded = true;
+            barrel.mesh.visible = false;
+            setTimeout(() => {
+              createExplosion(barrel.pos.clone(), 11.2, 52.0, 0xef4444, true);
+              triggerBanner('DETONACION EN CADENA DE BARRIL EXPLOSIVO');
+            }, 65 * (idx + 1));
+          }
+        });
+      }
+
+      // =========================================================================
+      // 7. BALLISTIC AIMING & CANNON FIRING LOGIC
+      // =========================================================================
+      const aimTarget = new THREE.Vector3(0, 4.2, 6.0);
+      const currentLaunchVel = new THREE.Vector3();
+      let barrelRecoilOffset = 0;
+
+      function computeBallisticVelocity(start, target, speed, outVel) {
+        const dx = target.x - start.x;
+        const dy = target.y - start.y;
+        const dz = target.z - start.z;
+        const horizDist = Math.sqrt(dx * dx + dz * dz);
+        const flightTime = Math.max(0.32, horizDist / speed);
+
+        outVel.x = dx / flightTime;
+        outVel.z = dz / flightTime;
+        outVel.y = (dy - 0.5 * GRAVITY * flightTime * flightTime) / flightTime;
+        return flightTime;
+      }
+
+      function updateCannonAimAndTrajectory(timeSec) {
+        const spec = AMMO_SPECS[currentAmmoIndex];
+        reticleGroup.position.copy(aimTarget);
+        reticleGroup.position.z += 0.25;
+        reticleGroup.rotation.z = timeSec * 1.8;
+
+        // Orient cannon carriage horizontally toward target
+        const dx = aimTarget.x - CANNON_ORIGIN.x;
+        const dz = aimTarget.z - CANNON_ORIGIN.z;
+        const yaw = Math.atan2(dx, dz) + Math.PI;
+        cannonGroup.rotation.y = yaw;
+
+        // Muzzle world estimate
+        const muzzleStart = new THREE.Vector3(
+          CANNON_ORIGIN.x + Math.sin(yaw) * -2.6,
+          CANNON_ORIGIN.y + 0.55,
+          CANNON_ORIGIN.z + Math.cos(yaw) * -2.6
+        );
+
+        const flightTime = computeBallisticVelocity(muzzleStart, aimTarget, spec.speed, currentLaunchVel);
+
+        // Pitch barrel to match launch elevation angle
+        const horizSpeed = Math.sqrt(currentLaunchVel.x * currentLaunchVel.x + currentLaunchVel.z * currentLaunchVel.z);
+        const pitch = Math.atan2(currentLaunchVel.y, horizSpeed);
+        barrelPivot.rotation.x = THREE.MathUtils.clamp(pitch, -0.15, 0.85);
+
+        // Update dotted trajectory curve
+        const posAttr = trajGeo.attributes.position;
+        const phase = (timeSec * 2.2) % 1.0;
+        for (let i = 0; i < TRAJ_COUNT; i++) {
+          const u = ((i + phase) / TRAJ_COUNT) * flightTime;
+          const px = muzzleStart.x + currentLaunchVel.x * u;
+          const py = muzzleStart.y + currentLaunchVel.y * u + 0.5 * GRAVITY * u * u;
+          const pz = muzzleStart.z + currentLaunchVel.z * u;
+          posAttr.setXYZ(i, px, Math.max(0.05, py), pz);
+        }
+        posAttr.needsUpdate = true;
+        trajLine.computeLineDistances();
+        trajMat.color.setHex(spec.color);
+      }
+
+      function fireCannonAt(targetPoint, overrideAmmoIdx = null) {
+        const ammoIdx = overrideAmmoIdx !== null ? overrideAmmoIdx : currentAmmoIndex;
+        const spec = AMMO_SPECS[ammoIdx];
+
+        aimTarget.copy(targetPoint);
+        updateCannonAimAndTrajectory(performance.now() * 0.001);
+
+        const yaw = cannonGroup.rotation.y;
+        const muzzlePos = new THREE.Vector3(
+          CANNON_ORIGIN.x + Math.sin(yaw) * -2.8,
+          CANNON_ORIGIN.y + 0.65,
+          CANNON_ORIGIN.z + Math.cos(yaw) * -2.8
+        );
+
+        barrelRecoilOffset = 0.85;
+        sound.playCannonFire(ammoIdx === 0 || ammoIdx === 3);
+
+        // Muzzle smoke burst
+        for (let i = 0; i < 12; i++) {
+          spawnParticle(
+            muzzlePos.x + (Math.random() - 0.5) * 0.5,
+            muzzlePos.y + (Math.random() - 0.5) * 0.5,
+            muzzlePos.z - 0.4,
+            (Math.random() - 0.5) * 6,
+            1.5 + Math.random() * 4,
+            -4 - Math.random() * 6,
+            0xe2e8f0,
+            0.55 + Math.random() * 0.6,
+            0.45 + Math.random() * 0.35,
+            false
+          );
+        }
+
+        const count = spec.count;
+        for (let s = 0; s < count; s++) {
+          const subTarget = targetPoint.clone();
+          if (count > 1) {
+            subTarget.x += (s - 1) * 2.6 + (Math.random() - 0.5) * 0.8;
+            subTarget.y += (Math.random() - 0.5) * 1.4;
+          }
+
+          const vel = new THREE.Vector3();
+          computeBallisticVelocity(muzzlePos, subTarget, spec.speed, vel);
+
+          const projGeo = ammoIdx === 3
+            ? new THREE.DodecahedronGeometry(spec.radius, 1)
+            : new THREE.SphereGeometry(spec.radius, 16, 16);
+
+          const projMat = new THREE.MeshStandardMaterial({
+            color: ammoIdx === 0 ? 0x1e293b : spec.color,
+            emissive: spec.color,
+            emissiveIntensity: ammoIdx === 0 ? 0.25 : 0.75,
+            metalness: 0.75,
+            roughness: 0.25
+          });
+
+          const mesh = new THREE.Mesh(projGeo, projMat);
+          mesh.position.copy(muzzlePos);
+          mesh.castShadow = true;
+          scene.add(mesh);
+
+          projectiles.push({
+            mesh,
+            pos: muzzlePos.clone(),
+            vel,
+            radius: spec.radius,
+            mass: spec.mass,
+            blastRadius: spec.blastRadius,
+            blastForce: spec.blastForce,
+            color: spec.color,
+            ammoIdx,
+            age: 0
+          });
+        }
+
+        totalShotsFired++;
+        const shotEl = document.getElementById('shot-counter-label');
+        if (shotEl) shotEl.textContent = 'DISPAROS: ' + totalShotsFired;
+      }
+
+      // =========================================================================
+      // 8. RIGID-BODY PHYSICS STEP (COLLISIONS, GRAVITY & STRUCTURAL WAKEUP)
+      // =========================================================================
+      function stepPhysics(dt) {
+        const clampedDt = Math.min(dt, 0.025);
+
+        // 1. Update Projectiles
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+          const p = projectiles[i];
+          p.age += clampedDt;
+          p.vel.y += GRAVITY * clampedDt;
+          p.pos.x += p.vel.x * clampedDt;
+          p.pos.y += p.vel.y * clampedDt;
+          p.pos.z += p.vel.z * clampedDt;
+          p.mesh.position.copy(p.pos);
+          p.mesh.rotation.x += 5 * clampedDt;
+          p.mesh.rotation.y += 4 * clampedDt;
+
+          // Trail particle
+          if (Math.random() < 0.75) {
+            spawnParticle(
+              p.pos.x, p.pos.y, p.pos.z,
+              (Math.random() - 0.5) * 1.5,
+              1.0 + Math.random() * 1.5,
+              (Math.random() - 0.5) * 1.5,
+              p.color,
+              p.ammoIdx === 3 ? 0.85 : 0.38,
+              0.28,
+              false
+            );
+          }
+
+          let hitDetected = false;
+
+          // Check collision with blocks
+          for (let j = 0; j < blocks.length; j++) {
+            const b = blocks[j];
+            if (b.exploded) continue;
+            const dx = Math.abs(p.pos.x - b.pos.x);
+            const dy = Math.abs(p.pos.y - b.pos.y);
+            const dz = Math.abs(p.pos.z - b.pos.z);
+
+            if (dx < b.half.x + p.radius && dy < b.half.y + p.radius && dz < b.half.z + p.radius) {
+              // Direct kinetic momentum transfer
+              b.applyImpulse(
+                p.vel.x * (p.mass * 0.42),
+                p.vel.y * (p.mass * 0.35) + 8.5,
+                p.vel.z * (p.mass * 0.42),
+                2.0
+              );
+
+              if (b.isBarrel) {
+                b.exploded = true;
+                b.mesh.visible = false;
+                createExplosion(b.pos.clone(), 11.5, 54.0, 0xef4444, true);
+                triggerBanner('IMPACTO DIRECTO EN BARRIL EXPLOSIVO');
+              } else if (p.ammoIdx === 0) {
+                // Heavy steel ball pierces weak blocks and creates kinetic shockwave
+                createExplosion(p.pos.clone(), p.blastRadius, p.blastForce, p.color, false);
+              } else {
+                createExplosion(p.pos.clone(), p.blastRadius, p.blastForce, p.color, false);
+              }
+              hitDetected = true;
+              break;
+            }
+          }
+
+          // Check ground impact
+          if (!hitDetected && p.pos.y <= GROUND_Y + p.radius * 0.6) {
+            p.pos.y = GROUND_Y + 0.3;
+            createExplosion(p.pos.clone(), p.blastRadius, p.blastForce, p.color, false);
+            hitDetected = true;
+          }
+
+          if (hitDetected || p.age > 6.0) {
+            scene.remove(p.mesh);
+            p.mesh.geometry.dispose();
+            p.mesh.material.dispose();
+            projectiles.splice(i, 1);
+          }
+        }
+
+        // 2. Wake up unsupported blocks (Structural Integrity Chain-Collapse)
+        for (let i = 0; i < blocks.length; i++) {
+          const b = blocks[i];
+          if (b.exploded || !b.sleeping) continue;
+          if (b.pos.y - b.half.y <= GROUND_Y + 0.12) continue; // Resting on ground
+
+          // Check if there is still a supporting block directly underneath
+          let hasSupport = false;
+          const bottomY = b.pos.y - b.half.y;
+          for (let j = 0; j < blocks.length; j++) {
+            if (i === j) continue;
+            const other = blocks[j];
+            if (other.exploded) continue;
+            const topOther = other.pos.y + other.half.y;
+            if (Math.abs(bottomY - topOther) < 0.45) {
+              const overlapX = (b.half.x + other.half.x) - Math.abs(b.pos.x - other.pos.x);
+              const overlapZ = (b.half.z + other.half.z) - Math.abs(b.pos.z - other.pos.z);
+              if (overlapX > 0.25 && overlapZ > 0.25) {
+                hasSupport = true;
+                break;
+              }
+            }
+          }
+          if (!hasSupport) {
+            b.wakeUp();
+            b.angVel.x += (Math.random() - 0.5) * 0.9;
+            b.angVel.z += (Math.random() - 0.5) * 0.9;
+          }
+        }
+
+        // 3. Integrate Velocity & Ground Collision for Active Blocks
+        for (let i = 0; i < blocks.length; i++) {
+          const b = blocks[i];
+          if (b.exploded || b.sleeping) continue;
+
+          b.vel.y += GRAVITY * clampedDt;
+          b.pos.x += b.vel.x * clampedDt;
+          b.pos.y += b.vel.y * clampedDt;
+          b.pos.z += b.vel.z * clampedDt;
+
+          // Air damping
+          b.vel.multiplyScalar(0.992);
+          b.angVel.multiplyScalar(0.965);
+
+          // Rotate mesh
+          b.mesh.rotation.x += b.angVel.x * clampedDt;
+          b.mesh.rotation.y += b.angVel.y * clampedDt;
+          b.mesh.rotation.z += b.angVel.z * clampedDt;
+
+          // Check island boundary vs moat water
+          const distFromIslandCenter = Math.hypot(b.pos.x, b.pos.z + 2.0);
+          const effectiveFloor = distFromIslandCenter < 24.4 ? GROUND_Y : -1.45;
+
+          if (b.pos.y - b.half.y < effectiveFloor) {
+            b.pos.y = effectiveFloor + b.half.y;
+            if (b.vel.y < -3.5) {
+              sound.playStoneImpact(Math.min(1.0, Math.abs(b.vel.y) / 16.0));
+            }
+            b.vel.y = -b.vel.y * 0.22;
+            b.vel.x *= 0.78;
+            b.vel.z *= 0.78;
+            b.angVel.multiplyScalar(0.72);
+          }
+
+          // Check if block has been displaced enough to count as fallen/destroyed
+          const disp = b.pos.distanceTo(b.initPos);
+          if (!b.fallen && (disp > 1.15 || Math.abs(b.mesh.rotation.x) > 0.42 || Math.abs(b.mesh.rotation.z) > 0.42)) {
+            b.fallen = true;
+          }
+
+          // Sleep check
+          const speedSq = b.vel.lengthSq() + b.angVel.lengthSq();
+          if (speedSq < 0.08 && b.pos.y - b.half.y <= effectiveFloor + 0.08) {
+            b.sleepTimer += clampedDt;
+            if (b.sleepTimer > 0.45) {
+              b.vel.set(0, 0, 0);
+              b.angVel.set(0, 0, 0);
+              b.sleeping = true;
+            }
+          } else {
+            b.sleepTimer = 0;
+          }
+        }
+
+        // 4. Iterative Box-vs-Box Collision Resolution (2 solver iterations)
+        const n = blocks.length;
+        for (let iter = 0; iter < 2; iter++) {
+          for (let i = 0; i < n; i++) {
+            const a = blocks[i];
+            if (a.exploded) continue;
+            for (let j = i + 1; j < n; j++) {
+              const b = blocks[j];
+              if (b.exploded) continue;
+              if (a.sleeping && b.sleeping) continue;
+
+              const dx = b.pos.x - a.pos.x;
+              const px = (a.half.x + b.half.x) - Math.abs(dx);
+              if (px <= 0) continue;
+
+              const dy = b.pos.y - a.pos.y;
+              const py = (a.half.y + b.half.y) - Math.abs(dy);
+              if (py <= 0) continue;
+
+              const dz = b.pos.z - a.pos.z;
+              const pz = (a.half.z + b.half.z) - Math.abs(dz);
+              if (pz <= 0) continue;
+
+              a.wakeUp();
+              b.wakeUp();
+
+              const totalInvMass = a.invMass + b.invMass;
+              const shareA = a.invMass / totalInvMass;
+              const shareB = b.invMass / totalInvMass;
+
+              // Resolve along minimum penetration axis
+              if (py <= px && py <= pz) {
+                const sign = dy >= 0 ? 1 : -1;
+                a.pos.y -= sign * py * shareA;
+                b.pos.y += sign * py * shareB;
+
+                const relVy = b.vel.y - a.vel.y;
+                if (relVy * sign < 0) {
+                  const jImp = -(1 + 0.18) * relVy / totalInvMass;
+                  a.vel.y -= jImp * a.invMass;
+                  b.vel.y += jImp * b.invMass;
+                  // Friction
+                  a.vel.x *= 0.92;
+                  a.vel.z *= 0.92;
+                  b.vel.x *= 0.92;
+                  b.vel.z *= 0.92;
+                }
+              } else if (px <= pz) {
+                const sign = dx >= 0 ? 1 : -1;
+                a.pos.x -= sign * px * shareA;
+                b.pos.x += sign * px * shareB;
+                const relVx = b.vel.x - a.vel.x;
+                if (relVx * sign < 0) {
+                  const jImp = -(1 + 0.22) * relVx / totalInvMass;
+                  a.vel.x -= jImp * a.invMass;
+                  b.vel.x += jImp * b.invMass;
+                }
+              } else {
+                const sign = dz >= 0 ? 1 : -1;
+                a.pos.z -= sign * pz * shareA;
+                b.pos.z += sign * pz * shareB;
+                const relVz = b.vel.z - a.vel.z;
+                if (relVz * sign < 0) {
+                  const jImp = -(1 + 0.22) * relVz / totalInvMass;
+                  a.vel.z -= jImp * a.invMass;
+                  b.vel.z += jImp * b.invMass;
+                }
+              }
+            }
+          }
+        }
+
+        // Sync block mesh positions
+        for (let i = 0; i < n; i++) {
+          const b = blocks[i];
+          if (!b.exploded) {
+            b.mesh.position.copy(b.pos);
+          }
+        }
+
+        // 5. Update Particles & Shockwaves
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.life -= clampedDt;
+          if (pt.life <= 0) {
+            scene.remove(pt.mesh);
+            pt.mesh.material.dispose();
+            particles.splice(i, 1);
+            continue;
+          }
+          if (pt.isDebris) {
+            pt.vel.y += GRAVITY * 0.85 * clampedDt;
+          } else {
+            pt.vel.multiplyScalar(0.95);
+          }
+          pt.mesh.position.x += pt.vel.x * clampedDt;
+          pt.mesh.position.y += pt.vel.y * clampedDt;
+          pt.mesh.position.z += pt.vel.z * clampedDt;
+
+          if (pt.mesh.position.y < 0.2 && pt.isDebris) {
+            pt.mesh.position.y = 0.2;
+            pt.vel.y = -pt.vel.y * 0.35;
+            pt.vel.x *= 0.7;
+            pt.vel.z *= 0.7;
+          }
+
+          pt.mesh.rotation.x += pt.rotVel.x * clampedDt;
+          pt.mesh.rotation.y += pt.rotVel.y * clampedDt;
+          pt.mesh.material.opacity = Math.max(0, pt.life / pt.maxLife);
+        }
+
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.age += clampedDt;
+          const t = sw.age / sw.duration;
+          if (t >= 1.0) {
+            scene.remove(sw.mesh);
+            sw.mesh.geometry.dispose();
+            sw.mesh.material.dispose();
+            shockwaves.splice(i, 1);
+            continue;
+          }
+          const scale = 1.0 + t * sw.maxRadius;
+          sw.mesh.scale.set(scale, scale, 1);
+          sw.mesh.material.opacity = (1.0 - t) * 0.85;
+        }
+      }
+
+      // =========================================================================
+      // 9. TELEMETRY HUD, CAMERA ORBIT & AUTO-DEMO CONTROLLER
+      // =========================================================================
+      const elFps = document.getElementById('hud-fps');
+      const elIntact = document.getElementById('hud-intact');
+      const elFallen = document.getElementById('hud-fallen');
+      const elBarrels = document.getElementById('hud-barrels');
+      const elPct = document.getElementById('hud-destruction-pct');
+      const elBar = document.getElementById('hud-destruction-bar');
+      const elBodies = document.getElementById('physics-active-label');
+
+      function updateTelemetryHUD() {
+        const total = blocks.length;
+        let destroyed = 0;
+        let barrelsLeft = 0;
+        let awakeCount = 0;
+
+        for (let i = 0; i < total; i++) {
+          const b = blocks[i];
+          if (b.exploded || b.fallen) destroyed++;
+          if (b.isBarrel && !b.exploded) barrelsLeft++;
+          if (!b.exploded && !b.sleeping) awakeCount++;
+        }
+
+        const intact = total - destroyed;
+        const pct = total > 0 ? (destroyed / total) * 100 : 0;
+
+        elIntact.textContent = String(intact);
+        elFallen.textContent = String(destroyed);
+        elBarrels.textContent = String(barrelsLeft);
+        elPct.textContent = pct.toFixed(1) + '%';
+        elBar.style.width = Math.min(100, pct).toFixed(1) + '%';
+        elBodies.textContent = 'CUERPOS: ' + total + ' (' + awakeCount + ' ACTIVOS)';
+        return pct;
+      }
+
+      // Camera Controller
+      let cameraMode = 'orbit';
+      let camAzimuth = 0.34;
+      let camElevation = 0.42;
+      let camDistance = 48.0;
+      const camLookAt = new THREE.Vector3(0, 4.5, 0);
+      let isDraggingCamera = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let pointerDownPos = { x: 0, y: 0 };
+
+      function updateCamera(dt, timeSec) {
+        if (cameraMode === 'orbit') {
+          if (!isDraggingCamera && autoDemoEnabled) {
+            camAzimuth = Math.sin(timeSec * 0.16) * 0.46;
+          }
+          const cx = Math.sin(camAzimuth) * Math.cos(camElevation) * camDistance;
+          const cy = Math.sin(camElevation) * camDistance + 3.0;
+          const cz = Math.cos(camAzimuth) * Math.cos(camElevation) * camDistance + 4.0;
+          camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.08);
+          camLookAt.lerp(new THREE.Vector3(0, 4.5, -1.0), 0.1);
+        } else if (cameraMode === 'cannon') {
+          camera.position.lerp(new THREE.Vector3(0, 4.8, 39.5), 0.1);
+          camLookAt.lerp(aimTarget.clone(), 0.12);
+        } else if (cameraMode === 'aerial') {
+          camera.position.lerp(new THREE.Vector3(0, 46.0, 22.0), 0.08);
+          camLookAt.lerp(new THREE.Vector3(0, 2.0, -2.0), 0.1);
+        }
+
+        if (cameraShakeIntensity > 0.01) {
+          camera.position.x += (Math.random() - 0.5) * cameraShakeIntensity;
+          camera.position.y += (Math.random() - 0.5) * cameraShakeIntensity;
+          cameraShakeIntensity *= Math.pow(0.04, dt);
+        } else {
+          cameraShakeIntensity = 0;
+        }
+
+        camera.lookAt(camLookAt);
+      }
+
+      // Selectable Ammo Helper
+      function selectAmmo(index) {
+        currentAmmoIndex = ((index % 4) + 4) % 4;
+        for (let i = 0; i < 4; i++) {
+          const card = document.getElementById('ammo-card-' + i);
+          if (card) card.classList.toggle('selected', i === currentAmmoIndex);
+        }
+        const tag = document.getElementById('active-ammo-tag');
+        if (tag) tag.textContent = AMMO_SPECS[currentAmmoIndex].name;
+      }
+
+      // Raycasting on click / pointer move
+      const raycaster = new THREE.Raycaster();
+      const pointerNDC = new THREE.Vector2();
+      const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -4.0);
+
+      function getSceneTargetFromEvent(e) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointerNDC, camera);
+
+        const activeBlockMeshes = blockMeshes.filter((m) => m.visible && !m.userData.block.exploded);
+        const hits = raycaster.intersectObjects(activeBlockMeshes, false);
+        if (hits.length > 0) {
+          return hits[0].point.clone();
+        }
+        const fallbackPt = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(aimPlane, fallbackPt)) {
+          fallbackPt.x = THREE.MathUtils.clamp(fallbackPt.x, -16, 16);
+          fallbackPt.y = THREE.MathUtils.clamp(fallbackPt.y, 1.0, 14.0);
+          fallbackPt.z = THREE.MathUtils.clamp(fallbackPt.z, -12, 10);
+          return fallbackPt;
+        }
+        return new THREE.Vector3(0, 4.0, 5.0);
+      }
+
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        pointerDownPos.x = e.clientX;
+        pointerDownPos.y = e.clientY;
+        isDraggingCamera = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (isDraggingCamera) {
+          const dx = e.clientX - dragStartX;
+          const dy = e.clientY - dragStartY;
+          if (Math.hypot(dx, dy) > 4 && cameraMode === 'orbit') {
+            camAzimuth -= dx * 0.0055;
+            camElevation = THREE.MathUtils.clamp(camElevation + dy * 0.0045, 0.12, 1.25);
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+          }
+        } else {
+          const pt = getSceneTargetFromEvent(e);
+          aimTarget.lerp(pt, 0.35);
+        }
+      });
+
+      window.addEventListener('pointerup', (e) => {
+        if (!isDraggingCamera) return;
+        isDraggingCamera = false;
+        const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+        if (moveDist < 6 && e.target === renderer.domElement) {
+          const targetPt = getSceneTargetFromEvent(e);
+          fireCannonAt(targetPt);
+        }
+      });
+
+      renderer.domElement.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camDistance = THREE.MathUtils.clamp(camDistance + e.deltaY * 0.03, 24, 78);
+      }, { passive: false });
+
+      // UI Buttons & Keyboard Shortcuts
+      document.querySelectorAll('.ammo-card').forEach((card) => {
+        card.addEventListener('click', () => {
+          const idx = parseInt(card.getAttribute('data-ammo'), 10);
+          selectAmmo(idx);
+        });
+      });
+
+      document.getElementById('btn-fire').addEventListener('click', () => {
+        fireCannonAt(aimTarget.clone());
+      });
+
+      document.getElementById('btn-detonate').addEventListener('click', () => {
+        let count = 0;
+        blocks.forEach((b) => {
+          if (b.isBarrel && !b.exploded) {
+            b.exploded = true;
+            b.mesh.visible = false;
+            setTimeout(() => {
+              createExplosion(b.pos.clone(), 12.0, 56.0, 0xef4444, true);
+            }, count * 90);
+            count++;
+          }
+        });
+        if (count > 0) {
+          triggerBanner('DETONACION REMOTA DE ' + count + ' BARRILES EXPLOSIVOS');
+        } else {
+          // Spawn fresh explosive barrels in courtyard and detonate
+          createExplosion(new THREE.Vector3(0, 2.0, 2.0), 14.0, 62.0, 0xef4444, true);
+          triggerBanner('DETONACION DE CARGA DE DEMOLICION CENTRAL');
+        }
+      });
+
+      document.getElementById('btn-meteor-salvo').addEventListener('click', () => {
+        selectAmmo(3);
+        const targets = [
+          new THREE.Vector3(-8.5, 5.0, 5.5),
+          new THREE.Vector3(0, 6.5, -1.5),
+          new THREE.Vector3(8.5, 5.0, 5.5)
+        ];
+        targets.forEach((t, i) => {
+          setTimeout(() => fireCannonAt(t, 3), i * 220);
+        });
+        triggerBanner('SALVA DE METEORITOS GIGANTES EN VUELO');
+      });
+
+      document.getElementById('btn-rebuild').addEventListener('click', () => {
+        buildCastleFortress();
+        triggerBanner('CASTILLO FORTALEZA RECONSTRUIDO (176 BLOQUES)');
+      });
+
+      let autoDemoEnabled = true;
+      document.getElementById('btn-autodemo').addEventListener('click', function () {
+        autoDemoEnabled = !autoDemoEnabled;
+        this.classList.toggle('active-cyan', autoDemoEnabled);
+        document.getElementById('label-autodemo').textContent = autoDemoEnabled ? 'Auto-Demo: ON' : 'Auto-Demo: OFF';
+      });
+
+      document.getElementById('btn-audio').addEventListener('click', function () {
+        sound.enabled = !sound.enabled;
+        this.classList.toggle('active', sound.enabled);
+        document.getElementById('label-audio').textContent = sound.enabled ? 'Audio: ON' : 'Audio: OFF';
+      });
+
+      ['orbit', 'cannon', 'aerial'].forEach((mode) => {
+        const btn = document.getElementById('btn-cam-' + mode);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            cameraMode = mode;
+            ['orbit', 'cannon', 'aerial'].forEach((m) => {
+              document.getElementById('btn-cam-' + m).classList.toggle('active', m === mode);
+            });
+          });
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          fireCannonAt(aimTarget.clone());
+        } else if (e.key === '1') selectAmmo(0);
+        else if (e.key === '2') selectAmmo(1);
+        else if (e.key === '3') selectAmmo(2);
+        else if (e.key === '4') selectAmmo(3);
+        else if (e.key === 'b' || e.key === 'B') document.getElementById('btn-detonate').click();
+        else if (e.key === 'r' || e.key === 'R') document.getElementById('btn-rebuild').click();
+        else if (e.key === 'm' || e.key === 'M') document.getElementById('btn-meteor-salvo').click();
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // =========================================================================
+      // 10. INITIALIZATION & MAIN 60 FPS ANIMATION LOOP (AUTO-FIRE EVERY 2.2S)
+      // =========================================================================
+      buildCastleFortress();
+
+      // Choose a smart structural target on the castle for Auto-Demo shots
+      function pickAutoSiegeTarget(shotIndex) {
+        // Prioritize unexploded barrels or standing structural blocks
+        const intactBarrels = blocks.filter((b) => b.isBarrel && !b.exploded);
+        if (intactBarrels.length > 0 && shotIndex % 2 === 1) {
+          const b = intactBarrels[shotIndex % intactBarrels.length];
+          return b.pos.clone();
+        }
+        const standingBlocks = blocks.filter((b) => !b.exploded && !b.fallen && b.pos.y > 1.2);
+        if (standingBlocks.length > 0) {
+          const pick = standingBlocks[(shotIndex * 13) % standingBlocks.length];
+          return pick.pos.clone();
+        }
+        return new THREE.Vector3((Math.random() - 0.5) * 14, 3.0 + Math.random() * 4.0, (Math.random() - 0.5) * 10);
+      }
+
+      // Immediate action from second 0.0: launch first shot right away so projectile is in flight immediately
+      let autoFireTimer = 1.95; // Fires first volley within 0.25s, then every 2.2s
+      let autoAmmoCycle = 0;
+      let rebuildCooldown = 0;
+
+      let lastTime = performance.now();
+      let fpsFrames = 0;
+      let fpsLastCheck = lastTime;
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+
+        const dt = Math.min(0.05, (now - lastTime) * 0.001);
+        lastTime = now;
+        const timeSec = now * 0.001;
+
+        // FPS counter
+        fpsFrames++;
+        if (now - fpsLastCheck >= 450) {
+          const fps = Math.round((fpsFrames * 1000) / (now - fpsLastCheck));
+          elFps.textContent = String(Math.min(60, Math.max(1, fps)));
+          fpsFrames = 0;
+          fpsLastCheck = now;
+        }
+
+        // Auto-Demo Siege Firing every 2.2 seconds
+        if (autoDemoEnabled) {
+          autoFireTimer += dt;
+          if (autoFireTimer >= 2.2) {
+            autoFireTimer = 0;
+            // Cycle ammo across shots so all 4 projectile types are demonstrated
+            const ammoChoice = autoAmmoCycle % 4;
+            autoAmmoCycle++;
+            selectAmmo(ammoChoice);
+            const targetPt = pickAutoSiegeTarget(autoAmmoCycle);
+            fireCannonAt(targetPt, ammoChoice);
+          }
+        }
+
+        // Smooth barrel recoil recovery
+        if (barrelRecoilOffset > 0.001) {
+          barrelRecoilOffset *= Math.pow(0.02, dt);
+          barrelRecoilGroup.position.z = barrelRecoilOffset;
+        } else {
+          barrelRecoilGroup.position.z = 0;
+        }
+
+        // Decay dynamic explosion light
+        if (blastLight.intensity > 0.05) {
+          blastLight.intensity *= Math.pow(0.01, dt);
+        } else {
+          blastLight.intensity = 0;
+        }
+
+        // Flicker torch flames
+        for (let i = 0; i < torchFlames.length; i++) {
+          const fl = torchFlames[i];
+          const s = 0.88 + Math.sin(timeSec * 14 + i * 2.1) * 0.16;
+          fl.scale.set(s, 0.9 + Math.cos(timeSec * 19 + i) * 0.2, s);
+        }
+
+        // Step 3D rigid-body physics
+        stepPhysics(dt);
+
+        // Update cannon trajectory & camera
+        updateCannonAimAndTrajectory(timeSec);
+        updateCamera(dt, timeSec);
+
+        // Update HUD & check if castle needs auto-rebuild after total destruction
+        const destructionPct = updateTelemetryHUD();
+        if (autoDemoEnabled && destructionPct > 86.0) {
+          rebuildCooldown += dt;
+          if (rebuildCooldown > 5.5) {
+            rebuildCooldown = 0;
+            buildCastleFortress();
+            triggerBanner('AUTO-RECONSTRUCCION DE FORTALEZA COMPLETADA');
+          }
+        } else {
+          rebuildCooldown = 0;
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

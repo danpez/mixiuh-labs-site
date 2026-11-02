@@ -111,6 +111,7 @@ type BlogFilter = "all" | "laboratorios" | "comunidad" | "noticias";
 type ForoSubTab = "hilos" | "glosario";
 
 const DOSSIER_HASH: Record<DossierEpisode, string> = {
+  ep05: "ep05-torneo-tres-gigantes",
   ep04: "ep04-escalera-claude",
   ep03: "ep03-superpowers-kit",
   ep02: "ep02-argon-vs-opus",
@@ -157,6 +158,7 @@ function viewForHash(h: string, rel: ReleasedState): ViewTarget | null {
   ) {
     return { view: "noticias" };
   }
+  if (h === "ep05-torneo-tres-gigantes" && rel.ep05) return { view: "dossiers", ep: "ep05" };
   if (h === "ep04-escalera-claude" && rel.ep04) return { view: "dossiers", ep: "ep04" };
   if (h === "ep03-superpowers-kit" && rel.ep03) return { view: "dossiers", ep: "ep03" };
   if (h === DOSSIER_HASH.ep02) return { view: "dossiers", ep: "ep02" };
@@ -177,6 +179,10 @@ const SITE_TITLE = {
 } as const;
 
 const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
+  ep05: {
+    es: "Laboratorio EP05: El Torneo de los 3 Gigantes (6 Retos 3D + Ronda de Rescate)",
+    en: "Lab EP05: The 3 Giants Tournament (6 3D Rounds + Rescue Round)",
+  },
   ep04: { es: "Laboratorio EP04: Escalera Claude 5.5", en: "Lab EP04: Claude 5.5 Ladder" },
   ep03: {
     es: "Laboratorio EP03: Argon High Sin Kit vs Superpowers Kit",
@@ -244,6 +250,7 @@ function writeHash(hash: string, mode: "push" | "replace") {
 
 /** One accent per production, shared by blog cards, calendar, CRT and floppy selector. */
 const EPISODE_ACCENT: Record<ReleaseKey, string> = {
+  ep05: "#10B981",
   cc02: "#10B981",
   carbon01: "#00E5FF",
   ep04: "#FF3355",
@@ -255,6 +262,7 @@ const EPISODE_ACCENT: Record<ReleaseKey, string> = {
 
 /** Deep link of each production (used by the share popover). */
 const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  ep05: "ep05-torneo-tres-gigantes",
   cc02: "comentario-al-codigo",
   carbon01: "noticias",
   ep04: "ep04-escalera-claude",
@@ -438,6 +446,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep05) return "ep05";
     if (r.ep04) return "ep04";
     if (r.ep03) return "ep03";
     return "ep02";
@@ -446,14 +455,18 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   // Arena & Episode state
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
-  const [arenaMode, setArenaMode] = useState<"ep04" | "ep03" | "ep02_ep01">(
+  const [arenaMode, setArenaMode] = useState<"ep05" | "ep04" | "ep03" | "ep02_ep01">(
     () => {
       const r = getReleasedStatus(BUILD_TIME);
+      if (r.ep05) return "ep05";
       if (r.ep04) return "ep04";
       if (r.ep03) return "ep03";
       return "ep02_ep01";
     }
   );
+
+  // EP05 interactive 3-way + Rescue comparator state
+  const [ep05ChallengeN, setEp05ChallengeN] = useState<number>(1);
 
   // EP03 interactive comparator state
   const [ep03ChallengeN, setEp03ChallengeN] = useState<number>(2);
@@ -574,8 +587,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
 
     // Default episode/arena = newest published one (content may have been
     // released after this HTML was built); the hash below can override it.
-    setDossierEp(rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02");
-    setArenaMode(rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02_ep01");
+    setDossierEp(rel.ep05 ? "ep05" : rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02");
+    setArenaMode(rel.ep05 ? "ep05" : rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02_ep01");
 
     const applyHash = () => {
       const target = viewForHash(window.location.hash.replace("#", ""), rel);
@@ -707,10 +720,14 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   };
 
   const handleJumpToArena = (
-    episode: "ep04" | "ep03" | "ep02" | "ep01",
+    episode: "ep05" | "ep04" | "ep03" | "ep02" | "ep01",
     challengeN: number
   ) => {
-    if (episode === "ep04" && released.ep04) {
+    if (episode === "ep05" && released.ep05) {
+      setEp05ChallengeN(challengeN);
+      setArenaMode("ep05");
+      setMainView("arena");
+    } else if (episode === "ep04" && released.ep04) {
       setEp04ChallengeN(challengeN);
       setArenaMode("ep04");
       setMainView("arena");
@@ -720,7 +737,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
       setMainView("arena");
     } else {
       const safeEp =
-        episode === "ep04" || episode === "ep03" ? "ep02" : episode;
+        episode === "ep05" || episode === "ep04" || episode === "ep03" ? "ep02" : episode;
       setActiveEpisode(safeEp);
       setSelectedChallengeN(challengeN);
       setArenaMode("ep02_ep01");
@@ -781,6 +798,35 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
 
   // Blog Cards Data (All 7 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
   const BLOG_ARTICLES: BlogArticle[] = [
+    {
+      id: "ep05" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "01 Nov 2026",
+      readTime_es: "Video 4K60 · 20 Simuladores 3D",
+      readTime_en: "4K60 Video · 20 3D Simulators",
+      badge_es: "LABORATORIO EP05 · EL TORNEO DE LOS 3 GIGANTES",
+      badge_en: "LAB EP05 · THE 3 GIANTS TOURNAMENT",
+      accentColor: EPISODE_ACCENT.ep05,
+      scoreBadge_es: "ASTRA 3 · ARGON 2 · OPUS 1",
+      scoreBadge_en: "ASTRA 3 · ARGON 2 · OPUS 1",
+      thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_gemini-4-argon_after.png",
+      title_es:
+        "El Torneo de los 3 Gigantes: Gemini 4 Argon High ($1.51) vs. Claude Opus 5.5 High ($32.75) vs. GPT-6 Astra High ($2.74) en 6 Retos 3D + Ronda de Rescate",
+      title_en:
+        "The 3 Giants Tournament: Gemini 4 Argon High ($1.51) vs. Claude Opus 5.5 High ($32.75) vs. GPT-6 Astra High ($2.74) across 6 3D Challenges + Rescue Round",
+      excerpt_es:
+        "Enfrentamos a los tres modelos frontera en modo HIGH a lo largo de 6 desafios visuales 3D con datos curiosos sobre el Problema de los 3 Cuerpos, el Efecto Tunel, los Atascos Fantasma y el sonido matematico. GPT-6 Astra High se corono campeon 3-2-1 en 42.9 min por $2.74 USD (6/6 al primer intento), Gemini 4 Argon High fue el mas rapido y barato (25.8 min, $1.51 USD, 12,844 lineas) y en la Ronda de Rescate cambiar una sola palabra (innerPixelRatio -> devicePixelRatio) desbloqueo sus 2 juegos finales a 60 FPS.",
+      excerpt_en:
+        "We put all three frontier models in HIGH mode head-to-head across 6 3D visual challenges with fun science facts on the Three-Body Problem, Bullet Tunneling, Phantom Traffic Jams, and math sound waves. GPT-6 Astra High won the 3-2-1 crown in 42.9 min for $2.74 USD (6/6 first-try success), Gemini 4 Argon High was the fastest and cheapest (25.8 min, $1.51 USD, 12,844 lines), and in the Rescue Round fixing one word (innerPixelRatio -> devicePixelRatio) unlocked its final 2 games at 60 FPS.",
+      metrics: [
+        { label_es: "MARCADOR", label_en: "SCORE", val: "3 - 2 - 1 Astra" },
+        { label_es: "GPT-6 ASTRA", label_en: "GPT-6 ASTRA", val: "42.9m · $2.74 (6/6 OK)" },
+        { label_es: "ARGON HIGH", label_en: "ARGON HIGH", val: "25.8m · $1.51 (+2 Rescate)", val_en: "25.8m · $1.51 (+2 Rescued)" },
+        { label_es: "OPUS 5.5 HIGH", label_en: "OPUS 5.5 HIGH", val: "194.6m · $32.75 (DJ 32 Pads)" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep05"),
+      onOpenArena: () => handleJumpToArena("ep05", 1),
+    },
     {
       id: "cc02" as ReleaseKey,
       filter: "comunidad" as const,
@@ -1005,7 +1051,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   // Dynamic spoiler-free counters matching only what has been published
   const totalEpisodesCount = releasedArticles.length;
   const totalLabsCount =
-    2 + (released.ep03 ? 1 : 0) + (released.ep04 ? 1 : 0);
+    2 + (released.ep03 ? 1 : 0) + (released.ep04 ? 1 : 0) + (released.ep05 ? 1 : 0);
   const totalComunidadCount =
     (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
@@ -1014,9 +1060,10 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     (released.cc01 ? 1 : 0) +
     (released.ep03 ? 12 : 0) +
     (released.ep04 ? 18 : 0) +
-    (released.cc02 ? 4 : 0);
+    (released.cc02 ? 4 : 0) +
+    (released.ep05 ? 20 : 0);
   const totalPromptsCount =
-    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0) + (released.cc02 ? 1 : 0);
+    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0) + (released.cc02 ? 1 : 0) + (released.ep05 ? 6 : 0);
   // Same size as the forum's thread list (counted on the server, see forumCounts.ts)
   const totalForumThreadsCount = (
     Object.keys(forumCounts.byRelease) as ReleaseKey[]
@@ -1042,6 +1089,38 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.ep05
+      ? [
+          {
+            id: "ep05",
+            code: "EP.05",
+            kicker:
+              lang === "es"
+                ? "TORNEO 3 GIGANTES · 20 SIMULADORES 3D"
+                : "3 GIANTS TOURNAMENT · 20 3D DEMOS",
+            title:
+              lang === "es"
+                ? "Argon High vs Opus 5.5 vs GPT-6 Astra (6 Retos + Rescate)"
+                : "Argon High vs Opus 5.5 vs GPT-6 Astra (6 Rounds + Rescue)",
+            verdict:
+              lang === "es"
+                ? "ASTRA 3 · ARGON 2 · OPUS 1 (+2 RESCATADOS)"
+                : "ASTRA 3 · ARGON 2 · OPUS 1 (+2 RESCUED)",
+            timeMetric: "25.8m vs 194.6m vs 42.9m",
+            costMetric: "$1.51 vs $32.75 vs $2.74",
+            thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_gemini-4-argon_after.png",
+            accentHex: "#10B981",
+            character: "argon" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep05"),
+            onLaunchSecondary: () => handleJumpToArena("ep05", 1),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR TORNEO EP05 (20 JUEGOS 3D)"
+                : "OPEN EP05 TOURNAMENT (20 3D GAMES)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
     ...(released.cc02
       ? [
           {
@@ -2638,6 +2717,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             navigateToView={navigateToView}
             handleJumpToArena={handleJumpToArena}
             playSfx={playSfx}
+            ep05ChallengeN={ep05ChallengeN}
+            setEp05ChallengeN={setEp05ChallengeN}
             ep04ChallengeN={ep04ChallengeN}
             setEp04ChallengeN={setEp04ChallengeN}
             ep04Mode={ep04Mode}
@@ -3375,6 +3456,21 @@ m.p.pos[m.axis] = m.base + offset;`}
                 aria-labelledby="arena-mode-label"
                 className="flex flex-wrap items-center gap-2 font-mono-hud text-xs"
               >
+                {released.ep05 && (
+                  <button
+                    onClick={() => setArenaMode("ep05")}
+                    aria-pressed={arenaMode === "ep05"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep05"
+                        ? "bg-[#10B981] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP05: Torneo 3 Gigantes (20)"
+                      : "EP05: 3 Giants Tournament (20)"}
+                  </button>
+                )}
                 {released.ep04 && (
                   <button
                     onClick={() => setArenaMode("ep04")}
@@ -3461,11 +3557,14 @@ m.p.pos[m.axis] = m.base + offset;`}
             </div>
           </div>
 
-          {(released.ep04 && arenaMode === "ep04") ||
+          {(released.ep05 && arenaMode === "ep05") ||
+          (released.ep04 && arenaMode === "ep04") ||
           (released.ep03 && arenaMode === "ep03") ? (
             <ArenaLatest
               lang={lang}
               episode={arenaMode}
+              ep05ChallengeN={ep05ChallengeN}
+              setEp05ChallengeN={setEp05ChallengeN}
               ep04ChallengeN={ep04ChallengeN}
               setEp04ChallengeN={setEp04ChallengeN}
               ep03ChallengeN={ep03ChallengeN}

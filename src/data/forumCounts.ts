@@ -34,6 +34,7 @@ const NOTHING_RELEASED: ReleasedState = {
   ep04: false,
   carbon01: false,
   cc02: false,
+  ep05: false,
 };
 
 function countThreadsByRelease(): ForumCounts {

@@ -5,6 +5,7 @@ import { CHALLENGES } from "@/data/labsData";
 import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES, EP03_HONESTY_NOTES } from "@/data/ep03Data";
 import { EP04_BENCHMARK_TOTALS, EP04_CHALLENGES } from "@/data/ep04Data";
+import { EP05_BENCHMARK_TOTALS, EP05_CHALLENGES } from "@/data/ep05Data";
 import { YOUTUBE_LINKS } from "@/data/glossary";
 import type { ReleasedState } from "@/data/releaseSchedule";
 import {
@@ -15,7 +16,8 @@ import {
   type PixelSoundName,
 } from "@mixiuh/pixel-ui";
 
-export type DossierEpisode = "ep04" | "ep03" | "ep02" | "ep01";
+export type DossierEpisode = "ep05" | "ep04" | "ep03" | "ep02" | "ep01";
+export type Ep05Mode = "triple" | "argon" | "opus" | "astra" | "rescue";
 export type Ep04Mode = "triple" | "haiku" | "sonnet" | "opus" | "prompt";
 export type Ep03Mode = "split" | "superkit" | "vanilla" | "still" | "prompt";
 export type VideoClip = "hook" | "boss";
@@ -30,6 +32,8 @@ export interface DossierViewProps {
   navigateToView: (view: "noticias" | "comunidad") => void;
   handleJumpToArena: (episode: DossierEpisode, challengeN: number) => void;
   playSfx: (name: PixelSoundName) => void;
+  ep05ChallengeN?: number;
+  setEp05ChallengeN?: (n: number) => void;
   ep04ChallengeN: number;
   setEp04ChallengeN: (n: number) => void;
   ep04Mode: Ep04Mode;
@@ -120,6 +124,8 @@ export default function DossierView({
   navigateToView,
   handleJumpToArena,
   playSfx,
+  ep05ChallengeN = 1,
+  setEp05ChallengeN = () => {},
   ep04ChallengeN,
   setEp04ChallengeN,
   ep04Mode,
@@ -131,6 +137,7 @@ export default function DossierView({
   activeVideoClip,
   setActiveVideoClip,
 }: DossierViewProps) {
+  const [ep05Mode, setEp05Mode] = useState<Ep05Mode>("triple");
   // English mode shows the English twin of a note where the data has one
   const fpsNote = (note: string, note_en?: string) =>
     lang === "es" ? note : (note_en ?? note);
@@ -174,8 +181,8 @@ export default function DossierView({
           {/* Banner text, not a heading: each episode's title below is the view's <h1> */}
           <p className="font-display text-xl sm:text-2xl font-black text-white">
             {lang === "es"
-              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP04)"
-              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP04)"}
+              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP05)"
+              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP05)"}
           </p>
         </div>
 
@@ -226,14 +233,37 @@ export default function DossierView({
         <div
           role="group"
           aria-labelledby="dossier-disk-label"
-          className={`grid grid-cols-1 ${
-            released.ep04
-              ? "sm:grid-cols-2 lg:grid-cols-4"
-              : released.ep03
-              ? "sm:grid-cols-3"
-              : "sm:grid-cols-2"
-          } gap-3`}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
         >
+          {released.ep05 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep05");
+              }}
+              aria-pressed={dossierEp === "ep05"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep05"
+                  ? "bg-[#182235] border-[#10B981]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#10B981]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#10B981] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 05 · NUEVO" : "DISK 05 · NEW"}
+                </span>
+                <span className="text-[#FFD100]">
+                  3-2-1 · $1.51 vs $32.75
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Torneo 3 Gigantes: Argon vs Opus vs Astra"
+                  : "3 Giants Tournament: Argon vs Opus vs Astra"}
+              </div>
+            </button>
+          )}
+
           {released.ep04 && (
             <button
               onClick={() => {
@@ -249,7 +279,7 @@ export default function DossierView({
             >
               <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
                 <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#FF3355] text-[#090B10] font-bold">
-                  {lang === "es" ? "DISK 04 · NUEVO" : "DISK 04 · NEW"}
+                  DISK 04
                 </span>
                 <span className="text-[#10B981]">
                   3-2-1 · $1.54 vs $29.94
@@ -340,6 +370,314 @@ export default function DossierView({
           </button>
         </div>
       </div>
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER 00: EPISODIO 05 (3 GIANTS TOURNAMENT + RESCUE ROUND)
+         ----------------------------------------------------------------- */}
+      {released.ep05 && dossierEp === "ep05" && (
+        <div id="ep05-torneo-tres-gigantes" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #10B981" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#10B981] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "DOSSIER OFICIAL EPISODIO 05 · 18 CORRIDAS ZERO-SHOT + 2 RESCATADAS EN 3D (ARGON VS OPUS VS ASTRA)"
+                : "OFFICIAL EPISODE 05 DOSSIER · 18 ZERO-SHOT RUNS + 2 RESCUED 3D GAMES (ARGON VS OPUS VS ASTRA)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "El Torneo de los 3 Gigantes: Gemini 4 Argon High vs Claude Opus 5.5 High vs GPT-6 Astra High (6 Retos 3D + Ronda de Rescate)"
+                : "The 3 Giants Tournament: Gemini 4 Argon High vs Claude Opus 5.5 High vs GPT-6 Astra High (6 3D Challenges + Rescue Round)"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Enfrentamos a las tres inteligencias artificiales mas potentes del planeta en su modo de razonamiento maximo (HIGH) a lo largo de seis desafios visuales 3D con datos curiosos de fisica, trafico y sonido matematico. Ademas, abrimos la Ronda de Rescate donde cambiar una sola palabra (innerPixelRatio por devicePixelRatio) desbloquea 3,834 lineas de codigo 3D a 60 FPS en los dos juegos finales de Argon."
+                : "We put the three most powerful AI models on Earth in maximum reasoning mode (HIGH) head-to-head across six 3D visual challenges with fun science facts on gravity, traffic, and mathematical sound waves. Plus, we open the Rescue Round where fixing a single word (innerPixelRatio to devicePixelRatio) unlocks 3,834 lines of 60 FPS 3D code across Argon's final two games."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "CAMPEON DEL TORNEO (3 PTS)" : "TOURNAMENT CHAMPION (3 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  GPT-6 Astra High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP05_BENCHMARK_TOTALS.astra_min}&nbsp;min · ${EP05_BENCHMARK_TOTALS.astra_usd.toFixed(2)} USD · 6/6 OK
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#00E5FF] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#00E5FF] font-bold">
+                  {lang === "es" ? "MAS RAPIDO Y BARATO (2 PTS)" : "FASTEST & CHEAPEST (2 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini 4 Argon High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP05_BENCHMARK_TOTALS.argon_min}&nbsp;min · ${EP05_BENCHMARK_TOTALS.argon_usd.toFixed(2)} USD · 12,844 LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#C084FC] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#C084FC] font-bold">
+                  {lang === "es" ? "MEJOR ESCENARIO DJ (1 PT)" : "BEST DJ CONCERT STAGE (1 PT)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Claude Opus 5.5 High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP05_BENCHMARK_TOTALS.opus_min}&nbsp;min · ${EP05_BENCHMARK_TOTALS.opus_usd.toFixed(2)} USD · 6/6 OK
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                  {lang === "es" ? "RONDA DE RESCATE (1 PALABRA)" : "RESCUE ROUND (1 WORD FIX)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  +2 Juegos Argon 60 FPS
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  3,834 {lang === "es" ? "lineas desbloqueadas" : "lines unlocked"} (R5 & R6)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla Comparativa de las 6 Rondas + Rescate */}
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#10B981]">
+                {lang === "es"
+                  ? "TABLA OFICIAL DE LOS 6 RETOS 3D + RONDA DE RESCATE (HAZ CLIC EN CUALQUIER FILA PARA PROBAR)"
+                  : "OFFICIAL 6-ROUND 3D TABLE + RESCUE ROUND (CLICK ANY ROW TO PLAY LIVE)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es"
+                  ? "20 SIMULADORES 3D INTERACTIVOS"
+                  : "20 INTERACTIVE 3D SIMULATORS"}
+              </span>
+            </div>
+            <TableScroller label="EP05 6-Round Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "RETO 3D / DATO CURIOSO" : "3D ROUND / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#00E5FF] ${SNAP_COL}`}>GEMINI 4 ARGON HIGH</th>
+                    <th className={`py-3 px-4 text-[#C084FC] ${SNAP_COL}`}>CLAUDE OPUS 5.5 HIGH</th>
+                    <th className={`py-3 px-4 text-[#10B981] ${SNAP_COL}`}>GPT-6 ASTRA HIGH</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "GANADOR" : "WINNER"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP05_CHALLENGES.map((ch) => {
+                    const selected = ep05ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp05ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#00E5FF] max-sm:hidden">
+                          0{ch.n}
+                        </td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#00E5FF]">
+                            {ch.argon.min}&nbsp;min · ${ch.argon.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.argon.fps, ch.argon.fps_en)} · {ch.argon.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#C084FC]">
+                            {ch.opus.min}&nbsp;min · ${ch.opus.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.opus.fps, ch.opus.fps_en)} · {ch.opus.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#10B981]">
+                            {ch.astra.min}&nbsp;min · ${ch.astra.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.astra.fps, ch.astra.fps_en)} · {ch.astra.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          {lang === "es" ? ch.winner_label_es : ch.winner_label_en}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {/* Visor Interactivo de los 20 Simuladores 3D de EP05 */}
+          {(() => {
+            const cur =
+              EP05_CHALLENGES.find((c) => c.n === ep05ChallengeN) ||
+              EP05_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            return (
+              <div className="bg-[#111622] border-2 border-[#10B981] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#10B981]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                    <p className="text-xs text-[#FFD100] mt-1">
+                      {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {(["triple", "argon", "opus", "astra", ...(cur.argon.rescuedDemoUrl ? (["rescue"] as const) : [])] as Ep05Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp05Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          ep05Mode === m
+                            ? "bg-[#10B981] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "triple"
+                          ? lang === "es"
+                            ? "3 GIGANTES LADO A LADO"
+                            : "3 GIANTS SIDE BY SIDE"
+                          : m === "argon"
+                          ? "GEMINI 4 ARGON"
+                          : m === "opus"
+                          ? "CLAUDE OPUS 5.5"
+                          : m === "astra"
+                          ? "GPT-6 ASTRA"
+                          : lang === "es"
+                          ? "ARGON RESCATADO (60 FPS)"
+                          : "ARGON RESCUED (60 FPS)"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep05", cur.n)}
+                      className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {ep05Mode === "triple" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#00E5FF] font-bold">
+                          GEMINI 4 ARGON (${cur.argon.usd.toFixed(2)} · {cur.argon.min}m)
+                        </span>
+                        <a
+                          href={cur.argon.rescuedDemoUrl || cur.argon.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00E5FF] underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        allowFullScreen
+                        src={cur.argon.rescuedDemoUrl || cur.argon.demoUrl}
+                        title={`Argon: ${name}`}
+                        className="w-full h-[500px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#C084FC] font-bold">
+                          CLAUDE OPUS 5.5 (${cur.opus.usd.toFixed(2)} · {cur.opus.min}m)
+                        </span>
+                        <a
+                          href={cur.opus.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#C084FC] underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        allowFullScreen
+                        src={cur.opus.demoUrl}
+                        title={`Opus: ${name}`}
+                        className="w-full h-[500px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#10B981] font-bold">
+                          GPT-6 ASTRA (${cur.astra.usd.toFixed(2)} · {cur.astra.min}m)
+                        </span>
+                        <a
+                          href={cur.astra.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#10B981] underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        allowFullScreen
+                        src={cur.astra.demoUrl}
+                        title={`Astra: ${name}`}
+                        className="w-full h-[500px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    <iframe
+                      allowFullScreen
+                      src={
+                        ep05Mode === "argon"
+                          ? cur.argon.demoUrl
+                          : ep05Mode === "rescue"
+                          ? cur.argon.rescuedDemoUrl || cur.argon.demoUrl
+                          : ep05Mode === "opus"
+                          ? cur.opus.demoUrl
+                          : cur.astra.demoUrl
+                      }
+                      title={`${ep05Mode}: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* -----------------------------------------------------------------
           SUB-DOSSIER 0: EPISODIO 04 (GATED BY RELEASE SCHEDULE)
