@@ -149,9 +149,13 @@ interface ViewTarget {
 }
 
 /** View a URL fragment opens (respecting embargoes); null for any other fragment, e.g. an in-page anchor. */
-function viewForHash(h: string, rel: ReleasedState): ViewTarget | null {
-  // Empty or #top: back button to the portal root
-  if (!h || h === "top") return { view: "blog" };
+function viewForHash(
+  h: string,
+  rel: ReleasedState,
+  defaultView: MainView = "blog"
+): ViewTarget | null {
+  // Empty or #top: back button to the portal root or route's initialView
+  if (!h || h === "top") return { view: defaultView };
   if (
     (h === "noticias" || h === "radar-mixiuh" || h === "gemini-4-carbon") &&
     rel.carbon01
@@ -383,9 +387,14 @@ const isAmbientMode = (value: string): value is AmbientSimulationMode =>
 export interface PortalClientProps {
   /** Forum thread counts per release, computed on the server (forumCounts.ts). */
   forumCounts: ForumCounts;
+  /** Optional initial view when mounted from a dedicated SEO route (/benchmarks, /arena, /pixel-ui, /foro, /noticias). */
+  initialView?: MainView;
 }
 
-export default function PortalClient({ forumCounts }: PortalClientProps) {
+export default function PortalClient({
+  forumCounts,
+  initialView = "blog",
+}: PortalClientProps) {
   // Persisted, tab-synced and hydration-safe (static HTML renders "es" first)
   const [lang, setLang] = usePixelPref(PREF_LANG_KEY, "es", isLang);
   const { enabled: sfxEnabled, play: playSfx, toggle: toggleSfx } =
@@ -442,7 +451,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
   const [released, setReleased] = useState<ReleasedState>(() =>
     getReleasedStatus(BUILD_TIME)
   );
-  const [mainView, setMainView] = useState<MainView>("blog");
+  const [mainView, setMainView] = useState<MainView>(initialView);
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
     const r = getReleasedStatus(BUILD_TIME);
@@ -591,7 +600,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
     setArenaMode(rel.ep05 ? "ep05" : rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02_ep01");
 
     const applyHash = () => {
-      const target = viewForHash(window.location.hash.replace("#", ""), rel);
+      const target = viewForHash(window.location.hash.replace("#", ""), rel, initialView);
       if (!target) return null;
       setMainView(target.view);
       if (target.ep) {

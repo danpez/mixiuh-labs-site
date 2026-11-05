@@ -9,21 +9,47 @@ export default function robots(): MetadataRoute.Robots {
         disallow: "/api/",
       },
       {
-        userAgent: [
-          "Googlebot",
-          "OAI-SearchBot",
-          "ChatGPT-User",
-          "PerplexityBot",
-          "ClaudeBot",
-          "Claude-SearchBot",
-          "Google-Extended",
-          "Applebot-Extended",
-        ],
+        userAgent: "Googlebot",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "OAI-SearchBot",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "ChatGPT-User",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "PerplexityBot",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "ClaudeBot",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "Claude-SearchBot",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "Google-Extended",
+        allow: "/",
+        disallow: "/api/",
+      },
+      {
+        userAgent: "Applebot-Extended",
         allow: "/",
         disallow: "/api/",
       },
     ],
-    sitemap: "https://labs.mixiuh.online/sitemap.xml",
     host: "https://labs.mixiuh.online",
+    sitemap: "https://labs.mixiuh.online/sitemap.xml",
   };
 }

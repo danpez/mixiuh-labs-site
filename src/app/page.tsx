@@ -81,6 +81,16 @@ export default function MixiuhLabsHomePage() {
             La Arena de Mixiuh Labs permite ejecutar en el navegador los 20 simuladores 3D de EP05 y los 88 motores totales sin modificaciones. La libreria open-source @mixiuh/pixel-ui v2.5.0 ofrece mas de 45 componentes React accesibles, estacion CRT 3D interactiva, cartuchos y disquetes 3.5 pulgadas, iconos pixel-art 16x16, graficas de telemetria y sintetizador WebAudio 8-bit gratis para uso comercial con atribucion a labs.mixiuh.online. El Foro Tecnico reune las autopsias de codigo linea por linea, los 35 prompts originales integros y el glosario de ingenieria en lenguaje claro.
           </p>
         </article>
+
+        <nav aria-label="Rutas Directas de Secciones de Mixiuh Labs">
+          <ul>
+            <li><a href="/benchmarks">Benchmarks Zero-Shot de IA (EP01 a EP05)</a></li>
+            <li><a href="/arena">Arena de Demos 3D Jugables en Vivo</a></li>
+            <li><a href="/pixel-ui">Mixiuh Pixel UI v2.5.0 — Libreria React Open-Source</a></li>
+            <li><a href="/foro">Foro Tecnico de Ingenieria y Autopsias de Codigo</a></li>
+            <li><a href="/noticias">Radar Noticias IA #01: Gemini 4 Carbon</a></li>
+          </ul>
+        </nav>
       </section>
     </>
   );
