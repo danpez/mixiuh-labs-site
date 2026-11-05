@@ -1451,6 +1451,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
           : []),
         ...(
           [
+            { ep: "ep05" as const, label: es ? "EP05 · Torneo de los 3 Gigantes (Argon vs Opus vs Astra)" : "EP05 · 3 Giants Tournament (Argon vs Opus vs Astra)", tone: "emerald" as const, show: released.ep05 },
             { ep: "ep04" as const, label: es ? "EP04 · Escalera Claude 5.5 (Haiku vs Sonnet vs Opus)" : "EP04 · Claude 5.5 Ladder (Haiku vs Sonnet vs Opus)", tone: "cyan" as const, show: released.ep04 },
             { ep: "ep03" as const, label: es ? "EP03 · Argon High Sin Kit vs Superpowers Kit" : "EP03 · Argon High Raw vs Superpowers Kit", tone: "emerald" as const, show: released.ep03 },
             { ep: "ep02" as const, label: "EP02 · Gemini 4 Argon vs Claude Opus 5.5", tone: "violet" as const, show: released.ep02 },
@@ -1475,7 +1476,7 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             tone: e.tone,
             keywords: "arena demos simuladores play",
             onSelect: () =>
-              handleJumpToArena(e.ep, e.ep === "ep04" ? 4 : e.ep === "ep03" ? 2 : e.ep === "ep02" ? 1 : 6),
+              handleJumpToArena(e.ep, e.ep === "ep05" ? 1 : e.ep === "ep04" ? 4 : e.ep === "ep03" ? 2 : e.ep === "ep02" ? 1 : 6),
           },
         ]),
         {
@@ -2088,13 +2089,13 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Pillar 1: Videos / Laboratorios */}
               <a
-                {...viewLink("dossiers", "ep04")}
+                {...viewLink("dossiers", "ep05")}
                 className="px-card-emerald px-card-interactive flex flex-col justify-between cursor-pointer"
               >
                 <div>
                   <div className="px-4 py-2 bg-[#10B981] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
                     <span>01 // VIDEOS & LABS</span>
-                    <span>EP01-EP04</span>
+                    <span>EP01-EP05</span>
                   </div>
                   <div className="p-4">
                     <h2 className="font-display text-base sm:text-lg font-black text-white">
@@ -2104,8 +2105,8 @@ export default function PortalClient({ forumCounts }: PortalClientProps) {
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1.5 leading-relaxed">
                       {lang === "es"
-                        ? "4 episodios completos y 63 simuladores: Escalera Claude 5.5, Superpowers Kit, Argon vs Opus 5.5 y Argon vs 3.8 Flash."
-                        : "4 full episodes and 63 simulators: Claude 5.5 Ladder, Superpowers Kit, Argon vs Opus 5.5, and Argon vs 3.8 Flash."}
+                        ? "5 episodios completos y 83 simuladores: Torneo 3 Gigantes (EP05), Escalera Claude 5.5 (EP04), Superpowers Kit (EP03), Argon vs Opus 5.5 (EP02) y Argon vs 3.8 Flash (EP01)."
+                        : "5 full episodes and 83 simulators: 3 Giants Tournament (EP05), Claude 5.5 Ladder (EP04), Superpowers Kit (EP03), Argon vs Opus 5.5 (EP02), and Argon vs 3.8 Flash (EP01)."}
                     </p>
                   </div>
                 </div>
@@ -3749,12 +3750,12 @@ m.p.pos[m.axis] = m.base + offset;`}
                 {lang === "es" ? "Inicio" : "Home"}
               </a>
               <a
-                {...viewLink("dossiers", "ep04")}
+                {...viewLink("dossiers", "ep05")}
                 className="inline-block py-1.5 text-[#10B981] hover:text-white font-bold cursor-pointer"
               >
                 {lang === "es"
-                  ? "Videos / Laboratorios (EP01–EP04)"
-                  : "Videos / Labs (EP01–EP04)"}
+                  ? "Videos / Laboratorios (EP01–EP05)"
+                  : "Videos / Labs (EP01–EP05)"}
               </a>
               {(released.cc01 || released.cc02) && (
                 <a
@@ -3792,6 +3793,74 @@ m.p.pos[m.axis] = m.base + offset;`}
               </a>
             </nav>
           </div>
+
+          {/* Familia Mixiuh Ecosystem Navigation Bar */}
+          <nav
+            aria-label="Familia Mixiuh"
+            className="pt-4 border-t border-[#2A344B] flex flex-wrap items-center justify-between gap-3 text-[11px]"
+          >
+            <span className="font-pixel text-[10px] text-[#FFD100]">
+              FAMILIA MIXIUH // ECOSISTEMA OFICIAL:
+            </span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <a
+                href="https://mixiuh.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Mixiuh (mixiuh.online)
+              </a>
+              <a
+                href="https://holdyfy.mixiuh.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Holdyfy
+              </a>
+              <a
+                href="https://stockfy.mixiuh.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Stockfy
+              </a>
+              <a
+                href="https://queryfy.mixiuh.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Queryfy
+              </a>
+              <a
+                href="https://reelfy.mixiuh.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Reelfy
+              </a>
+              <a
+                href="https://tinteca.mixiuh.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Tinteca
+              </a>
+              <a
+                href="https://keruvin.store"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition"
+              >
+                Keruvin Store
+              </a>
+            </div>
+          </nav>
         </div>
       </footer>
       </div>
