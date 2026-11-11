@@ -1,0 +1,3204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador Fisico Aeroelastico — Puente Colgante y Resonancia de Tacoma</title>
+  <style>
+    :root {
+      --bg-void: #070B14;
+      --panel-bg: rgba(15, 23, 42, 0.82);
+      --panel-solid: #0F172A;
+      --border-cyan: rgba(34, 211, 238, 0.24);
+      --border-subtle: rgba(148, 163, 184, 0.16);
+      --cyan: #22D3EE;
+      --emerald: #10B981;
+      --amber: #FBBF24;
+      --coral: #F43F5E;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 38%, #0D172A 0%, #070B14 72%);
+    }
+
+    #sim-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* TOP HUD */
+    .hud-top {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .glass-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-cyan);
+      border-radius: 14px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      pointer-events: auto;
+    }
+
+    .brand-panel {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 350px;
+      max-width: 430px;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(16, 185, 129, 0.14));
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--cyan);
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      line-height: 1.15;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .demo-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(7, 11, 20, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .demo-banner:hover {
+      border-color: var(--cyan);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .demo-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      flex-shrink: 0;
+    }
+
+    .status-dot.manual {
+      background: var(--amber);
+      box-shadow: 0 0 10px var(--amber);
+    }
+
+    .demo-phase-text {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: #E2E8F0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .demo-mode-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(16, 185, 129, 0.18);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.38);
+      flex-shrink: 0;
+    }
+
+    .demo-mode-tag.manual {
+      background: rgba(251, 191, 36, 0.16);
+      color: var(--amber);
+      border-color: rgba(251, 191, 36, 0.4);
+    }
+
+    /* HEATMAP LEGEND */
+    .legend-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 12px;
+      margin-top: 8px;
+      width: fit-content;
+    }
+
+    .legend-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .legend-bar {
+      width: 150px;
+      height: 8px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #22D3EE 0%, #10B981 34%, #FBBF24 68%, #F43F5E 90%, #FFF1F2 100%);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .legend-labels {
+      display: flex;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .lbl-norm { color: var(--cyan); }
+    .lbl-fat { color: var(--amber); }
+    .lbl-crit { color: var(--coral); }
+
+    /* CENTER TELEMETRY KPIS */
+    .kpi-row {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .kpi-card {
+      padding: 10px 14px;
+      min-width: 152px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .kpi-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 23px;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-sub {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .stress-meter {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+
+    .stress-fill {
+      height: 100%;
+      width: 30%;
+      border-radius: 99px;
+      background: var(--cyan);
+      transition: width 0.08s linear, background-color 0.15s ease;
+    }
+
+    /* TOP RIGHT WIND TUNNEL CROSS-SECTION */
+    .tunnel-card {
+      padding: 10px 12px;
+      width: 336px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tunnel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+
+    .tunnel-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(244, 63, 94, 0.16);
+      color: var(--coral);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    .tunnel-badge.damped {
+      background: rgba(16, 185, 129, 0.18);
+      color: var(--emerald);
+      border-color: rgba(16, 185, 129, 0.42);
+    }
+
+    #tunnel-canvas {
+      width: 310px;
+      height: 106px;
+      border-radius: 8px;
+      background: rgba(7, 11, 20, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      display: block;
+    }
+
+    /* BOTTOM CONTROL CONSOLE */
+    .hud-bottom {
+      position: absolute;
+      bottom: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .controls-dock {
+      width: 100%;
+      max-width: 1760px;
+      padding: 12px 18px;
+      display: grid;
+      grid-template-columns: auto 1.25fr 1fr auto;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* PRIMARY DAMPER CTA BUTTON */
+    .btn-dampers {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 20px;
+      border-radius: 12px;
+      border: 1.5px solid var(--cyan);
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.18) 0%, rgba(15, 23, 42, 0.92) 100%);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 22px rgba(34, 211, 238, 0.22);
+      white-space: nowrap;
+    }
+
+    .btn-dampers:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 28px rgba(34, 211, 238, 0.42);
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.28) 0%, rgba(15, 23, 42, 0.95) 100%);
+    }
+
+    .btn-dampers.urgent-pulse {
+      border-color: var(--amber);
+      box-shadow: 0 0 26px rgba(251, 191, 36, 0.48);
+      animation: pulseAlert 1.15s infinite alternate ease-in-out;
+    }
+
+    .btn-dampers.active {
+      border-color: var(--emerald);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.30) 0%, rgba(6, 78, 59, 0.82) 100%);
+      box-shadow: 0 0 26px rgba(16, 185, 129, 0.42);
+      color: #ECFDF5;
+    }
+
+    @keyframes pulseAlert {
+      0% { box-shadow: 0 0 16px rgba(251, 191, 36, 0.30); border-color: var(--cyan); }
+      100% { box-shadow: 0 0 32px rgba(244, 63, 94, 0.65); border-color: var(--amber); }
+    }
+
+    .damper-led {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #475569;
+      border: 1.5px solid #94A3B8;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-dampers.active .damper-led {
+      background: var(--emerald);
+      border-color: #A7F3D0;
+      box-shadow: 0 0 12px var(--emerald);
+    }
+
+    .btn-text-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .btn-subtext {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .btn-dampers.active .btn-subtext {
+      color: #6EE7B7;
+    }
+
+    /* SLIDER GROUPS */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-width: 220px;
+    }
+
+    .slider-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .slider-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #CBD5E1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .slider-readout {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 2px 9px;
+      border-radius: 6px;
+      background: rgba(7, 11, 20, 0.78);
+      border: 1px solid var(--border-cyan);
+      color: var(--cyan);
+    }
+
+    .slider-track-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 22px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 7px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.35) 0%, rgba(251, 191, 36, 0.5) 52.3%, rgba(244, 63, 94, 0.68) 100%);
+      outline: none;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      cursor: pointer;
+    }
+
+    #slider-traffic {
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.28) 0%, rgba(16, 185, 129, 0.45) 50%, rgba(251, 191, 36, 0.55) 100%);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #F8FAFC;
+      border: 2.5px solid var(--cyan);
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.75);
+      cursor: grab;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+      cursor: grabbing;
+      transform: scale(1.15);
+    }
+
+    .crit-marker {
+      position: absolute;
+      left: 52.31%;
+      top: -4px;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .crit-tick {
+      width: 2px;
+      height: 15px;
+      background: var(--coral);
+      box-shadow: 0 0 6px var(--coral);
+    }
+
+    .crit-tag {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--coral);
+      margin-top: 1px;
+      white-space: nowrap;
+      text-shadow: 0 1px 4px #000;
+    }
+
+    /* ACTION BUTTONS RIGHT */
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-secondary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(30, 41, 59, 0.95);
+    }
+
+    .btn-secondary.sound-on {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(34, 211, 238, 0.14);
+    }
+
+    svg {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 1460px) {
+      .brand-panel { min-width: 290px; max-width: 340px; padding: 10px 12px; }
+      .brand-title { font-size: 14px; }
+      .kpi-card { min-width: 126px; padding: 8px 11px; }
+      .kpi-value { font-size: 19px; }
+      .tunnel-card { width: 280px; }
+      #tunnel-canvas { width: 256px; height: 92px; }
+      .controls-dock { gap: 12px; padding: 10px 14px; }
+      .btn-dampers { padding: 11px 14px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="sim-canvas"></canvas>
+
+    <!-- TOP HUD -->
+    <div class="hud-top">
+      <div>
+        <div class="glass-card brand-panel">
+          <div class="brand-header">
+            <div class="brand-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 4v16M18 4v16M2 15h20"/>
+                <path d="M2 10c2.5 0 4-3.5 4-6 0 4.5 3 6.5 6 6.5s6-2 6-6.5c0 2.5 1.5 6 4 6"/>
+                <path d="M9 10.2V15M12 10.5V15M15 10.2V15"/>
+              </svg>
+            </div>
+            <div>
+              <div class="brand-title">Puente de Tacoma · Aeroelastica</div>
+              <div class="brand-sub">Motor RK4 Multicuerpo · Vortices de Karman · 60 FPS</div>
+            </div>
+          </div>
+
+          <div class="demo-banner" id="btn-demo" title="Alternar entre Ciclo de Demostracion Automatica y Control Manual">
+            <div class="demo-left">
+              <span class="status-dot" id="demo-dot"></span>
+              <span class="demo-phase-text" id="demo-phase-label">BRISA ESTABLE Y TRAFICO FLUIDO</span>
+            </div>
+            <span class="demo-mode-tag" id="demo-mode-badge">AUTO DEMO</span>
+          </div>
+        </div>
+
+        <div class="glass-card legend-strip">
+          <span class="legend-title">Tension Estructural</span>
+          <div class="legend-bar"></div>
+          <div class="legend-labels">
+            <span class="lbl-norm">Normal</span>
+            <span class="lbl-fat">Fatiga</span>
+            <span class="lbl-crit">Ruptura</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI TELEMETRY -->
+      <div class="kpi-row">
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">
+            <span>Velocidad Viento</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2" stroke-linecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
+          </div>
+          <div class="kpi-value" id="kpi-wind">18 km/h</div>
+          <div class="kpi-sub">
+            <span id="kpi-wind-regime" style="color:#22D3EE;">FLUJO SUBCRITICO</span>
+            <span>CRIT: 68</span>
+          </div>
+        </div>
+
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">
+            <span>Tension Maxima</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="kpi-value" id="kpi-stress">31%</div>
+          <div class="stress-meter"><div class="stress-fill" id="kpi-stress-bar"></div></div>
+        </div>
+
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">
+            <span>Flutter Torsional</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.2" stroke-linecap="round"><path d="M2 12c3-6 7-6 10 0s7 6 10 0"/></svg>
+          </div>
+          <div class="kpi-value" id="kpi-flutter">0.4°</div>
+          <div class="kpi-sub">
+            <span id="kpi-wave-amp">FLEX: 0.1 m</span>
+            <span id="kpi-freq">MODO A2</span>
+          </div>
+        </div>
+
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">
+            <span>Tirantes Rotos</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" stroke-width="2.2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <div class="kpi-value" id="kpi-broken">0 / 186</div>
+          <div class="kpi-sub">
+            <span id="kpi-integrity" style="color:#10B981;">ESTRUCTURA INTEGRA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIND TUNNEL SECTION & OSCILLOSCOPE -->
+      <div class="glass-card tunnel-card">
+        <div class="tunnel-header">
+          <span>Seccion Transversal · Tunel Viento</span>
+          <span class="tunnel-badge" id="tunnel-badge">PERFIL H SIN CARENADO</span>
+        </div>
+        <canvas id="tunnel-canvas" width="310" height="106"></canvas>
+      </div>
+    </div>
+
+    <!-- BOTTOM CONTROLS -->
+    <div class="hud-bottom">
+      <div class="glass-card controls-dock">
+        <button type="button" class="btn-dampers" id="btn-dampers">
+          <span class="damper-led"></span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M8 12h8M12 8v8"/>
+          </svg>
+          <div class="btn-text-stack">
+            <span id="btn-dampers-title">ACTIVAR AMORTIGUADORES AERODINAMICOS</span>
+            <span class="btn-subtext" id="btn-dampers-sub">ESTADO: APAGADOS · RIESGO DE FLUTTER A 68 KM/H</span>
+          </div>
+        </button>
+
+        <div class="slider-group">
+          <div class="slider-top">
+            <label class="slider-label" for="slider-wind">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2" stroke-linecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2"/></svg>
+              <span>Velocidad de Viento</span>
+            </label>
+            <span class="slider-readout" id="val-wind">18 km/h</span>
+          </div>
+          <div class="slider-track-wrap">
+            <input type="range" id="slider-wind" min="0" max="130" step="1" value="18" />
+            <div class="crit-marker">
+              <div class="crit-tick"></div>
+              <div class="crit-tag">68 KM/H RESONANCIA</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-top">
+            <label class="slider-label" for="slider-traffic">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="15" height="10" rx="2"/><polygon points="16 9 20 9 23 12 23 16 16 16 16 9"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="18.5" cy="17.5" r="2"/></svg>
+              <span>Masa de Trafico</span>
+            </label>
+            <span class="slider-readout" id="val-traffic">100% (142 t)</span>
+          </div>
+          <div class="slider-track-wrap">
+            <input type="range" id="slider-traffic" min="0" max="250" step="5" value="100" />
+          </div>
+        </div>
+
+        <div class="action-group">
+          <button type="button" class="btn-secondary" id="btn-rebuild">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+            <span>Reconstruir Puente</span>
+          </button>
+
+          <button type="button" class="btn-secondary" id="btn-audio" title="Activar audio sintetico aeroelastico">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <span id="btn-audio-label">Audio Off</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // CONSTANTES DE ESCENA Y GEOMETRIA ESTRUCTURAL (BASE 1920x1080)
+      // =========================================================================
+      var W = 1920;
+      var H = 1080;
+
+      var X_START = 140;
+      var X_END = 1780;
+      var TOTAL_SPAN = X_END - X_START; // 1640 px (~1,280 m)
+      var N_NODES = 49;                 // Estaciones 0 .. 48
+      var DX = TOTAL_SPAN / (N_NODES - 1); // 34.1667 px
+      var IDX_T1 = 11;                  // Torre Izquierda (x = 515.8)
+      var IDX_T2 = 37;                  // Torre Derecha (x = 1404.2)
+      var IDX_MID = 24;                 // Centro del Vano Principal (x = 960.0)
+
+      var Y_WATER = 864;
+      var Y_ANCHOR_CABLE = 560;
+      var Y_ANCHOR_DECK = 602;
+      var Y_SADDLE = 266;
+      var W_HALF = 24;                  // Semiancho transversal del tablero
+      var PROJ_ZX = 14;                 // Desplazamiento 2.5D X por plano Z
+      var PROJ_ZY = 13;                 // Desplazamiento 2.5D Y por plano Z
+
+      // Parametros fisicos calibrados (RK4 sub-stepped)
+      var GRAVITY = 56.0;
+      var MASS_DECK = 2.2;
+      var INERTIA_DECK = 1950.0;
+      var MASS_CABLE = 0.42;
+
+      var K_CABLE = 4800.0;
+      var C_CABLE = 5.2;
+      var BREAK_CABLE = 4650.0;
+
+      var K_SUSP = 42.0;
+      var C_SUSP = 1.15;
+      var BREAK_SUSP = 205.0;
+
+      var K_DECK_AXIAL = 5200.0;
+      var C_DECK_AXIAL = 14.0;
+      var K_DECK_BEND = 98.0;
+      var K_DECK_TORSION = 1850.0;
+
+      // =========================================================================
+      // REFERENCIAS DOM Y CANVAS
+      // =========================================================================
+      var canvas = document.getElementById('sim-canvas');
+      var ctx = canvas.getContext('2d', { alpha: false });
+      var tunnelCanvas = document.getElementById('tunnel-canvas');
+      var tctx = tunnelCanvas.getContext('2d');
+
+      var elKpiWind = document.getElementById('kpi-wind');
+      var elKpiWindRegime = document.getElementById('kpi-wind-regime');
+      var elKpiStress = document.getElementById('kpi-stress');
+      var elKpiStressBar = document.getElementById('kpi-stress-bar');
+      var elKpiFlutter = document.getElementById('kpi-flutter');
+      var elKpiWaveAmp = document.getElementById('kpi-wave-amp');
+      var elKpiBroken = document.getElementById('kpi-broken');
+      var elKpiIntegrity = document.getElementById('kpi-integrity');
+
+      var elDemoBtn = document.getElementById('btn-demo');
+      var elDemoDot = document.getElementById('demo-dot');
+      var elDemoPhase = document.getElementById('demo-phase-label');
+      var elDemoBadge = document.getElementById('demo-mode-badge');
+
+      var elTunnelBadge = document.getElementById('tunnel-badge');
+      var elBtnDampers = document.getElementById('btn-dampers');
+      var elBtnDampersTitle = document.getElementById('btn-dampers-title');
+      var elBtnDampersSub = document.getElementById('btn-dampers-sub');
+      var elSliderWind = document.getElementById('slider-wind');
+      var elValWind = document.getElementById('val-wind');
+      var elSliderTraffic = document.getElementById('slider-traffic');
+      var elValTraffic = document.getElementById('val-traffic');
+      var elBtnRebuild = document.getElementById('btn-rebuild');
+      var elBtnAudio = document.getElementById('btn-audio');
+      var elBtnAudioLabel = document.getElementById('btn-audio-label');
+
+      // =========================================================================
+      // ESTADO GLOBAL DE LA SIMULACION
+      // =========================================================================
+      var state = {
+        simTime: 0,
+        demoClock: 0,
+        autoDemo: true,
+        windKmh: 18.0,
+        targetWindKmh: 18.0,
+        trafficPercent: 100,
+        dampersActive: false,
+
+        cableNear: [],     // N_NODES masas de cable catenario frontal
+        cableFar: [],      // N_NODES masas de cable catenario trasero
+        deck: [],          // N_NODES segmentos de tablero (x, y, vx, vy, theta, omega)
+        allCables: [],     // Todos los cables individuales auditables (catenarios + tirantes)
+        catenaryLinksNear: [],
+        catenaryLinksFar: [],
+        suspNear: [],      // N_NODES (null en anclajes y torres)
+        suspFar: [],
+
+        cableCount: 0,
+        brokenLinks: 0,
+        maxStressRatio: 0.31,
+        peakTwistDeg: 0.3,
+        peakVertMeters: 0.1,
+        liveTrafficTons: 142,
+
+        vortexPhase: 0,
+        vortexSpawnTimer: 0,
+        vortices: [],      // Nucleos de vortices de Lamb-Oseen (calle de Karman)
+        airParticles: [],  // Flujo de particulas aerodinamicas
+        sparks: [],        // Chispas incandescentes al romper tirantes
+        splashes: [],      // Plumas de agua en el rio
+        vehicles: [],      // Vehiculos en ambos carriles
+        vehicleTimerNear: 0.4,
+        vehicleTimerFar: 1.1,
+
+        tunnelVortices: [],
+        waveHistoryVert: [],
+        waveHistoryRot: [],
+
+        dpr: 1,
+        viewScale: 1,
+        viewOffsetX: 0,
+        viewOffsetY: 0
+      };
+
+      // Audio sintetico opcional (WebAudio API sin archivos externos)
+      var audio = {
+        enabled: false,
+        ctx: null,
+        windGain: null,
+        windFilter: null
+      };
+
+      // =========================================================================
+      // UTILIDADES MATEMATICAS Y MAPA DE CALOR DE TENSION
+      // =========================================================================
+      function clamp(v, lo, hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function stressToRGB(ratio) {
+        var r = clamp(ratio, 0, 1.15);
+        var cr, cg, cb;
+        if (r < 0.36) {
+          // Cian (#22D3EE) -> Esmeralda (#10B981)
+          var t1 = r / 0.36;
+          cr = lerp(34, 16, t1);
+          cg = lerp(211, 185, t1);
+          cb = lerp(238, 129, t1);
+        } else if (r < 0.68) {
+          // Esmeralda (#10B981) -> Ambar (#FBBF24)
+          var t2 = (r - 0.36) / 0.32;
+          cr = lerp(16, 251, t2);
+          cg = lerp(185, 191, t2);
+          cb = lerp(129, 36, t2);
+        } else if (r < 0.92) {
+          // Ambar (#FBBF24) -> Coral Rojo Incandescente (#F43F5E)
+          var t3 = (r - 0.68) / 0.24;
+          cr = lerp(251, 244, t3);
+          cg = lerp(191, 63, t3);
+          cb = lerp(36, 94, t3);
+        } else {
+          // Coral (#F43F5E) -> Blanco Incandescente (#FFF1F2)
+          var t4 = clamp((r - 0.92) / 0.16, 0, 1);
+          cr = lerp(244, 255, t4);
+          cg = lerp(63, 235, t4);
+          cb = lerp(94, 238, t4);
+        }
+        return 'rgb(' + (cr | 0) + ',' + (cg | 0) + ',' + (cb | 0) + ')';
+      }
+
+      function stressToRGBA(ratio, alpha) {
+        var r = clamp(ratio, 0, 1.15);
+        var cr, cg, cb;
+        if (r < 0.36) {
+          var t1 = r / 0.36;
+          cr = lerp(34, 16, t1);
+          cg = lerp(211, 185, t1);
+          cb = lerp(238, 129, t1);
+        } else if (r < 0.68) {
+          var t2 = (r - 0.36) / 0.32;
+          cr = lerp(16, 251, t2);
+          cg = lerp(185, 191, t2);
+          cb = lerp(129, 36, t2);
+        } else if (r < 0.92) {
+          var t3 = (r - 0.68) / 0.24;
+          cr = lerp(251, 244, t3);
+          cg = lerp(191, 63, t3);
+          cb = lerp(36, 94, t3);
+        } else {
+          var t4 = clamp((r - 0.92) / 0.16, 0, 1);
+          cr = lerp(244, 255, t4);
+          cg = lerp(63, 235, t4);
+          cb = lerp(94, 238, t4);
+        }
+        return 'rgba(' + (cr | 0) + ',' + (cg | 0) + ',' + (cb | 0) + ',' + alpha.toFixed(3) + ')';
+      }
+
+      function projectPoint(x, y, zPlane) {
+        // zPlane: -1 = trasero (Far), 0 = eje central, +1 = frontal (Near)
+        return {
+          x: x - zPlane * PROJ_ZX,
+          y: y + zPlane * PROJ_ZY
+        };
+      }
+
+      // =========================================================================
+      // CURVAS NOMINALES DE EQUILIBRIO ESTATICO DEL PUENTE
+      // =========================================================================
+      function nominalDeckY(i) {
+        if (i <= IDX_T1) {
+          var sL = i / IDX_T1;
+          return lerp(Y_ANCHOR_DECK, 592, sL) - 3.5 * Math.sin(Math.PI * sL);
+        } else if (i >= IDX_T2) {
+          var sR = (N_NODES - 1 - i) / (N_NODES - 1 - IDX_T2);
+          return lerp(Y_ANCHOR_DECK, 592, sR) - 3.5 * Math.sin(Math.PI * sR);
+        } else {
+          var u = (i - IDX_MID) / (IDX_MID - IDX_T1); // -1 .. +1
+          return 582 + 10 * (u * u);
+        }
+      }
+
+      function nominalCableY(i) {
+        if (i <= IDX_T1) {
+          var sL = i / IDX_T1;
+          return Y_ANCHOR_CABLE + (Y_SADDLE - Y_ANCHOR_CABLE) * sL + 166 * sL * (1 - sL);
+        } else if (i >= IDX_T2) {
+          var sR = (N_NODES - 1 - i) / (N_NODES - 1 - IDX_T2);
+          return Y_ANCHOR_CABLE + (Y_SADDLE - Y_ANCHOR_CABLE) * sR + 166 * sR * (1 - sR);
+        } else {
+          var u = (i - IDX_MID) / (IDX_MID - IDX_T1); // -1 .. +1
+          return 538 - (538 - Y_SADDLE) * (u * u);
+        }
+      }
+
+      // =========================================================================
+      // CONSTRUCCION E INICIALIZACION DEL PUENTE + PRE-RELAJACION RK4
+      // =========================================================================
+      function createBridgeStructure() {
+        state.cableNear = [];
+        state.cableFar = [];
+        state.deck = [];
+        state.allCables = [];
+        state.catenaryLinksNear = [];
+        state.catenaryLinksFar = [];
+        state.suspNear = new Array(N_NODES);
+        state.suspFar = new Array(N_NODES);
+        state.sparks = [];
+        state.splashes = [];
+
+        var i;
+        for (i = 0; i < N_NODES; i++) {
+          var x0 = X_START + i * DX;
+          var yc = nominalCableY(i);
+          var yd = nominalDeckY(i);
+          var isAnchor = (i === 0 || i === N_NODES - 1);
+          var isTower = (i === IDX_T1 || i === IDX_T2);
+
+          state.cableNear.push({
+            x: x0, y: yc, x0: x0, y0: yc,
+            vx: 0, vy: 0, fx: 0, fy: 0,
+            mass: MASS_CABLE,
+            pinnedX: isAnchor,
+            pinnedY: isAnchor || isTower,
+            isSaddle: isTower
+          });
+
+          state.cableFar.push({
+            x: x0, y: yc, x0: x0, y0: yc,
+            vx: 0, vy: 0, fx: 0, fy: 0,
+            mass: MASS_CABLE,
+            pinnedX: isAnchor,
+            pinnedY: isAnchor || isTower,
+            isSaddle: isTower
+          });
+
+          state.deck.push({
+            i: i,
+            x: x0, y: yd, x0: x0, y0: yd,
+            vx: 0, vy: 0, fx: 0, fy: 0,
+            theta: 0, omega: 0, torque: 0,
+            mass: MASS_DECK,
+            inertia: INERTIA_DECK,
+            pinnedPos: isAnchor,
+            isTowerSupport: isTower,
+            stressRatio: 0.18,
+            damagedJoint: false
+          });
+        }
+
+        // Tension horizontal estatica analitica de la catenaria principal
+        var qPerCable = (0.5 * MASS_DECK + MASS_CABLE) * GRAVITY / DX;
+        var halfMainPx = (IDX_MID - IDX_T1) * DX;
+        var curvatureMain = (2.0 * (538 - Y_SADDLE)) / (halfMainPx * halfMainPx);
+        var H_static = qPerCable / curvatureMain;
+
+        // Enlaces de los dos cables catenarios principales (2 x 48 = 96 cables)
+        for (i = 0; i < N_NODES - 1; i++) {
+          var dxSeg = state.cableNear[i + 1].x - state.cableNear[i].x;
+          var dySeg = state.cableNear[i + 1].y - state.cableNear[i].y;
+          var distInit = Math.hypot(dxSeg, dySeg);
+          var cosAlpha = Math.max(0.35, Math.abs(dxSeg) / distInit);
+          var staticT = H_static / cosAlpha;
+          var restCat = distInit - staticT / K_CABLE;
+
+          var linkN = {
+            type: 'catenary',
+            plane: 1,
+            idx: i,
+            a: state.cableNear[i],
+            b: state.cableNear[i + 1],
+            restLen: restCat,
+            k: K_CABLE,
+            c: C_CABLE,
+            breakTension: BREAK_CABLE,
+            tension: staticT,
+            stressRatio: staticT / BREAK_CABLE,
+            fatigue: 0,
+            broken: false,
+            snapTimer: 0
+          };
+
+          var linkF = {
+            type: 'catenary',
+            plane: -1,
+            idx: i,
+            a: state.cableFar[i],
+            b: state.cableFar[i + 1],
+            restLen: restCat,
+            k: K_CABLE,
+            c: C_CABLE,
+            breakTension: BREAK_CABLE,
+            tension: staticT,
+            stressRatio: staticT / BREAK_CABLE,
+            fatigue: 0,
+            broken: false,
+            snapTimer: 0
+          };
+
+          state.catenaryLinksNear.push(linkN);
+          state.catenaryLinksFar.push(linkF);
+          state.allCables.push(linkN, linkF);
+        }
+
+        // Tirantes verticales individuales (2 x 45 = 90 cables -> Total 186 cables)
+        var staticSuspT = 0.5 * MASS_DECK * GRAVITY;
+        for (i = 0; i < N_NODES; i++) {
+          if (i === 0 || i === N_NODES - 1 || i === IDX_T1 || i === IDX_T2) {
+            state.suspNear[i] = null;
+            state.suspFar[i] = null;
+            continue;
+          }
+          var lenInit = state.deck[i].y - state.cableNear[i].y;
+          var restSusp = lenInit - staticSuspT / K_SUSP;
+
+          var sNear = {
+            type: 'suspender',
+            plane: 1,
+            station: i,
+            cableNode: state.cableNear[i],
+            deckNode: state.deck[i],
+            restLen: restSusp,
+            k: K_SUSP,
+            c: C_SUSP,
+            breakTension: BREAK_SUSP,
+            tension: staticSuspT,
+            stressRatio: staticSuspT / BREAK_SUSP,
+            fatigue: 0,
+            broken: false,
+            snapTimer: 0
+          };
+
+          var sFar = {
+            type: 'suspender',
+            plane: -1,
+            station: i,
+            cableNode: state.cableFar[i],
+            deckNode: state.deck[i],
+            restLen: restSusp,
+            k: K_SUSP,
+            c: C_SUSP,
+            breakTension: BREAK_SUSP,
+            tension: staticSuspT,
+            stressRatio: staticSuspT / BREAK_SUSP,
+            fatigue: 0,
+            broken: false,
+            snapTimer: 0
+          };
+
+          state.suspNear[i] = sNear;
+          state.suspFar[i] = sFar;
+          state.allCables.push(sNear, sFar);
+        }
+
+        state.cableCount = state.allCables.length;
+        state.brokenLinks = 0;
+
+        // Pre-relajacion silenciosa a equilibrio gravitacional exacto para t = 0.0s
+        var savedWind = state.windKmh;
+        var savedVehicles = state.vehicles;
+        state.windKmh = 0;
+        state.vehicles = [];
+        for (var settle = 0; settle < 180; settle++) {
+          stepPhysicsRK4(0.004, true);
+          for (i = 0; i < N_NODES; i++) {
+            state.cableNear[i].vx *= 0.88;
+            state.cableNear[i].vy *= 0.88;
+            state.cableFar[i].vx *= 0.88;
+            state.cableFar[i].vy *= 0.88;
+            state.deck[i].vx *= 0.88;
+            state.deck[i].vy *= 0.88;
+            state.deck[i].omega *= 0.88;
+          }
+        }
+        state.windKmh = savedWind;
+        state.vehicles = savedVehicles;
+        spawnInitialTraffic();
+        evaluateAuditMetrics();
+      }
+
+      // =========================================================================
+      // POBLACION INICIAL DE PARTICULAS DE AIRE Y TRAFICO DESDE EL SEGUNDO 0.0
+      // =========================================================================
+      function initAirflowAndTraffic() {
+        state.airParticles = [];
+        for (var p = 0; p < 520; p++) {
+          state.airParticles.push({
+            x: Math.random() * W,
+            y: 150 + Math.random() * 690,
+            px: 0,
+            py: 0,
+            speedScale: 0.78 + Math.random() * 0.48,
+            size: 1.0 + Math.random() * 1.4,
+            alpha: 0.16 + Math.random() * 0.34,
+            swirlTint: 0
+          });
+          state.airParticles[p].px = state.airParticles[p].x;
+          state.airParticles[p].py = state.airParticles[p].y;
+        }
+
+        state.vortices = [];
+        for (var v = 0; v < 8; v++) {
+          state.vortices.push({
+            x: 560 + v * 155,
+            y: 575 + (v % 2 === 0 ? -24 : 24),
+            gamma: (v % 2 === 0 ? 1 : -1) * 45,
+            radius: 26,
+            age: v * 0.35,
+            maxAge: 4.5,
+            sign: v % 2 === 0 ? 1 : -1
+          });
+        }
+
+        state.tunnelVortices = [];
+        for (var tv = 0; tv < 6; tv++) {
+          state.tunnelVortices.push({
+            x: 135 + tv * 32,
+            y: 52 + (tv % 2 === 0 ? -11 : 11),
+            sign: tv % 2 === 0 ? 1 : -1,
+            strength: 0.4
+          });
+        }
+
+        state.waveHistoryVert = new Array(120).fill(0);
+        state.waveHistoryRot = new Array(120).fill(0);
+      }
+
+      function spawnInitialTraffic() {
+        state.vehicles = [];
+        if (state.trafficPercent <= 0) return;
+        var countPerLane = Math.max(2, Math.round(5 * (state.trafficPercent / 100)));
+        var spacing = (TOTAL_SPAN - 180) / countPerLane;
+        for (var k = 0; k < countPerLane; k++) {
+          state.vehicles.push(makeVehicle(1, X_START + 90 + k * spacing + (k % 2) * 24));
+          state.vehicles.push(makeVehicle(-1, X_END - 90 - k * spacing - ((k + 1) % 2) * 28));
+        }
+      }
+
+      function makeVehicle(dir, startX) {
+        // dir = +1 (Carril Frontal / Este), dir = -1 (Carril Trasero / Oeste)
+        var r = Math.random();
+        var kind = r < 0.28 ? 'truck' : (r < 0.56 ? 'van' : 'car');
+        var baseMass = kind === 'truck' ? 0.62 : (kind === 'van' ? 0.34 : 0.22);
+        var colors = ['#38BDF8', '#E2E8F0', '#34D399', '#FBBF24', '#A78BFA', '#FB7185'];
+        return {
+          dir: dir,
+          laneZ: dir > 0 ? 0.48 : -0.48,
+          x: startX,
+          y: nominalDeckY(IDX_MID),
+          vy: 0,
+          speed: (kind === 'truck' ? 82 : 104) + Math.random() * 20,
+          kind: kind,
+          length: kind === 'truck' ? 30 : (kind === 'van' ? 20 : 16),
+          height: kind === 'truck' ? 11 : (kind === 'van' ? 8.5 : 6.8),
+          baseMass: baseMass,
+          color: colors[(Math.random() * colors.length) | 0],
+          falling: false,
+          pitch: 0,
+          roll: 0,
+          hazard: false
+        };
+      }
+
+      // =========================================================================
+      // MOTOR FISICO AEROELASTICO RK4 MULTICUERPO
+      // =========================================================================
+      function modeShapeTacoma(i) {
+        // Modo antisimetrico principal (nodo en i = 24, antinodos en i = 17.5 y 30.5)
+        if (i > IDX_T1 && i < IDX_T2) {
+          var u = (i - IDX_T1) / (IDX_T2 - IDX_T1); // 0 .. 1
+          return Math.sin(2.0 * Math.PI * u) + 0.22 * Math.sin(3.0 * Math.PI * u);
+        } else if (i > 0 && i < IDX_T1) {
+          var sL = i / IDX_T1;
+          return -0.48 * Math.sin(Math.PI * sL);
+        } else if (i > IDX_T2 && i < N_NODES - 1) {
+          var sR = (N_NODES - 1 - i) / (N_NODES - 1 - IDX_T2);
+          return 0.48 * Math.sin(Math.PI * sR);
+        }
+        return 0;
+      }
+
+      function computeAeroIntensity(windKmh) {
+        if (windKmh <= 4) return 0;
+        // Pico de resonancia por desprendimiento de Karman en 68 km/h + flutter sostenido >= 64 km/h
+        var karmanLock = 0.88 * Math.exp(-Math.pow((windKmh - 68.0) / 15.5, 2));
+        var flutterRamp = 1.05 / (1.0 + Math.exp(-(windKmh - 63.0) / 5.0));
+        var subCrit = 0.08 * Math.pow(Math.min(windKmh, 50) / 50.0, 2);
+        var highWindScale = windKmh > 68 ? (1.0 + 0.48 * ((windKmh - 68.0) / 62.0)) : 1.0;
+        return (subCrit + karmanLock + flutterRamp) * highWindScale;
+      }
+
+      function accumulateForces(settlingMode) {
+        var i, cNear = state.cableNear, cFar = state.cableFar, deck = state.deck;
+
+        // 1. Limpiar fuerzas y aplicar gravedad muerta
+        for (i = 0; i < N_NODES; i++) {
+          cNear[i].fx = 0;
+          cNear[i].fy = cNear[i].mass * GRAVITY;
+          cFar[i].fx = 0;
+          cFar[i].fy = cFar[i].mass * GRAVITY;
+
+          deck[i].fx = 0;
+          deck[i].fy = deck[i].mass * GRAVITY;
+          deck[i].torque = 0;
+        }
+
+        // 2. Carga viva de vehiculos (masa real y par excentrico de carril)
+        if (!settlingMode && state.trafficPercent > 0) {
+          var massScale = state.trafficPercent / 100.0;
+          for (var vIdx = 0; vIdx < state.vehicles.length; vIdx++) {
+            var veh = state.vehicles[vIdx];
+            if (veh.falling) continue;
+            var fIdx = (veh.x - X_START) / DX;
+            var idx0 = Math.floor(fIdx);
+            if (idx0 >= 0 && idx0 < N_NODES - 1) {
+              var frac = fIdx - idx0;
+              var wForce = veh.baseMass * massScale * GRAVITY;
+              var eccentricity = veh.laneZ * W_HALF;
+              deck[idx0].fy += wForce * (1 - frac);
+              deck[idx0 + 1].fy += wForce * frac;
+              deck[idx0].torque += wForce * eccentricity * (1 - frac);
+              deck[idx0 + 1].torque += wForce * eccentricity * frac;
+            }
+          }
+        }
+
+        // 3. Resortes axiales de los dos cables catenarios principales
+        var catLists = [state.catenaryLinksNear, state.catenaryLinksFar];
+        for (var pIdx = 0; pIdx < 2; pIdx++) {
+          var links = catLists[pIdx];
+          for (i = 0; i < links.length; i++) {
+            var lnk = links[i];
+            if (lnk.broken) {
+              lnk.tension = 0;
+              lnk.stressRatio = 0;
+              continue;
+            }
+            var dx = lnk.b.x - lnk.a.x;
+            var dy = lnk.b.y - lnk.a.y;
+            var dist = Math.hypot(dx, dy) || 0.0001;
+            var stretch = dist - lnk.restLen;
+            if (stretch > 0) {
+              var nx = dx / dist;
+              var ny = dy / dist;
+              var relVel = (lnk.b.vx - lnk.a.vx) * nx + (lnk.b.vy - lnk.a.vy) * ny;
+              var fMag = lnk.k * stretch + lnk.c * relVel;
+              if (fMag < 0) fMag = 0;
+              lnk.tension = fMag;
+              var fx = fMag * nx;
+              var fy = fMag * ny;
+              lnk.a.fx += fx;
+              lnk.a.fy += fy;
+              lnk.b.fx -= fx;
+              lnk.b.fy -= fy;
+            } else {
+              lnk.tension = 0;
+            }
+          }
+        }
+
+        // 4. Restriccion elastica horizontal en las sillas superiores de las 2 torres de acero
+        var towerIndices = [IDX_T1, IDX_T2];
+        for (var tIdx = 0; tIdx < 2; tIdx++) {
+          var ti = towerIndices[tIdx];
+          cNear[ti].fx += -2600.0 * (cNear[ti].x - cNear[ti].x0) - 24.0 * cNear[ti].vx;
+          cFar[ti].fx += -2600.0 * (cFar[ti].x - cFar[ti].x0) - 24.0 * cFar[ti].vx;
+        }
+
+        // 5. Tirantes verticales individuales (acoplados a bordes frontal/trasero con torsion theta)
+        for (i = 1; i < N_NODES - 1; i++) {
+          if (i === IDX_T1 || i === IDX_T2) continue;
+          var dNode = deck[i];
+          var sinT = Math.sin(dNode.theta);
+          var cosT = Math.cos(dNode.theta);
+
+          // Borde frontal (Near: +W_HALF * sin(theta))
+          var sN = state.suspNear[i];
+          if (sN && !sN.broken) {
+            var attachNx = dNode.x;
+            var attachNy = dNode.y + W_HALF * sinT;
+            var velNy = dNode.vy + W_HALF * cosT * dNode.omega;
+            var dxN = attachNx - sN.cableNode.x;
+            var dyN = attachNy - sN.cableNode.y;
+            var distN = Math.hypot(dxN, dyN) || 0.0001;
+            var stretchN = distN - sN.restLen;
+            if (stretchN > 0) {
+              var uxN = dxN / distN;
+              var uyN = dyN / distN;
+              var rvN = (dNode.vx - sN.cableNode.vx) * uxN + (velNy - sN.cableNode.vy) * uyN;
+              var fN = sN.k * stretchN + sN.c * rvN;
+              if (fN < 0) fN = 0;
+              sN.tension = fN;
+              var fxN = fN * uxN;
+              var fyN = fN * uyN;
+              sN.cableNode.fx += fxN;
+              sN.cableNode.fy += fyN;
+              dNode.fx -= fxN;
+              dNode.fy -= fyN;
+              dNode.torque -= fyN * (W_HALF * cosT);
+            } else {
+              sN.tension = 0;
+            }
+          } else if (sN) {
+            sN.tension = 0;
+          }
+
+          // Borde trasero (Far: -W_HALF * sin(theta))
+          var sF = state.suspFar[i];
+          if (sF && !sF.broken) {
+            var attachFx = dNode.x;
+            var attachFy = dNode.y - W_HALF * sinT;
+            var velFy = dNode.vy - W_HALF * cosT * dNode.omega;
+            var dxF = attachFx - sF.cableNode.x;
+            var dyF = attachFy - sF.cableNode.y;
+            var distF = Math.hypot(dxF, dyF) || 0.0001;
+            var stretchF = distF - sF.restLen;
+            if (stretchF > 0) {
+              var uxF = dxF / distF;
+              var uyF = dyF / distF;
+              var rvF = (dNode.vx - sF.cableNode.vx) * uxF + (velFy - sF.cableNode.vy) * uyF;
+              var fF = sF.k * stretchF + sF.c * rvF;
+              if (fF < 0) fF = 0;
+              sF.tension = fF;
+              var fxF = fF * uxF;
+              var fyF = fF * uyF;
+              sF.cableNode.fx += fxF;
+              sF.cableNode.fy += fyF;
+              dNode.fx -= fxF;
+              dNode.fy -= fyF;
+              dNode.torque += fyF * (W_HALF * cosT);
+            } else {
+              sF.tension = 0;
+            }
+          } else if (sF) {
+            sF.tension = 0;
+          }
+        }
+
+        // 6. Vigas longitudinales del tablero segmentado (axial, flexion vertical y rigidez torsional)
+        for (i = 0; i < N_NODES - 1; i++) {
+          var dA = deck[i];
+          var dB = deck[i + 1];
+          var jointScale = (dA.damagedJoint || dB.damagedJoint) ? 0.22 : 1.0;
+
+          var ddx = dB.x - dA.x;
+          var ddy = dB.y - dA.y;
+          var dDist = Math.hypot(ddx, ddy) || 0.0001;
+          var dRest = Math.hypot(dB.x0 - dA.x0, dB.y0 - dA.y0);
+          var dStretch = dDist - dRest;
+          var dnx = ddx / dDist;
+          var dny = ddy / dDist;
+          var dRelV = (dB.vx - dA.vx) * dnx + (dB.vy - dA.vy) * dny;
+          var fAx = (K_DECK_AXIAL * jointScale) * dStretch + C_DECK_AXIAL * dRelV;
+          dA.fx += fAx * dnx;
+          dA.fy += fAx * dny;
+          dB.fx -= fAx * dnx;
+          dB.fy -= fAx * dny;
+
+          // Acoplamiento torsional entre segmentos adyacentes
+          var dTheta = dB.theta - dA.theta;
+          var dOmega = dB.omega - dA.omega;
+          var tauSeg = (K_DECK_TORSION * jointScale) * dTheta + 18.0 * dOmega;
+          dA.torque += tauSeg;
+          dB.torque -= tauSeg;
+        }
+
+        // Flexion vertical tipo viga de Euler-Bernoulli discreta + amortiguamiento estructural base
+        for (i = 1; i < N_NODES - 1; i++) {
+          var dn = deck[i];
+          var curv0 = deck[i - 1].y0 - 2 * dn.y0 + deck[i + 1].y0;
+          var curvNow = deck[i - 1].y - 2 * dn.y + deck[i + 1].y;
+          var bendFactor = dn.damagedJoint ? 0.15 : 1.0;
+          var fBend = K_DECK_BEND * bendFactor * (curvNow - curv0);
+          dn.fy += fBend;
+          dn.fx += -0.95 * dn.vx;
+          dn.fy += -0.68 * dn.vy;
+          dn.torque += -22.0 * dn.omega - 360.0 * Math.pow(dn.theta, 3);
+        }
+
+        // Apoyos elastomericos en los porticos de las 2 torres
+        for (tIdx = 0; tIdx < 2; tIdx++) {
+          var ts = towerIndices[tIdx];
+          deck[ts].fx += -9000.0 * (deck[ts].x - deck[ts].x0) - 65.0 * deck[ts].vx;
+          deck[ts].fy += -14000.0 * (deck[ts].y - deck[ts].y0) - 90.0 * deck[ts].vy;
+          deck[ts].torque += -26000.0 * deck[ts].theta - 180.0 * deck[ts].omega;
+        }
+
+        // 7. EXCITACION AEROELASTICA (VORTICES DE KARMAN + FLUTTER TORSIONAL vs AMORTIGUADORES)
+        if (!settlingMode) {
+          var V = state.windKmh;
+          var aero = computeAeroIntensity(V);
+          var fairingReduction = state.dampersActive ? 0.14 : 1.0;
+
+          for (i = 1; i < N_NODES - 1; i++) {
+            if (i === IDX_T1 || i === IDX_T2) continue;
+            var seg = deck[i];
+            var phi = modeShapeTacoma(i);
+            var spanWavePhase = state.vortexPhase - 0.085 * (i - IDX_T1);
+
+            // Fuerza vertical alternante por calle de vortices de Karman
+            var vortexLift = aero * fairingReduction * (
+              56.0 * phi * Math.sin(state.vortexPhase) +
+              19.0 * Math.sin(spanWavePhase * 1.35 + i * 0.25)
+            );
+            seg.fy += vortexLift;
+
+            // Empuje lateral sutil del viento
+            seg.fx += 0.0022 * V * V * fairingReduction;
+
+            if (!state.dampersActive) {
+              // SIN AMORTIGUADORES: Amortiguamiento aerodinamico negativo (Flutter de Tacoma)
+              // Oscilador aeroelastico de ciclo limite (Van der Pol) acoplado al modo torsional
+              var thetaLimit = 0.47;
+              var lcoGain = 1.0 - Math.pow(seg.theta / thetaLimit, 2);
+              var flutterPump = 148.0 * aero * lcoGain * seg.omega;
+              var karmanTorque = aero * (
+                1220.0 * phi * Math.cos(state.vortexPhase - 0.35) +
+                380.0 * Math.sin(spanWavePhase)
+              );
+              // Acoplamiento aeroelastico sustentacion-torsion (angulo de ataque efectivo)
+              var aeroStallLift = 72.0 * aero * Math.sin(seg.theta);
+              seg.torque += flutterPump + karmanTorque;
+              seg.fy += aeroStallLift;
+            } else {
+              // CON AMORTIGUADORES AERODINAMICOS ACTIVOS:
+              // Carenados deflectores + Amortiguadores de Masa Sintonizada (TMD) + Tirantes diagonales hidraulicos
+              seg.fy += -13.5 * seg.vy;
+              seg.torque += -480.0 * seg.omega - 950.0 * seg.theta;
+
+              // Tirantes hidraulicos diagonales en cuartos de vano junto a las torres
+              var distT1 = Math.abs(i - IDX_T1);
+              var distT2 = Math.abs(i - IDX_T2);
+              if (distT1 <= 6 || distT2 <= 6) {
+                seg.fy += -95.0 * (seg.y - seg.y0) - 24.0 * seg.vy;
+                seg.torque += -2800.0 * seg.theta - 340.0 * seg.omega;
+              }
+            }
+
+            // Flotabilidad/amortiguamiento hidrodinamico si un tramo danado toca el rio
+            if (seg.y > Y_WATER - 6) {
+              var submerge = seg.y - (Y_WATER - 6);
+              seg.fy += -220.0 * submerge - 28.0 * seg.vy;
+              seg.vx *= 0.96;
+            }
+          }
+        }
+      }
+
+      // Buffers RK4 preasignados (cero presion de GC a 60 FPS)
+      var baseCNx = new Float64Array(N_NODES), baseCNy = new Float64Array(N_NODES), baseCNvx = new Float64Array(N_NODES), baseCNvy = new Float64Array(N_NODES);
+      var baseCFx = new Float64Array(N_NODES), baseCFy = new Float64Array(N_NODES), baseCFvx = new Float64Array(N_NODES), baseCFvy = new Float64Array(N_NODES);
+      var baseDx = new Float64Array(N_NODES), baseDy = new Float64Array(N_NODES), baseDvx = new Float64Array(N_NODES), baseDvy = new Float64Array(N_NODES);
+      var baseDt = new Float64Array(N_NODES), baseDo = new Float64Array(N_NODES);
+
+      var sumCNdx = new Float64Array(N_NODES), sumCNdy = new Float64Array(N_NODES), sumCNdvx = new Float64Array(N_NODES), sumCNdvy = new Float64Array(N_NODES);
+      var sumCFdx = new Float64Array(N_NODES), sumCFdy = new Float64Array(N_NODES), sumCFdvx = new Float64Array(N_NODES), sumCFdvy = new Float64Array(N_NODES);
+      var sumDdx = new Float64Array(N_NODES), sumDdy = new Float64Array(N_NODES), sumDdvx = new Float64Array(N_NODES), sumDdvy = new Float64Array(N_NODES);
+      var sumDdt = new Float64Array(N_NODES), sumDdo = new Float64Array(N_NODES);
+
+      // Integrador Runge-Kutta de 4to Orden (RK4)
+      function stepPhysicsRK4(dt, settlingMode) {
+        var i, n = N_NODES;
+        var cN = state.cableNear, cF = state.cableFar, dk = state.deck;
+
+        for (i = 0; i < n; i++) {
+          baseCNx[i] = cN[i].x; baseCNy[i] = cN[i].y; baseCNvx[i] = cN[i].vx; baseCNvy[i] = cN[i].vy;
+          baseCFx[i] = cF[i].x; baseCFy[i] = cF[i].y; baseCFvx[i] = cF[i].vx; baseCFvy[i] = cF[i].vy;
+          baseDx[i] = dk[i].x;  baseDy[i] = dk[i].y;  baseDvx[i] = dk[i].vx;  baseDvy[i] = dk[i].vy;
+          baseDt[i] = dk[i].theta; baseDo[i] = dk[i].omega;
+
+          sumCNdx[i] = 0; sumCNdy[i] = 0; sumCNdvx[i] = 0; sumCNdvy[i] = 0;
+          sumCFdx[i] = 0; sumCFdy[i] = 0; sumCFdvx[i] = 0; sumCFdvy[i] = 0;
+          sumDdx[i] = 0;  sumDdy[i] = 0;  sumDdvx[i] = 0;  sumDdvy[i] = 0;
+          sumDdt[i] = 0;  sumDdo[i] = 0;
+        }
+
+        var stageWeights = [1 / 6, 2 / 6, 2 / 6, 1 / 6];
+        var stageStep = [0.5 * dt, 0.5 * dt, dt, 0];
+
+        for (var s = 0; s < 4; s++) {
+          accumulateForces(settlingMode);
+          var w = stageWeights[s];
+          var h = stageStep[s];
+
+          for (i = 0; i < n; i++) {
+            var acNx = cN[i].pinnedX ? 0 : cN[i].fx / cN[i].mass;
+            var acNy = cN[i].pinnedY ? 0 : cN[i].fy / cN[i].mass;
+            var vcNx = cN[i].pinnedX ? 0 : cN[i].vx;
+            var vcNy = cN[i].pinnedY ? 0 : cN[i].vy;
+
+            var acFx = cF[i].pinnedX ? 0 : cF[i].fx / cF[i].mass;
+            var acFy = cF[i].pinnedY ? 0 : cF[i].fy / cF[i].mass;
+            var vcFx = cF[i].pinnedX ? 0 : cF[i].vx;
+            var vcFy = cF[i].pinnedY ? 0 : cF[i].vy;
+
+            var adx = dk[i].pinnedPos ? 0 : dk[i].fx / dk[i].mass;
+            var ady = dk[i].pinnedPos ? 0 : dk[i].fy / dk[i].mass;
+            var vdx = dk[i].pinnedPos ? 0 : dk[i].vx;
+            var vdy = dk[i].pinnedPos ? 0 : dk[i].vy;
+            var aom = dk[i].pinnedPos ? 0 : dk[i].torque / dk[i].inertia;
+            var vom = dk[i].pinnedPos ? 0 : dk[i].omega;
+
+            sumCNdx[i] += w * vcNx; sumCNdy[i] += w * vcNy; sumCNdvx[i] += w * acNx; sumCNdvy[i] += w * acNy;
+            sumCFdx[i] += w * vcFx; sumCFdy[i] += w * vcFy; sumCFdvx[i] += w * acFx; sumCFdvy[i] += w * acFy;
+            sumDdx[i] += w * vdx;   sumDdy[i] += w * vdy;   sumDdvx[i] += w * adx;   sumDdvy[i] += w * ady;
+            sumDdt[i] += w * vom;   sumDdo[i] += w * aom;
+
+            if (s < 3) {
+              cN[i].x = baseCNx[i] + h * vcNx;
+              cN[i].y = baseCNy[i] + h * vcNy;
+              cN[i].vx = baseCNvx[i] + h * acNx;
+              cN[i].vy = baseCNvy[i] + h * acNy;
+
+              cF[i].x = baseCFx[i] + h * vcFx;
+              cF[i].y = baseCFy[i] + h * vcFy;
+              cF[i].vx = baseCFvx[i] + h * acFx;
+              cF[i].vy = baseCFvy[i] + h * acFy;
+
+              dk[i].x = baseDx[i] + h * vdx;
+              dk[i].y = baseDy[i] + h * vdy;
+              dk[i].vx = baseDvx[i] + h * adx;
+              dk[i].vy = baseDvy[i] + h * ady;
+              dk[i].theta = baseDt[i] + h * vom;
+              dk[i].omega = baseDo[i] + h * aom;
+            }
+          }
+        }
+
+        // Combinacion final RK4 + salvaguardas numericas
+        for (i = 0; i < n; i++) {
+          cN[i].x = baseCNx[i] + dt * sumCNdx[i];
+          cN[i].y = clamp(baseCNy[i] + dt * sumCNdy[i], 140, Y_WATER + 30);
+          cN[i].vx = clamp(baseCNvx[i] + dt * sumCNdvx[i], -650, 650);
+          cN[i].vy = clamp(baseCNvy[i] + dt * sumCNdvy[i], -650, 650);
+
+          cF[i].x = baseCFx[i] + dt * sumCFdx[i];
+          cF[i].y = clamp(baseCFy[i] + dt * sumCFdy[i], 140, Y_WATER + 30);
+          cF[i].vx = clamp(baseCFvx[i] + dt * sumCFdvx[i], -650, 650);
+          cF[i].vy = clamp(baseCFvy[i] + dt * sumCFdvy[i], -650, 650);
+
+          dk[i].x = clamp(baseDx[i] + dt * sumDdx[i], dk[i].x0 - 38, dk[i].x0 + 38);
+          dk[i].y = clamp(baseDy[i] + dt * sumDdy[i], 380, Y_WATER + 22);
+          dk[i].vx = clamp(baseDvx[i] + dt * sumDdvx[i], -550, 550);
+          dk[i].vy = clamp(baseDdvy[i] + dt * sumDdvy[i], -550, 550);
+          dk[i].theta = clamp(baseDt[i] + dt * sumDdt[i], -1.05, 1.05);
+          dk[i].omega = clamp(baseDo[i] + dt * sumDdo[i], -12, 12);
+        }
+
+        if (!settlingMode) {
+          // Avance de fase Strouhal del desprendimiento de vortices (f ~ 0.69 Hz a 68 km/h)
+          var omegaVortex = 0.6 + 3.85 * (state.windKmh / 68.0);
+          state.vortexPhase += omegaVortex * dt;
+          checkStructuralFatigueAndRupture(dt);
+        }
+      }
+
+      // =========================================================================
+      // FATIGA CICLICA, RUPTURA DE TIRANTES SOBRECARGADOS Y TELEMETRIA
+      // =========================================================================
+      function checkStructuralFatigueAndRupture(dt) {
+        accumulateForces(false);
+
+        var maxRatio = 0;
+        var brokenCount = 0;
+        var i;
+
+        for (i = 0; i < state.allCables.length; i++) {
+          var c = state.allCables[i];
+          if (c.broken) {
+            brokenCount++;
+            if (c.snapTimer > 0) c.snapTimer = Math.max(0, c.snapTimer - dt);
+            continue;
+          }
+
+          var effectiveBreak = c.breakTension * (1.0 - c.fatigue);
+          var ratio = c.tension / effectiveBreak;
+
+          // Fatiga estructural bajo oscilacion severa cuando los amortiguadores estan apagados
+          if (!state.dampersActive && c.type === 'suspender' && ratio > 0.54) {
+            c.fatigue = Math.min(0.36, c.fatigue + (ratio - 0.54) * 0.085 * dt);
+          } else if (state.dampersActive && c.fatigue > 0) {
+            c.fatigue = Math.max(0, c.fatigue - 0.03 * dt);
+          }
+
+          effectiveBreak = c.breakTension * (1.0 - c.fatigue);
+          ratio = c.tension / effectiveBreak;
+          c.stressRatio = ratio;
+
+          if (ratio > maxRatio) maxRatio = ratio;
+
+          if (ratio >= 1.0 && !state.dampersActive) {
+            c.broken = true;
+            c.snapTimer = 1.6;
+            c.tension = 0;
+            c.stressRatio = 0;
+            brokenCount++;
+            emitSnapEffects(c);
+          }
+        }
+
+        // Evaluar tension local en cada segmento del tablero y daño en juntas sin tirantes
+        var maxTwist = 0;
+        var maxVertPx = 0;
+        for (i = 1; i < N_NODES - 1; i++) {
+          var d = state.deck[i];
+          var sn = state.suspNear[i];
+          var sf = state.suspFar[i];
+          var bothBroken = sn && sf && sn.broken && sf.broken;
+          if (bothBroken) {
+            var prevBroken = (state.suspNear[i - 1] && state.suspNear[i - 1].broken) || (state.suspFar[i - 1] && state.suspFar[i - 1].broken);
+            var nextBroken = (state.suspNear[i + 1] && state.suspNear[i + 1].broken) || (state.suspFar[i + 1] && state.suspFar[i + 1].broken);
+            if (prevBroken || nextBroken) {
+              if (!d.damagedJoint) {
+                d.damagedJoint = true;
+                emitSplash(d.x, 0.9);
+              }
+            }
+          }
+
+          var curv = Math.abs((state.deck[i - 1].y - 2 * d.y + state.deck[i + 1].y) - (state.deck[i - 1].y0 - 2 * d.y0 + state.deck[i + 1].y0));
+          var twistDiff = Math.abs(state.deck[i + 1].theta - d.theta);
+          d.stressRatio = clamp(0.16 + curv * 0.085 + twistDiff * 2.1 + Math.abs(d.theta) * 0.85, 0.12, 1.12);
+          if (d.stressRatio > maxRatio && maxRatio < 0.98) {
+            maxRatio = Math.max(maxRatio, d.stressRatio * 0.92);
+          }
+
+          var deg = Math.abs(d.theta) * (180 / Math.PI);
+          if (deg > maxTwist) maxTwist = deg;
+          var vDisp = Math.abs(d.y - d.y0);
+          if (vDisp > maxVertPx) maxVertPx = vDisp;
+        }
+
+        state.brokenLinks = brokenCount;
+        state.maxStressRatio = Number.isFinite(maxRatio) ? maxRatio : 0.3;
+        state.peakTwistDeg = maxTwist;
+        state.peakVertMeters = maxVertPx / 1.28;
+      }
+
+      function evaluateAuditMetrics() {
+        accumulateForces(false);
+        var maxR = 0;
+        var bCount = 0;
+        for (var i = 0; i < state.allCables.length; i++) {
+          var c = state.allCables[i];
+          if (c.broken) {
+            bCount++;
+          } else {
+            c.stressRatio = c.tension / c.breakTension;
+            if (c.stressRatio > maxR) maxR = c.stressRatio;
+          }
+        }
+        state.brokenLinks = bCount;
+        state.maxStressRatio = maxR > 0 ? maxR : 0.31;
+      }
+
+      function emitSnapEffects(cable) {
+        var px, py;
+        if (cable.type === 'suspender') {
+          var p = projectPoint(cable.deckNode.x, 0.5 * (cable.cableNode.y + cable.deckNode.y), cable.plane);
+          px = p.x;
+          py = p.y;
+        } else {
+          var pm = projectPoint(0.5 * (cable.a.x + cable.b.x), 0.5 * (cable.a.y + cable.b.y), cable.plane);
+          px = pm.x;
+          py = pm.y;
+        }
+
+        for (var k = 0; k < 22; k++) {
+          var ang = Math.random() * Math.PI * 2;
+          var spd = 45 + Math.random() * 190;
+          state.sparks.push({
+            x: px,
+            y: py,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 40,
+            life: 0.45 + Math.random() * 0.55,
+            maxLife: 1.0,
+            hot: Math.random() > 0.35
+          });
+        }
+        triggerSnapSound();
+      }
+
+      function emitSplash(worldX, intensity) {
+        state.splashes.push({
+          x: worldX,
+          y: Y_WATER,
+          radius: 4,
+          maxRadius: 42 + intensity * 38,
+          alpha: 0.85,
+          droplets: (function () {
+            var arr = [];
+            for (var d = 0; d < 14; d++) {
+              arr.push({
+                x: worldX + (Math.random() - 0.5) * 18,
+                y: Y_WATER,
+                vx: (Math.random() - 0.5) * 90,
+                vy: -(70 + Math.random() * 130 * intensity)
+              });
+            }
+            return arr;
+          })()
+        });
+      }
+
+      // =========================================================================
+      // CALLE DE VORTICES DE KARMAN Y FLUJO DE PARTICULAS AERODINAMICAS
+      // =========================================================================
+      function updateAerodynamicParticles(dt) {
+        var V = state.windKmh;
+        var baseFlowSpeed = 24 + V * 3.1; // px/s
+        var aero = computeAeroIntensity(V);
+        var fairingScale = state.dampersActive ? 0.18 : 1.0;
+
+        // Generar nucleos de vortices de Lamb-Oseen alternados a lo largo del tablero
+        var spawnInterval = clamp(0.52 - (V / 130) * 0.34, 0.14, 0.55);
+        state.vortexSpawnTimer += dt;
+        if (V > 22 && state.vortexSpawnTimer >= spawnInterval) {
+          state.vortexSpawnTimer = 0;
+          var stationPick = IDX_T1 + 2 + ((Math.random() * (IDX_T2 - IDX_T1 - 4)) | 0);
+          var dNode = state.deck[stationPick];
+          var upper = (state.vortices.length % 2 === 0);
+          var sign = upper ? 1 : -1;
+          state.vortices.push({
+            x: dNode.x - 16,
+            y: dNode.y + (upper ? -22 : 22),
+            gamma: sign * (28 + V * 1.45) * fairingScale * (0.6 + 0.6 * aero),
+            radius: 22 + (state.dampersActive ? -8 : 10),
+            age: 0,
+            maxAge: 2.8 + Math.random() * 1.2,
+            sign: sign
+          });
+          if (state.vortices.length > 34) {
+            state.vortices.shift();
+          }
+        }
+
+        var i;
+        for (i = state.vortices.length - 1; i >= 0; i--) {
+          var vor = state.vortices[i];
+          vor.age += dt;
+          vor.x += baseFlowSpeed * 0.72 * dt;
+          vor.y += Math.sin(vor.age * 4.2 + vor.sign) * (state.dampersActive ? 4 : 18) * dt;
+          vor.radius += (state.dampersActive ? 4 : 9) * dt;
+          if (vor.age >= vor.maxAge || vor.x > W + 80) {
+            state.vortices.splice(i, 1);
+          }
+        }
+
+        // Adveccion de particulas de aire alrededor del tablero y los vortices de Karman
+        for (i = 0; i < state.airParticles.length; i++) {
+          var p = state.airParticles[i];
+          p.px = p.x;
+          p.py = p.y;
+
+          var ux = baseFlowSpeed * p.speedScale;
+          var uy = Math.sin(p.x * 0.008 + state.simTime * 1.8) * (4 + V * 0.12);
+          var swirlMag = 0;
+
+          // Interaccion local con el tablero oscilante
+          if (p.x >= X_START && p.x <= X_END) {
+            var stIdx = clamp(Math.round((p.x - X_START) / DX), 0, N_NODES - 1);
+            var seg = state.deck[stIdx];
+            var dyDeck = p.y - seg.y;
+            if (Math.abs(dyDeck) < 76) {
+              if (state.dampersActive) {
+                // Flujo laminar desviado limpiamente por los carenados aerodinamicos
+                uy += (dyDeck >= 0 ? 1 : -1) * (28 * Math.exp(-Math.abs(dyDeck) / 28));
+              } else {
+                // Estela turbulenta acoplada a la onda de torsion y flexion
+                uy += seg.vy * 0.42 * Math.exp(-Math.abs(dyDeck) / 48);
+                uy += Math.sin(p.x * 0.045 - state.vortexPhase * 2.1) * (V * 0.75) * Math.exp(-Math.abs(dyDeck) / 54);
+              }
+            }
+          }
+
+          // Campo rotacional Biot-Savart suavizado (Lamb-Oseen) de los vortices activos
+          if (p.y > 410 && p.y < 760) {
+            for (var j = 0; j < state.vortices.length; j++) {
+              var vc = state.vortices[j];
+              var rx = p.x - vc.x;
+              var ry = p.y - vc.y;
+              var r2 = rx * rx + ry * ry;
+              if (r2 < 9800 && r2 > 4) {
+                var rCore2 = vc.radius * vc.radius;
+                var fade = 1.0 - vc.age / vc.maxAge;
+                var tang = (vc.gamma * fade / r2) * (1.0 - Math.exp(-r2 / rCore2)) * 26.0;
+                ux += -ry * tang;
+                uy += rx * tang;
+                swirlMag += Math.abs(tang) * 14;
+              }
+            }
+          }
+
+          p.x += ux * dt;
+          p.y += uy * dt;
+          p.swirlTint = clamp(swirlMag, 0, 1);
+
+          if (p.x > W + 20 || p.y < 120 || p.y > Y_WATER - 6) {
+            p.x = -15 - Math.random() * 60;
+            // Concentrar 62% de las particulas en la franja aerodinamica del tablero para claridad visual
+            p.y = Math.random() < 0.62 ? (465 + Math.random() * 235) : (165 + Math.random() * 675);
+            p.px = p.x;
+            p.py = p.y;
+            p.swirlTint = 0;
+          }
+        }
+
+        // Actualizar chispas y splashes
+        for (i = state.sparks.length - 1; i >= 0; i--) {
+          var sp = state.sparks[i];
+          sp.life -= dt;
+          sp.vy += 260 * dt;
+          sp.x += sp.vx * dt;
+          sp.y += sp.vy * dt;
+          if (sp.y >= Y_WATER) {
+            emitSplash(sp.x, 0.35);
+            state.sparks.splice(i, 1);
+            continue;
+          }
+          if (sp.life <= 0) state.sparks.splice(i, 1);
+        }
+
+        for (i = state.splashes.length - 1; i >= 0; i--) {
+          var spl = state.splashes[i];
+          spl.radius += 58 * dt;
+          spl.alpha -= 0.72 * dt;
+          for (var dIdx = 0; dIdx < spl.droplets.length; dIdx++) {
+            var dr = spl.droplets[dIdx];
+            dr.vy += 320 * dt;
+            dr.x += dr.vx * dt;
+            dr.y += dr.vy * dt;
+          }
+          if (spl.alpha <= 0) state.splashes.splice(i, 1);
+        }
+      }
+
+      // =========================================================================
+      // DINAMICA DE VEHICULOS EN DOS CARRILES ACOPLADOS AL TABLERO
+      // =========================================================================
+      function updateTraffic(dt) {
+        if (state.trafficPercent <= 0) {
+          state.vehicles = [];
+          state.liveTrafficTons = 0;
+          return;
+        }
+
+        var density = state.trafficPercent / 100.0;
+        var spawnPeriod = clamp(2.5 / Math.max(0.25, density), 0.75, 5.5);
+
+        // No ingresar nuevos vehiculos si hay colapso severo en la entrada
+        var bridgeSevereAlert = (!state.dampersActive && state.brokenLinks > 8);
+        if (!bridgeSevereAlert) {
+          state.vehicleTimerNear -= dt;
+          state.vehicleTimerFar -= dt;
+          if (state.vehicleTimerNear <= 0 && state.vehicles.length < 28) {
+            state.vehicles.push(makeVehicle(1, X_START + 4));
+            state.vehicleTimerNear = spawnPeriod * (0.8 + Math.random() * 0.45);
+          }
+          if (state.vehicleTimerFar <= 0 && state.vehicles.length < 28) {
+            state.vehicles.push(makeVehicle(-1, X_END - 4));
+            state.vehicleTimerFar = spawnPeriod * (0.8 + Math.random() * 0.45);
+          }
+        }
+
+        var totalTons = 0;
+        for (var i = state.vehicles.length - 1; i >= 0; i--) {
+          var v = state.vehicles[i];
+          totalTons += v.baseMass * density * 38.0;
+
+          if (v.falling) {
+            v.vy += 290 * dt;
+            v.y += v.vy * dt;
+            v.x += v.dir * v.speed * 0.25 * dt;
+            v.pitch += v.dir * 1.8 * dt;
+            if (v.y >= Y_WATER) {
+              emitSplash(v.x, 1.15);
+              state.vehicles.splice(i, 1);
+            }
+            continue;
+          }
+
+          var fIdx = clamp((v.x - X_START) / DX, 0, N_NODES - 1.001);
+          var i0 = Math.floor(fIdx);
+          var frac = fIdx - i0;
+          var d0 = state.deck[i0];
+          var d1 = state.deck[i0 + 1];
+
+          var deckY = lerp(d0.y, d1.y, frac);
+          var deckTheta = lerp(d0.theta, d1.theta, frac);
+          var slope = (d1.y - d0.y) / DX;
+
+          // Reducir velocidad y encender intermitentes si la torsion aeroelastica es alta
+          var instability = Math.abs(deckTheta) > 0.20 || Math.abs(slope) > 0.22;
+          v.hazard = instability;
+          var speedFactor = instability ? 0.45 : 1.0;
+
+          // Detenerse antes de una junta colapsada o caer si el segmento bajo las ruedas colapsa
+          var lookIdx = clamp(i0 + v.dir * 2, 0, N_NODES - 1);
+          if (state.deck[lookIdx].damagedJoint && !d0.damagedJoint) {
+            speedFactor = 0.04;
+            v.hazard = true;
+          }
+
+          if ((d0.damagedJoint || d1.damagedJoint) && Math.abs(slope) > 0.48) {
+            v.falling = true;
+            v.vy = d0.vy;
+            continue;
+          }
+
+          v.x += v.dir * v.speed * speedFactor * dt;
+          v.y = deckY + v.laneZ * W_HALF * Math.sin(deckTheta);
+          v.pitch = Math.atan2(d1.y - d0.y, DX);
+          v.roll = deckTheta;
+
+          if (v.x < X_START - 20 || v.x > X_END + 20) {
+            state.vehicles.splice(i, 1);
+          }
+        }
+        state.liveTrafficTons = Math.round(totalTons);
+      }
+
+      // =========================================================================
+      // CICLO DE DEMOSTRACION AUTOMATICA AL ABRIR
+      // =========================================================================
+      function updateAutoDemo(dt) {
+        if (!state.autoDemo) {
+          state.windKmh = state.targetWindKmh;
+          return;
+        }
+
+        state.demoClock += dt;
+        var t = state.demoClock;
+        var targetW = 18;
+        var phaseText = 'BRISA ESTABLE Y TRAFICO FLUIDO';
+
+        if (t < 2.5) {
+          // Fase 1: Brisa estable inicial (18 -> 32 km/h)
+          targetW = lerp(18, 32, t / 2.5);
+          phaseText = 'FASE 1 · BRISA ESTABLE Y TRAFICO FLUIDO';
+        } else if (t < 6.2) {
+          // Fase 2: Ascenso progresivo hacia la velocidad critica (32 -> 68 km/h)
+          var p2 = (t - 2.5) / 3.7;
+          targetW = lerp(32, 68, p2 * p2 * (3 - 2 * p2));
+          phaseText = 'FASE 2 · ASCENSO DE VIENTO Y VORTICES DE KARMAN';
+        } else {
+          // Fase 3: Velocidad critica de resonancia de Tacoma (68 km/h sostenidos)
+          targetW = 68.0;
+          if (state.dampersActive) {
+            phaseText = 'COMPARATIVA · 68 KM/H ESTABILIZADO CON AMORTIGUADORES';
+          } else if (state.brokenLinks === 0) {
+            phaseText = 'RESONANCIA CRITICA (68 KM/H) · FLUTTER AEROELASTICO';
+          } else {
+            phaseText = 'COLAPSO DE TIRANTES A 68 KM/H · PRUEBA AMORTIGUADORES';
+          }
+        }
+
+        state.windKmh = lerp(state.windKmh, targetW, clamp(dt * 4.5, 0, 1));
+        state.targetWindKmh = state.windKmh;
+
+        if (Math.round(state.windKmh) !== parseInt(elSliderWind.value, 10)) {
+          elSliderWind.value = String(Math.round(state.windKmh));
+        }
+        elDemoPhase.textContent = phaseText;
+      }
+
+      // =========================================================================
+      // RENDERIZADO 1920x1080 DE ALTA PRECISION (CANVAS 2D)
+      // =========================================================================
+      function resizeViewport() {
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var cw = window.innerWidth;
+        var ch = window.innerHeight;
+        canvas.width = Math.round(cw * dpr);
+        canvas.height = Math.round(ch * dpr);
+        state.dpr = dpr;
+
+        // Escalado uniforme sin recortes manteniendo el lienzo logico 1920x1080 centrado
+        var sx = cw / W;
+        var sy = ch / H;
+        state.viewScale = Math.min(sx, sy);
+        state.viewOffsetX = (cw - W * state.viewScale) * 0.5;
+        state.viewOffsetY = (ch - H * state.viewScale) * 0.5;
+      }
+
+      function drawBackgroundAndGorge() {
+        // Cielo nocturno futurista de alto contraste (#070B14)
+        var skyGrad = ctx.createLinearGradient(0, 0, 0, Y_WATER);
+        skyGrad.addColorStop(0, '#050811');
+        skyGrad.addColorStop(0.55, '#070D1B');
+        skyGrad.addColorStop(1, '#0C192E');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(-300, -300, W + 600, H + 600);
+
+        // Reticula tecnica sutil de ingenieria
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.032)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        var gx, gy;
+        for (gx = 0; gx <= W; gx += 80) {
+          ctx.moveTo(gx, 120);
+          ctx.lineTo(gx, Y_WATER);
+        }
+        for (gy = 160; gy < Y_WATER; gy += 80) {
+          ctx.moveTo(0, gy);
+          ctx.lineTo(W, gy);
+        }
+        ctx.stroke();
+
+        // Cordillera lejana del Estrecho de Tacoma / Puget Sound
+        ctx.fillStyle = '#091222';
+        ctx.beginPath();
+        ctx.moveTo(-100, Y_WATER);
+        ctx.lineTo(-100, 680);
+        ctx.lineTo(240, 560);
+        ctx.lineTo(540, 650);
+        ctx.lineTo(830, 545);
+        ctx.lineTo(1160, 635);
+        ctx.lineTo(1480, 540);
+        ctx.lineTo(1790, 620);
+        ctx.lineTo(W + 120, 575);
+        ctx.lineTo(W + 120, Y_WATER);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#0B1629';
+        ctx.beginPath();
+        ctx.moveTo(-100, Y_WATER);
+        ctx.lineTo(-100, 735);
+        ctx.lineTo(310, 690);
+        ctx.lineTo(690, 748);
+        ctx.lineTo(1040, 682);
+        ctx.lineTo(1390, 742);
+        ctx.lineTo(W + 120, 695);
+        ctx.lineTo(W + 120, Y_WATER);
+        ctx.closePath();
+        ctx.fill();
+
+        // Linea de cota de resonancia nominal del tablero
+        ctx.save();
+        ctx.setLineDash([6, 8]);
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.14)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(X_START, 588);
+        ctx.lineTo(X_END, 588);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawRiverAndDynamicReflections() {
+        // Base del rio profundo
+        var waterGrad = ctx.createLinearGradient(0, Y_WATER, 0, H + 120);
+        waterGrad.addColorStop(0, '#091A2F');
+        waterGrad.addColorStop(0.35, '#071324');
+        waterGrad.addColorStop(1, '#040811');
+        ctx.fillStyle = waterGrad;
+        ctx.fillRect(-300, Y_WATER, W + 600, H - Y_WATER + 300);
+
+        var t = state.simTime;
+        var windRipple = 2.5 + state.windKmh * 0.22;
+
+        // Reflejos dinamicos en tiempo real de torres, catenarias y tablero coloreados por tension
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-200, Y_WATER, W + 400, H - Y_WATER + 200);
+        ctx.clip();
+
+        // Reflejo de las dos torres de acero
+        var towersX = [X_START + IDX_T1 * DX, X_START + IDX_T2 * DX];
+        for (var txIdx = 0; txIdx < 2; txIdx++) {
+          var tx = towersX[txIdx];
+          for (var band = 0; band < 18; band++) {
+            var ry = Y_WATER + 6 + band * 10;
+            var shift = Math.sin(t * 3.4 + band * 0.7 + txIdx) * windRipple * (0.4 + band * 0.08);
+            ctx.fillStyle = 'rgba(56, 189, 248, ' + (0.13 - band * 0.006).toFixed(3) + ')';
+            ctx.fillRect(tx - 18 + shift, ry, 36, 6);
+          }
+          // Reflejo rojo de la baliza superior de la torre
+          var beaconPulse = 0.35 + 0.35 * Math.sin(t * 4.5 + txIdx);
+          ctx.fillStyle = 'rgba(244, 63, 94, ' + (beaconPulse * 0.32).toFixed(3) + ')';
+          ctx.fillRect(tx - 12 + Math.sin(t * 4) * windRipple, Y_WATER + 135, 24, 28);
+        }
+
+        // Reflejo dinamico del mapa de calor de cables y tablero segmentado
+        for (var i = 0; i < N_NODES - 1; i += 1) {
+          var d = state.deck[i];
+          var link = state.catenaryLinksNear[i];
+          var reflectDistDeck = Math.max(8, Y_WATER - d.y);
+          var reflYDeck = Y_WATER + reflectDistDeck * 0.34;
+          var waveDx = Math.sin(t * 4.1 + i * 0.45) * windRipple;
+
+          ctx.strokeStyle = stressToRGBA(d.stressRatio, 0.22);
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(d.x + waveDx, reflYDeck);
+          ctx.lineTo(state.deck[i + 1].x + waveDx, reflYDeck + (state.deck[i + 1].y - d.y) * -0.34);
+          ctx.stroke();
+
+          if (!link.broken) {
+            var reflYCable = Y_WATER + (Y_WATER - link.a.y) * 0.28;
+            ctx.strokeStyle = stressToRGBA(link.stressRatio, 0.18);
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(link.a.x - waveDx * 0.8, reflYCable);
+            ctx.lineTo(link.b.x - waveDx * 0.8, Y_WATER + (Y_WATER - link.b.y) * 0.28);
+            ctx.stroke();
+          }
+        }
+
+        // Crestas de olas impulsadas por el viento a lo largo del rio
+        var waveRows = 24;
+        for (var r = 0; r < waveRows; r++) {
+          var wy = Y_WATER + 4 + r * 8.5;
+          var alphaW = (0.20 - r * 0.006) * clamp(0.45 + state.windKmh / 95, 0.45, 1.3);
+          ctx.strokeStyle = 'rgba(34, 211, 238, ' + Math.max(0.02, alphaW).toFixed(3) + ')';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          for (var segW = 0; segW < 16; segW++) {
+            var wx0 = ((segW * 135 + t * (18 + state.windKmh * 0.65) * (1 + r * 0.04) + r * 47) % (W + 180)) - 90;
+            var wLen = 28 + (r % 4) * 14 + state.windKmh * 0.18;
+            ctx.moveTo(wx0, wy);
+            ctx.lineTo(wx0 + wLen, wy + Math.sin(t * 3 + segW) * 1.2);
+          }
+          ctx.stroke();
+        }
+
+        // Linea brillante de superficie del agua
+        var surfGrad = ctx.createLinearGradient(0, Y_WATER - 2, 0, Y_WATER + 5);
+        surfGrad.addColorStop(0, 'rgba(34, 211, 238, 0.55)');
+        surfGrad.addColorStop(1, 'rgba(34, 211, 238, 0.0)');
+        ctx.fillStyle = surfGrad;
+        ctx.fillRect(-100, Y_WATER - 1, W + 200, 6);
+
+        // Ondas y plumas de impacto (splashes)
+        for (var s = 0; s < state.splashes.length; s++) {
+          var sp = state.splashes[s];
+          ctx.strokeStyle = 'rgba(226, 232, 240, ' + clamp(sp.alpha, 0, 1).toFixed(3) + ')';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(sp.x, Y_WATER + 2, sp.radius, sp.radius * 0.22, 0, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = 'rgba(186, 230, 253, ' + clamp(sp.alpha, 0, 1).toFixed(3) + ')';
+          for (var drI = 0; drI < sp.droplets.length; drI++) {
+            var dr = sp.droplets[drI];
+            if (dr.y <= Y_WATER + 4) {
+              ctx.fillRect(dr.x - 1.5, dr.y - 1.5, 3, 3);
+            }
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawCliffsAndAnchorages() {
+        // Acantilado y bloque de anclaje de hormigon armado izquierdo
+        ctx.fillStyle = '#0F172A';
+        ctx.beginPath();
+        ctx.moveTo(-250, 548);
+        ctx.lineTo(X_START + 22, 548);
+        ctx.lineTo(X_START + 56, 620);
+        ctx.lineTo(X_START + 92, Y_WATER + 16);
+        ctx.lineTo(-250, Y_WATER + 16);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.28)';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        // Bloque macizo de anclaje izquierdo
+        ctx.fillStyle = '#1E293B';
+        ctx.fillRect(X_START - 62, 538, 76, 76);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+        ctx.strokeRect(X_START - 62, 538, 76, 76);
+
+        // Acantilado y bloque de anclaje derecho
+        ctx.fillStyle = '#0F172A';
+        ctx.beginPath();
+        ctx.moveTo(W + 250, 548);
+        ctx.lineTo(X_END - 22, 548);
+        ctx.lineTo(X_END - 56, 620);
+        ctx.lineTo(X_END - 92, Y_WATER + 16);
+        ctx.lineTo(W + 250, Y_WATER + 16);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.28)';
+        ctx.stroke();
+
+        ctx.fillStyle = '#1E293B';
+        ctx.fillRect(X_END - 14, 538, 76, 76);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+        ctx.strokeRect(X_END - 14, 538, 76, 76);
+
+        // Basamentos de hormigon de las 2 torres en el rio
+        var pierIndices = [IDX_T1, IDX_T2];
+        for (var p = 0; p < 2; p++) {
+          var px = X_START + pierIndices[p] * DX;
+          ctx.fillStyle = '#1E293B';
+          ctx.beginPath();
+          ctx.moveTo(px - 36, Y_WATER - 24);
+          ctx.lineTo(px + 36, Y_WATER - 24);
+          ctx.lineTo(px + 46, Y_WATER + 8);
+          ctx.lineTo(px - 46, Y_WATER + 8);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(34, 211, 238, 0.35)';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          // Estela blanca de corriente alrededor del pilar
+          ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
+          ctx.beginPath();
+          ctx.moveTo(px - 48, Y_WATER + 2);
+          ctx.lineTo(px + 54, Y_WATER + 2);
+          ctx.stroke();
+        }
+      }
+
+      function drawSteelTowerLeg(towerIdx, planeZ) {
+        var cNode = planeZ > 0 ? state.cableNear[towerIdx] : state.cableFar[towerIdx];
+        var baseX = X_START + towerIdx * DX;
+        var topP = projectPoint(cNode.x, cNode.y, planeZ);
+        var botP = projectPoint(baseX, Y_WATER - 22, planeZ);
+
+        // Calcular tension en la torre segun el desplazamiento elastico de su silla superior
+        var saddlePull = Math.abs(cNode.x - cNode.x0);
+        var adjStress = state.catenaryLinksNear[towerIdx] ? state.catenaryLinksNear[towerIdx].stressRatio : 0.25;
+        var towerStress = clamp(0.18 + saddlePull * 0.08 + adjStress * 0.55, 0.18, 1.0);
+
+        var colMain = planeZ > 0 ? '#334155' : '#1E293B';
+        var colBrace = stressToRGBA(towerStress, planeZ > 0 ? 0.72 : 0.45);
+
+        var wTop = 7.5;
+        var wBot = 16.5;
+
+        // Columna de acero principal con ahusamiento estructural
+        ctx.fillStyle = colMain;
+        ctx.beginPath();
+        ctx.moveTo(topP.x - wTop, topP.y);
+        ctx.lineTo(topP.x + wTop, topP.y);
+        ctx.lineTo(botP.x + wBot, botP.y);
+        ctx.lineTo(botP.x - wBot, botP.y);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = colBrace;
+        ctx.lineWidth = planeZ > 0 ? 2.0 : 1.4;
+        ctx.stroke();
+
+        // Celosia interna en X de acero remachado
+        var bays = 9;
+        ctx.strokeStyle = stressToRGBA(towerStress, planeZ > 0 ? 0.55 : 0.32);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (var b = 0; b < bays; b++) {
+          var t0 = b / bays;
+          var t1 = (b + 1) / bays;
+          var x0 = lerp(topP.x, botP.x, t0);
+          var y0 = lerp(topP.y, botP.y, t0);
+          var x1 = lerp(topP.x, botP.x, t1);
+          var y1 = lerp(topP.y, botP.y, t1);
+          var hw0 = lerp(wTop, wBot, t0);
+          var hw1 = lerp(wTop, wBot, t1);
+
+          ctx.moveTo(x0 - hw0, y0);
+          ctx.lineTo(x1 + hw1, y1);
+          ctx.moveTo(x0 + hw0, y0);
+          ctx.lineTo(x1 - hw1, y1);
+          ctx.moveTo(x1 - hw1, y1);
+          ctx.lineTo(x1 + hw1, y1);
+        }
+        ctx.stroke();
+
+        // Silla de rodillos de acero en la cumbre y baliza luminosa
+        ctx.fillStyle = stressToRGB(towerStress);
+        ctx.fillRect(topP.x - 9, topP.y - 5, 18, 8);
+
+        if (planeZ > 0) {
+          var pulse = 0.5 + 0.5 * Math.sin(state.simTime * 5.0 + towerIdx);
+          ctx.save();
+          ctx.fillStyle = 'rgba(244, 63, 94, ' + (0.35 + 0.55 * pulse).toFixed(3) + ')';
+          ctx.shadowColor = '#F43F5E';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(topP.x, topP.y - 12, 4.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawTowerPortalCrossBeams(towerIdx) {
+        // Vigas transversales que unen la pata trasera (Far) y frontal (Near) por encima y debajo del tablero
+        var baseX = X_START + towerIdx * DX;
+        var cN = state.cableNear[towerIdx];
+        var cF = state.cableFar[towerIdx];
+        var heights = [0.06, 0.28, 0.48, 0.74, 0.90];
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.85)';
+        ctx.lineWidth = 4.5;
+        for (var h = 0; h < heights.length; h++) {
+          var th = heights[h];
+          var yn = lerp(cN.y, Y_WATER - 22, th);
+          var yf = lerp(cF.y, Y_WATER - 22, th);
+          // Dejar el portico libre exactamente a la altura de paso vehicular (y ~ 560..615)
+          if (yn > 545 && yn < 622) continue;
+          var pN = projectPoint(lerp(cN.x, baseX, th), yn, 1);
+          var pF = projectPoint(lerp(cF.x, baseX, th), yf, -1);
+          ctx.beginPath();
+          ctx.moveTo(pF.x, pF.y);
+          ctx.lineTo(pN.x, pN.y);
+          ctx.stroke();
+        }
+      }
+
+      function drawCatenaryAndSuspenders(planeZ) {
+        var suspArr = planeZ > 0 ? state.suspNear : state.suspFar;
+        var catArr = planeZ > 0 ? state.catenaryLinksNear : state.catenaryLinksFar;
+        var alphaScale = planeZ > 0 ? 1.0 : 0.72;
+        var i;
+
+        // 1. Tirantes verticales individuales con mapa de calor en vivo
+        for (i = 1; i < N_NODES - 1; i++) {
+          var s = suspArr[i];
+          if (!s) continue;
+          var dNode = s.deckNode;
+          var cNode = s.cableNode;
+          var pTop = projectPoint(cNode.x, cNode.y, planeZ);
+          var edgeY = dNode.y + (planeZ > 0 ? 1 : -1) * W_HALF * Math.sin(dNode.theta);
+          var pBot = projectPoint(dNode.x, edgeY, planeZ);
+
+          if (s.broken) {
+            // Latigazo de cable roto colgando de la catenaria
+            if (s.snapTimer > 0) {
+              var whipX = pTop.x + Math.sin(state.simTime * 24 + i) * 14 * s.snapTimer;
+              var whipY = pTop.y + Math.min(85, (pBot.y - pTop.y) * 0.55);
+              ctx.strokeStyle = 'rgba(244, 63, 94, ' + clamp(s.snapTimer * 0.7, 0.15, 0.85).toFixed(3) + ')';
+              ctx.lineWidth = 1.6;
+              ctx.beginPath();
+              ctx.moveTo(pTop.x, pTop.y);
+              ctx.quadraticCurveTo(whipX, 0.5 * (pTop.y + whipY), whipX * 0.4 + pTop.x * 0.6, whipY);
+              ctx.stroke();
+            } else {
+              // Extremo corto remanente para evidenciar el tirante roto
+              ctx.strokeStyle = 'rgba(244, 63, 94, 0.38)';
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.moveTo(pTop.x, pTop.y);
+              ctx.lineTo(pTop.x + Math.sin(state.simTime * 4 + i) * 3, pTop.y + 18);
+              ctx.stroke();
+            }
+            continue;
+          }
+
+          var sr = s.stressRatio;
+          ctx.save();
+          if (sr > 0.76 && planeZ > 0) {
+            ctx.shadowColor = sr > 0.9 ? '#F43F5E' : '#FBBF24';
+            ctx.shadowBlur = sr > 0.9 ? 12 : 6;
+          }
+          ctx.strokeStyle = stressToRGBA(sr, 0.88 * alphaScale);
+          ctx.lineWidth = (sr > 0.82 ? 2.6 : 1.8) * (planeZ > 0 ? 1 : 0.85);
+          ctx.beginPath();
+          if (s.tension <= 1.0) {
+            // Ligera curvatura si el tirante entra en holgura por torsion extrema
+            ctx.moveTo(pTop.x, pTop.y);
+            ctx.quadraticCurveTo(0.5 * (pTop.x + pBot.x) + 6, 0.5 * (pTop.y + pBot.y), pBot.x, pBot.y);
+          } else {
+            ctx.moveTo(pTop.x, pTop.y);
+            ctx.lineTo(pBot.x, pBot.y);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 2. Cable catenario principal segmentado con mapa termico de tension
+        ctx.save();
+        ctx.lineCap = 'round';
+        for (i = 0; i < catArr.length; i++) {
+          var lnk = catArr[i];
+          if (lnk.broken) continue;
+          var pA = projectPoint(lnk.a.x, lnk.a.y, planeZ);
+          var pB = projectPoint(lnk.b.x, lnk.b.y, planeZ);
+          var cr = lnk.stressRatio;
+
+          if (planeZ > 0 && cr > 0.55) {
+            ctx.strokeStyle = stressToRGBA(cr, 0.28);
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(pA.x, pA.y);
+            ctx.lineTo(pB.x, pB.y);
+            ctx.stroke();
+          }
+
+          ctx.strokeStyle = stressToRGBA(cr, alphaScale);
+          ctx.lineWidth = planeZ > 0 ? 4.4 : 3.2;
+          ctx.beginPath();
+          ctx.moveTo(pA.x, pA.y);
+          ctx.lineTo(pB.x, pB.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawSegmentedDeckAndTraffic() {
+        var i;
+
+        // 1. Dibujar cada segmento 3D del tablero con flexion vertical y torsion aeroelastica
+        for (i = 0; i < N_NODES - 1; i++) {
+          var d0 = state.deck[i];
+          var d1 = state.deck[i + 1];
+
+          var sin0 = Math.sin(d0.theta), sin1 = Math.sin(d1.theta);
+          var cos0 = Math.cos(d0.theta), cos1 = Math.cos(d1.theta);
+
+          var f0 = projectPoint(d0.x, d0.y - W_HALF * sin0, -cos0);
+          var f1 = projectPoint(d1.x, d1.y - W_HALF * sin1, -cos1);
+          var n0 = projectPoint(d0.x, d0.y + W_HALF * sin0, cos0);
+          var n1 = projectPoint(d1.x, d1.y + W_HALF * sin1, cos1);
+
+          var segStress = Math.max(d0.stressRatio, d1.stressRatio);
+
+          // Alma inferior de acero (viga en H de Tacoma)
+          var girderDepth = 8.5;
+          ctx.fillStyle = '#111C2E';
+          ctx.beginPath();
+          ctx.moveTo(n0.x, n0.y);
+          ctx.lineTo(n1.x, n1.y);
+          ctx.lineTo(n1.x, n1.y + girderDepth);
+          ctx.lineTo(n0.x, n0.y + girderDepth);
+          ctx.closePath();
+          ctx.fill();
+
+          // Superficie de rodadura 3D (sombreada dinamicamente segun angulo de torsion theta)
+          var avgTheta = 0.5 * (d0.theta + d1.theta);
+          var shade = clamp(24 + Math.round(avgTheta * 36), 12, 46);
+          ctx.fillStyle = 'rgb(' + shade + ',' + (shade + 9) + ',' + (shade + 22) + ')';
+          ctx.beginPath();
+          ctx.moveTo(f0.x, f0.y);
+          ctx.lineTo(f1.x, f1.y);
+          ctx.lineTo(n1.x, n1.y);
+          ctx.lineTo(n0.x, n0.y);
+          ctx.closePath();
+          ctx.fill();
+
+          // Linea central divisoria de carriles
+          if (i % 2 === 0) {
+            var m0x = 0.5 * (f0.x + n0.x), m0y = 0.5 * (f0.y + n0.y);
+            var m1x = 0.5 * (f1.x + n1.x), m1y = 0.5 * (f1.y + n1.y);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.58)';
+            ctx.lineWidth = 1.3;
+            ctx.beginPath();
+            ctx.moveTo(m0x, m0y);
+            ctx.lineTo(m1x, m1y);
+            ctx.stroke();
+          }
+
+          // Bordes estructurales coloreados por mapa de calor de tension
+          ctx.strokeStyle = stressToRGBA(segStress, 0.92);
+          ctx.lineWidth = segStress > 0.78 ? 2.6 : 1.8;
+          ctx.beginPath();
+          ctx.moveTo(f0.x, f0.y);
+          ctx.lineTo(f1.x, f1.y);
+          ctx.moveTo(n0.x, n0.y);
+          ctx.lineTo(n1.x, n1.y);
+          ctx.stroke();
+
+          // Carenados aerodinamicos y capsulas TMD visibles cuando los amortiguadores estan ACTIVOS
+          if (state.dampersActive && i > 0 && i < N_NODES - 2) {
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.55)';
+            ctx.strokeStyle = '#22D3EE';
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(n0.x, n0.y);
+            ctx.lineTo(n1.x, n1.y);
+            ctx.lineTo(0.5 * (n0.x + n1.x) - 5, 0.5 * (n0.y + n1.y) + 4.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Masas sintonizadas (TMD) bajo los cuartos de vano
+            if (i === 17 || i === 18 || i === 30 || i === 31) {
+              var tmdX = 0.5 * (n0.x + n1.x);
+              var tmdY = 0.5 * (n0.y + n1.y) + 14 + Math.sin(state.simTime * 6 + i) * 1.5;
+              ctx.fillStyle = '#0F172A';
+              ctx.strokeStyle = '#10B981';
+              ctx.lineWidth = 1.8;
+              ctx.fillRect(tmdX - 9, tmdY - 4, 18, 9);
+              ctx.strokeRect(tmdX - 9, tmdY - 4, 18, 9);
+            }
+          }
+        }
+
+        // 2. Amortiguadores hidraulicos diagonales torre-tablero cuando estan activos
+        if (state.dampersActive) {
+          var damperPairs = [
+            { tIdx: IDX_T1, dIdx: IDX_T1 + 4 },
+            { tIdx: IDX_T1, dIdx: IDX_T1 - 4 },
+            { tIdx: IDX_T2, dIdx: IDX_T2 - 4 },
+            { tIdx: IDX_T2, dIdx: IDX_T2 + 4 }
+          ];
+          ctx.save();
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+          ctx.shadowColor = '#10B981';
+          ctx.shadowBlur = 8;
+          ctx.lineWidth = 2.4;
+          for (var dp = 0; dp < damperPairs.length; dp++) {
+            var pair = damperPairs[dp];
+            var tx = X_START + pair.tIdx * DX;
+            var dn = state.deck[pair.dIdx];
+            var pTower = projectPoint(tx, 655, 0.8);
+            var pDeck = projectPoint(dn.x, dn.y + 7, 0.8);
+            ctx.beginPath();
+            ctx.moveTo(pTower.x, pTower.y);
+            ctx.lineTo(pDeck.x, pDeck.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 3. Dibujar vehiculos cruzando (ordenados de carril trasero a frontal)
+        var sortedVeh = state.vehicles.slice().sort(function (a, b) {
+          return a.laneZ - b.laneZ;
+        });
+
+        for (i = 0; i < sortedVeh.length; i++) {
+          var v = sortedVeh[i];
+          var vp = projectPoint(v.x, v.y, v.laneZ * Math.cos(v.roll));
+          ctx.save();
+          ctx.translate(vp.x, vp.y - 2.5);
+          ctx.rotate(v.pitch + v.roll * 0.18);
+
+          // Sombra sobre el asfalto
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fillRect(-v.length * 0.52, -1.5, v.length * 1.04, 3);
+
+          // Carroceria
+          ctx.fillStyle = v.color;
+          ctx.fillRect(-v.length * 0.5, -v.height, v.length, v.height - 1.5);
+
+          if (v.kind !== 'truck') {
+            ctx.fillStyle = '#0F172A';
+            ctx.fillRect(-v.length * 0.24, -v.height + 1.2, v.length * 0.48, v.height * 0.45);
+          } else {
+            // Cabina de camion articulado
+            var cabX = v.dir > 0 ? v.length * 0.24 : -v.length * 0.5;
+            ctx.fillStyle = '#E2E8F0';
+            ctx.fillRect(cabX, -v.height * 0.82, v.length * 0.26, v.height * 0.68);
+          }
+
+          // Haz de faros delanteros y luces traseras
+          var frontX = v.dir > 0 ? v.length * 0.5 : -v.length * 0.5;
+          var rearX = -frontX;
+
+          var beamGrad = ctx.createLinearGradient(frontX, -4, frontX + v.dir * 34, -4);
+          beamGrad.addColorStop(0, 'rgba(254, 249, 195, 0.52)');
+          beamGrad.addColorStop(1, 'rgba(254, 249, 195, 0.0)');
+          ctx.fillStyle = beamGrad;
+          ctx.beginPath();
+          ctx.moveTo(frontX, -4.5);
+          ctx.lineTo(frontX + v.dir * 34, -10);
+          ctx.lineTo(frontX + v.dir * 34, 1);
+          ctx.closePath();
+          ctx.fill();
+
+          // Luz trasera roja o intermitente ambar de emergencia
+          var blinkHazard = v.hazard && (Math.sin(state.simTime * 18) > 0);
+          ctx.fillStyle = blinkHazard ? '#FBBF24' : '#F43F5E';
+          ctx.fillRect(rearX - 1.5, -5.5, 3, 3.2);
+
+          ctx.restore();
+        }
+      }
+
+      function drawKarmanVorticesAndAirflow() {
+        var V = state.windKmh;
+        if (V < 2) return;
+
+        var i;
+        // 1. Anillos sutiles de presion de los vortices de Karman desprendidos
+        if (V > 26) {
+          for (i = 0; i < state.vortices.length; i++) {
+            var vc = state.vortices[i];
+            var lifeRatio = 1.0 - vc.age / vc.maxAge;
+            var alphaV = clamp(lifeRatio * (V / 110) * (state.dampersActive ? 0.09 : 0.26), 0, 0.28);
+            ctx.strokeStyle = vc.sign > 0
+              ? 'rgba(34, 211, 238, ' + alphaV.toFixed(3) + ')'
+              : 'rgba(244, 63, 94, ' + alphaV.toFixed(3) + ')';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            var startA = state.simTime * 3.5 * vc.sign;
+            ctx.arc(vc.x, vc.y, vc.radius * 0.72, startA, startA + Math.PI * 1.45);
+            ctx.stroke();
+          }
+        }
+
+        // 2. Particulas de flujo aerodinamico alrededor de las torres y el tablero
+        ctx.lineCap = 'round';
+        var windNorm = clamp(V / 95, 0.12, 1.0);
+        for (i = 0; i < state.airParticles.length; i++) {
+          var p = state.airParticles[i];
+          var dx = p.x - p.px;
+          var dy = p.y - p.py;
+          if (Math.abs(dx) > 120) continue;
+
+          var lenBoost = 1.8 + windNorm * 2.4;
+          var alpha = p.alpha * (0.45 + 0.65 * windNorm);
+
+          if (p.swirlTint > 0.22 && !state.dampersActive) {
+            ctx.strokeStyle = p.y < 588
+              ? 'rgba(34, 211, 238, ' + Math.min(0.85, alpha * 1.45).toFixed(3) + ')'
+              : 'rgba(251, 191, 36, ' + Math.min(0.82, alpha * 1.4).toFixed(3) + ')';
+          } else if (state.dampersActive && Math.abs(p.y - 588) < 75) {
+            ctx.strokeStyle = 'rgba(16, 185, 129, ' + Math.min(0.7, alpha * 1.25).toFixed(3) + ')';
+          } else {
+            ctx.strokeStyle = 'rgba(148, 163, 184, ' + alpha.toFixed(3) + ')';
+          }
+
+          ctx.lineWidth = p.size;
+          ctx.beginPath();
+          ctx.moveTo(p.x - dx * lenBoost, p.y - dy * lenBoost);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        }
+
+        // 3. Chispas incandescentes de ruptura de acero
+        for (i = 0; i < state.sparks.length; i++) {
+          var sp = state.sparks[i];
+          ctx.fillStyle = sp.hot ? '#FFF1F2' : '#F43F5E';
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // =========================================================================
+      // WIDGET SUPERIOR DERECHO: SECCION TRANSVERSAL EN TUNEL DE VIENTO + OSCILOSCOPIO
+      // =========================================================================
+      function renderWindTunnelInset(dt) {
+        var cw = tunnelCanvas.width;
+        var ch = tunnelCanvas.height;
+        tctx.clearRect(0, 0, cw, ch);
+
+        // Cuarto de vano (i = 18) donde la amplitud antisimetrica de Tacoma es maxima
+        var qNode = state.deck[18];
+        var theta = qNode.theta;
+        var vertDisp = (qNode.y - qNode.y0) * 0.45;
+
+        // Actualizar historial de ondas
+        state.waveHistoryVert.push(clamp((qNode.y - qNode.y0) / 36, -1, 1));
+        state.waveHistoryRot.push(clamp(theta / 0.5, -1, 1));
+        if (state.waveHistoryVert.length > 108) state.waveHistoryVert.shift();
+        if (state.waveHistoryRot.length > 108) state.waveHistoryRot.shift();
+
+        // Mitad izquierda (0..176): Seccion transversal del tablero en el flujo de Karman
+        var cx = 66;
+        var cy = 53 + clamp(vertDisp, -16, 16);
+
+        // Lineas de flujo entrando desde la izquierda y formando calle de Karman a la derecha
+        var flowSpd = 20 + state.windKmh * 1.4;
+        for (var s = 0; s < 7; s++) {
+          var baseY = 14 + s * 13;
+          tctx.strokeStyle = state.dampersActive ? 'rgba(16, 185, 129, 0.36)' : 'rgba(34, 211, 238, 0.32)';
+          tctx.lineWidth = 1.1;
+          tctx.beginPath();
+          for (var x = 6; x <= 172; x += 6) {
+            var yy = baseY;
+            if (x > cx - 10) {
+              var wakeX = x - cx;
+              var amp = state.dampersActive
+                ? 1.5 * Math.exp(-wakeX * 0.02)
+                : (2.0 + (state.windKmh / 68) * 9.5) * Math.min(1, wakeX / 28);
+              yy += Math.sin(wakeX * 0.14 - state.simTime * (flowSpd * 0.08) + (s % 2) * 0.8) * amp * Math.exp(- Math.abs(baseY - 53) / 42);
+            }
+            if (x === 6) tctx.moveTo(x, yy);
+            else tctx.lineTo(x, yy);
+          }
+          tctx.stroke();
+        }
+
+        // Vortices giratorios en la estela cuando no hay carenados
+        if (!state.dampersActive && state.windKmh > 34) {
+          for (var kv = 0; kv < 3; kv++) {
+            var vx = 98 + ((state.simTime * flowSpd * 0.55 + kv * 28) % 72);
+            var vy = 53 + (kv % 2 === 0 ? -11 : 11) + Math.sin(state.simTime * 5 + kv) * 4;
+            tctx.strokeStyle = kv % 2 === 0 ? 'rgba(34, 211, 238, 0.62)' : 'rgba(244, 63, 94, 0.62)';
+            tctx.lineWidth = 1.3;
+            tctx.beginPath();
+            tctx.arc(vx, vy, 6.5, state.simTime * 5, state.simTime * 5 + 4.2);
+            tctx.stroke();
+          }
+        }
+
+        // Tirantes de la seccion transversal
+        var halfSec = 24;
+        var lx = cx - halfSec * Math.cos(theta);
+        var ly = cy - halfSec * Math.sin(theta);
+        var rx = cx + halfSec * Math.cos(theta);
+        var ry = cy + halfSec * Math.sin(theta);
+
+        tctx.strokeStyle = stressToRGB(state.suspFar[18] ? state.suspFar[18].stressRatio : 0.25);
+        tctx.lineWidth = 1.5;
+        tctx.beginPath();
+        tctx.moveTo(cx - 24, 4);
+        tctx.lineTo(lx, ly);
+        tctx.stroke();
+
+        tctx.strokeStyle = stressToRGB(state.suspNear[18] ? state.suspNear[18].stressRatio : 0.25);
+        tctx.beginPath();
+        tctx.moveTo(cx + 24, 4);
+        tctx.lineTo(rx, ry);
+        tctx.stroke();
+
+        // Dibujar viga en H (o perfil aerodinamico carenado cuando dampersActive = true)
+        tctx.save();
+        tctx.translate(cx, cy);
+        tctx.rotate(theta);
+
+        if (state.dampersActive) {
+          // Narices triangulares aerodinamicas a barlovento y sotavento + masa TMD
+          tctx.fillStyle = 'rgba(16, 185, 129, 0.38)';
+          tctx.strokeStyle = '#10B981';
+          tctx.lineWidth = 1.5;
+          tctx.beginPath();
+          tctx.moveTo(-34, 0);
+          tctx.lineTo(-24, -5);
+          tctx.lineTo(24, -5);
+          tctx.lineTo(34, 0);
+          tctx.lineTo(24, 5);
+          tctx.lineTo(-24, 5);
+          tctx.closePath();
+          tctx.fill();
+          tctx.stroke();
+        } else {
+          // Viga en H roma clasica de Tacoma Narrows (generadora de vortices)
+          tctx.fillStyle = '#1E293B';
+          tctx.strokeStyle = stressToRGB(qNode.stressRatio);
+          tctx.lineWidth = 2;
+          tctx.fillRect(-24, -2.5, 48, 5);
+          tctx.strokeRect(-24, -2.5, 48, 5);
+          tctx.fillStyle = '#F43F5E';
+          tctx.fillRect(-25, -7, 3.5, 14);
+          tctx.fillRect(21.5, -7, 3.5, 14);
+        }
+        tctx.restore();
+
+        // Separador vertical hacia el osciloscopio modal (182..306)
+        tctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+        tctx.lineWidth = 1;
+        tctx.beginPath();
+        tctx.moveTo(180, 8);
+        tctx.lineTo(180, ch - 8);
+        tctx.moveTo(186, 53);
+        tctx.lineTo(304, 53);
+        tctx.stroke();
+
+        // Trazas en vivo: Cian = Flexion Vertical, Coral/Esmeralda = Torsion Flutter
+        var nPts = state.waveHistoryVert.length;
+        tctx.strokeStyle = '#22D3EE';
+        tctx.lineWidth = 1.5;
+        tctx.beginPath();
+        for (var k = 0; k < nPts; k++) {
+          var ox = 186 + (k / 108) * 118;
+          var oy = 53 + state.waveHistoryVert[k] * 36;
+          if (k === 0) tctx.moveTo(ox, oy);
+          else tctx.lineTo(ox, oy);
+        }
+        tctx.stroke();
+
+        tctx.strokeStyle = state.dampersActive ? '#10B981' : '#F43F5E';
+        tctx.lineWidth = 1.6;
+        tctx.beginPath();
+        for (k = 0; k < nPts; k++) {
+          var rx2 = 186 + (k / 108) * 118;
+          var ry2 = 53 - state.waveHistoryRot[k] * 38;
+          if (k === 0) tctx.moveTo(rx2, ry2);
+          else tctx.lineTo(rx2, ry2);
+        }
+        tctx.stroke();
+
+        tctx.fillStyle = '#94A3B8';
+        tctx.font = '700 9px monospace';
+        tctx.fillText('FLEX', 188, 17);
+        tctx.fillStyle = state.dampersActive ? '#10B981' : '#F43F5E';
+        tctx.fillText('TORSION', 256, 17);
+      }
+
+      // =========================================================================
+      // ACTUALIZACION DEL HUD Y AUDIO SINTETICO
+      // =========================================================================
+      function updateHUD() {
+        var wRound = Math.round(state.windKmh);
+        elKpiWind.textContent = wRound + ' km/h';
+        elValWind.textContent = wRound + ' km/h';
+
+        if (wRound < 38) {
+          elKpiWindRegime.textContent = 'BRISA ESTABLE';
+          elKpiWindRegime.style.color = '#22D3EE';
+        } else if (wRound < 62) {
+          elKpiWindRegime.textContent = 'CALLE DE KARMAN';
+          elKpiWindRegime.style.color = '#FBBF24';
+        } else if (wRound <= 76) {
+          elKpiWindRegime.textContent = 'RESONANCIA CRITICA';
+          elKpiWindRegime.style.color = '#F43F5E';
+        } else {
+          elKpiWindRegime.textContent = 'FLUTTER EXTREMO';
+          elKpiWindRegime.style.color = '#F43F5E';
+        }
+
+        var pctStress = Math.min(100, Math.round(state.maxStressRatio * 100));
+        var stressCol = stressToRGB(state.maxStressRatio);
+        elKpiStress.textContent = pctStress + '%';
+        elKpiStress.style.color = stressCol;
+        elKpiStressBar.style.width = pctStress + '%';
+        elKpiStressBar.style.backgroundColor = stressCol;
+
+        elKpiFlutter.textContent = '\u00B1' + state.peakTwistDeg.toFixed(1) + '\u00B0';
+        elKpiFlutter.style.color = state.peakTwistDeg > 14 ? '#F43F5E' : (state.peakTwistDeg > 5 ? '#FBBF24' : '#22D3EE');
+        elKpiWaveAmp.textContent = 'FLEX: ' + state.peakVertMeters.toFixed(1) + ' m';
+
+        elKpiBroken.textContent = state.brokenLinks + ' / ' + state.cableCount;
+        if (state.brokenLinks === 0) {
+          elKpiBroken.style.color = '#F8FAFC';
+          elKpiIntegrity.textContent = 'ESTRUCTURA INTEGRA';
+          elKpiIntegrity.style.color = '#10B981';
+        } else {
+          elKpiBroken.style.color = '#F43F5E';
+          elKpiIntegrity.textContent = 'FALLA PROGRESIVA';
+          elKpiIntegrity.style.color = '#F43F5E';
+        }
+
+        elValTraffic.textContent = state.trafficPercent + '% (' + state.liveTrafficTons + ' t)';
+
+        // Pulso visual sugerente en el boton de amortiguadores durante resonancia sin amortiguadores
+        var needsDamperAlert = (!state.dampersActive && state.windKmh >= 58);
+        elBtnDampers.classList.toggle('urgent-pulse', needsDamperAlert);
+      }
+
+      function syncDamperButtonUI() {
+        elBtnDampers.classList.toggle('active', state.dampersActive);
+        elTunnelBadge.classList.toggle('damped', state.dampersActive);
+        if (state.dampersActive) {
+          elBtnDampersTitle.textContent = 'AMORTIGUADORES AERODINAMICOS ACTIVOS';
+          elBtnDampersSub.textContent = 'CARENADO + TMD ACTIVOS · FLUTTER SUPRIMIDO (CLIC PARA APAGAR)';
+          elTunnelBadge.textContent = 'CARENADO + TMD ACTIVOS';
+        } else {
+          elBtnDampersTitle.textContent = 'ACTIVAR AMORTIGUADORES AERODINAMICOS';
+          elBtnDampersSub.textContent = 'ESTADO: APAGADOS · RIESGO DE FLUTTER A 68 KM/H';
+          elTunnelBadge.textContent = 'PERFIL H SIN CARENADO';
+        }
+      }
+
+      function syncDemoBadgeUI() {
+        elDemoDot.classList.toggle('manual', !state.autoDemo);
+        elDemoBadge.classList.toggle('manual', !state.autoDemo);
+        elDemoBadge.textContent = state.autoDemo ? 'AUTO DEMO' : 'MANUAL';
+        if (!state.autoDemo) {
+          elDemoPhase.textContent = 'CONTROL MANUAL DE VIENTO (' + Math.round(state.windKmh) + ' KM/H)';
+        }
+      }
+
+      function initWebAudio() {
+        if (audio.ctx) return;
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        var actx = new AudioCtx();
+        var bufferSize = actx.sampleRate * 2;
+        var noiseBuffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+        var output = noiseBuffer.getChannelData(0);
+        var lastOut = 0;
+        for (var i = 0; i < bufferSize; i++) {
+          var white = Math.random() * 2 - 1;
+          output[i] = (lastOut + 0.02 * white) / 1.02;
+          lastOut = output[i];
+        }
+
+        var whiteNoise = actx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+
+        var filter = actx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 260;
+        filter.Q.value = 1.8;
+
+        var gain = actx.createGain();
+        gain.gain.value = 0.0;
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(actx.destination);
+        whiteNoise.start(0);
+
+        audio.ctx = actx;
+        audio.windFilter = filter;
+        audio.windGain = gain;
+      }
+
+      function updateAudio() {
+        if (!audio.enabled || !audio.ctx) return;
+        var normW = clamp(state.windKmh / 120, 0, 1);
+        var flutterMod = 1 + 0.35 * Math.sin(state.vortexPhase) * clamp(state.peakTwistDeg / 20, 0, 1);
+        audio.windFilter.frequency.setTargetAtTime((160 + normW * 540) * flutterMod, audio.ctx.currentTime, 0.08);
+        audio.windGain.gain.setTargetAtTime(normW * 0.16, audio.ctx.currentTime, 0.08);
+      }
+
+      function triggerSnapSound() {
+        if (!audio.enabled || !audio.ctx) return;
+        var osc = audio.ctx.createOscillator();
+        var g = audio.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(520, audio.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(75, audio.ctx.currentTime + 0.24);
+        g.gain.setValueAtTime(0.22, audio.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audio.ctx.currentTime + 0.25);
+        osc.connect(g);
+        g.connect(audio.ctx.destination);
+        osc.start();
+        osc.stop(audio.ctx.currentTime + 0.26);
+      }
+
+      // =========================================================================
+      // CONTROLES INTERACTIVOS E INTERFAZ DE AUDITORIA OBLIGATORIA
+      // =========================================================================
+      elBtnDampers.addEventListener('click', function () {
+        state.dampersActive = !state.dampersActive;
+        syncDamperButtonUI();
+        evaluateAuditMetrics();
+        updateHUD();
+      });
+
+      function onWindSliderInput() {
+        state.autoDemo = false;
+        state.targetWindKmh = clamp(parseFloat(elSliderWind.value) || 0, 0, 130);
+        state.windKmh = state.targetWindKmh;
+        syncDemoBadgeUI();
+        updateHUD();
+      }
+      elSliderWind.addEventListener('input', onWindSliderInput);
+      elSliderWind.addEventListener('change', onWindSliderInput);
+
+      function onTrafficSliderInput() {
+        state.trafficPercent = clamp(parseInt(elSliderTraffic.value, 10) || 0, 0, 250);
+        if (state.trafficPercent === 0) {
+          state.vehicles = [];
+          state.liveTrafficTons = 0;
+        } else if (state.vehicles.length === 0) {
+          spawnInitialTraffic();
+        }
+        updateHUD();
+      }
+      elSliderTraffic.addEventListener('input', onTrafficSliderInput);
+      elSliderTraffic.addEventListener('change', onTrafficSliderInput);
+
+      elBtnRebuild.addEventListener('click', function () {
+        if (state.autoDemo && !state.dampersActive) {
+          state.demoClock = 0;
+          state.windKmh = 18;
+          state.targetWindKmh = 18;
+          elSliderWind.value = '18';
+        }
+        createBridgeStructure();
+        updateHUD();
+      });
+
+      elDemoBtn.addEventListener('click', function () {
+        state.autoDemo = !state.autoDemo;
+        if (state.autoDemo) {
+          state.demoClock = 0;
+          state.windKmh = 18;
+          state.targetWindKmh = 18;
+          if (state.brokenLinks > 0) {
+            createBridgeStructure();
+          }
+        }
+        syncDemoBadgeUI();
+        updateHUD();
+      });
+
+      elBtnAudio.addEventListener('click', function () {
+        initWebAudio();
+        if (!audio.ctx) return;
+        audio.enabled = !audio.enabled;
+        if (audio.ctx.state === 'suspended') {
+          audio.ctx.resume();
+        }
+        if (!audio.enabled && audio.windGain) {
+          audio.windGain.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.05);
+        }
+        elBtnAudio.classList.toggle('sound-on', audio.enabled);
+        elBtnAudioLabel.textContent = audio.enabled ? 'Audio On' : 'Audio Off';
+      });
+
+      window.addEventListener('resize', resizeViewport);
+
+      // Funcion global de auditoria requerida
+      window.__auditBridge = function () {
+        return {
+          cableCount: state.cableCount,
+          windKmh: Math.round(state.windKmh * 100) / 100,
+          maxStressRatio: Math.round(state.maxStressRatio * 1000) / 1000,
+          brokenLinks: state.brokenLinks,
+          dampersActive: Boolean(state.dampersActive)
+        };
+      };
+
+      // =========================================================================
+      // BUCLE PRINCIPAL 60 FPS (ARRANQUE INMEDIATO EN t = 0.0s)
+      // =========================================================================
+      function renderScene(dt) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = '#070B14';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Aplicar transformacion al espacio logico 1920x1080
+        ctx.setTransform(
+          state.viewScale * state.dpr, 0,
+          0, state.viewScale * state.dpr,
+          state.viewOffsetX * state.dpr,
+          state.viewOffsetY * state.dpr
+        );
+
+        drawBackgroundAndGorge();
+        drawRiverAndDynamicReflections();
+        drawCliffsAndAnchorages();
+
+        // Orden de pintor 2.5D: Patas traseras -> Catenaria/Tirantes traseros -> Tablero 3D + Vehiculos -> Catenaria/Tirantes frontales -> Patas frontales -> Flujo Karman
+        drawSteelTowerLeg(IDX_T1, -1);
+        drawSteelTowerLeg(IDX_T2, -1);
+        drawTowerPortalCrossBeams(IDX_T1);
+        drawTowerPortalCrossBeams(IDX_T2);
+
+        drawCatenaryAndSuspenders(-1);
+        drawSegmentedDeckAndTraffic();
+        drawCatenaryAndSuspenders(1);
+
+        drawSteelTowerLeg(IDX_T1, 1);
+        drawSteelTowerLeg(IDX_T2, 1);
+
+        drawKarmanVorticesAndAirflow();
+        ctx.restore();
+
+        renderWindTunnelInset(dt);
+      }
+
+      var lastFrameTs = performance.now();
+      function frameLoop(now) {
+        var rawDt = (now - lastFrameTs) / 1000;
+        lastFrameTs = now;
+        var dt = clamp(rawDt, 0.001, 0.025);
+
+        state.simTime += dt;
+        updateAutoDemo(dt);
+
+        // 10 subpasos RK4 por cuadro (~600 Hz fisicos) para estabilidad total
+        var subSteps = 10;
+        var subDt = dt / subSteps;
+        for (var step = 0; step < subSteps; step++) {
+          stepPhysicsRK4(subDt, false);
+        }
+
+        updateTraffic(dt);
+        updateAerodynamicParticles(dt);
+        updateAudio();
+        updateHUD();
+        renderScene(dt);
+
+        requestAnimationFrame(frameLoop);
+      }
+
+      // Inicializacion inmediata al cargar el script (segundo 0.0)
+      resizeViewport();
+      initAirflowAndTraffic();
+      createBridgeStructure();
+      syncDamperButtonUI();
+      syncDemoBadgeUI();
+      updateHUD();
+      renderScene(0.016);
+      requestAnimationFrame(frameLoop);
+    })();
+  </script>
+</body>
+</html>

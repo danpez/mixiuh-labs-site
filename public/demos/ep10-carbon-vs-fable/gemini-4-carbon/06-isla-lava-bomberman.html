@@ -1,0 +1,3488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Isla de Lava Creciente - Arena Tactica IA vs IA (13x11)</title>
+  <style>
+    :root {
+      --bg-void: #060A12;
+      --bg-panel: #0F172A;
+      --bg-panel-alt: #131E35;
+      --border-dim: #1E293B;
+      --border-cyan: rgba(34, 211, 238, 0.28);
+      --cyan: #22D3EE;
+      --orange: #FB923C;
+      --emerald: #10B981;
+      --gold: #FBBF24;
+      --coral: #F43F5E;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      background-image:
+        radial-gradient(circle at 50% 52%, rgba(251, 146, 60, 0.08) 0%, transparent 58%),
+        radial-gradient(circle at 12% 15%, rgba(34, 211, 238, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 88% 85%, rgba(244, 63, 94, 0.06) 0%, transparent 42%);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-rows: 70px minmax(0, 1fr);
+      width: 100%;
+      height: 100%;
+      padding: 10px 14px 12px;
+      gap: 10px;
+    }
+
+    /* TOP BAR */
+    .top-bar {
+      display: grid;
+      grid-template-columns: 1.15fr auto 1.15fr;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(11, 18, 33, 0.96));
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 0 18px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      gap: 14px;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(244, 63, 94, 0.22));
+      border: 1px solid rgba(251, 146, 60, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 16px rgba(251, 146, 60, 0.2);
+    }
+
+    .brand-titles {
+      min-width: 0;
+    }
+
+    .brand-kicker {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+
+    .brand-main {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* SCOREBOARD CENTER */
+    .series-scoreboard {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(6, 10, 18, 0.78);
+      border: 1px solid #263449;
+      padding: 7px 18px;
+      border-radius: 10px;
+    }
+
+    .score-side {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .score-name {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+
+    .score-name.cyan { color: var(--cyan); }
+    .score-name.coral { color: var(--coral); }
+
+    .win-pips {
+      display: flex;
+      gap: 5px;
+    }
+
+    .win-pip {
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      background: #162033;
+      border: 1px solid #334155;
+      transition: all 0.2s ease;
+    }
+
+    .win-pip.filled-cyan {
+      background: var(--cyan);
+      border-color: #67E8F9;
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.65);
+    }
+
+    .win-pip.filled-coral {
+      background: var(--coral);
+      border-color: #FDA4AF;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.65);
+    }
+
+    .win-pip.filled-gold {
+      background: var(--gold);
+      border-color: #FDE68A;
+      box-shadow: 0 0 10px rgba(251, 191, 36, 0.7);
+    }
+
+    .round-center-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 12px;
+      border-left: 1px solid #1E293B;
+      border-right: 1px solid #1E293B;
+      min-width: 132px;
+    }
+
+    .round-badge {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+
+    .round-clock {
+      font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      font-size: 19px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+      line-height: 1.15;
+    }
+
+    .round-clock.lava-active {
+      color: var(--coral);
+      text-shadow: 0 0 12px rgba(244, 63, 94, 0.55);
+    }
+
+    /* TOP CONTROLS & TELEMETRY */
+    .top-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .telemetry-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(6, 10, 18, 0.75);
+      border: 1px solid #1E293B;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+
+    .ctrl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #162238;
+      color: var(--text-main);
+      border: 1px solid #293B56;
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+      white-space: nowrap;
+    }
+
+    .ctrl-btn:hover {
+      background: #1E2F4D;
+      border-color: var(--cyan);
+    }
+
+    .ctrl-btn:active {
+      transform: translateY(1px);
+    }
+
+    .ctrl-btn.active {
+      background: rgba(34, 211, 238, 0.16);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .ctrl-btn.warn {
+      border-color: rgba(251, 146, 60, 0.45);
+      color: var(--orange);
+    }
+
+    /* MAIN 3-COLUMN STAGE */
+    .main-stage {
+      display: grid;
+      grid-template-columns: 318px minmax(0, 1fr) 326px;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .side-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .panel-card {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(11, 18, 32, 0.95));
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 13px 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .panel-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(34, 211, 238, 0.28);
+    }
+
+    /* FIGHTER CARDS */
+    .fighters-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      overflow-y: auto;
+    }
+
+    .fighter-card {
+      background: rgba(6, 10, 18, 0.72);
+      border: 1px solid #1E293B;
+      border-radius: 10px;
+      padding: 10px 11px;
+      position: relative;
+      transition: border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .fighter-card.cyan-border { border-left: 4px solid var(--cyan); }
+    .fighter-card.coral-border { border-left: 4px solid var(--coral); }
+    .fighter-card.emerald-border { border-left: 4px solid var(--emerald); }
+    .fighter-card.gold-border { border-left: 4px solid var(--gold); }
+
+    .fighter-card.eliminated {
+      opacity: 0.48;
+      filter: grayscale(0.45);
+    }
+
+    .fighter-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .fighter-id {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .fighter-state-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .state-alive {
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.36);
+    }
+
+    .state-dead {
+      background: rgba(244, 63, 94, 0.18);
+      color: var(--coral);
+      border: 1px solid rgba(244, 63, 94, 0.36);
+    }
+
+    .fighter-intent {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #1E293B;
+      border-radius: 6px;
+      padding: 4px 8px;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .stat-chip {
+      background: #0F172A;
+      border: 1px solid #1E293B;
+      border-radius: 6px;
+      padding: 5px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* VOLCANO SEISMIC MONITOR */
+    .volcano-meter-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .seismic-status-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 11px;
+      background: #060A12;
+      border: 1px solid #1E293B;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--emerald), var(--gold), var(--orange), var(--coral));
+      border-radius: 999px;
+      transition: width 0.1s linear;
+    }
+
+    .kpi-grid-2x2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-top: 4px;
+    }
+
+    .kpi-mini {
+      background: rgba(6, 10, 18, 0.72);
+      border: 1px solid #1E293B;
+      border-radius: 8px;
+      padding: 7px 9px;
+    }
+
+    .kpi-mini-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .kpi-mini-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 800;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* CENTER CANVAS CONTAINER */
+    .arena-viewport {
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #130907 0%, #070B14 78%);
+      border: 1px solid #263449;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        inset 0 0 60px rgba(251, 146, 60, 0.14),
+        0 12px 36px rgba(0, 0, 0, 0.55);
+      min-width: 0;
+      min-height: 0;
+    }
+
+    #arenaCanvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /* RIGHT BATTLE LOG & LEGEND */
+    .log-panel {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .battle-feed {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 3px;
+    }
+
+    .battle-feed::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .battle-feed::-webkit-scrollbar-thumb {
+      background: #293B56;
+      border-radius: 4px;
+    }
+
+    .feed-item {
+      background: rgba(6, 10, 18, 0.75);
+      border: 1px solid #1A253A;
+      border-left: 3px solid var(--cyan);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11.5px;
+      line-height: 1.35;
+      color: #E2E8F0;
+    }
+
+    .feed-item.orange { border-left-color: var(--orange); }
+    .feed-item.coral { border-left-color: var(--coral); background: rgba(244, 63, 94, 0.08); }
+    .feed-item.emerald { border-left-color: var(--emerald); }
+    .feed-item.gold { border-left-color: var(--gold); background: rgba(251, 191, 36, 0.09); }
+
+    .feed-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin-right: 5px;
+    }
+
+    /* LEGEND & INTERACTIVE CONTROLS CARD */
+    .legend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: rgba(6, 10, 18, 0.68);
+      border: 1px solid #1E293B;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 11.5px;
+    }
+
+    .legend-badge {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .legend-text strong {
+      display: block;
+      font-size: 11.5px;
+      color: var(--text-main);
+    }
+
+    .legend-text span {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    .quick-controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .quick-controls-grid .ctrl-btn {
+      justify-content: center;
+      padding: 7px 8px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- HEADER -->
+    <header class="top-bar">
+      <div class="brand-block">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 20L8.5 8L12 13L15.5 7L21 20H3Z" stroke="#FB923C" stroke-width="2" stroke-linejoin="round" fill="rgba(251,146,60,0.2)"/>
+            <circle cx="12" cy="4.5" r="2" fill="#F43F5E"/>
+            <path d="M9 4C9.5 2.5 11 2 12 2C13 2 14.5 2.5 15 4" stroke="#FBBF24" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <div class="brand-kicker">LABORATORIO TACTICO 13X11 // 60 FPS</div>
+          <div class="brand-main">ISLA DE LAVA CRECIENTE: DUELO IA VS IA</div>
+        </div>
+      </div>
+
+      <div class="series-scoreboard">
+        <div class="score-side">
+          <span class="score-name cyan" id="scoreLabelLeft">CARBON-01</span>
+          <div class="win-pips" id="pipsLeft">
+            <span class="win-pip"></span>
+            <span class="win-pip"></span>
+            <span class="win-pip"></span>
+          </div>
+        </div>
+
+        <div class="round-center-box">
+          <span class="round-badge" id="roundHeaderLabel">RONDA 1 DE 5</span>
+          <span class="round-clock" id="roundClockLabel">00:00.0</span>
+        </div>
+
+        <div class="score-side">
+          <div class="win-pips" id="pipsRight">
+            <span class="win-pip"></span>
+            <span class="win-pip"></span>
+            <span class="win-pip"></span>
+          </div>
+          <span class="score-name coral" id="scoreLabelRight">VULCAN-02</span>
+        </div>
+      </div>
+
+      <div class="top-right">
+        <div class="telemetry-pill" title="Estado del cerebro tactico IA">
+          <span class="status-dot"></span>
+          <span id="hookStatusText">AI HOOK LISTO</span>
+        </div>
+        <div class="telemetry-pill">
+          <span style="color:var(--text-muted)">FPS</span>
+          <span id="fpsLabel" style="color:var(--cyan)">60</span>
+        </div>
+        <button class="ctrl-btn" id="btnPause" type="button">PAUSAR</button>
+        <button class="ctrl-btn" id="btnSpeed" type="button">VEL: 1.0X</button>
+        <button class="ctrl-btn active" id="btnOverlay" type="button">RUTAS IA: ON</button>
+        <button class="ctrl-btn warn" id="btnResetSeries" type="button">NUEVA SERIE</button>
+      </div>
+    </header>
+
+    <!-- MAIN 3-COLUMN STAGE -->
+    <main class="main-stage">
+      <!-- LEFT TELEMETRY -->
+      <section class="side-column">
+        <div class="panel-card" style="flex: 1; min-height: 0;">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="16" rx="3" stroke="#22D3EE" stroke-width="2"/>
+                <circle cx="9" cy="12" r="2" fill="#22D3EE"/>
+                <circle cx="15" cy="12" r="2" fill="#F43F5E"/>
+              </svg>
+              TELEMETRIA DE AGENTES
+            </div>
+            <span class="panel-tag" id="aliveBadge">2 EN PIE</span>
+          </div>
+          <div class="fighters-stack" id="fightersContainer"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M2 12H6L9 4L15 20L18 12H22" stroke="#FB923C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              ACTIVIDAD VOLCANICA
+            </div>
+            <span class="panel-tag" id="lavaPhaseTag" style="color:var(--orange);border-color:rgba(251,146,60,0.35);background:rgba(251,146,60,0.12)">ESTABLE</span>
+          </div>
+          <div class="volcano-meter-box">
+            <div class="seismic-status-line">
+              <span id="lavaCountdownText" style="color:var(--text-muted)">Hundimiento exterior en 15.0s</span>
+              <span id="islandSafePct" style="color:var(--emerald);font-family:monospace">100% ISLA</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="lavaProgressBar"></div>
+            </div>
+            <div class="kpi-grid-2x2">
+              <div class="kpi-mini">
+                <div class="kpi-mini-label">Cajas Destruidas</div>
+                <div class="kpi-mini-val" id="kpiCrates" style="color:var(--gold)">0</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="kpi-mini-label">Bombas Activas</div>
+                <div class="kpi-mini-val" id="kpiBombs" style="color:var(--cyan)">0</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="kpi-mini-label">Anillos Hundidos</div>
+                <div class="kpi-mini-val" id="kpiRings" style="color:var(--coral)">0 / 4</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="kpi-mini-label">Cadenas Fuego</div>
+                <div class="kpi-mini-val" id="kpiChains" style="color:var(--orange)">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CENTER ARENA -->
+      <section class="arena-viewport" id="arenaViewport">
+        <canvas id="arenaCanvas" width="1180" height="960"></canvas>
+      </section>
+
+      <!-- RIGHT FEED & CONTROLS -->
+      <section class="side-column">
+        <div class="panel-card log-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M4 6H20M4 12H16M4 18H12" stroke="#10B981" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              REGISTRO EN VIVO
+            </div>
+            <span class="panel-tag" style="color:var(--emerald);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.12)">TIEMPO REAL</span>
+          </div>
+          <div class="battle-feed" id="battleFeed"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" stroke="#FBBF24" stroke-width="1.8" fill="none"/>
+              </svg>
+              MEJORAS Y CONTROLES
+            </div>
+            <span class="panel-tag" id="modeBadge">DUELO 2 IA</span>
+          </div>
+
+          <div class="legend-list">
+            <div class="legend-item">
+              <div class="legend-badge" style="background:rgba(34,211,238,0.15);border:1px solid rgba(34,211,238,0.4)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="13" r="7" fill="#22D3EE"/>
+                  <path d="M15 7L18 4" stroke="#FBBF24" stroke-width="2.2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="legend-text">
+                <strong>+1 Bomba Simultanea</strong>
+                <span>Permite desplegar trampas cruzadas</span>
+              </div>
+            </div>
+
+            <div class="legend-item">
+              <div class="legend-badge" style="background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.4)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3C16 8 18 11 18 14.5C18 18 15.3 21 12 21C8.7 21 6 18 6 14.5C6 11 8 8 12 3Z" fill="#FB923C"/>
+                </svg>
+              </div>
+              <div class="legend-text">
+                <strong>+1 Rango de Fuego</strong>
+                <span>Amplia los brazos de plasma en cruz</span>
+              </div>
+            </div>
+
+            <div class="legend-item">
+              <div class="legend-badge" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M13 2L4 14H11L10 22L20 10H13L13 2Z" fill="#10B981"/>
+                </svg>
+              </div>
+              <div class="legend-text">
+                <strong>+Velocidad Tactica</strong>
+                <span>Acelera evasion de ondas y lava (15s+)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="quick-controls-grid">
+            <button class="ctrl-btn" id="btnModeToggle" type="button">MODO: 2 IA</button>
+            <button class="ctrl-btn" id="btnNextRound" type="button">SALTAR RONDA</button>
+            <button class="ctrl-btn" id="btnAudioToggle" type="button">SONIDO: OFF</button>
+            <button class="ctrl-btn" id="btnForceLava" type="button">PULSO LAVA</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // CONSTANTS & GRID CODES
+      // =========================================================================
+      const COLS = 13;
+      const ROWS = 11;
+      const CELL_EMPTY = 0;
+      const CELL_PILLAR = 1;
+      const CELL_CRATE = 2;
+      const CELL_LAVA = 3;
+
+      const BOMB_FUSE_SEC = 2.5;
+      const FLAME_DURATION_SEC = 0.42;
+      const LAVA_START_SEC = 15.0;
+      const LAVA_WARN_LEAD_SEC = 2.4;
+      const LAVA_RING_INTERVAL_SEC = 6.8;
+
+      const DIRS = [
+        { name: 'UP', dc: 0, dr: -1 },
+        { name: 'RIGHT', dc: 1, dr: 0 },
+        { name: 'DOWN', dc: 0, dr: 1 },
+        { name: 'LEFT', dc: -1, dr: 0 }
+      ];
+
+      // =========================================================================
+      // PROCEDURAL WEB AUDIO SYNTHESIZER (SAFE, OPTIONAL, ZERO EXTERNAL ASSETS)
+      // =========================================================================
+      const SoundFX = {
+        enabled: false,
+        ctx: null,
+        ensure() {
+          if (!this.enabled) return null;
+          if (!this.ctx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) this.ctx = new AC();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+          return this.ctx;
+        },
+        bombPlace() {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          const t = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(240, t);
+          osc.frequency.exponentialRampToValueAtTime(115, t + 0.09);
+          g.gain.setValueAtTime(0.09, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.095);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.1);
+        },
+        explode(chainCount) {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          const t = ctx.currentTime;
+          const dur = Math.min(0.42, 0.26 + chainCount * 0.05);
+          const bufSize = Math.floor(ctx.sampleRate * dur);
+          const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < bufSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.32));
+          }
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          const filt = ctx.createBiquadFilter();
+          filt.type = 'lowpass';
+          filt.frequency.setValueAtTime(520 + chainCount * 140, t);
+          filt.frequency.exponentialRampToValueAtTime(75, t + dur);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.18, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+          src.connect(filt);
+          filt.connect(g);
+          g.connect(ctx.destination);
+          src.start(t);
+        },
+        powerup() {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          const t = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, t);
+          osc.frequency.setValueAtTime(660, t + 0.05);
+          osc.frequency.setValueAtTime(880, t + 0.1);
+          g.gain.setValueAtTime(0.08, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.2);
+        },
+        lavaPulse() {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          const t = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(98, t);
+          osc.frequency.linearRampToValueAtTime(62, t + 0.28);
+          g.gain.setValueAtTime(0.09, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.31);
+        }
+      };
+
+      // =========================================================================
+      // PURE TACTICAL BRAIN FOR AI vs AI DUELS: window.decideLavaMove
+      // =========================================================================
+      function classifyExternalCell(val) {
+        if (val === null || val === undefined || val === 0 || val === false || val === '' || val === '.' || val === ' ') {
+          return { terrain: CELL_EMPTY, extraFlame: false, extraBomb: false };
+        }
+        if (typeof val === 'number') {
+          if (val === 1) return { terrain: CELL_PILLAR, extraFlame: false, extraBomb: false };
+          if (val === 2) return { terrain: CELL_CRATE, extraFlame: false, extraBomb: false };
+          if (val === 3 || val === -1 || val >= 4) return { terrain: CELL_LAVA, extraFlame: false, extraBomb: false };
+          return { terrain: CELL_EMPTY, extraFlame: false, extraBomb: false };
+        }
+        if (typeof val === 'object') {
+          const inner = val.type ?? val.kind ?? val.cell ?? val.state ?? 0;
+          return classifyExternalCell(inner);
+        }
+        const s = String(val).toLowerCase().trim();
+        if (s === '0' || s === 'empty' || s === 'floor' || s === 'ground' || s === 'open') {
+          return { terrain: CELL_EMPTY, extraFlame: false, extraBomb: false };
+        }
+        if (s === '1' || s === '#' || s === 'w' || s === 'p' || s.includes('pillar') || s.includes('wall') || s.includes('solid') || s.includes('rock')) {
+          return { terrain: CELL_PILLAR, extraFlame: false, extraBomb: false };
+        }
+        if (s === '2' || s === 'c' || s === 'b' || s.includes('crate') || s.includes('box') || s.includes('brick') || s.includes('wood') || s.includes('soft')) {
+          return { terrain: CELL_CRATE, extraFlame: false, extraBomb: false };
+        }
+        if (s === '3' || s === 'l' || s === 'x' || s.includes('lava') || s.includes('magma') || s.includes('sunk') || s.includes('void')) {
+          return { terrain: CELL_LAVA, extraFlame: false, extraBomb: false };
+        }
+        if (s.includes('flame') || s.includes('fire')) {
+          return { terrain: CELL_EMPTY, extraFlame: true, extraBomb: false };
+        }
+        if (s.includes('bomb')) {
+          return { terrain: CELL_EMPTY, extraFlame: false, extraBomb: true };
+        }
+        return { terrain: CELL_EMPTY, extraFlame: false, extraBomb: false };
+      }
+
+      function normalizeBombTimerSec(raw) {
+        if (raw === undefined || raw === null || Number.isNaN(Number(raw))) return BOMB_FUSE_SEC;
+        const v = Math.max(0, Number(raw));
+        if (v > 200) return v / 1000;
+        if (v > 12) return v / 60;
+        return v;
+      }
+
+      function normalizePlayerSpeedCellsPerSec(rawSpeed) {
+        const v = Number(rawSpeed);
+        if (!Number.isFinite(v) || v <= 0) return 3.6;
+        if (v >= 20) return Math.min(6.5, Math.max(2.8, v / 56));
+        if (v >= 2.3 && v <= 12) return Math.min(6.5, v);
+        return Math.min(6.5, Math.max(2.8, v * 3.6));
+      }
+
+      function hashIdTieBreak(id) {
+        const s = String(id ?? '0');
+        let h = 0;
+        for (let i = 0; i < s.length; i++) {
+          h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+        }
+        return Math.abs(h);
+      }
+
+      window.decideLavaMove = function decideLavaMove(arenaState, meId) {
+        if (!arenaState || typeof arenaState !== 'object') {
+          return { action: 'STAY', placeBomb: false };
+        }
+
+        const rawGrid = arenaState.grid || [];
+        const cols = Number(arenaState.cols) || (Array.isArray(rawGrid[0]) ? rawGrid[0].length : COLS);
+        const rows = Number(arenaState.rows) || (Array.isArray(rawGrid) && Array.isArray(rawGrid[0]) ? rawGrid.length : ROWS);
+
+        const players = Array.isArray(arenaState.players) ? arenaState.players : [];
+        let me = players.find(p => p && (p.id === meId || String(p.id) === String(meId)));
+        if (!me) me = players.find(p => p && p.alive !== false);
+        if (!me || me.alive === false) {
+          return { action: 'STAY', placeBomb: false };
+        }
+
+        const meRawC = Number(me.c ?? me.col ?? me.x ?? 0);
+        const meRawR = Number(me.r ?? me.row ?? me.y ?? 0);
+        const mc = Math.max(0, Math.min(cols - 1, Math.round(meRawC)));
+        const mr = Math.max(0, Math.min(rows - 1, Math.round(meRawR)));
+
+        // Build normalized 2D maps
+        const terrain = Array.from({ length: rows }, () => new Uint8Array(cols));
+        const isFlame = Array.from({ length: rows }, () => new Uint8Array(cols));
+        const isLavaNext = Array.from({ length: rows }, () => new Uint8Array(cols));
+        const bombGrid = Array.from({ length: rows }, () => new Uint8Array(cols));
+
+        const isRowMajor = Array.isArray(rawGrid[0]) && rawGrid.length === rows;
+        const isColMajor = Array.isArray(rawGrid[0]) && !isRowMajor && rawGrid.length === cols;
+        const isFlat = !Array.isArray(rawGrid[0]) && rawGrid.length >= cols * rows;
+
+        const extraGridBombs = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            let rawVal = 0;
+            if (isRowMajor) rawVal = rawGrid[r]?.[c];
+            else if (isColMajor) rawVal = rawGrid[c]?.[r];
+            else if (isFlat) rawVal = rawGrid[r * cols + c];
+            const info = classifyExternalCell(rawVal);
+            terrain[r][c] = info.terrain;
+            if (info.extraFlame) isFlame[r][c] = 1;
+            if (info.extraBomb) extraGridBombs.push({ c, r, timerLeft: 2.0, range: 2 });
+          }
+        }
+
+        if (Array.isArray(arenaState.flames)) {
+          for (let i = 0; i < arenaState.flames.length; i++) {
+            const f = arenaState.flames[i];
+            if (!f) continue;
+            const fc = Math.round(Number(f.c ?? f.col ?? f.x ?? -1));
+            const fr = Math.round(Number(f.r ?? f.row ?? f.y ?? -1));
+            if (fc >= 0 && fc < cols && fr >= 0 && fr < rows) {
+              isFlame[fr][fc] = 1;
+            }
+          }
+        }
+
+        let anyLavaNext = false;
+        if (Array.isArray(arenaState.lavaNextCells)) {
+          for (let i = 0; i < arenaState.lavaNextCells.length; i++) {
+            const lv = arenaState.lavaNextCells[i];
+            if (!lv) continue;
+            const lc = Math.round(Number(lv.c ?? lv.col ?? lv.x ?? -1));
+            const lr = Math.round(Number(lv.r ?? lv.row ?? lv.y ?? -1));
+            if (lc >= 0 && lc < cols && lr >= 0 && lr < rows) {
+              isLavaNext[lr][lc] = 1;
+              anyLavaNext = true;
+            }
+          }
+        }
+
+        const bombsList = [];
+        const rawBombs = Array.isArray(arenaState.bombs) ? arenaState.bombs : [];
+        for (let i = 0; i < rawBombs.length; i++) {
+          const b = rawBombs[i];
+          if (!b) continue;
+          const bc = Math.round(Number(b.c ?? b.col ?? b.x ?? -1));
+          const br = Math.round(Number(b.r ?? b.row ?? b.y ?? -1));
+          if (bc < 0 || bc >= cols || br < 0 || br >= rows) continue;
+          bombGrid[br][bc] = 1;
+          bombsList.push({
+            c: bc,
+            r: br,
+            timerLeft: normalizeBombTimerSec(b.timerLeft ?? b.timer ?? b.fuse ?? BOMB_FUSE_SEC),
+            range: Math.max(1, Math.round(Number(b.range ?? b.flameRange ?? b.radius ?? 2))),
+            owner: b.owner
+          });
+        }
+        for (let i = 0; i < extraGridBombs.length; i++) {
+          const eb = extraGridBombs[i];
+          if (!bombGrid[eb.r][eb.c]) {
+            bombGrid[eb.r][eb.c] = 1;
+            bombsList.push(eb);
+          }
+        }
+
+        const powerupMap = Array.from({ length: rows }, () => new Array(cols).fill(null));
+        const rawPowerups = Array.isArray(arenaState.powerups) ? arenaState.powerups : [];
+        for (let i = 0; i < rawPowerups.length; i++) {
+          const pu = rawPowerups[i];
+          if (!pu) continue;
+          const pc = Math.round(Number(pu.c ?? pu.col ?? pu.x ?? -1));
+          const pr = Math.round(Number(pu.r ?? pu.row ?? pu.y ?? -1));
+          if (pc >= 0 && pc < cols && pr >= 0 && pr < rows) {
+            powerupMap[pr][pc] = String(pu.kind || 'bonus').toLowerCase();
+          }
+        }
+
+        const rivals = [];
+        for (let i = 0; i < players.length; i++) {
+          const p = players[i];
+          if (!p || p === me || p.alive === false) continue;
+          if (p.id !== undefined && (p.id === me.id || String(p.id) === String(me.id))) continue;
+          const rc = Math.max(0, Math.min(cols - 1, Math.round(Number(p.c ?? p.col ?? p.x ?? 0))));
+          const rr = Math.max(0, Math.min(rows - 1, Math.round(Number(p.r ?? p.row ?? p.y ?? 0))));
+          rivals.push({ c: rc, r: rr, rawC: Number(p.c ?? rc), rawR: Number(p.r ?? rr), range: Math.max(1, Number(p.flameRange ?? 2)) });
+        }
+
+        // Conservative travel timing (includes safety cushion)
+        const baseCellsPerSec = normalizePlayerSpeedCellsPerSec(me.speed);
+        const conservativeSpeed = baseCellsPerSec * 0.80;
+        const stepSec = 1.0 / conservativeSpeed;
+        const meFlameRange = Math.max(1, Math.round(Number(me.flameRange ?? 2)));
+        const meBombsAvail = Number(me.bombsAvail ?? 1);
+        const dirRot = hashIdTieBreak(me.id ?? meId) % 4;
+
+        // Ordered directions for deterministic variety per player ID
+        const orderedDirs = [
+          DIRS[dirRot],
+          DIRS[(dirRot + 1) % 4],
+          DIRS[(dirRot + 2) % 4],
+          DIRS[(dirRot + 3) % 4]
+        ];
+
+        // Compute chain-explosion blast timer map
+        function computeBlastTimerMap(bList) {
+          const n = bList.length;
+          const effTimer = new Float64Array(n);
+          const rays = new Array(n);
+
+          for (let i = 0; i < n; i++) {
+            const b = bList[i];
+            effTimer[i] = b.timerLeft;
+            const cells = [{ c: b.c, r: b.r }];
+            for (let d = 0; d < 4; d++) {
+              const dc = DIRS[d].dc;
+              const dr = DIRS[d].dr;
+              for (let k = 1; k <= b.range; k++) {
+                const nc = b.c + dc * k;
+                const nr = b.r + dr * k;
+                if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) break;
+                const t = terrain[nr][nc];
+                if (t === CELL_PILLAR) break;
+                cells.push({ c: nc, r: nr });
+                if (t === CELL_CRATE) break;
+              }
+            }
+            rays[i] = cells;
+          }
+
+          // Chain relaxation: if bomb A hits bomb B's cell, B detonates at min(effB, effA)
+          let changed = true;
+          let guard = 0;
+          while (changed && guard < n + 2) {
+            changed = false;
+            guard++;
+            for (let i = 0; i < n; i++) {
+              const cells = rays[i];
+              const ti = effTimer[i];
+              for (let j = 0; j < n; j++) {
+                if (i === j || effTimer[j] <= ti) continue;
+                const bj = bList[j];
+                for (let k = 0; k < cells.length; k++) {
+                  if (cells[k].c === bj.c && cells[k].r === bj.r) {
+                    effTimer[j] = ti;
+                    changed = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          const minTimer = Array.from({ length: rows }, () => new Float64Array(cols).fill(Infinity));
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              if (isFlame[r][c] || terrain[r][c] === CELL_LAVA) {
+                minTimer[r][c] = 0;
+              }
+            }
+          }
+          for (let i = 0; i < n; i++) {
+            const ti = effTimer[i];
+            const cells = rays[i];
+            for (let k = 0; k < cells.length; k++) {
+              const cc = cells[k].c;
+              const cr = cells[k].r;
+              if (ti < minTimer[cr][cc]) {
+                minTimer[cr][cc] = ti;
+              }
+            }
+          }
+          return minTimer;
+        }
+
+        const curMinTimer = computeBlastTimerMap(bombsList);
+
+        // Count total non-lava walkable + crate cells for arena tightness awareness
+        let totalSafeFloor = 0;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (terrain[r][c] === CELL_EMPTY && !isLavaNext[r][c]) totalSafeFloor++;
+          }
+        }
+
+        // Continuous coordinate lane alignment helper so bots never clip pillar corners
+        function alignMove(desiredAction, dangerMap) {
+          const offC = meRawC - mc;
+          const offR = meRawR - mr;
+          if (desiredAction === 'UP' || desiredAction === 'DOWN') {
+            const dr = desiredAction === 'UP' ? -1 : 1;
+            const nr = mr + dr;
+            if (offC > 0.16) {
+              const diagBlocked = (mc + 1 >= cols) || terrain[nr]?.[mc + 1] !== CELL_EMPTY || bombGrid[nr]?.[mc + 1] || (dangerMap[mr]?.[mc + 1] < Infinity);
+              if (diagBlocked) return 'LEFT';
+            } else if (offC < -0.16) {
+              const diagBlocked = (mc - 1 < 0) || terrain[nr]?.[mc - 1] !== CELL_EMPTY || bombGrid[nr]?.[mc - 1] || (dangerMap[mr]?.[mc - 1] < Infinity);
+              if (diagBlocked) return 'RIGHT';
+            }
+          } else if (desiredAction === 'LEFT' || desiredAction === 'RIGHT') {
+            const dc = desiredAction === 'LEFT' ? -1 : 1;
+            const nc = mc + dc;
+            if (offR > 0.16) {
+              const diagBlocked = (mr + 1 >= rows) || terrain[mr + 1]?.[nc] !== CELL_EMPTY || bombGrid[mr + 1]?.[nc] || (dangerMap[mr + 1]?.[mc] < Infinity);
+              if (diagBlocked) return 'UP';
+            } else if (offR < -0.16) {
+              const diagBlocked = (mr - 1 < 0) || terrain[mr - 1]?.[nc] !== CELL_EMPTY || bombGrid[mr - 1]?.[nc] || (dangerMap[mr - 1]?.[mc] < Infinity);
+              if (diagBlocked) return 'DOWN';
+            }
+          } else if (desiredAction === 'STAY') {
+            if (offC > 0.15 && (mc + 1 < cols) && (dangerMap[mr][mc + 1] < Infinity || isLavaNext[mr][mc + 1] || terrain[mr][mc + 1] !== CELL_EMPTY)) {
+              return 'LEFT';
+            }
+            if (offC < -0.15 && (mc - 1 >= 0) && (dangerMap[mr][mc - 1] < Infinity || isLavaNext[mr][mc - 1] || terrain[mr][mc - 1] !== CELL_EMPTY)) {
+              return 'RIGHT';
+            }
+            if (offR > 0.15 && (mr + 1 < rows) && (dangerMap[mr + 1][mc] < Infinity || isLavaNext[mr + 1][mc] || terrain[mr + 1][mc] !== CELL_EMPTY)) {
+              return 'UP';
+            }
+            if (offR < -0.15 && (mr - 1 >= 0) && (dangerMap[mr - 1][mc] < Infinity || isLavaNext[mr - 1][mc] || terrain[mr - 1][mc] !== CELL_EMPTY)) {
+              return 'DOWN';
+            }
+          }
+          return desiredAction;
+        }
+
+        // Space-Time Escape BFS from (startC, startR)
+        function runEscapeBFS(startC, startR, minTimer, bGrid, blockRivalCells, startOffsetSec) {
+          const arrival = Array.from({ length: rows }, () => new Float64Array(rows ? cols : 0).fill(Infinity));
+          const firstDir = Array.from({ length: rows }, () => new Array(cols).fill(null));
+          const minSlack = Array.from({ length: rows }, () => new Float64Array(cols).fill(-Infinity));
+
+          arrival[startR][startC] = startOffsetSec;
+          minSlack[startR][startC] = Infinity;
+
+          const queue = [{ c: startC, r: startR, t: startOffsetSec, dir: null, slack: Infinity }];
+          let head = 0;
+
+          while (head < queue.length) {
+            const cur = queue[head++];
+            if (cur.t > arrival[cur.r][cur.c] + 0.001) continue;
+
+            for (let i = 0; i < 4; i++) {
+              const d = orderedDirs[i];
+              const nc = cur.c + d.dc;
+              const nr = cur.r + d.dr;
+              if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+              if (terrain[nr][nc] !== CELL_EMPTY) continue;
+              if (bGrid[nr][nc]) continue;
+              if (isFlame[nr][nc]) continue;
+              if (blockRivalCells && blockRivalCells[nr][nc]) continue;
+
+              const turnCost = (cur.dir && cur.dir !== d.name) ? 0.055 : 0;
+              const nextT = cur.t + stepSec + turnCost;
+
+              // Check leaving current cell before detonation
+              const leaveLimit = minTimer[cur.r][cur.c];
+              let stepSlack = cur.slack;
+              if (leaveLimit < Infinity) {
+                const marginLeave = leaveLimit - (cur.t + stepSec * 0.55);
+                if (cur.c === startC && cur.r === startR) {
+                  // Emergency evacuation allowed even on tight timers
+                  if (leaveLimit <= cur.t + 0.04) continue;
+                } else if (marginLeave < 0.16) {
+                  continue;
+                }
+                if (marginLeave < stepSlack) stepSlack = marginLeave;
+              }
+
+              // Check entering next cell before detonation
+              const enterLimit = minTimer[nr][nc];
+              if (enterLimit < Infinity) {
+                const marginEnter = enterLimit - (nextT + 0.34);
+                if (marginEnter < 0.08) continue;
+                if (marginEnter < stepSlack) stepSlack = marginEnter;
+              }
+
+              if (nextT < arrival[nr][nc] - 0.001 || (Math.abs(nextT - arrival[nr][nc]) <= 0.02 && stepSlack > minSlack[nr][nc])) {
+                arrival[nr][nc] = nextT;
+                const fDir = cur.dir || d.name;
+                firstDir[nr][nc] = fDir;
+                minSlack[nr][nc] = stepSlack;
+                queue.push({ c: nc, r: nr, t: nextT, dir: fDir, slack: stepSlack });
+              }
+            }
+          }
+
+          const safeRefuges = [];
+          const emergencyCells = [];
+
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              if (c === startC && r === startR) continue;
+              if (arrival[r][c] === Infinity) continue;
+              const isCompletelySafe = (minTimer[r][c] === Infinity) && !isLavaNext[r][c] && !isFlame[r][c] && terrain[r][c] === CELL_EMPTY;
+              if (isCompletelySafe) {
+                safeRefuges.push({
+                  c,
+                  r,
+                  arrival: arrival[r][c],
+                  firstDir: firstDir[r][c],
+                  slack: minSlack[r][c]
+                });
+              } else if (terrain[r][c] === CELL_EMPTY && !isFlame[r][c]) {
+                emergencyCells.push({
+                  c,
+                  r,
+                  arrival: arrival[r][c],
+                  firstDir: firstDir[r][c],
+                  surviveUntil: isLavaNext[r][c] ? Math.min(minTimer[r][c], 1.2) : minTimer[r][c]
+                });
+              }
+            }
+          }
+
+          return { safeRefuges, emergencyCells, arrival };
+        }
+
+        // Connected safe pocket size around (sc, sr) up to cap 6
+        function countSafePocketSize(sc, sr, minTimer, bGrid, blockRivalCells) {
+          if (minTimer[sr][sc] < Infinity || isLavaNext[sr][sc] || terrain[sr][sc] !== CELL_EMPTY) return 0;
+          const seen = new Set([sr * cols + sc]);
+          const q = [{ c: sc, r: sr }];
+          let idx = 0;
+          while (idx < q.length && seen.size < 6) {
+            const u = q[idx++];
+            for (let d = 0; d < 4; d++) {
+              const nc = u.c + DIRS[d].dc;
+              const nr = u.r + DIRS[d].dr;
+              if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+              const key = nr * cols + nc;
+              if (seen.has(key)) continue;
+              if (terrain[nr][nc] !== CELL_EMPTY || bGrid[nr][nc] || isFlame[nr][nc] || isLavaNext[nr][nc]) continue;
+              if (minTimer[nr][nc] < Infinity) continue;
+              if (blockRivalCells && blockRivalCells[nr][nc]) continue;
+              seen.add(key);
+              q.push({ c: nc, r: nr });
+            }
+          }
+          return seen.size;
+        }
+
+        const centerC = (cols - 1) * 0.5;
+        const centerR = (rows - 1) * 0.5;
+
+        // =====================================================================
+        // PRIORITY 1: EVACUATE IMMEDIATELY IF CURRENT CELL IS IN ANY DANGER
+        // =====================================================================
+        const inDangerNow =
+          isFlame[mr][mc] === 1 ||
+          terrain[mr][mc] === CELL_LAVA ||
+          isLavaNext[mr][mc] === 1 ||
+          curMinTimer[mr][mc] < Infinity ||
+          bombGrid[mr][mc] === 1;
+
+        if (inDangerNow) {
+          const offsetPenalty = Math.min(0.18, Math.hypot(meRawC - mc, meRawR - mr) * stepSec);
+          const esc = runEscapeBFS(mc, mr, curMinTimer, bombGrid, null, offsetPenalty);
+
+          if (esc.safeRefuges.length > 0) {
+            let bestRef = null;
+            let bestScore = -Infinity;
+            for (let i = 0; i < esc.safeRefuges.length; i++) {
+              const ref = esc.safeRefuges[i];
+              const pocket = countSafePocketSize(ref.c, ref.r, curMinTimer, bombGrid, null);
+              const distCenter = Math.abs(ref.c - centerC) + Math.abs(ref.r - centerR);
+              const clampedSlack = Math.min(2.0, ref.slack);
+              let rivalPenalty = 0;
+              for (let k = 0; k < rivals.length; k++) {
+                if (rivals[k].c === ref.c && rivals[k].r === ref.r) rivalPenalty += 22;
+              }
+              const puBonus = powerupMap[ref.r][ref.c] ? 10 : 0;
+              const score =
+                (clampedSlack >= 0.42 ? 500 : clampedSlack * 900) -
+                ref.arrival * 55 +
+                pocket * 16 -
+                distCenter * 2.2 +
+                puBonus -
+                rivalPenalty;
+
+              if (score > bestScore) {
+                bestScore = score;
+                bestRef = ref;
+              }
+            }
+            return { action: alignMove(bestRef.firstDir, curMinTimer), placeBomb: false };
+          }
+
+          // Emergency survival maximization if surrounded by crossfire
+          if (esc.emergencyCells.length > 0) {
+            let bestEmerg = esc.emergencyCells[0];
+            for (let i = 1; i < esc.emergencyCells.length; i++) {
+              if (esc.emergencyCells[i].surviveUntil > bestEmerg.surviveUntil) {
+                bestEmerg = esc.emergencyCells[i];
+              }
+            }
+            if (bestEmerg.surviveUntil > curMinTimer[mr][mc] + 0.15) {
+              return { action: alignMove(bestEmerg.firstDir, curMinTimer), placeBomb: false };
+            }
+          }
+          return { action: alignMove('STAY', curMinTimer), placeBomb: false };
+        }
+
+        // =====================================================================
+        // HELPER: HYPOTHETICAL BOMB SIMULATION AT (bc, br)
+        // =====================================================================
+        function evaluateHypotheticalBomb(bc, br) {
+          if (terrain[br][bc] !== CELL_EMPTY || bombGrid[br][bc] || isFlame[br][bc] || isLavaNext[br][bc]) {
+            return null;
+          }
+          if (curMinTimer[br][bc] < Infinity) {
+            return null;
+          }
+
+          const hypBombs = bombsList.slice();
+          hypBombs.push({ c: bc, r: br, timerLeft: BOMB_FUSE_SEC, range: meFlameRange, owner: me.id });
+          const hypMinTimer = computeBlastTimerMap(hypBombs);
+
+          const hypBombGrid = bombGrid.map(row => Uint8Array.from(row));
+          hypBombGrid[br][bc] = 1;
+
+          // Mark nearby rivals' cells as potentially blocked so rivals can never body/bomb-trap us
+          const rivalBlock = Array.from({ length: rows }, () => new Uint8Array(cols));
+          let nearestRivalDistToBomb = Infinity;
+          for (let i = 0; i < rivals.length; i++) {
+            const rv = rivals[i];
+            const d = Math.abs(rv.c - bc) + Math.abs(rv.r - br);
+            if (d < nearestRivalDistToBomb) nearestRivalDistToBomb = d;
+            if (d <= 4 && !(rv.c === bc && rv.r === br)) {
+              rivalBlock[rv.r][rv.c] = 1;
+            }
+          }
+
+          const initOffset = (bc === mc && br === mr) ? Math.min(0.14, Math.hypot(meRawC - mc, meRawR - mr) * stepSec) : 0;
+          const esc = runEscapeBFS(bc, br, hypMinTimer, hypBombGrid, rivalBlock, initOffset);
+
+          let bestEscape = null;
+          let bestEscScore = -Infinity;
+          for (let i = 0; i < esc.safeRefuges.length; i++) {
+            const ref = esc.safeRefuges[i];
+            if (ref.slack < 0.68 || ref.arrival > 1.65) continue;
+            const pocket = countSafePocketSize(ref.c, ref.r, hypMinTimer, hypBombGrid, rivalBlock);
+            let minRivDistRef = Infinity;
+            for (let k = 0; k < rivals.length; k++) {
+              const rd = Math.abs(rivals[k].c - ref.c) + Math.abs(rivals[k].r - ref.r);
+              if (rd < minRivDistRef) minRivDistRef = rd;
+            }
+            if (pocket < 2 && minRivDistRef <= 4 && totalSafeFloor > 15) continue;
+
+            const distCenter = Math.abs(ref.c - centerC) + Math.abs(ref.r - centerR);
+            const sc = pocket * 22 - ref.arrival * 32 + Math.min(1.8, ref.slack) * 25 - distCenter * 2.0;
+            if (sc > bestEscScore) {
+              bestEscScore = sc;
+              bestEscape = ref;
+            }
+          }
+
+          if (!bestEscape) return null;
+
+          // Evaluate offensive & crate-breaking value of bomb at (bc, br)
+          let cratesHit = 0;
+          let powerupsHit = 0;
+          let directRivalThreat = 0;
+
+          for (let i = 0; i < rivals.length; i++) {
+            if (rivals[i].c === bc && rivals[i].r === br) directRivalThreat += 65;
+          }
+
+          for (let d = 0; d < 4; d++) {
+            const dc = DIRS[d].dc;
+            const dr = DIRS[d].dr;
+            for (let k = 1; k <= meFlameRange; k++) {
+              const nc = bc + dc * k;
+              const nr = br + dr * k;
+              if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) break;
+              const t = terrain[nr][nc];
+              if (t === CELL_PILLAR) break;
+              if (t === CELL_CRATE) {
+                // Only count crate if not ALREADY about to be destroyed by an existing bomb
+                if (curMinTimer[nr][nc] === Infinity) cratesHit++;
+                break;
+              }
+              if (powerupMap[nr][nc]) powerupsHit++;
+              for (let rIdx = 0; rIdx < rivals.length; rIdx++) {
+                const rv = rivals[rIdx];
+                if (rv.c === nc && rv.r === nr) {
+                  directRivalThreat += 65;
+                } else if (Math.abs(rv.c - nc) + Math.abs(rv.r - nr) === 1 && nearestRivalDistToBomb <= 4) {
+                  directRivalThreat += 18;
+                }
+              }
+            }
+          }
+
+          // Check how much rival safe space shrinks if rival is close
+          if (nearestRivalDistToBomb <= 5 && rivals.length > 0) {
+            for (let rIdx = 0; rIdx < rivals.length; rIdx++) {
+              const rv = rivals[rIdx];
+              if (Math.abs(rv.c - bc) + Math.abs(rv.r - br) <= 5) {
+                const beforePocket = countSafePocketSize(rv.c, rv.r, curMinTimer, bombGrid, null);
+                const afterPocket = countSafePocketSize(rv.c, rv.r, hypMinTimer, hypBombGrid, null);
+                if (afterPocket === 0) directRivalThreat += 55;
+                else if (afterPocket < beforePocket) directRivalThreat += (beforePocket - afterPocket) * 14;
+              }
+            }
+          }
+
+          const totalUtility = directRivalThreat + cratesHit * 28 - (directRivalThreat >= 45 ? 0 : powerupsHit * 40);
+          return {
+            escape: bestEscape,
+            cratesHit,
+            powerupsHit,
+            directRivalThreat,
+            utility: totalUtility
+          };
+        }
+
+        // =====================================================================
+        // SAFE SUBGRAPH BFS (STRICT ZERO-SUICIDE INVARIANT: ONLY SAFE CELLS!)
+        // =====================================================================
+        const safeDist = Array.from({ length: rows }, () => new Int16Array(cols).fill(-1));
+        const safeStepDir = Array.from({ length: rows }, () => new Array(cols).fill(null));
+        safeDist[mr][mc] = 0;
+        const safeQueue = [{ c: mc, r: mr }];
+        let sqHead = 0;
+
+        while (sqHead < safeQueue.length) {
+          const u = safeQueue[sqHead++];
+          const nextD = safeDist[u.r][u.c] + 1;
+          for (let i = 0; i < 4; i++) {
+            const d = orderedDirs[i];
+            const nc = u.c + d.dc;
+            const nr = u.r + d.dr;
+            if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+            if (safeDist[nr][nc] !== -1) continue;
+            if (terrain[nr][nc] !== CELL_EMPTY) continue;
+            if (bombGrid[nr][nc] || isFlame[nr][nc] || isLavaNext[nr][nc]) continue;
+            if (curMinTimer[nr][nc] < Infinity) continue;
+
+            safeDist[nr][nc] = nextD;
+            safeStepDir[nr][nc] = safeStepDir[u.r][u.c] || d.name;
+            safeQueue.push({ c: nc, r: nr });
+          }
+        }
+
+        // =====================================================================
+        // PRIORITY 2: PLACE TACTICAL BOMB AT CURRENT CELL IF HIGH UTILITY & SAFE
+        // =====================================================================
+        let hereEval = null;
+        if (meBombsAvail > 0 && !bombGrid[mr][mc]) {
+          hereEval = evaluateHypotheticalBomb(mc, mr);
+          if (hereEval && hereEval.utility > 0) {
+            const centeredEnough = Math.hypot(meRawC - mc, meRawR - mr) <= 0.19;
+            // Check if a 1-step safe neighbor offers dramatically better crate yield
+            let neighborMuchBetter = false;
+            if (hereEval.directRivalThreat < 40 && hereEval.cratesHit === 1) {
+              for (let i = 0; i < 4; i++) {
+                const d = orderedDirs[i];
+                const nc = mc + d.dc;
+                const nr = mr + d.dr;
+                if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && safeDist[nr][nc] === 1) {
+                  const nEval = evaluateHypotheticalBomb(nc, nr);
+                  if (nEval && nEval.cratesHit >= 2 && nEval.powerupsHit === 0) {
+                    neighborMuchBetter = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (!neighborMuchBetter && (hereEval.directRivalThreat >= 36 || (hereEval.cratesHit >= 1 && hereEval.powerupsHit === 0))) {
+              if (centeredEnough) {
+                return {
+                  action: alignMove(hereEval.escape.firstDir, curMinTimer),
+                  placeBomb: true
+                };
+              } else {
+                // Center onto (mc, mr) first so bomb lands cleanly on (mc, mr)
+                const dx = mc - meRawC;
+                const dy = mr - meRawR;
+                const centerDir = Math.abs(dx) >= Math.abs(dy)
+                  ? (dx > 0 ? 'RIGHT' : 'LEFT')
+                  : (dy > 0 ? 'DOWN' : 'UP');
+                return { action: centerDir, placeBomb: false };
+              }
+            }
+          }
+        }
+
+        // =====================================================================
+        // PRIORITY 3: COLLECT SAFE REACHABLE POWERUPS
+        // =====================================================================
+        let bestPuDir = null;
+        let bestPuScore = -Infinity;
+        for (let idx = 1; idx < safeQueue.length; idx++) {
+          const cell = safeQueue[idx];
+          const kind = powerupMap[cell.r][cell.c];
+          if (!kind) continue;
+          const dist = safeDist[cell.r][cell.c];
+          if (dist > 9) continue;
+          let kindVal = 36;
+          if (kind.includes('bomb') && meBombsAvail <= 1) kindVal = 48;
+          else if (kind.includes('range') || kind.includes('flame') || kind.includes('fire')) kindVal = 44;
+          else if (kind.includes('speed') || kind.includes('vel')) kindVal = 45;
+
+          const score = kindVal - dist * 4.5;
+          if (score > bestPuScore) {
+            bestPuScore = score;
+            bestPuDir = safeStepDir[cell.r][cell.c];
+          }
+        }
+        if (bestPuDir) {
+          return { action: alignMove(bestPuDir, curMinTimer), placeBomb: false };
+        }
+
+        // =====================================================================
+        // PRIORITY 4: MOVE TO BEST SAFE BOMBING SPOT (CRATES OR RIVAL PRESSURE)
+        // =====================================================================
+        if (meBombsAvail > 0) {
+          let bestTargetDir = null;
+          let bestTargetScore = -Infinity;
+
+          for (let idx = 1; idx < safeQueue.length; idx++) {
+            const cell = safeQueue[idx];
+            const dist = safeDist[cell.r][cell.c];
+            const ev = evaluateHypotheticalBomb(cell.c, cell.r);
+            if (!ev || ev.utility <= 0) continue;
+
+            const distCenter = Math.abs(cell.c - centerC) + Math.abs(cell.r - centerR);
+            const score = ev.utility - dist * 5.8 - distCenter * (anyLavaNext ? 2.8 : 1.0);
+            if (score > bestTargetScore) {
+              bestTargetScore = score;
+              bestTargetDir = safeStepDir[cell.r][cell.c];
+            }
+          }
+
+          if (bestTargetDir) {
+            return { action: alignMove(bestTargetDir, curMinTimer), placeBomb: false };
+          }
+        }
+
+        // =====================================================================
+        // PRIORITY 5: STRATEGIC CENTER CONTROL & STALKING WHILE SAFE
+        // =====================================================================
+        let bestPosCell = { c: mc, r: mr };
+        let bestPosScore = -Infinity;
+        const desiredRivalDist = meBombsAvail > 0 ? 2.2 : 4.2;
+
+        for (let idx = 0; idx < safeQueue.length; idx++) {
+          const cell = safeQueue[idx];
+          const dist = safeDist[cell.r][cell.c];
+
+          // Count open safe neighbors for mobility
+          let openDeg = 0;
+          for (let d = 0; d < 4; d++) {
+            const nc = cell.c + DIRS[d].dc;
+            const nr = cell.r + DIRS[d].dr;
+            if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && safeDist[nr][nc] !== -1) {
+              openDeg++;
+            }
+          }
+
+          const distCenter = Math.abs(cell.c - centerC) + Math.abs(cell.r - centerR);
+          let rivalTerm = 0;
+          if (rivals.length > 0) {
+            let minRD = Infinity;
+            for (let k = 0; k < rivals.length; k++) {
+              const rd = Math.abs(rivals[k].c - cell.c) + Math.abs(rivals[k].r - cell.r);
+              if (rd < minRD) minRD = rd;
+            }
+            rivalTerm = -Math.abs(minRD - desiredRivalDist) * 4.5;
+          }
+
+          const score =
+            openDeg * 5.5 -
+            distCenter * (anyLavaNext ? 5.2 : 2.2) +
+            rivalTerm -
+            dist * 1.4 +
+            (cell.c === mc && cell.r === mr ? 1.2 : 0);
+
+          if (score > bestPosScore) {
+            bestPosScore = score;
+            bestPosCell = cell;
+          }
+        }
+
+        if (bestPosCell.c === mc && bestPosCell.r === mr) {
+          return { action: alignMove('STAY', curMinTimer), placeBomb: false };
+        }
+        return {
+          action: alignMove(safeStepDir[bestPosCell.r][bestPosCell.c] || 'STAY', curMinTimer),
+          placeBomb: false
+        };
+      };
+
+      // =========================================================================
+      // ARENA ENGINE STATE & CONFIGURATION
+      // =========================================================================
+      const AGENT_PROFILES = [
+        { id: 'carbon', name: 'CARBON-01', color: '#22D3EE', glow: 'rgba(34,211,238,0.5)', dark: '#083344', borderClass: 'cyan-border', spawnC: 0, spawnR: 0 },
+        { id: 'vulcan', name: 'VULCAN-02', color: '#F43F5E', glow: 'rgba(244,63,94,0.5)', dark: '#4C0519', borderClass: 'coral-border', spawnC: COLS - 1, spawnR: ROWS - 1 },
+        { id: 'emerald', name: 'TITAN-03', color: '#10B981', glow: 'rgba(16,185,129,0.5)', dark: '#064E3B', borderClass: 'emerald-border', spawnC: COLS - 1, spawnR: 0 },
+        { id: 'solar', name: 'SOLAR-04', color: '#FBBF24', glow: 'rgba(251,191,36,0.5)', dark: '#451A03', borderClass: 'gold-border', spawnC: 0, spawnR: ROWS - 1 }
+      ];
+
+      // Modes: 0 = 2 AI Duel (default), 1 = 4 AI FFA, 2 = Human (P1) vs AI (P2)
+      const MODES = [
+        { code: 'DUEL_2AI', label: 'MODO: 2 IA', badge: 'DUELO 2 IA', count: 2, humanFirst: false },
+        { code: 'FFA_4AI', label: 'MODO: 4 IA', badge: 'TODOS VS TODOS', count: 4, humanFirst: false },
+        { code: 'HUMAN_VS_AI', label: 'MODO: JUGADOR', badge: 'HUMANO VS IA', count: 2, humanFirst: true }
+      ];
+
+      const game = {
+        modeIndex: 0,
+        paused: false,
+        simSpeed: 1.0,
+        showTacticalOverlay: true,
+
+        // Series Best of 5 (first to 3 wins, or 5 rounds played)
+        seriesRound: 1,
+        maxSeriesRounds: 5,
+        winsById: { carbon: 0, vulcan: 0, emerald: 0, solar: 0 },
+
+        // Audit & cumulative stats
+        totalCratesBroken: 0,
+        totalChainExplosions: 0,
+        aiHookReady: false,
+
+        // Per-round state
+        phase: 'PLAYING', // 'PLAYING' | 'ROUND_END' | 'SERIES_END'
+        phaseBannerTimer: 0,
+        bannerHeadline: '',
+        bannerSub: '',
+        bannerColor: '#22D3EE',
+
+        roundTime: 0,
+        lavaRingsSunk: 0,
+        nextLavaSinkTime: LAVA_START_SEC,
+        lavaWarningActive: false,
+        lavaNextCells: [],
+
+        grid: [],
+        bombs: [],
+        flames: [],
+        powerups: [],
+        players: [],
+        scorchMarks: [],
+        particles: [],
+        shockwaves: [],
+        floatingTexts: [],
+        ambientBubbles: [],
+
+        shakeMag: 0,
+        shakeX: 0,
+        shakeY: 0,
+
+        battleLogs: [],
+        logDirty: true
+      };
+
+      // Keyboard state for optional human control
+      const keysDown = new Set();
+      let humanBombQueued = false;
+
+      window.addEventListener('keydown', (e) => {
+        keysDown.add(e.code);
+        if (e.code === 'Space' && MODES[game.modeIndex].humanFirst) {
+          e.preventDefault();
+          humanBombQueued = true;
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        keysDown.delete(e.code);
+      });
+
+      // =========================================================================
+      // BATTLE FEED LOGGING
+      // =========================================================================
+      function addLog(text, tone = 'cyan') {
+        const mins = Math.floor(game.roundTime / 60);
+        const secs = (game.roundTime % 60).toFixed(1).padStart(4, '0');
+        const stamp = `${String(mins).padStart(2, '0')}:${secs}`;
+        game.battleLogs.unshift({ stamp, text, tone });
+        if (game.battleLogs.length > 26) game.battleLogs.length = 26;
+        game.logDirty = true;
+      }
+
+      // =========================================================================
+      // LAVA RING GENERATION (13x11 -> SINKS INWARD STARTING AT 15.0s)
+      // =========================================================================
+      function getRingCells(ringIdx) {
+        const list = [];
+        if (ringIdx <= 3) {
+          const minC = ringIdx;
+          const maxC = COLS - 1 - ringIdx;
+          const minR = ringIdx;
+          const maxR = ROWS - 1 - ringIdx;
+          for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
+              if (c === minC || c === maxC || r === minR || r === maxR) {
+                if (game.grid[r][c] !== CELL_LAVA) {
+                  list.push({ c, r });
+                }
+              }
+            }
+          }
+        } else {
+          // Final sudden-death squeeze on columns 4 & 8
+          for (let r = 4; r <= 6; r++) {
+            if (game.grid[r][4] !== CELL_LAVA) list.push({ c: 4, r });
+            if (game.grid[r][8] !== CELL_LAVA) list.push({ c: 8, r });
+          }
+        }
+        return list;
+      }
+
+      function sinkNextLavaRing() {
+        if (game.lavaRingsSunk >= 5) return;
+        const cells = getRingCells(game.lavaRingsSunk);
+        game.lavaRingsSunk++;
+
+        for (let i = 0; i < cells.length; i++) {
+          const { c, r } = cells[i];
+          game.grid[r][c] = CELL_LAVA;
+
+          // Remove crates/powerups/bombs swallowed by rising magma
+          for (let p = game.powerups.length - 1; p >= 0; p--) {
+            if (game.powerups[p].c === c && game.powerups[p].r === r) {
+              game.powerups.splice(p, 1);
+            }
+          }
+          for (let b = game.bombs.length - 1; b >= 0; b--) {
+            if (game.bombs[b].c === c && game.bombs[b].r === r) {
+              const owner = game.players.find(pl => pl.id === game.bombs[b].owner);
+              if (owner) owner.bombsAvail = Math.min(owner.maxBombs, owner.bombsAvail + 1);
+              game.bombs.splice(b, 1);
+            }
+          }
+
+          spawnLavaSplash(c, r);
+        }
+
+        game.shakeMag = Math.max(game.shakeMag, 9.5);
+        SoundFX.lavaPulse();
+        addLog(`Anillo volcanico #${game.lavaRingsSunk} hundido en magma ardiente!`, 'coral');
+
+        game.lavaNextCells = [];
+        game.lavaWarningActive = false;
+        game.nextLavaSinkTime = game.roundTime + LAVA_RING_INTERVAL_SEC;
+      }
+
+      // =========================================================================
+      // ROUND & SERIES INITIALIZATION
+      // =========================================================================
+      function isSpawnProtected(c, r, activeCount) {
+        const corners = [
+          { c: 0, r: 0 },
+          { c: COLS - 1, r: ROWS - 1 },
+          { c: COLS - 1, r: 0 },
+          { c: 0, r: ROWS - 1 }
+        ];
+        const limit = activeCount <= 2 ? 2 : 4;
+        for (let i = 0; i < limit; i++) {
+          const sp = corners[i];
+          if (Math.abs(c - sp.c) + Math.abs(r - sp.r) <= 1) return true;
+        }
+        return false;
+      }
+
+      function isGuaranteedOpeningCrate(c, r, activeCount) {
+        const guaranteed = [
+          { c: 2, r: 0 }, { c: 0, r: 2 },
+          { c: COLS - 3, r: ROWS - 1 }, { c: COLS - 1, r: ROWS - 3 }
+        ];
+        if (activeCount > 2) {
+          guaranteed.push(
+            { c: COLS - 3, r: 0 }, { c: COLS - 1, r: 2 },
+            { c: 2, r: ROWS - 1 }, { c: 0, r: ROWS - 3 }
+          );
+        }
+        return guaranteed.some(g => g.c === c && g.r === r);
+      }
+
+      function initRound() {
+        const mode = MODES[game.modeIndex];
+        game.phase = 'PLAYING';
+        game.phaseBannerTimer = 0;
+        game.roundTime = 0;
+        game.lavaRingsSunk = 0;
+        game.nextLavaSinkTime = LAVA_START_SEC;
+        game.lavaWarningActive = false;
+        game.lavaNextCells = [];
+
+        game.bombs = [];
+        game.flames = [];
+        game.powerups = [];
+        game.scorchMarks = [];
+        game.particles = [];
+        game.shockwaves = [];
+        game.floatingTexts = [];
+        game.shakeMag = 0;
+
+        // Build symmetric 13x11 Bomberman island grid
+        game.grid = Array.from({ length: ROWS }, () => new Array(COLS).fill(CELL_EMPTY));
+
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (c % 2 === 1 && r % 2 === 1) {
+              game.grid[r][c] = CELL_PILLAR;
+            }
+          }
+        }
+
+        // Populate balanced mirrored destructible crates (~68% density)
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c <= Math.floor(COLS / 2); c++) {
+            if (game.grid[r][c] !== CELL_EMPTY) continue;
+            const mc = COLS - 1 - c;
+            const mr = ROWS - 1 - r;
+            if (isSpawnProtected(c, r, mode.count) || isSpawnProtected(mc, mr, mode.count)) {
+              continue;
+            }
+            const place = isGuaranteedOpeningCrate(c, r, mode.count) || Math.random() < 0.68;
+            if (place) {
+              game.grid[r][c] = CELL_CRATE;
+              game.grid[mr][mc] = CELL_CRATE;
+            }
+          }
+        }
+
+        // Spawn fighters
+        game.players = [];
+        for (let i = 0; i < mode.count; i++) {
+          const prof = AGENT_PROFILES[i];
+          game.players.push({
+            id: prof.id,
+            name: (i === 0 && mode.humanFirst) ? 'JUGADOR-01' : prof.name,
+            isHuman: (i === 0 && mode.humanFirst),
+            color: prof.color,
+            glow: prof.glow,
+            dark: prof.dark,
+            borderClass: prof.borderClass,
+            c: prof.spawnC,
+            r: prof.spawnR,
+            alive: true,
+            maxBombs: 1,
+            bombsAvail: 1,
+            flameRange: 2,
+            speed: 3.85,
+            facing: i % 2 === 0 ? 'RIGHT' : 'LEFT',
+            walkCycle: 0,
+            intentText: 'Analizando rutas iniciales...',
+            plannedAction: 'STAY',
+            plannedTarget: null
+          });
+        }
+
+        // Ambient caldera bubbles
+        game.ambientBubbles = [];
+        for (let i = 0; i < 28; i++) {
+          game.ambientBubbles.push({
+            x: Math.random(),
+            y: Math.random(),
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.9 + Math.random() * 1.4,
+            radius: 3 + Math.random() * 6
+          });
+        }
+
+        rebuildFighterCardsDOM();
+        addLog(`Ronda ${game.seriesRound}/${game.maxSeriesRounds} iniciada en Isla Volcanica 13x11.`, 'cyan');
+      }
+
+      function resetSeries() {
+        game.seriesRound = 1;
+        for (const k of Object.keys(game.winsById)) {
+          game.winsById[k] = 0;
+        }
+        game.battleLogs = [];
+        addLog('Nueva serie al Mejor de 5 Rondas activada!', 'gold');
+        initRound();
+      }
+
+      // =========================================================================
+      // BUILD ARENA STATE SNAPSHOT FOR window.decideLavaMove
+      // =========================================================================
+      function buildArenaStateSnapshot() {
+        return {
+          cols: COLS,
+          rows: ROWS,
+          grid: game.grid.map(row => row.slice()),
+          bombs: game.bombs.map(b => ({
+            c: b.c,
+            r: b.r,
+            timerLeft: b.timerLeft,
+            range: b.range,
+            owner: b.owner
+          })),
+          flames: game.flames.map(f => ({ c: f.c, r: f.r })),
+          powerups: game.powerups.map(p => ({ c: p.c, r: p.r, kind: p.kind })),
+          lavaNextCells: game.lavaNextCells.map(l => ({ c: l.c, r: l.r })),
+          players: game.players.map(p => ({
+            id: p.id,
+            c: p.c,
+            r: p.r,
+            alive: p.alive,
+            bombsAvail: p.bombsAvail,
+            flameRange: p.flameRange,
+            speed: p.speed
+          }))
+        };
+      }
+
+      // =========================================================================
+      // PARTICLES, SHOCKWAVES & VISUAL JUICE
+      // =========================================================================
+      function spawnExplosionParticles(c, r, colorMain) {
+        for (let i = 0; i < 9; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 1.4 + Math.random() * 4.8;
+          game.particles.push({
+            c: c + (Math.random() - 0.5) * 0.3,
+            r: r + (Math.random() - 0.5) * 0.3,
+            vc: Math.cos(ang) * spd,
+            vr: Math.sin(ang) * spd,
+            life: 0.32 + Math.random() * 0.28,
+            maxLife: 0.6,
+            size: 2.5 + Math.random() * 3.8,
+            color: i % 2 === 0 ? colorMain : '#FDE047'
+          });
+        }
+      }
+
+      function spawnCrateDebris(c, r) {
+        for (let i = 0; i < 14; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 1.8 + Math.random() * 5.2;
+          game.particles.push({
+            c: c + (Math.random() - 0.5) * 0.4,
+            r: r + (Math.random() - 0.5) * 0.4,
+            vc: Math.cos(ang) * spd,
+            vr: Math.sin(ang) * spd,
+            life: 0.42 + Math.random() * 0.35,
+            maxLife: 0.77,
+            size: 3.2 + Math.random() * 4.2,
+            color: i % 3 === 0 ? '#FBBF24' : (i % 3 === 1 ? '#FB923C' : '#92400E')
+          });
+        }
+      }
+
+      function spawnLavaSplash(c, r) {
+        for (let i = 0; i < 10; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 1.2 + Math.random() * 3.5;
+          game.particles.push({
+            c: c + (Math.random() - 0.5) * 0.4,
+            r: r + (Math.random() - 0.5) * 0.4,
+            vc: Math.cos(ang) * spd,
+            vr: Math.sin(ang) * spd,
+            life: 0.45 + Math.random() * 0.35,
+            maxLife: 0.8,
+            size: 3.0 + Math.random() * 4.0,
+            color: i % 2 === 0 ? '#FB923C' : '#F43F5E'
+          });
+        }
+      }
+
+      // =========================================================================
+      // BOMB PLACEMENT & DETONATION WITH REAL CHAIN REACTIONS
+      // =========================================================================
+      function tryPlaceBomb(player) {
+        if (!player.alive || player.bombsAvail <= 0) return false;
+        const bc = Math.max(0, Math.min(COLS - 1, Math.round(player.c)));
+        const br = Math.max(0, Math.min(ROWS - 1, Math.round(player.r)));
+        if (game.grid[br][bc] !== CELL_EMPTY) return false;
+        if (game.bombs.some(b => b.c === bc && b.r === br)) return false;
+
+        player.bombsAvail--;
+        game.bombs.push({
+          c: bc,
+          r: br,
+          timerLeft: BOMB_FUSE_SEC,
+          maxTimer: BOMB_FUSE_SEC,
+          range: player.flameRange,
+          owner: player.id,
+          color: player.color
+        });
+        SoundFX.bombPlace();
+        return true;
+      }
+
+      function maybeSpawnPowerup(c, r) {
+        if (Math.random() > 0.44) return;
+        const roll = Math.random();
+        const kind = roll < 0.35 ? 'bomb' : (roll < 0.70 ? 'range' : 'speed');
+        game.powerups.push({
+          c,
+          r,
+          kind,
+          graceTimer: 0.65,
+          bobPhase: Math.random() * Math.PI * 2
+        });
+      }
+
+      function addFlameCell(c, r, armType, dirName, isTip) {
+        const existing = game.flames.find(f => f.c === c && f.r === r);
+        if (existing) {
+          existing.timer = FLAME_DURATION_SEC;
+          existing.armType = 'CENTER';
+        } else {
+          game.flames.push({
+            c,
+            r,
+            timer: FLAME_DURATION_SEC,
+            maxTimer: FLAME_DURATION_SEC,
+            armType,
+            dirName,
+            isTip
+          });
+        }
+      }
+
+      function detonateBombsChain(initialIndices) {
+        const queue = initialIndices.map(idx => game.bombs[idx]).filter(Boolean);
+        if (queue.length === 0) return;
+
+        const explodedSet = new Set(queue);
+        let qIdx = 0;
+        let cratesThisChain = 0;
+
+        while (qIdx < queue.length) {
+          const bomb = queue[qIdx++];
+
+          // Refund bomb slot to owner
+          const owner = game.players.find(p => p.id === bomb.owner);
+          if (owner) {
+            owner.bombsAvail = Math.min(owner.maxBombs, owner.bombsAvail + 1);
+          }
+
+          // Remove from game.bombs
+          const posIdx = game.bombs.indexOf(bomb);
+          if (posIdx !== -1) game.bombs.splice(posIdx, 1);
+
+          addFlameCell(bomb.c, bomb.r, 'CENTER', null, false);
+          game.scorchMarks.push({ c: bomb.c, r: bomb.r, alpha: 0.58 });
+          if (game.scorchMarks.length > 55) game.scorchMarks.shift();
+
+          game.shockwaves.push({
+            c: bomb.c,
+            r: bomb.r,
+            radius: 0.2,
+            maxRadius: bomb.range + 0.85,
+            life: 0.34,
+            maxLife: 0.34,
+            color: bomb.color || '#FB923C'
+          });
+          spawnExplosionParticles(bomb.c, bomb.r, '#FB923C');
+
+          // Expand 4 cross arms
+          for (let d = 0; d < 4; d++) {
+            const dir = DIRS[d];
+            for (let k = 1; k <= bomb.range; k++) {
+              const nc = bomb.c + dir.dc * k;
+              const nr = bomb.r + dir.dr * k;
+              if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+              const cell = game.grid[nr][nc];
+              if (cell === CELL_PILLAR) break;
+
+              if (cell === CELL_CRATE) {
+                game.grid[nr][nc] = CELL_EMPTY;
+                game.totalCratesBroken++;
+                cratesThisChain++;
+                addFlameCell(nc, nr, 'ARM', dir.name, true);
+                spawnCrateDebris(nc, nr);
+                maybeSpawnPowerup(nc, nr);
+                break;
+              }
+
+              // Destroy unprotected old powerup on floor
+              for (let p = game.powerups.length - 1; p >= 0; p--) {
+                if (game.powerups[p].c === nc && game.powerups[p].r === nr && game.powerups[p].graceTimer <= 0) {
+                  game.powerups.splice(p, 1);
+                }
+              }
+
+              // Trigger chain reaction on any bomb hit!
+              for (let b = 0; b < game.bombs.length; b++) {
+                const other = game.bombs[b];
+                if (other.c === nc && other.r === nr && !explodedSet.has(other)) {
+                  explodedSet.add(other);
+                  queue.push(other);
+                }
+              }
+
+              addFlameCell(nc, nr, 'ARM', dir.name, k === bomb.range);
+              if (k % 2 === 1) spawnExplosionParticles(nc, nr, '#FB923C');
+            }
+          }
+        }
+
+        const chainSize = queue.length;
+        if (chainSize >= 2) {
+          game.totalChainExplosions += (chainSize - 1);
+          addLog(`Explosion en cadena x${chainSize} sacude el volcan!`, 'orange');
+        }
+        game.shakeMag = Math.min(16, Math.max(game.shakeMag, 5.5 + chainSize * 2.8 + cratesThisChain * 0.7));
+        SoundFX.explode(chainSize);
+      }
+
+      // =========================================================================
+      // PLAYER MOVEMENT WITH CORNER-SLIDE ASSIST & HAZARD RESOLUTION
+      // =========================================================================
+      function canEnterGridCell(c, r, curGridC, curGridR) {
+        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return false;
+        const cell = game.grid[r][c];
+        if (cell === CELL_PILLAR || cell === CELL_CRATE) return false;
+        if (c === curGridC && r === curGridR) return true;
+        if (game.bombs.some(b => b.c === c && b.r === r)) return false;
+        return true;
+      }
+
+      function movePlayerSmooth(player, action, dt) {
+        if (!player.alive) return;
+        const step = player.speed * dt;
+        const gc = Math.max(0, Math.min(COLS - 1, Math.round(player.c)));
+        const gr = Math.max(0, Math.min(ROWS - 1, Math.round(player.r)));
+
+        if (action === 'STAY' || !action) {
+          // Gentle centering snap when stationary on safe floor
+          const dc = gc - player.c;
+          const dr = gr - player.r;
+          if (Math.abs(dc) > 0.005) player.c += Math.sign(dc) * Math.min(Math.abs(dc), step * 0.85);
+          if (Math.abs(dr) > 0.005) player.r += Math.sign(dr) * Math.min(Math.abs(dr), step * 0.85);
+          return;
+        }
+
+        player.facing = action;
+        player.walkCycle += dt * player.speed * 3.6;
+
+        if (action === 'LEFT' || action === 'RIGHT') {
+          const dir = action === 'LEFT' ? -1 : 1;
+          const targetCol = gc + dir;
+          const openAhead = canEnterGridCell(targetCol, gr, gc, gr);
+
+          // Smooth vertical lane alignment (Bomberman corner-slide)
+          const offR = gr - player.r;
+          if (Math.abs(offR) > 0.002) {
+            player.r += Math.sign(offR) * Math.min(Math.abs(offR), step * 1.35);
+          }
+
+          if (openAhead && Math.abs(player.r - gr) < 0.34) {
+            player.c += dir * step;
+          } else {
+            // Clamp neatly to cell center gc so player never overlaps blocked neighbor
+            const nextC = player.c + dir * step;
+            if ((dir === 1 && nextC > gc) || (dir === -1 && nextC < gc)) {
+              player.c = gc;
+            } else {
+              player.c = nextC;
+            }
+          }
+        } else if (action === 'UP' || action === 'DOWN') {
+          const dir = action === 'UP' ? -1 : 1;
+          const targetRow = gr + dir;
+          const openAhead = canEnterGridCell(gc, targetRow, gc, gr);
+
+          // Smooth horizontal lane alignment (Bomberman corner-slide)
+          const offC = gc - player.c;
+          if (Math.abs(offC) > 0.002) {
+            player.c += Math.sign(offC) * Math.min(Math.abs(offC), step * 1.35);
+          }
+
+          if (openAhead && Math.abs(player.c - gc) < 0.34) {
+            player.r += dir * step;
+          } else {
+            const nextR = player.r + dir * step;
+            if ((dir === 1 && nextR > gr) || (dir === -1 && nextR < gr)) {
+              player.r = gr;
+            } else {
+              player.r = nextR;
+            }
+          }
+        }
+
+        player.c = Math.max(0, Math.min(COLS - 1, player.c));
+        player.r = Math.max(0, Math.min(ROWS - 1, player.r));
+      }
+
+      function readHumanDecision(player) {
+        let action = 'STAY';
+        if (keysDown.has('KeyW') || keysDown.has('ArrowUp')) action = 'UP';
+        else if (keysDown.has('KeyS') || keysDown.has('ArrowDown')) action = 'DOWN';
+        else if (keysDown.has('KeyA') || keysDown.has('ArrowLeft')) action = 'LEFT';
+        else if (keysDown.has('KeyD') || keysDown.has('ArrowRight')) action = 'RIGHT';
+
+        const placeBomb = humanBombQueued;
+        humanBombQueued = false;
+        return { action, placeBomb };
+      }
+
+      function describeIntent(player, decision, snapshot) {
+        const pc = Math.round(player.c);
+        const pr = Math.round(player.r);
+        if (decision.placeBomb) return `Bomba tactica en (${pc},${pr})`;
+        if (snapshot.lavaNextCells.some(l => l.c === pc && l.r === pr)) return 'Evacuando borde sismico!';
+        if (snapshot.bombs.some(b => (b.c === pc && Math.abs(b.r - pr) <= b.range) || (b.r === pr && Math.abs(b.c - pc) <= b.range))) {
+          return `Esquivando onda -> ${decision.action}`;
+        }
+        if (decision.action === 'STAY') {
+          return player.bombsAvail === 0 ? 'Cobertura segura (mecha activa)' : 'Controlando centro volcanico';
+        }
+        return `Maniobra tactica -> ${decision.action}`;
+      }
+
+      // =========================================================================
+      // MAIN SIMULATION UPDATE TICK (60 FPS)
+      // =========================================================================
+      function stepArena(dt) {
+        // Decay screen-shake even during round transitions
+        if (game.shakeMag > 0.05) {
+          game.shakeMag *= Math.pow(0.015, dt);
+          const ang = Math.random() * Math.PI * 2;
+          game.shakeX = Math.cos(ang) * game.shakeMag;
+          game.shakeY = Math.sin(ang) * game.shakeMag;
+        } else {
+          game.shakeMag = 0;
+          game.shakeX = 0;
+          game.shakeY = 0;
+        }
+
+        // Update visual particles, shockwaves & floating labels
+        for (let i = game.particles.length - 1; i >= 0; i--) {
+          const pt = game.particles[i];
+          pt.c += pt.vc * dt;
+          pt.r += pt.vr * dt;
+          pt.vc *= 0.92;
+          pt.vr *= 0.92;
+          pt.life -= dt;
+          if (pt.life <= 0) game.particles.splice(i, 1);
+        }
+        for (let i = game.shockwaves.length - 1; i >= 0; i--) {
+          const sw = game.shockwaves[i];
+          sw.life -= dt;
+          const prog = 1 - Math.max(0, sw.life / sw.maxLife);
+          sw.radius = 0.25 + (sw.maxRadius - 0.25) * (1 - Math.pow(1 - prog, 2.2));
+          if (sw.life <= 0) game.shockwaves.splice(i, 1);
+        }
+        for (let i = game.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = game.floatingTexts[i];
+          ft.r -= dt * 0.9;
+          ft.life -= dt;
+          if (ft.life <= 0) game.floatingTexts.splice(i, 1);
+        }
+
+        if (game.phase !== 'PLAYING') {
+          game.phaseBannerTimer -= dt;
+          if (game.phaseBannerTimer <= 0) {
+            if (game.phase === 'SERIES_END') {
+              resetSeries();
+            } else {
+              game.seriesRound++;
+              initRound();
+            }
+          }
+          return;
+        }
+
+        game.roundTime += dt;
+
+        // Rising Volcanic Lava progression (Warning lead -> Sink starting at 15.0s)
+        if (game.lavaRingsSunk < 5) {
+          const warnStart = game.nextLavaSinkTime - LAVA_WARN_LEAD_SEC;
+          if (!game.lavaWarningActive && game.roundTime >= warnStart) {
+            game.lavaWarningActive = true;
+            game.lavaNextCells = getRingCells(game.lavaRingsSunk);
+            addLog(`ALERTA SISMICA: Anillo #${game.lavaRingsSunk + 1} colapsara en ${LAVA_WARN_LEAD_SEC.toFixed(1)}s!`, 'orange');
+          }
+          if (game.roundTime >= game.nextLavaSinkTime) {
+            sinkNextLavaRing();
+          }
+        }
+
+        // Update powerup grace timers & bobbing
+        for (let i = 0; i < game.powerups.length; i++) {
+          const pu = game.powerups[i];
+          if (pu.graceTimer > 0) pu.graceTimer = Math.max(0, pu.graceTimer - dt);
+          pu.bobPhase += dt * 4.2;
+        }
+
+        // Update active flames
+        for (let i = game.flames.length - 1; i >= 0; i--) {
+          game.flames[i].timer -= dt;
+          if (game.flames[i].timer <= 0) {
+            game.flames.splice(i, 1);
+          }
+        }
+
+        // Update bomb fuses & trigger detonations
+        const explodingIndices = [];
+        for (let i = 0; i < game.bombs.length; i++) {
+          game.bombs[i].timerLeft -= dt;
+          if (game.bombs[i].timerLeft <= 0) {
+            explodingIndices.push(i);
+          }
+        }
+        if (explodingIndices.length > 0) {
+          detonateBombsChain(explodingIndices);
+        }
+
+        // Run AI / Human decisions & smooth movement
+        const snapshot = buildArenaStateSnapshot();
+        for (let i = 0; i < game.players.length; i++) {
+          const p = game.players[i];
+          if (!p.alive) continue;
+
+          const decision = p.isHuman
+            ? readHumanDecision(p)
+            : window.decideLavaMove(snapshot, p.id);
+
+          p.plannedAction = decision?.action || 'STAY';
+          p.intentText = describeIntent(p, decision || { action: 'STAY', placeBomb: false }, snapshot);
+
+          if (decision && decision.placeBomb) {
+            const placed = tryPlaceBomb(p);
+            if (placed) {
+              // Refresh snapshot bombs immediately so rival reacts on the very same tick
+              snapshot.bombs.push({
+                c: Math.round(p.c),
+                r: Math.round(p.r),
+                timerLeft: BOMB_FUSE_SEC,
+                range: p.flameRange,
+                owner: p.id
+              });
+            }
+          }
+
+          movePlayerSmooth(p, p.plannedAction, dt);
+
+          // Powerup pickup check
+          const pc = Math.round(p.c);
+          const pr = Math.round(p.r);
+          for (let k = game.powerups.length - 1; k >= 0; k--) {
+            const pu = game.powerups[k];
+            if (pu.c === pc && pu.r === pr && Math.hypot(p.c - pu.c, p.r - pu.r) < 0.44) {
+              let label = '+MEJORA';
+              if (pu.kind === 'bomb') {
+                p.maxBombs = Math.min(5, p.maxBombs + 1);
+                p.bombsAvail = Math.min(p.maxBombs, p.bombsAvail + 1);
+                label = '+1 BOMBA';
+              } else if (pu.kind === 'range') {
+                p.flameRange = Math.min(6, p.flameRange + 1);
+                label = '+1 RANGO';
+              } else if (pu.kind === 'speed') {
+                p.speed = Math.min(5.75, p.speed + 0.42);
+                label = '+VELOCIDAD';
+              }
+              game.floatingTexts.push({ c: pc, r: pr - 0.3, text: label, color: p.color, life: 0.95, maxLife: 0.95 });
+              SoundFX.powerup();
+              addLog(`${p.name} capturo mejora ${label}.`, 'emerald');
+              game.powerups.splice(k, 1);
+            }
+          }
+        }
+
+        // Hazard elimination check (keep >= 1 survivor if round concludes)
+        const aliveBefore = game.players.filter(p => p.alive);
+        if (aliveBefore.length > 1) {
+          const fatalCandidates = [];
+          for (let i = 0; i < aliveBefore.length; i++) {
+            const p = aliveBefore[i];
+            const pc = Math.round(p.c);
+            const pr = Math.round(p.r);
+
+            const onLava = game.grid[pr][pc] === CELL_LAVA;
+            const inFire = game.flames.some(f => f.c === pc && f.r === pr);
+
+            if (onLava || inFire) {
+              fatalCandidates.push({ player: p, cause: onLava ? 'lava volcanica' : 'onda de fuego' });
+            }
+          }
+
+          // If everyone would fall on the exact same tick, tie-break by center proximity so 1 last-standing winner survives
+          if (fatalCandidates.length >= aliveBefore.length) {
+            fatalCandidates.sort((a, b) => {
+              const da = Math.hypot(a.player.c - (COLS - 1) * 0.5, a.player.r - (ROWS - 1) * 0.5);
+              const db = Math.hypot(b.player.c - (COLS - 1) * 0.5, b.player.r - (ROWS - 1) * 0.5);
+              return db - da; // Farthest from center eliminated first
+            });
+            fatalCandidates.pop(); // Closest to center survives with 1-tick shield
+          }
+
+          for (let i = 0; i < fatalCandidates.length; i++) {
+            const { player, cause } = fatalCandidates[i];
+            player.alive = false;
+            player.intentText = `Eliminado por ${cause}`;
+            spawnExplosionParticles(player.c, player.r, player.color);
+            spawnLavaSplash(player.c, player.r);
+            game.shakeMag = Math.max(game.shakeMag, 10);
+            addLog(`${player.name} cayo ante ${cause}!`, 'coral');
+          }
+        }
+
+        // Check round victory condition
+        const aliveNow = game.players.filter(p => p.alive);
+        if (aliveNow.length <= 1) {
+          const winner = aliveNow[0] || game.players[0];
+          game.winsById[winner.id] = (game.winsById[winner.id] || 0) + 1;
+          const wins = game.winsById[winner.id];
+
+          if (wins >= 3 || game.seriesRound >= game.maxSeriesRounds) {
+            // Determine overall series champion
+            let champ = winner;
+            for (let i = 0; i < game.players.length; i++) {
+              const cand = game.players[i];
+              if ((game.winsById[cand.id] || 0) > (game.winsById[champ.id] || 0)) {
+                champ = cand;
+              }
+            }
+            game.phase = 'SERIES_END';
+            game.phaseBannerTimer = 2.6;
+            game.bannerHeadline = `CAMPEON DE SERIE: ${champ.name}`;
+            game.bannerSub = `Marcador final completado // Reiniciando nueva serie automatica...`;
+            game.bannerColor = champ.color;
+            addLog(`CAMPEON DE LA SERIE BO5: ${champ.name}!`, 'gold');
+          } else {
+            game.phase = 'ROUND_END';
+            game.phaseBannerTimer = 1.85;
+            game.bannerHeadline = `RONDA ${game.seriesRound} PARA ${winner.name}`;
+            game.bannerSub = `Ultimo en pie sobre el volcan // Preparando Ronda ${game.seriesRound + 1}...`;
+            game.bannerColor = winner.color;
+            addLog(`${winner.name} conquista la Ronda ${game.seriesRound}!`, 'gold');
+          }
+        }
+      }
+
+      // =========================================================================
+      // MANDATORY AUDIT HOOK: window.__auditLava
+      // =========================================================================
+      function verifyAiHookSelfTest() {
+        try {
+          const testGrid = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+          testGrid[1][1] = 1;
+          testGrid[0][2] = 2;
+          testGrid[2][0] = 2;
+          const res = window.decideLavaMove({
+            cols: COLS,
+            rows: ROWS,
+            grid: testGrid,
+            bombs: [],
+            flames: [],
+            powerups: [],
+            lavaNextCells: [],
+            players: [
+              { id: 'me', c: 0, r: 0, alive: true, bombsAvail: 1, flameRange: 2, speed: 3.8 },
+              { id: 'foe', c: 12, r: 10, alive: true, bombsAvail: 1, flameRange: 2, speed: 3.8 }
+            ]
+          }, 'me');
+          return Boolean(
+            res &&
+            ['UP', 'DOWN', 'LEFT', 'RIGHT', 'STAY'].includes(res.action) &&
+            typeof res.placeBomb === 'boolean' &&
+            res.placeBomb === false
+          );
+        } catch (_err) {
+          return false;
+        }
+      }
+
+      game.aiHookReady = verifyAiHookSelfTest();
+
+      window.__auditLava = function __auditLava() {
+        const aliveCount = game.players.reduce((acc, p) => acc + (p.alive ? 1 : 0), 0);
+        return {
+          round: game.seriesRound,
+          aliveCount,
+          cratesBroken: game.totalCratesBroken,
+          aiHookReady: Boolean(game.aiHookReady && typeof window.decideLavaMove === 'function')
+        };
+      };
+
+      // =========================================================================
+      // CANVAS RENDERER (60 FPS VOLCANIC CALDERA + 13x11 BOMBERMAN ISLAND)
+      // =========================================================================
+      const canvas = document.getElementById('arenaCanvas');
+      const ctx = canvas.getContext('2d');
+      if (ctx && typeof ctx.roundRect !== 'function') {
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+          const rad = Math.min(Number(Array.isArray(r) ? r[0] : r) || 0, Math.abs(w) * 0.5, Math.abs(h) * 0.5);
+          this.moveTo(x + rad, y);
+          this.arcTo(x + w, y, x + w, y + h, rad);
+          this.arcTo(x + w, y + h, x, y + h, rad);
+          this.arcTo(x, y + h, x, y, rad);
+          this.arcTo(x, y, x + w, y, rad);
+          this.closePath();
+        };
+      }
+
+      function computeSafeTacticalPreview(player) {
+        if (!player.alive) return [];
+        const sc = Math.max(0, Math.min(COLS - 1, Math.round(player.c)));
+        const sr = Math.max(0, Math.min(ROWS - 1, Math.round(player.r)));
+        const pts = [{ c: player.c, r: player.r }];
+        let cc = sc;
+        let cr = sr;
+        let act = player.plannedAction;
+        if (!act || act === 'STAY') return pts;
+        const dObj = DIRS.find(d => d.name === act);
+        if (!dObj) return pts;
+        for (let step = 1; step <= 3; step++) {
+          const nc = cc + dObj.dc;
+          const nr = cr + dObj.dr;
+          if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+          if (game.grid[nr][nc] !== CELL_EMPTY) break;
+          if (game.bombs.some(b => b.c === nc && b.r === nr)) break;
+          pts.push({ c: nc, r: nr });
+          cc = nc;
+          cr = nr;
+        }
+        return pts;
+      }
+
+      function renderArena(nowSec) {
+        const W = canvas.width;
+        const H = canvas.height;
+        const tile = 68;
+        const boardW = COLS * tile; // 884
+        const boardH = ROWS * tile; // 748
+        const originX = Math.floor((W - boardW) * 0.5);
+        const originY = Math.floor((H - boardH) * 0.5);
+
+        ctx.save();
+        ctx.clearRect(0, 0, W, H);
+
+        // Apply explosion screen-shake
+        ctx.translate(game.shakeX, game.shakeY);
+
+        // 1. OUTER BUBBLING VOLCANIC LAVA CALDERA RING
+        const lavaGrad = ctx.createRadialGradient(W * 0.5, H * 0.5, boardH * 0.25, W * 0.5, H * 0.5, W * 0.65);
+        lavaGrad.addColorStop(0, '#7C2D12');
+        lavaGrad.addColorStop(0.55, '#9A3412');
+        lavaGrad.addColorStop(0.85, '#451A03');
+        lavaGrad.addColorStop(1, '#090D16');
+        ctx.fillStyle = lavaGrad;
+        ctx.fillRect(-20, -20, W + 40, H + 40);
+
+        // Animated magma convection waves in outer moat
+        ctx.save();
+        for (let i = 0; i < 7; i++) {
+          const pulse = Math.sin(nowSec * 1.6 + i * 0.9) * 8;
+          const pad = 16 + i * 16 + pulse;
+          ctx.strokeStyle = i % 2 === 0 ? 'rgba(251, 146, 60, 0.22)' : 'rgba(244, 63, 94, 0.16)';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(originX - pad, originY - pad, boardW + pad * 2, boardH + pad * 2);
+        }
+
+        // Bubbling outer lava blisters
+        for (let i = 0; i < game.ambientBubbles.length; i++) {
+          const b = game.ambientBubbles[i];
+          const bx = b.x * W;
+          const by = b.y * H;
+          // Keep outside center island
+          if (bx > originX - 8 && bx < originX + boardW + 8 && by > originY - 8 && by < originY + boardH + 8) {
+            continue;
+          }
+          const cyc = (nowSec * b.speed + b.phase) % (Math.PI * 2);
+          const s = 0.5 + 0.5 * Math.sin(cyc);
+          ctx.beginPath();
+          ctx.arc(bx, by, b.radius * (0.4 + s * 0.9), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(251, 191, 36, ${(0.18 + s * 0.35).toFixed(2)})`;
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(251, 146, 60, 0.55)';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Obsidian island cliff rim
+        ctx.fillStyle = '#0B1120';
+        ctx.strokeStyle = 'rgba(251, 146, 60, 0.55)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(originX - 10, originY - 10, boardW + 20, boardH + 20, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        // 2. GRID CELLS (FLOOR, SUNKEN LAVA, WARNING FISSURES)
+        const lavaNextLookup = new Set(game.lavaNextCells.map(l => l.r * COLS + l.c));
+
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const x = originX + c * tile;
+            const y = originY + r * tile;
+            const cell = game.grid[r][c];
+
+            if (cell === CELL_LAVA) {
+              // Molten sunken tile
+              const wave = 0.5 + 0.5 * Math.sin(nowSec * 3.8 + c * 0.8 + r * 1.1);
+              const g = ctx.createRadialGradient(x + tile * 0.5, y + tile * 0.5, 4, x + tile * 0.5, y + tile * 0.5, tile * 0.72);
+              g.addColorStop(0, wave > 0.55 ? '#FDE047' : '#FB923C');
+              g.addColorStop(0.55, '#EA580C');
+              g.addColorStop(1, '#7C2D12');
+              ctx.fillStyle = g;
+              ctx.fillRect(x, y, tile, tile);
+
+              // Popping bubble inside sunken cell
+              const br = 3 + wave * 6;
+              ctx.beginPath();
+              ctx.arc(x + tile * (0.35 + 0.25 * Math.cos(nowSec + c)), y + tile * (0.4 + 0.2 * Math.sin(nowSec + r)), br, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(254, 240, 138, 0.55)';
+              ctx.fill();
+              continue;
+            }
+
+            // Basalt stone floor tile
+            const checker = (c + r) % 2 === 0;
+            ctx.fillStyle = checker ? '#0F172A' : '#131D33';
+            ctx.fillRect(x, y, tile, tile);
+
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.09)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 0.5, y + 0.5, tile - 1, tile - 1);
+
+            // Imminent Lava Warning cracks & pulsing hazard border
+            if (lavaNextLookup.has(r * COLS + c)) {
+              const blink = 0.45 + 0.55 * Math.abs(Math.sin(nowSec * 7.5));
+              ctx.fillStyle = `rgba(244, 63, 94, ${(0.18 + blink * 0.24).toFixed(2)})`;
+              ctx.fillRect(x + 1, y + 1, tile - 2, tile - 2);
+
+              ctx.strokeStyle = `rgba(251, 146, 60, ${(0.55 + blink * 0.4).toFixed(2)})`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(x + 8, y + 10);
+              ctx.lineTo(x + tile * 0.48, y + tile * 0.45);
+              ctx.lineTo(x + tile - 9, y + tile - 12);
+              ctx.moveTo(x + tile - 12, y + 11);
+              ctx.lineTo(x + tile * 0.48, y + tile * 0.45);
+              ctx.lineTo(x + 12, y + tile - 10);
+              ctx.stroke();
+
+              ctx.strokeStyle = '#F43F5E';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(x + 2, y + 2, tile - 4, tile - 4);
+            }
+          }
+        }
+
+        // Scorch decals on floor
+        for (let i = 0; i < game.scorchMarks.length; i++) {
+          const sm = game.scorchMarks[i];
+          if (game.grid[sm.r]?.[sm.c] === CELL_LAVA) continue;
+          const cx = originX + (sm.c + 0.5) * tile;
+          const cy = originY + (sm.r + 0.5) * tile;
+          const sg = ctx.createRadialGradient(cx, cy, 3, cx, cy, tile * 0.44);
+          sg.addColorStop(0, `rgba(4, 6, 12, ${sm.alpha})`);
+          sg.addColorStop(1, 'rgba(4, 6, 12, 0)');
+          ctx.fillStyle = sg;
+          ctx.beginPath();
+          ctx.arc(cx, cy, tile * 0.44, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 3. TACTICAL OVERLAY (BLAST WARNING TICKS & AI SAFE ROUTE VECTORS)
+        if (game.showTacticalOverlay) {
+          // Subtle danger ray markers for active bombs
+          for (let i = 0; i < game.bombs.length; i++) {
+            const b = game.bombs[i];
+            const urgency = 1 - Math.max(0, b.timerLeft / b.maxTimer);
+            ctx.fillStyle = `rgba(244, 63, 94, ${(0.08 + urgency * 0.14).toFixed(2)})`;
+            for (let d = 0; d < 4; d++) {
+              const dir = DIRS[d];
+              for (let k = 1; k <= b.range; k++) {
+                const nc = b.c + dir.dc * k;
+                const nr = b.r + dir.dr * k;
+                if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+                if (game.grid[nr][nc] === CELL_PILLAR) break;
+                ctx.fillRect(originX + nc * tile + 4, originY + nr * tile + 4, tile - 8, tile - 8);
+                if (game.grid[nr][nc] === CELL_CRATE) break;
+              }
+            }
+          }
+
+          // AI planned safe trajectories
+          for (let i = 0; i < game.players.length; i++) {
+            const p = game.players[i];
+            if (!p.alive) continue;
+            const pathPts = computeSafeTacticalPreview(p);
+            if (pathPts.length >= 2) {
+              ctx.save();
+              ctx.strokeStyle = p.color;
+              ctx.globalAlpha = 0.48;
+              ctx.lineWidth = 3;
+              ctx.setLineDash([6, 6]);
+              ctx.beginPath();
+              for (let k = 0; k < pathPts.length; k++) {
+                const px = originX + (pathPts[k].c + 0.5) * tile;
+                const py = originY + (pathPts[k].r + 0.5) * tile;
+                if (k === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+              }
+              ctx.stroke();
+              const last = pathPts[pathPts.length - 1];
+              ctx.setLineDash([]);
+              ctx.beginPath();
+              ctx.arc(originX + (last.c + 0.5) * tile, originY + (last.r + 0.5) * tile, 5, 0, Math.PI * 2);
+              ctx.fillStyle = p.color;
+              ctx.fill();
+              ctx.restore();
+            }
+          }
+        }
+
+        // 4. PILLARS & DESTRUCTIBLE CRATES
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const cell = game.grid[r][c];
+            const x = originX + c * tile;
+            const y = originY + r * tile;
+
+            if (cell === CELL_PILLAR) {
+              // 3D Beveled Indestructible Obsidian Pillar
+              ctx.fillStyle = 'rgba(0,0,0,0.45)';
+              ctx.fillRect(x + 5, y + 7, tile - 6, tile - 6);
+
+              const pg = ctx.createLinearGradient(x, y, x + tile, y + tile);
+              pg.addColorStop(0, '#334155');
+              pg.addColorStop(0.5, '#1E293B');
+              pg.addColorStop(1, '#0F172A');
+              ctx.fillStyle = pg;
+              ctx.beginPath();
+              ctx.roundRect(x + 3, y + 3, tile - 6, tile - 6, 8);
+              ctx.fill();
+
+              ctx.strokeStyle = '#475569';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+
+              // Inner metallic cap & cyan corner rivets
+              ctx.fillStyle = '#0B1324';
+              ctx.fillRect(x + 13, y + 13, tile - 26, tile - 26);
+              ctx.fillStyle = '#22D3EE';
+              const rvs = [[9, 9], [tile - 9, 9], [9, tile - 9], [tile - 9, tile - 9]];
+              for (let k = 0; k < 4; k++) {
+                ctx.beginPath();
+                ctx.arc(x + rvs[k][0], y + rvs[k][1], 2.1, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            } else if (cell === CELL_CRATE) {
+              // Reinforced Tactical Supply Crate
+              ctx.fillStyle = 'rgba(0,0,0,0.38)';
+              ctx.fillRect(x + 6, y + 8, tile - 10, tile - 10);
+
+              const cg = ctx.createLinearGradient(x, y, x, y + tile);
+              cg.addColorStop(0, '#9A3412');
+              cg.addColorStop(1, '#431407');
+              ctx.fillStyle = cg;
+              ctx.beginPath();
+              ctx.roundRect(x + 5, y + 5, tile - 10, tile - 10, 7);
+              ctx.fill();
+
+              ctx.strokeStyle = '#FB923C';
+              ctx.lineWidth = 1.8;
+              ctx.stroke();
+
+              // Cross bracing
+              ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+              ctx.lineWidth = 2.4;
+              ctx.beginPath();
+              ctx.moveTo(x + 12, y + 12);
+              ctx.lineTo(x + tile - 12, y + tile - 12);
+              ctx.moveTo(x + tile - 12, y + 12);
+              ctx.lineTo(x + 12, y + tile - 12);
+              ctx.stroke();
+
+              ctx.fillStyle = '#1E293B';
+              ctx.fillRect(x + tile * 0.5 - 8, y + tile * 0.5 - 8, 16, 16);
+              ctx.strokeStyle = '#FBBF24';
+              ctx.lineWidth = 1.4;
+              ctx.strokeRect(x + tile * 0.5 - 8, y + tile * 0.5 - 8, 16, 16);
+            }
+          }
+        }
+
+        // 5. POWERUPS (+1 Bomba, +1 Rango, +Velocidad)
+        for (let i = 0; i < game.powerups.length; i++) {
+          const pu = game.powerups[i];
+          const cx = originX + (pu.c + 0.5) * tile;
+          const cy = originY + (pu.r + 0.5) * tile + Math.sin(pu.bobPhase) * 3.5;
+
+          let col = '#22D3EE';
+          if (pu.kind === 'range') col = '#FB923C';
+          else if (pu.kind === 'speed') col = '#10B981';
+
+          // Outer aura ring
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, 19, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.85)';
+          ctx.fill();
+          ctx.lineWidth = 2.4;
+          ctx.strokeStyle = col;
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 12;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // Vector icon inside capsule
+          ctx.fillStyle = col;
+          ctx.strokeStyle = col;
+          if (pu.kind === 'bomb') {
+            ctx.beginPath();
+            ctx.arc(cx - 1, cy + 2, 7.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#FBBF24';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(cx + 4, cy - 4);
+            ctx.lineTo(cx + 9, cy - 9);
+            ctx.stroke();
+          } else if (pu.kind === 'range') {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 10);
+            ctx.bezierCurveTo(cx + 9, cy - 3, cx + 9, cy + 8, cx, cy + 10);
+            ctx.bezierCurveTo(cx - 9, cy + 8, cx - 9, cy - 3, cx, cy - 10);
+            ctx.fill();
+            ctx.fillStyle = '#FEF08A';
+            ctx.beginPath();
+            ctx.arc(cx, cy + 3, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(cx + 2, cy - 10);
+            ctx.lineTo(cx - 7, cy + 1);
+            ctx.lineTo(cx, cy + 1);
+            ctx.lineTo(cx - 3, cy + 10);
+            ctx.lineTo(cx + 8, cy - 2);
+            ctx.lineTo(cx + 1, cy - 2);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // 6. PULSATING BOMBS WITH VISIBLE BURNING FUSE (2.5s)
+        for (let i = 0; i < game.bombs.length; i++) {
+          const b = game.bombs[i];
+          const cx = originX + (b.c + 0.5) * tile;
+          const cy = originY + (b.r + 0.5) * tile;
+          const ratio = Math.max(0, b.timerLeft / b.maxTimer);
+          const freq = 6 + (1 - ratio) * 18;
+          const pulse = 1 + Math.sin(nowSec * freq) * (0.07 + (1 - ratio) * 0.09);
+
+          // Countdown radial ring on floor
+          ctx.beginPath();
+          ctx.arc(cx, cy, tile * 0.40, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * ratio);
+          ctx.strokeStyle = ratio < 0.35 ? '#F43F5E' : (b.color || '#22D3EE');
+          ctx.lineWidth = 3.2;
+          ctx.stroke();
+
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.scale(pulse, pulse);
+
+          // Bomb sphere
+          const bg = ctx.createRadialGradient(-5, -6, 2, 0, 0, 20);
+          bg.addColorStop(0, ratio < 0.3 ? '#FB7185' : '#475569');
+          bg.addColorStop(0.55, '#0F172A');
+          bg.addColorStop(1, '#020617');
+          ctx.fillStyle = bg;
+          ctx.beginPath();
+          ctx.arc(0, 2, 18.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.lineWidth = 2.2;
+          ctx.strokeStyle = ratio < 0.35 ? '#F43F5E' : (b.color || '#22D3EE');
+          ctx.stroke();
+
+          // Visible burning fuse cord shortening from 1.0 -> 0.0
+          const fuseLen = 6 + ratio * 15;
+          const tipX = 5 + fuseLen * 0.65;
+          const tipY = -14 - fuseLen * 0.52;
+          ctx.strokeStyle = '#D97706';
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.moveTo(3, -15);
+          ctx.quadraticCurveTo(8, -21, tipX, tipY);
+          ctx.stroke();
+
+          // Live fuse sparkler star
+          const sparkR = 4.2 + Math.random() * 3.0;
+          ctx.fillStyle = '#FEF08A';
+          ctx.shadowColor = '#FB923C';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(tipX, tipY, sparkR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Timer seconds readout inside bomb
+          ctx.fillStyle = '#F8FAFC';
+          ctx.font = '800 11px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(b.timerLeft.toFixed(1), 0, 3);
+          ctx.restore();
+        }
+
+        // 7. REAL FIRE WAVES & SHOCKWAVE RINGS
+        for (let i = 0; i < game.flames.length; i++) {
+          const f = game.flames[i];
+          const alpha = Math.min(1, (f.timer / f.maxTimer) * 1.4);
+          const x = originX + f.c * tile;
+          const y = originY + f.r * tile;
+          const cx = x + tile * 0.5;
+          const cy = y + tile * 0.5;
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          // Outer coral-orange plasma glow
+          ctx.fillStyle = '#F43F5E';
+          ctx.beginPath();
+          ctx.roundRect(x + 5, y + 5, tile - 10, tile - 10, 12);
+          ctx.fill();
+
+          ctx.fillStyle = '#FB923C';
+          ctx.beginPath();
+          ctx.roundRect(x + 11, y + 11, tile - 22, tile - 22, 9);
+          ctx.fill();
+
+          ctx.fillStyle = '#FEF08A';
+          ctx.beginPath();
+          ctx.arc(cx, cy, (tile - 34) * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        for (let i = 0; i < game.shockwaves.length; i++) {
+          const sw = game.shockwaves[i];
+          const cx = originX + (sw.c + 0.5) * tile;
+          const cy = originY + (sw.r + 0.5) * tile;
+          const alpha = Math.max(0, sw.life / sw.maxLife);
+          ctx.save();
+          ctx.strokeStyle = sw.color;
+          ctx.globalAlpha = alpha * 0.85;
+          ctx.lineWidth = 3.5 * alpha + 1;
+          ctx.beginPath();
+          ctx.arc(cx, cy, sw.radius * tile * 0.55, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 8. CYBER-BOMBER AI AGENTS
+        for (let i = 0; i < game.players.length; i++) {
+          const p = game.players[i];
+          if (!p.alive) continue;
+          const cx = originX + (p.c + 0.5) * tile;
+          const cy = originY + (p.r + 0.5) * tile;
+          const stride = Math.sin(p.walkCycle) * 4;
+
+          ctx.save();
+          ctx.translate(cx, cy);
+
+          // Ground shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.48)';
+          ctx.beginPath();
+          ctx.ellipse(0, 20, 16, 6.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Animated cyber boots
+          ctx.fillStyle = '#334155';
+          ctx.beginPath();
+          ctx.roundRect(-12, 11 + stride * 0.5, 9, 8, 3);
+          ctx.roundRect(3, 11 - stride * 0.5, 9, 8, 3);
+          ctx.fill();
+
+          // Armored chassis/helmet
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = p.dark;
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.roundRect(-18, -17, 36, 31, 11);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // Visor screen with directional eyes
+          let lookX = 0;
+          let lookY = 0;
+          if (p.facing === 'LEFT') lookX = -3.5;
+          else if (p.facing === 'RIGHT') lookX = 3.5;
+          else if (p.facing === 'UP') lookY = -2.5;
+          else if (p.facing === 'DOWN') lookY = 2.5;
+
+          ctx.fillStyle = '#060A12';
+          ctx.beginPath();
+          ctx.roundRect(-12, -9, 24, 13, 5);
+          ctx.fill();
+
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.roundRect(-7 + lookX, -6 + lookY, 4.5, 7, 2);
+          ctx.roundRect(2.5 + lookX, -6 + lookY, 4.5, 7, 2);
+          ctx.fill();
+
+          // Top antenna beacon
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(0, -17);
+          ctx.lineTo(0, -24);
+          ctx.stroke();
+          ctx.fillStyle = '#F8FAFC';
+          ctx.beginPath();
+          ctx.arc(0, -25, 3.3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Floating compact label above bot
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.84)';
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(-32, -43, 64, 14, 4);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = p.color;
+          ctx.font = '800 9.5px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(p.name, 0, -36);
+
+          ctx.restore();
+        }
+
+        // 9. PARTICLES & FLOATING POWERUP LABELS
+        for (let i = 0; i < game.particles.length; i++) {
+          const pt = game.particles[i];
+          const px = originX + (pt.c + 0.5) * tile;
+          const py = originY + (pt.r + 0.5) * tile;
+          ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(px, py, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        for (let i = 0; i < game.floatingTexts.length; i++) {
+          const ft = game.floatingTexts[i];
+          const fx = originX + (ft.c + 0.5) * tile;
+          const fy = originY + (ft.r + 0.5) * tile;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+          ctx.font = '800 13px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#060A12';
+          ctx.fillText(ft.text, fx + 1, fy + 1);
+          ctx.fillStyle = ft.color;
+          ctx.fillText(ft.text, fx, fy);
+          ctx.restore();
+        }
+
+        // 10. ROUND / SERIES VICTORY OVERLAY BANNER
+        if (game.phase !== 'PLAYING') {
+          ctx.save();
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.72)';
+          ctx.beginPath();
+          ctx.roundRect(W * 0.5 - 300, H * 0.5 - 64, 600, 128, 16);
+          ctx.fill();
+          ctx.strokeStyle = game.bannerColor;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          ctx.fillStyle = game.bannerColor;
+          ctx.font = '900 26px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(game.bannerHeadline, W * 0.5, H * 0.5 - 12);
+
+          ctx.fillStyle = '#E2E8F0';
+          ctx.font = '600 14px Inter, sans-serif';
+          ctx.fillText(game.bannerSub, W * 0.5, H * 0.5 + 24);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // DOM TELEMETRY SYNCHRONIZATION (LOW-OVERHEAD DIFFING)
+      // =========================================================================
+      const dom = {
+        fightersContainer: document.getElementById('fightersContainer'),
+        aliveBadge: document.getElementById('aliveBadge'),
+        roundHeaderLabel: document.getElementById('roundHeaderLabel'),
+        roundClockLabel: document.getElementById('roundClockLabel'),
+        scoreLabelLeft: document.getElementById('scoreLabelLeft'),
+        scoreLabelRight: document.getElementById('scoreLabelRight'),
+        pipsLeft: document.getElementById('pipsLeft'),
+        pipsRight: document.getElementById('pipsRight'),
+        lavaPhaseTag: document.getElementById('lavaPhaseTag'),
+        lavaCountdownText: document.getElementById('lavaCountdownText'),
+        islandSafePct: document.getElementById('islandSafePct'),
+        lavaProgressBar: document.getElementById('lavaProgressBar'),
+        kpiCrates: document.getElementById('kpiCrates'),
+        kpiBombs: document.getElementById('kpiBombs'),
+        kpiRings: document.getElementById('kpiRings'),
+        kpiChains: document.getElementById('kpiChains'),
+        battleFeed: document.getElementById('battleFeed'),
+        fpsLabel: document.getElementById('fpsLabel'),
+        modeBadge: document.getElementById('modeBadge'),
+        btnPause: document.getElementById('btnPause'),
+        btnSpeed: document.getElementById('btnSpeed'),
+        btnOverlay: document.getElementById('btnOverlay'),
+        btnResetSeries: document.getElementById('btnResetSeries'),
+        btnModeToggle: document.getElementById('btnModeToggle'),
+        btnNextRound: document.getElementById('btnNextRound'),
+        btnAudioToggle: document.getElementById('btnAudioToggle'),
+        btnForceLava: document.getElementById('btnForceLava')
+      };
+
+      let fighterCardRefs = [];
+
+      function rebuildFighterCardsDOM() {
+        dom.fightersContainer.innerHTML = '';
+        fighterCardRefs = [];
+
+        for (let i = 0; i < game.players.length; i++) {
+          const p = game.players[i];
+          const card = document.createElement('div');
+          card.className = `fighter-card ${p.borderClass}`;
+
+          card.innerHTML = `
+            <div class="fighter-top">
+              <span class="fighter-id" style="color:${p.color}">${p.name}</span>
+              <span class="fighter-state-badge state-alive" data-role="state">ACTIVO</span>
+            </div>
+            <div class="fighter-intent" data-role="intent">${p.intentText}</div>
+            <div class="stats-row">
+              <div class="stat-chip">
+                <span class="stat-label">BOMBAS</span>
+                <span class="stat-val" data-role="bombs" style="color:${p.color}">1/1</span>
+              </div>
+              <div class="stat-chip">
+                <span class="stat-label">FUEGO</span>
+                <span class="stat-val" data-role="range" style="color:var(--orange)">2</span>
+              </div>
+              <div class="stat-chip">
+                <span class="stat-label">RONDAS</span>
+                <span class="stat-val" data-role="wins" style="color:var(--gold)">0</span>
+              </div>
+            </div>
+          `;
+
+          dom.fightersContainer.appendChild(card);
+          fighterCardRefs.push({
+            card,
+            stateEl: card.querySelector('[data-role="state"]'),
+            intentEl: card.querySelector('[data-role="intent"]'),
+            bombsEl: card.querySelector('[data-role="bombs"]'),
+            rangeEl: card.querySelector('[data-role="range"]'),
+            winsEl: card.querySelector('[data-role="wins"]')
+          });
+        }
+      }
+
+      function updateScorePips(container, count, fillClass) {
+        const spans = container.children;
+        for (let i = 0; i < spans.length; i++) {
+          spans[i].className = i < count ? `win-pip ${fillClass}` : 'win-pip';
+        }
+      }
+
+      function syncHUD(fpsVal) {
+        dom.fpsLabel.textContent = String(fpsVal);
+        dom.roundHeaderLabel.textContent = `RONDA ${game.seriesRound} DE ${game.maxSeriesRounds}`;
+
+        const mins = Math.floor(game.roundTime / 60);
+        const secs = (game.roundTime % 60).toFixed(1).padStart(4, '0');
+        dom.roundClockLabel.textContent = `${String(mins).padStart(2, '0')}:${secs}`;
+        dom.roundClockLabel.classList.toggle('lava-active', game.roundTime >= LAVA_START_SEC);
+
+        if (game.players[0]) {
+          dom.scoreLabelLeft.textContent = game.players[0].name;
+          updateScorePips(dom.pipsLeft, game.winsById[game.players[0].id] || 0, 'filled-cyan');
+        }
+        if (game.players[1]) {
+          dom.scoreLabelRight.textContent = game.players[1].name;
+          updateScorePips(dom.pipsRight, game.winsById[game.players[1].id] || 0, 'filled-coral');
+        }
+
+        let aliveCount = 0;
+        for (let i = 0; i < game.players.length; i++) {
+          const p = game.players[i];
+          if (p.alive) aliveCount++;
+          const ref = fighterCardRefs[i];
+          if (!ref) continue;
+          ref.card.classList.toggle('eliminated', !p.alive);
+          ref.stateEl.textContent = p.alive ? 'ACTIVO' : 'CAIDO';
+          ref.stateEl.className = p.alive ? 'fighter-state-badge state-alive' : 'fighter-state-badge state-dead';
+          ref.intentEl.textContent = p.intentText;
+          ref.bombsEl.textContent = `${p.bombsAvail}/${p.maxBombs}`;
+          ref.rangeEl.textContent = String(p.flameRange);
+          ref.winsEl.textContent = String(game.winsById[p.id] || 0);
+        }
+        dom.aliveBadge.textContent = `${aliveCount} EN PIE`;
+
+        // Volcanic meter
+        let nonLavaCells = 0;
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (game.grid[r][c] !== CELL_LAVA) nonLavaCells++;
+          }
+        }
+        const islandPct = Math.round((nonLavaCells / (COLS * ROWS)) * 100);
+        dom.islandSafePct.textContent = `${islandPct}% ISLA`;
+
+        if (game.roundTime < LAVA_START_SEC) {
+          const rem = Math.max(0, LAVA_START_SEC - game.roundTime);
+          dom.lavaPhaseTag.textContent = game.lavaWarningActive ? 'SISMO ACTIVO' : 'ESTABLE';
+          dom.lavaCountdownText.textContent = `Hundimiento exterior en ${rem.toFixed(1)}s`;
+          dom.lavaProgressBar.style.width = `${Math.min(100, (game.roundTime / LAVA_START_SEC) * 100).toFixed(1)}%`;
+        } else if (game.lavaRingsSunk < 5) {
+          const rem = Math.max(0, game.nextLavaSinkTime - game.roundTime);
+          dom.lavaPhaseTag.textContent = 'ERUPCION';
+          dom.lavaCountdownText.textContent = `Siguiente anillo en ${rem.toFixed(1)}s`;
+          const pct = 100 - Math.min(100, (rem / LAVA_RING_INTERVAL_SEC) * 100);
+          dom.lavaProgressBar.style.width = `${pct.toFixed(1)}%`;
+        } else {
+          dom.lavaPhaseTag.textContent = 'MUERTE SUBITA';
+          dom.lavaCountdownText.textContent = 'Centro volcanico critico!';
+          dom.lavaProgressBar.style.width = '100%';
+        }
+
+        dom.kpiCrates.textContent = String(game.totalCratesBroken);
+        dom.kpiBombs.textContent = String(game.bombs.length);
+        dom.kpiRings.textContent = `${Math.min(4, game.lavaRingsSunk)} / 4`;
+        dom.kpiChains.textContent = String(game.totalChainExplosions);
+
+        if (game.logDirty) {
+          game.logDirty = false;
+          dom.battleFeed.innerHTML = game.battleLogs
+            .map(item => `<div class="feed-item ${item.tone}"><span class="feed-time">[${item.stamp}]</span>${item.text}</div>`)
+            .join('');
+        }
+      }
+
+      // =========================================================================
+      // INTERACTIVE UI BUTTON WIRING
+      // =========================================================================
+      dom.btnPause.addEventListener('click', () => {
+        game.paused = !game.paused;
+        dom.btnPause.textContent = game.paused ? 'REANUDAR' : 'PAUSAR';
+        dom.btnPause.classList.toggle('active', game.paused);
+      });
+
+      const speedSteps = [1.0, 1.5, 2.0];
+      let speedIdx = 0;
+      dom.btnSpeed.addEventListener('click', () => {
+        speedIdx = (speedIdx + 1) % speedSteps.length;
+        game.simSpeed = speedSteps[speedIdx];
+        dom.btnSpeed.textContent = `VEL: ${game.simSpeed.toFixed(1)}X`;
+      });
+
+      dom.btnOverlay.addEventListener('click', () => {
+        game.showTacticalOverlay = !game.showTacticalOverlay;
+        dom.btnOverlay.textContent = game.showTacticalOverlay ? 'RUTAS IA: ON' : 'RUTAS IA: OFF';
+        dom.btnOverlay.classList.toggle('active', game.showTacticalOverlay);
+      });
+
+      dom.btnResetSeries.addEventListener('click', () => {
+        resetSeries();
+      });
+
+      dom.btnModeToggle.addEventListener('click', () => {
+        game.modeIndex = (game.modeIndex + 1) % MODES.length;
+        const m = MODES[game.modeIndex];
+        dom.btnModeToggle.textContent = m.label;
+        dom.modeBadge.textContent = m.badge;
+        resetSeries();
+        if (m.humanFirst) {
+          addLog('Control manual activo: usa WASD/Flechas + ESPACIO!', 'emerald');
+        }
+      });
+
+      dom.btnNextRound.addEventListener('click', () => {
+        game.seriesRound = (game.seriesRound % game.maxSeriesRounds) + 1;
+        initRound();
+      });
+
+      dom.btnAudioToggle.addEventListener('click', () => {
+        SoundFX.enabled = !SoundFX.enabled;
+        if (SoundFX.enabled) SoundFX.ensure();
+        dom.btnAudioToggle.textContent = SoundFX.enabled ? 'SONIDO: ON' : 'SONIDO: OFF';
+        dom.btnAudioToggle.classList.toggle('active', SoundFX.enabled);
+      });
+
+      dom.btnForceLava.addEventListener('click', () => {
+        if (game.phase === 'PLAYING' && game.lavaRingsSunk < 5) {
+          if (!game.lavaWarningActive) {
+            game.lavaWarningActive = true;
+            game.lavaNextCells = getRingCells(game.lavaRingsSunk);
+            game.nextLavaSinkTime = game.roundTime + 1.4;
+            addLog('Pulso sismico manual activado: bordes colapsando!', 'coral');
+          } else {
+            sinkNextLavaRing();
+          }
+        }
+      });
+
+      // =========================================================================
+      // BOOTSTRAP & 60 FPS MAIN LOOP FROM SECOND 0.0
+      // =========================================================================
+      initRound();
+
+      let lastTs = performance.now();
+      let fpsFrames = 0;
+      let fpsAccum = 0;
+      let displayedFps = 60;
+      let hudAccum = 0;
+
+      function mainLoop(now) {
+        const rawDt = Math.min(0.05, Math.max(0.001, (now - lastTs) / 1000));
+        lastTs = now;
+
+        fpsFrames++;
+        fpsAccum += rawDt;
+        if (fpsAccum >= 0.45) {
+          displayedFps = Math.min(60, Math.max(1, Math.round(fpsFrames / fpsAccum)));
+          fpsFrames = 0;
+          fpsAccum = 0;
+        }
+
+        if (!game.paused) {
+          const scaledDt = rawDt * game.simSpeed;
+          // Sub-step if simSpeed > 1.2 for rock-solid collision precision
+          const steps = game.simSpeed > 1.2 ? 2 : 1;
+          const subDt = scaledDt / steps;
+          for (let s = 0; s < steps; s++) {
+            stepArena(subDt);
+          }
+        }
+
+        renderArena(now * 0.001);
+
+        hudAccum += rawDt;
+        if (hudAccum >= 0.08) {
+          hudAccum = 0;
+          syncHUD(displayedFps);
+        }
+
+        requestAnimationFrame(mainLoop);
+      }
+
+      syncHUD(60);
+      requestAnimationFrame(mainLoop);
+    })();
+  </script>
+</body>
+</html>

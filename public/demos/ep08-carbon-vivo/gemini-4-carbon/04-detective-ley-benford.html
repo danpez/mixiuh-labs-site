@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mixiuh Forensics // Detective Ley de Benford — Auditoria Antifraude</title>
+  <style>
+    :root {
+      --bg-void: #070B14;
+      --bg-panel: rgba(15, 23, 42, 0.86);
+      --bg-panel-solid: #0F172A;
+      --bg-elevated: rgba(30, 41, 59, 0.68);
+      --border-subtle: rgba(148, 163, 184, 0.16);
+      --border-cyan: rgba(34, 211, 238, 0.38);
+      --border-coral: rgba(244, 63, 94, 0.48);
+      --cyan: #22D3EE;
+      --emerald: #10B981;
+      --amber: #FBBF24;
+      --coral: #F43F5E;
+      --text-primary: #F8FAFC;
+      --text-secondary: #CBD5E1;
+      --text-muted: #94A3B8;
+      --font-sans: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    @media (max-width: 1320px), (max-height: 780px) {
+      html, body {
+        overflow: auto;
+      }
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 14% 16%, rgba(34, 211, 238, 0.09), transparent 38%),
+        radial-gradient(circle at 82% 20%, rgba(244, 63, 94, 0.10), transparent 40%),
+        radial-gradient(circle at 50% 88%, rgba(16, 185, 129, 0.06), transparent 45%),
+        linear-gradient(rgba(34, 211, 238, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+      z-index: 0;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100vh;
+      min-height: 780px;
+      padding: 12px 18px 14px;
+      display: grid;
+      grid-template-rows: 58px 98px minmax(0, 1fr);
+      gap: 11px;
+    }
+
+    /* TOP HEADER */
+    .topbar {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-emblem {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(244, 63, 94, 0.16));
+      border: 1px solid var(--border-cyan);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.2);
+    }
+
+    .brand-titles {
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .brand-title .accent-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(244, 63, 94, 0.18);
+      border: 1px solid rgba(244, 63, 94, 0.48);
+      color: #FDA4AF;
+      letter-spacing: 0.05em;
+    }
+
+    .brand-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .ctrl-field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(7, 11, 20, 0.72);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 4px 9px;
+      height: 36px;
+    }
+
+    .ctrl-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .ctrl-select {
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      max-width: 195px;
+    }
+
+    .ctrl-select option {
+      background: #0F172A;
+      color: #F8FAFC;
+    }
+
+    .btn-ctrl {
+      height: 36px;
+      padding: 0 11px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      white-space: nowrap;
+    }
+
+    .btn-ctrl:hover {
+      border-color: var(--cyan);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    .btn-ctrl.active-cyan {
+      background: rgba(34, 211, 238, 0.14);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.18);
+    }
+
+    .btn-ctrl.active-coral {
+      background: rgba(244, 63, 94, 0.18);
+      border-color: var(--coral);
+      color: #FDA4AF;
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.24);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: pulseGlow 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.78); }
+    }
+
+    .fps-badge {
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.36);
+      color: var(--emerald);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* KPI STRIP */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: 1.25fr 0.95fr 0.92fr 1.12fr 1.02fr;
+      gap: 11px;
+    }
+
+    .kpi-card {
+      position: relative;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 11px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--kpi-accent, var(--cyan));
+      box-shadow: 0 0 14px var(--kpi-accent, var(--cyan));
+    }
+
+    .kpi-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .kpi-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .kpi-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      color: var(--kpi-accent, var(--cyan));
+    }
+
+    .kpi-value {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 2px 0;
+    }
+
+    .kpi-value.mono {
+      font-family: var(--font-mono);
+      font-size: 22px;
+    }
+
+    .kpi-value.coral { color: #FDA4AF; text-shadow: 0 0 18px rgba(244, 63, 94, 0.32); }
+    .kpi-value.amber { color: var(--amber); text-shadow: 0 0 18px rgba(251, 191, 36, 0.25); }
+    .kpi-value.cyan  { color: var(--cyan); text-shadow: 0 0 18px rgba(34, 211, 238, 0.25); }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0.9;
+    }
+
+    /* MAIN WORKSPACE */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1.08fr 1.18fr 0.96fr;
+      gap: 11px;
+      min-height: 0;
+    }
+
+    .col-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      min-height: 0;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      position: relative;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .panel-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .panel-title {
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .panel-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      flex-shrink: 0;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .swatch.line {
+      height: 3px;
+      width: 14px;
+      border-radius: 2px;
+    }
+
+    .canvas-stage {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      border-radius: 9px;
+      background: rgba(7, 11, 20, 0.62);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      overflow: hidden;
+    }
+
+    .canvas-stage canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* BENFORD TELEMETRY FOOTER */
+    .digit-inspector {
+      margin-top: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: rgba(7, 11, 20, 0.72);
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .digit-badge {
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: rgba(34, 211, 238, 0.15);
+      color: var(--cyan);
+      font-weight: 800;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+    }
+
+    .digit-metrics {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+
+    .digit-delta {
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    /* RANKING LIST */
+    .seg-tabs {
+      display: inline-flex;
+      background: rgba(7, 11, 20, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 7px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .seg-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .seg-btn.active {
+      background: rgba(34, 211, 238, 0.18);
+      color: var(--cyan);
+    }
+
+    .ranking-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-right: 3px;
+    }
+
+    .ranking-list::-webkit-scrollbar,
+    .scanner-rows::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .ranking-list::-webkit-scrollbar-thumb,
+    .scanner-rows::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.26);
+      border-radius: 4px;
+    }
+
+    .rank-row {
+      display: grid;
+      grid-template-columns: 168px 1fr 74px 88px;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: 7px;
+      background: rgba(7, 11, 20, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.08);
+      cursor: pointer;
+      font-size: 11.5px;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+
+    .rank-row:hover {
+      background: rgba(30, 41, 59, 0.72);
+      border-color: rgba(34, 211, 238, 0.35);
+    }
+
+    .rank-row.culprit {
+      background: rgba(244, 63, 94, 0.13);
+      border-color: rgba(244, 63, 94, 0.48);
+    }
+
+    .rank-row.selected {
+      outline: 1px solid var(--cyan);
+      background: rgba(34, 211, 238, 0.12);
+    }
+
+    .rank-name {
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+
+    .rank-bar-track {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(15, 23, 42, 0.95);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .rank-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.35s ease;
+    }
+
+    .rank-chi {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rank-sum {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ANATOMY CARDS (CENTER BOTTOM) */
+    .anatomy-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .anatomy-card {
+      background: rgba(7, 11, 20, 0.68);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 9px;
+      padding: 9px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .anatomy-kicker {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .anatomy-big {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin: 2px 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .anatomy-desc {
+      font-size: 11px;
+      line-height: 1.32;
+      color: var(--text-secondary);
+    }
+
+    .mini-meter {
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(30, 41, 59, 0.9);
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .mini-meter > span {
+      display: block;
+      height: 100%;
+      border-radius: 3px;
+    }
+
+    /* VERDICT CARD (RIGHT TOP) */
+    .verdict-panel {
+      background: linear-gradient(155deg, rgba(244, 63, 94, 0.14) 0%, rgba(15, 23, 42, 0.94) 52%, rgba(34, 211, 238, 0.08) 100%);
+      border: 1px solid var(--border-coral);
+      box-shadow: 0 10px 30px rgba(244, 63, 94, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+    }
+
+    .verdict-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 7px 10px;
+      margin: 4px 0 9px;
+    }
+
+    .v-item {
+      background: rgba(7, 11, 20, 0.68);
+      border: 1px solid rgba(244, 63, 94, 0.24);
+      border-radius: 8px;
+      padding: 6px 9px;
+    }
+
+    .v-label {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .v-val {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .v-val.mono {
+      font-family: var(--font-mono);
+    }
+
+    .verdict-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .verdict-footnote {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #FDA4AF;
+    }
+
+    /* LIVE SCANNER (RIGHT BOTTOM) */
+    .scanner-hud {
+      background: rgba(7, 11, 20, 0.82);
+      border: 1px solid rgba(34, 211, 238, 0.28);
+      border-radius: 9px;
+      padding: 8px 10px;
+      margin-bottom: 7px;
+      flex-shrink: 0;
+    }
+
+    .scanner-hud-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-bottom: 5px;
+    }
+
+    .scanner-progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(30, 41, 59, 0.9);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .scanner-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--coral));
+      width: 0%;
+      transition: width 0.08s linear;
+    }
+
+    .scanner-inspect-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .scanner-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 6px;
+      flex-shrink: 0;
+    }
+
+    .search-input {
+      background: rgba(7, 11, 20, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      width: 128px;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--cyan);
+    }
+
+    .scanner-table-head {
+      display: grid;
+      grid-template-columns: 76px 64px 1fr 86px 84px 56px;
+      gap: 6px;
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      flex-shrink: 0;
+    }
+
+    .scanner-rows {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding-top: 4px;
+      padding-right: 2px;
+    }
+
+    .inv-row {
+      display: grid;
+      grid-template-columns: 76px 64px 1fr 86px 84px 56px;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: rgba(7, 11, 20, 0.52);
+      border: 1px solid rgba(148, 163, 184, 0.07);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .inv-row:hover {
+      background: rgba(30, 41, 59, 0.72);
+      border-color: rgba(34, 211, 238, 0.35);
+    }
+
+    .inv-row.fraud {
+      background: rgba(244, 63, 94, 0.10);
+      border-color: rgba(244, 63, 94, 0.28);
+    }
+
+    .inv-row.active-scan {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.15);
+      box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.14);
+    }
+
+    .inv-sup {
+      font-family: var(--font-sans);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+
+    .inv-br {
+      font-size: 10px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .inv-amt {
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .risk-pill {
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 4px;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .risk-crit {
+      background: rgba(244, 63, 94, 0.22);
+      color: #FDA4AF;
+      border: 1px solid rgba(244, 63, 94, 0.5);
+    }
+
+    .risk-watch {
+      background: rgba(251, 191, 36, 0.16);
+      color: var(--amber);
+      border: 1px solid rgba(251, 191, 36, 0.4);
+    }
+
+    .risk-clean {
+      background: rgba(16, 185, 129, 0.14);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.34);
+    }
+
+    /* FLOATING CANVAS TOOLTIP */
+    .forensic-tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 50;
+      background: rgba(7, 11, 20, 0.95);
+      border: 1px solid var(--cyan);
+      border-radius: 9px;
+      padding: 8px 11px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-primary);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.12s ease, transform 0.12s ease;
+      max-width: 290px;
+    }
+
+    .forensic-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-emblem" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" stroke="#22D3EE" stroke-width="1.7" fill="rgba(34,211,238,0.08)" />
+            <circle cx="12" cy="12" r="4.2" stroke="#F43F5E" stroke-width="1.7" />
+            <line x1="12" y1="2" x2="12" y2="6.5" stroke="#22D3EE" stroke-width="1.4" />
+            <line x1="12" y1="17.5" x2="12" y2="22" stroke="#22D3EE" stroke-width="1.4" />
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <div class="brand-title">
+            <span>MIXIUH FORENSICS // DETECTIVE LEY DE BENFORD</span>
+            <span class="accent-tag">DESFALCO DETECTADO</span>
+          </div>
+          <div class="brand-sub">
+            Grupo Comercial Mixiuh Retail · 1,000 Facturas Auditables 2026 · Tope Sistema_Auto: $10,000.00 MXN
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-group">
+        <label class="ctrl-field" title="Filtrar padron por proveedor">
+          <span class="ctrl-label">Proveedor</span>
+          <select id="supplierFilter" class="ctrl-select"></select>
+        </label>
+
+        <label class="ctrl-field" title="Filtrar padron por sucursal">
+          <span class="ctrl-label">Sucursal</span>
+          <select id="branchFilter" class="ctrl-select"></select>
+        </label>
+
+        <button id="isolateCulpritBtn" class="btn-ctrl" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="9"></circle>
+            <line x1="12" y1="3" x2="12" y2="7"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+            <line x1="3" y1="12" x2="7" y2="12"></line>
+            <line x1="17" y1="12" x2="21" y2="12"></line>
+          </svg>
+          <span id="isolateBtnLabel">AISLAR CULPABLE</span>
+        </button>
+
+        <button id="autoDemoBtn" class="btn-ctrl active-cyan" type="button">
+          <span class="pulse-dot"></span>
+          <span id="autoDemoLabel">AUTO-DEMO: ON</span>
+        </button>
+
+        <button id="audioToggleBtn" class="btn-ctrl" type="button" title="Activar pulso acustico forense WebAudio">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+          </svg>
+          <span id="audioBtnLabel">SONAR: OFF</span>
+        </button>
+
+        <div class="fps-badge" title="Cuadros por segundo en tiempo real">
+          <span class="pulse-dot"></span>
+          <span id="fpsReadout">60 FPS</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPI ROW -->
+    <section class="kpi-strip" aria-label="Indicadores Forenses Principales">
+      <article class="kpi-card" style="--kpi-accent: var(--coral);">
+        <div class="kpi-head">
+          <span class="kpi-label">Proveedor Fantasma Culpable</span>
+          <span class="kpi-pill">100% CONSULTORIA EXPRESS</span>
+        </div>
+        <div class="kpi-value coral" id="kpiCulpritSupplier">Logistica Fantasma del Norte</div>
+        <div class="kpi-sub">Folios inyectados: FAC-10886 a FAC-11000 · Giro inexistente en honestos</div>
+      </article>
+
+      <article class="kpi-card" style="--kpi-accent: var(--amber);">
+        <div class="kpi-head">
+          <span class="kpi-label">Sucursal Complice</span>
+          <span class="kpi-pill">CONCENTRACION 100%</span>
+        </div>
+        <div class="kpi-value amber" id="kpiCulpritBranch">Monterrey-04</div>
+        <div class="kpi-sub">115 de 115 facturas falsas · Chi2 plaza cae 273.29 -&gt; 6.22 sin culpable</div>
+      </article>
+
+      <article class="kpi-card" style="--kpi-accent: var(--coral);">
+        <div class="kpi-head">
+          <span class="kpi-label">Facturas Fraudulentas</span>
+          <span class="kpi-pill">0 REVISION HUMANA</span>
+        </div>
+        <div class="kpi-value mono coral" id="kpiInvoiceCount">115 FACTURAS</div>
+        <div class="kpi-sub">98 bajo tope ($7.4k–$9.93k) + 17 split (&lt;$5k) · 100% Sistema_Auto</div>
+      </article>
+
+      <article class="kpi-card" style="--kpi-accent: var(--coral);">
+        <div class="kpi-head">
+          <span class="kpi-label">Monto Exacto Defraudado</span>
+          <span class="kpi-pill">18.98% DEL GASTO</span>
+        </div>
+        <div class="kpi-value mono coral" id="kpiTotalStolen">$957,439.59 MXN</div>
+        <div class="kpi-sub">Padron total: $5,045,340.17 MXN · Factura max: $9,926.47 MXN</div>
+      </article>
+
+      <article class="kpi-card" style="--kpi-accent: var(--cyan);">
+        <div class="kpi-head">
+          <span class="kpi-label">Prueba Chi-Cuadrada Benford</span>
+          <span class="kpi-pill">CRITICO p&lt;0.001 = 26.13</span>
+        </div>
+        <div class="kpi-value mono cyan" id="kpiChiSquare">Chi² = 577.24</div>
+        <div class="kpi-sub" id="kpiChiSub">11 Honestos (N=885): Chi² = 14.31 (Cumple) · Global: 60.48</div>
+      </article>
+    </section>
+
+    <!-- MAIN 3-COLUMN BENTO -->
+    <main class="workspace">
+      <!-- LEFT COLUMN -->
+      <div class="col-stack">
+        <section class="panel" style="flex: 1.32;">
+          <div class="panel-header">
+            <div class="panel-title-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2">
+                <path d="M3 3v18h18"></path>
+                <path d="M7 14l4-5 4 3 5-7"></path>
+              </svg>
+              <h2 class="panel-title">Ley de Benford: P(d) = log10(1 + 1/d)</h2>
+            </div>
+            <span class="panel-subtitle" id="benfordFilterBadge">Comparativa activa: 1,000 facturas</span>
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-item"><span class="swatch line" style="background:#22D3EE; box-shadow:0 0 6px #22D3EE;"></span>Curva Teorica (d1=30.1%)</span>
+            <span class="legend-item"><span class="swatch" style="background:#10B981;"></span>11 Proveedores Honestos (N=885)</span>
+            <span class="legend-item"><span class="swatch" style="background:#F43F5E;"></span>Logistica Fantasma (N=115)</span>
+            <span class="legend-item" id="customFilterLegend" style="display:none;"><span class="swatch" style="background:#FBBF24;"></span>Filtro Seleccionado</span>
+          </div>
+
+          <div class="canvas-stage">
+            <canvas id="benfordCanvas"></canvas>
+          </div>
+
+          <div class="digit-inspector">
+            <span class="digit-badge" id="inspDigitLabel">DIGITO d = 9</span>
+            <div class="digit-metrics">
+              <span style="color:#22D3EE;">Teorico: <strong id="inspTheo">4.58%</strong></span>
+              <span style="color:#10B981;">Honestos: <strong id="inspHonest">4.07%</strong></span>
+              <span style="color:#FDA4AF;">Culpable: <strong id="inspCulprit">41.74% (48)</strong></span>
+            </div>
+            <span class="digit-delta" id="inspDelta" style="background:rgba(244,63,94,0.2); color:#FDA4AF;">+37.16% EXCESO (9.1x)</span>
+          </div>
+        </section>
+
+        <section class="panel" style="flex: 0.98;">
+          <div class="panel-header">
+            <div class="panel-title-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" stroke-width="2.2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+              <h2 class="panel-title">Ranking de Desviacion Chi² (Clic para Filtrar)</h2>
+            </div>
+            <div class="seg-tabs">
+              <button class="seg-btn active" id="rankSupBtn" type="button">12 PROVEEDORES</button>
+              <button class="seg-btn" id="rankBrBtn" type="button">8 SUCURSALES</button>
+            </div>
+          </div>
+
+          <div class="ranking-list" id="rankingList"></div>
+        </section>
+      </div>
+
+      <!-- CENTER COLUMN -->
+      <div class="col-stack">
+        <section class="panel" style="flex: 1.56;">
+          <div class="panel-header">
+            <div class="panel-title-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.2">
+                <circle cx="12" cy="12" r="9"></circle>
+                <circle cx="12" cy="12" r="4"></circle>
+                <line x1="12" y1="12" x2="19" y2="5"></line>
+              </svg>
+              <h2 class="panel-title">Tope de Aprobacion ($10,000 MXN) — Agrupamiento</h2>
+            </div>
+            <div class="seg-tabs">
+              <button class="seg-btn active" id="modeScatterBtn" type="button">DISPERSION $10K</button>
+              <button class="seg-btn" id="modeRadarBtn" type="button">RADAR POLAR</button>
+            </div>
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-item"><span class="swatch line" style="background:#FBBF24; box-shadow:0 0 6px #FBBF24;"></span>Tope Auto $10,000 MXN</span>
+            <span class="legend-item"><span class="swatch" style="background:#F43F5E; border-radius:50%;"></span>Culpable (98 en $7.4k-$9.93k | 17 en $4.8k-$4.99k)</span>
+            <span class="legend-item"><span class="swatch" style="background:#10B981; border-radius:50%;"></span>Honestos (&lt;$10k Auto / &gt;$10k Director)</span>
+          </div>
+
+          <div class="canvas-stage">
+            <canvas id="thresholdCanvas"></canvas>
+          </div>
+        </section>
+
+        <section class="panel" style="flex: 0.74;">
+          <div class="panel-header" style="margin-bottom:6px;">
+            <div class="panel-title-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <h2 class="panel-title">Anatomia Matematica del Desfalco Hormiga</h2>
+            </div>
+            <span class="panel-subtitle">Modus operandi verificado sobre 1,000 facturas</span>
+          </div>
+
+          <div class="anatomy-grid">
+            <div class="anatomy-card">
+              <div>
+                <div class="anatomy-kicker" style="color:#FDA4AF;">CLUSTER A // EVASION TOPE $10K</div>
+                <div class="anatomy-big">$874,011.07</div>
+                <div class="anatomy-desc">98 facturas entre $7,405.36 y $9,926.47 MXN. Digitos 7, 8 y 9 concentran 85.2% para maximizar robo sin firma regional.</div>
+              </div>
+              <div class="mini-meter"><span style="width:85.2%; background:var(--coral);"></span></div>
+            </div>
+
+            <div class="anatomy-card">
+              <div>
+                <div class="anatomy-kicker" style="color:var(--amber);">CLUSTER B // FRACCIONAMIENTO &lt;$5K</div>
+                <div class="anatomy-big">$83,428.52</div>
+                <div class="anatomy-desc">17 facturas entre $4,815.71 y $4,988.46 MXN (digito 4 = 14.8%). Cero facturas con digitos 1, 2, 3, 5 o 6 (0.0%).</div>
+              </div>
+              <div class="mini-meter"><span style="width:45%; background:var(--amber);"></span></div>
+            </div>
+
+            <div class="anatomy-card">
+              <div>
+                <div class="anatomy-kicker" style="color:var(--cyan);"> RASTRO FORENSE DE INYECCION</div>
+                <div class="anatomy-big">FAC-10886..11000</div>
+                <div class="anatomy-desc">115 folios consecutivos operados del 01-Mar al 28-Oct 2026 solo en Monterrey-04 bajo "Consultoria Express".</div>
+              </div>
+              <div class="mini-meter"><span style="width:100%; background:var(--cyan);"></span></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="col-stack">
+        <section class="panel verdict-panel">
+          <div class="panel-header" style="margin-bottom:6px;">
+            <div class="panel-title-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FDA4AF" stroke-width="2.2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <h2 class="panel-title" style="color:#FFE4E6;">Tarjeta de Veredicto Forense</h2>
+            </div>
+            <span class="kpi-pill" style="--kpi-accent:#FDA4AF; border-color:rgba(244,63,94,0.45);">CASO CERRADO</span>
+          </div>
+
+          <div class="verdict-grid">
+            <div class="v-item">
+              <div class="v-label">Proveedor Culpable</div>
+              <div class="v-val" style="color:#FDA4AF;">Logistica Fantasma del Norte</div>
+            </div>
+            <div class="v-item">
+              <div class="v-label">Sucursal Complice</div>
+              <div class="v-val" style="color:var(--amber);">Monterrey-04</div>
+            </div>
+            <div class="v-item">
+              <div class="v-label">Monto Exacto Robado</div>
+              <div class="v-val mono" style="color:#FDA4AF;">$957,439.59 MXN</div>
+            </div>
+            <div class="v-item">
+              <div class="v-label">Facturas / Chi² Benford</div>
+              <div class="v-val mono" style="color:var(--cyan);">115 fac · 577.24</div>
+            </div>
+          </div>
+
+          <div class="verdict-actions">
+            <span class="verdict-footnote" id="apiStatusNote">API window.__auditForensics() activa</span>
+            <button class="btn-ctrl active-coral" id="copyReportBtn" type="button" style="height:30px; font-size:10.5px;">
+              COPIAR DICTAMEN JSON
+            </button>
+          </div>
+        </section>
+
+        <section class="panel" style="flex: 1;">
+          <div class="panel-header" style="margin-bottom:6px;">
+            <div class="panel-title-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2">
+                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                <line x1="7" y1="9" x2="17" y2="9"></line>
+                <line x1="7" y1="13" x2="13" y2="13"></line>
+              </svg>
+              <h2 class="panel-title">Escaner en Vivo de Facturas</h2>
+            </div>
+            <span class="panel-subtitle" id="scannerCountLabel">Mostrando 115 registros</span>
+          </div>
+
+          <div class="scanner-hud">
+            <div class="scanner-hud-top">
+              <span style="color:var(--cyan); font-weight:700;" id="scanHeadStatus">ESCANEO FORENSE ACTIVO // 1,000 FOLIOS</span>
+              <span style="color:var(--text-muted);" id="scanProgressPct">100% AUDITADO</span>
+            </div>
+            <div class="scanner-progress-bar">
+              <div class="scanner-progress-fill" id="scanProgressBar"></div>
+            </div>
+            <div class="scanner-inspect-line" id="scanInspectBox">
+              <span><strong>FAC-10890</strong> · Monterrey-04</span>
+              <span style="color:#FDA4AF; font-weight:700;">$9,417.85 MXN (d=9)</span>
+            </div>
+          </div>
+
+          <div class="scanner-toolbar">
+            <div class="seg-tabs">
+              <button class="seg-btn active" data-qfilter="culprit" type="button">CULPABLE (115)</button>
+              <button class="seg-btn" data-qfilter="near10k" type="button">$7K–$10K (144)</button>
+              <button class="seg-btn" data-qfilter="all" type="button">TODAS (1000)</button>
+            </div>
+            <input id="invoiceSearch" class="search-input" type="text" placeholder="Buscar FAC / Giro..." />
+          </div>
+
+          <div class="scanner-table-head">
+            <span>FOLIO</span>
+            <span>FECHA</span>
+            <span>PROVEEDOR</span>
+            <span>SUCURSAL</span>
+            <span style="text-align:right;">MONTO MXN</span>
+            <span style="text-align:center;">RIESGO</span>
+          </div>
+
+          <div class="scanner-rows" id="scannerRows"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="forensic-tooltip" id="forensicTooltip"></div>
+
+  <script>
+    // =========================================================================
+    // 1. PADRON REAL DE 1,000 FACTURAS (GRUPO COMERCIAL MIXIUH RETAIL 2026)
+    // =========================================================================
+const BRANCHES = ["CDMX-Centro", "CDMX-Sur", "Guadalajara-01", "Merida-01", "Monterrey-04", "Puebla-02", "Queretaro-01", "Tijuana-03"];
+const SUPPLIERS = ["Acero Industrial SA", "Empaques del Bajio", "Energia Limpia MX", "Fletes Nacionales", "Insumos Medicos Sur", "Logistica Fantasma del Norte", "Papeleria Corporativa", "Redes y Fibra Optica", "Servicios Hidraulicos", "Suministros Electricos", "Tecnologia Nube MX", "Uniformes Textiles"];
+const CATEGORIES = ["Consultoria Express", "Inventario", "Mantenimiento", "Operaciones", "TI", "Transporte"];
+const APPROVERS = ["Director_Regional", "Sistema_Auto"];
+const RAW_LEDGER = [
+  [10141,"09-19",0,11,733853,1,4],[10390,"04-14",5,0,125696,1,5],[10885,"04-27",7,8,36042,1,4],[10733,"08-28",6,9,2799015,0,5],[10257,"07-13",7,11,262808,1,1],[10250,"05-26",7,3,36053,1,1],[10842,"01-24",3,0,97263,1,1],[10739,"10-15",0,9,32495,1,1],[10819,"08-19",6,4,140433,1,5],[10434,"09-04",0,8,97469,1,4],[10421,"07-12",6,0,524585,1,3],[10617,"04-09",3,2,527292,1,2],[10931,"04-24",4,5,869094,1,0],[10690,"08-11",4,4,109489,1,5],[10910,"03-04",4,5,889835,1,0],[10035,"02-18",3,2,87525,1,5],[10997,"05-17",4,5,916373,1,0],[10546,"08-24",1,1,269306,1,3],[10103,"08-28",1,10,166722,1,2],[10023,"10-27",4,2,269282,1,1],[10951,"03-02",4,5,821707,1,0],[10543,"01-15",4,9,159126,1,1],[10732,"06-12",4,7,107696,1,3],[10615,"05-21",4,1,289816,1,4],[10266,"06-05",2,11,4502,1,3],[10121,"06-11",7,3,219841,1,2],[10171,"04-22",3,11,203864,1,2],[10709,"08-14",5,2,417812,1,5],[10094,"10-13",5,4,32321,1,1],[10674,"08-12",1,0,591549,1,5],[10686,"06-04",1,4,542688,1,3],[10305,"10-18",0,4,23968,1,2],[10099,"06-01",7,3,39547,1,3],[10984,"08-19",4,5,481571,1,0],[10388,"08-26",6,1,35073,1,1],
+  [10314,"04-04",3,11,2322589,0,5],[10151,"08-23",7,8,259088,1,4],[10722,"06-01",1,6,762308,1,3],[10064,"09-25",2,6,171947,1,1],[10990,"10-08",4,5,980568,1,0],[10014,"07-11",0,4,345143,1,2],[10097,"02-25",4,4,183674,1,2],[10160,"07-09",6,6,43776,1,1],[10199,"05-15",3,2,10782,1,5],[10446,"07-02",2,2,116076,1,4],[10608,"09-18",1,1,75512,1,1],[10200,"02-12",6,4,134820,1,1],[10897,"09-13",4,5,964635,1,0],[10384,"03-12",6,3,167332,1,5],[10587,"10-05",0,1,95620,1,3],[10824,"09-21",7,6,313815,1,1],[10058,"04-12",0,8,397759,1,5],[10924,"09-26",4,5,890462,1,0],[10896,"03-01",4,5,889220,1,0],[10011,"10-01",5,10,294352,1,5],[10579,"08-01",5,8,383246,1,5],[10969,"05-25",4,5,910421,1,0],[10287,"01-23",4,7,221322,1,4],[10865,"03-06",4,7,20442,1,2],[10291,"01-27",4,4,93099,1,2],[10870,"07-23",7,11,374417,1,5],[10067,"05-27",2,2,34286,1,2],[10234,"04-23",2,4,25993,1,1],[10220,"09-08",0,3,142820,1,3],[10697,"01-01",1,2,163508,1,2],[10974,"06-27",4,5,912613,1,0],[10903,"08-17",4,5,828862,1,0],[10860,"08-17",2,1,56108,1,3],[10531,"08-28",6,9,179191,1,3],[10696,"09-24",0,10,557816,1,5],
+  [10455,"01-23",6,1,677488,1,5],[10360,"07-09",0,4,443464,1,4],[10074,"02-26",7,8,25286,1,4],[10892,"09-03",4,5,951160,1,0],[10665,"05-03",0,8,178084,1,1],[10338,"03-04",5,4,227676,1,4],[10569,"08-02",6,0,40124,1,4],[10120,"01-07",3,6,74471,1,2],[10653,"05-06",0,2,44848,1,4],[10106,"04-26",5,6,121931,1,4],[10075,"03-15",7,6,4531515,0,3],[10664,"09-05",2,8,640098,1,1],[10693,"03-12",3,10,104916,1,4],[10707,"05-27",5,10,279610,1,3],[10817,"04-02",2,10,50799,1,3],[10078,"05-07",6,10,2082026,0,5],[10622,"09-23",1,3,185565,1,1],[10299,"04-20",7,11,550947,1,1],[10827,"01-13",3,0,82362,1,5],[10792,"01-03",0,4,166016,1,4],[10804,"02-11",4,0,640081,1,5],[10193,"08-15",1,3,134077,1,5],[10935,"07-11",4,5,482155,1,0],[10514,"07-26",4,3,29392,1,5],[10189,"06-22",7,11,638715,1,5],[10835,"02-03",2,1,40480,1,1],[10399,"01-14",1,6,699758,1,2],[10201,"02-13",5,8,338463,1,4],[10349,"03-21",3,0,35960,1,3],[10037,"07-20",4,7,503160,1,4],[10424,"03-04",2,7,989554,1,3],[10270,"03-03",5,3,472134,1,3],[10472,"08-25",2,2,4983,1,2],[10436,"10-28",0,2,111243,1,3],[10734,"09-08",1,8,50621,1,5],
+  [10048,"06-23",6,4,683659,1,3],[10309,"06-10",3,4,232288,1,2],[10679,"08-12",7,9,357426,1,2],[10944,"06-09",4,5,862944,1,0],[10940,"06-28",4,5,919989,1,0],[10453,"01-21",3,7,500200,1,4],[10369,"08-28",4,1,597972,1,3],[10956,"05-22",4,5,492790,1,0],[10649,"04-04",4,3,21056,1,2],[10015,"01-02",6,0,2055812,0,4],[10927,"05-21",4,5,924351,1,0],[10435,"01-03",0,11,2750108,0,1],[10909,"09-14",4,5,879815,1,0],[10170,"05-18",0,1,280811,1,5],[10833,"09-25",1,3,3863748,0,5],[10998,"05-03",4,5,493605,1,0],[10016,"07-03",0,2,6059,1,1],[10761,"07-07",3,0,4084605,0,2],[10582,"05-17",7,8,53073,1,1],[10317,"05-19",7,9,1580288,0,3],[10776,"09-24",6,3,2060454,0,5],[10509,"10-17",3,0,76597,1,3],[10680,"01-26",0,8,266642,1,4],[10232,"05-23",3,0,128640,1,3],[10619,"07-19",1,0,608559,1,4],[10229,"04-03",4,11,88629,1,4],[10089,"10-02",0,4,224629,1,3],[10461,"05-10",0,4,204268,1,1],[10265,"06-28",1,11,48332,1,4],[10812,"04-26",7,3,238494,1,3],[10517,"08-01",7,3,207544,1,1],[10162,"03-23",7,2,7968,1,5],[10949,"05-14",4,5,497983,1,0],[10677,"01-28",5,7,167107,1,4],[10030,"04-10",5,6,279669,1,1],
+  [10091,"01-19",7,9,486273,1,4],[10290,"01-19",0,1,623442,1,5],[10845,"03-23",2,7,341044,1,1],[10524,"08-21",1,8,300125,1,4],[10487,"09-18",7,6,171431,1,1],[10253,"05-25",4,8,18668,1,3],[10464,"02-22",2,8,594132,1,1],[10430,"09-12",6,0,81208,1,1],[10729,"02-10",6,11,63399,1,2],[10520,"04-02",5,10,34077,1,3],[10459,"08-12",2,1,1265078,0,2],[10036,"03-14",2,7,279511,1,1],[10661,"03-05",4,8,180526,1,1],[10400,"10-23",6,3,1018641,0,4],[10358,"05-14",4,0,164018,1,4],[10118,"03-28",1,6,137388,1,2],[10202,"05-20",4,6,439750,1,3],[10554,"10-14",4,4,53918,1,4],[10143,"06-20",3,3,4500,1,5],[10090,"07-28",3,10,159619,1,5],[10775,"09-28",1,7,77689,1,2],[10832,"03-24",6,11,58324,1,2],[10671,"01-03",6,8,113398,1,5],[10303,"10-22",6,9,142256,1,4],[10213,"05-02",3,9,152334,1,4],[10108,"04-15",0,8,413806,1,1],[10878,"10-15",3,11,15947,1,5],[10204,"03-14",4,11,7187242,0,1],[10088,"10-16",0,3,16066,1,5],[10822,"10-16",5,1,280858,1,4],[10448,"02-18",7,4,169092,1,4],[10616,"03-24",7,10,740240,1,4],[10115,"10-05",5,4,75570,1,4],[10989,"08-19",4,5,943678,1,0],[10492,"09-14",7,10,176281,1,1],
+  [10226,"04-02",5,3,22060,1,5],[10999,"10-28",4,5,772703,1,0],[10356,"06-22",4,3,524219,1,3],[10589,"02-21",2,3,189928,1,3],[10371,"07-01",3,11,3651133,0,3],[10261,"01-01",1,7,19595,1,4],[10336,"01-25",7,4,285144,1,2],[10994,"08-08",4,5,840968,1,0],[10552,"02-14",4,11,576218,1,4],[10937,"07-19",4,5,834119,1,0],[10267,"02-06",5,2,1646445,0,2],[10538,"06-02",6,11,165117,1,2],[10904,"10-06",4,5,949310,1,0],[10271,"01-07",2,4,269488,1,5],[10335,"07-15",6,9,402838,1,5],[10365,"07-04",4,10,53570,1,2],[10073,"01-28",2,1,301868,1,4],[10312,"06-18",6,1,597595,1,4],[10651,"05-27",3,7,62232,1,2],[10374,"08-14",4,0,16342,1,5],[10344,"04-21",1,2,142042,1,3],[10607,"09-03",3,10,60835,1,1],[10658,"07-11",1,8,372254,1,2],[10838,"01-27",2,8,567988,1,1],[10849,"04-13",6,9,209457,1,2],[10316,"01-20",7,7,73449,1,3],[10020,"09-04",1,0,90142,1,4],[10283,"01-22",1,6,391300,1,4],[10027,"07-05",3,11,100668,1,5],[10821,"01-18",2,9,694246,1,3],[10013,"01-15",7,3,107561,1,5],[10513,"09-11",7,1,83768,1,3],[10836,"04-07",7,11,219381,1,4],[10059,"07-19",1,10,162515,1,5],[10298,"02-16",4,3,164905,1,3],
+  [10363,"08-09",5,1,21479,1,2],[10503,"08-28",7,9,1011685,0,5],[10128,"03-07",2,3,45576,1,1],[10293,"04-14",2,9,40658,1,4],[10409,"01-09",5,6,275630,1,3],[10701,"07-19",1,0,28415,1,4],[10221,"01-25",1,7,466343,1,1],[10678,"04-16",6,4,420747,1,3],[10731,"05-24",1,3,137107,1,3],[10475,"05-20",5,4,371104,1,2],[10960,"05-10",4,5,936638,1,0],[10654,"01-01",0,3,572768,1,3],[10501,"06-06",1,4,803356,1,2],[10262,"04-21",1,9,340041,1,5],[10156,"04-14",3,3,44542,1,1],[10182,"04-01",4,6,58737,1,2],[10895,"07-09",4,5,850182,1,0],[10397,"01-12",6,1,2446230,0,5],[10315,"02-21",0,0,107109,1,3],[10019,"02-27",6,7,146660,1,4],[10725,"05-17",6,8,306554,1,5],[10863,"10-14",0,2,48932,1,4],[10883,"07-23",7,4,341052,1,3],[10881,"07-25",6,8,94396,1,4],[10246,"03-20",3,4,105502,1,1],[10051,"08-14",5,6,95395,1,5],[10913,"07-21",4,5,935521,1,0],[10426,"02-06",0,6,34860,1,5],[10799,"08-27",3,1,98151,1,4],[10479,"10-15",1,9,825176,1,1],[10745,"03-08",5,1,450956,1,3],[10296,"08-25",0,0,51935,1,2],[10663,"06-17",6,7,69234,1,3],[10796,"08-01",2,8,89645,1,3],[10875,"05-07",4,7,154077,1,3],
+  [10606,"05-09",5,0,11507,1,1],[10965,"10-09",4,5,841340,1,0],[10345,"09-04",0,6,831593,1,5],[10535,"06-21",6,4,21970,1,4],[10112,"10-04",1,11,1306030,0,3],[10717,"01-16",0,9,529962,1,1],[10370,"03-23",0,1,408637,1,3],[10380,"05-23",5,11,101451,1,4],[10868,"04-27",3,6,334893,1,2],[10598,"01-10",0,4,500904,1,5],[10947,"04-23",4,5,978809,1,0],[10760,"06-28",5,9,29187,1,1],[10474,"04-16",6,2,5543,1,5],[10942,"07-16",4,5,493864,1,0],[10673,"04-22",4,6,1052034,0,5],[10095,"04-06",2,10,122087,1,4],[10695,"02-21",2,9,188459,1,2],[10899,"09-26",4,5,922526,1,0],[10214,"08-21",0,2,188119,1,3],[10668,"05-09",7,1,1141195,0,5],[10452,"03-21",5,6,295249,1,4],[10378,"05-10",3,11,51110,1,2],[10542,"02-26",6,11,135828,1,1],[10876,"09-12",7,11,19769,1,5],[10412,"05-12",5,1,158866,1,3],[10258,"01-06",3,3,643843,1,1],[10828,"03-22",7,8,59625,1,3],[10354,"02-15",7,6,14301,1,4],[10003,"07-15",6,10,40371,1,2],[10601,"04-24",7,3,53733,1,4],[10639,"07-16",2,8,26194,1,5],[10462,"06-19",4,2,82176,1,4],[10646,"04-15",2,2,982847,1,5],[10907,"05-11",4,5,486573,1,0],[10251,"10-02",7,6,118122,1,1],
+  [10080,"03-24",7,2,78936,1,3],[10818,"08-24",4,9,85979,1,4],[10749,"01-27",7,10,69324,1,4],[10033,"01-12",3,3,2027514,0,4],[10698,"05-10",0,0,431665,1,1],[10629,"04-15",7,11,12021,1,5],[10610,"04-25",4,3,282893,1,2],[10711,"01-18",3,1,1719628,0,3],[10245,"03-07",0,8,179987,1,4],[10779,"04-27",7,7,38811,1,3],[10307,"06-06",5,7,37086,1,1],[10076,"04-16",2,1,438546,1,3],[10894,"10-10",4,5,740944,1,0],[10982,"05-02",4,5,913358,1,0],[10585,"07-21",7,10,329589,1,4],[10816,"05-27",6,4,313941,1,2],[10991,"08-27",4,5,498846,1,0],[10292,"08-10",3,1,613996,1,2],[10976,"04-21",4,5,981491,1,0],[10534,"08-18",5,10,298094,1,4],[10843,"07-01",5,7,82571,1,1],[10727,"10-20",2,2,52783,1,1],[10764,"02-21",5,7,316884,1,1],[10021,"06-21",4,3,350591,1,1],[10750,"04-19",2,2,918302,1,1],[10205,"07-20",2,2,26475,1,3],[10496,"06-22",3,6,323977,1,3],[10540,"04-28",7,6,166940,1,5],[10491,"01-03",4,1,14308,1,1],[10612,"09-11",4,3,1204614,0,4],[10418,"06-21",3,7,582921,1,2],[10079,"09-11",2,11,745136,1,2],[10502,"09-18",1,9,1150561,0,4],[10152,"02-11",2,7,10198,1,3],[10391,"01-03",1,1,897644,1,5],
+  [10187,"03-04",6,0,434060,1,2],[10043,"10-04",7,11,447675,1,3],[10343,"02-05",6,2,168960,1,2],[10423,"06-25",3,6,575652,1,2],[10071,"08-11",1,0,202140,1,1],[10763,"10-21",4,1,840329,1,3],[10886,"09-02",4,5,493670,1,0],[10425,"04-23",3,1,965527,1,5],[10244,"02-14",5,2,426640,1,5],[10557,"06-12",7,3,468023,1,5],[10042,"10-16",3,6,1646660,0,3],[10429,"09-28",4,7,469717,1,2],[10631,"10-14",6,4,45107,1,2],[10840,"05-12",6,11,24586,1,2],[10393,"04-14",5,4,18053,1,4],[10854,"10-10",1,8,435527,1,1],[10773,"08-23",4,6,283988,1,2],[10499,"04-11",5,6,542221,1,2],[10572,"06-20",7,10,1167633,0,4],[10766,"05-18",2,11,20500,1,5],[10277,"01-16",2,2,103035,1,5],[10699,"03-26",1,0,133099,1,5],[10045,"06-06",6,10,92920,1,1],[10427,"06-14",1,2,549092,1,1],[10805,"02-13",4,2,1810101,0,3],[10802,"10-01",2,1,19206,1,4],[10703,"06-12",4,3,125618,1,2],[10367,"06-26",7,0,285397,1,1],[10688,"01-16",4,1,49412,1,2],[10705,"07-05",7,9,78474,1,3],[10149,"06-14",4,0,256749,1,1],[10332,"10-26",4,9,25467,1,2],[10109,"03-26",6,4,139203,1,4],[10105,"02-24",5,3,217269,1,4],[10040,"01-17",2,0,412563,1,1],
+  [10930,"03-18",4,5,858961,1,0],[10774,"09-08",3,0,418551,1,3],[10116,"01-25",6,10,121149,1,2],[10476,"05-14",5,2,528540,1,1],[10694,"02-21",4,4,287180,1,1],[10102,"04-17",4,3,550131,1,3],[10635,"05-02",5,8,282449,1,1],[10968,"09-12",4,5,932034,1,0],[10483,"07-11",4,0,888385,1,5],[10153,"05-07",2,2,135195,1,4],[10284,"02-04",2,10,503058,1,4],[10769,"07-15",0,7,580006,1,2],[10602,"09-06",5,9,105272,1,4],[10280,"10-07",7,2,1037784,0,4],[10249,"03-07",3,8,241692,1,5],[10662,"07-24",1,1,58609,1,3],[10592,"07-08",4,4,174921,1,4],[10255,"09-03",2,9,2124411,0,2],[10752,"10-05",6,8,20430,1,3],[10856,"03-06",0,10,139549,1,4],[10742,"06-16",0,10,245544,1,2],[10926,"09-04",4,5,936386,1,0],[10963,"05-13",4,5,496757,1,0],[10263,"02-10",5,0,1614395,0,3],[10500,"07-14",1,8,447509,1,5],[10457,"03-27",3,1,21783,1,3],[10272,"05-08",0,3,146658,1,2],[10586,"09-15",5,0,65178,1,2],[10847,"09-27",2,11,158609,1,3],[10279,"03-23",7,7,11341,1,4],[10638,"10-05",4,3,45542,1,4],[10323,"07-19",1,3,163982,1,3],[10039,"01-08",3,4,1324990,0,2],[10659,"01-20",0,2,582398,1,1],[10047,"09-26",1,2,60041,1,2],
+  [10018,"08-22",3,0,49632,1,3],[10887,"07-07",4,5,772910,1,0],[10504,"08-18",0,1,638052,1,4],[10672,"07-02",5,0,568409,1,5],[10920,"05-12",4,5,983115,1,0],[10512,"02-26",3,1,74277,1,2],[10988,"03-14",4,5,918970,1,0],[10932,"05-26",4,5,983766,1,0],[10029,"03-25",5,9,212103,1,3],[10714,"03-25",0,8,612487,1,2],[10123,"04-10",4,7,1486095,0,5],[10859,"09-28",4,0,401528,1,4],[10706,"04-28",7,8,40596,1,1],[10562,"05-09",2,11,122370,1,2],[10447,"08-24",7,2,136691,1,5],[10281,"05-08",4,8,174484,1,5],[10366,"10-22",1,3,3635137,0,1],[10630,"03-02",4,6,182629,1,5],[10341,"03-06",1,0,482358,1,2],[10908,"07-08",4,5,790395,1,0],[10657,"02-05",6,9,970525,1,4],[10506,"03-20",5,8,890283,1,5],[10719,"01-21",6,0,298657,1,5],[10740,"05-22",5,1,2180461,0,3],[10650,"01-10",3,7,230495,1,2],[10853,"02-01",4,7,1287684,0,4],[10217,"06-11",5,8,458457,1,3],[10419,"05-26",5,2,203395,1,3],[10858,"07-27",7,2,148922,1,5],[10943,"05-22",4,5,767104,1,0],[10497,"05-06",7,10,1497895,0,4],[10196,"10-20",0,6,156020,1,1],[10995,"10-07",4,5,979097,1,0],[10901,"07-06",4,5,747224,1,0],[10210,"07-08",5,9,178316,1,2],
+  [10445,"09-21",7,0,34091,1,4],[10794,"07-24",4,6,24086,1,1],[10275,"07-18",7,9,173558,1,1],[10770,"04-19",4,7,604261,1,3],[10230,"08-19",3,6,73661,1,4],[10972,"09-20",4,5,895528,1,0],[10238,"01-06",6,10,71846,1,4],[10313,"07-05",7,4,43345,1,3],[10806,"10-05",5,10,78755,1,5],[10414,"04-25",4,6,75287,1,3],[10526,"08-07",0,0,30648,1,4],[10539,"05-06",5,3,305958,1,2],[10912,"10-21",4,5,966818,1,0],[10830,"06-12",6,10,53846,1,3],[10166,"10-25",6,7,272713,1,4],[10085,"04-20",5,2,518608,1,2],[10350,"10-24",5,1,42269,1,1],[10449,"10-01",5,3,799558,1,5],[10256,"05-28",6,3,66789,1,2],[10224,"09-15",0,2,415373,1,2],[10605,"10-27",3,0,475333,1,2],[10946,"08-14",4,5,954090,1,0],[10595,"01-24",6,7,55484,1,1],[10077,"09-16",7,7,1002526,0,3],[10981,"09-18",4,5,940659,1,0],[10987,"09-22",4,5,824527,1,0],[10431,"05-19",0,3,2114409,0,4],[10632,"09-25",3,8,202919,1,3],[10025,"04-01",3,9,255480,1,1],[10086,"09-10",1,11,107381,1,4],[10848,"05-20",0,3,218565,1,4],[10550,"09-12",7,6,375914,1,2],[10565,"05-11",7,2,104542,1,2],[10295,"09-07",5,7,38796,1,1],[10864,"02-07",4,0,153219,1,4],
+  [10212,"07-04",6,4,746432,1,2],[10268,"01-19",5,0,329999,1,1],[10985,"04-24",4,5,797889,1,0],[10329,"09-01",6,2,369001,1,2],[10624,"06-22",2,1,1403640,0,1],[10888,"06-28",4,5,876082,1,0],[10850,"06-12",0,9,597939,1,3],[10544,"09-15",3,2,185933,1,3],[10893,"10-27",4,5,494790,1,0],[10164,"06-08",6,1,127065,1,5],[10145,"07-07",4,1,531111,1,1],[10471,"01-06",0,11,19323,1,4],[10735,"09-12",5,8,498771,1,2],[10568,"04-07",7,2,836934,1,1],[10803,"01-11",5,4,552995,1,1],[10918,"06-22",4,5,948897,1,0],[10596,"09-06",7,3,43259,1,1],[10755,"04-24",0,6,224911,1,2],[10186,"10-26",5,8,507547,1,1],[10906,"08-28",4,5,948458,1,0],[10959,"04-06",4,5,838532,1,0],[10594,"04-17",3,4,290190,1,5],[10416,"05-06",0,4,178143,1,1],[10209,"02-07",2,0,1148275,0,5],[10795,"10-10",6,0,428525,1,4],[10851,"04-13",5,8,278180,1,2],[10005,"02-24",4,4,495227,1,1],[10712,"10-01",4,4,3553761,0,3],[10442,"01-12",1,8,223906,1,1],[10525,"04-25",3,0,115615,1,5],[10508,"01-06",6,7,33307,1,1],[10667,"07-10",0,8,6089883,0,5],[10392,"10-24",0,11,876111,1,1],[10738,"01-27",4,1,348426,1,1],[10113,"06-03",7,1,851096,1,4],
+  [10046,"09-18",1,3,144064,1,4],[10206,"05-12",0,6,547311,1,1],[10136,"09-28",7,6,137925,1,2],[10625,"05-08",6,8,1987282,0,1],[10146,"08-23",6,8,50766,1,3],[10957,"09-28",4,5,791173,1,0],[10223,"08-19",4,1,34113,1,2],[10788,"07-14",4,8,297417,1,5],[10222,"03-23",4,0,169928,1,5],[10137,"06-27",2,8,284326,1,5],[10405,"04-02",3,0,219308,1,5],[10218,"09-26",0,11,83404,1,4],[10855,"01-11",4,3,2325122,0,2],[10807,"01-08",4,3,501999,1,5],[10002,"06-26",6,3,442694,1,3],[10571,"01-27",5,6,5490437,0,5],[10386,"08-22",5,11,173436,1,5],[10142,"06-16",5,3,4319269,0,2],[10252,"04-26",1,9,118984,1,5],[10669,"04-27",2,7,14992,1,1],[10952,"07-17",4,5,899560,1,0],[10556,"06-03",2,9,1577392,0,5],[10820,"09-17",4,10,76651,1,5],[10777,"02-23",3,11,42155,1,5],[10730,"01-10",7,3,246864,1,5],[10009,"06-09",0,1,1508470,0,2],[10737,"10-23",5,1,153470,1,5],[10882,"08-01",5,6,108966,1,4],[10288,"07-13",5,4,16994,1,5],[10346,"04-07",5,1,2875716,0,4],[10070,"09-07",2,6,405820,1,5],[10563,"09-15",6,2,17631,1,3],[10285,"05-04",4,11,177561,1,2],[10627,"09-18",4,7,614559,1,5],[10533,"09-22",3,3,30862,1,4],
+  [10319,"06-04",6,8,3495331,0,2],[10756,"07-28",5,3,52931,1,2],[10614,"08-09",5,11,96286,1,2],[10216,"08-17",4,11,289601,1,2],[10945,"04-23",4,5,842819,1,0],[10648,"10-13",3,3,548248,1,2],[10566,"03-03",3,11,599630,1,3],[10394,"02-27",3,3,2863686,0,4],[10495,"07-10",4,10,1055795,0,3],[10001,"06-12",7,11,155018,1,2],[10584,"08-19",6,11,164316,1,3],[10636,"07-20",3,11,4176415,0,5],[10905,"06-08",4,5,974730,1,0],[10939,"08-21",4,5,920743,1,0],[10577,"08-08",4,11,85367,1,2],[10558,"06-22",4,10,308066,1,5],[10633,"03-07",7,7,133472,1,3],[10954,"07-08",4,5,957976,1,0],[10713,"02-25",4,11,742557,1,4],[10260,"07-11",7,7,42364,1,4],[10715,"07-13",0,7,430293,1,5],[10977,"10-18",4,5,482720,1,0],[10180,"02-07",7,2,4091517,0,2],[10811,"09-18",4,9,146453,1,2],[10486,"02-15",3,7,110211,1,3],[10498,"04-25",2,6,5595524,0,1],[10481,"05-23",7,0,176898,1,3],[10809,"03-01",2,8,459196,1,1],[10096,"07-04",6,2,714072,1,3],[10975,"06-27",4,5,974938,1,0],[10404,"08-08",0,3,22052,1,3],[10488,"09-17",4,9,259596,1,4],[10576,"08-12",0,9,76548,1,4],[10871,"03-11",0,6,90619,1,1],[10726,"08-10",7,4,166778,1,1],
+  [10175,"04-15",5,7,184559,1,3],[10387,"05-05",0,6,12737,1,1],[10185,"02-23",2,11,1858779,0,2],[10934,"10-14",4,5,959221,1,0],[10831,"05-11",4,9,845702,1,3],[10810,"07-04",0,8,16542,1,5],[10748,"10-10",4,0,27061,1,3],[10545,"02-10",5,10,72762,1,1],[10933,"10-16",4,5,991009,1,0],[10334,"07-15",5,9,17706,1,3],[10519,"08-07",7,1,74632,1,1],[10757,"05-05",6,4,883821,1,4],[10351,"09-25",5,8,1270644,0,4],[10148,"01-07",1,8,188765,1,3],[10613,"10-24",0,11,106535,1,3],[10410,"10-04",0,8,146971,1,4],[10834,"03-12",2,4,614778,1,4],[10628,"09-24",3,3,548651,1,4],[10670,"06-16",1,2,110193,1,2],[10604,"01-13",3,8,173502,1,4],[10264,"04-28",2,0,121076,1,4],[10877,"10-02",4,2,156166,1,3],[10964,"04-10",4,5,765344,1,0],[10050,"07-25",2,9,201483,1,5],[10054,"03-27",1,8,244770,1,2],[10061,"04-15",7,8,588676,1,2],[10326,"08-24",0,4,20409,1,4],[10243,"06-08",0,11,104476,1,5],[10640,"01-12",6,6,39069,1,3],[10736,"03-28",3,11,55670,1,2],[10443,"04-15",4,6,116891,1,2],[10031,"10-13",7,1,58876,1,3],[10966,"08-28",4,5,849041,1,0],[10494,"08-24",7,11,702911,1,4],[10923,"10-21",4,5,892625,1,0],
+  [10375,"08-26",7,7,268182,1,1],[10135,"10-12",2,6,135658,1,4],[10098,"01-13",2,10,21290,1,2],[10219,"08-10",0,1,12889,1,1],[10032,"02-15",5,9,574843,1,1],[10507,"07-07",0,11,138291,1,5],[10482,"10-11",0,8,74138,1,2],[10110,"02-17",3,3,950337,1,2],[10006,"02-02",5,8,4796389,0,2],[10044,"09-14",3,2,142772,1,2],[10787,"08-15",6,7,45325,1,3],[10723,"01-28",5,4,1719172,0,3],[10921,"06-19",4,5,489782,1,0],[10286,"09-26",2,1,543365,1,5],[10970,"03-10",4,5,497246,1,0],[10746,"02-17",4,4,97532,1,3],[10754,"01-19",6,2,69439,1,1],[10158,"05-26",5,6,730423,1,2],[10684,"07-26",2,6,340391,1,3],[10415,"03-28",3,0,58097,1,5],[10330,"06-04",4,7,90100,1,5],[10024,"03-08",7,10,107868,1,4],[10401,"09-02",2,4,196072,1,2],[10407,"10-04",5,3,33383,1,2],[10383,"01-03",1,7,415563,1,4],[10936,"08-15",4,5,788208,1,0],[10379,"10-19",2,8,14784,1,3],[10780,"06-09",7,6,100739,1,4],[10198,"07-02",7,7,32330,1,3],[10289,"07-13",7,6,1741286,0,1],[10465,"08-08",6,4,1853174,0,5],[10687,"01-14",4,0,156729,1,3],[10826,"09-13",1,10,1304921,0,5],[10641,"09-10",2,0,136439,1,5],[10700,"02-08",3,4,35793,1,1],
+  [10682,"04-14",4,7,21480,1,4],[10708,"07-01",7,7,93298,1,2],[10675,"01-13",3,0,70793,1,4],[10874,"07-17",2,1,51574,1,5],[10055,"01-20",1,8,406719,1,2],[10473,"09-20",6,10,57277,1,2],[10194,"05-27",1,11,101008,1,4],[10950,"05-21",4,5,794957,1,0],[10666,"03-12",1,6,1353350,0,2],[10603,"05-15",2,1,306774,1,4],[10165,"08-02",7,1,81554,1,1],[10038,"05-17",5,1,136377,1,1],[10377,"03-10",0,9,100672,1,2],[10724,"06-14",3,11,266659,1,4],[10254,"04-07",3,8,389547,1,3],[10438,"10-08",2,7,1098942,0,1],[10917,"10-13",4,5,889828,1,0],[10493,"08-12",3,3,246307,1,5],[10541,"02-24",4,8,1240994,0,5],[10528,"06-11",1,9,25984,1,3],[10782,"05-18",1,1,61454,1,5],[10441,"06-14",6,3,36501,1,5],[10092,"06-01",1,11,385467,1,2],[10248,"05-13",1,9,55989,1,4],[10337,"10-19",3,4,177991,1,1],[10728,"03-17",0,9,594415,1,1],[10236,"04-07",2,3,72331,1,3],[10852,"07-22",6,7,622042,1,1],[10382,"04-11",6,2,120896,1,2],[10422,"08-13",1,10,136797,1,2],[10104,"02-11",5,0,16218,1,3],[10884,"04-14",6,9,46300,1,2],[10060,"03-05",6,7,149109,1,3],[10225,"05-10",3,11,5208199,0,5],[10385,"07-03",6,1,621588,1,2],
+  [10133,"10-25",5,3,28531,1,5],[10082,"10-23",1,0,176066,1,5],[10322,"01-22",3,11,200385,1,1],[10872,"06-28",2,3,109849,1,1],[10529,"10-08",6,1,129087,1,5],[10125,"01-02",4,4,18702,1,5],[10139,"09-03",6,4,173555,1,4],[10791,"08-28",3,2,569623,1,2],[10195,"10-26",7,1,471918,1,2],[10207,"06-04",2,4,30524,1,1],[10190,"05-23",5,0,570763,1,5],[10396,"02-20",1,10,205648,1,3],[10320,"07-23",1,8,322781,1,4],[10993,"03-01",4,5,873038,1,0],[10454,"07-16",5,6,61854,1,4],[10041,"09-14",4,0,33364,1,4],[10645,"06-14",5,6,201652,1,5],[10081,"06-17",1,1,101756,1,5],[10574,"06-05",4,0,1148923,0,1],[10168,"07-10",2,9,217185,1,3],[10922,"10-22",4,5,740536,1,0],[10919,"07-07",4,5,956062,1,0],[10381,"03-12",6,7,109437,1,2],[10741,"04-22",3,0,32682,1,5],[10437,"01-18",5,8,166393,1,5],[10433,"09-15",4,7,4500,1,1],[10339,"06-15",0,9,314407,1,5],[10179,"04-11",1,0,717396,1,4],[10478,"05-24",5,11,97786,1,3],[10007,"08-08",3,11,99535,1,2],[10178,"09-28",2,11,318270,1,3],[10167,"03-21",6,4,1162013,0,5],[10191,"07-10",1,0,37253,1,5],[10626,"01-28",4,3,916629,1,4],[10215,"09-17",4,4,199960,1,2],
+  [10355,"06-01",5,8,166893,1,5],[10172,"01-03",1,9,665429,1,2],[10147,"10-24",3,7,141680,1,3],[10902,"08-26",4,5,864069,1,0],[10440,"01-16",5,6,499270,1,2],[10978,"03-28",4,5,797661,1,0],[10652,"05-04",1,3,378273,1,5],[10129,"09-15",1,6,153922,1,4],[10559,"01-21",1,6,90861,1,4],[10364,"10-12",2,3,131268,1,3],[10609,"07-19",0,7,209701,1,2],[10583,"05-19",3,8,128195,1,3],[10184,"04-24",1,2,53198,1,2],[10068,"02-23",6,10,1307028,0,2],[10444,"09-26",6,6,440275,1,3],[10778,"01-20",7,7,1634104,0,3],[10983,"04-25",4,5,923201,1,0],[10720,"02-25",4,0,34713,1,1],[10692,"09-18",1,1,65280,1,3],[10411,"10-28",0,4,681424,1,5],[10458,"01-01",6,0,21989,1,5],[10880,"02-28",6,9,90712,1,3],[10227,"09-08",3,7,638513,1,2],[10767,"03-21",6,3,36378,1,2],[10302,"07-05",3,7,4500,1,2],[10402,"06-04",2,9,127824,1,2],[10155,"01-08",4,0,49643,1,5],[10683,"02-13",6,11,331914,1,1],[10530,"04-20",7,4,388796,1,4],[10485,"04-12",5,11,1721422,0,3],[10083,"06-07",1,11,218882,1,5],[10549,"08-13",6,1,68442,1,2],[10980,"05-04",4,5,854940,1,0],[10823,"09-22",6,8,1187405,0,1],[10564,"07-07",3,6,42306,1,1],
+  [10300,"03-18",6,2,813491,1,4],[10781,"10-10",3,1,271041,1,2],[10814,"01-22",0,10,121428,1,4],[10163,"09-08",1,7,81985,1,5],[10373,"10-12",1,10,460524,1,2],[10489,"06-05",7,6,57936,1,4],[10140,"05-27",4,9,58823,1,3],[10017,"03-19",4,9,828047,1,3],[10873,"08-12",4,8,703922,1,1],[10685,"09-06",1,6,580944,1,2],[10460,"01-13",4,0,317760,1,3],[10681,"07-21",7,8,140902,1,3],[10789,"03-20",1,3,54499,1,1],[10466,"06-18",2,9,300447,1,4],[10111,"09-04",2,7,254493,1,2],[10597,"10-23",0,1,368351,1,5],[10328,"01-13",3,0,291693,1,5],[10294,"01-21",6,2,27982,1,2],[10333,"06-23",4,7,317670,1,5],[10325,"01-09",2,2,34766,1,5],[10527,"07-24",0,11,88610,1,2],[10762,"05-14",1,3,2828761,0,5],[10948,"06-11",4,5,920738,1,0],[10961,"06-01",4,5,978432,1,0],[10567,"01-20",4,11,213022,1,1],[10347,"05-14",4,4,27886,1,3],[10235,"03-04",6,0,170649,1,3],[10537,"04-16",7,3,9384,1,3],[10801,"10-13",1,10,129456,1,4],[10996,"08-03",4,5,949673,1,0],[10241,"06-20",6,7,817427,1,2],[10916,"04-07",4,5,858248,1,0],[10505,"07-24",7,4,81015,1,4],[10490,"10-13",6,11,6823042,0,1],[10065,"05-20",4,2,688330,1,2],
+  [10962,"03-27",4,5,913509,1,0],[10308,"06-11",1,1,108280,1,2],[10578,"04-23",0,0,37703,1,3],[10548,"01-16",6,4,37404,1,4],[10866,"10-26",0,11,141330,1,1],[10127,"05-22",2,9,104372,1,5],[10928,"07-26",4,5,482385,1,0],[10915,"07-15",4,5,783668,1,0],[10432,"05-20",1,8,81241,1,4],[11000,"04-02",4,5,892493,1,0],[10306,"10-12",2,8,251537,1,2],[10518,"04-20",1,10,519148,1,2],[10273,"02-13",7,6,745442,1,2],[10869,"09-25",3,10,3511580,0,2],[10052,"07-27",4,7,211066,1,5],[10953,"05-11",4,5,981975,1,0],[10368,"05-27",1,0,420656,1,3],[10786,"02-04",3,11,995384,1,2],[10879,"08-19",3,8,3032982,0,3],[10955,"04-09",4,5,933579,1,0],[10169,"09-14",0,6,12232,1,3],[10716,"06-25",5,11,68668,1,1],[10634,"05-08",0,2,16274,1,1],[10451,"02-05",6,9,422616,1,4],[10072,"02-28",3,6,135564,1,2],[10547,"07-10",0,0,502300,1,4],[10188,"10-28",1,9,422965,1,4],[10536,"01-12",6,7,3015444,0,4],[10062,"06-18",1,4,318522,1,1],[10656,"09-11",3,11,134056,1,4],[10837,"08-03",4,0,721311,1,4],[10063,"10-03",1,1,90161,1,1],[10157,"10-16",5,6,225278,1,4],[10815,"02-08",6,7,91741,1,5],[10467,"09-06",7,11,183873,1,4],
+  [10010,"03-10",4,8,648848,1,1],[10144,"09-13",2,7,174913,1,3],[10359,"01-16",7,0,42847,1,5],[10159,"02-18",3,1,77750,1,2],[10192,"08-09",3,8,130776,1,4],[10938,"03-06",4,5,894017,1,0],[10846,"03-04",0,11,69368,1,2],[10800,"10-05",4,4,88434,1,4],[10239,"01-12",1,6,98162,1,5],[10839,"07-16",7,3,1064727,0,1],[10637,"08-14",1,7,273621,1,3],[10477,"10-07",6,11,247975,1,4],[10759,"06-09",4,7,319249,1,5],[10107,"10-19",5,9,37483,1,2],[10049,"03-22",2,1,166196,1,4],[10647,"03-03",0,7,117304,1,1],[10327,"06-23",1,8,613912,1,4],[10357,"02-24",4,11,1183033,0,3],[10342,"02-15",2,2,921609,1,3],[10825,"04-15",0,3,3775477,0,4],[10751,"02-03",4,8,124625,1,1],[10353,"08-09",6,4,1974958,0,2],[10100,"03-02",2,6,41652,1,4],[10644,"03-23",6,1,1324077,0,3],[10395,"10-15",5,7,377697,1,1],[10660,"03-25",7,10,579368,1,4],[10259,"06-23",5,0,57763,1,3],[10797,"05-15",5,6,1159959,0,5],[10066,"07-02",7,1,77415,1,1],[10403,"06-16",7,0,25134,1,3],[10783,"06-23",6,3,48804,1,4],[10173,"04-21",1,3,169583,1,4],[10532,"06-18",6,4,289016,1,2],[10362,"02-14",2,7,96117,1,3],[10301,"07-15",5,7,365045,1,5],
+  [10516,"08-27",2,7,205406,1,2],[10898,"06-27",4,5,969005,1,0],[10655,"02-13",1,2,577410,1,4],[10967,"08-26",4,5,992647,1,0],[10247,"05-21",3,4,69448,1,4],[10862,"08-02",2,11,80163,1,5],[10321,"05-06",3,9,148078,1,1],[10274,"08-28",1,1,445954,1,4],[10124,"04-13",1,8,77133,1,4],[10240,"01-20",6,10,529491,1,2],[10575,"06-10",4,11,180827,1,2],[10900,"10-15",4,5,488215,1,0],[10600,"04-09",7,10,175518,1,3],[10428,"05-06",0,11,13299,1,1],[10891,"09-16",4,5,991421,1,0],[10028,"09-23",1,3,38105,1,4],[10793,"04-10",1,9,106376,1,5],[10911,"08-05",4,5,979550,1,0],[10340,"02-23",1,2,40886,1,5],[10154,"06-10",2,8,173394,1,3],[10523,"04-02",4,11,1287439,0,1],[10581,"03-05",1,1,62131,1,1],[10008,"08-18",1,3,8519,1,4],[10269,"07-10",7,9,270989,1,3],[10553,"07-11",0,7,224307,1,3],[10311,"10-01",3,1,556307,1,3],[10242,"04-26",1,7,20880,1,2],[10689,"03-19",0,11,345280,1,1],[10643,"05-18",6,2,110586,1,3],[10925,"03-10",4,5,966528,1,0],[10122,"09-09",6,0,204769,1,2],[10233,"05-15",5,9,73696,1,5],[10785,"02-02",6,2,8811,1,4],[10555,"09-06",3,1,28096,1,3],[10857,"01-05",4,6,163570,1,5],
+  [10765,"06-03",4,2,58687,1,4],[10228,"10-05",7,0,204580,1,2],[10420,"06-28",1,1,397544,1,5],[10593,"03-08",4,4,274328,1,4],[10450,"08-05",2,8,1130670,0,2],[10176,"05-16",2,9,91247,1,5],[10484,"02-08",5,1,209407,1,1],[10324,"03-23",6,7,558292,1,1],[10119,"01-13",4,9,534516,1,3],[10114,"03-24",2,4,157206,1,4],[10131,"03-09",3,0,173934,1,4],[10611,"08-14",5,10,1038241,0,2],[10389,"09-10",2,2,108039,1,1],[10012,"04-07",0,8,1152259,0,4],[10161,"09-18",7,1,768795,1,4],[10456,"09-12",7,6,651586,1,4],[10174,"08-12",6,0,135222,1,2],[10310,"01-17",1,4,751459,1,4],[10297,"03-12",0,3,98068,1,1],[10772,"02-25",5,11,4787,1,4],[10130,"05-26",4,2,273533,1,4],[10710,"06-18",1,1,383781,1,2],[10743,"07-19",4,10,147676,1,5],[10237,"03-14",3,6,2311743,0,2],[10406,"05-27",5,3,7730,1,1],[10841,"02-02",2,10,293556,1,2],[10979,"07-19",4,5,889119,1,0],[10551,"09-24",5,11,526259,1,3],[10573,"03-04",3,10,5054,1,1],[10034,"10-01",3,2,202816,1,3],[10570,"05-10",3,10,184620,1,3],[10276,"04-02",4,4,537408,1,2],[10515,"06-15",2,1,66891,1,3],[10231,"01-20",2,2,178763,1,5],[10376,"08-01",7,0,1222372,0,1],
+  [10413,"07-04",2,11,61415,1,5],[10304,"03-24",6,1,1168744,0,5],[10914,"03-02",4,5,489900,1,0],[10181,"01-10",0,10,1062734,0,4],[10069,"04-04",0,10,81275,1,4],[10150,"03-10",3,8,157092,1,1],[10718,"06-20",3,3,218605,1,3],[10747,"06-12",7,2,204022,1,5],[10408,"01-13",3,1,223749,1,1],[10889,"10-12",4,5,860610,1,0],[10117,"02-12",3,3,159406,1,4],[10798,"08-03",5,2,350292,1,4],[10590,"08-07",3,7,374196,1,3],[10511,"04-01",1,11,547108,1,5],[10992,"10-25",4,5,772806,1,0],[10197,"09-14",7,7,5382536,0,1],[10808,"03-02",2,1,588181,1,2],[10084,"05-19",4,6,117874,1,2],[10971,"09-18",4,5,785247,1,0],[10026,"06-12",6,1,133700,1,4],[10599,"10-20",5,9,530391,1,3],[10844,"02-24",5,8,289767,1,5],[10203,"04-08",4,8,81433,1,3],[10721,"08-14",2,7,913136,1,2],[10623,"02-12",0,10,147145,1,4],[10352,"05-17",7,11,163067,1,4],[10138,"03-24",5,1,55122,1,4],[10618,"02-11",0,0,231086,1,4],[10211,"06-27",7,2,36885,1,2],[10753,"03-13",2,4,165795,1,3],[10372,"01-05",1,11,1364573,0,1],[10676,"07-08",1,8,252836,1,1],[10744,"09-11",4,2,335380,1,1],[10278,"05-01",2,6,455371,1,4],[10958,"07-08",4,5,874252,1,0],
+  [10126,"06-27",5,2,607361,1,3],[10056,"06-22",6,4,281569,1,3],[10470,"04-18",4,2,127016,1,1],[10588,"01-14",4,7,49878,1,4],[10057,"02-06",6,7,1972096,0,1],[10861,"05-21",6,10,74917,1,2],[10829,"06-04",4,4,349830,1,4],[10621,"01-26",3,3,128875,1,1],[10521,"03-19",4,8,498318,1,5],[10463,"05-07",1,9,333370,1,1],[10691,"01-24",0,11,102851,1,4],[10591,"07-24",0,4,608222,1,3],[10183,"10-21",2,0,290157,1,3],[10580,"03-07",0,1,733169,1,1],[10208,"05-27",5,2,317512,1,3],[10004,"08-22",2,10,125070,1,3],[10867,"07-20",2,9,218039,1,2],[10318,"01-04",0,4,285083,1,1],[10941,"09-16",4,5,961706,1,0],[10398,"02-14",7,0,985512,1,4],[10134,"08-22",6,8,861918,1,1],[10560,"05-26",4,8,387286,1,2],[10177,"05-28",3,9,115095,1,2],[10929,"08-17",4,5,777721,1,0],[10101,"07-17",4,6,329018,1,5],[10768,"09-13",6,0,258697,1,3],[10620,"03-09",1,0,21728,1,5],[10790,"07-16",7,7,160597,1,3],[10510,"10-07",2,0,322934,1,5],[10053,"10-27",0,3,13512,1,1],[10087,"08-10",7,2,272750,1,2],[10986,"09-27",4,5,854453,1,0],[10642,"03-12",4,3,110463,1,5],[10758,"05-16",4,0,485671,1,3],[10771,"07-20",6,9,26072,1,2],
+  [10813,"03-03",7,2,217552,1,1],[10522,"05-28",2,4,25119,1,2],[10704,"07-19",6,0,277499,1,2],[10784,"07-23",1,9,39886,1,5],[10022,"04-20",1,7,22442,1,4],[10480,"02-19",2,9,702951,1,1],[10417,"10-16",6,10,36841,1,4],[10561,"01-14",1,6,1292351,0,2],[10348,"04-13",3,9,459058,1,2],[10132,"07-11",0,6,513457,1,5],[10439,"04-09",3,2,34440,1,4],[10469,"01-04",5,0,509541,1,4],[10282,"09-17",0,3,81569,1,3],[10331,"08-26",0,8,759177,1,3],[10361,"01-07",5,1,31385,1,2],[10702,"10-24",5,2,55085,1,2],[10468,"02-13",5,9,46972,1,2],[10973,"03-04",4,5,861168,1,0],[10093,"08-04",7,4,181703,1,3],[10890,"03-16",4,5,941785,1,0]
+];
+
+    const AUTO_APPROVAL_LIMIT = 10000.0;
+    const BENFORD_THEORETICAL = [0];
+    for (let d = 1; d <= 9; d++) {
+      BENFORD_THEORETICAL[d] = Math.log10(1 + 1 / d);
+    }
+
+    function extractFirstDigit(amountCents) {
+      const s = String(Math.abs(amountCents)).replace(/^0+/, "");
+      return s.length ? (s.charCodeAt(0) - 48) : 1;
+    }
+
+    function dayOfYear2026(mmdd) {
+      const m = parseInt(mmdd.slice(0, 2), 10);
+      const day = parseInt(mmdd.slice(3, 5), 10);
+      const cumDays = [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+      return (cumDays[m] || 0) + day;
+    }
+
+    // Hydrate all 1,000 real invoices with exact integer-cent arithmetic
+    const INVOICES = RAW_LEDGER.map((row, idx) => {
+      const [idNum, mmdd, brIdx, supIdx, cents, appIdx, catIdx] = row;
+      const amount = cents / 100;
+      const supplier = SUPPLIERS[supIdx];
+      const branch = BRANCHES[brIdx];
+      const category = CATEGORIES[catIdx];
+      const approvedBy = APPROVERS[appIdx];
+      const firstDigit = extractFirstDigit(cents);
+      const doy = dayOfYear2026(mmdd);
+      return {
+        idx,
+        invoice_id: "FAC-" + idNum,
+        idNum,
+        date: "2026-" + mmdd,
+        mmdd,
+        doy,
+        branch,
+        brIdx,
+        supplier,
+        supIdx,
+        amount_mxn: amount,
+        cents,
+        approved_by: approvedBy,
+        category,
+        firstDigit,
+        isCulprit: false,
+        riskScore: 0
+      };
+    });
+
+    // =========================================================================
+    // 2. MOTOR ESTADISTICO Y FORENSE EN TIEMPO REAL (CHI-CUADRADA BENFORD)
+    // =========================================================================
+    function computeBenfordStats(list) {
+      const counts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      let totalCents = 0;
+      let near10kCount = 0;
+      let autoCount = 0;
+
+      for (let i = 0; i < list.length; i++) {
+        const inv = list[i];
+        counts[inv.firstDigit]++;
+        totalCents += inv.cents;
+        if (inv.cents >= 700000 && inv.cents < 1000000) near10kCount++;
+        if (inv.approved_by === "Sistema_Auto") autoCount++;
+      }
+
+      const n = list.length;
+      const pcts = [0];
+      let chiSquare = 0;
+      if (n > 0) {
+        for (let d = 1; d <= 9; d++) {
+          const obs = counts[d];
+          const exp = n * BENFORD_THEORETICAL[d];
+          chiSquare += ((obs - exp) * (obs - exp)) / exp;
+          pcts[d] = (obs / n) * 100;
+        }
+      } else {
+        for (let d = 1; d <= 9; d++) pcts[d] = 0;
+      }
+
+      return {
+        n,
+        counts,
+        pcts,
+        chiSquare,
+        totalMxn: Math.round(totalCents) / 100,
+        totalCents,
+        near10kCount,
+        autoCount
+      };
+    }
+
+    // Group by supplier & branch to discover the culprit mathematically from data
+    const supplierGroups = new Map();
+    const branchGroups = new Map();
+    SUPPLIERS.forEach(s => supplierGroups.set(s, []));
+    BRANCHES.forEach(b => branchGroups.set(b, []));
+
+    INVOICES.forEach(inv => {
+      supplierGroups.get(inv.supplier).push(inv);
+      branchGroups.get(inv.branch).push(inv);
+    });
+
+    const supplierStatsList = SUPPLIERS.map(sup => {
+      const list = supplierGroups.get(sup);
+      const stats = computeBenfordStats(list);
+      const branchCounts = {};
+      list.forEach(inv => {
+        branchCounts[inv.branch] = (branchCounts[inv.branch] || 0) + 1;
+      });
+      const topBranch = Object.entries(branchCounts).sort((a, b) => b[1] - a[1])[0];
+      return {
+        name: sup,
+        list,
+        stats,
+        topBranch: topBranch ? topBranch[0] : "",
+        topBranchShare: topBranch ? topBranch[1] / list.length : 0
+      };
+    }).sort((a, b) => b.stats.chiSquare - a.stats.chiSquare);
+
+    const branchStatsList = BRANCHES.map(br => {
+      const list = branchGroups.get(br);
+      const stats = computeBenfordStats(list);
+      return { name: br, list, stats };
+    }).sort((a, b) => b.stats.chiSquare - a.stats.chiSquare);
+
+    // Top statistical outlier is the phantom supplier
+    const CULPRIT_ENTRY = supplierStatsList[0];
+    const CULPRIT_SUPPLIER = CULPRIT_ENTRY.name;
+    const CULPRIT_BRANCH = CULPRIT_ENTRY.topBranch;
+    const CULPRIT_INVOICES = CULPRIT_ENTRY.list;
+    const HONEST_INVOICES = INVOICES.filter(inv => inv.supplier !== CULPRIT_SUPPLIER);
+
+    const GLOBAL_STATS = computeBenfordStats(INVOICES);
+    const CULPRIT_STATS = CULPRIT_ENTRY.stats;
+    const HONEST_STATS = computeBenfordStats(HONEST_INVOICES);
+
+    // Tag individual invoice risk scores based on forensic signals
+    INVOICES.forEach(inv => {
+      if (inv.supplier === CULPRIT_SUPPLIER) {
+        inv.isCulprit = true;
+        inv.riskScore = inv.cents >= 700000 ? 99 : 94;
+      } else if (inv.cents >= 850000 && inv.cents < 1000000) {
+        inv.riskScore = 58;
+      } else if (inv.cents >= 700000 && inv.cents < 850000) {
+        inv.riskScore = 42;
+      } else {
+        inv.riskScore = 8;
+      }
+    });
+
+    // =========================================================================
+    // 3. CONTRATO OBLIGATORIO DE AUDITORIA: window.__auditForensics()
+    // =========================================================================
+    const AUDIT_RESULT = Object.freeze({
+      culpritSupplier: CULPRIT_SUPPLIER,
+      culpritBranch: CULPRIT_BRANCH,
+      suspiciousInvoiceCount: CULPRIT_STATS.n,
+      totalStolenMxn: Number(CULPRIT_STATS.totalMxn.toFixed(2)),
+      benfordChiSquare: Number(CULPRIT_STATS.chiSquare.toFixed(2))
+    });
+
+    window.__auditForensics = function () {
+      return {
+        culpritSupplier: AUDIT_RESULT.culpritSupplier,
+        culpritBranch: AUDIT_RESULT.culpritBranch,
+        suspiciousInvoiceCount: AUDIT_RESULT.suspiciousInvoiceCount,
+        totalStolenMxn: AUDIT_RESULT.totalStolenMxn,
+        benfordChiSquare: AUDIT_RESULT.benfordChiSquare
+      };
+    };
+
+    // =========================================================================
+    // 4. ESTADO DE INTERFAZ Y AUDIO SINTETICO WEBAUDIO
+    // =========================================================================
+    const state = {
+      autoDemo: true,
+      audioEnabled: false,
+      supplierFilter: "ALL",
+      branchFilter: "ALL",
+      quickFilter: "culprit",
+      searchQuery: "",
+      rankingMode: "suppliers", // "suppliers" | "branches"
+      chartMode: "scatter",     // "scatter" | "radar"
+      morphProgress: 0,         // 0 = scatter, 1 = polar radar
+      hoveredDigit: null,
+      spotlightDigit: 9,
+      hoveredInvoice: null,
+      pinnedInvoice: CULPRIT_INVOICES[CULPRIT_INVOICES.length - 1],
+      scanCursor: 0,
+      startTime: performance.now(),
+      lastFrameTime: performance.now(),
+      fpsSmooth: 60,
+      frameCounter: 0
+    };
+
+    let audioCtx = null;
+    let lastSonarTick = 0;
+
+    function triggerSonarBlip(freq = 880, dur = 0.045, gainVal = 0.025) {
+      if (!state.audioEnabled) return;
+      try {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.65, now + dur);
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + dur);
+      } catch (_) {}
+    }
+
+    function fmtMoney(val) {
+      return "$" + val.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // =========================================================================
+    // 5. POBLADO DE FILTROS, RANKING CHI2 Y TABLA ESCANER
+    // =========================================================================
+    const supplierSelect = document.getElementById("supplierFilter");
+    const branchSelect = document.getElementById("branchFilter");
+    const rankingListEl = document.getElementById("rankingList");
+    const scannerRowsEl = document.getElementById("scannerRows");
+    const tooltipEl = document.getElementById("forensicTooltip");
+
+    function initDropdowns() {
+      let supHtml = `<option value="ALL">Todos los Proveedores (12)</option>`;
+      supplierStatsList.forEach(item => {
+        const tag = item.name === CULPRIT_SUPPLIER ? " [ALERTA]" : "";
+        supHtml += `<option value="${item.name}">${item.name} (${item.stats.n})${tag}</option>`;
+      });
+      supplierSelect.innerHTML = supHtml;
+
+      let brHtml = `<option value="ALL">Todas las Sucursales (8)</option>`;
+      branchStatsList.forEach(item => {
+        const tag = item.name === CULPRIT_BRANCH ? " [ALERTA]" : "";
+        brHtml += `<option value="${item.name}">${item.name} (${item.stats.n})${tag}</option>`;
+      });
+      branchSelect.innerHTML = brHtml;
+    }
+
+    function getFilteredInvoices() {
+      return INVOICES.filter(inv => {
+        if (state.supplierFilter !== "ALL" && inv.supplier !== state.supplierFilter) return false;
+        if (state.branchFilter !== "ALL" && inv.branch !== state.branchFilter) return false;
+        return true;
+      });
+    }
+
+    function renderRanking() {
+      const items = state.rankingMode === "suppliers" ? supplierStatsList : branchStatsList;
+      const maxChi = Math.max(...items.map(x => x.stats.chiSquare), 30);
+      let html = "";
+
+      items.forEach(item => {
+        const isCulprit = (state.rankingMode === "suppliers" && item.name === CULPRIT_SUPPLIER) ||
+                          (state.rankingMode === "branches" && item.name === CULPRIT_BRANCH);
+        const isSelected = (state.rankingMode === "suppliers" && state.supplierFilter === item.name) ||
+                           (state.rankingMode === "branches" && state.branchFilter === item.name);
+
+        // Log-assisted width so compliant bars remain visible alongside 577.24
+        const normW = Math.min(100, Math.max(5, (Math.log10(1 + item.stats.chiSquare) / Math.log10(1 + maxChi)) * 100));
+        const barColor = isCulprit
+          ? "linear-gradient(90deg, #F43F5E, #FB7185)"
+          : (item.stats.chiSquare > 20 ? "#FBBF24" : "linear-gradient(90deg, #10B981, #22D3EE)");
+        const chiColor = isCulprit ? "#FDA4AF" : "#10B981";
+
+        html += `
+          <div class="rank-row ${isCulprit ? "culprit" : ""} ${isSelected ? "selected" : ""}"
+               data-rname="${item.name}">
+            <span class="rank-name" title="${item.name}">${item.name}</span>
+            <div class="rank-bar-track">
+              <div class="rank-bar-fill" style="width:${normW.toFixed(1)}%; background:${barColor};"></div>
+            </div>
+            <span class="rank-chi" style="color:${chiColor};">Chi² ${item.stats.chiSquare.toFixed(1)}</span>
+            <span class="rank-sum">${fmtMoney(item.stats.totalMxn).replace(".00", "")}</span>
+          </div>
+        `;
+      });
+
+      rankingListEl.innerHTML = html;
+      rankingListEl.querySelectorAll(".rank-row").forEach(row => {
+        row.addEventListener("click", () => {
+          const name = row.getAttribute("data-rname");
+          pauseAutoDemoForManual();
+          if (state.rankingMode === "suppliers") {
+            state.supplierFilter = state.supplierFilter === name ? "ALL" : name;
+            supplierSelect.value = state.supplierFilter;
+          } else {
+            state.branchFilter = state.branchFilter === name ? "ALL" : name;
+            branchSelect.value = state.branchFilter;
+          }
+          if (state.supplierFilter !== "ALL" || state.branchFilter !== "ALL") {
+            state.quickFilter = "all";
+            syncQuickFilterButtons();
+          }
+          syncAllViews();
+        });
+      });
+    }
+
+    let currentScannerList = [];
+
+    function renderScannerRows() {
+      const base = getFilteredInvoices();
+      const q = state.searchQuery.trim().toLowerCase();
+
+      currentScannerList = base.filter(inv => {
+        if (state.quickFilter === "culprit" && !inv.isCulprit) return false;
+        if (state.quickFilter === "near10k" && !(inv.cents >= 700000 && inv.cents < 1000000)) return false;
+        if (q) {
+          const hay = (inv.invoice_id + " " + inv.supplier + " " + inv.branch + " " + inv.category + " " + inv.date).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      }).sort((a, b) => b.riskScore - a.riskScore || b.cents - a.cents);
+
+      document.getElementById("scannerCountLabel").textContent =
+        `Mostrando ${currentScannerList.length} de ${base.length} folios`;
+
+      const visibleSlice = currentScannerList.slice(0, 140);
+      let html = "";
+      for (let i = 0; i < visibleSlice.length; i++) {
+        const inv = visibleSlice[i];
+        let riskClass = "risk-clean";
+        let riskText = "LIMPIO";
+        if (inv.isCulprit) {
+          riskClass = "risk-crit";
+          riskText = "FRAUDE";
+        } else if (inv.riskScore >= 40) {
+          riskClass = "risk-watch";
+          riskText = "TOPE";
+        }
+
+        const isPinned = state.pinnedInvoice && state.pinnedInvoice.idx === inv.idx;
+        const amtColor = inv.isCulprit ? "#FDA4AF" : (inv.cents >= 1000000 ? "#22D3EE" : "#F8FAFC");
+
+        html += `
+          <div class="inv-row ${inv.isCulprit ? "fraud" : ""} ${isPinned ? "active-scan" : ""}" data-invidx="${inv.idx}">
+            <span style="color:#CBD5E1; font-weight:700;">${inv.invoice_id}</span>
+            <span style="color:#94A3B8;">${inv.mmdd}</span>
+            <span class="inv-sup" title="${inv.supplier} (${inv.category})">${inv.supplier}</span>
+            <span class="inv-br">${inv.branch}</span>
+            <span class="inv-amt" style="color:${amtColor};">${fmtMoney(inv.amount_mxn)}</span>
+            <span class="risk-pill ${riskClass}">${riskText}</span>
+          </div>
+        `;
+      }
+
+      scannerRowsEl.innerHTML = html;
+      scannerRowsEl.querySelectorAll(".inv-row").forEach(el => {
+        el.addEventListener("click", () => {
+          const idx = parseInt(el.getAttribute("data-invidx"), 10);
+          pauseAutoDemoForManual();
+          state.pinnedInvoice = INVOICES[idx];
+          updateInspectHud(state.pinnedInvoice);
+          renderScannerRows();
+          triggerSonarBlip(1040, 0.05, 0.03);
+        });
+      });
+    }
+
+    function updateInspectHud(inv) {
+      if (!inv) return;
+      const box = document.getElementById("scanInspectBox");
+      const tagColor = inv.isCulprit ? "#FDA4AF" : (inv.cents >= 700000 && inv.cents < 1000000 ? "#FBBF24" : "#10B981");
+      box.innerHTML = `
+        <span><strong>${inv.invoice_id}</strong> · ${inv.branch} · <span style="color:#94A3B8;">${inv.category}</span></span>
+        <span style="color:${tagColor}; font-weight:800;">${fmtMoney(inv.amount_mxn)} (d=${inv.firstDigit})</span>
+      `;
+    }
+
+    function updateDigitInspector(d) {
+      const theo = BENFORD_THEORETICAL[d] * 100;
+      const hon = HONEST_STATS.pcts[d];
+      const cul = CULPRIT_STATS.pcts[d];
+      const culCnt = CULPRIT_STATS.counts[d];
+      const diff = cul - theo;
+
+      document.getElementById("inspDigitLabel").textContent = `DIGITO d = ${d}`;
+      document.getElementById("inspTheo").textContent = `${theo.toFixed(2)}%`;
+      document.getElementById("inspHonest").textContent = `${hon.toFixed(2)}%`;
+      document.getElementById("inspCulprit").textContent = `${cul.toFixed(2)}% (${culCnt})`;
+
+      const deltaEl = document.getElementById("inspDelta");
+      if (diff > 4) {
+        const mult = (cul / theo).toFixed(1);
+        deltaEl.textContent = `+${diff.toFixed(1)}% EXCESO (${mult}x)`;
+        deltaEl.style.background = "rgba(244, 63, 94, 0.22)";
+        deltaEl.style.color = "#FDA4AF";
+      } else if (diff < -4) {
+        deltaEl.textContent = `${diff.toFixed(1)}% DEFICIT`;
+        deltaEl.style.background = "rgba(251, 191, 36, 0.18)";
+        deltaEl.style.color = "#FBBF24";
+      } else {
+        deltaEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}% NORMAL`;
+        deltaEl.style.background = "rgba(16, 185, 129, 0.16)";
+        deltaEl.style.color = "#10B981";
+      }
+    }
+
+    function syncAllViews() {
+      const filtered = getFilteredInvoices();
+      const fStats = computeBenfordStats(filtered);
+      const hasCustomFilter = state.supplierFilter !== "ALL" || state.branchFilter !== "ALL";
+
+      document.getElementById("customFilterLegend").style.display = hasCustomFilter ? "inline-flex" : "none";
+      document.getElementById("benfordFilterBadge").textContent = hasCustomFilter
+        ? `Filtro activo: ${fStats.n} fac · Chi² = ${fStats.chiSquare.toFixed(2)}`
+        : `Comparativa activa: 1,000 facturas`;
+
+      const isIsolated = state.supplierFilter === CULPRIT_SUPPLIER && state.branchFilter === CULPRIT_BRANCH;
+      const isoBtn = document.getElementById("isolateCulpritBtn");
+      isoBtn.classList.toggle("active-coral", isIsolated);
+      document.getElementById("isolateBtnLabel").textContent = isIsolated ? "MOSTRAR PADRON (1000)" : "AISLAR CULPABLE";
+
+      renderRanking();
+      renderScannerRows();
+    }
+
+    function syncQuickFilterButtons() {
+      document.querySelectorAll("[data-qfilter]").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-qfilter") === state.quickFilter);
+      });
+    }
+
+    function pauseAutoDemoForManual() {
+      if (state.autoDemo) {
+        state.autoDemo = false;
+        const btn = document.getElementById("autoDemoBtn");
+        btn.classList.remove("active-cyan");
+        document.getElementById("autoDemoLabel").textContent = "AUTO-DEMO: PAUSA";
+      }
+    }
+
+    // =========================================================================
+    // 6. LIENZOS 60 FPS DE ALTA DENSIDAD (BENFORD + DISPERSION/RADAR $10K)
+    // =========================================================================
+    const benfordCanvas = document.getElementById("benfordCanvas");
+    const benfordCtx = benfordCanvas.getContext("2d");
+    const thresholdCanvas = document.getElementById("thresholdCanvas");
+    const thresholdCtx = thresholdCanvas.getContext("2d");
+
+    const canvasMetrics = {
+      benford: { w: 600, h: 300, dpr: 1, hitZones: [] },
+      threshold: { w: 640, h: 380, dpr: 1, renderedPoints: [] }
+    };
+
+    function resizeCanvases() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      [
+        ["benford", benfordCanvas],
+        ["threshold", thresholdCanvas]
+      ].forEach(([key, cvs]) => {
+        const rect = cvs.parentElement.getBoundingClientRect();
+        const w = Math.max(200, Math.floor(rect.width));
+        const h = Math.max(150, Math.floor(rect.height));
+        cvs.width = Math.floor(w * dpr);
+        cvs.height = Math.floor(h * dpr);
+        canvasMetrics[key].w = w;
+        canvasMetrics[key].h = h;
+        canvasMetrics[key].dpr = dpr;
+      });
+    }
+
+    window.addEventListener("resize", resizeCanvases);
+
+    function drawRoundedBar(ctx, x, y, w, h, r) {
+      if (h <= 0.5) return;
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x, y + rr);
+      ctx.quadraticCurveTo(x, y, x + rr, y);
+      ctx.lineTo(x + w - rr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+      ctx.lineTo(x + w, y + h);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawBenfordChart(elapsedSec) {
+      const { w, h, dpr } = canvasMetrics.benford;
+      const ctx = benfordCtx;
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 44;
+      const padR = 18;
+      const padT = 26;
+      const padB = 34;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+      const maxPct = 46;
+
+      // Intro growth easing (0.0s -> 0.65s)
+      const intro = Math.min(1, elapsedSec / 0.65);
+      const ease = 1 - Math.pow(1 - intro, 3);
+
+      // Horizontal gridlines
+      ctx.font = "600 10px 'JetBrains Mono', monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let pct = 0; pct <= 45; pct += 10) {
+        const y = padT + plotH - (pct / maxPct) * plotH;
+        ctx.strokeStyle = pct === 30 ? "rgba(34, 211, 238, 0.20)" : "rgba(148, 163, 184, 0.10)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(w - padR, y);
+        ctx.stroke();
+
+        ctx.fillStyle = pct === 30 ? "#22D3EE" : "#64748B";
+        ctx.fillText(pct + "%", padL - 7, y);
+      }
+
+      const activeDigit = state.hoveredDigit || state.spotlightDigit;
+      const slotW = plotW / 9;
+      const hitZones = [];
+
+      const hasCustom = state.supplierFilter !== "ALL" || state.branchFilter !== "ALL";
+      const customStats = hasCustom ? computeBenfordStats(getFilteredInvoices()) : null;
+
+      // Draw Spotlight Column + Honest & Culprit Bars
+      const theoPoints = [];
+      for (let d = 1; d <= 9; d++) {
+        const cx = padL + (d - 0.5) * slotW;
+        hitZones.push({ d, x0: padL + (d - 1) * slotW, x1: padL + d * slotW });
+
+        if (d === activeDigit) {
+          const gradSpot = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+          gradSpot.addColorStop(0, "rgba(34, 211, 238, 0.13)");
+          gradSpot.addColorStop(1, "rgba(34, 211, 238, 0.01)");
+          ctx.fillStyle = gradSpot;
+          ctx.fillRect(padL + (d - 1) * slotW + 2, padT, slotW - 4, plotH);
+        }
+
+        const barW = Math.min(18, slotW * 0.30);
+        const gap = 3;
+
+        // Honest bar (Emerald)
+        const hPct = HONEST_STATS.pcts[d] * ease;
+        const hBarH = (hPct / maxPct) * plotH;
+        const hx = cx - barW - gap * 0.5;
+        const hy = padT + plotH - hBarH;
+        const hGrad = ctx.createLinearGradient(0, hy, 0, padT + plotH);
+        hGrad.addColorStop(0, "#34D399");
+        hGrad.addColorStop(1, "rgba(16, 185, 129, 0.35)");
+        ctx.fillStyle = hGrad;
+        drawRoundedBar(ctx, hx, hy, barW, hBarH, 4);
+
+        // Culprit bar (Coral with pulse on anomalies)
+        const cPct = CULPRIT_STATS.pcts[d] * ease;
+        const cBarH = (cPct / maxPct) * plotH;
+        const cxBar = cx + gap * 0.5;
+        const cy = padT + plotH - cBarH;
+        const pulse = 0.86 + 0.14 * Math.sin(elapsedSec * 4.5 + d);
+        const cGrad = ctx.createLinearGradient(0, cy, 0, padT + plotH);
+        cGrad.addColorStop(0, `rgba(244, 63, 94, ${pulse})`);
+        cGrad.addColorStop(1, "rgba(244, 63, 94, 0.32)");
+        ctx.fillStyle = cGrad;
+        drawRoundedBar(ctx, cxBar, cy, barW, cBarH, 4);
+
+        if (cPct > 12) {
+          ctx.strokeStyle = "rgba(253, 164, 175, 0.8)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(cxBar + 0.5, cy + 0.5, barW - 1, Math.max(1, cBarH - 1));
+        }
+
+        // Optional custom filter marker (Amber diamond)
+        if (customStats) {
+          const fPct = customStats.pcts[d] * ease;
+          const fy = padT + plotH - (fPct / maxPct) * plotH;
+          ctx.fillStyle = "#FBBF24";
+          ctx.beginPath();
+          ctx.moveTo(cx, fy - 5);
+          ctx.lineTo(cx + 5, fy);
+          ctx.lineTo(cx, fy + 5);
+          ctx.lineTo(cx - 5, fy);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // X-axis digit label
+        ctx.fillStyle = d === activeDigit ? "#22D3EE" : "#CBD5E1";
+        ctx.font = d === activeDigit ? "800 12px 'JetBrains Mono', monospace" : "700 11px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("d=" + d, cx, padT + plotH + 17);
+
+        const ty = padT + plotH - ((BENFORD_THEORETICAL[d] * 100 * ease) / maxPct) * plotH;
+        theoPoints.push({ x: cx, y: ty, pct: BENFORD_THEORETICAL[d] * 100 });
+      }
+
+      canvasMetrics.benford.hitZones = hitZones;
+
+      // Theoretical Benford Curve (Cyan glowing spline)
+      ctx.save();
+      ctx.shadowColor = "rgba(34, 211, 238, 0.7)";
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = "#22D3EE";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      for (let i = 0; i < theoPoints.length; i++) {
+        const p = theoPoints[i];
+        if (i === 0) {
+          ctx.moveTo(p.x, p.y);
+        } else {
+          const prev = theoPoints[i - 1];
+          const midX = (prev.x + p.x) / 2;
+          ctx.bezierCurveTo(midX, prev.y, midX, p.y, p.x, p.y);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Theoretical nodes
+      for (let i = 0; i < theoPoints.length; i++) {
+        const p = theoPoints[i];
+        const isAct = (i + 1) === activeDigit;
+        ctx.fillStyle = "#070B14";
+        ctx.strokeStyle = "#22D3EE";
+        ctx.lineWidth = isAct ? 2.6 : 1.8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, isAct ? 5.2 : 3.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Callout badges for d=1 deficit and d=9 spike
+      if (w > 420) {
+        const p1 = theoPoints[0];
+        ctx.font = "700 10px 'JetBrains Mono', monospace";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#22D3EE";
+        ctx.fillText("Benford 30.1% (Culpable: 0%)", p1.x + 8, Math.max(14, p1.y - 6));
+
+        const c9Top = padT + plotH - ((CULPRIT_STATS.pcts[9] * ease) / maxPct) * plotH;
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#FDA4AF";
+        ctx.fillText("Pico Fraude d=9: 41.7%", w - padR - 2, Math.max(14, c9Top - 7));
+      }
+
+      ctx.restore();
+    }
+
+    // Non-linear Y mapping for Dispersion mode: 75% height dedicated to $0..$12,000 MXN
+    function amountToScatterY(amount, padT, plotH) {
+      const bottom = padT + plotH;
+      if (amount <= 12000) {
+        const t = amount / 12000;
+        return bottom - t * (plotH * 0.76);
+      } else {
+        const t = Math.min(1, (amount - 12000) / (75000 - 12000));
+        return bottom - plotH * 0.76 - Math.pow(t, 0.65) * (plotH * 0.24);
+      }
+    }
+
+    function drawThresholdChart(elapsedSec) {
+      const { w, h, dpr } = canvasMetrics.threshold;
+      const ctx = thresholdCtx;
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const targetMorph = state.chartMode === "radar" ? 1 : 0;
+      state.morphProgress += (targetMorph - state.morphProgress) * 0.10;
+      const mp = state.morphProgress;
+
+      const padL = 56;
+      const padR = 18;
+      const padT = 22;
+      const padB = 28;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const cxRadar = w * 0.52;
+      const cyRadar = h * 0.52;
+      const maxRadarR = Math.min(w, h) * 0.41;
+      const r10k = maxRadarR * 0.76;
+
+      // 1. SCATTER BACKDROP (fades out as mp -> 1)
+      if (mp < 0.98) {
+        ctx.save();
+        ctx.globalAlpha = 1 - mp;
+
+        // Shaded evasion zone ($7,400 - $10,000)
+        const y10k = amountToScatterY(10000, padT, plotH);
+        const y74k = amountToScatterY(7400, padT, plotH);
+        const zoneGrad = ctx.createLinearGradient(0, y10k, 0, y74k);
+        zoneGrad.addColorStop(0, "rgba(244, 63, 94, 0.20)");
+        zoneGrad.addColorStop(1, "rgba(244, 63, 94, 0.03)");
+        ctx.fillStyle = zoneGrad;
+        ctx.fillRect(padL, y10k, plotW, y74k - y10k);
+
+        // Secondary split zone ($4,800 - $5,000)
+        const y5k = amountToScatterY(5000, padT, plotH);
+        const y47k = amountToScatterY(4750, padT, plotH);
+        ctx.fillStyle = "rgba(251, 191, 36, 0.11)";
+        ctx.fillRect(padL, y5k, plotW, y47k - y5k);
+
+        // Y-axis reference ticks
+        const yTicks = [0, 2500, 5000, 7500, 10000, 25000, 60000];
+        ctx.font = "600 10px 'JetBrains Mono', monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        yTicks.forEach(val => {
+          const y = amountToScatterY(val, padT, plotH);
+          ctx.strokeStyle = val === 10000 ? "rgba(251, 191, 36, 0.85)" : "rgba(148, 163, 184, 0.11)";
+          ctx.lineWidth = val === 10000 ? 1.9 : 1;
+          if (val === 10000) ctx.setLineDash([7, 5]);
+          else ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(padL, y);
+          ctx.lineTo(w - padR, y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = val === 10000 ? "#FBBF24" : "#64748B";
+          const lbl = val >= 1000 ? "$" + (val / 1000) + "k" : "$0";
+          ctx.fillText(lbl, padL - 7, y);
+        });
+
+        // Label on $10,000 ceiling
+        ctx.fillStyle = "rgba(7, 11, 20, 0.86)";
+        ctx.fillRect(padL + 8, y10k - 17, 258, 15);
+        ctx.fillStyle = "#FBBF24";
+        ctx.font = "800 10px 'JetBrains Mono', monospace";
+        ctx.textAlign = "left";
+        ctx.fillText("TOPE APROBACION AUTO: $10,000.00 MXN", padL + 12, y10k - 9);
+
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "600 9.5px 'JetBrains Mono', monospace";
+        ctx.fillText("ZONA DIRECTOR REGIONAL (> $10k)", padL + 12, padT + 10);
+
+        // X-axis months
+        const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        ctx.textAlign = "center";
+        for (let m = 0; m < 12; m++) {
+          const mx = padL + ((m + 0.5) / 12) * plotW;
+          ctx.fillStyle = (m >= 2 && m <= 9) ? "#CBD5E1" : "#64748B";
+          ctx.fillText(months[m], mx, padT + plotH + 16);
+        }
+
+        // Sweeping vertical forensic scan beam
+        const sweepT = (elapsedSec * 0.14) % 1;
+        const beamX = padL + sweepT * plotW;
+        const beamGrad = ctx.createLinearGradient(beamX - 28, 0, beamX + 6, 0);
+        beamGrad.addColorStop(0, "rgba(34, 211, 238, 0)");
+        beamGrad.addColorStop(0.85, "rgba(34, 211, 238, 0.18)");
+        beamGrad.addColorStop(1, "rgba(34, 211, 238, 0.65)");
+        ctx.fillStyle = beamGrad;
+        ctx.fillRect(beamX - 28, padT, 34, plotH);
+
+        ctx.restore();
+      }
+
+      // 2. POLAR RADAR BACKDROP (fades in as mp -> 1)
+      const sweepAngle = (elapsedSec * 1.15) % (Math.PI * 2);
+      if (mp > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = mp;
+
+        // Rings: $5k, $10k (Amber limit), >$10k outer
+        const rings = [
+          { r: r10k * 0.5, color: "rgba(148, 163, 184, 0.16)", dash: [3, 3], label: "$5k" },
+          { r: r10k, color: "rgba(251, 191, 36, 0.88)", dash: [6, 4], label: "TOPE $10k" },
+          { r: maxRadarR, color: "rgba(34, 211, 238, 0.22)", dash: [], label: ">$10k Dir" }
+        ];
+
+        rings.forEach(rg => {
+          ctx.strokeStyle = rg.color;
+          ctx.lineWidth = rg.label.includes("10k") ? 2 : 1;
+          ctx.setLineDash(rg.dash);
+          ctx.beginPath();
+          ctx.arc(cxRadar, cyRadar, rg.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = rg.label.includes("10k") ? "#FBBF24" : "#64748B";
+          ctx.font = "700 9.5px 'JetBrains Mono', monospace";
+          ctx.textAlign = "left";
+          ctx.fillText(rg.label, cxRadar + 5, cyRadar - rg.r + 10);
+        });
+
+        // 8 Branch sectors
+        for (let b = 0; b < BRANCHES.length; b++) {
+          const ang = (b / BRANCHES.length) * Math.PI * 2 - Math.PI / 2;
+          const x2 = cxRadar + Math.cos(ang) * maxRadarR;
+          const y2 = cyRadar + Math.sin(ang) * maxRadarR;
+          ctx.strokeStyle = "rgba(148, 163, 184, 0.14)";
+          ctx.beginPath();
+          ctx.moveTo(cxRadar, cyRadar);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+
+          const midAng = ((b + 0.5) / BRANCHES.length) * Math.PI * 2 - Math.PI / 2;
+          const lx = cxRadar + Math.cos(midAng) * (maxRadarR + 18);
+          const ly = cyRadar + Math.sin(midAng) * (maxRadarR + 14);
+          const isMty = BRANCHES[b] === CULPRIT_BRANCH;
+          ctx.fillStyle = isMty ? "#FDA4AF" : "#94A3B8";
+          ctx.font = isMty ? "800 10.5px 'JetBrains Mono', monospace" : "600 9.5px 'JetBrains Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(BRANCHES[b], lx, ly);
+        }
+
+        // Rotating radar sweep cone
+        ctx.beginPath();
+        ctx.moveTo(cxRadar, cyRadar);
+        ctx.arc(cxRadar, cyRadar, maxRadarR, sweepAngle - 0.42, sweepAngle);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(34, 211, 238, 0.14)";
+        ctx.fill();
+
+        ctx.strokeStyle = "#22D3EE";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(cxRadar, cyRadar);
+        ctx.lineTo(cxRadar + Math.cos(sweepAngle) * maxRadarR, cyRadar + Math.sin(sweepAngle) * maxRadarR);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // 3. RENDER ALL 1,000 REAL INVOICE PARTICLES (interpolated Scatter <-> Polar Radar)
+      const renderedPoints = [];
+      const sweepDay = ((elapsedSec * 0.14) % 1) * 365;
+
+      // Draw honest invoices first, culprit invoices on top for crisp visual hierarchy
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < INVOICES.length; i++) {
+          const inv = INVOICES[i];
+          if ((pass === 0 && inv.isCulprit) || (pass === 1 && !inv.isCulprit)) continue;
+
+          const matchFilter =
+            (state.supplierFilter === "ALL" || inv.supplier === state.supplierFilter) &&
+            (state.branchFilter === "ALL" || inv.branch === state.branchFilter);
+
+          // Cartesian scatter position
+          const sx = padL + (inv.doy / 365) * plotW;
+          const sy = amountToScatterY(inv.amount_mxn, padT, plotH);
+
+          // Polar radar position (sector = branch, radius = amount vs $10,000 ring)
+          const sectorSpan = (Math.PI * 2) / BRANCHES.length;
+          const jitter = ((inv.idNum * 73) % 100) / 100 * 0.78 + 0.11;
+          const pAng = (inv.brIdx + jitter) * sectorSpan - Math.PI / 2;
+          const pRad = inv.amount_mxn <= 10000
+            ? (inv.amount_mxn / 10000) * r10k
+            : r10k + Math.min(1, (inv.amount_mxn - 10000) / 55000) * (maxRadarR - r10k);
+          const rx = cxRadar + Math.cos(pAng) * pRad;
+          const ry = cyRadar + Math.sin(pAng) * pRad;
+
+          const x = sx + (rx - sx) * mp;
+          const y = sy + (ry - sy) * mp;
+
+          const alpha = matchFilter ? (inv.isCulprit ? 0.94 : 0.62) : 0.08;
+          let radius = inv.isCulprit ? 3.5 : 2.3;
+
+          // Beam proximity highlight
+          const nearBeam = mp < 0.5
+            ? Math.abs(inv.doy - sweepDay) < 9
+            : Math.abs(Math.atan2(Math.sin(pAng - sweepAngle), Math.cos(pAng - sweepAngle))) < 0.16;
+
+          if (nearBeam && matchFilter && inv.isCulprit) {
+            radius = 5.0;
+          }
+
+          if (inv.isCulprit) {
+            ctx.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+          } else if (inv.amount_mxn >= 10000) {
+            ctx.fillStyle = `rgba(34, 211, 238, ${alpha})`;
+          } else {
+            ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
+          }
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (nearBeam && matchFilter && inv.isCulprit) {
+            ctx.strokeStyle = "rgba(253, 164, 175, 0.85)";
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + 3.2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          if (matchFilter) {
+            renderedPoints.push({ inv, x, y, r: radius + 4 });
+          }
+        }
+      }
+
+      // Highlight pinned or hovered invoice
+      const focusInv = state.hoveredInvoice || state.pinnedInvoice;
+      if (focusInv) {
+        const pt = renderedPoints.find(p => p.inv.idx === focusInv.idx);
+        if (pt) {
+          const ringR = 8 + 2.5 * Math.sin(elapsedSec * 6);
+          ctx.strokeStyle = focusInv.isCulprit ? "#FBBF24" : "#22D3EE";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, ringR, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      canvasMetrics.threshold.renderedPoints = renderedPoints;
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 7. INTERACCION DE PUNTERO Y CONTROLES
+    // =========================================================================
+    benfordCanvas.addEventListener("mousemove", e => {
+      const rect = benfordCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const hit = canvasMetrics.benford.hitZones.find(z => mx >= z.x0 && mx <= z.x1);
+      if (hit) {
+        state.hoveredDigit = hit.d;
+        updateDigitInspector(hit.d);
+      }
+    });
+
+    benfordCanvas.addEventListener("mouseleave", () => {
+      state.hoveredDigit = null;
+      updateDigitInspector(state.spotlightDigit);
+    });
+
+    thresholdCanvas.addEventListener("mousemove", e => {
+      const rect = thresholdCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      let best = null;
+      let bestDist = 144;
+
+      const pts = canvasMetrics.threshold.renderedPoints;
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const dx = pts[i].x - mx;
+        const dy = pts[i].y - my;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) {
+          bestDist = d2;
+          best = pts[i].inv;
+        }
+      }
+
+      state.hoveredInvoice = best;
+      if (best) {
+        tooltipEl.innerHTML = `
+          <div style="color:${best.isCulprit ? "#FDA4AF" : "#22D3EE"}; font-weight:800; margin-bottom:3px;">
+            ${best.invoice_id} · ${best.isCulprit ? "SOSPECHOSA" : "VALIDADA"}
+          </div>
+          <div>Proveedor: <strong>${best.supplier}</strong></div>
+          <div>Sucursal: <strong>${best.branch}</strong> (${best.date})</div>
+          <div>Giro: ${best.category} · ${best.approved_by}</div>
+          <div style="margin-top:3px; color:#FBBF24; font-weight:800;">
+            Monto: ${fmtMoney(best.amount_mxn)} MXN (Digito d=${best.firstDigit})
+          </div>
+        `;
+        const tx = Math.min(window.innerWidth - 300, e.clientX + 14);
+        const ty = Math.max(12, e.clientY - 76);
+        tooltipEl.style.left = tx + "px";
+        tooltipEl.style.top = ty + "px";
+        tooltipEl.classList.add("visible");
+      } else {
+        tooltipEl.classList.remove("visible");
+      }
+    });
+
+    thresholdCanvas.addEventListener("mouseleave", () => {
+      state.hoveredInvoice = null;
+      tooltipEl.classList.remove("visible");
+    });
+
+    thresholdCanvas.addEventListener("click", () => {
+      if (state.hoveredInvoice) {
+        pauseAutoDemoForManual();
+        state.pinnedInvoice = state.hoveredInvoice;
+        updateInspectHud(state.pinnedInvoice);
+        renderScannerRows();
+        triggerSonarBlip(1120, 0.05, 0.03);
+      }
+    });
+
+    supplierSelect.addEventListener("change", () => {
+      pauseAutoDemoForManual();
+      state.supplierFilter = supplierSelect.value;
+      if (state.supplierFilter !== "ALL" && state.supplierFilter !== CULPRIT_SUPPLIER) {
+        state.quickFilter = "all";
+        syncQuickFilterButtons();
+      }
+      syncAllViews();
+    });
+
+    branchSelect.addEventListener("change", () => {
+      pauseAutoDemoForManual();
+      state.branchFilter = branchSelect.value;
+      if (state.branchFilter !== "ALL" && state.branchFilter !== CULPRIT_BRANCH) {
+        state.quickFilter = "all";
+        syncQuickFilterButtons();
+      }
+      syncAllViews();
+    });
+
+    document.getElementById("isolateCulpritBtn").addEventListener("click", () => {
+      pauseAutoDemoForManual();
+      const already = state.supplierFilter === CULPRIT_SUPPLIER && state.branchFilter === CULPRIT_BRANCH;
+      if (already) {
+        state.supplierFilter = "ALL";
+        state.branchFilter = "ALL";
+        state.quickFilter = "all";
+      } else {
+        state.supplierFilter = CULPRIT_SUPPLIER;
+        state.branchFilter = CULPRIT_BRANCH;
+        state.quickFilter = "culprit";
+      }
+      supplierSelect.value = state.supplierFilter;
+      branchSelect.value = state.branchFilter;
+      syncQuickFilterButtons();
+      syncAllViews();
+      triggerSonarBlip(740, 0.06, 0.03);
+    });
+
+    document.getElementById("autoDemoBtn").addEventListener("click", () => {
+      state.autoDemo = !state.autoDemo;
+      const btn = document.getElementById("autoDemoBtn");
+      btn.classList.toggle("active-cyan", state.autoDemo);
+      document.getElementById("autoDemoLabel").textContent = state.autoDemo ? "AUTO-DEMO: ON" : "AUTO-DEMO: PAUSA";
+    });
+
+    document.getElementById("audioToggleBtn").addEventListener("click", () => {
+      state.audioEnabled = !state.audioEnabled;
+      const btn = document.getElementById("audioToggleBtn");
+      btn.classList.toggle("active-cyan", state.audioEnabled);
+      document.getElementById("audioBtnLabel").textContent = state.audioEnabled ? "SONAR: ON" : "SONAR: OFF";
+      if (state.audioEnabled) triggerSonarBlip(960, 0.06, 0.03);
+    });
+
+    document.getElementById("rankSupBtn").addEventListener("click", () => {
+      state.rankingMode = "suppliers";
+      document.getElementById("rankSupBtn").classList.add("active");
+      document.getElementById("rankBrBtn").classList.remove("active");
+      renderRanking();
+    });
+
+    document.getElementById("rankBrBtn").addEventListener("click", () => {
+      state.rankingMode = "branches";
+      document.getElementById("rankBrBtn").classList.add("active");
+      document.getElementById("rankSupBtn").classList.remove("active");
+      renderRanking();
+    });
+
+    document.getElementById("modeScatterBtn").addEventListener("click", () => {
+      pauseAutoDemoForManual();
+      state.chartMode = "scatter";
+      document.getElementById("modeScatterBtn").classList.add("active");
+      document.getElementById("modeRadarBtn").classList.remove("active");
+    });
+
+    document.getElementById("modeRadarBtn").addEventListener("click", () => {
+      pauseAutoDemoForManual();
+      state.chartMode = "radar";
+      document.getElementById("modeRadarBtn").classList.add("active");
+      document.getElementById("modeScatterBtn").classList.remove("active");
+    });
+
+    document.querySelectorAll("[data-qfilter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        pauseAutoDemoForManual();
+        state.quickFilter = btn.getAttribute("data-qfilter");
+        syncQuickFilterButtons();
+        renderScannerRows();
+      });
+    });
+
+    document.getElementById("invoiceSearch").addEventListener("input", e => {
+      pauseAutoDemoForManual();
+      state.searchQuery = e.target.value;
+      renderScannerRows();
+    });
+
+    document.getElementById("copyReportBtn").addEventListener("click", () => {
+      const payload = JSON.stringify(window.__auditForensics(), null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(payload).catch(() => {});
+      }
+      const note = document.getElementById("apiStatusNote");
+      note.textContent = "Dictamen JSON copiado al portapapeles";
+      setTimeout(() => {
+        note.textContent = "API window.__auditForensics() activa";
+      }, 2200);
+      triggerSonarBlip(1200, 0.05, 0.03);
+    });
+
+    // =========================================================================
+    // 8. BUCLE MAESTRO 60 FPS + COREOGRAFIA AUTO-DEMO DESDE t = 0.0s
+    // =========================================================================
+    function setChartModeAuto(mode) {
+      if (state.chartMode === mode) return;
+      state.chartMode = mode;
+      document.getElementById("modeScatterBtn").classList.toggle("active", mode === "scatter");
+      document.getElementById("modeRadarBtn").classList.toggle("active", mode === "radar");
+    }
+
+    function masterLoop(now) {
+      const dt = Math.max(0.001, (now - state.lastFrameTime) / 1000);
+      state.lastFrameTime = now;
+      const elapsedSec = (now - state.startTime) / 1000;
+
+      const instFps = Math.min(120, 1 / dt);
+      state.fpsSmooth = state.fpsSmooth * 0.92 + instFps * 0.08;
+      state.frameCounter++;
+
+      if (state.frameCounter % 12 === 0) {
+        document.getElementById("fpsReadout").textContent = Math.round(state.fpsSmooth) + " FPS";
+      }
+
+      // Intro count-up during first 0.65s landing on exact mathematical figures
+      if (elapsedSec < 0.65) {
+        const k = Math.max(0, Math.min(1, elapsedSec / 0.65));
+        const ease = 1 - Math.pow(1 - k, 3);
+        const curStolen = AUDIT_RESULT.totalStolenMxn * ease;
+        const curCnt = Math.round(AUDIT_RESULT.suspiciousInvoiceCount * ease);
+        const curChi = AUDIT_RESULT.benfordChiSquare * ease;
+        document.getElementById("kpiTotalStolen").textContent = fmtMoney(curStolen) + " MXN";
+        document.getElementById("kpiInvoiceCount").textContent = curCnt + " FACTURAS";
+        document.getElementById("kpiChiSquare").textContent = "Chi² = " + curChi.toFixed(2);
+      } else if (!state.introSettled) {
+        state.introSettled = true;
+        document.getElementById("kpiTotalStolen").textContent = fmtMoney(AUDIT_RESULT.totalStolenMxn) + " MXN";
+        document.getElementById("kpiInvoiceCount").textContent = AUDIT_RESULT.suspiciousInvoiceCount + " FACTURAS";
+        document.getElementById("kpiChiSquare").textContent = "Chi² = " + AUDIT_RESULT.benfordChiSquare.toFixed(2);
+      }
+
+      // Live Auto-Demo choreography
+      if (state.autoDemo) {
+        // Alternate Dispersion $10k (0..9s) <-> Polar Radar $10k (9..16s)
+        const phase = elapsedSec % 16;
+        setChartModeAuto(phase < 9.5 ? "scatter" : "radar");
+
+        // Cycle Benford spotlight across key digits with extra dwell on d=1, d=8, d=9
+        const digitSeq = [9, 9, 8, 7, 4, 1, 1, 2, 3, 5, 6];
+        const seqIdx = Math.floor(elapsedSec * 0.85) % digitSeq.length;
+        const nextDigit = digitSeq[seqIdx];
+        if (!state.hoveredDigit && nextDigit !== state.spotlightDigit) {
+          state.spotlightDigit = nextDigit;
+          updateDigitInspector(nextDigit);
+        }
+
+        // Advance live invoice scanner cursor every ~0.9s
+        const scanStep = Math.floor(elapsedSec * 1.15);
+        if (scanStep !== state.scanCursor && currentScannerList.length > 0) {
+          state.scanCursor = scanStep;
+          const pick = currentScannerList[scanStep % Math.min(currentScannerList.length, 40)];
+          if (!state.hoveredInvoice && pick) {
+            state.pinnedInvoice = pick;
+            updateInspectHud(pick);
+            const rows = scannerRowsEl.children;
+            for (let r = 0; r < rows.length; r++) {
+              const rIdx = parseInt(rows[r].getAttribute("data-invidx"), 10);
+              rows[r].classList.toggle("active-scan", rIdx === pick.idx);
+            }
+          }
+          if (now - lastSonarTick > 850) {
+            lastSonarTick = now;
+            triggerSonarBlip(pick && pick.isCulprit ? 920 : 620, 0.035, 0.018);
+          }
+        }
+      }
+
+      // Continuous scan progress wave
+      const wavePct = ((elapsedSec * 22) % 100);
+      document.getElementById("scanProgressBar").style.width = wavePct.toFixed(1) + "%";
+
+      drawBenfordChart(elapsedSec);
+      drawThresholdChart(elapsedSec);
+
+      requestAnimationFrame(masterLoop);
+    }
+
+    // Boot sequence at t = 0.0s
+    document.getElementById("kpiCulpritSupplier").textContent = AUDIT_RESULT.culpritSupplier;
+    document.getElementById("kpiCulpritBranch").textContent = AUDIT_RESULT.culpritBranch;
+    initDropdowns();
+    resizeCanvases();
+    syncAllViews();
+    updateDigitInspector(9);
+    updateInspectHud(state.pinnedInvoice);
+    requestAnimationFrame(masterLoop);
+  </script>
+</body>
+</html>

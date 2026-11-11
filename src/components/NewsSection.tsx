@@ -270,8 +270,199 @@ export default function NewsSection({
     ? "https://www.youtube.com/shorts/MY_86o2GqEs"
     : "https://www.youtube.com/shorts/tBHRMWmC_Vk";
 
+  const [activeOmniTest, setActiveOmniTest] = useState<"P01" | "P02" | "P03" | "P04">("P01");
+
+  const omniTests = {
+    P01: {
+      title_es: "Prueba 01 · Cero Referencias: Dron FPV + Holograma 3D",
+      title_en: "Test 01 · Zero References: FPV Drone + 3D Hologram",
+      desc_es:
+        "Sin ninguna imagen de apoyo: vuelo FPV desde un callejon lluvioso con el letrero 'MIXIUH LABS' hacia un taller con el holograma 3D 'OMNI 1.2'. Omni 1.1 duplica el cartel y Veo 3.1 hace un cuadro plano en la pared; solo Omni 1.2 proyecta el holograma 3D dorado flotante.",
+      desc_en:
+        "Zero reference images: unbroken FPV flight from a rainy alley with a 'MIXIUH LABS' neon sign into a studio with a 3D 'OMNI 1.2' hologram. Omni 1.1 duplicates the sign and Veo 3.1 renders a flat wall poster; only Omni 1.2 projects the floating golden 3D hologram.",
+      contact: "/news/omni12/contact_P01.png",
+      models: [
+        { name: "Omni 1.2 Flash (GANADOR)", score: "9.7 / 10", meta: "8.0s · 41.1s gen · 24 cr · $0.56 USD", src: "/news/omni12/videos/P01_OMNI12.mp4", color: "#38BDF8" },
+        { name: "Omni 1.1 Flash", score: "8.8 / 10", meta: "8.0s · 41.1s gen · 12 cr · $0.81 USD", src: "/news/omni12/videos/P01_OMNI11.mp4", color: "#A855F7" },
+        { name: "Veo 3.1 - Quality", score: "9.1 / 10", meta: "7.9s · 67.2s gen · 100 cr · $3.20 USD", src: "/news/omni12/videos/P01_VEO31Q.mp4", color: "#F59E0B" },
+      ],
+    },
+    P02: {
+      title_es: "Prueba 02 · Fotograma Inicial a Final: Nieve a Laboratorio",
+      title_en: "Test 02 · First-to-Last Frame: Snowstorm to Glass Lab",
+      desc_es:
+        "Conectar 2 fotos opuestas en una caminata continua. En t=3.0s, Veo 3.1 Quality alucina un pasillo amarillo falso que no existe en ninguna referencia, mientras Omni 1.2 Flash abre la puerta corrediza de cristal sin cortes.",
+      desc_en:
+        "Bridging 2 opposite photos in one continuous walk. At t=3.0s, Veo 3.1 Quality hallucinates a fake yellow hallway that exists in neither reference photo, while Omni 1.2 Flash slides the glass doors open seamlessly.",
+      contact: "/news/omni12/contact_P02.png",
+      models: [
+        { name: "Omni 1.2 Flash (GANADOR)", score: "9.6 / 10", meta: "8.0s · 47.2s gen · 24 cr · $0.56 USD", src: "/news/omni12/videos/P02_OMNI12.mp4", color: "#38BDF8" },
+        { name: "Omni 1.1 Flash", score: "8.7 / 10", meta: "8.0s · 41.1s gen · 12 cr · $0.81 USD", src: "/news/omni12/videos/P02_OMNI11.mp4", color: "#A855F7" },
+        { name: "Veo 3.1 - Quality", score: "8.5 / 10", meta: "7.9s · 69.2s gen · 100 cr · $3.20 USD", src: "/news/omni12/videos/P02_VEO31Q.mp4", color: "#F59E0B" },
+      ],
+    },
+    P03: {
+      title_es: "Prueba 03 · Fusion de 3 Ingredientes (El Bloqueo de Veo 3.1)",
+      title_en: "Test 03 · 3-Ingredient Fusion (Why Veo 3.1 Blocked the Test)",
+      desc_es:
+        "Cargamos 3 ingredientes separados (Panda Samurai + Arcade MIXIUH + Templo en Nubes). Veo 3.1 Quality bloqueo el boton de generar ('El modelo seleccionado no admite los ingredientes agregados'). Omni 1.2 fusiono las 3 fotos al aire libre y encendio 'STAGE CLEAR!'.",
+      desc_en:
+        "We loaded 3 separate ingredients (Samurai Panda + MIXIUH Arcade + Sky Temple). Veo 3.1 Quality blocked generation ('The selected model does not support the added ingredients'). Omni 1.2 fused all 3 outdoors and triggered 'STAGE CLEAR!'.",
+      contact: "/news/omni12/contact_P03.png",
+      models: [
+        { name: "Omni 1.2 Flash (GANADOR)", score: "9.8 / 10", meta: "8.0s · 51.2s gen · 24 cr · $0.56 USD", src: "/news/omni12/videos/P03_OMNI12.mp4", color: "#38BDF8" },
+        { name: "Omni 1.1 Flash", score: "8.6 / 10", meta: "8.0s · 46.8s gen · 12 cr · $0.81 USD", src: "/news/omni12/videos/P03_OMNI11.mp4", color: "#A855F7" },
+        { name: "Veo 3.1 - Quality (2 Frames)", score: "7.9 / 10", meta: "7.9s · 87.2s gen · 100 cr · $3.20 USD", src: "/news/omni12/videos/P03_VEO31Q.mp4", color: "#F59E0B" },
+      ],
+    },
+    P04: {
+      title_es: "Prueba 04 · 15 Segundos Nativos + Lip-Sync en Espanol en Marte",
+      title_en: "Test 04 · 15s Native Duration + Spanish Lip-Sync on Mars",
+      desc_es:
+        "3 tomas dirigidas por codigos de tiempo ([00:00-00:05], [00:05-00:10], [00:10-00:15]). Veo 3.1 se corta en 8s, Omni 1.1 se corta en 10s dejando el texto en 'ROV', y solo Omni 1.2 entrega los 15.0s completos con voz en espanol y 'ROVER SOLAR' completo.",
+      desc_en:
+        "3 timecoded shots ([00:00-00:05], [00:05-00:10], [00:10-00:15]). Veo 3.1 caps at 8s, Omni 1.1 caps at 10s clipping the label to 'ROV', and only Omni 1.2 delivers all 15.0s with Spanish lip-sync and the full 'ROVER SOLAR' callout.",
+      contact: "/news/omni12/contact_P04.png",
+      models: [
+        { name: "Omni 1.2 Flash (15.0s NATIVOS)", score: "9.7 / 10", meta: "15.0s · 71.2s gen · 60 cr · $1.04 USD", src: "/news/omni12/videos/P04_OMNI12.mp4", color: "#38BDF8" },
+        { name: "Omni 1.1 Flash (Tope 10s)", score: "8.2 / 10", meta: "10.0s · 41.5s gen · 15 cr · $1.01 USD", src: "/news/omni12/videos/P04_OMNI11.mp4", color: "#A855F7" },
+        { name: "Veo 3.1 - Quality (Tope 8s)", score: "8.4 / 10", meta: "7.9s · 97.2s gen · 100 cr · $3.20 USD", src: "/news/omni12/videos/P04_VEO31Q.mp4", color: "#F59E0B" },
+      ],
+    },
+  };
+  const curOmni = omniTests[activeOmniTest];
+
   return (
     <div className="space-y-12">
+      {/* =====================================================================
+          0. EP07 BREAKING NEWS + LIVE FLOW BENCHMARK: GEMINI OMNI 1.2 FLASH
+         ===================================================================== */}
+      <section className="bg-[#111622] border-2 border-[#38BDF8] p-6 sm:p-8 lg:p-10 shadow-[6px_6px_0_#040508] space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#2A344B]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#B31935] border border-[#FF3355]/60 font-mono-hud text-xs font-bold text-white shadow-[4px_4px_0_#040508]">
+              <span className="w-2.5 h-2.5 bg-white animate-pulse" />
+              <span>
+                {es
+                  ? "ESTRENO EP.07 · RADAR MIXIUH + LABORATORIO EN VIVO #02"
+                  : "NEW EP.07 · MIXIUH NEWS + LIVE BENCHMARK #02"}
+              </span>
+            </span>
+            <span className="px-3 py-1.5 shadow-[4px_4px_0_#040508] bg-[#090B10] border border-[#10B981]/60 font-mono-hud text-xs font-bold text-[#10B981]">
+              {es
+                ? "MARCADOR FINAL: OMNI 1.2 [4] - OMNI 1.1 [0] - VEO 3.1 [0]"
+                : "FINAL SCORE: OMNI 1.2 [4] - OMNI 1.1 [0] - VEO 3.1 [0]"}
+            </span>
+          </div>
+          <a
+            href="https://blog.google/innovation-and-ai/technology/developers-tools/introducing-gemini-omni-1-2-flash/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 shadow-[4px_4px_0_#040508] bg-[#090B10] hover:bg-[#1A2132] border border-[#38BDF8]/55 text-[#38BDF8] font-mono-hud text-xs font-bold inline-flex items-center gap-1.5 transition"
+          >
+            <span>{es ? "Blog Oficial Omni 1.2 Flash" : "Official Omni 1.2 Flash Blog"}</span>
+            <PixelIcon name="external" size={14} />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div className="lg:col-span-7 space-y-3">
+            <h2 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
+              {es
+                ? "Google lanza Gemini Omni 1.2 Flash: 15s Nativos + 4 Pruebas Reales vs Omni 1.1 y Veo 3.1 Quality"
+                : "Google Launches Gemini Omni 1.2 Flash: 15s Native Video + 4 Live Tests vs Omni 1.1 & Veo 3.1 Quality"}
+            </h2>
+            <p className="text-sm text-[#CBD5E1] leading-relaxed">
+              {es
+                ? "Abrimos Google Flow en vivo y generamos 12 videos comparando al nuevo Gemini Omni 1.2 Flash ($0.069/s en API 720p, hasta 15s continuos y 6 referencias) frente a su antecesor Omni 1.1 Flash ($0.101/s, tope 10s) y Veo 3.1 Quality ($0.40/s, tope 8s). Selecciona cada prueba para reproducir los videos originales sin editar:"
+                : "We opened Google Flow live and generated 12 videos comparing the new Gemini Omni 1.2 Flash ($0.069/s on 720p API, up to 15s continuous & 6 references) against Omni 1.1 Flash ($0.101/s, 10s cap) and Veo 3.1 Quality ($0.40/s, 8s cap). Select each test below to watch the unedited outputs:"}
+            </p>
+          </div>
+          <div className="lg:col-span-5 grid grid-cols-3 gap-3 font-mono-hud text-center">
+            <div className="p-3 bg-[#090B10] border border-[#38BDF8] shadow-[4px_4px_0_#040508]">
+              <div className="text-[11px] text-[#38BDF8] font-bold">OMNI 1.2 FLASH</div>
+              <div className="text-xl font-black text-white mt-1">9.70/10</div>
+              <div className="text-[11px] text-[#10B981] mt-0.5">4 PTS · $2.71 USD</div>
+            </div>
+            <div className="p-3 bg-[#090B10] border border-[#A855F7]/60 shadow-[4px_4px_0_#040508]">
+              <div className="text-[11px] text-[#C084FC] font-bold">OMNI 1.1 FLASH</div>
+              <div className="text-xl font-black text-white mt-1">8.58/10</div>
+              <div className="text-[11px] text-[#94A3B8] mt-0.5">0 PTS · $3.45 USD</div>
+            </div>
+            <div className="p-3 bg-[#090B10] border border-[#F59E0B]/60 shadow-[4px_4px_0_#040508]">
+              <div className="text-[11px] text-[#FBBF24] font-bold">VEO 3.1 QUALITY</div>
+              <div className="text-xl font-black text-white mt-1">8.48/10</div>
+              <div className="text-[11px] text-[#FCA5A5] mt-0.5">0 PTS · $12.80 USD</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 font-mono-hud text-xs">
+          {(["P01", "P02", "P03", "P04"] as const).map((tid) => (
+            <button
+              key={tid}
+              type="button"
+              onClick={() => setActiveOmniTest(tid)}
+              className={`px-4 py-2.5 font-bold border transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                activeOmniTest === tid
+                  ? "bg-[#38BDF8] text-[#090B10] border-white"
+                  : "bg-[#090B10] text-white border-[#2A344B] hover:border-[#38BDF8]"
+              }`}
+            >
+              {tid === "P01"
+                ? es ? "P01 · Cero Refs + 3D" : "P01 · Zero Refs + 3D"
+                : tid === "P02"
+                ? es ? "P02 · Inicio a Fin" : "P02 · Start to End"
+                : tid === "P03"
+                ? es ? "P03 · 3 Ingredientes" : "P03 · 3 Ingredients"
+                : es ? "P04 · 15s + Lip-Sync" : "P04 · 15s + Lip-Sync"}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-[#090B10] border border-[#2A344B] p-4 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h3 className="font-display text-lg sm:text-xl font-bold text-white">
+              {es ? curOmni.title_es : curOmni.title_en}
+            </h3>
+            <a
+              href={curOmni.contact}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono-hud text-xs text-[#38BDF8] hover:underline"
+            >
+              {es ? "Ver hoja de contacto HD ↗" : "Open HD contact sheet ↗"}
+            </a>
+          </div>
+          <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed">
+            {es ? curOmni.desc_es : curOmni.desc_en}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {curOmni.models.map((m) => (
+              <div
+                key={m.src}
+                className="bg-[#111622] border p-3 space-y-2"
+                style={{ borderColor: m.color }}
+              >
+                <div className="flex items-center justify-between font-mono-hud text-xs">
+                  <span className="font-bold text-white">{m.name}</span>
+                  <span className="px-2 py-0.5 bg-[#090B10] font-bold" style={{ color: m.color }}>
+                    {m.score}
+                  </span>
+                </div>
+                <video
+                  src={m.src}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full aspect-video bg-black border border-[#2A344B]"
+                />
+                <div className="font-mono-hud text-[11px] text-[#94A3B8]">{m.meta}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
       {/* =====================================================================
           1. BREAKING NEWS BROADCAST MASTHEAD & TICKER
          ===================================================================== */}

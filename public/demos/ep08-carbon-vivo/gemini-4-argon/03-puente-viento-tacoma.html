@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador Físico Aeroelástico — Puente Colgante y Resonancia de Tacoma</title>
+  <style>
+    :root {
+      --bg-deep: #070B14;
+      --bg-panel: rgba(15, 23, 42, 0.84);
+      --bg-panel-solid: #0F172A;
+      --border-glass: rgba(34, 211, 238, 0.22);
+      --cyan: #22D3EE;
+      --emerald: #10B981;
+      --amber: #FBBF24;
+      --coral: #F43F5E;
+      --text-main: #F8FAFC;
+      --text-dim: #94A3B8;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 74px 1fr 158px;
+      background: radial-gradient(circle at 50% 22%, #111C35 0%, #070B14 70%);
+    }
+
+    /* TOP HEADER BAR */
+    .topbar {
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: rgba(15, 23, 42, 0.88);
+      border-bottom: 1px solid var(--border-glass);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(16, 185, 129, 0.15));
+      border: 1px solid rgba(34, 211, 238, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.2);
+    }
+
+    .title-block h1 {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: rgba(34, 211, 238, 0.14);
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      color: var(--cyan);
+    }
+
+    .title-block p {
+      font-size: 12.5px;
+      color: var(--text-dim);
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    /* DEMO BANNER PILL */
+    .demo-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(7, 11, 20, 0.78);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      box-shadow: inset 0 0 14px rgba(34, 211, 238, 0.08);
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulseGlow 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.65; }
+    }
+
+    .demo-stage-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.02em;
+    }
+
+    .demo-progress-wrap {
+      width: 110px;
+      height: 6px;
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .demo-progress-bar {
+      height: 100%;
+      width: 35%;
+      background: linear-gradient(90deg, var(--cyan), var(--emerald));
+      transition: width 0.15s linear;
+    }
+
+    /* TOP TELEMETRY KPI STRIP */
+    .kpi-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .kpi-card {
+      background: rgba(7, 11, 20, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 9px;
+      padding: 6px 13px;
+      min-width: 118px;
+    }
+
+    .kpi-label {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+    }
+
+    .kpi-val {
+      font-size: 17px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      margin-top: 1px;
+      color: var(--text-main);
+    }
+
+    /* MAIN VIEWPORT */
+    .viewport {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #simCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* FLOATING OVERLAYS */
+    .hud-overlay-left {
+      position: absolute;
+      top: 16px;
+      left: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px 15px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      width: 320px;
+    }
+
+    .hud-card-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .heatmap-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .heatmap-gradient {
+      height: 10px;
+      border-radius: 5px;
+      background: linear-gradient(90deg, #22D3EE 0%, #10B981 35%, #FBBF24 70%, #F43F5E 100%);
+      position: relative;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
+    }
+
+    .heatmap-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .tele-box {
+      background: rgba(7, 11, 20, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 7px;
+      padding: 6px 9px;
+    }
+
+    .tele-box span {
+      display: block;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .tele-box strong {
+      font-size: 14px;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+
+    /* RIGHT FLOATING TORSION & WAVE OSCILLOSCOPE */
+    .hud-overlay-right {
+      position: absolute;
+      top: 16px;
+      right: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #scopeCanvas {
+      width: 290px;
+      height: 126px;
+      background: rgba(7, 11, 20, 0.8);
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      border-radius: 8px;
+      display: block;
+    }
+
+    /* CRITICAL RESONANCE ALERT BANNER */
+    .resonance-alert {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 9px 22px;
+      border-radius: 10px;
+      background: rgba(244, 63, 94, 0.18);
+      border: 1px solid rgba(244, 63, 94, 0.75);
+      color: #FECDD3;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 28px rgba(244, 63, 94, 0.35);
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+      z-index: 8;
+    }
+
+    .resonance-alert.visible {
+      opacity: 1;
+    }
+
+    /* BOTTOM CONTROL DECK */
+    .control-deck {
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.94);
+      border-top: 1px solid var(--border-glass);
+      padding: 14px 24px;
+      display: grid;
+      grid-template-columns: 340px 1fr 1fr 330px;
+      gap: 18px;
+      align-items: center;
+      backdrop-filter: blur(16px);
+    }
+
+    .control-panel {
+      background: rgba(7, 11, 20, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* DAMPER HERO BUTTON */
+    .damper-btn {
+      width: 100%;
+      height: 66px;
+      border-radius: 10px;
+      border: 2px solid var(--cyan);
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(15, 23, 42, 0.9));
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 20px rgba(34, 211, 238, 0.18);
+    }
+
+    .damper-btn:hover {
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.28), rgba(15, 23, 42, 0.95));
+      transform: translateY(-1px);
+    }
+
+    .damper-btn.active {
+      border-color: var(--emerald);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(6, 78, 59, 0.65));
+      box-shadow: 0 0 26px rgba(16, 185, 129, 0.38);
+    }
+
+    .damper-btn-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .damper-status-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: rgba(244, 63, 94, 0.2);
+      border: 1px solid var(--coral);
+      color: var(--coral);
+      white-space: nowrap;
+    }
+
+    .damper-btn.active .damper-status-pill {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: var(--emerald);
+      color: #6EE7B7;
+    }
+
+    .sub-note {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* SLIDER CONTROLS */
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .slider-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slider-readout {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--cyan);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 99px;
+      background: rgba(148, 163, 184, 0.22);
+      outline: none;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #070B14;
+      box-shadow: 0 0 12px var(--cyan);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+
+    .tick-highlight {
+      color: var(--amber);
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* ACTION BUTTONS */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      height: 100%;
+    }
+
+    .action-btn {
+      border-radius: 8px;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 10px;
+      transition: all 0.16s ease;
+    }
+
+    .action-btn:hover {
+      background: rgba(34, 211, 238, 0.18);
+      border-color: var(--cyan);
+    }
+
+    .action-btn.rebuild {
+      grid-column: span 2;
+      background: linear-gradient(90deg, rgba(251, 191, 36, 0.18), rgba(244, 63, 94, 0.18));
+      border-color: var(--amber);
+      color: var(--amber);
+      font-size: 13px;
+    }
+
+    .action-btn.rebuild:hover {
+      background: linear-gradient(90deg, rgba(251, 191, 36, 0.32), rgba(244, 63, 94, 0.32));
+    }
+
+    .action-btn.active-mode {
+      border-color: var(--emerald);
+      color: var(--emerald);
+      background: rgba(16, 185, 129, 0.14);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-badge">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
+            <path d="M3 18h18M6 18V6m12 12V6M6 8c3 4 9 4 12 0M9 11v7m3-6v6m3-7v7" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="title-block">
+          <h1>
+            PUENTE COLGANTE Y RESONANCIA DE TACOMA
+            <span class="title-pill">VERLET + FLUTTER AEROELASTICO 60 FPS</span>
+          </h1>
+          <p>Dinamica de Catenarias, Tirantes Individuales, Vortices de Von Karman y Amortiguacion Tuned-Mass</p>
+        </div>
+      </div>
+
+      <!-- AUTO DEMO STAGE INDICATOR -->
+      <div class="demo-banner" id="demoBanner">
+        <div class="pulse-dot" id="demoDot"></div>
+        <span class="demo-stage-text" id="demoStageLabel">AUTO-DEMO: FASE 1 — BRISA ESTABLE</span>
+        <div class="demo-progress-wrap">
+          <div class="demo-progress-bar" id="demoProgressBar"></div>
+        </div>
+      </div>
+
+      <!-- KPI STRIP -->
+      <div class="kpi-strip">
+        <div class="kpi-card">
+          <div class="kpi-label">VIENTO ACTUAL</div>
+          <div class="kpi-val" id="kpiWind">22.0 km/h</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TENSION MAXIMA</div>
+          <div class="kpi-val" id="kpiStress">24%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TIRANTES ROTOS</div>
+          <div class="kpi-val" id="kpiBroken">0 / 72</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TORSION TABLERO</div>
+          <div class="kpi-val" id="kpiTorsion">0.4 deg</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN SIMULATION VIEWPORT -->
+    <main class="viewport">
+      <canvas id="simCanvas"></canvas>
+
+      <!-- CRITICAL RESONANCE BANNER -->
+      <div class="resonance-alert" id="resonanceAlert">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" stroke-width="2.4">
+          <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span id="resonanceAlertText">ALERTA DE RESONANCIA CRITICA (68 KM/H) — FLUTTER TORSIONAL ACTIVO</span>
+      </div>
+
+      <!-- LEFT FLOATING HUD: HEATMAP & STRUCTURAL INTEGRITY -->
+      <div class="hud-overlay-left">
+        <div class="hud-card">
+          <div class="hud-card-title">
+            <span>MAPA DE CALOR DE TENSION ESTRUCTURAL</span>
+            <span id="hudCableCount">162 CABLES</span>
+          </div>
+          <div class="heatmap-legend">
+            <div class="heatmap-gradient"></div>
+            <div class="heatmap-labels">
+              <span style="color:#22D3EE">CIAN/VERDE (Normal)</span>
+              <span style="color:#FBBF24">AMBAR (Fatiga)</span>
+              <span style="color:#F43F5E">ROJO (Ruptura)</span>
+            </div>
+          </div>
+          <div class="telemetry-grid">
+            <div class="tele-box">
+              <span>FRECUENCIA VORTICES</span>
+              <strong id="teleFreq">1.42 Hz (Karman)</strong>
+            </div>
+            <div class="tele-box">
+              <span>AMORTIGUACION AERO</span>
+              <strong id="teleDamp" style="color:#F43F5E">DESACTIVADA</strong>
+            </div>
+            <div class="tele-box">
+              <span>VEHICULOS EN RUTA</span>
+              <strong id="teleCars">8 UNIDADES</strong>
+            </div>
+            <div class="tele-box">
+              <span>ESTADO ESTRUCTURAL</span>
+              <strong id="teleHealth" style="color:#10B981">ESTABLE 100%</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT FLOATING HUD: REAL-TIME MODAL & TORSION OSCILLOSCOPE -->
+      <div class="hud-overlay-right">
+        <div class="hud-card" style="width: 320px;">
+          <div class="hud-card-title">
+            <span>OSCILOSCOPIO MODAL Y TORSION (FLUTTER)</span>
+            <span id="scopeModeTag" style="color:#10B981">MODO S2</span>
+          </div>
+          <canvas id="scopeCanvas" width="290" height="126"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- BOTTOM INTERACTIVE CONTROL DECK -->
+    <footer class="control-deck">
+      <!-- COL 1: AERODYNAMIC DAMPERS BUTTON -->
+      <div class="control-panel">
+        <button class="damper-btn" id="btnToggleDampers" type="button">
+          <div class="damper-btn-left">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 7v10M8 10l8 4M16 10l-8 4" stroke-linecap="round"/>
+            </svg>
+            <div>
+              <div>ACTIVAR AMORTIGUADORES</div>
+              <div style="font-size:11px; color:var(--text-dim); font-weight:600;">AERODINAMICOS + TMD</div>
+            </div>
+          </div>
+          <span class="damper-status-pill" id="damperStatusPill">APAGADOS</span>
+        </button>
+        <div class="sub-note">
+          <span>Deflectores de borde + Masas Sintonizadas</span>
+          <span id="damperEfficiencyLabel">Zeta: 0.008</span>
+        </div>
+      </div>
+
+      <!-- COL 2: WIND VELOCITY SLIDER (0 - 130 KM/H) -->
+      <div class="control-panel">
+        <div class="slider-header">
+          <div class="slider-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
+              <path d="M9.59 4.59A2 2 0 1111 8H2m10.59 11.41A2 2 0 1014 16H2m15.73-8.27A2.5 2.5 0 1119.5 12H2" stroke-linecap="round"/>
+            </svg>
+            <span>VELOCIDAD DEL VIENTO</span>
+          </div>
+          <span class="slider-readout" id="windSliderVal">22 km/h</span>
+        </div>
+        <input type="range" id="windSlider" min="0" max="130" step="1" value="22" />
+        <div class="slider-ticks">
+          <span>0 km/h</span>
+          <span class="tick-highlight" id="btnJumpResonance" title="Ir a velocidad crítica de Tacoma Narrows">68 km/h (RESONANCIA CRITICA)</span>
+          <span>130 km/h</span>
+        </div>
+      </div>
+
+      <!-- COL 3: TRAFFIC MASS SLIDER -->
+      <div class="control-panel">
+        <div class="slider-header">
+          <div class="slider-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
+              <rect x="3" y="11" width="18" height="6" rx="2"/>
+              <path d="M5 11l2-4h10l2 4M7 17v2m10-2v2" stroke-linecap="round"/>
+            </svg>
+            <span>MASA DE TRAFICO VEHICULAR</span>
+          </div>
+          <span class="slider-readout" id="trafficSliderVal" style="color:var(--emerald)">100% (45 t)</span>
+        </div>
+        <input type="range" id="trafficSlider" min="0" max="240" step="5" value="100" />
+        <div class="slider-ticks">
+          <span>0% (Vacio)</span>
+          <span>100% (Flujo Normal)</span>
+          <span>240% (Convoy Pesado)</span>
+        </div>
+      </div>
+
+      <!-- COL 4: REBUILD & DEMO CONTROLS -->
+      <div class="control-panel">
+        <div class="actions-grid">
+          <button class="action-btn rebuild" id="btnRebuild" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" stroke-linecap="round"/>
+              <path d="M3 3v5h5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>RECONSTRUIR PUENTE</span>
+          </button>
+          <button class="action-btn active-mode" id="btnAutoDemo" type="button">
+            <span>CICLO AUTO-DEMO</span>
+          </button>
+          <button class="action-btn" id="btnPulseWave" type="button">
+            <span>RAFAGA 68 KM/H</span>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const canvas = document.getElementById('simCanvas');
+      const ctx = canvas.getContext('2d');
+      const scopeCanvas = document.getElementById('scopeCanvas');
+      const scopeCtx = scopeCanvas.getContext('2d');
+
+      // UI Elements
+      const btnToggleDampers = document.getElementById('btnToggleDampers');
+      const damperStatusPill = document.getElementById('damperStatusPill');
+      const damperEfficiencyLabel = document.getElementById('damperEfficiencyLabel');
+      const windSlider = document.getElementById('windSlider');
+      const windSliderVal = document.getElementById('windSliderVal');
+      const trafficSlider = document.getElementById('trafficSlider');
+      const trafficSliderVal = document.getElementById('trafficSliderVal');
+      const btnRebuild = document.getElementById('btnRebuild');
+      const btnAutoDemo = document.getElementById('btnAutoDemo');
+      const btnPulseWave = document.getElementById('btnPulseWave');
+      const btnJumpResonance = document.getElementById('btnJumpResonance');
+
+      const kpiWind = document.getElementById('kpiWind');
+      const kpiStress = document.getElementById('kpiStress');
+      const kpiBroken = document.getElementById('kpiBroken');
+      const kpiTorsion = document.getElementById('kpiTorsion');
+      const hudCableCount = document.getElementById('hudCableCount');
+      const teleFreq = document.getElementById('teleFreq');
+      const teleDamp = document.getElementById('teleDamp');
+      const teleCars = document.getElementById('teleCars');
+      const teleHealth = document.getElementById('teleHealth');
+      const scopeModeTag = document.getElementById('scopeModeTag');
+      const resonanceAlert = document.getElementById('resonanceAlert');
+      const resonanceAlertText = document.getElementById('resonanceAlertText');
+      const demoStageLabel = document.getElementById('demoStageLabel');
+      const demoProgressBar = document.getElementById('demoProgressBar');
+      const demoDot = document.getElementById('demoDot');
+
+      // Simulation State
+      let width = 1920;
+      let height = 848;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      let windKmh = 24;
+      let targetWindKmh = 24;
+      let trafficMassPct = 100;
+      let dampersActive = false;
+      let autoDemoActive = true;
+      let demoTimer = 0;
+      let simTime = 0;
+
+      // Telemetry state exposed to window.__auditBridge()
+      let totalCableCount = 0;
+      let currentMaxStressRatio = 0.22;
+      let currentBrokenLinks = 0;
+      let maxTorsionDeg = 0;
+
+      // Geometry constants (computed on resize)
+      let leftAnchorX = 90;
+      let rightAnchorX = 1830;
+      let tower1X = 470;
+      let tower2X = 1450;
+      let deckRestY = 420;
+      let towerTopY = 145;
+      let waterLevelY = 675;
+
+      // Physics collections
+      const NUM_NODES = 37; // Deck and catenary longitudinal nodes
+      let deckNodes = [];       // Each node has vertical y, vy, torsional angle theta, omega, etc.
+      let frontCatNodes = [];   // Front main suspension cable nodes
+      let backCatNodes = [];    // Back main suspension cable nodes
+      let catenarySprings = []; // Main cable segments (front & back)
+      let suspenders = [];      // Vertical suspender cables (front & back at each node)
+      let vehicles = [];        // Cars & trucks crossing the bridge
+      let vortexParticles = []; // Von Karman vortex street particles
+      let sparkParticles = [];  // Sparks when cables snap
+      let waterRipples = [];    // Splash rings on water
+
+      function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        width = Math.max(800, rect.width);
+        height = Math.max(420, rect.height);
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        leftAnchorX = width * 0.055;
+        rightAnchorX = width * 0.945;
+        tower1X = width * 0.255;
+        tower2X = width * 0.745;
+        towerTopY = height * 0.165;
+        deckRestY = height * 0.50;
+        waterLevelY = height * 0.805;
+      }
+
+      // Compute ideal catenary / parabola height for node x
+      function computeCatenaryY(x) {
+        const sagMain = deckRestY - towerTopY - 38;
+        if (x <= tower1X) {
+          const t = (x - leftAnchorX) / (tower1X - leftAnchorX);
+          // Side span curve from left anchorage at deckRestY to towerTopY
+          return deckRestY - (deckRestY - towerTopY) * t + Math.sin(t * Math.PI) * 26;
+        } else if (x >= tower2X) {
+          const t = (x - tower2X) / (rightAnchorX - tower2X);
+          return towerTopY + (deckRestY - towerTopY) * t + Math.sin(t * Math.PI) * 26;
+        } else {
+          // Center span parabola between tower1X and tower2X
+          const u = ((x - tower1X) / (tower2X - tower1X)) * 2 - 1; // -1 to 1
+          return towerTopY + sagMain * (1 - u * u);
+        }
+      }
+
+      function buildBridge() {
+        deckNodes = [];
+        frontCatNodes = [];
+        backCatNodes = [];
+        catenarySprings = [];
+        suspenders = [];
+        sparkParticles = [];
+
+        const spanW = rightAnchorX - leftAnchorX;
+        const dx = spanW / (NUM_NODES - 1);
+
+        // Find closest indices to tower1 and tower2 so towers pin correctly
+        let idxT1 = Math.round((tower1X - leftAnchorX) / dx);
+        let idxT2 = Math.round((tower2X - leftAnchorX) / dx);
+        tower1X = leftAnchorX + idxT1 * dx;
+        tower2X = leftAnchorX + idxT2 * dx;
+
+        for (let i = 0; i < NUM_NODES; i++) {
+          const x = leftAnchorX + i * dx;
+          const isAnchor = (i === 0 || i === NUM_NODES - 1);
+          const isTower = (i === idxT1 || i === idxT2);
+          const catY = computeCatenaryY(x);
+
+          // Deck node: supports vertical displacement y and torsional twist theta (radians)
+          deckNodes.push({
+            index: i,
+            x: x,
+            y: deckRestY,
+            oldY: deckRestY,
+            vy: 0,
+            ay: 0,
+            theta: 0,      // Torsional twist angle (radians, front vs back edge)
+            omega: 0,      // Angular velocity
+            alpha: 0,      // Angular acceleration
+            pinnedY: isAnchor || isTower,
+            isTower: isTower,
+            isCenterSpan: (i > idxT1 && i < idxT2),
+            stressRatio: 0.18,
+            brokenDeck: false
+          });
+
+          // Front & Back main catenary cable nodes
+          frontCatNodes.push({
+            x: x,
+            y: catY,
+            restY: catY,
+            vy: 0,
+            ay: 0,
+            pinned: isAnchor || isTower
+          });
+
+          backCatNodes.push({
+            x: x,
+            y: catY - 14, // 2.5D perspective offset
+            restY: catY - 14,
+            vy: 0,
+            ay: 0,
+            pinned: isAnchor || isTower
+          });
+        }
+
+        // Main Catenary Springs (Front & Back)
+        for (let i = 0; i < NUM_NODES - 1; i++) {
+          const restLenF = Math.hypot(
+            frontCatNodes[i + 1].x - frontCatNodes[i].x,
+            frontCatNodes[i + 1].restY - frontCatNodes[i].restY
+          );
+          catenarySprings.push({
+            plane: 'front',
+            a: i,
+            b: i + 1,
+            restLen: restLenF,
+            stressRatio: 0.24
+          });
+
+          const restLenB = Math.hypot(
+            backCatNodes[i + 1].x - backCatNodes[i].x,
+            backCatNodes[i + 1].restY - backCatNodes[i].restY
+          );
+          catenarySprings.push({
+            plane: 'back',
+            a: i,
+            b: i + 1,
+            restLen: restLenB,
+            stressRatio: 0.22
+          });
+        }
+
+        // Individual Vertical Suspenders (Tirantes Verticales)
+        for (let i = 1; i < NUM_NODES - 1; i++) {
+          if (deckNodes[i].isTower) continue;
+          const restLen = Math.max(18, deckRestY - frontCatNodes[i].restY);
+
+          // Front suspender (attached to front edge of deck segment)
+          suspenders.push({
+            nodeIndex: i,
+            side: 1, // +1 = front edge
+            restLen: restLen,
+            tension: 0,
+            stressRatio: 0.20,
+            fatigue: 0,
+            broken: false,
+            recoilSnap: 0
+          });
+
+          // Back suspender (attached to back edge of deck segment)
+          suspenders.push({
+            nodeIndex: i,
+            side: -1, // -1 = back edge
+            restLen: restLen,
+            tension: 0,
+            stressRatio: 0.20,
+            fatigue: 0,
+            broken: false,
+            recoilSnap: 0
+          });
+        }
+
+        totalCableCount = catenarySprings.length + suspenders.length;
+        hudCableCount.textContent = totalCableCount + ' CABLES';
+        currentBrokenLinks = 0;
+      }
+
+      function initVortexParticles() {
+        vortexParticles = [];
+        for (let i = 0; i < 135; i++) {
+          vortexParticles.push({
+            x: Math.random() * width,
+            y: deckRestY + (Math.random() - 0.5) * 230,
+            vx: 2 + Math.random() * 2,
+            vy: 0,
+            spin: (i % 2 === 0 ? 1 : -1),
+            phase: Math.random() * Math.PI * 2,
+            size: 2.2 + Math.random() * 2.5,
+            history: []
+          });
+        }
+      }
+
+      function initVehicles() {
+        vehicles = [];
+        const count = 8;
+        for (let i = 0; i < count; i++) {
+          const dir = i % 2 === 0 ? 1 : -1;
+          const isTruck = i % 3 === 0;
+          vehicles.push({
+            x: leftAnchorX + ((i + 0.5) / count) * (rightAnchorX - leftAnchorX),
+            dir: dir,
+            speed: (isTruck ? 68 : 95) + (Math.random() * 18),
+            isTruck: isTruck,
+            length: isTruck ? 34 : 22,
+            height: isTruck ? 13 : 8.5,
+            mass: isTruck ? 1.8 : 0.9,
+            color: isTruck ? '#38BDF8' : (i % 2 === 0 ? '#22D3EE' : '#10B981'),
+            falling: false,
+            fallY: 0,
+            fallVy: 0,
+            fallRot: 0
+          });
+        }
+      }
+
+      function spawnSnapSparks(x, y, count) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = 40 + Math.random() * 190;
+          sparkParticles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - 40,
+            life: 1.0,
+            color: Math.random() > 0.35 ? '#FBBF24' : '#F43F5E'
+          });
+        }
+      }
+
+      // Color interpolation for structural tension heatmap:
+      // 0.0 -> 0.45: Cyan (#22D3EE) to Emerald (#10B981)
+      // 0.45 -> 0.78: Emerald (#10B981) to Amber (#FBBF24)
+      // 0.78 -> 1.0+: Amber (#FBBF24) to Incandescent Red (#F43F5E)
+      function stressToColor(ratio, alpha = 1) {
+        const r = Math.max(0, Math.min(1.15, ratio));
+        let red, green, blue;
+        if (r < 0.38) {
+          const t = r / 0.38;
+          red = Math.round(34 + (16 - 34) * t);
+          green = Math.round(211 + (185 - 211) * t);
+          blue = Math.round(238 + (129 - 238) * t);
+        } else if (r < 0.72) {
+          const t = (r - 0.38) / 0.34;
+          red = Math.round(16 + (251 - 16) * t);
+          green = Math.round(185 + (191 - 185) * t);
+          blue = Math.round(129 + (36 - 129) * t);
+        } else {
+          const t = Math.min(1, (r - 0.72) / 0.28);
+          red = Math.round(251 + (244 - 251) * t);
+          green = Math.round(191 + (35 - 191) * t);
+          blue = Math.round(36 + (94 - 36) * t);
+        }
+        return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+      }
+
+      // Automatic Demo Cycle Manager
+      function updateAutoDemo(dt) {
+        if (!autoDemoActive) return;
+        demoTimer += dt;
+        const cycleDuration = 25.0; // 25-second full story loop
+        const t = demoTimer % cycleDuration;
+        const progressPct = (t / cycleDuration) * 100;
+        demoProgressBar.style.width = progressPct.toFixed(1) + '%';
+
+        if (t < 4.5) {
+          // Phase 1: Stable Breeze & Smooth Traffic
+          if (dampersActive && t < 0.3) {
+            setDampers(false, false);
+          }
+          const phaseT = t / 4.5;
+          targetWindKmh = 20 + phaseT * 24; // 20 -> 44 km/h
+          demoStageLabel.textContent = 'AUTO-DEMO 1/4: BRISA ESTABLE Y TRAFICO FLUIDO';
+          demoDot.style.background = '#10B981';
+        } else if (t < 11.5) {
+          // Phase 2: Ramp to Critical Tacoma Resonance (68 km/h)
+          const phaseT = (t - 4.5) / 7.0;
+          targetWindKmh = 44 + phaseT * 24; // Reaches 68 km/h resonance
+          if (phaseT > 0.45) targetWindKmh = 68;
+          demoStageLabel.textContent = 'AUTO-DEMO 2/4: RESONANCIA CRITICA (68 KM/H - VORTICES KARMAN)';
+          demoDot.style.background = '#FBBF24';
+        } else if (t < 18.2) {
+          // Phase 3: Un-damped Aeroelastic Flutter & Suspender Overload Snap
+          const phaseT = (t - 11.5) / 6.7;
+          targetWindKmh = 68 + phaseT * 18; // 68 -> 86 km/h
+          demoStageLabel.textContent = 'AUTO-DEMO 3/4: FLUTTER TORSIONAL Y COLAPSO SIN AMORTIGUADORES';
+          demoDot.style.background = '#F43F5E';
+        } else {
+          // Phase 4: Rebuild + Activate Aerodynamic Dampers at 68-75 km/h for instant comparison
+          if (!dampersActive) {
+            if (currentBrokenLinks > 0) {
+              rebuildBridgeState();
+            }
+            setDampers(true, false);
+          }
+          targetWindKmh = 68;
+          demoStageLabel.textContent = 'AUTO-DEMO 4/4: COMPARATIVA CON AMORTIGUADORES ACTIVOS (68 KM/H)';
+          demoDot.style.background = '#22D3EE';
+
+          // Reset for next loop right before 25s
+          if (t > 24.85) {
+            setDampers(false, false);
+            rebuildBridgeState();
+          }
+        }
+
+        windKmh += (targetWindKmh - windKmh) * Math.min(1, dt * 4.5);
+        windSlider.value = Math.round(windKmh);
+        windSliderVal.textContent = Math.round(windKmh) + ' km/h';
+      }
+
+      // Physics Step (Sub-stepped Verlet / Symplectic Euler for Mass-Spring-Damper + Aeroelasticity)
+      function stepPhysics(dt) {
+        const subSteps = 8;
+        const h = dt / subSteps;
+        const deckHalfWidth = 18; // Half-width of deck for torsional moment arm
+
+        // Resonance tuning around 68 km/h (Tacoma Narrows critical speed)
+        const resonanceProximity = Math.exp(-Math.pow((windKmh - 68) / 22, 2));
+        const highWindFactor = Math.max(0, (windKmh - 42) / 55);
+        const aeroExcitation = (0.38 * resonanceProximity + 0.52 * Math.pow(windKmh / 78, 1.8));
+        const vortexOmega = 4.6 + (windKmh / 68) * 3.8;
+
+        for (let step = 0; step < subSteps; step++) {
+          simTime += h;
+
+          // 1. Reset forces on deck and catenary nodes
+          for (let i = 0; i < NUM_NODES; i++) {
+            const dn = deckNodes[i];
+            dn.ay = 0;
+            dn.alpha = 0;
+            frontCatNodes[i].ay = 0;
+            backCatNodes[i].ay = 0;
+          }
+
+          // 2. Apply Vehicle Loads onto Deck Segments
+          const trafficScale = trafficMassPct / 100;
+          const spanLen = rightAnchorX - leftAnchorX;
+          for (let v = 0; v < vehicles.length; v++) {
+            const car = vehicles[v];
+            if (car.falling) continue;
+            const normX = (car.x - leftAnchorX) / spanLen;
+            const idx = Math.max(1, Math.min(NUM_NODES - 2, Math.round(normX * (NUM_NODES - 1))));
+            const dn = deckNodes[idx];
+            if (!dn.pinnedY) {
+              const weightForce = car.mass * trafficScale * 58;
+              dn.ay += weightForce;
+              // Lane eccentricity creates slight torsional torque
+              dn.alpha += car.dir * weightForce * 0.012;
+            }
+          }
+
+          // 3. Catenary Cable Springs (Main Suspension Cables)
+          const kCat = 1350;
+          for (let s = 0; s < catenarySprings.length; s++) {
+            const sp = catenarySprings[s];
+            const nodes = sp.plane === 'front' ? frontCatNodes : backCatNodes;
+            const nA = nodes[sp.a];
+            const nB = nodes[sp.b];
+            const dx = nB.x - nA.x;
+            const dy = nB.y - nA.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const stretch = dist - sp.restLen;
+            const force = kCat * stretch;
+            const fy = (dy / dist) * force;
+
+            if (!nA.pinned) nA.ay += fy;
+            if (!nB.pinned) nB.ay -= fy;
+
+            // Elastic restore toward catenary equilibrium
+            if (!nA.pinned) nA.ay += (nA.restY - nA.y) * 190;
+            if (!nB.pinned) nB.ay += (nB.restY - nB.y) * 190;
+
+            const dynamicLoad = Math.abs(stretch) / 5.2 + (windKmh / 160) * 0.32;
+            sp.stressRatio = Math.min(0.98, 0.20 + dynamicLoad);
+          }
+
+          // 4. Individual Vertical Suspenders (Front & Back edges of segmented deck)
+          const kSuspender = 390;
+          for (let i = 0; i < suspenders.length; i++) {
+            const sus = suspenders[i];
+            if (sus.broken) {
+              sus.stressRatio = 1.05;
+              sus.recoilSnap = Math.min(1, sus.recoilSnap + h * 4.5);
+              continue;
+            }
+
+            const dn = deckNodes[sus.nodeIndex];
+            const catNode = sus.side === 1 ? frontCatNodes[sus.nodeIndex] : backCatNodes[sus.nodeIndex];
+
+            // Vertical position of front or back edge of the deck segment due to torsion theta
+            const edgeY = dn.y + Math.sin(dn.theta) * deckHalfWidth * sus.side;
+            const topY = catNode.y + (sus.side === -1 ? 14 : 0);
+            const currentLen = edgeY - topY;
+            const extension = currentLen - sus.restLen;
+
+            // Cables pull mostly in tension
+            const tension = Math.max(0, kSuspender * (extension + 2.4));
+            sus.tension = tension;
+
+            // Apply upward pull on deck and downward pull on main catenary
+            if (!dn.pinnedY) {
+              dn.ay -= tension * 0.52;
+              // Torque around deck centerline
+              dn.alpha -= (tension * sus.side * deckHalfWidth) * 0.0046;
+            }
+            if (!catNode.pinned) {
+              catNode.ay += tension * 0.25;
+            }
+
+            // Compute real-time stressRatio for this suspender
+            const baseStress = 0.19 + (trafficScale - 1) * 0.06;
+            const extStress = Math.max(0, extension) / 21.5;
+            const torsionStress = Math.abs(dn.theta) * 1.15;
+            const instantStress = baseStress + extStress + torsionStress;
+            sus.stressRatio = sus.stressRatio * 0.88 + instantStress * 0.12;
+
+            // Accumulate structural fatigue when overloaded (> 0.80) and dampers are OFF
+            if (sus.stressRatio > 0.82 && !dampersActive) {
+              sus.fatigue += h * (sus.stressRatio - 0.78) * 1.85;
+            } else {
+              sus.fatigue = Math.max(0, sus.fatigue - h * 0.5);
+            }
+
+            // Break condition (Punto de ruptura)
+            if ((sus.stressRatio >= 1.02 && sus.fatigue > 0.26) || sus.stressRatio >= 1.22) {
+              if (!dampersActive && currentBrokenLinks < 26) {
+                sus.broken = true;
+                sus.stressRatio = 1.05;
+                currentBrokenLinks++;
+                spawnSnapSparks(dn.x, (edgeY + topY) * 0.5, 22);
+                // Impulse kick on deck when cable snaps
+                dn.vy += 48;
+                dn.omega += sus.side * 1.9;
+              }
+            }
+          }
+
+          // 5. Deck Segment Flexural & Torsional Coupling + Aeroelastic Von Karman Flutter
+          const kDeckShear = 960;
+          const kDeckTorsion = 44;
+          for (let i = 1; i < NUM_NODES - 1; i++) {
+            const dn = deckNodes[i];
+            if (dn.pinnedY) continue;
+
+            const prev = deckNodes[i - 1];
+            const next = deckNodes[i + 1];
+
+            // Vertical shear coupling between adjacent deck segments
+            const shearF = ((prev.y - dn.y) + (next.y - dn.y)) * kDeckShear;
+            dn.ay += shearF;
+
+            // Torsional spring coupling between adjacent segments (ribbon wave propagation)
+            const torsionTorque = ((prev.theta - dn.theta) + (next.theta - dn.theta)) * kDeckTorsion;
+            dn.alpha += torsionTorque;
+
+            // Restoring gravity + baseline stiffness
+            dn.ay += (deckRestY - dn.y) * 45;
+            dn.alpha += (-dn.theta) * 18.5;
+
+            // Aeroelastic Forces (Tacoma Narrows antisymmetric wave + torsional flutter)
+            const spanRatio = (dn.x - tower1X) / (tower2X - tower1X);
+            const inMainSpan = spanRatio > 0 && spanRatio < 1;
+            const modeShape2 = inMainSpan
+              ? Math.sin(spanRatio * Math.PI * 2) // Classic antisymmetric 2-node Tacoma wave!
+              : Math.sin(((dn.x - leftAnchorX) / (rightAnchorX - leftAnchorX)) * Math.PI * 3) * 0.35;
+            const modeShape3 = inMainSpan ? Math.sin(spanRatio * Math.PI * 3) : 0;
+
+            // Von Karman vortex shedding vertical lift force
+            const karmanWave = Math.sin(simTime * vortexOmega - i * 0.38) * modeShape2
+                             + 0.45 * Math.cos(simTime * vortexOmega * 1.35 + i * 0.25) * modeShape3;
+
+            const damperReduction = dampersActive ? 0.14 : 1.0;
+            const liftForce = aeroExcitation * 920 * karmanWave * damperReduction;
+            dn.ay += liftForce;
+
+            // Aeroelastic Torsional Flutter (Self-excited twisting torque at >= 55 km/h)
+            const flutterWave = Math.cos(simTime * vortexOmega - i * 0.32) * modeShape2;
+            const aeroTorque = aeroExcitation * 24.5 * flutterWave * damperReduction;
+            dn.alpha += aeroTorque;
+
+            // Negative aerodynamic damping when dampers are OFF near/above 68 km/h
+            if (!dampersActive && (resonanceProximity > 0.35 || highWindFactor > 0.25)) {
+              const negDamp = (0.45 * resonanceProximity + 0.35 * highWindFactor);
+              if (Math.abs(dn.theta) < 0.52) {
+                dn.alpha += dn.omega * negDamp * 2.2;
+              }
+            }
+          }
+
+          // 6. Integrate Velocities & Positions with Structural + Aerodynamic Damping
+          const vertDamping = dampersActive ? 6.8 : 1.35;
+          const torsDamping = dampersActive ? 7.5 : 1.15;
+
+          for (let i = 0; i < NUM_NODES; i++) {
+            const dn = deckNodes[i];
+            if (!dn.pinnedY) {
+              dn.vy = (dn.vy + dn.ay * h) * Math.exp(-vertDamping * h);
+              dn.y += dn.vy * h;
+              // Soft physical safety bounds so bridge remains visible
+              const maxDisp = 88;
+              if (dn.y > deckRestY + maxDisp) {
+                dn.y = deckRestY + maxDisp;
+                dn.vy *= -0.35;
+              } else if (dn.y < deckRestY - maxDisp) {
+                dn.y = deckRestY - maxDisp;
+                dn.vy *= -0.35;
+              }
+
+              dn.omega = (dn.omega + dn.alpha * h) * Math.exp(-torsDamping * h);
+              dn.theta += dn.omega * h;
+              const maxTwist = 0.62; // ~35.5 deg max twist
+              if (dn.theta > maxTwist) {
+                dn.theta = maxTwist;
+                dn.omega *= -0.35;
+              } else if (dn.theta < -maxTwist) {
+                dn.theta = -maxTwist;
+                dn.omega *= -0.35;
+              }
+            } else {
+              dn.y = deckRestY;
+              dn.theta = 0;
+            }
+
+            // Deck segment stress ratio from bending + twist
+            const prevY = i > 0 ? deckNodes[i - 1].y : dn.y;
+            const nextY = i < NUM_NODES - 1 ? deckNodes[i + 1].y : dn.y;
+            const curvature = Math.abs(prevY - 2 * dn.y + nextY);
+            dn.stressRatio = Math.min(1.05, 0.16 + curvature * 0.085 + Math.abs(dn.theta) * 1.35);
+
+            // Integrate Catenary cable nodes
+            const fn = frontCatNodes[i];
+            if (!fn.pinned) {
+              fn.vy = (fn.vy + fn.ay * h) * Math.exp(-3.2 * h);
+              fn.y += fn.vy * h;
+            }
+            const bn = backCatNodes[i];
+            if (!bn.pinned) {
+              bn.vy = (bn.vy + bn.ay * h) * Math.exp(-3.2 * h);
+              bn.y += bn.vy * h;
+            }
+          }
+        }
+
+        // Update Vehicles along the segmented deck
+        const activeTargetCars = Math.max(0, Math.round((trafficMassPct / 100) * 8));
+        for (let i = 0; i < vehicles.length; i++) {
+          const car = vehicles[i];
+          car.active = i < activeTargetCars;
+          if (!car.active) continue;
+
+          // Slow down slightly if severe torsion is happening and dampers are off
+          const dangerFactor = (!dampersActive && maxTorsionDeg > 14) ? 0.55 : 1.0;
+          car.x += car.dir * car.speed * dangerFactor * dt;
+
+          if (car.dir === 1 && car.x > rightAnchorX - 15) {
+            car.x = leftAnchorX + 15;
+          } else if (car.dir === -1 && car.x < leftAnchorX + 15) {
+            car.x = rightAnchorX - 15;
+          }
+        }
+
+        // Update Von Karman Vortex Particles
+        const windPxSpeed = 35 + windKmh * 3.6;
+        for (let i = 0; i < vortexParticles.length; i++) {
+          const p = vortexParticles[i];
+          p.history.push({ x: p.x, y: p.y });
+          if (p.history.length > 9) p.history.shift();
+
+          p.x += windPxSpeed * dt;
+
+          // Sample bridge deck vertical & torsional position at particle's X
+          const u = (p.x - leftAnchorX) / (rightAnchorX - leftAnchorX);
+          if (u >= 0 && u <= 1) {
+            const idx = Math.min(NUM_NODES - 1, Math.max(0, Math.floor(u * (NUM_NODES - 1))));
+            const dn = deckNodes[idx];
+            const dyDeck = p.y - dn.y;
+
+            // Karman vortex street wake swirl behind/around the deck bluff body
+            if (Math.abs(dyDeck) < 95) {
+              const shedFreq = 5.5 + (windKmh / 68) * 4.5;
+              const swirl = Math.sin(simTime * shedFreq - p.x * 0.032 + p.phase) * p.spin;
+              const vortexAmp = (windKmh / 68) * (dampersActive ? 28 : 85);
+              p.vy = swirl * vortexAmp + dn.vy * 0.35;
+            } else {
+              p.vy *= 0.94;
+            }
+          } else {
+            p.vy *= 0.95;
+          }
+
+          p.y += p.vy * dt;
+
+          if (p.x > width + 30) {
+            p.x = -20;
+            p.y = deckRestY + (Math.random() - 0.5) * 210;
+            p.history = [];
+          }
+        }
+
+        // Update Spark Particles & Water Splash Ripples
+        for (let i = sparkParticles.length - 1; i >= 0; i--) {
+          const sp = sparkParticles[i];
+          sp.vy += 320 * dt;
+          sp.x += sp.vx * dt;
+          sp.y += sp.vy * dt;
+          sp.life -= dt * 1.15;
+
+          if (sp.y >= waterLevelY && sp.vy > 0) {
+            waterRipples.push({ x: sp.x, r: 2, alpha: 0.85 });
+            sp.life = 0;
+          }
+          if (sp.life <= 0) sparkParticles.splice(i, 1);
+        }
+
+        for (let i = waterRipples.length - 1; i >= 0; i--) {
+          const rp = waterRipples[i];
+          rp.r += 48 * dt;
+          rp.alpha -= 0.75 * dt;
+          if (rp.alpha <= 0) waterRipples.splice(i, 1);
+        }
+
+        // Compute summary telemetry & audit values
+        let maxStress = 0.15;
+        let maxTwistRad = 0;
+        let brokenCount = 0;
+
+        for (let i = 0; i < suspenders.length; i++) {
+          const s = suspenders[i];
+          if (s.broken) brokenCount++;
+          if (s.stressRatio > maxStress) maxStress = s.stressRatio;
+        }
+        for (let i = 0; i < catenarySprings.length; i++) {
+          if (catenarySprings[i].stressRatio > maxStress) {
+            maxStress = catenarySprings[i].stressRatio;
+          }
+        }
+        for (let i = 0; i < deckNodes.length; i++) {
+          const absT = Math.abs(deckNodes[i].theta);
+          if (absT > maxTwistRad) maxTwistRad = absT;
+        }
+
+        currentMaxStressRatio = Number(maxStress.toFixed(3));
+        currentBrokenLinks = brokenCount;
+        maxTorsionDeg = (maxTwistRad * 180) / Math.PI;
+      }
+
+      // Interpolate deck state at arbitrary x coordinate
+      function sampleDeckAtX(x) {
+        const u = Math.max(0, Math.min(1, (x - leftAnchorX) / (rightAnchorX - leftAnchorX)));
+        const exact = u * (NUM_NODES - 1);
+        const i0 = Math.floor(exact);
+        const i1 = Math.min(NUM_NODES - 1, i0 + 1);
+        const t = exact - i0;
+        const n0 = deckNodes[i0];
+        const n1 = deckNodes[i1];
+        return {
+          y: n0.y + (n1.y - n0.y) * t,
+          theta: n0.theta + (n1.theta - n0.theta) * t,
+          slope: (n1.y - n0.y) / ((n1.x - n0.x) || 1),
+          stress: n0.stressRatio + (n1.stressRatio - n0.stressRatio) * t
+        };
+      }
+
+      // Draw Steel Suspension Tower (Pylon) with Cross-Bracing & Stress Tint
+      function drawSteelTower(towerX, idxTower) {
+        const baseW = 46;
+        const topW = 24;
+        const pierTop = waterLevelY - 12;
+        const dn = deckNodes[idxTower];
+        const towerStress = Math.min(0.95, 0.22 + (currentMaxStressRatio * 0.45));
+        const structColor = stressToColor(towerStress, 0.92);
+
+        ctx.save();
+
+        // Concrete foundation pier in water
+        ctx.fillStyle = '#1E293B';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(towerX - 34, pierTop, 68, 26, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Left & right steel legs of tower
+        ctx.strokeStyle = structColor;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(towerX - baseW * 0.5, pierTop);
+        ctx.lineTo(towerX - topW * 0.5, towerTopY - 14);
+        ctx.moveTo(towerX + baseW * 0.5, pierTop);
+        ctx.lineTo(towerX + topW * 0.5, towerTopY - 14);
+        ctx.stroke();
+
+        // Internal X-bracing trusses
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = stressToColor(towerStress * 0.85, 0.72);
+        const levels = 7;
+        for (let l = 0; l < levels; l++) {
+          const t0 = l / levels;
+          const t1 = (l + 1) / levels;
+          const y0 = pierTop + (towerTopY - 14 - pierTop) * t0;
+          const y1 = pierTop + (towerTopY - 14 - pierTop) * t1;
+          const w0 = (baseW + (topW - baseW) * t0) * 0.5;
+          const w1 = (baseW + (topW - baseW) * t1) * 0.5;
+
+          ctx.beginPath();
+          // Horizontal strut
+          ctx.moveTo(towerX - w0, y0);
+          ctx.lineTo(towerX + w0, y0);
+          // Cross diagonals
+          ctx.moveTo(towerX - w0, y0);
+          ctx.lineTo(towerX + w1, y1);
+          ctx.moveTo(towerX + w0, y0);
+          ctx.lineTo(towerX - w1, y1);
+          ctx.stroke();
+        }
+
+        // Saddle cable bearings at tower peak
+        ctx.fillStyle = '#22D3EE';
+        ctx.shadowColor = '#22D3EE';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(towerX, towerTopY - 14, 5, 0, Math.PI * 2);
+        ctx.arc(towerX, towerTopY, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // If Aerodynamic Dampers are active, draw diagonal hydraulic stay dampers from tower to deck
+        if (dampersActive) {
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.78)';
+          ctx.lineWidth = 2.2;
+          ctx.setLineDash([5, 4]);
+          for (let offset of [-3, -2, 2, 3]) {
+            const targetIdx = idxTower + offset;
+            if (targetIdx > 0 && targetIdx < NUM_NODES - 1) {
+              const targetNode = deckNodes[targetIdx];
+              ctx.beginPath();
+              ctx.moveTo(towerX, deckRestY - 65);
+              ctx.lineTo(targetNode.x, targetNode.y);
+              ctx.stroke();
+            }
+          }
+          ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+      }
+
+      // Render River with Dynamic Reflections of Towers, Heatmap Cables & Deck
+      function drawRiverAndReflections() {
+        const riverH = height - waterLevelY;
+
+        // Deep river base gradient
+        const waterGrad = ctx.createLinearGradient(0, waterLevelY, 0, height);
+        waterGrad.addColorStop(0, '#071326');
+        waterGrad.addColorStop(0.5, '#050D1A');
+        waterGrad.addColorStop(1, '#030710');
+        ctx.fillStyle = waterGrad;
+        ctx.fillRect(0, waterLevelY, width, riverH);
+
+        // Dynamic Reflection of the Bridge Deck & Heatmap Cables
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, waterLevelY, width, riverH);
+        ctx.clip();
+
+        // Reflected Tower Glows
+        for (const tx of [tower1X, tower2X]) {
+          const reflGrad = ctx.createLinearGradient(tx - 30, waterLevelY, tx + 30, height);
+          reflGrad.addColorStop(0, 'rgba(34, 211, 238, 0.22)');
+          reflGrad.addColorStop(1, 'rgba(34, 211, 238, 0.0)');
+          ctx.fillStyle = reflGrad;
+          ctx.fillRect(tx - 28, waterLevelY, 56, riverH);
+        }
+
+        // Reflected Heatmap Shimmer Columns from each Deck Node
+        for (let i = 0; i < NUM_NODES - 1; i++) {
+          const n0 = deckNodes[i];
+          const distAboveWater = Math.max(20, waterLevelY - n0.y);
+          const reflY = waterLevelY + Math.min(riverH - 12, distAboveWater * 0.36);
+          const waveShift = Math.sin(simTime * 3.8 + i * 0.7) * (3 + windKmh * 0.08);
+
+          ctx.strokeStyle = stressToColor(n0.stressRatio, 0.26);
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(n0.x + waveShift, waterLevelY + 6);
+          ctx.lineTo(n0.x - waveShift, reflY);
+          ctx.stroke();
+        }
+
+        // Animated horizontal water wave lines & wind whitecaps
+        const waveRows = 14;
+        for (let r = 0; r < waveRows; r++) {
+          const wy = waterLevelY + 8 + (r / waveRows) * (riverH - 14);
+          const amp = (1.5 + (windKmh / 130) * 4.5) * (1 - r / (waveRows * 1.3));
+          const freq = 0.018 - r * 0.0006;
+          const speed = simTime * (2.2 + (windKmh / 50));
+
+          ctx.strokeStyle = r === 0
+            ? 'rgba(34, 211, 238, 0.55)'
+            : `rgba(56, 189, 248, ${0.18 - r * 0.01})`;
+          ctx.lineWidth = r === 0 ? 2 : 1.2;
+          ctx.beginPath();
+          for (let x = 0; x <= width; x += 24) {
+            const y = wy + Math.sin(x * freq - speed + r) * amp;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+
+        // Splash rings from sparks hitting water
+        for (let i = 0; i < waterRipples.length; i++) {
+          const rp = waterRipples[i];
+          ctx.strokeStyle = `rgba(34, 211, 238, ${rp.alpha})`;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.ellipse(rp.x, waterLevelY + 12, rp.r, rp.r * 0.28, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      // Main Scene Renderer (60 FPS)
+      function renderScene() {
+        ctx.clearRect(0, 0, width, height);
+
+        // 1. Subtle Engineering Grid Background
+        ctx.save();
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.045)';
+        ctx.lineWidth = 1;
+        const gridStep = 60;
+        for (let x = 0; x < width; x += gridStep) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, waterLevelY);
+          ctx.stroke();
+        }
+        for (let y = 0; y < waterLevelY; y += gridStep) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 2. Von Karman Vortex Street Particle Flow
+        ctx.save();
+        const isResonantBand = Math.abs(windKmh - 68) <= 16;
+        for (let i = 0; i < vortexParticles.length; i++) {
+          const p = vortexParticles[i];
+          if (p.history.length < 2) continue;
+
+          const vortexColor = p.spin > 0
+            ? (isResonantBand ? 'rgba(251, 191, 36, 0.48)' : 'rgba(34, 211, 238, 0.35)')
+            : (isResonantBand ? 'rgba(244, 63, 94, 0.48)' : 'rgba(16, 185, 129, 0.32)');
+
+          ctx.strokeStyle = vortexColor;
+          ctx.lineWidth = p.size * 0.85;
+          ctx.beginPath();
+          ctx.moveTo(p.history[0].x, p.history[0].y);
+          for (let j = 1; j < p.history.length; j++) {
+            ctx.lineTo(p.history[j].x, p.history[j].y);
+          }
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+
+          // Vortex head dot
+          ctx.fillStyle = vortexColor;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * 0.75, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // 3. Draw River and Dynamic Reflections
+        drawRiverAndReflections();
+
+        // 4. Draw Concrete Anchorages at Left & Right Shorelines
+        ctx.save();
+        ctx.fillStyle = '#0F172A';
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
+        ctx.lineWidth = 2;
+        // Left anchorage
+        ctx.beginPath();
+        ctx.moveTo(0, deckRestY - 22);
+        ctx.lineTo(leftAnchorX + 12, deckRestY - 22);
+        ctx.lineTo(leftAnchorX + 26, waterLevelY);
+        ctx.lineTo(0, waterLevelY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Right anchorage
+        ctx.beginPath();
+        ctx.moveTo(width, deckRestY - 22);
+        ctx.lineTo(rightAnchorX - 12, deckRestY - 22);
+        ctx.lineTo(rightAnchorX - 26, waterLevelY);
+        ctx.lineTo(width, waterLevelY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // 5. Draw Back Plane Catenary & Back Vertical Suspenders (for 2.5D Torsion depth)
+        const depthOffsetX = -10;
+        const deckHalfW = 18;
+
+        ctx.save();
+        // Back suspenders
+        for (let i = 0; i < suspenders.length; i++) {
+          const sus = suspenders[i];
+          if (sus.side !== -1) continue;
+          const dn = deckNodes[sus.nodeIndex];
+          const bn = backCatNodes[sus.nodeIndex];
+          const backEdgeY = dn.y - Math.sin(dn.theta) * deckHalfW - 8;
+
+          ctx.strokeStyle = stressToColor(sus.stressRatio, 0.55);
+          ctx.lineWidth = sus.stressRatio > 0.78 ? 2.2 : 1.4;
+
+          if (!sus.broken) {
+            ctx.beginPath();
+            ctx.moveTo(bn.x + depthOffsetX, bn.y);
+            ctx.lineTo(dn.x + depthOffsetX, backEdgeY);
+            ctx.stroke();
+          } else {
+            // Broken whip end hanging from catenary
+            ctx.strokeStyle = '#F43F5E';
+            ctx.beginPath();
+            ctx.moveTo(bn.x + depthOffsetX, bn.y);
+            ctx.lineTo(
+              bn.x + depthOffsetX + Math.sin(simTime * 14 + i) * 9,
+              bn.y + sus.restLen * 0.35
+            );
+            ctx.stroke();
+          }
+        }
+
+        // Back Main Catenary Cable
+        for (let i = 0; i < catenarySprings.length; i++) {
+          const sp = catenarySprings[i];
+          if (sp.plane !== 'back') continue;
+          const nA = backCatNodes[sp.a];
+          const nB = backCatNodes[sp.b];
+          ctx.strokeStyle = stressToColor(sp.stressRatio, 0.62);
+          ctx.lineWidth = 3.2;
+          ctx.beginPath();
+          ctx.moveTo(nA.x + depthOffsetX, nA.y);
+          ctx.lineTo(nB.x + depthOffsetX, nB.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 6. Draw 2 Anchored Steel Towers
+        const idxT1 = deckNodes.findIndex((n, idx) => idx > 0 && n.isTower);
+        const idxT2 = deckNodes.findIndex((n, idx) => idx > idxT1 && n.isTower);
+        drawSteelTower(tower1X, idxT1 >= 0 ? idxT1 : 9);
+        drawSteelTower(tower2X, idxT2 >= 0 ? idxT2 : 27);
+
+        // 7. Draw Segmented Bridge Roadway Deck with 2.5D Torsional Ribbon Perspective
+        ctx.save();
+        for (let i = 0; i < NUM_NODES - 1; i++) {
+          const n0 = deckNodes[i];
+          const n1 = deckNodes[i + 1];
+
+          const f0x = n0.x;
+          const f0y = n0.y + Math.sin(n0.theta) * deckHalfW;
+          const b0x = n0.x + depthOffsetX;
+          const b0y = n0.y - Math.sin(n0.theta) * deckHalfW - 8;
+
+          const f1x = n1.x;
+          const f1y = n1.y + Math.sin(n1.theta) * deckHalfW;
+          const b1x = n1.x + depthOffsetX;
+          const b1y = n1.y - Math.sin(n1.theta) * deckHalfW - 8;
+
+          const segStress = Math.max(n0.stressRatio, n1.stressRatio);
+
+          // Roadway surface polygon (shows twist clearly when front & back edges tilt!)
+          ctx.fillStyle = segStress > 0.78
+            ? 'rgba(244, 63, 94, 0.30)'
+            : 'rgba(15, 23, 42, 0.90)';
+          ctx.strokeStyle = stressToColor(segStress, 0.95);
+          ctx.lineWidth = 2;
+
+          ctx.beginPath();
+          ctx.moveTo(b0x, b0y);
+          ctx.lineTo(b1x, b1y);
+          ctx.lineTo(f1x, f1y);
+          ctx.lineTo(f0x, f0y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Steel stiffening girder truss beneath front deck edge
+          ctx.strokeStyle = stressToColor(segStress, 0.85);
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(f0x, f0y);
+          ctx.lineTo(f0x, f0y + 9);
+          ctx.lineTo(f1x, f1y + 9);
+          ctx.lineTo(f1x, f1y);
+          ctx.moveTo(f0x, f0y);
+          ctx.lineTo(f1x, f1y + 9);
+          ctx.stroke();
+
+          // If Aerodynamic Dampers are active, draw Tuned Mass Damper (TMD) & Fairing Vanes
+          if (dampersActive && i % 3 === 1 && n0.isCenterSpan) {
+            ctx.fillStyle = '#10B981';
+            ctx.strokeStyle = '#22D3EE';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(f0x - 6, f0y + 10, 12, 8, 2);
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+
+        // 8. Draw Vehicles Crossing the Segmented Deck
+        ctx.save();
+        for (let i = 0; i < vehicles.length; i++) {
+          const car = vehicles[i];
+          if (!car.active) continue;
+          const sample = sampleDeckAtX(car.x);
+          const laneOffset = car.dir === 1 ? 0.3 : -0.35;
+          const vy = sample.y + Math.sin(sample.theta) * deckHalfW * laneOffset - 4;
+          const vx = car.x + (car.dir === -1 ? depthOffsetX * 0.45 : 0);
+
+          ctx.save();
+          ctx.translate(vx, vy);
+          ctx.rotate(Math.atan(sample.slope) + sample.theta * 0.25);
+
+          // Chassis
+          ctx.fillStyle = car.color;
+          ctx.shadowColor = car.color;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.roundRect(-car.length * 0.5, -car.height, car.length, car.height - 2, 3);
+          ctx.fill();
+
+          // Headlight beam
+          ctx.fillStyle = 'rgba(254, 240, 138, 0.65)';
+          const hx = car.dir === 1 ? car.length * 0.5 : -car.length * 0.5;
+          ctx.beginPath();
+          ctx.arc(hx, -car.height * 0.45, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+        ctx.restore();
+
+        // 9. Draw Front Vertical Suspenders & Front Main Catenary Cable with Live Heatmap Glow
+        ctx.save();
+        for (let i = 0; i < suspenders.length; i++) {
+          const sus = suspenders[i];
+          if (sus.side !== 1) continue;
+          const dn = deckNodes[sus.nodeIndex];
+          const fn = frontCatNodes[sus.nodeIndex];
+          const frontEdgeY = dn.y + Math.sin(dn.theta) * deckHalfW;
+
+          if (!sus.broken) {
+            ctx.strokeStyle = stressToColor(sus.stressRatio, 0.96);
+            ctx.lineWidth = sus.stressRatio > 0.78 ? 2.8 : 1.9;
+            if (sus.stressRatio > 0.80) {
+              ctx.shadowColor = '#F43F5E';
+              ctx.shadowBlur = 10;
+            } else {
+              ctx.shadowBlur = 0;
+            }
+            ctx.beginPath();
+            ctx.moveTo(fn.x, fn.y);
+            ctx.lineTo(dn.x, frontEdgeY);
+            ctx.stroke();
+
+            // Joint node pin
+            ctx.fillStyle = stressToColor(sus.stressRatio, 1);
+            ctx.beginPath();
+            ctx.arc(dn.x, frontEdgeY, 2.4, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Broken cable whip recoil + red warning node
+            ctx.shadowColor = '#F43F5E';
+            ctx.shadowBlur = 12;
+            ctx.strokeStyle = '#F43F5E';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(fn.x, fn.y);
+            ctx.lineTo(
+              fn.x + Math.sin(simTime * 16 + i) * 12,
+              fn.y + sus.restLen * 0.32
+            );
+            ctx.stroke();
+
+            ctx.fillStyle = '#F43F5E';
+            ctx.beginPath();
+            ctx.arc(dn.x, frontEdgeY, 3.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Front Main Catenary Cable
+        for (let i = 0; i < catenarySprings.length; i++) {
+          const sp = catenarySprings[i];
+          if (sp.plane !== 'front') continue;
+          const nA = frontCatNodes[sp.a];
+          const nB = frontCatNodes[sp.b];
+          ctx.strokeStyle = stressToColor(sp.stressRatio, 1);
+          ctx.lineWidth = 4.6;
+          ctx.shadowColor = stressToColor(sp.stressRatio, 0.65);
+          ctx.shadowBlur = sp.stressRatio > 0.7 ? 12 : 6;
+          ctx.beginPath();
+          ctx.moveTo(nA.x, nA.y);
+          ctx.lineTo(nB.x, nB.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 10. Draw Incandescent Sparks from Snapped Suspenders
+        ctx.save();
+        for (let i = 0; i < sparkParticles.length; i++) {
+          const sp = sparkParticles[i];
+          ctx.fillStyle = sp.color;
+          ctx.shadowColor = sp.color;
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, 2.6 * sp.life, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Render Right-side Modal Wave & Cross-Section Torsion Oscilloscope
+      function renderScope() {
+        const sw = scopeCanvas.width;
+        const sh = scopeCanvas.height;
+        scopeCtx.clearRect(0, 0, sw, sh);
+
+        // Background centerline
+        scopeCtx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+        scopeCtx.lineWidth = 1;
+        scopeCtx.beginPath();
+        scopeCtx.moveTo(10, sh * 0.5);
+        scopeCtx.lineTo(sw - 95, sh * 0.5);
+        scopeCtx.stroke();
+
+        // Plot longitudinal sinusoidal wave of the bridge deck
+        const waveW = sw - 105;
+        scopeCtx.strokeStyle = '#22D3EE';
+        scopeCtx.lineWidth = 2.2;
+        scopeCtx.beginPath();
+        for (let i = 0; i < NUM_NODES; i++) {
+          const dn = deckNodes[i];
+          const px = 10 + (i / (NUM_NODES - 1)) * waveW;
+          const py = sh * 0.5 + (dn.y - deckRestY) * 0.72;
+          if (i === 0) scopeCtx.moveTo(px, py);
+          else scopeCtx.lineTo(px, py);
+        }
+        scopeCtx.stroke();
+
+        // Plot torsional twist envelope (coral/amber)
+        scopeCtx.strokeStyle = '#F43F5E';
+        scopeCtx.lineWidth = 1.6;
+        scopeCtx.beginPath();
+        for (let i = 0; i < NUM_NODES; i++) {
+          const dn = deckNodes[i];
+          const px = 10 + (i / (NUM_NODES - 1)) * waveW;
+          const py = sh * 0.5 + dn.theta * 62;
+          if (i === 0) scopeCtx.moveTo(px, py);
+          else scopeCtx.lineTo(px, py);
+        }
+        scopeCtx.stroke();
+
+        // Live Cross-Section Torsion Diagram on the right side of the oscilloscope
+        const cx = sw - 46;
+        const cy = sh * 0.52;
+        const midNode = deckNodes[Math.floor(NUM_NODES * 0.38)];
+        const twistAngle = midNode ? midNode.theta : 0;
+
+        scopeCtx.save();
+        scopeCtx.translate(cx, cy);
+        scopeCtx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        scopeCtx.beginPath();
+        scopeCtx.arc(0, 0, 30, 0, Math.PI * 2);
+        scopeCtx.stroke();
+
+        scopeCtx.rotate(twistAngle);
+        scopeCtx.strokeStyle = stressToColor(currentMaxStressRatio, 1);
+        scopeCtx.lineWidth = 4;
+        scopeCtx.beginPath();
+        scopeCtx.moveTo(-26, 0);
+        scopeCtx.lineTo(26, 0);
+        scopeCtx.stroke();
+
+        // Suspender dots at ends of cross section
+        scopeCtx.fillStyle = '#22D3EE';
+        scopeCtx.beginPath();
+        scopeCtx.arc(-26, 0, 3.5, 0, Math.PI * 2);
+        scopeCtx.arc(26, 0, 3.5, 0, Math.PI * 2);
+        scopeCtx.fill();
+        scopeCtx.restore();
+
+        scopeCtx.fillStyle = '#94A3B8';
+        scopeCtx.font = '10px "JetBrains Mono", monospace';
+        scopeCtx.textAlign = 'center';
+        scopeCtx.fillText('SECCION', cx, 16);
+        scopeCtx.fillStyle = '#F8FAFC';
+        scopeCtx.fillText(maxTorsionDeg.toFixed(1) + ' deg', cx, sh - 8);
+      }
+
+      // Update DOM Telemetry Readouts
+      function updateTelemetryUI() {
+        kpiWind.textContent = windKmh.toFixed(1) + ' km/h';
+        kpiWind.style.color = Math.abs(windKmh - 68) <= 12
+          ? '#FBBF24'
+          : (windKmh > 80 ? '#F43F5E' : '#F8FAFC');
+
+        const stressPct = Math.round(currentMaxStressRatio * 100);
+        kpiStress.textContent = stressPct + '%';
+        kpiStress.style.color = stressToColor(currentMaxStressRatio, 1);
+
+        kpiBroken.textContent = `${currentBrokenLinks} / ${suspenders.length}`;
+        kpiBroken.style.color = currentBrokenLinks > 0 ? '#F43F5E' : '#10B981';
+
+        kpiTorsion.textContent = maxTorsionDeg.toFixed(1) + ' deg';
+        kpiTorsion.style.color = maxTorsionDeg > 14 ? '#F43F5E' : (maxTorsionDeg > 6 ? '#FBBF24' : '#22D3EE');
+
+        const karmanHz = (0.65 + (windKmh / 68) * 1.55).toFixed(2);
+        teleFreq.textContent = `${karmanHz} Hz (Karman)`;
+
+        const activeCarsCount = vehicles.filter(v => v.active).length;
+        teleCars.textContent = `${activeCarsCount} UNIDADES`;
+
+        if (currentBrokenLinks === 0 && currentMaxStressRatio < 0.72) {
+          teleHealth.textContent = 'ESTABLE 100%';
+          teleHealth.style.color = '#10B981';
+        } else if (currentBrokenLinks === 0) {
+          teleHealth.textContent = 'FATIGA TERMICA';
+          teleHealth.style.color = '#FBBF24';
+        } else {
+          const integrity = Math.max(0, Math.round((1 - currentBrokenLinks / suspenders.length) * 100));
+          teleHealth.textContent = `CRITICO ${integrity}%`;
+          teleHealth.style.color = '#F43F5E';
+        }
+
+        // Resonance alert banner visibility
+        if (windKmh >= 58 && !dampersActive) {
+          resonanceAlert.classList.add('visible');
+          resonanceAlertText.textContent = currentBrokenLinks > 0
+            ? `RUPTURA DE TIRANTES (${currentBrokenLinks} ROTOS) — ACTIVA AMORTIGUADORES AERODINAMICOS`
+            : `RESONANCIA DE TACOMA (${Math.round(windKmh)} KM/H) — VORTICES DE KARMAN Y FLUTTER TORSIONAL`;
+        } else {
+          resonanceAlert.classList.remove('visible');
+        }
+
+        scopeModeTag.textContent = dampersActive ? 'TMD ESTABILIZADO' : (windKmh >= 60 ? 'FLUTTER A2' : 'MODO S1');
+        scopeModeTag.style.color = dampersActive ? '#10B981' : (windKmh >= 60 ? '#F43F5E' : '#22D3EE');
+      }
+
+      // Helper to toggle Aerodynamic Dampers
+      function setDampers(state, stopAutoDemo = true) {
+        dampersActive = Boolean(state);
+        if (stopAutoDemo) {
+          setAutoDemo(false);
+        }
+        btnToggleDampers.classList.toggle('active', dampersActive);
+        damperStatusPill.textContent = dampersActive ? 'ACTIVOS' : 'APAGADOS';
+        damperEfficiencyLabel.textContent = dampersActive ? 'Zeta: 0.145 (Optimo)' : 'Zeta: 0.008';
+        teleDamp.textContent = dampersActive ? 'ACTIVA (TMD + VANES)' : 'DESACTIVADA';
+        teleDamp.style.color = dampersActive ? '#10B981' : '#F43F5E';
+      }
+
+      function setAutoDemo(state) {
+        autoDemoActive = Boolean(state);
+        btnAutoDemo.classList.toggle('active-mode', autoDemoActive);
+        if (!autoDemoActive) {
+          demoStageLabel.textContent = 'CONTROL MANUAL INTERACTIVO ACTIVO';
+          demoDot.style.background = '#22D3EE';
+          demoProgressBar.style.width = '100%';
+        }
+      }
+
+      function rebuildBridgeState() {
+        buildBridge();
+        initVehicles();
+      }
+
+      // Interactive Event Listeners
+      btnToggleDampers.addEventListener('click', () => {
+        setDampers(!dampersActive, true);
+      });
+
+      windSlider.addEventListener('input', (e) => {
+        setAutoDemo(false);
+        windKmh = Number(e.target.value);
+        targetWindKmh = windKmh;
+        windSliderVal.textContent = Math.round(windKmh) + ' km/h';
+      });
+
+      btnJumpResonance.addEventListener('click', () => {
+        setAutoDemo(false);
+        windKmh = 68;
+        targetWindKmh = 68;
+        windSlider.value = 68;
+        windSliderVal.textContent = '68 km/h';
+      });
+
+      trafficSlider.addEventListener('input', (e) => {
+        trafficMassPct = Number(e.target.value);
+        const tons = Math.round((trafficMassPct / 100) * 45);
+        trafficSliderVal.textContent = `${trafficMassPct}% (${tons} t)`;
+      });
+
+      btnRebuild.addEventListener('click', () => {
+        rebuildBridgeState();
+      });
+
+      btnAutoDemo.addEventListener('click', () => {
+        demoTimer = 0;
+        setAutoDemo(!autoDemoActive);
+      });
+
+      btnPulseWave.addEventListener('click', () => {
+        setAutoDemo(false);
+        windKmh = 68;
+        targetWindKmh = 68;
+        windSlider.value = 68;
+        windSliderVal.textContent = '68 km/h';
+        // Apply immediate antisymmetric torsional wave impulse
+        for (let i = 1; i < NUM_NODES - 1; i++) {
+          const dn = deckNodes[i];
+          if (dn.isCenterSpan) {
+            const u = (dn.x - tower1X) / (tower2X - tower1X);
+            dn.vy += Math.sin(u * Math.PI * 2) * 55;
+            dn.omega += Math.sin(u * Math.PI * 2) * 1.4;
+          }
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        buildBridge();
+      });
+
+      // Mandatory Audit Hook: window.__auditBridge()
+      window.__auditBridge = function () {
+        return {
+          cableCount: Number(totalCableCount),
+          windKmh: Number(windKmh.toFixed(2)),
+          maxStressRatio: Number(currentMaxStressRatio.toFixed(3)),
+          brokenLinks: Number(currentBrokenLinks),
+          dampersActive: Boolean(dampersActive)
+        };
+      };
+
+      // Initialize Simulation on Load (Second 0.0 at 60 FPS)
+      resizeCanvas();
+      buildBridge();
+      initVortexParticles();
+      initVehicles();
+
+      // Seed initial realistic motion at t=0.0 so frame 1 is already alive
+      stepPhysics(0.016);
+      renderScene();
+      renderScope();
+      updateTelemetryUI();
+
+      let lastFrameTime = performance.now();
+      function animate(now) {
+        const rawDt = (now - lastFrameTime) / 1000;
+        lastFrameTime = now;
+        const dt = Math.min(0.033, Math.max(0.004, rawDt));
+
+        updateAutoDemo(dt);
+        stepPhysics(dt);
+        renderScene();
+        renderScope();
+        updateTelemetryUI();
+
+        requestAnimationFrame(animate);
+      }
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

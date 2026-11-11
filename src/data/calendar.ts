@@ -24,10 +24,35 @@ export const CALENDAR_LABELS: Record<ReleaseKey, { es: string; en: string }> = {
     es: "EP05: Torneo 3 Gigantes (20 Simuladores 3D)",
     en: "EP05: 3 Giants Tournament (20 3D Simulators)",
   },
+  ep06: {
+    es: "EP06: Clasicos + Arena IA en Vivo (20 Juegos)",
+    en: "EP06: Classics + Live AI Arena (20 Games)",
+  },
+  ep07: {
+    es: "EP07: Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1 (4-0)",
+    en: "EP07: Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1 (4-0)",
+  },
+  ep08: {
+    es: "EP08: Gemini 4 Carbon en Vivo vs Argon + Recuperacion (3-1)",
+    en: "EP08: Gemini 4 Carbon Live vs Argon + Recovery (3-1)",
+  },
+  ep09: {
+    es: "EP09: Claude Fable 5.2 en Vivo vs Opus 5.5 (3-1)",
+    en: "EP09: Claude Fable 5.2 Live vs Opus 5.5 (3-1)",
+  },
+  ep10: {
+    es: "EP10: Carbon vs Fable 5.2 Gran Final (16 Demos + Arenas)",
+    en: "EP10: Carbon vs Fable 5.2 Grand Finale (16 Demos + Arenas)",
+  },
 };
 
 /** Calendar tone of each production (the same accent as its blog card). */
 export const CALENDAR_TONES: Record<ReleaseKey, PixelTone> = {
+  ep10: "yellow",
+  ep09: "coral",
+  ep08: "cyan",
+  ep07: "cyan",
+  ep06: "cyan",
   ep05: "emerald",
   cc02: "emerald",
   carbon01: "cyan",

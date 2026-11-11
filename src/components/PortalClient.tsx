@@ -111,6 +111,11 @@ type BlogFilter = "all" | "laboratorios" | "comunidad" | "noticias";
 type ForoSubTab = "hilos" | "glosario";
 
 const DOSSIER_HASH: Record<DossierEpisode, string> = {
+  ep10: "ep10-carbon-vs-fable",
+  ep09: "ep09-claude-fable-vivo",
+  ep08: "ep08-gemini-carbon-vivo",
+  ep07: "ep07-omni-1-2-flash",
+  ep06: "ep06-clasicos-arena-ia",
   ep05: "ep05-torneo-tres-gigantes",
   ep04: "ep04-escalera-claude",
   ep03: "ep03-superpowers-kit",
@@ -162,6 +167,11 @@ function viewForHash(
   ) {
     return { view: "noticias" };
   }
+  if (h === "ep10-carbon-vs-fable" && rel.ep10) return { view: "dossiers", ep: "ep10" };
+  if (h === "ep09-claude-fable-vivo" && rel.ep09) return { view: "dossiers", ep: "ep09" };
+  if (h === "ep08-gemini-carbon-vivo" && rel.ep08) return { view: "dossiers", ep: "ep08" };
+  if ((h === "ep07-omni-1-2-flash" || h === "omni-1-2-flash") && rel.ep07) return { view: "dossiers", ep: "ep07" };
+  if (h === "ep06-clasicos-arena-ia" && rel.ep06) return { view: "dossiers", ep: "ep06" };
   if (h === "ep05-torneo-tres-gigantes" && rel.ep05) return { view: "dossiers", ep: "ep05" };
   if (h === "ep04-escalera-claude" && rel.ep04) return { view: "dossiers", ep: "ep04" };
   if (h === "ep03-superpowers-kit" && rel.ep03) return { view: "dossiers", ep: "ep03" };
@@ -183,6 +193,26 @@ const SITE_TITLE = {
 } as const;
 
 const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
+  ep10: {
+    es: "Laboratorio EP10: Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos + 4 Arenas IA en Vivo)",
+    en: "Lab EP10: Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos + 4 Live AI Arenas)",
+  },
+  ep09: {
+    es: "Laboratorio EP09: Claude Fable 5.2 en Vivo vs Claude Opus 5.5 (8 Simuladores)",
+    en: "Lab EP09: Claude Fable 5.2 Live vs Claude Opus 5.5 (8 Simulators)",
+  },
+  ep08: {
+    es: "Laboratorio EP08: Gemini 4 Carbon en Vivo vs Argon + Ronda de Recuperacion",
+    en: "Lab EP08: Gemini 4 Carbon Live vs Argon + Recovery Round",
+  },
+  ep07: {
+    es: "Laboratorio EP07: Especial Gemini Omni 1.2 Flash vs Omni 1.1 Flash vs Veo 3.1 Quality (12 Videos)",
+    en: "Lab EP07: Gemini Omni 1.2 Flash Special vs Omni 1.1 Flash vs Veo 3.1 Quality (12 Videos)",
+  },
+  ep06: {
+    es: "Laboratorio EP06: Clasicos Mundiales + Arena de Supervivencia en Vivo (20 Juegos)",
+    en: "Lab EP06: World Classics + Live Survival Arena (20 Games)",
+  },
   ep05: {
     es: "Laboratorio EP05: El Torneo de los 3 Gigantes (6 Retos 3D + Ronda de Rescate)",
     en: "Lab EP05: The 3 Giants Tournament (6 3D Rounds + Rescue Round)",
@@ -254,6 +284,11 @@ function writeHash(hash: string, mode: "push" | "replace") {
 
 /** One accent per production, shared by blog cards, calendar, CRT and floppy selector. */
 const EPISODE_ACCENT: Record<ReleaseKey, string> = {
+  ep10: "#FFD100",
+  ep09: "#FB923C",
+  ep08: "#38BDF8",
+  ep07: "#38BDF8",
+  ep06: "#00E5FF",
   ep05: "#10B981",
   cc02: "#10B981",
   carbon01: "#00E5FF",
@@ -266,6 +301,11 @@ const EPISODE_ACCENT: Record<ReleaseKey, string> = {
 
 /** Deep link of each production (used by the share popover). */
 const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  ep10: "ep10-carbon-vs-fable",
+  ep09: "ep09-claude-fable-vivo",
+  ep08: "ep08-gemini-carbon-vivo",
+  ep07: "ep07-omni-1-2-flash",
+  ep06: "ep06-clasicos-arena-ia",
   ep05: "ep05-torneo-tres-gigantes",
   cc02: "comentario-al-codigo",
   carbon01: "noticias",
@@ -455,6 +495,11 @@ export default function PortalClient({
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep10) return "ep10";
+    if (r.ep09) return "ep09";
+    if (r.ep08) return "ep08";
+    if (r.ep07) return "ep07";
+    if (r.ep06) return "ep06";
     if (r.ep05) return "ep05";
     if (r.ep04) return "ep04";
     if (r.ep03) return "ep03";
@@ -464,15 +509,29 @@ export default function PortalClient({
   // Arena & Episode state
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
-  const [arenaMode, setArenaMode] = useState<"ep05" | "ep04" | "ep03" | "ep02_ep01">(
-    () => {
-      const r = getReleasedStatus(BUILD_TIME);
-      if (r.ep05) return "ep05";
-      if (r.ep04) return "ep04";
-      if (r.ep03) return "ep03";
-      return "ep02_ep01";
-    }
-  );
+  const [arenaMode, setArenaMode] = useState<
+    "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
+  >(() => {
+    const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep10) return "ep10";
+    if (r.ep09) return "ep09";
+    if (r.ep08) return "ep08";
+    if (r.ep07) return "ep07";
+    if (r.ep06) return "ep06";
+    if (r.ep05) return "ep05";
+    if (r.ep04) return "ep04";
+    if (r.ep03) return "ep03";
+    return "ep02_ep01";
+  });
+
+  // EP10, EP09, EP08 & EP07 interactive comparator states
+  const [ep10ChallengeN, setEp10ChallengeN] = useState<number>(1);
+  const [ep09ChallengeN, setEp09ChallengeN] = useState<number>(1);
+  const [ep08ChallengeN, setEp08ChallengeN] = useState<number>(3);
+  const [ep07ChallengeN, setEp07ChallengeN] = useState<number>(1);
+
+  // EP06 interactive 3-way + Live Arena comparator state
+  const [ep06ChallengeN, setEp06ChallengeN] = useState<number>(1);
 
   // EP05 interactive 3-way + Rescue comparator state
   const [ep05ChallengeN, setEp05ChallengeN] = useState<number>(1);
@@ -596,8 +655,44 @@ export default function PortalClient({
 
     // Default episode/arena = newest published one (content may have been
     // released after this HTML was built); the hash below can override it.
-    setDossierEp(rel.ep05 ? "ep05" : rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02");
-    setArenaMode(rel.ep05 ? "ep05" : rel.ep04 ? "ep04" : rel.ep03 ? "ep03" : "ep02_ep01");
+    setDossierEp(
+      rel.ep10
+        ? "ep10"
+        : rel.ep09
+        ? "ep09"
+        : rel.ep08
+        ? "ep08"
+        : rel.ep07
+        ? "ep07"
+        : rel.ep06
+        ? "ep06"
+        : rel.ep05
+        ? "ep05"
+        : rel.ep04
+        ? "ep04"
+        : rel.ep03
+        ? "ep03"
+        : "ep02"
+    );
+    setArenaMode(
+      rel.ep10
+        ? "ep10"
+        : rel.ep09
+        ? "ep09"
+        : rel.ep08
+        ? "ep08"
+        : rel.ep07
+        ? "ep07"
+        : rel.ep06
+        ? "ep06"
+        : rel.ep05
+        ? "ep05"
+        : rel.ep04
+        ? "ep04"
+        : rel.ep03
+        ? "ep03"
+        : "ep02_ep01"
+    );
 
     const applyHash = () => {
       const target = viewForHash(window.location.hash.replace("#", ""), rel, initialView);
@@ -729,10 +824,30 @@ export default function PortalClient({
   };
 
   const handleJumpToArena = (
-    episode: "ep05" | "ep04" | "ep03" | "ep02" | "ep01",
+    episode: DossierEpisode,
     challengeN: number
   ) => {
-    if (episode === "ep05" && released.ep05) {
+    if (episode === "ep10" && released.ep10) {
+      setEp10ChallengeN(challengeN);
+      setArenaMode("ep10");
+      setMainView("arena");
+    } else if (episode === "ep09" && released.ep09) {
+      setEp09ChallengeN(challengeN);
+      setArenaMode("ep09");
+      setMainView("arena");
+    } else if (episode === "ep08" && released.ep08) {
+      setEp08ChallengeN(challengeN);
+      setArenaMode("ep08");
+      setMainView("arena");
+    } else if (episode === "ep07" && released.ep07) {
+      setEp07ChallengeN(challengeN);
+      setArenaMode("ep07");
+      setMainView("arena");
+    } else if (episode === "ep06" && released.ep06) {
+      setEp06ChallengeN(challengeN);
+      setArenaMode("ep06");
+      setMainView("arena");
+    } else if (episode === "ep05" && released.ep05) {
       setEp05ChallengeN(challengeN);
       setArenaMode("ep05");
       setMainView("arena");
@@ -746,7 +861,7 @@ export default function PortalClient({
       setMainView("arena");
     } else {
       const safeEp =
-        episode === "ep05" || episode === "ep04" || episode === "ep03" ? "ep02" : episode;
+        episode === "ep02" || episode === "ep01" ? episode : "ep02";
       setActiveEpisode(safeEp);
       setSelectedChallengeN(challengeN);
       setArenaMode("ep02_ep01");
@@ -805,8 +920,154 @@ export default function PortalClient({
   const glossaryPlain = (g: (typeof LAB_GLOSSARY)[number]) =>
     lang === "es" ? g.plain_es : (g.plain_en ?? g.plain_es);
 
-  // Blog Cards Data (All 7 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
+  // Blog Cards Data (All 8 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
   const BLOG_ARTICLES: BlogArticle[] = [
+    {
+      id: "ep10" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "10 Nov 2026",
+      readTime_es: "Video 4K60 · 16 Demos (12 Apps + 4 Arenas IA)",
+      readTime_en: "4K60 Video · 16 Demos (12 Apps + 4 AI Arenas)",
+      badge_es: "GRAN FINAL EP10 · GEMINI 4 CARBON VS CLAUDE FABLE 5.2",
+      badge_en: "GRAND FINALE EP10 · GEMINI 4 CARBON VS CLAUDE FABLE 5.2",
+      accentColor: EPISODE_ACCENT.ep10,
+      scoreBadge_es: "FABLE 5.2 [7] - [3] CARBON",
+      scoreBadge_en: "FABLE 5.2 [7] - [3] CARBON",
+      thumb: "/brand/thumbs/ep10/Arena_R04_futbol_t10.png",
+      title_es:
+        "Gran Final Frontera: Gemini 4 Carbon ($2/$10) vs. Claude Fable 5.2 ($8/$40) en 6 Retos Reales + 4 Arenas IA vs IA en Vivo con 430 Jugadas en JSON",
+      title_en:
+        "Frontier Grand Finale: Gemini 4 Carbon ($2/$10) vs. Claude Fable 5.2 ($8/$40) in 6 Live Builds + 4 Head-to-Head AI Arenas with 430 Logged JSON Plays",
+      excerpt_es:
+        "El duelo definitivo 1x vs 4x en costo de API: 12 simulaciones zero-shot sin intervenciones (Rascacielos Taipei 101, Subasta Fantasma, Hospital Hora Pico, Futbol Robot 2v2, Hormigas ACO y Defensas contra Ciberataque) mas 4 Arenas en Vivo donde ambos modelos compiten dentro del simulador ganador. Fable 5.2 gana 7 a 3 ($23.35 USD), mientras Carbon entrega 20,246 lineas por solo $8.20 USD.",
+      excerpt_en:
+        "The definitive 1x vs 4x API pricing showdown: 12 unedited zero-shot simulations (Taipei 101 Seismic Tower, Blind Auction, ER Triage, 2v2 Robot Soccer, Ant Colony ACO, and Cyber Defense) plus 4 Live Arenas where both AIs compete head-to-head inside the winning build. Fable 5.2 wins 7-3 ($23.35 USD), while Carbon writes 20,246 lines for just $8.20 USD.",
+      metrics: [
+        { label_es: "MARCADOR (10 PTS)", label_en: "SCORE (10 PTS)", val: "7 - 3 Fable 5.2" },
+        { label_es: "CLAUDE FABLE 5.2", label_en: "CLAUDE FABLE 5.2", val: "152.4m · $23.35 (4 Fase A + 3 Arena)", val_en: "152.4m · $23.35 (4 Build + 3 Arena)" },
+        { label_es: "GEMINI 4 CARBON", label_en: "GEMINI 4 CARBON", val: "95.6m · $8.20 (20,246 LOC · 3 Pts)", val_en: "95.6m · $8.20 (20,246 LOC · 3 Pts)" },
+        { label_es: "LOGS VERIFICADOS", label_en: "VERIFIED LOGS", val: "430 Jugadas JSON", val_en: "430 JSON Plays" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep10"),
+      onOpenArena: () => handleJumpToArena("ep10", 4),
+    },
+    {
+      id: "ep09" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "10 Nov 2026",
+      readTime_es: "Video 4K60 · 8 Simuladores Zero-Shot",
+      readTime_en: "4K60 Video · 8 Zero-Shot Simulators",
+      badge_es: "LABORATORIO EP09 · CLAUDE FABLE 5.2 EN VIVO VS OPUS 5.5",
+      badge_en: "LAB EP09 · CLAUDE FABLE 5.2 LIVE VS OPUS 5.5",
+      accentColor: EPISODE_ACCENT.ep09,
+      scoreBadge_es: "FABLE 5.2 [3] - [1] OPUS 5.5",
+      scoreBadge_en: "FABLE 5.2 [3] - [1] OPUS 5.5",
+      thumb: "/brand/thumbs/ep09/P01_fable52_t10.png",
+      title_es:
+        "Claude Fable 5.2 ($8/$40) en Vivo vs. Claude Opus 5.5: Agujero Negro Gargantua GLSL, Circuito NE555, POS de 1994 y Reloj Mecanico Suizo",
+      title_en:
+        "Claude Fable 5.2 ($8/$40) Live vs. Claude Opus 5.5: Gargantua Black Hole GLSL, NE555 Circuit, 1994 POS Rescue & Swiss Mechanical Watch",
+      excerpt_es:
+        "Anthropic lanza Claude Fable 5.2 en API publica mientras reserva Mythos 5.2. En 4 pruebas zero-shot auditadas con cero errores de consola en las 8 entregas, Fable 5.2 razona mas profundo (690.8K tokens de salida/pensamiento) y derrota 3 a 1 a Opus 5.5 con ray-marching relativista de Kerr y un escape de ancora suizo de precision.",
+      excerpt_en:
+        "Anthropic launches Claude Fable 5.2 in public API alongside gated Mythos 5.2. Across 4 audited zero-shot tests with zero console errors on all 8 builds, Fable 5.2 reasons deeper (690.8K output/thinking tokens) to defeat Opus 5.5 3-1 with Kerr geodesic ray-marching and a precision Swiss lever escapement.",
+      metrics: [
+        { label_es: "MARCADOR FINAL", label_en: "FINAL SCORE", val: "3 - 1 Fable 5.2" },
+        { label_es: "FABLE 5.2 ($8/$40)", label_en: "FABLE 5.2 ($8/$40)", val: "133.0m · $17.70 · 3,204 LOC" },
+        { label_es: "OPUS 5.5", label_en: "OPUS 5.5", val: "102.5m · $16.33 · 3,910 LOC" },
+        { label_es: "AUDITORIA JS", label_en: "JS AUDIT", val: "8/8 Sin Errores", val_en: "8/8 Zero Errors" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep09"),
+      onOpenArena: () => handleJumpToArena("ep09", 1),
+    },
+    {
+      id: "ep08" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "10 Nov 2026",
+      readTime_es: "Video 4K60 · 8 Apps + Ronda de Recuperacion",
+      readTime_en: "4K60 Video · 8 Apps + Recovery Round",
+      badge_es: "LABORATORIO EP08 · GEMINI 4 CARBON GA + RECUPERACION",
+      badge_en: "LAB EP08 · GEMINI 4 CARBON GA + RECOVERY ROUND",
+      accentColor: EPISODE_ACCENT.ep08,
+      scoreBadge_es: "CARBON [3] - [1] ARGON + RESCATE",
+      scoreBadge_en: "CARBON [3] - [1] ARGON + RESCUE",
+      thumb: "/brand/thumbs/ep08/P03_carbon_recuperacion_t10.png",
+      title_es:
+        "Google Abre Gemini 4 Carbon ($2/$10) a Todos: 4 Pruebas en Vivo vs. Argon (3 - 1) + Ronda de Recuperacion del Puente Oculto (-1 Letra)",
+      title_en:
+        "Google Unlocks Gemini 4 Carbon ($2/$10) for Everyone: 4 Live Tests vs. Argon (3 - 1) + 1-Letter Hidden Bridge Recovery Round",
+      excerpt_es:
+        "Tras salir de Project Glasswing, probamos Gemini 4 Carbon a un solo intento frente a Argon en Ciberdefensa TOCTOU 45ms, Radar TCAS II con 18 vuelos, Puente de Tacoma y Ley de Benford ($957,439.59 al centavo). En Tacoma 1 sola letra 'd' extra (baseDdvy en linea 1664) apago el lienzo; respetamos el punto de Argon y abrimos la Ronda de Recuperacion revelando 186 cables 2.5D y 50 rupturas en vivo.",
+      excerpt_en:
+        "Fresh out of Project Glasswing, we tested Gemini 4 Carbon blind against Argon across 45ms TOCTOU Cyberdefense, 18-flight TCAS II Radar, Tacoma Bridge, and Benford's Law ($957,439.59 to the cent). On Tacoma, 1 extra letter 'd' on line 1664 (baseDdvy) blacked out Carbon; we kept Argon's official point and ran a Recovery Round unlocking 186 2.5D cables and 50 live snaps.",
+      metrics: [
+        { label_es: "MARCADOR OFICIAL", label_en: "OFFICIAL SCORE", val: "3 - 1 Carbon" },
+        { label_es: "CARBON ($2/$10)", label_en: "CARBON ($2/$10)", val: "75.1m · $5.36 · 12,056 LOC" },
+        { label_es: "ARGON", label_en: "ARGON", val: "35.9m · $2.90 · 8,238 LOC" },
+        { label_es: "RECUPERACION P03", label_en: "P03 RECOVERY", val: "-1 Letra (186 Cables)", val_en: "-1 Letter (186 Cables)" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep08"),
+      onOpenArena: () => handleJumpToArena("ep08", 3),
+    },
+    {
+      id: "ep07" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "11 Nov 2026",
+      readTime_es: "Video 4K60 · 12 Videos Reales en Google Flow",
+      readTime_en: "4K60 Video · 12 Live Videos in Google Flow",
+      badge_es: "LABORATORIO EP07 · ESPECIAL GEMINI OMNI 1.2 FLASH",
+      badge_en: "LAB EP07 · GEMINI OMNI 1.2 FLASH SPECIAL",
+      accentColor: EPISODE_ACCENT.ep07,
+      scoreBadge_es: "OMNI 1.2 [4] - 1.1 [0] - VEO 3.1 [0]",
+      scoreBadge_en: "OMNI 1.2 [4] - 1.1 [0] - VEO 3.1 [0]",
+      thumb: "/news/omni12/thumb_A.jpg",
+      thumb_en: "/news/omni12/thumb_A_en.jpg",
+      title_es:
+        "Google Lanza Gemini Omni 1.2 Flash ($0.069/s): 15s Nativos, 6 Ingredientes y Benchmark en Vivo vs. Omni 1.1 Flash y Veo 3.1 Quality",
+      title_en:
+        "Google Launches Gemini Omni 1.2 Flash ($0.069/s): 15s Native Video, 6 Ingredients & Live Benchmark vs. Omni 1.1 Flash & Veo 3.1 Quality",
+      excerpt_es:
+        "Abrimos Google Flow en vivo y generamos 12 videos en 4 pruebas reales comparando al nuevo Gemini Omni 1.2 Flash ($0.069/s en API 720p, hasta 15s continuos y 6 referencias) frente a su predecesor Omni 1.1 Flash ($0.101/s, tope 10s) y Veo 3.1 Quality ($0.40/s, tope 8s). Omni 1.2 Flash gana 4 a 0 ($2.71 USD totales vs $12.80 USD de Veo 3.1 Quality), proyecta hologramas 3D flotantes, evita el pasillo fantasma de Veo 3.1 en t=3.0s y fusiona los 3 ingredientes que Veo 3.1 Quality bloqueo.",
+      excerpt_en:
+        "We opened Google Flow live and generated 12 videos across 4 real tests comparing the new Gemini Omni 1.2 Flash ($0.069/s on 720p API, up to 15s continuous & 6 references) against Omni 1.1 Flash ($0.101/s, 10s cap) and Veo 3.1 Quality ($0.40/s, 8s cap). Omni 1.2 Flash sweeps 4-0 ($2.71 USD total vs Veo 3.1 Quality's $12.80 USD), projects floating 3D holograms, avoids Veo 3.1's t=3.0s ghost hallway, and fuses the 3 ingredients that Veo 3.1 Quality blocked.",
+      metrics: [
+        { label_es: "MARCADOR FINAL", label_en: "FINAL SCORE", val: "4 - 0 - 0 Omni 1.2" },
+        { label_es: "OMNI 1.2 FLASH", label_en: "OMNI 1.2 FLASH", val: "9.70/10 · $2.71 · 15s Nativos", val_en: "9.70/10 · $2.71 · 15s Native" },
+        { label_es: "OMNI 1.1 FLASH", label_en: "OMNI 1.1 FLASH", val: "8.58/10 · $3.45 · Tope 10s", val_en: "8.58/10 · $3.45 · 10s Cap" },
+        { label_es: "VEO 3.1 QUALITY", label_en: "VEO 3.1 QUALITY", val: "8.48/10 · $12.80 · Tope 8s", val_en: "8.48/10 · $12.80 · 8s Cap" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep07"),
+      onOpenArena: () => handleJumpToArena("ep07", 1),
+    },
+    {
+      id: "ep06" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "05 Nov 2026",
+      readTime_es: "Video 4K60 · 20 Juegos (15 Clones + 5 Arenas)",
+      readTime_en: "4K60 Video · 20 Games (15 Clones + 5 Arenas)",
+      badge_es: "LABORATORIO EP06 · CLASICOS MUNDIALES + ARENA EN VIVO",
+      badge_en: "LAB EP06 · WORLD CLASSICS + LIVE SURVIVAL ARENA",
+      accentColor: EPISODE_ACCENT.ep06,
+      scoreBadge_es: "ARGON 5 · OPUS 4 · ASTRA 1",
+      scoreBadge_en: "ARGON 5 · OPUS 4 · ASTRA 1",
+      thumb: "/brand/thumbs/ep06/05-hexagone-piso-cae-3d_arena.png",
+      title_es:
+        "Clasicos Mundiales + Arena de Supervivencia en Vivo: Gemini 4 Argon High ($1.13) vs. Claude Opus 5.5 High ($17.99) vs. GPT-6 Astra High ($2.10) en Snake, Bomberman, Pac-Man, Tanques y Hex-A-Gone 3D",
+      title_en:
+        "World Classics + Live Survival Arena: Gemini 4 Argon High ($1.13) vs. Claude Opus 5.5 High ($17.99) vs. GPT-6 Astra High ($2.10) in Snake, Bomberman, Pac-Man, Tanks & 3D Hex-A-Gone",
+      excerpt_es:
+        "Cada clasico vale doble: primero evaluamos cual de los 3 gigantes clono mejor Snake Battle Royale, Bomberman, Pac-Man, Tanques con Balas de Rebote y Hex-A-Gone 3D en un solo intento (5 puntos de clonacion), y enseguida metemos a las 3 IAs a competir dentro del juego que resulto ganador con registro de acciones en logs verificados (5 puntos de Arena). Tras el empate 4-4 de Opus en la Ronda 9, Gemini 4 Argon High barre las 3 Coronas en la Arena de Hex-A-Gone 3D y se corona campeon 5-4-1 por $1.13 USD en 19.5 min.",
+      excerpt_en:
+        "Every classic counts double: first we judge which of the 3 giants cloned Snake Battle Royale, Bomberman, Pac-Man, Ricochet Tanks, and 3D Hex-A-Gone best on the first attempt (5 clone points), and right after we drop all 3 AIs into the winning clone of each challenge with verified action logs (5 Arena points). After Opus tied the tournament 4-4 in Round 9, Gemini 4 Argon High sweeps 3 of 3 Crowns in the 3D Hex-A-Gone Arena to claim the 5-4-1 championship for $1.13 USD in 19.5 min.",
+      metrics: [
+        { label_es: "MARCADOR (10 PTS)", label_en: "SCORE (10 PTS)", val: "5 - 4 - 1 Argon" },
+        { label_es: "ARGON HIGH", label_en: "ARGON HIGH", val: "19.5m · $1.13 (2 Clon + 3 Arena)", val_en: "19.5m · $1.13 (2 Clone + 3 Arena)" },
+        { label_es: "OPUS 5.5 HIGH", label_en: "OPUS 5.5 HIGH", val: "98.8m · $17.99 (2 Clon + 2 Arena)", val_en: "98.8m · $17.99 (2 Clone + 2 Arena)" },
+        { label_es: "GPT-6 ASTRA", label_en: "GPT-6 ASTRA", val: "47.5m · $2.10 (1 Clon + 0 Arena)", val_en: "47.5m · $2.10 (1 Clone + 0 Arena)" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep06"),
+      onOpenArena: () => handleJumpToArena("ep06", 1),
+    },
     {
       id: "ep05" as ReleaseKey,
       filter: "laboratorios" as const,
@@ -1060,7 +1321,15 @@ export default function PortalClient({
   // Dynamic spoiler-free counters matching only what has been published
   const totalEpisodesCount = releasedArticles.length;
   const totalLabsCount =
-    2 + (released.ep03 ? 1 : 0) + (released.ep04 ? 1 : 0) + (released.ep05 ? 1 : 0);
+    2 +
+    (released.ep03 ? 1 : 0) +
+    (released.ep04 ? 1 : 0) +
+    (released.ep05 ? 1 : 0) +
+    (released.ep06 ? 1 : 0) +
+    (released.ep07 ? 1 : 0) +
+    (released.ep08 ? 1 : 0) +
+    (released.ep09 ? 1 : 0) +
+    (released.ep10 ? 1 : 0);
   const totalComunidadCount =
     (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
@@ -1070,9 +1339,24 @@ export default function PortalClient({
     (released.ep03 ? 12 : 0) +
     (released.ep04 ? 18 : 0) +
     (released.cc02 ? 4 : 0) +
-    (released.ep05 ? 20 : 0);
+    (released.ep05 ? 20 : 0) +
+    (released.ep06 ? 20 : 0) +
+    (released.ep07 ? 12 : 0) +
+    (released.ep08 ? 9 : 0) +
+    (released.ep09 ? 8 : 0) +
+    (released.ep10 ? 16 : 0);
   const totalPromptsCount =
-    10 + 6 + (released.ep03 ? 6 : 0) + (released.ep04 ? 6 : 0) + (released.cc02 ? 1 : 0) + (released.ep05 ? 6 : 0);
+    10 +
+    6 +
+    (released.ep03 ? 6 : 0) +
+    (released.ep04 ? 6 : 0) +
+    (released.cc02 ? 1 : 0) +
+    (released.ep05 ? 6 : 0) +
+    (released.ep06 ? 5 : 0) +
+    (released.ep07 ? 4 : 0) +
+    (released.ep08 ? 4 : 0) +
+    (released.ep09 ? 4 : 0) +
+    (released.ep10 ? 6 : 0);
   // Same size as the forum's thread list (counted on the server, see forumCounts.ts)
   const totalForumThreadsCount = (
     Object.keys(forumCounts.byRelease) as ReleaseKey[]
@@ -1098,6 +1382,157 @@ export default function PortalClient({
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.ep10
+      ? [
+          {
+            id: "ep10",
+            code: "EP.10",
+            kicker:
+              lang === "es"
+                ? "GRAN FINAL · 12 APPS + 4 ARENAS IA"
+                : "GRAND FINALE · 12 APPS + 4 AI ARENAS",
+            title:
+              lang === "es"
+                ? "Gemini 4 Carbon ($2/$10) vs Claude Fable 5.2 ($8/$40)"
+                : "Gemini 4 Carbon ($2/$10) vs Claude Fable 5.2 ($8/$40)",
+            verdict: "FABLE 5.2 [7] - [3] CARBON (430 LOGS JSON)",
+            timeMetric: "95.6m vs 152.4m",
+            costMetric: "$8.20 vs $23.35 USD",
+            thumb: "/brand/thumbs/ep10/Arena_R04_futbol_t10.png",
+            accentHex: "#FFD100",
+            character: "opus" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep10"),
+            onLaunchSecondary: () => handleJumpToArena("ep10", 4),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR GRAN FINAL EP10 (16 DEMOS + ARENAS)"
+                : "OPEN EP10 FINALE (16 DEMOS + ARENAS)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
+    ...(released.ep09
+      ? [
+          {
+            id: "ep09",
+            code: "EP.09",
+            kicker:
+              lang === "es"
+                ? "ESTRENO ANTHROPIC · 8 SIMULADORES"
+                : "ANTHROPIC LAUNCH · 8 SIMULATORS",
+            title:
+              lang === "es"
+                ? "Claude Fable 5.2 en Vivo vs Claude Opus 5.5"
+                : "Claude Fable 5.2 Live vs Claude Opus 5.5",
+            verdict: "FABLE 5.2 [3] - [1] OPUS 5.5 (0 BUGS)",
+            timeMetric: "133.0m vs 102.5m",
+            costMetric: "$17.70 vs $16.33 USD",
+            thumb: "/brand/thumbs/ep09/P01_fable52_t10.png",
+            accentHex: "#FB923C",
+            character: "opus" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep09"),
+            onLaunchSecondary: () => handleJumpToArena("ep09", 1),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR LABORATORIO EP09 (FABLE 5.2)"
+                : "OPEN EP09 LAB (FABLE 5.2)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
+    ...(released.ep08
+      ? [
+          {
+            id: "ep08",
+            code: "EP.08",
+            kicker:
+              lang === "es"
+                ? "CARBON GA + RONDA DE RECUPERACION"
+                : "CARBON GA + RECOVERY ROUND",
+            title:
+              lang === "es"
+                ? "Gemini 4 Carbon vs Argon (+ Puente Oculto -1 Letra)"
+                : "Gemini 4 Carbon vs Argon (+ 1-Letter Hidden Bridge)",
+            verdict: "CARBON [3] - [1] ARGON + RESCATE P03",
+            timeMetric: "75.1m vs 35.9m",
+            costMetric: "$5.36 vs $2.90 USD",
+            thumb: "/brand/thumbs/ep08/P03_carbon_recuperacion_t10.png",
+            accentHex: "#38BDF8",
+            character: "carbon" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep08"),
+            onLaunchSecondary: () => handleJumpToArena("ep08", 3),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR EP08 + PUENTE RECUPERADO"
+                : "OPEN EP08 + RECOVERED BRIDGE",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
+    ...(released.ep07
+      ? [
+          {
+            id: "ep07",
+            code: "EP.07",
+            kicker:
+              lang === "es"
+                ? "ESTRENO GOOGLE FLOW · 12 VIDEOS 1080P"
+                : "GOOGLE FLOW LAUNCH · 12 1080P VIDEOS",
+            title:
+              lang === "es"
+                ? "Gemini Omni 1.2 Flash vs Omni 1.1 vs Veo 3.1 Quality"
+                : "Gemini Omni 1.2 Flash vs Omni 1.1 vs Veo 3.1 Quality",
+            verdict: "OMNI 1.2 [4] - OMNI 1.1 [0] - VEO 3.1 [0]",
+            timeMetric: "15s Nativos · 9.70/10",
+            costMetric: "$2.71 vs $3.45 vs $12.80",
+            thumb:
+              lang === "es"
+                ? "/news/omni12/thumb_A.jpg"
+                : "/news/omni12/thumb_A_en.jpg",
+            accentHex: "#38BDF8",
+            character: "flash" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep07"),
+            onLaunchSecondary: () => handleJumpToArena("ep07", 1),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR LABORATORIO EP07 (OMNI 1.2 FLASH)"
+                : "OPEN EP07 LAB (OMNI 1.2 FLASH)",
+            secondaryLabel: "VIDEOS",
+          },
+        ]
+      : []),
+    ...(released.ep06
+      ? [
+          {
+            id: "ep06",
+            code: "EP.06",
+            kicker:
+              lang === "es"
+                ? "CLASICOS + ARENA EN VIVO · 20 JUEGOS"
+                : "CLASSICS + LIVE ARENA · 20 GAMES",
+            title:
+              lang === "es"
+                ? "Snake, Bomberman, Pac-Man, Tanques y Hex-A-Gone 3D"
+                : "Snake, Bomberman, Pac-Man, Tanks & 3D Hex-A-Gone",
+            verdict:
+              lang === "es"
+                ? "ARGON 5 · OPUS 4 · ASTRA 1 (10 PUNTOS)"
+                : "ARGON 5 · OPUS 4 · ASTRA 1 (10 POINTS)",
+            timeMetric: "19.5m vs 47.5m vs 98.8m",
+            costMetric: "$1.13 vs $2.10 vs $17.99",
+            thumb: "/brand/thumbs/ep06/05-hexagone-piso-cae-3d_arena.png",
+            accentHex: "#00E5FF",
+            character: "argon" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep06"),
+            onLaunchSecondary: () => handleJumpToArena("ep06", 1),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR TORNEO EP06 (15 CLONES + 5 ARENAS)"
+                : "OPEN EP06 TOURNAMENT (15 CLONES + 5 ARENAS)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
     ...(released.ep05
       ? [
           {
@@ -1460,6 +1895,11 @@ export default function PortalClient({
           : []),
         ...(
           [
+            { ep: "ep10" as const, label: es ? "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)" : "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)", tone: "yellow" as const, show: released.ep10 },
+            { ep: "ep09" as const, label: es ? "EP09 · Claude Fable 5.2 en Vivo vs Opus 5.5" : "EP09 · Claude Fable 5.2 Live vs Opus 5.5", tone: "coral" as const, show: released.ep09 },
+            { ep: "ep08" as const, label: es ? "EP08 · Gemini 4 Carbon en Vivo + Recuperacion" : "EP08 · Gemini 4 Carbon Live + Recovery Round", tone: "cyan" as const, show: released.ep08 },
+            { ep: "ep07" as const, label: es ? "EP07 · Especial Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1" : "EP07 · Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1 Special", tone: "cyan" as const, show: released.ep07 },
+            { ep: "ep06" as const, label: es ? "EP06 · Clasicos Mundiales + Arena en Vivo (20 Juegos)" : "EP06 · World Classics + Live Arena (20 Games)", tone: "cyan" as const, show: released.ep06 },
             { ep: "ep05" as const, label: es ? "EP05 · Torneo de los 3 Gigantes (Argon vs Opus vs Astra)" : "EP05 · 3 Giants Tournament (Argon vs Opus vs Astra)", tone: "emerald" as const, show: released.ep05 },
             { ep: "ep04" as const, label: es ? "EP04 · Escalera Claude 5.5 (Haiku vs Sonnet vs Opus)" : "EP04 · Claude 5.5 Ladder (Haiku vs Sonnet vs Opus)", tone: "cyan" as const, show: released.ep04 },
             { ep: "ep03" as const, label: es ? "EP03 · Argon High Sin Kit vs Superpowers Kit" : "EP03 · Argon High Raw vs Superpowers Kit", tone: "emerald" as const, show: released.ep03 },
@@ -1485,7 +1925,22 @@ export default function PortalClient({
             tone: e.tone,
             keywords: "arena demos simuladores play",
             onSelect: () =>
-              handleJumpToArena(e.ep, e.ep === "ep05" ? 1 : e.ep === "ep04" ? 4 : e.ep === "ep03" ? 2 : e.ep === "ep02" ? 1 : 6),
+              handleJumpToArena(
+                e.ep,
+                e.ep === "ep10"
+                  ? 4
+                  : e.ep === "ep08"
+                  ? 3
+                  : e.ep === "ep07" || e.ep === "ep09" || e.ep === "ep06" || e.ep === "ep05"
+                  ? 1
+                  : e.ep === "ep04"
+                  ? 4
+                  : e.ep === "ep03"
+                  ? 2
+                  : e.ep === "ep02"
+                  ? 1
+                  : 6
+              ),
           },
         ]),
         {
@@ -2098,30 +2553,30 @@ export default function PortalClient({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Pillar 1: Videos / Laboratorios */}
               <a
-                {...viewLink("dossiers", "ep05")}
+                {...viewLink("dossiers", "ep07")}
                 className="px-card-emerald px-card-interactive flex flex-col justify-between cursor-pointer"
               >
                 <div>
                   <div className="px-4 py-2 bg-[#10B981] text-[#090B10] border-b-2 border-[#090B10] flex items-center justify-between font-pixel text-[10px] font-bold">
                     <span>01 // VIDEOS & LABS</span>
-                    <span>EP01-EP05</span>
+                    <span>EP01-EP07</span>
                   </div>
                   <div className="p-4">
                     <h2 className="font-display text-base sm:text-lg font-black text-white">
                       {lang === "es"
-                        ? "Benchmarks Empiricos y Duelos Zero-Shot"
-                        : "Empirical Benchmarks & Zero-Shot Duels"}
+                        ? "Benchmarks Empiricos y Duelos en Vivo"
+                        : "Empirical Benchmarks & Live Duels"}
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1.5 leading-relaxed">
                       {lang === "es"
-                        ? "5 episodios completos y 83 simuladores: Torneo 3 Gigantes (EP05), Escalera Claude 5.5 (EP04), Superpowers Kit (EP03), Argon vs Opus 5.5 (EP02) y Argon vs 3.8 Flash (EP01)."
-                        : "5 full episodes and 83 simulators: 3 Giants Tournament (EP05), Claude 5.5 Ladder (EP04), Superpowers Kit (EP03), Argon vs Opus 5.5 (EP02), and Argon vs 3.8 Flash (EP01)."}
+                        ? "7 episodios completos: Especial Gemini Omni 1.2 Flash en Google Flow (EP07), Clasicos + Arena IA (EP06), Torneo 3 Gigantes (EP05), Escalera Claude 5.5 (EP04) y mas."
+                        : "7 full episodes: Gemini Omni 1.2 Flash in Google Flow (EP07), Classics + Live AI Arena (EP06), 3 Giants Tournament (EP05), Claude 5.5 Ladder (EP04), and more."}
                     </p>
                   </div>
                 </div>
                 <div className="px-4 py-2.5 bg-[#090B10] border-t border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
                   <span className="text-[#10B981] font-bold">
-                    {lang === "es" ? "Abrir Dossiers →" : "Open Dossiers →"}
+                    {lang === "es" ? "Abrir Laboratorio EP07 →" : "Open EP07 Lab →"}
                   </span>
                   <PixelIcon name="cartridge" size={14} color="#10B981" />
                 </div>
@@ -2727,6 +3182,16 @@ export default function PortalClient({
             navigateToView={navigateToView}
             handleJumpToArena={handleJumpToArena}
             playSfx={playSfx}
+            ep10ChallengeN={ep10ChallengeN}
+            setEp10ChallengeN={setEp10ChallengeN}
+            ep09ChallengeN={ep09ChallengeN}
+            setEp09ChallengeN={setEp09ChallengeN}
+            ep08ChallengeN={ep08ChallengeN}
+            setEp08ChallengeN={setEp08ChallengeN}
+            ep07ChallengeN={ep07ChallengeN}
+            setEp07ChallengeN={setEp07ChallengeN}
+            ep06ChallengeN={ep06ChallengeN}
+            setEp06ChallengeN={setEp06ChallengeN}
             ep05ChallengeN={ep05ChallengeN}
             setEp05ChallengeN={setEp05ChallengeN}
             ep04ChallengeN={ep04ChallengeN}
@@ -3466,6 +3931,81 @@ m.p.pos[m.axis] = m.base + offset;`}
                 aria-labelledby="arena-mode-label"
                 className="flex flex-wrap items-center gap-2 font-mono-hud text-xs"
               >
+                {released.ep10 && (
+                  <button
+                    onClick={() => setArenaMode("ep10")}
+                    aria-pressed={arenaMode === "ep10"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep10"
+                        ? "bg-[#FFD100] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP10: Carbon vs Fable 5.2 (16)"
+                      : "EP10: Carbon vs Fable 5.2 (16)"}
+                  </button>
+                )}
+                {released.ep09 && (
+                  <button
+                    onClick={() => setArenaMode("ep09")}
+                    aria-pressed={arenaMode === "ep09"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep09"
+                        ? "bg-[#FB923C] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP09: Fable 5.2 vs Opus (8)"
+                      : "EP09: Fable 5.2 vs Opus (8)"}
+                  </button>
+                )}
+                {released.ep08 && (
+                  <button
+                    onClick={() => setArenaMode("ep08")}
+                    aria-pressed={arenaMode === "ep08"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep08"
+                        ? "bg-[#38BDF8] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP08: Carbon vs Argon + Rescate (9)"
+                      : "EP08: Carbon vs Argon + Rescue (9)"}
+                  </button>
+                )}
+                {released.ep07 && (
+                  <button
+                    onClick={() => setArenaMode("ep07")}
+                    aria-pressed={arenaMode === "ep07"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep07"
+                        ? "bg-[#38BDF8] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP07: Omni 1.2 Flash vs 1.1 vs Veo 3.1 (12)"
+                      : "EP07: Omni 1.2 Flash vs 1.1 vs Veo 3.1 (12)"}
+                  </button>
+                )}
+                {released.ep06 && (
+                  <button
+                    onClick={() => setArenaMode("ep06")}
+                    aria-pressed={arenaMode === "ep06"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep06"
+                        ? "bg-[#00E5FF] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP06: Clasicos + Arena IA (20)"
+                      : "EP06: Classics + Live Arena (20)"}
+                  </button>
+                )}
                 {released.ep05 && (
                   <button
                     onClick={() => setArenaMode("ep05")}
@@ -3567,12 +4107,27 @@ m.p.pos[m.axis] = m.base + offset;`}
             </div>
           </div>
 
-          {(released.ep05 && arenaMode === "ep05") ||
+          {(released.ep10 && arenaMode === "ep10") ||
+          (released.ep09 && arenaMode === "ep09") ||
+          (released.ep08 && arenaMode === "ep08") ||
+          (released.ep07 && arenaMode === "ep07") ||
+          (released.ep06 && arenaMode === "ep06") ||
+          (released.ep05 && arenaMode === "ep05") ||
           (released.ep04 && arenaMode === "ep04") ||
           (released.ep03 && arenaMode === "ep03") ? (
             <ArenaLatest
               lang={lang}
               episode={arenaMode}
+              ep10ChallengeN={ep10ChallengeN}
+              setEp10ChallengeN={setEp10ChallengeN}
+              ep09ChallengeN={ep09ChallengeN}
+              setEp09ChallengeN={setEp09ChallengeN}
+              ep08ChallengeN={ep08ChallengeN}
+              setEp08ChallengeN={setEp08ChallengeN}
+              ep07ChallengeN={ep07ChallengeN}
+              setEp07ChallengeN={setEp07ChallengeN}
+              ep06ChallengeN={ep06ChallengeN}
+              setEp06ChallengeN={setEp06ChallengeN}
               ep05ChallengeN={ep05ChallengeN}
               setEp05ChallengeN={setEp05ChallengeN}
               ep04ChallengeN={ep04ChallengeN}

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena en Vivo R03 · Urgencias Hospital IA · Gemini 4 Carbon vs Claude Fable 5.2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #050811; color: #F8FAFC;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .arena-shell {
+    width: 1920px; height: 1080px;
+    display: grid;
+    grid-template-rows: 94px 1fr;
+    background: radial-gradient(circle at 50% 0%, #0F172A 0%, #050811 70%);
+  }
+  .top-hud {
+    display: grid;
+    grid-template-columns: 1fr 440px 1fr;
+    align-items: center;
+    padding: 0 22px;
+    border-bottom: 2px solid rgba(148, 163, 184, 0.18);
+    background: rgba(9, 14, 26, 0.94);
+    gap: 18px;
+  }
+  .team-strip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-radius: 12px;
+    background: rgba(15, 23, 42, 0.85);
+  }
+  .team-strip.carbon { border: 1.5px solid rgba(34, 211, 238, 0.55); box-shadow: 0 0 24px rgba(34, 211, 238, 0.12); }
+  .team-strip.fable  { border: 1.5px solid rgba(251, 146, 60, 0.55); box-shadow: 0 0 24px rgba(251, 146, 60, 0.12); }
+  .t-name { font-size: 18px; font-weight: 900; letter-spacing: 0.06em; }
+  .carbon .t-name { color: #22D3EE; }
+  .fable  .t-name { color: #FB923C; }
+  .t-sub { font-size: 11px; color: #94A3B8; font-weight: 600; letter-spacing: 0.05em; margin-top: 2px; }
+  .kpis { display: flex; gap: 16px; }
+  .kpi { text-align: center; min-width: 72px; }
+  .kpi b { display: block; font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .kpi span { font-size: 10px; color: #94A3B8; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .ok { color: #10B981; }
+  .warn { color: #FBBF24; }
+  .bad { color: #F43F5E; }
+  .cyan { color: #22D3EE; }
+  .center-vs {
+    text-align: center;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(251, 191, 36, 0.45);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.92));
+  }
+  .center-vs .kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: #FBBF24; }
+  .center-vs .headline { font-size: 16px; font-weight: 900; margin: 3px 0; color: #F8FAFC; }
+  .center-vs .leader { font-size: 12px; font-weight: 800; color: #10B981; font-variant-numeric: tabular-nums; }
+  .wings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px;
+    width: 1920px;
+    height: 986px;
+  }
+  .wing-box {
+    position: relative;
+    width: 948px;
+    height: 970px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #060A12;
+  }
+  .wing-box.carbon { border: 2px solid rgba(34, 211, 238, 0.45); }
+  .wing-box.fable  { border: 2px solid rgba(251, 146, 60, 0.45); }
+  /* Scale 1920x1080 inner hospital cleanly to fill each half-screen */
+  .wing-box iframe {
+    width: 1920px;
+    height: 1080px;
+    border: 0;
+    transform: scale(0.49375, 0.8981);
+    transform-origin: 0 0;
+    pointer-events: auto;
+  }
+</style>
+</head>
+<body>
+<div class="arena-shell">
+  <header class="top-hud">
+    <div class="team-strip carbon">
+      <div>
+        <div class="t-name">GEMINI 4 CARBON</div>
+        <div class="t-sub">HOSPITAL GANADOR FASE A · VELOCIDAD 4X</div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><b class="ok" id="cSaved">0</b><span>Salvadas</span></div>
+        <div class="kpi"><b class="cyan" id="cCrit">0</b><span>Criticos</span></div>
+        <div class="kpi"><b class="warn" id="cWait">0.0s</b><span>Esp. Roja</span></div>
+        <div class="kpi"><b class="bad" id="cDead">0</b><span>Muertes</span></div>
+        <div class="kpi"><b id="cReloc">0</b><span>Preemp.</span></div>
+      </div>
+    </div>
+
+    <div class="center-vs">
+      <div class="kicker">FASE B · MISMO FLUJO DE AMBULANCIAS (SEED 20261103)</div>
+      <div class="headline">DUELO TRIAJE EN HOSPITAL DE CARBON</div>
+      <div class="leader" id="leaderTxt">SINCRONIZANDO ALAS GEMELAS...</div>
+    </div>
+
+    <div class="team-strip fable">
+      <div class="kpis">
+        <div class="kpi"><b class="ok" id="fSaved">0</b><span>Salvadas</span></div>
+        <div class="kpi"><b class="cyan" id="fCrit">0</b><span>Criticos</span></div>
+        <div class="kpi"><b class="warn" id="fWait">0.0s</b><span>Esp. Roja</span></div>
+        <div class="kpi"><b class="bad" id="fDead">0</b><span>Muertes</span></div>
+        <div class="kpi"><b id="fReloc">0</b><span>Preemp.</span></div>
+      </div>
+      <div style="text-align:right">
+        <div class="t-name">CLAUDE FABLE 5.2</div>
+        <div class="t-sub">MISMO HOSPITAL · CEREBRO FABLE 5.2</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wings">
+    <div class="wing-box carbon"><iframe id="ifCarbon" src="./wing_carbon.html"></iframe></div>
+    <div class="wing-box fable"><iframe id="ifFable" src="./wing_fable.html"></iframe></div>
+  </main>
+</div>
+
+<script>
+(function() {
+  var ifC = document.getElementById('ifCarbon');
+  var ifF = document.getElementById('ifFable');
+
+  function scoreHospital(m) {
+    if (!m) return 0;
+    return (m.livesSaved * 100) + (m.criticalRescued * 35) - (m.avoidableDeaths * 250) - (m.criticalWaitAvgSec * 8);
+  }
+
+  window.__ARENA_SUMMARY__ = function() {
+    var wC = ifC.contentWindow, wF = ifF.contentWindow;
+    var mC = (wC && wC.__WING_METRICS__) ? wC.__WING_METRICS__() : null;
+    var mF = (wF && wF.__WING_METRICS__) ? wF.__WING_METRICS__() : null;
+    var sC = scoreHospital(mC), sF = scoreHospital(mF);
+    var winner = sC > sF ? 'GEMINI 4 CARBON' : (sF > sC ? 'CLAUDE FABLE 5.2' : 'EMPATE');
+    var logC = (wC && wC.__ARENA_LOG__) ? wC.__ARENA_LOG__ : [];
+    var logF = (wF && wF.__ARENA_LOG__) ? wF.__ARENA_LOG__ : [];
+    var merged = logC.concat(logF).sort(function(a, b) { return (a.t || 0) - (b.t || 0); });
+    return {
+      challenge: '03-urgencias-hospital-ia',
+      hostSimulatorWinnerFaseA: 'GEMINI 4 CARBON',
+      seed: 20261103,
+      winnerFaseB: winner,
+      scoreCarbon: Math.round(sC * 10) / 10,
+      scoreFable: Math.round(sF * 10) / 10,
+      carbon: mC,
+      fable: mF,
+      totalLoggedActions: merged.length,
+      sampleLogs: merged.slice(0, 40),
+      tailLogs: merged.slice(-40),
+      fullLogs: merged
+    };
+  };
+
+  function syncTopHud() {
+    var sum = window.__ARENA_SUMMARY__();
+    if (sum.carbon) {
+      document.getElementById('cSaved').textContent = sum.carbon.livesSaved;
+      document.getElementById('cCrit').textContent = sum.carbon.criticalRescued;
+      document.getElementById('cWait').textContent = sum.carbon.criticalWaitAvgSec.toFixed(2) + 's';
+      document.getElementById('cDead').textContent = sum.carbon.avoidableDeaths;
+      document.getElementById('cReloc').textContent = sum.carbon.relocationsCount;
+    }
+    if (sum.fable) {
+      document.getElementById('fSaved').textContent = sum.fable.livesSaved;
+      document.getElementById('fCrit').textContent = sum.fable.criticalRescued;
+      document.getElementById('fWait').textContent = sum.fable.criticalWaitAvgSec.toFixed(2) + 's';
+      document.getElementById('fDead').textContent = sum.fable.avoidableDeaths;
+      document.getElementById('fReloc').textContent = sum.fable.relocationsCount;
+    }
+    if (sum.carbon && sum.fable) {
+      var ldr = document.getElementById('leaderTxt');
+      ldr.textContent = 'T=' + sum.carbon.simTimeSec.toFixed(0) + 's · LIDER: ' + sum.winnerFaseB +
+        ' (' + sum.carbon.livesSaved + ' vs ' + sum.fable.livesSaved + ' SALVADAS | ' +
+        sum.carbon.avoidableDeaths + ' vs ' + sum.fable.avoidableDeaths + ' MUERTES)';
+      ldr.style.color = sum.winnerFaseB === 'GEMINI 4 CARBON' ? '#22D3EE' : '#FB923C';
+    }
+    requestAnimationFrame(syncTopHud);
+  }
+  requestAnimationFrame(syncTopHud);
+})();
+</script>
+</body>
+</html>

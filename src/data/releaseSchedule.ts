@@ -1,12 +1,25 @@
 /**
- * Calendario Oficial de Lanzamiento Omnicanal — Mixiuh Labs (Octubre 2026)
+ * Calendario Oficial de Lanzamiento Omnicanal — Mixiuh Labs (Octubre – Noviembre 2026)
  *
  * Todo contenido, video, demo interactiva, dossier forense, noticia y prompt se mantiene
  * oculto en la web publica (sin spoilers) hasta que se cumpla su fecha y hora
  * exacta de publicacion en redes sociales (YouTube / Instagram / TikTok / X).
  */
 
-export type ReleaseKey = "ep01" | "ep02" | "cc01" | "ep03" | "ep04" | "carbon01" | "cc02" | "ep05";
+export type ReleaseKey =
+  | "ep01"
+  | "ep02"
+  | "cc01"
+  | "ep03"
+  | "ep04"
+  | "carbon01"
+  | "cc02"
+  | "ep05"
+  | "ep06"
+  | "ep07"
+  | "ep08"
+  | "ep09"
+  | "ep10";
 
 export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   // EP01: Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos) — Publicado Vie 16 Oct 2026 11:00 CST
@@ -25,6 +38,16 @@ export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   cc02: "2026-10-31T00:00:00-06:00",
   // EP05: El Torneo de los 3 Gigantes (6 Retos 3D + Ronda de Rescate: Argon High vs Opus 5.5 High vs GPT-6 Astra High)
   ep05: "2026-10-31T00:00:00-06:00",
+  // EP06: Clasicos Mundiales + Arena de Supervivencia en Vivo (5 Clasicos = 15 Clones + 5 Arenas en Vivo = 20 Juegos)
+  ep06: "2026-11-07T12:00:00-06:00",
+  // EP07: Especial Gemini Omni 1.2 Flash vs Omni 1.1 Flash vs Veo 3.1 Quality (12 Videos Reales en Google Flow · 4 Pruebas) — Mie 11 y Jue 12 Nov 2026
+  ep07: "2026-11-11T10:00:00-06:00",
+  // EP08: Gemini 4 Carbon GA en Vivo vs Gemini 4 Argon (4 Retos + Ronda de Recuperacion P03) — Vie 13 al Dom 15 Nov 2026
+  ep08: "2026-11-13T12:00:00-06:00",
+  // EP09: Claude Fable 5.2 en Vivo vs Claude Opus 5.5 (4 Retos Zero-Shot) — Lun 16 al Mie 18 Nov 2026
+  ep09: "2026-11-16T12:00:00-06:00",
+  // EP10: Gran Final Frontera Gemini 4 Carbon ($2/$10) vs Claude Fable 5.2 ($8/$40) (12 Apps + 4 Arenas IA en Vivo) — Jue 19 al Sab 21 Nov 2026
+  ep10: "2026-11-19T12:00:00-06:00",
 };
 
 export interface ReleasedState {
@@ -36,6 +59,11 @@ export interface ReleasedState {
   carbon01: boolean;
   cc02: boolean;
   ep05: boolean;
+  ep06: boolean;
+  ep07: boolean;
+  ep08: boolean;
+  ep09: boolean;
+  ep10: boolean;
 }
 
 export function isContentReleased(
@@ -61,6 +89,11 @@ export function getReleasedStatus(
     carbon01: isContentReleased("carbon01", now, previewAll),
     cc02: isContentReleased("cc02", now, previewAll),
     ep05: isContentReleased("ep05", now, previewAll),
+    ep06: isContentReleased("ep06", now, previewAll),
+    ep07: isContentReleased("ep07", now, previewAll),
+    ep08: isContentReleased("ep08", now, previewAll),
+    ep09: isContentReleased("ep09", now, previewAll),
+    ep10: isContentReleased("ep10", now, previewAll),
   };
 }
 
@@ -70,5 +103,5 @@ export function getReleasedStatus(
  * the live clock after mount.
  */
 export const BUILD_TIME = new Date(
-  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-10-31T00:00:00-06:00"
+  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-11-11T14:30:00-06:00"
 );

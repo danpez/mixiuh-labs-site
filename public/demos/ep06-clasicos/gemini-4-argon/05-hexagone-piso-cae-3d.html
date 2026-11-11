@@ -1,0 +1,2414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HEX-A-GONE 3D — Gran Final de Supervivencia | Mixiuh Labs</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --bg-sky-top: #0ea5e9;
+      --bg-sky-mid: #38bdf8;
+      --bg-sky-horizon: #fde047;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(255, 255, 255, 0.22);
+      --gold: #facc15;
+      --pink: #f43f5e;
+      --cyan: #06b6d4;
+      --violet: #a855f7;
+      --orange: #f97316;
+      --green: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(180deg, #0284c7 0%, #38bdf8 48%, #f472b6 82%, #fde047 100%);
+      color: var(--text-main);
+    }
+
+    #game-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    /* HUD OVERLAY */
+    .hud-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 18px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 2px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: 0 10px 28px rgba(2, 6, 23, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      pointer-events: auto;
+    }
+
+    /* BRAND & ROUND STATUS */
+    .brand-card {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 310px;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .title-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hex-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #facc15 0%, #f43f5e 55%, #06b6d4 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(244, 63, 94, 0.45);
+      flex-shrink: 0;
+    }
+
+    .hex-logo svg {
+      width: 22px;
+      height: 22px;
+      fill: #0f172a;
+    }
+
+    .title-main {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+      line-height: 1.05;
+    }
+
+    .title-sub {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fde047;
+    }
+
+    .perf-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill {
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #f8fafc;
+    }
+
+    .pill.fps {
+      color: #4ade80;
+      border-color: rgba(74, 222, 128, 0.4);
+      background: rgba(22, 101, 52, 0.45);
+    }
+
+    .pill.round {
+      color: #fde047;
+      border-color: rgba(250, 204, 21, 0.45);
+      background: rgba(161, 98, 7, 0.45);
+    }
+
+    .status-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .ai-brain-indicator {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #38bdf8;
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #22d3ee;
+      box-shadow: 0 0 10px #22d3ee;
+      animation: pulseGlow 1.1s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.65; }
+    }
+
+    /* FLOORS TELEMETRY CARD */
+    .floors-card {
+      padding: 12px 16px;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .card-kicker {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .floor-row {
+      display: grid;
+      grid-template-columns: 104px 1fr 56px;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .floor-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .hex-dot {
+      width: 11px;
+      height: 11px;
+      clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%);
+      flex-shrink: 0;
+    }
+
+    .bar-track {
+      height: 9px;
+      background: rgba(15, 23, 42, 0.75);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.15s ease-out;
+    }
+
+    .floor-count {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+    }
+
+    /* CENTER VICTORY / EVENT BANNER */
+    .center-banner {
+      align-self: center;
+      padding: 12px 26px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
+      border: 2px solid #facc15;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(250, 204, 21, 0.45);
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #fde047;
+      opacity: 0;
+      transform: translateY(-12px) scale(0.95);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      pointer-events: none;
+      text-align: center;
+    }
+
+    .center-banner.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* BOTTOM HUD: RUNNERS + CAMERA CONTROLS */
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .runners-card {
+      padding: 11px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-width: 420px;
+      max-width: 100%;
+    }
+
+    .runners-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(195px, 1fr));
+      gap: 8px;
+    }
+
+    .runner-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 11px;
+      background: rgba(30, 41, 59, 0.72);
+      border: 1.5px solid rgba(255, 255, 255, 0.14);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .runner-item.active-leader {
+      border-color: #facc15;
+      background: rgba(66, 32, 6, 0.48);
+    }
+
+    .runner-item.eliminated {
+      opacity: 0.52;
+      filter: grayscale(0.45);
+    }
+
+    .runner-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .bean-avatar {
+      width: 24px;
+      height: 28px;
+      border-radius: 12px 12px 10px 10px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #ffffff;
+      flex-shrink: 0;
+    }
+
+    .bean-visor {
+      width: 14px;
+      height: 9px;
+      background: #ffffff;
+      border-radius: 6px;
+      margin-top: -3px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 2px;
+    }
+
+    .bean-eye {
+      width: 3px;
+      height: 5px;
+      background: #0f172a;
+      border-radius: 2px;
+    }
+
+    .runner-meta {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .runner-name {
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .runner-tactic {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .runner-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .floor-badge {
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #0f172a;
+    }
+
+    .crown-count {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 900;
+      color: #fde047;
+    }
+
+    .crown-svg {
+      width: 13px;
+      height: 13px;
+      fill: #facc15;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+    }
+
+    /* CONTROLS BAR */
+    .controls-card {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .hud-btn {
+      appearance: none;
+      border: 1.5px solid rgba(255, 255, 255, 0.24);
+      background: rgba(30, 41, 59, 0.85);
+      color: #f8fafc;
+      padding: 8px 13px;
+      border-radius: 10px;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.14s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(51, 65, 85, 0.95);
+      border-color: rgba(255, 255, 255, 0.48);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn:active {
+      transform: translateY(0);
+    }
+
+    .hud-btn.active {
+      background: linear-gradient(135deg, #06b6d4, #0284c7);
+      border-color: #67e8f9;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.45);
+    }
+
+    .hud-btn.reset-btn {
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      border-color: #fda4af;
+    }
+
+    .hud-btn.reset-btn:hover {
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.55);
+    }
+
+    .controls-hint {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #cbd5e1;
+      text-align: right;
+      letter-spacing: 0.03em;
+    }
+
+    .controls-hint kbd {
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      font-family: inherit;
+      color: #fde047;
+    }
+
+    @media (max-width: 900px) {
+      .runners-card {
+        min-width: 280px;
+      }
+      .runners-grid {
+        grid-template-columns: 1fr;
+      }
+      .brand-card, .floors-card {
+        min-width: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div class="hud-layer">
+    <!-- TOP BAR -->
+    <div class="hud-top">
+      <div class="glass-card brand-card">
+        <div class="brand-header">
+          <div class="title-badge">
+            <div class="hex-logo" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" />
+              </svg>
+            </div>
+            <div>
+              <div class="title-main">HEX-A-GONE 3D</div>
+              <div class="title-sub">GRAN FINAL · EL PISO SE CAE (0.65S)</div>
+            </div>
+          </div>
+          <div class="perf-pills">
+            <span class="pill round" id="round-pill">ASALTO #1</span>
+            <span class="pill fps" id="fps-pill">60 FPS</span>
+          </div>
+        </div>
+        <div class="status-strip">
+          <div class="ai-brain-indicator">
+            <span class="pulse-dot"></span>
+            <span id="brain-mode-label">PILOTO IA ACTIVO: CORTE + SLOW-JUMP</span>
+          </div>
+          <span id="timer-label" style="color:#fde047; font-variant-numeric: tabular-nums;">00:00.0</span>
+        </div>
+      </div>
+
+      <div class="glass-card floors-card">
+        <div class="card-kicker">
+          <span>HEXAGONOS RESTANTES POR PISO</span>
+          <span id="total-hex-label" style="color:#38bdf8;">228 / 228</span>
+        </div>
+        <div class="floor-row">
+          <div class="floor-label" style="color:#fde047;">
+            <span class="hex-dot" style="background:#facc15;"></span>
+            <span>PISO 3 · ORO</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-floor-2" style="width:100%; background:linear-gradient(90deg,#facc15,#f97316);"></div>
+          </div>
+          <div class="floor-count" id="count-floor-2">61/61</div>
+        </div>
+        <div class="floor-row">
+          <div class="floor-label" style="color:#fb7185;">
+            <span class="hex-dot" style="background:#f43f5e;"></span>
+            <span>PISO 2 · ROSA</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-floor-1" style="width:100%; background:linear-gradient(90deg,#f43f5e,#ec4899);"></div>
+          </div>
+          <div class="floor-count" id="count-floor-1">76/76</div>
+        </div>
+        <div class="floor-row">
+          <div class="floor-label" style="color:#38bdf8;">
+            <span class="hex-dot" style="background:#06b6d4;"></span>
+            <span>PISO 1 · CIAN</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-floor-0" style="width:100%; background:linear-gradient(90deg,#06b6d4,#3b82f6);"></div>
+          </div>
+          <div class="floor-count" id="count-floor-0">91/91</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER EVENT BANNER -->
+    <div class="center-banner" id="center-banner">CORONA GANADA POR ARGON-01</div>
+
+    <!-- BOTTOM BAR -->
+    <div class="hud-bottom">
+      <div class="glass-card runners-card">
+        <div class="card-kicker">
+          <span>CORREDORES EN ARENA Y ALTURA ACTUAL</span>
+          <span style="color:#fde047;">CORONAS ACUMULADAS</span>
+        </div>
+        <div class="runners-grid" id="runners-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <div class="glass-card controls-card">
+        <div class="btn-group">
+          <button class="hud-btn active" id="btn-cam-tv" type="button">Vista Aerea TV</button>
+          <button class="hud-btn" id="btn-cam-leader" type="button">Seguir Lider</button>
+          <button class="hud-btn" id="btn-cam-side" type="button">Vista 3 Pisos</button>
+          <button class="hud-btn active" id="btn-pilot-toggle" type="button">Piloto IA: ON</button>
+          <button class="hud-btn" id="btn-audio-toggle" type="button">Audio: ON</button>
+          <button class="hud-btn reset-btn" id="btn-reset-floors" type="button">Reiniciar los 3 Pisos</button>
+        </div>
+        <div class="controls-hint">
+          Control manual al tocar <kbd>WASD</kbd> o <kbd>Flechas</kbd> + <kbd>Espacio</kbd> Saltar · Clic en camara para rotar
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // 1. PROCEDURAL WEB AUDIO SYNTHESIZER (Arcade SFX without external assets)
+      // =========================================================================
+      const SoundFX = {
+        ctx: null,
+        enabled: true,
+        lastStepSoundTime: 0,
+        init() {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+              this.ctx = new AudioCtx();
+            }
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        },
+        playTileTrigger(floorIndex) {
+          if (!this.enabled) return;
+          const now = performance.now();
+          if (now - this.lastStepSoundTime < 48) return;
+          this.lastStepSoundTime = now;
+          this.init();
+          if (!this.ctx) return;
+
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const baseFreqs = [340, 440, 560];
+          const freq = (baseFreqs[floorIndex] || 440) * (0.97 + Math.random() * 0.06);
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.35, t + 0.09);
+
+          gain.gain.setValueAtTime(0.055, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.11);
+        },
+        playJump(isPlayer) {
+          if (!this.enabled) return;
+          this.init();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          const startF = isPlayer ? 290 : 240;
+          osc.frequency.setValueAtTime(startF, t);
+          osc.frequency.exponentialRampToValueAtTime(startF * 1.85, t + 0.14);
+
+          gain.gain.setValueAtTime(isPlayer ? 0.065 : 0.025, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.15);
+        },
+        playSplash() {
+          if (!this.enabled) return;
+          this.init();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(210, t);
+          osc.frequency.exponentialRampToValueAtTime(55, t + 0.32);
+
+          gain.gain.setValueAtTime(0.09, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.34);
+        },
+        playCrownFanfare() {
+          if (!this.enabled) return;
+          this.init();
+          if (!this.ctx) return;
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((f, idx) => {
+            const t = this.ctx.currentTime + idx * 0.09;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(f, t);
+            gain.gain.setValueAtTime(0.08, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.29);
+          });
+        }
+      };
+
+      // =========================================================================
+      // 2. ARENA CONFIGURATION & CONSTANTS
+      // =========================================================================
+      const HEX_RADIUS = 1.68;          // Visual outer radius of each hexagon tile
+      const HEX_GRID_SPACING = 1.80;    // Center-to-center spacing factor
+      const HEX_HEIGHT = 0.62;          // Tile thickness
+      const TRIGGER_SHAKE_TIME = 0.65;  // Exact 0.65s shake before falling!
+      const SLIME_Y = -11.5;
+
+      const FLOOR_CONFIGS = [
+        {
+          index: 0,
+          name: 'PISO 1',
+          label: 'PISO 1 · CIAN',
+          y: 0.0,
+          gridRadius: 5, // 91 hex tiles
+          maxRingFilter: 99,
+          topColor: 0x06b6d4,
+          rimColor: 0x0284c7,
+          emissiveColor: 0x0891b2,
+          badgeBg: '#22d3ee'
+        },
+        {
+          index: 1,
+          name: 'PISO 2',
+          label: 'PISO 2 · ROSA',
+          y: 11.5,
+          gridRadius: 5, // Filtered to 76 hex tiles
+          maxRingFilter: 76,
+          topColor: 0xf43f5e,
+          rimColor: 0xbe123c,
+          emissiveColor: 0xe11d48,
+          badgeBg: '#fb7185'
+        },
+        {
+          index: 2,
+          name: 'PISO 3',
+          label: 'PISO 3 · ORO',
+          y: 23.0,
+          gridRadius: 4, // 61 hex tiles
+          maxRingFilter: 61,
+          topColor: 0xfacc15,
+          rimColor: 0xd97706,
+          emissiveColor: 0xeab308,
+          badgeBg: '#fde047'
+        }
+      ];
+
+      const RUNNER_SPECS = [
+        {
+          id: 'argon',
+          name: 'ARGON-01',
+          colorHex: 0x06b6d4,
+          cssColor: '#06b6d4',
+          bellyHex: 0x67e8f9,
+          crownColor: 0xfacc15,
+          isMainPlayer: true,
+          style: 'ISLAND-SOLVER',
+          spawnQ: -2,
+          spawnR: 0
+        },
+        {
+          id: 'titan',
+          name: 'TITAN-02',
+          colorHex: 0xa855f7,
+          cssColor: '#a855f7',
+          bellyHex: 0xd8b4fe,
+          crownColor: 0x38bdf8,
+          isMainPlayer: false,
+          style: 'CUTOFF-HUNTER',
+          spawnQ: 2,
+          spawnR: 0
+        },
+        {
+          id: 'blaze',
+          name: 'BLAZE-03',
+          colorHex: 0xf97316,
+          cssColor: '#f97316',
+          bellyHex: 0xfdba74,
+          crownColor: 0xf43f5e,
+          isMainPlayer: false,
+          style: 'SLOW-JUMPER',
+          spawnQ: 0,
+          spawnR: -2
+        },
+        {
+          id: 'venom',
+          name: 'VENOM-04',
+          colorHex: 0x10b981,
+          cssColor: '#10b981',
+          bellyHex: 0x6ee7b7,
+          crownColor: 0xfde047,
+          isMainPlayer: false,
+          style: 'PERIMETER-PRO',
+          spawnQ: 0,
+          spawnR: 2
+        }
+      ];
+
+      // =========================================================================
+      // 3. EXPORTED TACTICAL BRAIN (window.MIXIUH_BRAIN)
+      // =========================================================================
+      const HEX_DIRS = [
+        { dq: 1, dr: 0 },
+        { dq: 1, dr: -1 },
+        { dq: 0, dr: -1 },
+        { dq: -1, dr: 0 },
+        { dq: -1, dr: 1 },
+        { dq: 0, dr: 1 }
+      ];
+
+      window.MIXIUH_BRAIN = {
+        name: 'Argon-HexaGone-IslandSolver-v4',
+        /**
+         * Evaluates connected hex islands, rival proximity, path-cutting opportunities,
+         * and slow-jump conservation timing.
+         */
+        decide(state) {
+          const { runner, floorTiles, allRunners, lowerFloorTiles } = state;
+          if (!runner || runner.eliminated) {
+            return { moveX: 0, moveZ: 0, jump: false, tactic: 'ELIMINADO' };
+          }
+
+          // Usable tiles on current floor (INTACT or recently TRIGGERED with enough time left)
+          const walkables = [];
+          const tileMap = new Map();
+          for (let i = 0; i < floorTiles.length; i++) {
+            const t = floorTiles[i];
+            if (t.state === 'INTACT' || (t.state === 'TRIGGERED' && t.timer < 0.26)) {
+              walkables.push(t);
+              tileMap.set(t.key, t);
+            }
+          }
+
+          // If current floor has no usable tiles near us, steer over best cluster on lower floor
+          if (walkables.length === 0) {
+            if (lowerFloorTiles && lowerFloorTiles.length > 0) {
+              let bestLower = null;
+              let bestScore = -Infinity;
+              for (let i = 0; i < lowerFloorTiles.length; i++) {
+                const lt = lowerFloorTiles[i];
+                if (lt.state !== 'INTACT') continue;
+                const d = Math.hypot(lt.x - runner.x, lt.z - runner.z);
+                const s = lt.neighborCount * 3.5 - d * 0.45;
+                if (s > bestScore) {
+                  bestScore = s;
+                  bestLower = lt;
+                }
+              }
+              if (bestLower) {
+                const dx = bestLower.x - runner.x;
+                const dz = bestLower.z - runner.z;
+                const len = Math.hypot(dx, dz) || 1;
+                return { moveX: dx / len, moveZ: dz / len, jump: false, tactic: 'CAIDA CONTROLADA' };
+              }
+            }
+            return { moveX: 0, moveZ: 0, jump: false, tactic: 'CAIDA LIBRE' };
+          }
+
+          // Find current tile under runner (or nearest tile)
+          let currentTile = runner.currentTile;
+          if (!currentTile || currentTile.floorIndex !== runner.floorIndex) {
+            let minD = Infinity;
+            for (let i = 0; i < floorTiles.length; i++) {
+              const t = floorTiles[i];
+              if (t.state === 'FALLING' || t.state === 'GONE') continue;
+              const d = Math.hypot(t.x - runner.x, t.z - runner.z);
+              if (d < minD) {
+                minD = d;
+                currentTile = t;
+              }
+            }
+          }
+
+          // Gather reachable candidates within 1-step walk or 2-step jump
+          const candidates = [];
+          const maxJumpWorldDist = HEX_RADIUS * 4.15;
+          const adjWorldDist = HEX_RADIUS * 2.25;
+
+          for (let i = 0; i < walkables.length; i++) {
+            const t = walkables[i];
+            if (currentTile && t.id === currentTile.id) continue;
+            const dist = Math.hypot(t.x - runner.x, t.z - runner.z);
+            if (dist <= maxJumpWorldDist) {
+              candidates.push({ tile: t, dist });
+            }
+          }
+
+          // Check rivals on same floor
+          const sameFloorRivals = [];
+          let nearestRivalDist = Infinity;
+          let nearestRival = null;
+          for (let i = 0; i < allRunners.length; i++) {
+            const other = allRunners[i];
+            if (other.id === runner.id || other.eliminated) continue;
+            if (other.floorIndex === runner.floorIndex) {
+              sameFloorRivals.push(other);
+              const rd = Math.hypot(other.x - runner.x, other.z - runner.z);
+              if (rd < nearestRivalDist) {
+                nearestRivalDist = rd;
+                nearestRival = other;
+              }
+            }
+          }
+
+          // Flood-fill island size (BFS up to 28 nodes) for a candidate tile
+          function evaluateIslandAndDegree(startTile) {
+            const visited = new Set([startTile.key]);
+            const queue = [startTile];
+            let adjDegree = 0;
+            let jumpDegree = 0;
+
+            while (queue.length > 0 && visited.size < 28) {
+              const curr = queue.shift();
+              for (let d = 0; d < 6; d++) {
+                const nKey = (curr.q + HEX_DIRS[d].dq) + ',' + (curr.r + HEX_DIRS[d].dr);
+                const nTile = tileMap.get(nKey);
+                if (nTile) {
+                  if (curr === startTile) adjDegree++;
+                  if (!visited.has(nKey)) {
+                    visited.add(nKey);
+                    queue.push(nTile);
+                  }
+                } else if (curr === startTile) {
+                  // Check 2-step jump neighbor in that direction
+                  const jKey = (curr.q + HEX_DIRS[d].dq * 2) + ',' + (curr.r + HEX_DIRS[d].dr * 2);
+                  if (tileMap.has(jKey)) jumpDegree++;
+                }
+              }
+            }
+            return { islandSize: visited.size, adjDegree, jumpDegree };
+          }
+
+          // Determine if we are alone on our local cluster or contesting rivals
+          const inCutoffRange = nearestRival && nearestRivalDist < HEX_RADIUS * 7.2;
+
+          let bestCandidate = null;
+          let bestScore = -Infinity;
+          let chosenTactic = inCutoffRange ? 'CORTE DE CAMINO' : 'SLOW-JUMP ISLA';
+
+          for (let i = 0; i < candidates.length; i++) {
+            const cand = candidates[i];
+            const t = cand.tile;
+            const stats = evaluateIslandAndDegree(t);
+            const isGapJump = cand.dist > adjWorldDist;
+
+            // Base score: strongly prefer larger connected islands so we never trap ourselves
+            let score = stats.islandSize * 8.5;
+
+            // Fresh intact tiles are strongly preferred over already triggered tiles
+            if (t.state === 'INTACT') {
+              score += 22.0;
+            } else {
+              score -= 35.0;
+            }
+
+            if (inCutoffRange && nearestRival) {
+              // PATH-CUTTING MODE:
+              // Move toward tiles that sit right in front of the rival's trajectory
+              // while still maintaining a larger island for ourselves
+              const rivalNextX = nearestRival.x + nearestRival.vx * 0.35;
+              const rivalNextZ = nearestRival.z + nearestRival.vz * 0.35;
+              const distToRivalPath = Math.hypot(t.x - rivalNextX, t.z - rivalNextZ);
+
+              if (runner.style === 'CUTOFF-HUNTER' || stats.islandSize >= 7) {
+                score += Math.max(0, 14.0 - distToRivalPath * 1.45);
+              }
+              // Prefer adjacent tiles when sprinting to cut off
+              score -= cand.dist * 2.1;
+              score += stats.adjDegree * 2.4;
+            } else {
+              // SLOW-JUMP ISLAND CONSERVATION MODE:
+              // Carve the perimeter first (minimum positive degree > 0) so we don't split our island!
+              if (stats.adjDegree >= 1 && stats.adjDegree <= 3) {
+                score += (4 - stats.adjDegree) * 5.2;
+              } else if (stats.adjDegree === 0 && stats.jumpDegree > 0) {
+                score += 3.0;
+              }
+              // Prefer immediate neighbors over long gap jumps unless needed
+              if (!isGapJump) {
+                score += 11.0 - cand.dist * 1.6;
+              } else {
+                score -= cand.dist * 2.4;
+              }
+            }
+
+            // Slight center preference so runners don't needlessly dive off the outer rim
+            const radialDist = Math.hypot(t.x, t.z);
+            score -= radialDist * 0.18;
+
+            // Avoid crowding the exact same target tile another runner is already standing on
+            for (let r = 0; r < sameFloorRivals.length; r++) {
+              const rv = sameFloorRivals[r];
+              const dRiv = Math.hypot(t.x - rv.x, t.z - rv.z);
+              if (dRiv < HEX_RADIUS * 1.2) {
+                score -= 18.0;
+              }
+            }
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestCandidate = cand;
+            }
+          }
+
+          if (!bestCandidate) {
+            // No candidate within jump range: head toward largest remaining tile on floor
+            let fallbackTile = walkables[0];
+            let minD = Infinity;
+            for (let i = 0; i < walkables.length; i++) {
+              const d = Math.hypot(walkables[i].x - runner.x, walkables[i].z - runner.z);
+              if (d < minD) {
+                minD = d;
+                fallbackTile = walkables[i];
+              }
+            }
+            const dx = fallbackTile.x - runner.x;
+            const dz = fallbackTile.z - runner.z;
+            const len = Math.hypot(dx, dz) || 1;
+            return {
+              moveX: dx / len,
+              moveZ: dz / len,
+              jump: runner.onGround,
+              tactic: 'SALTO DE EMERGENCIA'
+            };
+          }
+
+          const target = bestCandidate.tile;
+          const dx = target.x - runner.x;
+          const dz = target.z - runner.z;
+          const distToTarget = Math.hypot(dx, dz);
+          const dirX = distToTarget > 0.001 ? dx / distToTarget : 0;
+          const dirZ = distToTarget > 0.001 ? dz / distToTarget : 0;
+          const isGap = distToTarget > adjWorldDist;
+
+          // SLOW-JUMP TIMING:
+          // If we are on a triggered tile and NOT cutting off an immediate rival,
+          // wait until the tile has shaken for ~0.38s before hopping to maximize survival time!
+          if (
+            !inCutoffRange &&
+            runner.onGround &&
+            currentTile &&
+            currentTile.state === 'TRIGGERED' &&
+            currentTile.timer < 0.38
+          ) {
+            // Stay near center of current tile while facing target, then hop at 0.38s
+            const cx = currentTile.x - runner.x;
+            const cz = currentTile.z - runner.z;
+            const cDist = Math.hypot(cx, cz);
+            return {
+              moveX: cDist > 0.28 ? cx / cDist : dirX * 0.25,
+              moveZ: cDist > 0.28 ? cz / cDist : dirZ * 0.25,
+              jump: false,
+              targetTile: target,
+              tactic: 'SLOW-JUMP ISLA'
+            };
+          }
+
+          const shouldJump =
+            runner.onGround &&
+            (isGap ||
+              (!inCutoffRange && currentTile && currentTile.state === 'TRIGGERED' && currentTile.timer >= 0.38) ||
+              (currentTile && currentTile.state === 'TRIGGERED' && currentTile.timer >= 0.46));
+
+          if (isGap) {
+            chosenTactic = 'SALTO DE BRECHA';
+          }
+
+          return {
+            moveX: dirX,
+            moveZ: dirZ,
+            jump: shouldJump,
+            targetTile: target,
+            tactic: chosenTactic
+          };
+        }
+      };
+
+      // =========================================================================
+      // 4. THREE.JS SCENE, BRIGHT DAYTIME SKY & STADIUM ENVIRONMENT
+      // =========================================================================
+      const canvas = document.getElementById('game-canvas');
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x7dd3fc, 0.0042);
+
+      const camera = new THREE.PerspectiveCamera(
+        48,
+        window.innerWidth / window.innerHeight,
+        0.5,
+        320
+      );
+      camera.position.set(0, 44, 48);
+
+      // Bright Daytime Arcade Lighting
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xf472b6, 0.92);
+      hemiLight.position.set(0, 65, 0);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.95);
+      dirLight.position.set(32, 64, 28);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 10;
+      dirLight.shadow.camera.far = 140;
+      const dCam = 34;
+      dirLight.shadow.camera.left = -dCam;
+      dirLight.shadow.camera.right = dCam;
+      dirLight.shadow.camera.top = dCam;
+      dirLight.shadow.camera.bottom = -dCam;
+      dirLight.shadow.bias = -0.0005;
+      scene.add(dirLight);
+
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.45);
+      rimLight.position.set(-35, 25, -30);
+      scene.add(rimLight);
+
+      // Bright Sky Dome Shader (Vibrant Cerulean Top -> Sunny Horizon -> Candy Pink Base)
+      const skyGeo = new THREE.SphereGeometry(210, 32, 24);
+      const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: {
+          topColor: { value: new THREE.Color(0x0284c7) },
+          midColor: { value: new THREE.Color(0x38bdf8) },
+          horizonColor: { value: new THREE.Color(0xfef08a) },
+          bottomColor: { value: new THREE.Color(0xf472b6) }
+        },
+        vertexShader: `
+          varying vec3 vWorldPosition;
+          void main() {
+            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 topColor;
+          uniform vec3 midColor;
+          uniform vec3 horizonColor;
+          uniform vec3 bottomColor;
+          varying vec3 vWorldPosition;
+          void main() {
+            float h = normalize(vWorldPosition).y;
+            vec3 col;
+            if (h > 0.25) {
+              col = mix(midColor, topColor, smoothstep(0.25, 0.85, h));
+            } else if (h > -0.08) {
+              col = mix(horizonColor, midColor, smoothstep(-0.08, 0.25, h));
+            } else {
+              col = mix(bottomColor, horizonColor, smoothstep(-0.55, -0.08, h));
+            }
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+      });
+      const skyDome = new THREE.Mesh(skyGeo, skyMat);
+      scene.add(skyDome);
+
+      // Slime Pool & Fall Guys Stadium Bowl at the bottom
+      const slimeGroup = new THREE.Group();
+      scene.add(slimeGroup);
+
+      const slimeGeo = new THREE.CylinderGeometry(58, 58, 2.5, 48, 1);
+      const slimeMat = new THREE.MeshStandardMaterial({
+        color: 0xff2a85,
+        emissive: 0x9d174d,
+        emissiveIntensity: 0.42,
+        roughness: 0.18,
+        metalness: 0.1
+      });
+      const slimeMesh = new THREE.Mesh(slimeGeo, slimeMat);
+      slimeMesh.position.y = SLIME_Y - 1.25;
+      slimeMesh.receiveShadow = true;
+      slimeGroup.add(slimeMesh);
+
+      // Concentric Slime Swirl Rings & Stadium Bumpers
+      const ringColors = [0xf472b6, 0x38bdf8, 0xfacc15, 0xa855f7];
+      const slimeRings = [];
+      for (let i = 0; i < 4; i++) {
+        const rGeo = new THREE.RingGeometry(12 + i * 11, 13.4 + i * 11, 48);
+        rGeo.rotateX(-Math.PI / 2);
+        const rMat = new THREE.MeshBasicMaterial({
+          color: ringColors[i],
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.55
+        });
+        const rMesh = new THREE.Mesh(rGeo, rMat);
+        rMesh.position.y = SLIME_Y + 0.06;
+        slimeGroup.add(rMesh);
+        slimeRings.push(rMesh);
+      }
+
+      // Outer Stadium Pillars & Floating Clouds for depth cues
+      const decorGroup = new THREE.Group();
+      scene.add(decorGroup);
+      const pillarGeo = new THREE.CylinderGeometry(1.1, 1.4, 52, 16);
+      const pillarColors = [0xfacc15, 0xf43f5e, 0x06b6d4, 0xa855f7, 0x10b981, 0xf97316];
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        const dist = 34;
+        const pMat = new THREE.MeshStandardMaterial({
+          color: pillarColors[i],
+          roughness: 0.3,
+          metalness: 0.15
+        });
+        const pillar = new THREE.Mesh(pillarGeo, pMat);
+        pillar.position.set(Math.cos(ang) * dist, 10, Math.sin(ang) * dist);
+        decorGroup.add(pillar);
+
+        // Glowing top orb on each stadium tower
+        const orb = new THREE.Mesh(
+          new THREE.SphereGeometry(2.0, 16, 16),
+          new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        orb.position.set(Math.cos(ang) * dist, 36.8, Math.sin(ang) * dist);
+        decorGroup.add(orb);
+      }
+
+      // Whimsical Floating Clouds around sky
+      const clouds = [];
+      const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      for (let i = 0; i < 14; i++) {
+        const cGroup = new THREE.Group();
+        const puffCount = 3 + (i % 3);
+        for (let p = 0; p < puffCount; p++) {
+          const puff = new THREE.Mesh(
+            new THREE.SphereGeometry(2.6 + (p % 2) * 1.1, 12, 12),
+            cloudMat
+          );
+          puff.position.set((p - 1) * 2.4, (p % 2) * 0.6, 0);
+          puff.scale.y = 0.68;
+          cGroup.add(puff);
+        }
+        const angle = (i / 14) * Math.PI * 2;
+        const radius = 52 + (i % 3) * 14;
+        cGroup.position.set(
+          Math.cos(angle) * radius,
+          8 + (i % 4) * 10,
+          Math.sin(angle) * radius
+        );
+        cGroup.rotation.y = -angle + Math.PI / 2;
+        decorGroup.add(cGroup);
+        clouds.push({ mesh: cGroup, angle, radius, speed: 0.03 + (i % 3) * 0.012, baseY: cGroup.position.y });
+      }
+
+      // =========================================================================
+      // 5. HEXAGONAL HONEYCOMB 3 FLOORS BUILDER
+      // =========================================================================
+      const tilesGroup = new THREE.Group();
+      scene.add(tilesGroup);
+
+      // Shared Hexagon Tile Geometry with beveled rim appearance
+      function createHexTileGeometry(radius, height) {
+        const shape = new THREE.Shape();
+        const sides = 6;
+        const innerR = radius * 0.88;
+        for (let i = 0; i < sides; i++) {
+          const angle = (i / sides) * Math.PI * 2 + Math.PI / 6;
+          const x = Math.cos(angle) * innerR;
+          const y = Math.sin(angle) * innerR;
+          if (i === 0) shape.moveTo(x, y);
+          else shape.lineTo(x, y);
+        }
+        shape.closePath();
+
+        const extrudeSettings = {
+          depth: height * 0.55,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          steps: 1,
+          bevelSize: radius * 0.09,
+          bevelThickness: height * 0.22
+        };
+        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geo.rotateX(Math.PI / 2);
+        geo.center();
+        return geo;
+      }
+
+      const sharedHexGeo = createHexTileGeometry(HEX_RADIUS * 0.94, HEX_HEIGHT);
+      const innerEmblemGeo = new THREE.CylinderGeometry(
+        HEX_RADIUS * 0.55,
+        HEX_RADIUS * 0.55,
+        0.05,
+        6
+      );
+
+      let allTiles = [];
+      let floorsData = [[], [], []];
+      let totalInitialHexCount = 0;
+
+      function axialToWorld(q, r) {
+        const x = HEX_GRID_SPACING * Math.sqrt(3) * (q + r / 2);
+        const z = HEX_GRID_SPACING * (3 / 2) * r;
+        return { x, z };
+      }
+
+      function buildAllFloors() {
+        // Clear existing meshes
+        while (tilesGroup.children.length > 0) {
+          const child = tilesGroup.children[0];
+          tilesGroup.remove(child);
+        }
+        allTiles = [];
+        floorsData = [[], [], []];
+        totalInitialHexCount = 0;
+
+        let globalId = 1;
+
+        FLOOR_CONFIGS.forEach((fCfg) => {
+          const R = fCfg.gridRadius;
+          const candidates = [];
+
+          for (let q = -R; q <= R; q++) {
+            const r1 = Math.max(-R, -q - R);
+            const r2 = Math.min(R, -q + R);
+            for (let r = r1; r <= r2; r++) {
+              const pos = axialToWorld(q, r);
+              const distSq = pos.x * pos.x + pos.z * pos.z;
+              candidates.push({ q, r, x: pos.x, z: pos.z, distSq });
+            }
+          }
+
+          // Sort by radial distance from center so if maxRingFilter trims outer corners, it stays symmetric
+          candidates.sort((a, b) => a.distSq - b.distSq);
+          const selected = candidates.slice(0, fCfg.maxRingFilter);
+          const keySet = new Set(selected.map((c) => c.q + ',' + c.r));
+
+          selected.forEach((cell) => {
+            const mat = new THREE.MeshStandardMaterial({
+              color: fCfg.topColor,
+              emissive: fCfg.emissiveColor,
+              emissiveIntensity: 0.14,
+              roughness: 0.25,
+              metalness: 0.12
+            });
+
+            const mesh = new THREE.Mesh(sharedHexGeo, mat);
+            mesh.position.set(cell.x, fCfg.y, cell.z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            // Inner lighter hexagon cap detail
+            const capMat = new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: 0.24
+            });
+            const cap = new THREE.Mesh(innerEmblemGeo, capMat);
+            cap.position.y = HEX_HEIGHT * 0.51;
+            mesh.add(cap);
+
+            tilesGroup.add(mesh);
+
+            // Count how many neighbors this tile has
+            let neighborCount = 0;
+            for (let d = 0; d < 6; d++) {
+              const nk = (cell.q + HEX_DIRS[d].dq) + ',' + (cell.r + HEX_DIRS[d].dr);
+              if (keySet.has(nk)) neighborCount++;
+            }
+
+            const tileObj = {
+              id: globalId++,
+              floorIndex: fCfg.index,
+              q: cell.q,
+              r: cell.r,
+              key: cell.q + ',' + cell.r,
+              x: cell.x,
+              z: cell.z,
+              baseY: fCfg.y,
+              neighborCount,
+              state: 'INTACT', // INTACT | TRIGGERED | FALLING | GONE
+              timer: 0,
+              vy: 0,
+              rotVelX: (Math.random() - 0.5) * 3.2,
+              rotVelZ: (Math.random() - 0.5) * 3.2,
+              mesh,
+              mat,
+              capMat,
+              baseColorHex: fCfg.topColor,
+              baseEmissiveHex: fCfg.emissiveColor
+            };
+
+            allTiles.push(tileObj);
+            floorsData[fCfg.index].push(tileObj);
+            totalInitialHexCount++;
+          });
+        });
+      }
+
+      // =========================================================================
+      // 6. PARTICLE & SHOCKWAVE RING SYSTEM
+      // =========================================================================
+      const fxGroup = new THREE.Group();
+      scene.add(fxGroup);
+      const activeRings = [];
+      const activeParticles = [];
+
+      const ringWaveGeo = new THREE.RingGeometry(HEX_RADIUS * 0.45, HEX_RADIUS * 0.85, 6);
+      ringWaveGeo.rotateX(-Math.PI / 2);
+      ringWaveGeo.rotateY(Math.PI / 6);
+
+      function spawnTileShockwave(x, y, z, colorHex) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9
+        });
+        const mesh = new THREE.Mesh(ringWaveGeo, mat);
+        mesh.position.set(x, y + HEX_HEIGHT * 0.55, z);
+        fxGroup.add(mesh);
+        activeRings.push({ mesh, mat, age: 0, maxAge: 0.42 });
+      }
+
+      const particleGeo = new THREE.SphereGeometry(0.22, 6, 6);
+      function spawnBurstParticles(x, y, z, colorHex, count, speedScale) {
+        for (let i = 0; i < count; i++) {
+          const mat = new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 1
+          });
+          const mesh = new THREE.Mesh(particleGeo, mat);
+          mesh.position.set(x, y, z);
+          const angle = Math.random() * Math.PI * 2;
+          const spd = (2.5 + Math.random() * 5.5) * (speedScale || 1);
+          const vx = Math.cos(angle) * spd;
+          const vz = Math.sin(angle) * spd;
+          const vy = (3.5 + Math.random() * 6.5) * (speedScale || 1);
+          fxGroup.add(mesh);
+          activeParticles.push({
+            mesh,
+            mat,
+            vx,
+            vy,
+            vz,
+            age: 0,
+            maxAge: 0.45 + Math.random() * 0.35
+          });
+        }
+      }
+
+      function updateFX(dt) {
+        for (let i = activeRings.length - 1; i >= 0; i--) {
+          const r = activeRings[i];
+          r.age += dt;
+          const p = r.age / r.maxAge;
+          if (p >= 1) {
+            fxGroup.remove(r.mesh);
+            r.mat.dispose();
+            activeRings.splice(i, 1);
+          } else {
+            const s = 1 + p * 0.75;
+            r.mesh.scale.set(s, 1, s);
+            r.mat.opacity = (1 - p) * 0.85;
+          }
+        }
+
+        for (let i = activeParticles.length - 1; i >= 0; i--) {
+          const pt = activeParticles[i];
+          pt.age += dt;
+          const p = pt.age / pt.maxAge;
+          if (p >= 1) {
+            fxGroup.remove(pt.mesh);
+            pt.mat.dispose();
+            activeParticles.splice(i, 1);
+          } else {
+            pt.vy -= 18 * dt;
+            pt.mesh.position.x += pt.vx * dt;
+            pt.mesh.position.y += pt.vy * dt;
+            pt.mesh.position.z += pt.vz * dt;
+            const s = 1 - p * 0.7;
+            pt.mesh.scale.setScalar(s);
+            pt.mat.opacity = 1 - p;
+          }
+        }
+      }
+
+      // =========================================================================
+      // 7. 3D BEAN RUNNERS (4 FALL GUYS CAPSULE CHARACTERS + CROWNS)
+      // =========================================================================
+      const runnersGroup = new THREE.Group();
+      scene.add(runnersGroup);
+      const runners = [];
+
+      function createBeanRunnerMesh(spec) {
+        const root = new THREE.Group();
+
+        // Chubby Bean Body (Cylinder + Top/Bottom Hemispheres)
+        const bodyGroup = new THREE.Group();
+        root.add(bodyGroup);
+
+        const skinMat = new THREE.MeshStandardMaterial({
+          color: spec.colorHex,
+          roughness: 0.28,
+          metalness: 0.08
+        });
+
+        const torso = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.58, 0.62, 0.78, 18),
+          skinMat
+        );
+        torso.position.y = 0.82;
+        torso.castShadow = true;
+        bodyGroup.add(torso);
+
+        const headCap = new THREE.Mesh(
+          new THREE.SphereGeometry(0.58, 18, 14),
+          skinMat
+        );
+        headCap.position.y = 1.21;
+        headCap.castShadow = true;
+        bodyGroup.add(headCap);
+
+        const hipCap = new THREE.Mesh(
+          new THREE.SphereGeometry(0.60, 18, 14),
+          skinMat
+        );
+        hipCap.position.y = 0.48;
+        hipCap.scale.y = 0.65;
+        bodyGroup.add(hipCap);
+
+        // White Faceplate Visor
+        const faceplateMat = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.2
+        });
+        const faceplate = new THREE.Mesh(
+          new THREE.SphereGeometry(0.44, 16, 12),
+          faceplateMat
+        );
+        faceplate.scale.set(0.95, 0.72, 0.45);
+        faceplate.position.set(0, 1.08, 0.44);
+        bodyGroup.add(faceplate);
+
+        // Eyes
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+        const eyeGeo = new THREE.SphereGeometry(0.075, 10, 10);
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.scale.set(0.85, 1.45, 0.6);
+        leftEye.position.set(-0.14, 1.10, 0.62);
+        bodyGroup.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.scale.set(0.85, 1.45, 0.6);
+        rightEye.position.set(0.14, 1.10, 0.62);
+        bodyGroup.add(rightEye);
+
+        // Belly Patch
+        const bellyMat = new THREE.MeshStandardMaterial({
+          color: spec.bellyHex,
+          roughness: 0.35
+        });
+        const belly = new THREE.Mesh(
+          new THREE.SphereGeometry(0.42, 14, 12),
+          bellyMat
+        );
+        belly.scale.set(0.9, 0.85, 0.35);
+        belly.position.set(0, 0.62, 0.49);
+        bodyGroup.add(belly);
+
+        // Golden Crown / Accessory on Head
+        const crownGroup = new THREE.Group();
+        crownGroup.position.y = 1.78;
+        const crownMat = new THREE.MeshStandardMaterial({
+          color: spec.crownColor,
+          emissive: spec.crownColor,
+          emissiveIntensity: 0.25,
+          roughness: 0.2,
+          metalness: 0.65
+        });
+        const crownBase = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.34, 0.28, 0.22, 6),
+          crownMat
+        );
+        crownGroup.add(crownBase);
+
+        // Crown spikes
+        for (let s = 0; s < 6; s++) {
+          const ang = (s / 6) * Math.PI * 2;
+          const spike = new THREE.Mesh(
+            new THREE.ConeGeometry(0.08, 0.2, 5),
+            crownMat
+          );
+          spike.position.set(Math.cos(ang) * 0.28, 0.18, Math.sin(ang) * 0.28);
+          crownGroup.add(spike);
+        }
+        bodyGroup.add(crownGroup);
+
+        // Animated Arms
+        const armGeo = new THREE.CylinderGeometry(0.13, 0.15, 0.52, 10);
+        const leftArm = new THREE.Mesh(armGeo, skinMat);
+        leftArm.position.set(-0.68, 0.88, 0);
+        leftArm.rotation.z = 0.35;
+        bodyGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeo, skinMat);
+        rightArm.position.set(0.68, 0.88, 0);
+        rightArm.rotation.z = -0.35;
+        bodyGroup.add(rightArm);
+
+        // Animated Feet
+        const footGeo = new THREE.SphereGeometry(0.21, 10, 10);
+        const leftFoot = new THREE.Mesh(footGeo, skinMat);
+        leftFoot.scale.set(0.9, 0.6, 1.35);
+        leftFoot.position.set(-0.24, 0.14, 0.08);
+        bodyGroup.add(leftFoot);
+
+        const rightFoot = new THREE.Mesh(footGeo, skinMat);
+        rightFoot.scale.set(0.9, 0.6, 1.35);
+        rightFoot.position.set(0.24, 0.14, 0.08);
+        bodyGroup.add(rightFoot);
+
+        // Ground Landing Ring Indicator (projected onto the floor below the runner)
+        const indicatorGeo = new THREE.RingGeometry(0.55, 0.76, 24);
+        indicatorGeo.rotateX(-Math.PI / 2);
+        const indicatorMat = new THREE.MeshBasicMaterial({
+          color: spec.colorHex,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.75
+        });
+        const indicatorMesh = new THREE.Mesh(indicatorGeo, indicatorMat);
+        scene.add(indicatorMesh);
+
+        return {
+          root,
+          bodyGroup,
+          leftArm,
+          rightArm,
+          leftFoot,
+          rightFoot,
+          crownGroup,
+          indicatorMesh
+        };
+      }
+
+      function initRunners() {
+        RUNNER_SPECS.forEach((spec, idx) => {
+          const rig = createBeanRunnerMesh(spec);
+          runnersGroup.add(rig.root);
+
+          const startPos = axialToWorld(spec.spawnQ, spec.spawnR);
+          const runnerObj = {
+            id: spec.id,
+            index: idx,
+            name: spec.name,
+            colorHex: spec.colorHex,
+            cssColor: spec.cssColor,
+            isMainPlayer: spec.isMainPlayer,
+            style: spec.style,
+            spawnQ: spec.spawnQ,
+            spawnR: spec.spawnR,
+            x: startPos.x,
+            y: FLOOR_CONFIGS[2].y + HEX_HEIGHT * 0.5,
+            z: startPos.z,
+            vx: 0,
+            vy: 0,
+            vz: 0,
+            yaw: 0,
+            onGround: true,
+            floorIndex: 2,
+            currentTile: null,
+            targetTile: null,
+            eliminated: false,
+            crowns: idx === 0 ? 1 : 0, // Starting crown tally
+            tactic: 'LISTO',
+            animPhase: idx * 1.4,
+            aiCooldown: 0,
+            cachedDecision: null,
+            rig
+          };
+          runners.push(runnerObj);
+        });
+      }
+
+      function resetRunnersToTopFloor() {
+        runners.forEach((r) => {
+          const startPos = axialToWorld(r.spawnQ, r.spawnR);
+          r.x = startPos.x;
+          r.y = FLOOR_CONFIGS[2].y + HEX_HEIGHT * 0.5;
+          r.z = startPos.z;
+          r.vx = 0;
+          r.vy = 0;
+          r.vz = 0;
+          r.onGround = true;
+          r.floorIndex = 2;
+          r.currentTile = null;
+          r.targetTile = null;
+          r.eliminated = false;
+          r.tactic = 'EN MARCHA';
+          r.aiCooldown = 0;
+          r.cachedDecision = null;
+          r.rig.root.visible = true;
+          r.rig.indicatorMesh.visible = true;
+          r.rig.root.position.set(r.x, r.y, r.z);
+        });
+      }
+
+      // =========================================================================
+      // 8. INPUT, CAMERA MODES & UI CONTROLS
+      // =========================================================================
+      const keys = {
+        KeyW: false,
+        KeyA: false,
+        KeyS: false,
+        KeyD: false,
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false,
+        Space: false
+      };
+
+      let aiAutopilot = true;
+      let cameraMode = 'TV'; // 'TV' | 'LEADER' | 'SIDE'
+      let cameraOrbitAngle = 0.35;
+      let isDraggingCamera = false;
+      let lastPointerX = 0;
+
+      const btnCamTV = document.getElementById('btn-cam-tv');
+      const btnCamLeader = document.getElementById('btn-cam-leader');
+      const btnCamSide = document.getElementById('btn-cam-side');
+      const btnPilotToggle = document.getElementById('btn-pilot-toggle');
+      const btnAudioToggle = document.getElementById('btn-audio-toggle');
+      const btnResetFloors = document.getElementById('btn-reset-floors');
+      const brainModeLabel = document.getElementById('brain-mode-label');
+
+      function updatePilotUI() {
+        if (aiAutopilot) {
+          btnPilotToggle.textContent = 'Piloto IA: ON';
+          btnPilotToggle.classList.add('active');
+          brainModeLabel.textContent = 'PILOTO IA ACTIVO: CORTE + SLOW-JUMP';
+        } else {
+          btnPilotToggle.textContent = 'Control Manual';
+          btnPilotToggle.classList.remove('active');
+          brainModeLabel.textContent = 'CONTROL MANUAL ACTIVO (WASD + ESPACIO)';
+        }
+      }
+
+      function setCameraMode(mode) {
+        cameraMode = mode;
+        btnCamTV.classList.toggle('active', mode === 'TV');
+        btnCamLeader.classList.toggle('active', mode === 'LEADER');
+        btnCamSide.classList.toggle('active', mode === 'SIDE');
+      }
+
+      btnCamTV.addEventListener('click', () => setCameraMode('TV'));
+      btnCamLeader.addEventListener('click', () => setCameraMode('LEADER'));
+      btnCamSide.addEventListener('click', () => setCameraMode('SIDE'));
+
+      btnPilotToggle.addEventListener('click', () => {
+        aiAutopilot = !aiAutopilot;
+        updatePilotUI();
+      });
+
+      btnAudioToggle.addEventListener('click', () => {
+        SoundFX.enabled = !SoundFX.enabled;
+        btnAudioToggle.textContent = SoundFX.enabled ? 'Audio: ON' : 'Audio: OFF';
+        btnAudioToggle.classList.toggle('active', SoundFX.enabled);
+      });
+
+      btnResetFloors.addEventListener('click', () => {
+        startNewRound(false);
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code in keys) {
+          keys[e.code] = true;
+          if (aiAutopilot) {
+            aiAutopilot = false;
+            updatePilotUI();
+          }
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.code in keys) {
+          keys[e.code] = false;
+        }
+      });
+
+      canvas.addEventListener('pointerdown', (e) => {
+        isDraggingCamera = true;
+        lastPointerX = e.clientX;
+        SoundFX.init();
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!isDraggingCamera) return;
+        const dx = e.clientX - lastPointerX;
+        lastPointerX = e.clientX;
+        cameraOrbitAngle -= dx * 0.0065;
+      });
+
+      window.addEventListener('pointerup', () => {
+        isDraggingCamera = false;
+      });
+
+      // =========================================================================
+      // 9. PHYSICS, TILE TRIGGER (0.65S SHAKE) & COLLISION ENGINE
+      // =========================================================================
+      const GRAVITY = 27.5;
+      const JUMP_VELOCITY = 11.4;
+      const RUN_SPEED = 7.4;
+
+      function triggerTile(tile, runner) {
+        if (tile.state !== 'INTACT') return;
+        tile.state = 'TRIGGERED';
+        tile.timer = 0;
+
+        // Visual white-hot / red warning flash
+        tile.mat.color.setHex(0xffffff);
+        tile.mat.emissive.setHex(0xff3b30);
+        tile.mat.emissiveIntensity = 0.72;
+        tile.capMat.opacity = 0.75;
+
+        spawnTileShockwave(tile.x, tile.baseY, tile.z, runner ? runner.colorHex : 0xffffff);
+        SoundFX.playTileTrigger(tile.floorIndex);
+      }
+
+      function updateTiles(dt) {
+        for (let i = 0; i < allTiles.length; i++) {
+          const t = allTiles[i];
+          if (t.state === 'TRIGGERED') {
+            t.timer += dt;
+            const progress = Math.min(1, t.timer / TRIGGER_SHAKE_TIME);
+
+            // Pulse between bright white and urgent neon red-orange during 0.65s
+            const flash = Math.sin(t.timer * 38) * 0.5 + 0.5;
+            t.mat.color.setRGB(1.0, 0.35 + flash * 0.65, 0.25 + flash * 0.45);
+            t.mat.emissiveIntensity = 0.55 + progress * 0.65;
+
+            // Rapid horizontal tremor + slight sink before dropping
+            const amp = 0.05 + progress * 0.14;
+            t.mesh.position.x = t.x + Math.sin(t.timer * 58) * amp;
+            t.mesh.position.z = t.z + Math.cos(t.timer * 52) * amp;
+            t.mesh.position.y = t.baseY - progress * 0.16;
+            t.mesh.rotation.x = Math.sin(t.timer * 44) * 0.06 * progress;
+            t.mesh.rotation.z = Math.cos(t.timer * 48) * 0.06 * progress;
+
+            if (t.timer >= TRIGGER_SHAKE_TIME) {
+              t.state = 'FALLING';
+              t.vy = -2.2;
+              spawnBurstParticles(t.x, t.baseY, t.z, t.baseColorHex, 5, 0.7);
+            }
+          } else if (t.state === 'FALLING') {
+            t.vy -= GRAVITY * 1.05 * dt;
+            t.mesh.position.y += t.vy * dt;
+            t.mesh.rotation.x += t.rotVelX * dt;
+            t.mesh.rotation.z += t.rotVelZ * dt;
+
+            const scaleFade = Math.max(0.01, 1 - Math.max(0, (t.baseY - t.mesh.position.y) / 38));
+            t.mesh.scale.setScalar(scaleFade);
+
+            if (t.mesh.position.y <= SLIME_Y) {
+              t.state = 'GONE';
+              t.mesh.visible = false;
+              spawnBurstParticles(t.x, SLIME_Y + 0.2, t.z, 0xff2a85, 4, 0.65);
+            }
+          }
+        }
+      }
+
+      function findSupportTile(x, y, z, prevY) {
+        // Check each floor from highest to lowest
+        for (let f = 2; f >= 0; f--) {
+          const fY = FLOOR_CONFIGS[f].y + HEX_HEIGHT * 0.5;
+          // Runner is landing on or standing near this floor's top surface
+          if (prevY >= fY - 0.55 && y <= fY + 0.35) {
+            const floorList = floorsData[f];
+            let bestTile = null;
+            let bestDist = HEX_RADIUS * 0.96; // Effective hex footprint radius
+            for (let i = 0; i < floorList.length; i++) {
+              const tile = floorList[i];
+              if (tile.state === 'FALLING' || tile.state === 'GONE') continue;
+              const d = Math.hypot(tile.x - x, tile.z - z);
+              if (d <= bestDist) {
+                bestDist = d;
+                bestTile = tile;
+              }
+            }
+            if (bestTile) return bestTile;
+          }
+        }
+        return null;
+      }
+
+      function updateRunners(dt) {
+        for (let i = 0; i < runners.length; i++) {
+          const r = runners[i];
+          if (r.eliminated) continue;
+
+          // Determine current floor tier based on height
+          if (r.y >= FLOOR_CONFIGS[2].y - 3.5) r.floorIndex = 2;
+          else if (r.y >= FLOOR_CONFIGS[1].y - 3.5) r.floorIndex = 1;
+          else r.floorIndex = 0;
+
+          let moveX = 0;
+          let moveZ = 0;
+          let wantJump = false;
+
+          if (r.isMainPlayer && !aiAutopilot) {
+            // Manual Input relative to camera orientation
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+            const right = new THREE.Vector3(-forward.z, 0, forward.x);
+
+            let inZ = 0;
+            let inX = 0;
+            if (keys.KeyW || keys.ArrowUp) inZ += 1;
+            if (keys.KeyS || keys.ArrowDown) inZ -= 1;
+            if (keys.KeyD || keys.ArrowRight) inX += 1;
+            if (keys.KeyA || keys.ArrowLeft) inX -= 1;
+
+            const dir = new THREE.Vector3()
+              .addScaledVector(forward, inZ)
+              .addScaledVector(right, inX);
+            if (dir.lengthSq() > 0.001) {
+              dir.normalize();
+              moveX = dir.x;
+              moveZ = dir.z;
+            }
+            wantJump = keys.Space;
+            r.tactic = 'CONTROL MANUAL';
+          } else {
+            // AI Decision (every 65ms or immediately when landing)
+            r.aiCooldown -= dt;
+            if (r.aiCooldown <= 0 || !r.cachedDecision) {
+              r.aiCooldown = 0.065;
+              const lowerFloor = r.floorIndex > 0 ? floorsData[r.floorIndex - 1] : null;
+              r.cachedDecision = window.MIXIUH_BRAIN.decide({
+                runner: r,
+                floorTiles: floorsData[r.floorIndex],
+                lowerFloorTiles: lowerFloor,
+                allRunners: runners
+              });
+            }
+            moveX = r.cachedDecision.moveX;
+            moveZ = r.cachedDecision.moveZ;
+            wantJump = r.cachedDecision.jump;
+            r.tactic = r.cachedDecision.tactic || 'SUPERVIVENCIA';
+          }
+
+          // Smooth horizontal velocity
+          const targetVx = moveX * RUN_SPEED;
+          const targetVz = moveZ * RUN_SPEED;
+          const accel = r.onGround ? 14.0 : 7.5;
+          r.vx += (targetVx - r.vx) * Math.min(1, accel * dt);
+          r.vz += (targetVz - r.vz) * Math.min(1, accel * dt);
+
+          // Soft Bean-to-Bean Bump Physics so runners push each other slightly!
+          for (let j = 0; j < runners.length; j++) {
+            if (i === j) continue;
+            const other = runners[j];
+            if (other.eliminated) continue;
+            if (Math.abs(other.y - r.y) < 1.6) {
+              const dx = r.x - other.x;
+              const dz = r.z - other.z;
+              const dist = Math.hypot(dx, dz);
+              const minDist = 1.25;
+              if (dist > 0.001 && dist < minDist) {
+                const push = (minDist - dist) * 16.0;
+                r.vx += (dx / dist) * push * dt;
+                r.vz += (dz / dist) * push * dt;
+              }
+            }
+          }
+
+          const prevY = r.y;
+
+          // Jump trigger
+          if (wantJump && r.onGround) {
+            r.vy = JUMP_VELOCITY;
+            r.onGround = false;
+            SoundFX.playJump(r.isMainPlayer);
+            spawnBurstParticles(r.x, r.y, r.z, r.colorHex, 4, 0.55);
+          }
+
+          // Apply gravity & integrate position
+          r.vy -= GRAVITY * dt;
+          r.x += r.vx * dt;
+          r.y += r.vy * dt;
+          r.z += r.vz * dt;
+
+          // Ground / Hexagon collision check
+          if (r.vy <= 0) {
+            const support = findSupportTile(r.x, r.y, r.z, prevY);
+            if (support) {
+              const topY = support.baseY + HEX_HEIGHT * 0.5;
+              r.y = topY;
+              r.vy = 0;
+              r.onGround = true;
+              r.currentTile = support;
+              r.floorIndex = support.floorIndex;
+              triggerTile(support, r);
+            } else {
+              r.onGround = false;
+            }
+          }
+
+          // Update Bean Orientation & Running / Jumping Animation
+          const horizSpeed = Math.hypot(r.vx, r.vz);
+          if (horizSpeed > 0.25) {
+            const targetYaw = Math.atan2(r.vx, r.vz);
+            let diff = targetYaw - r.yaw;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            r.yaw += diff * Math.min(1, 14 * dt);
+          }
+
+          r.animPhase += dt * (r.onGround ? horizSpeed * 2.4 + 2.0 : 12.0);
+          r.rig.root.position.set(r.x, r.y, r.z);
+          r.rig.root.rotation.y = r.yaw;
+
+          // Waddle & limb swing
+          if (r.onGround) {
+            const swing = Math.sin(r.animPhase) * Math.min(1, horizSpeed / 5);
+            r.rig.leftFoot.position.z = 0.08 + swing * 0.26;
+            r.rig.rightFoot.position.z = 0.08 - swing * 0.26;
+            r.rig.leftArm.rotation.x = -swing * 0.85;
+            r.rig.rightArm.rotation.x = swing * 0.85;
+            r.rig.bodyGroup.rotation.z = Math.cos(r.animPhase) * 0.08 * Math.min(1, horizSpeed / 5);
+            r.rig.bodyGroup.rotation.x = Math.min(0.22, horizSpeed * 0.025);
+          } else {
+            // Mid-air jump pose
+            r.rig.leftArm.rotation.x = -2.2;
+            r.rig.rightArm.rotation.x = -2.2;
+            r.rig.leftFoot.position.z = -0.12;
+            r.rig.rightFoot.position.z = 0.18;
+            r.rig.bodyGroup.rotation.x = Math.max(-0.35, Math.min(0.45, -r.vy * 0.03));
+          }
+
+          // Project Landing Indicator Ring onto the closest floor below the runner
+          let projY = SLIME_Y + 0.12;
+          for (let f = r.floorIndex; f >= 0; f--) {
+            const fY = FLOOR_CONFIGS[f].y + HEX_HEIGHT * 0.52;
+            if (r.y >= fY - 0.3) {
+              projY = fY;
+              break;
+            }
+          }
+          r.rig.indicatorMesh.position.set(r.x, projY, r.z);
+
+          // Check Slime Elimination
+          if (r.y <= SLIME_Y + 0.5) {
+            r.eliminated = true;
+            r.tactic = 'SLIME ELIMINADO';
+            r.rig.root.visible = false;
+            r.rig.indicatorMesh.visible = false;
+            SoundFX.playSplash();
+            spawnBurstParticles(r.x, SLIME_Y + 0.5, r.z, 0xff2a85, 18, 1.35);
+            spawnBurstParticles(r.x, SLIME_Y + 0.8, r.z, r.colorHex, 12, 1.15);
+            checkRoundStateAfterElimination(r);
+          }
+        }
+      }
+
+      // =========================================================================
+      // 10. ROUND LOOP, CROWN SCORING & HUD TELEMETRY
+      // =========================================================================
+      let roundNumber = 1;
+      let roundTime = 0;
+      let roundResetCountdown = 0;
+      const centerBanner = document.getElementById('center-banner');
+      const roundPill = document.getElementById('round-pill');
+      const timerLabel = document.getElementById('timer-label');
+      const runnersGridEl = document.getElementById('runners-grid');
+
+      function showBanner(text, durationMs) {
+        centerBanner.textContent = text;
+        centerBanner.classList.add('visible');
+        if (durationMs) {
+          setTimeout(() => {
+            centerBanner.classList.remove('visible');
+          }, durationMs);
+        }
+      }
+
+      function checkRoundStateAfterElimination(eliminatedRunner) {
+        if (roundResetCountdown > 0) return;
+        const alive = runners.filter((r) => !r.eliminated);
+        if (alive.length === 1) {
+          const winner = alive[0];
+          winner.crowns += 1;
+          winner.tactic = 'CAMPEON DE RONDA';
+          SoundFX.playCrownFanfare();
+          spawnBurstParticles(winner.x, winner.y + 1.8, winner.z, 0xfacc15, 24, 1.4);
+          showBanner('CORONA GANADA POR ' + winner.name + ' · REINICIANDO PISOS...', 2500);
+          roundResetCountdown = 2.6;
+        } else if (alive.length === 0) {
+          // Tiebreaker go to last eliminated
+          eliminatedRunner.crowns += 1;
+          SoundFX.playCrownFanfare();
+          showBanner('ULTIMO EN CAER: ' + eliminatedRunner.name + ' GANA LA CORONA', 2500);
+          roundResetCountdown = 2.4;
+        }
+      }
+
+      function startNewRound(isFirstLoad) {
+        roundResetCountdown = 0;
+        if (!isFirstLoad) {
+          roundNumber += 1;
+          roundPill.textContent = 'ASALTO #' + roundNumber;
+          showBanner('ASALTO #' + roundNumber + ' EN VIVO · 3 PISOS INTACTOS', 1800);
+        }
+        roundTime = 0;
+        buildAllFloors();
+        resetRunnersToTopFloor();
+        updateHUD();
+      }
+
+      function buildRunnersHUDCards() {
+        runnersGridEl.innerHTML = '';
+        runners.forEach((r) => {
+          const card = document.createElement('div');
+          card.className = 'runner-item';
+          card.id = 'hud-runner-' + r.id;
+          card.innerHTML = `
+            <div class="runner-left">
+              <div class="bean-avatar" style="background:${r.cssColor};">
+                <div class="bean-visor">
+                  <span class="bean-eye"></span>
+                  <span class="bean-eye"></span>
+                </div>
+              </div>
+              <div class="runner-meta">
+                <div class="runner-name" style="color:${r.cssColor};">${r.name}${r.isMainPlayer ? ' (TU)' : ''}</div>
+                <div class="runner-tactic" id="hud-tactic-${r.id}">${r.tactic}</div>
+              </div>
+            </div>
+            <div class="runner-right">
+              <span class="floor-badge" id="hud-floor-${r.id}" style="background:#fde047;">PISO 3</span>
+              <div class="crown-count">
+                <svg class="crown-svg" viewBox="0 0 24 24">
+                  <path d="M2 19h20v3H2v-3zm0-14l5 6 5-7 5 7 5-6v12H2V5z"/>
+                </svg>
+                <span id="hud-crowns-${r.id}">${r.crowns}</span>
+              </div>
+            </div>
+          `;
+          runnersGridEl.appendChild(card);
+        });
+      }
+
+      function updateHUD() {
+        // Floor tile counts
+        let totalRemaining = 0;
+        for (let f = 0; f < 3; f++) {
+          const list = floorsData[f];
+          const totalF = list.length;
+          let activeF = 0;
+          for (let i = 0; i < totalF; i++) {
+            if (list[i].state === 'INTACT' || list[i].state === 'TRIGGERED') {
+              activeF++;
+            }
+          }
+          totalRemaining += activeF;
+          const pct = totalF > 0 ? Math.round((activeF / totalF) * 100) : 0;
+          const barEl = document.getElementById('bar-floor-' + f);
+          const countEl = document.getElementById('count-floor-' + f);
+          if (barEl) barEl.style.width = pct + '%';
+          if (countEl) countEl.textContent = activeF + '/' + totalF;
+        }
+
+        const totalEl = document.getElementById('total-hex-label');
+        if (totalEl) {
+          totalEl.textContent = totalRemaining + ' / ' + totalInitialHexCount;
+        }
+
+        // Find highest alive leader
+        let leader = runners[0];
+        for (let i = 0; i < runners.length; i++) {
+          const r = runners[i];
+          if (!r.eliminated && (leader.eliminated || r.y > leader.y)) {
+            leader = r;
+          }
+        }
+
+        // Update each runner card
+        for (let i = 0; i < runners.length; i++) {
+          const r = runners[i];
+          const cardEl = document.getElementById('hud-runner-' + r.id);
+          const tacticEl = document.getElementById('hud-tactic-' + r.id);
+          const floorEl = document.getElementById('hud-floor-' + r.id);
+          const crownsEl = document.getElementById('hud-crowns-' + r.id);
+
+          if (cardEl) {
+            cardEl.classList.toggle('eliminated', r.eliminated);
+            cardEl.classList.toggle('active-leader', !r.eliminated && r.id === leader.id);
+          }
+          if (tacticEl) tacticEl.textContent = r.tactic;
+          if (crownsEl) crownsEl.textContent = String(r.crowns);
+          if (floorEl) {
+            if (r.eliminated) {
+              floorEl.textContent = 'SLIME';
+              floorEl.style.background = '#94a3b8';
+            } else {
+              const cfg = FLOOR_CONFIGS[r.floorIndex] || FLOOR_CONFIGS[0];
+              floorEl.textContent = cfg.name;
+              floorEl.style.background = cfg.badgeBg;
+            }
+          }
+        }
+
+        // Update main brain status text if autopilot is on
+        if (aiAutopilot && runners[0]) {
+          brainModeLabel.textContent = 'IA ARGON-01: ' + runners[0].tactic;
+        }
+      }
+
+      // =========================================================================
+      // 11. DYNAMIC CAMERA DIRECTOR
+      // =========================================================================
+      const camLookTarget = new THREE.Vector3(0, 12, 0);
+      const desiredCamPos = new THREE.Vector3(0, 44, 48);
+      const desiredLookAt = new THREE.Vector3(0, 12, 0);
+
+      function updateCamera(dt) {
+        // Find active leader (prefer main player if alive and on highest floor, or highest alive runner)
+        let focusRunner = runners[0];
+        if (focusRunner.eliminated || cameraMode === 'LEADER') {
+          for (let i = 0; i < runners.length; i++) {
+            const r = runners[i];
+            if (!r.eliminated && (focusRunner.eliminated || r.y > focusRunner.y + 1.5)) {
+              focusRunner = r;
+            }
+          }
+        }
+
+        if (cameraMode === 'TV') {
+          if (!isDraggingCamera) {
+            cameraOrbitAngle += dt * 0.14;
+          }
+          const radius = 44;
+          // Adjust camera altitude slightly with the action height
+          const avgAliveY = focusRunner.eliminated ? 12 : focusRunner.y;
+          desiredCamPos.set(
+            Math.sin(cameraOrbitAngle) * radius,
+            Math.max(20, avgAliveY + 21),
+            Math.cos(cameraOrbitAngle) * radius
+          );
+          desiredLookAt.set(
+            focusRunner.x * 0.25,
+            Math.max(2, avgAliveY - 3.5),
+            focusRunner.z * 0.25
+          );
+        } else if (cameraMode === 'LEADER') {
+          if (!isDraggingCamera) {
+            cameraOrbitAngle += dt * 0.08;
+          }
+          const chaseDist = 19.5;
+          desiredCamPos.set(
+            focusRunner.x + Math.sin(cameraOrbitAngle) * chaseDist,
+            focusRunner.y + 12.5,
+            focusRunner.z + Math.cos(cameraOrbitAngle) * chaseDist
+          );
+          desiredLookAt.set(focusRunner.x, focusRunner.y + 1.2, focusRunner.z);
+        } else {
+          // 'SIDE' — Panoramic 3-Floors vertical cross-section view
+          if (!isDraggingCamera) {
+            cameraOrbitAngle += dt * 0.1;
+          }
+          const sideRadius = 52;
+          desiredCamPos.set(
+            Math.sin(cameraOrbitAngle) * sideRadius,
+            15.5,
+            Math.cos(cameraOrbitAngle) * sideRadius
+          );
+          desiredLookAt.set(0, 10.5, 0);
+        }
+
+        camera.position.lerp(desiredCamPos, Math.min(1, dt * 4.5));
+        camLookTarget.lerp(desiredLookAt, Math.min(1, dt * 6.0));
+        camera.lookAt(camLookTarget);
+      }
+
+      // =========================================================================
+      // 12. MAIN GAME LOOP (60 FPS, IMMEDIATE LIVE ACTION FROM 0.0s)
+      // =========================================================================
+      initRunners();
+      buildRunnersHUDCards();
+      startNewRound(true);
+
+      // Trigger the starting tiles under all 4 runners at t = 0.0s so action is immediate!
+      runners.forEach((r) => {
+        const support = findSupportTile(r.x, r.y, r.z, r.y + 0.2);
+        if (support) {
+          r.currentTile = support;
+          triggerTile(support, r);
+        }
+      });
+
+      let lastTime = performance.now();
+      let fpsFrames = 0;
+      let fpsAccum = 0;
+      let hudUpdateAccum = 0;
+      const fpsPill = document.getElementById('fps-pill');
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+
+        const rawDt = (now - lastTime) / 1000;
+        lastTime = now;
+        const dt = Math.min(rawDt, 0.05);
+
+        // FPS Telemetry
+        fpsFrames++;
+        fpsAccum += rawDt;
+        if (fpsAccum >= 0.45) {
+          const fps = Math.min(60, Math.round(fpsFrames / fpsAccum));
+          fpsPill.textContent = fps + ' FPS';
+          fpsFrames = 0;
+          fpsAccum = 0;
+        }
+
+        // Round timer & auto-reset
+        roundTime += dt;
+        const mins = String(Math.floor(roundTime / 60)).padStart(2, '0');
+        const secs = (roundTime % 60).toFixed(1).padStart(4, '0');
+        timerLabel.textContent = mins + ':' + secs;
+
+        if (roundResetCountdown > 0) {
+          roundResetCountdown -= dt;
+          if (roundResetCountdown <= 0) {
+            startNewRound(false);
+          }
+        }
+
+        // Animate slime rings & sky clouds
+        for (let i = 0; i < slimeRings.length; i++) {
+          const s = 1 + Math.sin(now * 0.0025 + i * 1.2) * 0.035;
+          slimeRings[i].scale.set(s, 1, s);
+        }
+        for (let i = 0; i < clouds.length; i++) {
+          const c = clouds[i];
+          c.angle += c.speed * dt;
+          c.mesh.position.x = Math.cos(c.angle) * c.radius;
+          c.mesh.position.z = Math.sin(c.angle) * c.radius;
+          c.mesh.position.y = c.baseY + Math.sin(now * 0.0015 + i) * 0.6;
+          c.mesh.rotation.y = -c.angle + Math.PI / 2;
+        }
+
+        updateRunners(dt);
+        updateTiles(dt);
+        updateFX(dt);
+        updateCamera(dt);
+
+        hudUpdateAccum += dt;
+        if (hudUpdateAccum >= 0.08) {
+          hudUpdateAccum = 0;
+          updateHUD();
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener('resize', () => {
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+      });
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<script>
+(function() {
+  var _s = 20261104 >>> 0;
+  Math.random = function() {
+    _s = (_s + 0x6D2B79F5) | 0;
+    var t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  window.__ARENA_SEED__ = 20261104;
+  window.__ARENA_LOG__ = [];
+  window.__pushArenaEvent = function(ev) {
+    if (window.__ARENA_LOG__.length < 2500) {
+      window.__ARENA_LOG__.push(ev);
+    }
+  };
+})();
+</script>
+<script>
+(function() {
+  const window_proxy = {};
+  (function(window) {
+  const GRID_N = 10;
+  const GRID_CELLS = 100;
+  const DEFAULT_FLEET = [5, 4, 3, 3, 2];
+  const ROW_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+
+  const FLEET_SPECS = [
+    { id: 'carrier', code: 'CVN-5', name: 'PORTAAVIONES', length: 5 },
+    { id: 'battleship', code: 'BB-4', name: 'ACORAZADO', length: 4 },
+    { id: 'cruiser', code: 'CG-3', name: 'CRUCERO', length: 3 },
+    { id: 'submarine', code: 'SSN-3', name: 'SUBMARINO', length: 3 },
+    { id: 'destroyer', code: 'DDG-2', name: 'DESTRUCTOR', length: 2 }
+  ];
+
+  // Precomputed placements for ship lengths 1..10 using 4x32-bit bitmasks (bits 0..99)
+  const PLACEMENTS_BY_LEN = new Array(11);
+  const PLACEMENTS_BY_LEN_CELL = new Array(11);
+
+  (function precomputePlacements() {
+    for (let len = 1; len <= 10; len++) {
+      const list = [];
+      const byCell = Array.from({ length: GRID_CELLS }, () => []);
+
+      const maxOrient = len === 1 ? 1 : 2;
+      for (let horiz = 0; horiz < maxOrient; horiz++) {
+        const rMax = horiz === 1 ? GRID_N : GRID_N - len + 1;
+        const cMax = horiz === 1 ? GRID_N - len + 1 : GRID_N;
+        for (let r = 0; r < rMax; r++) {
+          for (let c = 0; c < cMax; c++) {
+            let m0 = 0, m1 = 0, m2 = 0, m3 = 0;
+            const cells = new Uint8Array(len);
+            for (let k = 0; k < len; k++) {
+              const rr = horiz === 1 ? r : r + k;
+              const cc = horiz === 1 ? c + k : c;
+              const idx = rr * GRID_N + cc;
+              cells[k] = idx;
+              const word = idx >>> 5;
+              const bit = 1 << (idx & 31);
+              if (word === 0) m0 |= bit;
+              else if (word === 1) m1 |= bit;
+              else if (word === 2) m2 |= bit;
+              else m3 |= bit;
+            }
+            const pObj = { id: list.length, len, horiz: horiz === 1, m0, m1, m2, m3, cells };
+            list.push(pObj);
+            for (let k = 0; k < len; k++) {
+              byCell[cells[k]].push(pObj);
+            }
+          }
+        }
+      }
+      PLACEMENTS_BY_LEN[len] = list;
+      PLACEMENTS_BY_LEN_CELL[len] = byCell;
+    }
+  })();
+
+  function computeCavityHuntProbabilities(flatBoard, shipLengths, outProbs) {
+    outProbs.fill(0);
+    const numShips = shipLengths.length;
+    if (numShips === 0) return;
+
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+    for (let idx = 0; idx < GRID_CELLS; idx++) {
+      if (flatBoard[idx] !== 0) {
+        const w = idx >>> 5;
+        const bit = 1 << (idx & 31);
+        if (w === 0) b0 |= bit;
+        else if (w === 1) b1 |= bit;
+        else if (w === 2) b2 |= bit;
+        else b3 |= bit;
+      }
+    }
+
+    // Group identical lengths to avoid redundant passes
+    const uniqueLens = [];
+    const lenMults = [];
+    for (let i = 0; i < numShips; i++) {
+      const L = shipLengths[i];
+      const pos = uniqueLens.indexOf(L);
+      if (pos >= 0) lenMults[pos]++;
+      else {
+        uniqueLens.push(L);
+        lenMults.push(1);
+      }
+    }
+
+    const uCount = uniqueLens.length;
+    const validLists = new Array(uCount);
+    let anyValid = false;
+    for (let u = 0; u < uCount; u++) {
+      const allP = PLACEMENTS_BY_LEN[uniqueLens[u]] || [];
+      const v = [];
+      for (let i = 0; i < allP.length; i++) {
+        const p = allP[i];
+        if (((p.m0 & b0) | (p.m1 & b1) | (p.m2 & b2) | (p.m3 & b3)) === 0) {
+          v.push(p);
+        }
+      }
+      validLists[u] = v;
+      if (v.length > 0) anyValid = true;
+    }
+
+    if (!anyValid) return;
+
+    // 4-iteration Mean-Field / Bethe Cavity steric exclusion weighting
+    const groupCellProb = Array.from({ length: uCount }, () => new Float64Array(GRID_CELLS));
+    const totalNotOcc = new Float64Array(GRID_CELLS);
+
+    // Initialize uniform per valid placement
+    for (let u = 0; u < uCount; u++) {
+      const v = validLists[u];
+      if (v.length === 0) continue;
+      const inv = 1.0 / v.length;
+      const gp = groupCellProb[u];
+      for (let i = 0; i < v.length; i++) {
+        const cells = v[i].cells;
+        for (let k = 0; k < cells.length; k++) gp[cells[k]] += inv;
+      }
+    }
+
+    for (let iter = 0; iter < 3; iter++) {
+      totalNotOcc.fill(1.0);
+      for (let u = 0; u < uCount; u++) {
+        const gp = groupCellProb[u];
+        const m = lenMults[u];
+        for (let idx = 0; idx < GRID_CELLS; idx++) {
+          const pSingle = gp[idx] < 0.98 ? gp[idx] : 0.98;
+          if (pSingle > 0) {
+            totalNotOcc[idx] *= m === 1 ? (1.0 - pSingle) : Math.pow(1.0 - pSingle, m);
+          }
+        }
+      }
+
+      for (let u = 0; u < uCount; u++) {
+        const v = validLists[u];
+        if (v.length === 0) continue;
+        const oldGp = groupCellProb[u];
+        const newGp = new Float64Array(GRID_CELLS);
+        let sumW = 0.0;
+
+        for (let i = 0; i < v.length; i++) {
+          const cells = v[i].cells;
+          let w = 1.0;
+          for (let k = 0; k < cells.length; k++) {
+            const cIdx = cells[k];
+            const selfFactor = 1.0 - (oldGp[cIdx] < 0.95 ? oldGp[cIdx] : 0.95);
+            const otherEmpty = selfFactor > 1e-6 ? Math.min(1.0, totalNotOcc[cIdx] / selfFactor) : totalNotOcc[cIdx];
+            w *= (0.15 + 0.85 * otherEmpty);
+          }
+          sumW += w;
+          for (let k = 0; k < cells.length; k++) {
+            newGp[cells[k]] += w;
+          }
+        }
+
+        if (sumW > 0) {
+          const invW = 1.0 / sumW;
+          for (let idx = 0; idx < GRID_CELLS; idx++) {
+            oldGp[idx] = newGp[idx] * invW;
+          }
+        }
+      }
+    }
+
+    // Final combined marginal probability P(at least one unhit ship occupies cell)
+    for (let idx = 0; idx < GRID_CELLS; idx++) {
+      if (flatBoard[idx] !== 0) {
+        outProbs[idx] = 0;
+        continue;
+      }
+      let pEmpty = 1.0;
+      for (let u = 0; u < uCount; u++) {
+        const gp = groupCellProb[u][idx];
+        const m = lenMults[u];
+        if (gp > 0) {
+          const clamped = gp < 0.995 ? gp : 0.995;
+          pEmpty *= m === 1 ? (1.0 - clamped) : Math.pow(1.0 - clamped, m);
+        }
+      }
+      outProbs[idx] = 1.0 - pEmpty;
+    }
+  }
+
+  function analyzeNavalBoard(boardMatrix, remainingShipLengths) {
+    const flat = new Uint8Array(GRID_CELLS);
+    const unsunkHits = [];
+    let zeroCount = 0;
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0; // blocked (1 or 3)
+    let h0 = 0, h1 = 0, h2 = 0, h3 = 0; // unsunk hits (2)
+
+    for (let r = 0; r < GRID_N; r++) {
+      const rowArr = boardMatrix && boardMatrix[r];
+      for (let c = 0; c < GRID_N; c++) {
+        const raw = rowArr ? Number(rowArr[c]) : 0;
+        const val = (raw === 1 || raw === 2 || raw === 3) ? raw : 0;
+        const idx = r * GRID_N + c;
+        flat[idx] = val;
+        const w = idx >>> 5;
+        const bit = 1 << (idx & 31);
+        if (val === 0) {
+          zeroCount++;
+        } else if (val === 2) {
+          unsunkHits.push(idx);
+          if (w === 0) h0 |= bit;
+          else if (w === 1) h1 |= bit;
+          else if (w === 2) h2 |= bit;
+          else h3 |= bit;
+        } else {
+          if (w === 0) b0 |= bit;
+          else if (w === 1) b1 |= bit;
+          else if (w === 2) b2 |= bit;
+          else b3 |= bit;
+        }
+      }
+    }
+
+    // Sanitize remaining ship lengths
+    const ships = [];
+    if (Array.isArray(remainingShipLengths) && remainingShipLengths.length > 0) {
+      for (let i = 0; i < remainingShipLengths.length; i++) {
+        const L = Math.round(Number(remainingShipLengths[i]));
+        if (L >= 1 && L <= 10) ships.push(L);
+      }
+    }
+    if (ships.length === 0) {
+      ships.push(5, 4, 3, 3, 2);
+    }
+    ships.sort((a, b) => b - a);
+
+    const combinedProbs = new Float64Array(GRID_CELLS);
+    if (zeroCount === 0) {
+      return {
+        bestRow: 0,
+        bestCol: 0,
+        confidence: 0,
+        regime: 'COMPLETO',
+        probs: combinedProbs
+      };
+    }
+
+    // Background open-water hunt probabilities
+    const bgProbs = new Float64Array(GRID_CELLS);
+    computeCavityHuntProbabilities(flat, ships, bgProbs);
+
+    const targetProbs = new Float64Array(GRID_CELLS);
+    let inTargetMode = false;
+
+    // Exact Constrained Multi-Ship Hit-Cover Solver when unsunk hits exist
+    if (unsunkHits.length > 0) {
+      const lenCounts = new Int32Array(11);
+      const activeLens = [];
+      for (let i = 0; i < ships.length; i++) {
+        const L = ships[i];
+        if (lenCounts[L] === 0) activeLens.push(L);
+        lenCounts[L]++;
+      }
+
+      // Pre-filter candidate placements per length:
+      // 1) hitCandidates[L][cell]: valid placements covering hit `cell` (not touching 1 or 3)
+      // 2) zeroOnly[L]: valid placements strictly on 0 cells (not touching 1, 2, or 3)
+      const hitCandidates = new Array(11);
+      const zeroOnly = new Array(11);
+      const ob0 = b0 | h0, ob1 = b1 | h1, ob2 = b2 | h2, ob3 = b3 | h3;
+
+      for (let a = 0; a < activeLens.length; a++) {
+        const L = activeLens[a];
+        const byCell = PLACEMENTS_BY_LEN_CELL[L];
+        const hc = new Array(GRID_CELLS);
+        for (let k = 0; k < unsunkHits.length; k++) {
+          const hIdx = unsunkHits[k];
+          const src = byCell[hIdx];
+          const filtered = [];
+          for (let j = 0; j < src.length; j++) {
+            const p = src[j];
+            if (((p.m0 & b0) | (p.m1 & b1) | (p.m2 & b2) | (p.m3 & b3)) === 0) {
+              filtered.push(p);
+            }
+          }
+          hc[hIdx] = filtered;
+        }
+        hitCandidates[L] = hc;
+
+        const allL = PLACEMENTS_BY_LEN[L];
+        const zList = [];
+        for (let j = 0; j < allL.length; j++) {
+          const p = allL[j];
+          if (((p.m0 & ob0) | (p.m1 & ob1) | (p.m2 & ob2) | (p.m3 & ob3)) === 0) {
+            zList.push(p);
+          }
+        }
+        zeroOnly[L] = zList;
+      }
+
+      const targetWeights = new Float64Array(GRID_CELLS);
+      let totalLeafWeight = 0.0;
+      let dfsNodes = 0;
+      const MAX_DFS_NODES = 3600;
+      const chosenPlacements = [];
+
+      function dfsHitCover(u0, u1, u2, u3, used0, used1, used2, used3, multWeight) {
+        if ((u0 | u1 | u2 | u3) === 0) {
+          // All unsunk hits covered! Weight leaf by capacity of remaining unhit ships
+          let leafW = multWeight;
+          let remCellsUsed = 0;
+          for (let a = 0; a < activeLens.length; a++) {
+            const L = activeLens[a];
+            const rem = lenCounts[L];
+            if (rem <= 0) continue;
+            const zList = zeroOnly[L];
+            let nFree = 0;
+            for (let j = 0; j < zList.length; j++) {
+              const zp = zList[j];
+              if (((zp.m0 & used0) | (zp.m1 & used1) | (zp.m2 & used2) | (zp.m3 & used3)) === 0) {
+                nFree++;
+              }
+            }
+            if (nFree < rem) return;
+            for (let rStep = 0; rStep < rem; rStep++) {
+              const crowd = zeroCount > 10 ? Math.max(0.25, 1.0 - (remCellsUsed * L) / (zeroCount * 1.35)) : 1.0;
+              leafW *= (nFree - rStep) * crowd;
+              remCellsUsed += L;
+            }
+          }
+
+          totalLeafWeight += leafW;
+          for (let s = 0; s < chosenPlacements.length; s++) {
+            const cells = chosenPlacements[s].cells;
+            for (let k = 0; k < cells.length; k++) {
+              const cIdx = cells[k];
+              if (flat[cIdx] === 0) {
+                targetWeights[cIdx] += leafW;
+              }
+            }
+          }
+          return;
+        }
+
+        if (++dfsNodes > MAX_DFS_NODES) return;
+
+        // MRV: pick uncovered hit cell with minimum valid candidate placements
+        let bestHit = -1;
+        let minCand = 1e9;
+        for (let k = 0; k < unsunkHits.length; k++) {
+          const hIdx = unsunkHits[k];
+          const w = hIdx >>> 5;
+          const bit = 1 << (hIdx & 31);
+          const isUncovered = w === 0 ? (u0 & bit) : w === 1 ? (u1 & bit) : w === 2 ? (u2 & bit) : (u3 & bit);
+          if (!isUncovered) continue;
+
+          let candCount = 0;
+          for (let a = 0; a < activeLens.length; a++) {
+            const L = activeLens[a];
+            if (lenCounts[L] <= 0) continue;
+            const cands = hitCandidates[L][hIdx];
+            for (let j = 0; j < cands.length; j++) {
+              const p = cands[j];
+              if (((p.m0 & used0) | (p.m1 & used1) | (p.m2 & used2) | (p.m3 & used3)) === 0) {
+                candCount++;
+              }
+            }
+          }
+          if (candCount < minCand) {
+            minCand = candCount;
+            bestHit = hIdx;
+            if (candCount === 0) return; // Immediate dead-end prune
+          }
+        }
+
+        if (bestHit < 0) return;
+
+        for (let a = 0; a < activeLens.length; a++) {
+          const L = activeLens[a];
+          const avail = lenCounts[L];
+          if (avail <= 0) continue;
+          const cands = hitCandidates[L][bestHit];
+          lenCounts[L] = avail - 1;
+          for (let j = 0; j < cands.length; j++) {
+            const p = cands[j];
+            if (((p.m0 & used0) | (p.m1 & used1) | (p.m2 & used2) | (p.m3 & used3)) !== 0) continue;
+            chosenPlacements.push(p);
+            dfsHitCover(
+              u0 & ~p.m0,
+              u1 & ~p.m1,
+              u2 & ~p.m2,
+              u3 & ~p.m3,
+              used0 | p.m0,
+              used1 | p.m1,
+              used2 | p.m2,
+              used3 | p.m3,
+              multWeight * avail
+            );
+            chosenPlacements.pop();
+            if (dfsNodes > MAX_DFS_NODES) break;
+          }
+          lenCounts[L] = avail;
+          if (dfsNodes > MAX_DFS_NODES) break;
+        }
+      }
+
+      dfsHitCover(h0, h1, h2, h3, 0, 0, 0, 0, 1.0);
+
+      if (totalLeafWeight > 0) {
+        const invTotal = 1.0 / totalLeafWeight;
+        for (let idx = 0; idx < GRID_CELLS; idx++) {
+          if (flat[idx] === 0 && targetWeights[idx] > 0) {
+            targetProbs[idx] = Math.min(1.0, targetWeights[idx] * invTotal);
+            inTargetMode = true;
+          }
+        }
+      }
+
+      // Defensive fallback if synthetic/non-standard board yielded 0 exact covers
+      if (!inTargetMode) {
+        const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        let maxFb = 0;
+        for (let k = 0; k < unsunkHits.length; k++) {
+          const hr = (unsunkHits[k] / GRID_N) | 0;
+          const hc = unsunkHits[k] % GRID_N;
+          for (let d = 0; d < 4; d++) {
+            const dr = dirs[d][0], dc = dirs[d][1];
+            const nr = hr + dr, nc = hc + dc;
+            if (nr >= 0 && nr < GRID_N && nc >= 0 && nc < GRID_N) {
+              const nIdx = nr * GRID_N + nc;
+              if (flat[nIdx] === 0) {
+                let bonus = 1.0;
+                const oppR = hr - dr, oppC = hc - dc;
+                if (oppR >= 0 && oppR < GRID_N && oppC >= 0 && oppC < GRID_N && flat[oppR * GRID_N + oppC] === 2) {
+                  bonus = 2.6;
+                }
+                targetProbs[nIdx] += bonus;
+                if (targetProbs[nIdx] > maxFb) maxFb = targetProbs[nIdx];
+              }
+            }
+          }
+        }
+        if (maxFb > 0) {
+          for (let idx = 0; idx < GRID_CELLS; idx++) {
+            if (targetProbs[idx] > 0) {
+              targetProbs[idx] = Math.min(0.95, 0.35 + 0.55 * (targetProbs[idx] / maxFb));
+              inTargetMode = true;
+            }
+          }
+        }
+      }
+    }
+
+    // Combine Target Posterior + Open-Water Posterior for Unified Heatmap
+    for (let idx = 0; idx < GRID_CELLS; idx++) {
+      if (flat[idx] !== 0) {
+        combinedProbs[idx] = 0;
+      } else {
+        const pt = targetProbs[idx];
+        const pb = bgProbs[idx];
+        combinedProbs[idx] = 1.0 - (1.0 - pt) * (1.0 - pb);
+      }
+    }
+
+    // Select optimal shot
+    let bestScore = -1;
+    let bestIdx = -1;
+
+    if (inTargetMode) {
+      // Target Mode: maximize exact target hit probability, tie-breaking by open-water density & central extension
+      const tScores = new Float64Array(GRID_CELLS);
+      tScores.fill(-1);
+      for (let idx = 0; idx < GRID_CELLS; idx++) {
+        const pt = targetProbs[idx];
+        if (pt <= 0 || flat[idx] !== 0) continue;
+        const r = (idx / GRID_N) | 0;
+        const c = idx % GRID_N;
+        let openNeighbors = 0;
+        if (r > 0 && flat[idx - GRID_N] === 0) openNeighbors++;
+        if (r < 9 && flat[idx + GRID_N] === 0) openNeighbors++;
+        if (c > 0 && flat[idx - 1] === 0) openNeighbors++;
+        if (c < 9 && flat[idx + 1] === 0) openNeighbors++;
+
+        const score = pt + 0.018 * bgProbs[idx] + 0.0015 * openNeighbors;
+        tScores[idx] = score;
+        if (score > bestScore) bestScore = score;
+      }
+      if (bestScore >= 0) {
+        const tiedBest = [];
+        for (let idx = 0; idx < GRID_CELLS; idx++) {
+          if (tScores[idx] >= bestScore - 1e-6) tiedBest.push(idx);
+        }
+        bestIdx = tiedBest.length > 1 ? tiedBest[(Math.random() * tiedBest.length) | 0] : tiedBest[0];
+      }
+    } else {
+      // Hunt Mode: Cavity Bayesian Posterior * (1 + Transversal Stabbing Reduction + Dynamic Stride Lattice)
+      const minLen = Math.max(2, ships[ships.length - 1] || 2);
+
+      // Find best diagonal lattice phase `(r + c) % minLen` with highest average open coverage
+      const phaseMass = new Float64Array(minLen);
+      for (let r = 0; r < GRID_N; r++) {
+        for (let c = 0; c < GRID_N; c++) {
+          const idx = r * GRID_N + c;
+          if (flat[idx] === 0) {
+            phaseMass[(r + c) % minLen] += bgProbs[idx];
+          }
+        }
+      }
+      let bestPhase = 0;
+      for (let ph = 1; ph < minLen; ph++) {
+        if (phaseMass[ph] > phaseMass[bestPhase]) bestPhase = ph;
+      }
+
+      // Compute 1D horizontal & vertical segment transversal stabbing reduction for minLen
+      const deltaTau = new Uint8Array(GRID_CELLS);
+      for (let r = 0; r < GRID_N; r++) {
+        let c = 0;
+        while (c < GRID_N) {
+          if (flat[r * GRID_N + c] !== 0) { c++; continue; }
+          let end = c;
+          while (end < GRID_N && flat[r * GRID_N + end] === 0) end++;
+          const segLen = end - c;
+          const beforeStabs = (segLen / minLen) | 0;
+          if (beforeStabs > 0) {
+            for (let k = 0; k < segLen; k++) {
+              const afterStabs = ((k / minLen) | 0) + (((segLen - 1 - k) / minLen) | 0);
+              if (beforeStabs > afterStabs) {
+                deltaTau[r * GRID_N + (c + k)] += 1;
+              }
+            }
+          }
+          c = end;
+        }
+      }
+
+      for (let c = 0; c < GRID_N; c++) {
+        let r = 0;
+        while (r < GRID_N) {
+          if (flat[r * GRID_N + c] !== 0) { r++; continue; }
+          let end = r;
+          while (end < GRID_N && flat[end * GRID_N + c] === 0) end++;
+          const segLen = end - r;
+          const beforeStabs = (segLen / minLen) | 0;
+          if (beforeStabs > 0) {
+            for (let k = 0; k < segLen; k++) {
+              const afterStabs = ((k / minLen) | 0) + (((segLen - 1 - k) / minLen) | 0);
+              if (beforeStabs > afterStabs) {
+                deltaTau[(r + k) * GRID_N + c] += 1;
+              }
+            }
+          }
+          r = end;
+        }
+      }
+
+      const cellScores = new Float64Array(GRID_CELLS);
+      cellScores.fill(-1);
+      for (let idx = 0; idx < GRID_CELLS; idx++) {
+        if (flat[idx] !== 0) continue;
+        const r = (idx / GRID_N) | 0;
+        const c = idx % GRID_N;
+        const p = bgProbs[idx];
+        const phaseBonus = ((r + c) % minLen) === bestPhase ? 0.036 : 0.0;
+        const stabBonus = 0.062 * deltaTau[idx];
+        const score = p * (1.0 + stabBonus + phaseBonus);
+        cellScores[idx] = score;
+        if (score > bestScore) bestScore = score;
+      }
+
+      if (bestScore >= 0) {
+        const tol = Math.max(1e-7, bestScore * 0.00025);
+        const tiedCandidates = [];
+        for (let idx = 0; idx < GRID_CELLS; idx++) {
+          if (cellScores[idx] >= bestScore - tol) {
+            tiedCandidates.push(idx);
+          }
+        }
+        if (tiedCandidates.length > 0) {
+          bestIdx = tiedCandidates[(Math.random() * tiedCandidates.length) | 0];
+        }
+      }
+    }
+
+    // Ultimate fallback if every zero cell had 0 placements (e.g., 1x1 isolated holes with larger remaining ships)
+    if (bestIdx < 0) {
+      for (let idx = 0; idx < GRID_CELLS; idx++) {
+        if (flat[idx] === 0) {
+          bestIdx = idx;
+          break;
+        }
+      }
+    }
+
+    const bestRow = (bestIdx / GRID_N) | 0;
+    const bestCol = bestIdx % GRID_N;
+    const rawConf = combinedProbs[bestIdx];
+    const confidence = Number.isFinite(rawConf) ? Math.max(0.01, Math.min(1.0, rawConf)) : 0.05;
+
+    return {
+      bestRow,
+      bestCol,
+      confidence,
+      regime: inTargetMode ? 'OBJETIVO FIJADO' : 'CAZA PARIDAD-' + Math.max(2, ships[ships.length - 1] || 2),
+      probs: combinedProbs
+    };
+  }
+
+  // OBLIGATORY BENCHMARK API #1: Pure strategic function (< 15 ms)
+  window.chooseNavalShot = function chooseNavalShot(boardMatrix, remainingShipLengths) {
+    const res = analyzeNavalBoard(boardMatrix, remainingShipLengths);
+    return {
+      row: res.bestRow,
+      col: res.bestCol,
+      confidence: Number(res.confidence.toFixed(4))
+    };
+  };
+  })(window_proxy);
+  window.__carbonChooseNavalShot = window_proxy.chooseNavalShot;
+})();
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batalla Naval Tactica // Sonar y Mapa Bayesiano // Mixiuh Labs</title>
+<style>
+:root{
+  --bg:#060A12; --panel:#0F172A; --deep:#0B1220; --line:#1E293B; --line2:#334155;
+  --cyan:#22D3EE; --orange:#FB923C; --emerald:#10B981; --gold:#FBBF24; --coral:#F43F5E;
+  --text:#E2E8F0; --mute:#94A3B8;
+  --mono:"SF Mono","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;color:var(--text);
+  font-family:"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:50% 50%;
+  transform:translate(-50%,-50%) scale(1);background-color:var(--bg);
+  background-image:linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px);
+  background-size:40px 40px;overflow:hidden}
+
+/* ---------- CABECERA ---------- */
+header{position:absolute;left:0;top:0;width:1920px;height:88px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0B1322,#070C16)}
+.brand{display:flex;align-items:center;gap:16px}
+.brand svg{width:56px;height:56px;flex:none}
+.brand h1{font-size:30px;letter-spacing:2px;font-weight:800;color:#F8FAFC;line-height:1.1;white-space:nowrap}
+.brand h1 em{font-style:normal;color:var(--cyan)}
+.brand p{font-size:14px;letter-spacing:2.5px;color:var(--mute);margin-top:5px;font-weight:700;white-space:nowrap}
+.controls{display:flex;align-items:center;gap:12px}
+button{font-family:inherit;cursor:pointer;color:var(--text);background:var(--panel);border:1px solid var(--line2);height:48px;
+  padding:0 16px;font-size:17px;font-weight:700;letter-spacing:.5px;display:inline-flex;align-items:center;gap:8px;border-radius:10px;
+  transition:background .15s,border-color .15s,color .15s;white-space:nowrap;outline:none}
+button:hover{border-color:var(--cyan);color:#fff}
+button svg{width:20px;height:20px;flex:none}
+button.on{background:rgba(34,211,238,.14);border-color:var(--cyan);color:var(--cyan)}
+button.primary{background:rgba(16,185,129,.14);border-color:var(--emerald);color:#6EE7B7}
+button.primary:hover{background:rgba(16,185,129,.28);color:#fff}
+.seg{display:inline-flex}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:10px 0 0 10px;margin-left:0}
+.seg button:last-child{border-radius:0 10px 10px 0}
+.seg button.on{position:relative;z-index:1}
+#btnHuman.on{background:rgba(251,146,60,.16);border-color:var(--orange);color:var(--orange)}
+#btn1x,#btn3x{font-family:var(--mono);font-size:19px;min-width:64px;justify-content:center}
+.fps{font-family:var(--mono);font-size:17px;font-weight:700;color:var(--emerald);border:1px solid var(--line);border-radius:10px;height:48px;
+  padding:0 14px;display:flex;align-items:center;gap:8px;min-width:116px;justify-content:center;background:var(--deep)}
+.fps i{display:block;width:10px;height:10px;border-radius:50%;background:var(--emerald);box-shadow:0 0 10px var(--emerald)}
+
+/* ---------- PANELES ---------- */
+.panel{position:absolute;top:100px;height:964px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;
+  display:flex;flex-direction:column;gap:8px}
+#p0{left:20px;width:664px;border-top:3px solid var(--cyan)}
+#p1{left:1236px;width:664px;border-top:3px solid var(--orange)}
+#pc{left:704px;width:512px;gap:12px}
+.bp-head{height:52px;flex:none;display:flex;align-items:center;justify-content:space-between}
+.fleet{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:800;letter-spacing:2px;white-space:nowrap}
+.fleet .dot{width:16px;height:16px;border-radius:4px;flex:none}
+#p0 .fleet{color:#A5F3FC} #p0 .fleet .dot{background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+#p1 .fleet{color:#FED7AA} #p1 .fleet .dot{background:var(--orange);box-shadow:0 0 12px var(--orange)}
+.fleet small{font-size:13px;letter-spacing:2px;color:var(--mute);font-weight:800;border:1px solid var(--line2);border-radius:6px;padding:4px 8px}
+.tchip{font-size:15px;font-weight:800;letter-spacing:2px;padding:8px 12px;border-radius:8px;border:1px solid var(--line2);color:var(--mute);
+  min-width:156px;text-align:center;white-space:nowrap}
+.tchip.fire{color:#1A1203;background:var(--gold);border-color:var(--gold)}
+.tchip.under{color:var(--coral);border-color:rgba(244,63,94,.6);background:rgba(244,63,94,.08)}
+.tchip.win{background:var(--emerald);color:#03140D;border-color:var(--emerald)}
+.tchip.lose{background:var(--coral);color:#fff;border-color:var(--coral)}
+canvas.board{display:block;width:632px;height:632px;flex:none;align-self:center;border-radius:10px;background:#040C18}
+canvas.board.aim{cursor:crosshair}
+.note{height:22px;flex:none;font-size:14px;color:var(--mute);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  display:flex;align-items:center;gap:8px}
+.note i{display:block;width:10px;height:10px;border-radius:2px;flex:none;background:linear-gradient(90deg,#22D3EE,#10B981,#FBBF24,#F43F5E)}
+.roster{height:66px;flex:none;display:flex;gap:8px}
+.sc{background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
+.sc .sn{font-size:13px;font-weight:800;letter-spacing:.6px;color:#CBD5E1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc .pips{display:flex;gap:4px}
+.sc .pips i{display:block;height:12px;flex:1;max-width:22px;border-radius:3px}
+#p0 .sc .pips i{background:rgba(34,211,238,.8)}
+#p1 .sc .pips i{background:rgba(251,146,60,.85)}
+#p0 .sc .pips i.hit,#p1 .sc .pips i.hit{background:var(--coral)}
+.sc.sunk{border-color:rgba(244,63,94,.6);background:rgba(244,63,94,.09)}
+.sc.sunk .sn{color:var(--coral);text-decoration:line-through}
+.stats{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.st{background:var(--deep);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0}
+.st b{font-family:var(--mono);font-size:34px;font-weight:800;line-height:1;color:#F8FAFC}
+.st span{font-size:14px;letter-spacing:2px;color:var(--mute);font-weight:800}
+.st.acc b{color:var(--gold)}
+
+/* ---------- PANEL CENTRAL ---------- */
+.card{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:14px 16px;flex:none}
+.card h3{font-size:14px;letter-spacing:3px;color:var(--mute);font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.card h3 svg{width:18px;height:18px;flex:none}
+.tag{margin-left:auto;font-size:12px;letter-spacing:2px;padding:3px 8px;border-radius:6px;background:rgba(16,185,129,.16);color:#6EE7B7;border:1px solid rgba(16,185,129,.5)}
+.tag.off{background:rgba(148,163,184,.1);color:var(--mute);border-color:var(--line2)}
+.mode-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:800;letter-spacing:2.5px;white-space:nowrap}
+#modeLbl{color:var(--emerald)} #matchLbl{color:var(--mute)}
+.turn-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px}
+.turn-row .lbl{display:block;font-size:13px;letter-spacing:3px;color:var(--mute);font-weight:800;margin-bottom:4px}
+#turnNum{font-family:var(--mono);font-size:64px;font-weight:800;line-height:.95;color:#F8FAFC;display:block}
+.series{text-align:right}
+.series b{font-family:var(--mono);font-size:40px;font-weight:800;line-height:1;display:block;color:var(--mute);white-space:nowrap}
+.cb{color:var(--cyan);font-style:normal} .co{color:var(--orange);font-style:normal}
+#statusMain{margin-top:12px;font-size:20px;font-weight:800;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:28px;line-height:28px}
+#statusSub{margin-top:4px;font-size:16px;color:#CBD5E1;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:22px;line-height:22px}
+.bar-row{display:grid;grid-template-columns:86px 1fr 78px;gap:10px;align-items:center;height:30px;margin-bottom:6px}
+.bar-row .bn{font-size:15px;font-weight:800;letter-spacing:1.5px}
+.bar{height:14px;background:#111C31;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.bar div{height:100%;width:0%;border-radius:7px;transition:width .25s}
+#bar0{background:linear-gradient(90deg,#0891B2,#22D3EE)} #bar1{background:linear-gradient(90deg,#EA580C,#FB923C)}
+.bv{font-family:var(--mono);font-size:17px;font-weight:800;text-align:right}
+.lat{display:flex;align-items:center;gap:8px;font-size:13px;letter-spacing:1.5px;color:var(--mute);font-weight:800;margin-top:8px;white-space:nowrap}
+.lat b{font-family:var(--mono);font-size:15px;color:var(--emerald);letter-spacing:0}
+.lat .lim{margin-left:auto;color:var(--gold)}
+.hook{margin-top:6px;font-family:var(--mono);font-size:12.5px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend{height:16px;border-radius:8px;background:linear-gradient(90deg,rgba(20,70,140,.55),#22D3EE 30%,#10B981 55%,#FBBF24 80%,#F43F5E);border:1px solid var(--line)}
+.legend-lbl{display:flex;justify-content:space-between;margin-top:6px;font-size:13px;letter-spacing:1.5px;color:var(--mute);font-weight:800;white-space:nowrap}
+.peaks{display:flex;justify-content:space-between;margin-top:8px;font-size:14px;font-weight:800;letter-spacing:1px;white-space:nowrap}
+.peaks b{font-family:var(--mono);font-size:16px}
+#logCard{flex:1;min-height:0;display:flex;flex-direction:column}
+#log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin;scrollbar-color:#334155 transparent;padding-right:2px}
+#log::-webkit-scrollbar{width:6px} #log::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+.le{display:grid;grid-template-columns:46px 76px 36px 1fr 42px;gap:8px;align-items:center;height:32px;flex:none;padding:0 8px;border-radius:6px;
+  font-size:14px;font-weight:800;background:var(--panel);border-left:3px solid var(--line2);white-space:nowrap}
+.le span{overflow:hidden;text-overflow:ellipsis}
+.le .ln{font-family:var(--mono);color:#64748B;font-size:13px}
+.le .lc{font-family:var(--mono);color:#F8FAFC;font-size:15px}
+.le .lp{font-family:var(--mono);color:var(--mute);text-align:right;font-size:13px}
+.le.f0{border-left-color:var(--cyan)} .le.f0 .lf{color:var(--cyan)}
+.le.f1{border-left-color:var(--orange)} .le.f1 .lf{color:var(--orange)}
+.le.miss .lr{color:#7DD3FC}
+.le.hit .lr{color:var(--gold)}
+.le.sunk{background:rgba(244,63,94,.12)} .le.sunk .lr{color:var(--coral)}
+.le.sys{grid-template-columns:1fr;border-left-color:var(--emerald);color:#6EE7B7;letter-spacing:1px;background:rgba(16,185,129,.08)}
+.le.win{grid-template-columns:1fr;border-left-color:var(--gold);color:var(--gold);letter-spacing:1px;background:rgba(251,191,36,.1)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 56 56" fill="none" aria-hidden="true">
+        <circle cx="28" cy="28" r="25" stroke="#22D3EE" stroke-width="2" opacity=".9"/>
+        <circle cx="28" cy="28" r="16" stroke="#10B981" stroke-width="1.5" opacity=".7"/>
+        <circle cx="28" cy="28" r="7" stroke="#10B981" stroke-width="1.5" opacity=".6"/>
+        <path d="M28 28 L46 12" stroke="#34F5B0" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M28 28 L46 12 A24 24 0 0 1 52 26 Z" fill="#10B981" opacity=".3"/>
+        <circle cx="40" cy="34" r="3" fill="#FB923C"/>
+        <circle cx="17" cy="21" r="2.5" fill="#F43F5E"/>
+      </svg>
+      <div>
+        <h1>BATALLA NAVAL <em>TACTICA</em></h1>
+        <p>ARENA IA vs IA // SONAR + MAPA BAYESIANO // MIXIUH LABS</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="fps"><i></i><span id="fpsVal">60</span> FPS</div>
+      <div class="seg">
+        <button id="btn1x" class="on" title="Velocidad 1x (tecla 1)">1x</button>
+        <button id="btn3x" title="Velocidad 3x (tecla 3)">3x</button>
+      </div>
+      <button id="btnHeat" class="on" title="Mostrar u ocultar mapa de calor (tecla H)">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="16" height="16" rx="2"/><path d="M2 7.5h16M2 12.5h16M7.5 2v16M12.5 2v16"/><rect x="7.5" y="7.5" width="5" height="5" fill="currentColor" stroke="none"/></svg>
+        Mapa de calor
+      </button>
+      <button id="btnSound" title="Activar o silenciar sonido">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h3l4-3.5v12l-4-3.5H3z"/><path d="M13 7.5c1 .8 1 4.2 0 5M15.3 5.5c2.2 2 2.2 7 0 9"/></svg>
+        <span id="soundLbl">Sonido: no</span>
+      </button>
+      <button id="btnNew" class="primary" title="Reiniciar partida (tecla N)">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10a6.5 6.5 0 1 1-2-4.7"/><path d="M16.8 3v3.4h-3.4"/></svg>
+        Nueva Partida
+      </button>
+      <div class="seg">
+        <button id="btnDemo" class="on" title="Demostracion automatica IA vs IA (tecla D)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="6.5" height="10" rx="1.5"/><rect x="11.5" y="5" width="6.5" height="10" rx="1.5"/><path d="M5.2 8.5v3M14.8 8.5v3" stroke-linecap="round"/></svg>
+          Demo IA vs IA
+        </button>
+        <button id="btnHuman" title="Comanda la Flota Azul contra la IA (tecla J)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="6"/><path d="M10 1.5v4M10 14.5v4M1.5 10h4M14.5 10h4"/><circle cx="10" cy="10" r="1.2" fill="currentColor"/></svg>
+          Jugar contra la IA
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel" id="p0">
+    <div class="bp-head">
+      <div class="fleet"><span class="dot"></span>GEMINI 4 CARBON <small id="role0">IA BAYESIANA</small></div>
+      <div class="tchip" id="chip0">EN ESPERA</div>
+    </div>
+    <canvas class="board" id="cv0" width="632" height="632"></canvas>
+    <div class="note"><i></i><span id="note0"></span></div>
+    <div class="roster" id="roster0"></div>
+    <div class="stats">
+      <div class="st"><b id="shots0">0</b><span>DISPAROS</span></div>
+      <div class="st"><b id="hits0">0</b><span>IMPACTOS</span></div>
+      <div class="st acc"><b id="acc0">0.0%</b><span>PRECISION</span></div>
+      <div class="st"><b id="afloat0">5/5</b><span>A FLOTE</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="pc">
+    <div class="card" id="statusCard">
+      <div class="mode-row"><span id="modeLbl">DEMOSTRACION IA vs IA</span><span id="matchLbl">PARTIDA 1</span></div>
+      <div class="turn-row">
+        <div><span class="lbl">TURNO</span><b id="turnNum">000</b></div>
+        <div class="series"><span class="lbl">SERIE</span><b><i class="cb" id="ser0">0</i> - <i class="co" id="ser1">0</i></b></div>
+      </div>
+      <div id="statusMain">INICIANDO SONAR</div>
+      <div id="statusSub">Calibrando mapa de probabilidad</div>
+    </div>
+
+    <div class="card">
+      <h3>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3"/><path d="M10 1v3M10 16v3M1 10h3M16 10h3"/></svg>
+        PRECISION DE TIRO
+      </h3>
+      <div class="bar-row"><span class="bn cb">AZUL</span><div class="bar"><div id="bar0"></div></div><span class="bv cb" id="bv0">0.0%</span></div>
+      <div class="bar-row"><span class="bn co">NARANJA</span><div class="bar"><div id="bar1"></div></div><span class="bv co" id="bv1">0.0%</span></div>
+      <div class="lat"><span>LATENCIA IA</span><b id="latVal">0.00 ms</b><span>MAX</span><b id="latMax">0.00 ms</b><span class="lim">LIMITE 15 ms</span></div>
+      <div class="hook">window.chooseNavalShot(board, ships) // window.__auditNaval()</div>
+    </div>
+
+    <div class="card">
+      <h3>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="16" height="16" rx="2"/><path d="M2 7.5h16M2 12.5h16M7.5 2v16M12.5 2v16"/></svg>
+        MAPA DE CALOR BAYESIANO <span class="tag" id="heatState">ACTIVO</span>
+      </h3>
+      <div class="legend"></div>
+      <div class="legend-lbl"><span>0%</span><span>PROBABILIDAD DE BARCO OCULTO</span><span>MAX</span></div>
+      <div class="peaks"><span class="cb">PICO SOBRE AZUL <b id="peak0">0%</b></span><span class="co">PICO SOBRE NARANJA <b id="peak1">0%</b></span></div>
+    </div>
+
+    <div class="card" id="logCard">
+      <h3>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="2" width="14" height="16" rx="2"/><path d="M6.5 6.5h7M6.5 10h7M6.5 13.5h4"/></svg>
+        BITACORA TACTICA
+      </h3>
+      <div id="log"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p1">
+    <div class="bp-head">
+      <div class="fleet"><span class="dot"></span>CLAUDE FABLE 5.2 <small id="role1">IA BAYESIANA</small></div>
+      <div class="tchip" id="chip1">EN ESPERA</div>
+    </div>
+    <canvas class="board" id="cv1" width="632" height="632"></canvas>
+    <div class="note"><i></i><span id="note1"></span></div>
+    <div class="roster" id="roster1"></div>
+    <div class="stats">
+      <div class="st"><b id="shots1">0</b><span>DISPAROS</span></div>
+      <div class="st"><b id="hits1">0</b><span>IMPACTOS</span></div>
+      <div class="st acc"><b id="acc1">0.0%</b><span>PRECISION</span></div>
+      <div class="st"><b id="afloat1">5/5</b><span>A FLOTE</span></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+     CONSTANTES
+     ===================================================================== */
+  var N = 10, NN = 100, TAU = Math.PI * 2;
+  var FLEET = [5, 4, 3, 3, 2];
+  var SHIP_NAMES = ['Portaaviones', 'Acorazado', 'Crucero', 'Submarino', 'Fragata'];
+  var SHIP_TYPES = ['carrier', 'battleship', 'cruiser', 'sub', 'frigate'];
+  var COLS = 'ABCDEFGHIJ';
+  var FLEET_NAMES = ['GEMINI 4 CARBON', 'CLAUDE FABLE 5.2'];
+
+  var nowMs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? function () { return performance.now(); }
+    : function () { return Date.now(); };
+
+  /* =====================================================================
+     ESTADO GLOBAL (declarado antes de los hooks para que existan siempre)
+     ===================================================================== */
+  var G = {
+    mode: 'ai', sides: [], turn: 0, turnCount: 0, over: false, winner: -1,
+    phase: 'think', phaseT: 0, target: -1, conf: 0, overT: 0, matchNo: 0
+  };
+  var heatOn = true, speed = 1, aiWarm = false, fpsVal = 60;
+  var aiStats = { last: 0, max: 0, sum: 0, n: 0 };
+  var series = [0, 0];
+
+  /* =====================================================================
+     NUCLEO IA: POSTERIOR BAYESIANO POR MUESTREO DE IMPORTANCIA
+     - Prior uniforme sobre todas las configuraciones legales de la flota.
+     - Evidencia: agua (1) y hundidos (3) bloquean; todo impacto vivo (2)
+       debe quedar cubierto por un barco restante.
+     - Mezcla con densidad de colocaciones (determinista) segun el tamano
+       efectivo de muestra.
+     ===================================================================== */
+  var PLACE_CACHE = {};
+  function placementsFor(L) {
+    var key = L | 0;
+    if (PLACE_CACHE[key]) return PLACE_CACHE[key];
+    var list = [], r, c, k, cells;
+    if (key >= 1 && key <= N) {
+      for (r = 0; r < N; r++) {
+        for (c = 0; c + key <= N; c++) {
+          cells = new Array(key);
+          for (k = 0; k < key; k++) cells[k] = r * N + c + k;
+          list.push(cells);
+        }
+      }
+      if (key > 1) {
+        for (c = 0; c < N; c++) {
+          for (r = 0; r + key <= N; r++) {
+            cells = new Array(key);
+            for (k = 0; k < key; k++) cells[k] = (r + k) * N + c;
+            list.push(cells);
+          }
+        }
+      }
+    }
+    PLACE_CACHE[key] = list;
+    return list;
+  }
+
+  var BOOST = [1, 40, 900, 9000, 60000, 300000, 1000000, 1000000, 1000000, 1000000, 1000000];
+
+  function makeRng(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) | 0;
+      var t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function analyze(g, lensIn, maxSamples, budgetMs) {
+    var t0 = nowMs();
+    var i, k, L, cell, v, li, list, pl, ok, h, w, tot, mult, valid;
+    var ships = [];
+    if (lensIn && typeof lensIn.length === 'number') {
+      for (i = 0; i < lensIn.length; i++) {
+        L = lensIn[i] | 0;
+        if (L >= 1 && L <= N) ships.push(L);
+      }
+    }
+    if (ships.length > 12) ships.length = 12;
+    ships.sort(function (a, b) { return b - a; });
+    var ns = ships.length;
+
+    var unknown = 0, H = [], need = 0;
+    var seed = 2166136261 | 0;
+    for (i = 0; i < NN; i++) {
+      v = g[i];
+      if (v === 0) unknown++;
+      else if (v === 2) H.push(i);
+      seed = Math.imul(seed ^ (v + 1), 16777619);
+    }
+    for (i = 0; i < ns; i++) { seed = Math.imul(seed ^ (ships[i] + 7), 16777619); need += ships[i]; }
+    var rand = makeRng(seed);
+    var nh = H.length;
+
+    var dens = new Float64Array(NN);
+    var prob = new Float64Array(NN);
+    var mc = new Float64Array(NN);
+    var result = { prob: prob, best: -1, confidence: 0, mode: nh ? 'target' : 'hunt', samples: 0, ms: 0 };
+    if (unknown === 0) { result.ms = nowMs() - t0; return result; }
+
+    /* --- 1) densidad de colocaciones por eslora (determinista) --- */
+    var validByLen = {};
+    var acc = new Float64Array(NN);
+    var consistent = ns > 0;
+    for (li = 0; li < ns; li++) {
+      L = ships[li];
+      if (validByLen[L]) continue;
+      list = placementsFor(L);
+      valid = [];
+      tot = 0;
+      for (i = 0; i < NN; i++) acc[i] = 0;
+      for (i = 0; i < list.length; i++) {
+        pl = list[i]; ok = true; h = 0;
+        for (k = 0; k < L; k++) {
+          v = g[pl[k]];
+          if (v === 1 || v === 3) { ok = false; break; }
+          if (v === 2) h++;
+        }
+        if (!ok || h === L) continue;
+        valid.push(pl);
+        w = BOOST[h];
+        tot += w;
+        for (k = 0; k < L; k++) { cell = pl[k]; if (g[cell] === 0) acc[cell] += w; }
+      }
+      validByLen[L] = valid;
+      if (valid.length === 0) consistent = false;
+      mult = 0;
+      for (k = 0; k < ns; k++) if (ships[k] === L) mult++;
+      if (tot > 0) for (i = 0; i < NN; i++) dens[i] += mult * acc[i] / tot;
+    }
+
+    /* --- 2) muestreo de importancia de configuraciones completas --- */
+    var sumW = 0, sumW2 = 0, accepted = 0;
+    if (consistent && maxSamples > 0) {
+      var Vs = new Array(ns);
+      for (i = 0; i < ns; i++) Vs[i] = validByLen[ships[i]];
+      var occ = new Uint8Array(NN);
+      var used = new Uint8Array(ns);
+      var stack = new Int16Array(NN + 32);
+      var pc = 0;
+      var candShip = new Int16Array(256), candStart = new Int16Array(256), candDir = new Int16Array(256);
+      var s, hi, hc, hr, cc, c0, r0, lo, hiB, fail, pick, start, dir, wgt, V, hcount;
+      for (s = 0; s < maxSamples; s++) {
+        if ((s & 15) === 0 && nowMs() - t0 > budgetMs) break;
+        for (k = 0; k < pc; k++) occ[stack[k]] = 0;
+        pc = 0;
+        for (i = 0; i < ns; i++) used[i] = 0;
+        wgt = 1; fail = false;
+        /* cubrir cada impacto vivo con un barco restante */
+        for (hi = 0; hi < nh; hi++) {
+          h = H[hi];
+          if (occ[h]) continue;
+          hr = (h / N) | 0; hc = h - hr * N;
+          cc = 0;
+          for (i = 0; i < ns; i++) {
+            if (used[i]) continue;
+            L = ships[i];
+            lo = hc - L + 1; if (lo < 0) lo = 0;
+            hiB = hc; if (hiB > N - L) hiB = N - L;
+            for (c0 = lo; c0 <= hiB; c0++) {
+              start = hr * N + c0; ok = true; hcount = 0;
+              for (k = 0; k < L; k++) {
+                cell = start + k; v = g[cell];
+                if (v === 1 || v === 3 || occ[cell]) { ok = false; break; }
+                if (v === 2) hcount++;
+              }
+              if (ok && hcount < L && cc < 256) { candShip[cc] = i; candStart[cc] = start; candDir[cc] = 1; cc++; }
+            }
+            if (L > 1) {
+              lo = hr - L + 1; if (lo < 0) lo = 0;
+              hiB = hr; if (hiB > N - L) hiB = N - L;
+              for (r0 = lo; r0 <= hiB; r0++) {
+                start = r0 * N + hc; ok = true; hcount = 0;
+                for (k = 0; k < L; k++) {
+                  cell = start + k * N; v = g[cell];
+                  if (v === 1 || v === 3 || occ[cell]) { ok = false; break; }
+                  if (v === 2) hcount++;
+                }
+                if (ok && hcount < L && cc < 256) { candShip[cc] = i; candStart[cc] = start; candDir[cc] = N; cc++; }
+              }
+            }
+          }
+          if (cc === 0) { fail = true; break; }
+          pick = (rand() * cc) | 0;
+          i = candShip[pick]; start = candStart[pick]; dir = candDir[pick]; L = ships[i];
+          for (k = 0; k < L; k++) { cell = start + k * dir; occ[cell] = 1; stack[pc++] = cell; }
+          used[i] = 1;
+          wgt *= cc;
+        }
+        if (fail) continue;
+        /* colocar el resto de la flota uniformemente (rechazo por solape) */
+        for (i = 0; i < ns; i++) {
+          if (used[i]) continue;
+          V = Vs[i]; L = ships[i];
+          pl = V[(rand() * V.length) | 0];
+          for (k = 0; k < L; k++) { if (occ[pl[k]]) { fail = true; break; } }
+          if (fail) break;
+          for (k = 0; k < L; k++) { cell = pl[k]; occ[cell] = 1; stack[pc++] = cell; }
+          wgt *= V.length;
+        }
+        if (fail) continue;
+        accepted++; sumW += wgt; sumW2 += wgt * wgt;
+        for (k = 0; k < pc; k++) mc[stack[k]] += wgt;
+      }
+    }
+
+    /* --- 3) mezcla y seleccion --- */
+    var alpha = 0, ess;
+    if (accepted > 0 && sumW > 0 && sumW2 > 0) {
+      ess = sumW * sumW / sumW2;
+      alpha = ess / (ess + 30);
+      if (!nh && alpha > 0.75) alpha = 0.75;
+    }
+    var best = -1, bestScore = -1, p, sc;
+    for (i = 0; i < NN; i++) {
+      if (g[i] !== 0) { prob[i] = 0; continue; }
+      p = (1 - alpha) * dens[i];
+      if (alpha > 0) p += alpha * mc[i] / sumW;
+      if (p > 0.995) p = 0.995;
+      if (!(p >= 0)) p = 0;
+      prob[i] = p;
+      sc = p + rand() * 1e-7;
+      if (sc > bestScore) { bestScore = sc; best = i; }
+    }
+    var conf = best >= 0 ? prob[best] : 0;
+    if (best >= 0 && prob[best] <= 0) {
+      /* sin informacion util: vecino de un impacto o estimacion uniforme */
+      var fb = -1;
+      for (i = 0; i < nh && fb < 0; i++) {
+        h = H[i]; k = (h / N) | 0; v = h - k * N;
+        if (k > 0 && g[h - N] === 0) fb = h - N;
+        else if (k < N - 1 && g[h + N] === 0) fb = h + N;
+        else if (v > 0 && g[h - 1] === 0) fb = h - 1;
+        else if (v < N - 1 && g[h + 1] === 0) fb = h + 1;
+      }
+      if (fb >= 0) best = fb;
+      conf = (need - nh) / unknown;
+      if (!(conf > 0)) conf = 0;
+      if (conf > 1) conf = 1;
+    }
+    result.best = best;
+    result.confidence = conf;
+    result.samples = accepted;
+    result.ms = nowMs() - t0;
+    return result;
+  }
+
+  function toFlat(boardMatrix) {
+    var g = new Uint8Array(NN), r, c, row, v;
+    if (!boardMatrix) return g;
+    if (boardMatrix.length === NN && typeof boardMatrix[0] !== 'object') {
+      for (r = 0; r < NN; r++) { v = +boardMatrix[r]; g[r] = (v === 1 || v === 2 || v === 3) ? v : 0; }
+      return g;
+    }
+    for (r = 0; r < N; r++) {
+      row = boardMatrix[r];
+      if (!row) continue;
+      for (c = 0; c < N; c++) { v = +row[c]; g[r * N + c] = (v === 1 || v === 2 || v === 3) ? v : 0; }
+    }
+    return g;
+  }
+
+  /* Funcion estrategica publica: sin efectos secundarios, determinista por tablero. */
+  function chooseNavalShot(boardMatrix, remainingShipLengths) {
+    var g = null, res, best, i, lens, hasHit;
+    try {
+      g = toFlat(boardMatrix);
+      lens = (remainingShipLengths && remainingShipLengths.length) ? remainingShipLengths : FLEET;
+      hasHit = false;
+      for (i = 0; i < NN; i++) { if (g[i] === 2) { hasHit = true; break; } }
+      res = analyze(g, lens, hasHit ? 2600 : 5000, 5);
+      best = res.best;
+      if (best < 0) return { row: 0, col: 0, confidence: 0 };
+      return { row: (best / N) | 0, col: best % N, confidence: Math.round(res.confidence * 10000) / 10000 };
+    } catch (e) {
+      if (g) {
+        for (i = 0; i < NN; i++) { if (g[i] === 0) return { row: (i / N) | 0, col: i % N, confidence: 0 }; }
+      }
+      return { row: 0, col: 0, confidence: 0 };
+    }
+  }
+
+  window.chooseNavalShot = chooseNavalShot;
+  window.__auditNaval = function () {
+    return {
+      aiReady: typeof window.chooseNavalShot === 'function' && aiWarm,
+      turnCount: G.turnCount,
+      heatmapActive: !!heatOn,
+      mode: G.mode,
+      speed: speed,
+      fps: Math.round(fpsVal),
+      gameOver: !!G.over,
+      lastAiMs: Math.round(aiStats.last * 100) / 100,
+      maxAiMs: Math.round(aiStats.max * 100) / 100
+    };
+  };
+
+  /* calentamiento del JIT para que la primera llamada real ya sea rapida */
+  (function warm() {
+    try {
+      var g = new Uint8Array(NN), k;
+      for (k = 0; k < 3; k++) analyze(g, FLEET, 500, 3);
+      g[44] = 2; g[12] = 1; g[77] = 1; g[30] = 1;
+      for (k = 0; k < 3; k++) analyze(g, FLEET, 400, 3);
+      g[45] = 2; g[46] = 1; g[43] = 2; g[5] = 3; g[6] = 3;
+      for (k = 0; k < 3; k++) analyze(g, [5, 4, 3, 3], 400, 3);
+    } catch (e) { /* sin efecto */ }
+    aiWarm = true;
+  })();
+
+  /* =====================================================================
+     MODELO DE JUEGO
+     ===================================================================== */
+  var T_THINK = 0.022, T_FLIGHT = 0.032, T_POST = 0.010, RESTART_S = 1.35; var SERIES_TARGET = 2; var matchHistory = [];
+
+  function pad3(n) { var s = String(n); while (s.length < 3) s = '0' + s; return s; }
+  function cellName(cell) { return COLS.charAt(cell % N) + (((cell / N) | 0) + 1); }
+
+  function placeFleet() {
+    var grid = new Int8Array(NN), ships = [], i, k, L, dir, r, c, cells, ok, cell, guard;
+    for (i = 0; i < NN; i++) grid[i] = -1;
+    for (i = 0; i < FLEET.length; i++) {
+      L = FLEET[i]; guard = 0; cells = []; dir = 0; r = 0; c = 0;
+      while (guard < 20000) {
+        guard++;
+        dir = Math.random() < 0.5 ? 0 : 1;
+        r = Math.floor(Math.random() * (dir === 1 ? N - L + 1 : N));
+        c = Math.floor(Math.random() * (dir === 0 ? N - L + 1 : N));
+        cells = []; ok = true;
+        for (k = 0; k < L; k++) {
+          cell = dir === 0 ? r * N + c + k : (r + k) * N + c;
+          if (grid[cell] !== -1) { ok = false; break; }
+          cells.push(cell);
+        }
+        if (ok) break;
+      }
+      for (k = 0; k < cells.length; k++) grid[cells[k]] = i;
+      ships.push({
+        id: i, len: L, r: r, c: c, dir: dir, cells: cells, hits: 0, sunk: false,
+        name: SHIP_NAMES[i], type: SHIP_TYPES[i], flip: Math.random() < 0.5
+      });
+    }
+    return { grid: grid, ships: ships };
+  }
+
+  function newSide(idx) {
+    var f = placeFleet(), view = [], r, c, row;
+    for (r = 0; r < N; r++) { row = []; for (c = 0; c < N; c++) row.push(0); view.push(row); }
+    return {
+      idx: idx, ships: f.ships, grid: f.grid, view: view, flat: new Uint8Array(NN),
+      remaining: FLEET.slice(), afloat: FLEET.length, shots: 0, hits: 0,
+      heat: new Float64Array(NN), heatDisp: new Float32Array(NN), heatMax: 0, suggestion: -1
+    };
+  }
+
+  function recomputeHeat(side) {
+    var res = analyze(side.flat, side.remaining, 1400, 3), i, mx = 0;
+    side.heat = res.prob;
+    for (i = 0; i < NN; i++) if (res.prob[i] > mx) mx = res.prob[i];
+    side.heatMax = mx;
+    side.suggestion = side.remaining.length ? res.best : -1;
+  }
+
+  /* =====================================================================
+     DOM
+     ===================================================================== */
+  function $(id) { return document.getElementById(id); }
+  var stage = $('stage');
+  var CV = [$('cv0'), $('cv1')];
+  var CTX = [CV[0].getContext('2d'), CV[1].getContext('2d')];
+  var logEl = $('log');
+  var el = {
+    fps: $('fpsVal'),
+    shots: [$('shots0'), $('shots1')], hits: [$('hits0'), $('hits1')],
+    acc: [$('acc0'), $('acc1')], afloat: [$('afloat0'), $('afloat1')],
+    chip: [$('chip0'), $('chip1')], role: [$('role0'), $('role1')], note: [$('note0'), $('note1')],
+    bar: [$('bar0'), $('bar1')], bv: [$('bv0'), $('bv1')], peak: [$('peak0'), $('peak1')],
+    ser: [$('ser0'), $('ser1')],
+    turnNum: $('turnNum'), modeLbl: $('modeLbl'), matchLbl: $('matchLbl'),
+    statusMain: $('statusMain'), statusSub: $('statusSub'),
+    latVal: $('latVal'), latMax: $('latMax'), heatState: $('heatState'), soundLbl: $('soundLbl'),
+    roster: [[], []]
+  };
+  var btn1 = $('btn1x'), btn3 = $('btn3x'), btnHeat = $('btnHeat'), btnSound = $('btnSound');
+  var btnNew = $('btnNew'), btnDemo = $('btnDemo'), btnHuman = $('btnHuman');
+
+  function buildRoster(i) {
+    var root = $('roster' + i), k, j, chip, sn, pips, pip, arr;
+    root.innerHTML = '';
+    el.roster[i] = [];
+    for (k = 0; k < FLEET.length; k++) {
+      chip = document.createElement('div');
+      chip.className = 'sc';
+      chip.style.flex = (FLEET[k] + 3) + ' 1 0';
+      sn = document.createElement('div'); sn.className = 'sn'; sn.textContent = SHIP_NAMES[k].toUpperCase();
+      pips = document.createElement('div'); pips.className = 'pips';
+      arr = [];
+      for (j = 0; j < FLEET[k]; j++) { pip = document.createElement('i'); pips.appendChild(pip); arr.push(pip); }
+      chip.appendChild(sn); chip.appendChild(pips);
+      root.appendChild(chip);
+      el.roster[i].push({ root: chip, pips: arr });
+    }
+  }
+  buildRoster(0); buildRoster(1);
+
+  function addLog(cls, html) {
+    var d = document.createElement('div');
+    d.className = 'le ' + cls;
+    d.innerHTML = html;
+    logEl.insertBefore(d, logEl.firstChild);
+    while (logEl.childNodes.length > 60) logEl.removeChild(logEl.lastChild);
+  }
+
+  function updateHUD() {
+    var i, s, acc, k, j, sh, node, visible, shown, chip, main, sub, sg;
+    if (!G.sides.length) return;
+    for (i = 0; i < 2; i++) {
+      s = G.sides[i];
+      acc = s.shots ? (s.hits / s.shots * 100) : 0;
+      el.shots[i].textContent = String(s.shots);
+      el.hits[i].textContent = String(s.hits);
+      el.acc[i].textContent = acc.toFixed(1) + '%';
+      el.afloat[i].textContent = s.afloat + '/' + FLEET.length;
+      el.bar[i].style.width = acc.toFixed(1) + '%';
+      el.bv[i].textContent = acc.toFixed(1) + '%';
+      el.peak[i].textContent = Math.round(s.heatMax * 100) + '%';
+      el.ser[i].textContent = String(series[i]);
+      chip = el.chip[i];
+      if (G.over) {
+        chip.textContent = G.winner === i ? 'VICTORIA' : 'DERROTA';
+        chip.className = 'tchip ' + (G.winner === i ? 'win' : 'lose');
+      } else if (G.turn === i) {
+        chip.textContent = 'DISPARANDO'; chip.className = 'tchip fire';
+      } else {
+        chip.textContent = 'BAJO FUEGO'; chip.className = 'tchip under';
+      }
+      visible = (G.mode === 'ai') || i === 0 || G.over;
+      for (k = 0; k < s.ships.length; k++) {
+        sh = s.ships[k]; node = el.roster[i][k];
+        node.root.className = 'sc' + (sh.sunk ? ' sunk' : '');
+        shown = sh.sunk ? sh.len : (visible ? sh.hits : 0);
+        for (j = 0; j < sh.len; j++) node.pips[j].className = j < shown ? 'hit' : '';
+      }
+    }
+    el.turnNum.textContent = pad3(G.turnCount);
+    el.latVal.textContent = aiStats.last.toFixed(2) + ' ms';
+    el.latMax.textContent = aiStats.max.toFixed(2) + ' ms';
+    if (G.over) {
+      main = 'VICTORIA DE LA FLOTA ' + FLEET_NAMES[G.winner];
+      el.statusMain.style.color = '#FBBF24';
+      sub = overSubText();
+    } else if (G.phase === 'await') {
+      main = 'TU TURNO: DISPARA EN AGUAS NARANJA';
+      el.statusMain.style.color = '#22D3EE';
+      sg = G.sides[1].suggestion;
+      sub = sg >= 0 ? ('Sugerencia bayesiana: ' + cellName(sg) + ' // ' + Math.round(G.sides[1].heat[sg] * 100) + '%') : 'Haz clic en una casilla enemiga';
+    } else {
+      main = 'FLOTA ' + FLEET_NAMES[G.turn] + ' ABRE FUEGO';
+      el.statusMain.style.color = G.turn === 0 ? '#22D3EE' : '#FB923C';
+      sub = G.target >= 0 ? ('Objetivo ' + cellName(G.target) + ' // confianza ' + (G.conf * 100).toFixed(1) + '%') : 'Calculando posterior bayesiano';
+    }
+    el.statusMain.textContent = main;
+    el.statusSub.textContent = sub;
+  }
+
+  var lastCountdown = -1;
+  function overSubText() {
+    var w = G.sides[G.winner], left;
+    var base = w.shots + ' disparos // ' + (w.shots ? (w.hits / w.shots * 100).toFixed(1) : '0.0') + '% precision';
+    if (G.mode === 'ai') {
+      left = Math.max(0, Math.ceil(RESTART_S - G.overT));
+      return base + ' // nueva en ' + left + ' s';
+    }
+    return base + ' // pulsa Nueva Partida';
+  }
+
+  function applyModeLabels() {
+    if (G.mode === 'ai') {
+      el.modeLbl.textContent = 'DEMOSTRACION IA vs IA';
+      el.role[0].textContent = 'CAVITY + HIT-COVER';
+      el.note[0].textContent = 'Mapa de calor: creencia de la IA NARANJA sobre donde se oculta esta flota';
+      el.note[1].textContent = 'Mapa de calor: creencia de la IA AZUL sobre donde se oculta esta flota';
+      CV[1].className = 'board';
+    } else {
+      el.modeLbl.textContent = 'DUELO HUMANO vs IA';
+      el.role[0].textContent = 'HUMANO';
+      el.note[0].textContent = 'Tu flota. Mapa de calor: lo que la IA NARANJA cree sobre tus barcos';
+      el.note[1].textContent = 'Aguas enemigas: haz clic para disparar. Mapa de calor: asesor bayesiano';
+      CV[1].className = 'board aim';
+    }
+    el.role[1].textContent = 'IMPORTANCE BAYES';
+    el.matchLbl.textContent = 'PARTIDA ' + G.matchNo;
+    btnDemo.className = G.mode === 'ai' ? 'on' : '';
+    btnHuman.className = G.mode === 'human' ? 'on' : '';
+  }
+
+  /* =====================================================================
+     AUDIO (opcional, se activa con el boton Sonido)
+     ===================================================================== */
+  var AC = null, master = null, noiseBuf = null, soundOn = false;
+  function initAudio() {
+    try {
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return;
+      AC = new Ctor();
+      master = AC.createGain(); master.gain.value = 0.22; master.connect(AC.destination);
+      noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+      var d = noiseBuf.getChannelData(0), i;
+      for (i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { AC = null; }
+  }
+  function sfx(kind) {
+    if (!soundOn || !AC) return;
+    try {
+      var t = AC.currentTime, o, g, n, f, dur;
+      if (kind === 'ping') {
+        o = AC.createOscillator(); g = AC.createGain(); o.type = 'sine';
+        o.frequency.setValueAtTime(1320, t); o.frequency.exponentialRampToValueAtTime(880, t + 0.18);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.32);
+        return;
+      }
+      dur = kind === 'splash' ? 0.3 : (kind === 'boom' ? 0.55 : 1.1);
+      n = AC.createBufferSource(); n.buffer = noiseBuf;
+      f = AC.createBiquadFilter(); g = AC.createGain();
+      if (kind === 'splash') {
+        f.type = 'bandpass'; f.frequency.setValueAtTime(2200, t); f.frequency.exponentialRampToValueAtTime(700, t + dur);
+        g.gain.setValueAtTime(0.35, t);
+      } else {
+        f.type = 'lowpass'; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(70, t + dur);
+        g.gain.setValueAtTime(0.9, t);
+      }
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + dur + 0.02);
+      if (kind !== 'splash') {
+        o = AC.createOscillator(); g = AC.createGain(); o.type = 'sine';
+        o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(38, t + dur);
+        g.gain.setValueAtTime(0.6, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+      }
+    } catch (e) { /* audio no disponible */ }
+  }
+
+  /* =====================================================================
+     PARTICULAS Y EFECTOS
+     ===================================================================== */
+  var CW = 632, OX = 40, OY = 40, CS = 58, GS = CS * N;
+  var T_FIRE = 0, T_FLASH = 1, T_SMOKE = 2, T_FOAM = 3, T_RING = 4, T_SPARK = 5;
+  var FX = [[], []];
+  var shake = [0, 0];
+  var MAXP = 900;
+
+  function cellX(cell) { return OX + (cell % N + 0.5) * CS; }
+  function cellY(cell) { return OY + (((cell / N) | 0) + 0.5) * CS; }
+
+  function P(type, x, y, vx, vy, g, size, grow, max, delay, col) {
+    return { type: type, x: x, y: y, vx: vx, vy: vy, g: g, size: size, grow: grow, max: max, life: -(delay || 0), col: col || 0, r1: 0 };
+  }
+  function push(idx, p) { var a = FX[idx]; if (a.length < MAXP) a.push(p); }
+
+  function fxSplash(idx, cell) {
+    var x = cellX(cell), y = cellY(cell), k, i, ring;
+    for (k = 0; k < 3; k++) {
+      ring = P(T_RING, x, y, 0, 0, 0, 3, 0, 0.7, k * 0.13, 0);
+      ring.r1 = CS * (0.55 + k * 0.18);
+      push(idx, ring);
+    }
+    for (i = 0; i < 20; i++) {
+      push(idx, P(T_FOAM, x + (Math.random() - 0.5) * 8, y, (Math.random() - 0.5) * 130, -(110 + Math.random() * 190), 560,
+        2.5 + Math.random() * 3.5, 0, 0.45 + Math.random() * 0.4, Math.random() * 0.05));
+    }
+    for (i = 0; i < 5; i++) {
+      push(idx, P(T_FOAM, x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 20,
+        -(20 + Math.random() * 40), 0, 9 + Math.random() * 7, 10, 0.5 + Math.random() * 0.3, 0));
+    }
+  }
+
+  function fxExplosion(idx, cell, power, delay) {
+    var x = cellX(cell), y = cellY(cell), i, a, sp, ring;
+    delay = delay || 0;
+    push(idx, P(T_FLASH, x, y, 0, 0, 0, 56 * power, 40, 0.24, delay));
+    ring = P(T_RING, x, y, 0, 0, 0, 6, 0, 0.5, delay, 1);
+    ring.r1 = CS * 1.2 * power;
+    push(idx, ring);
+    for (i = 0; i < 14; i++) {
+      a = Math.random() * TAU; sp = 20 + Math.random() * 110 * power;
+      push(idx, P(T_FIRE, x, y, Math.cos(a) * sp, Math.sin(a) * sp - 40, 0, 12 + Math.random() * 12, -8,
+        0.3 + Math.random() * 0.45, delay + Math.random() * 0.05));
+    }
+    for (i = 0; i < 10; i++) {
+      a = Math.random() * TAU; sp = 140 + Math.random() * 240;
+      push(idx, P(T_SPARK, x, y, Math.cos(a) * sp, Math.sin(a) * sp - 60, 380, 2, 0, 0.3 + Math.random() * 0.35, delay));
+    }
+    for (i = 0; i < 9; i++) {
+      push(idx, P(T_SMOKE, x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 8, 10 + Math.random() * 16,
+        -(45 + Math.random() * 60), 0, 9 + Math.random() * 6, 20 + Math.random() * 10, 1.3 + Math.random() * 0.9, delay + i * 0.07));
+    }
+    if (shake[idx] < 5 * power) shake[idx] = 5 * power;
+  }
+
+  function fxSink(idx, ship) {
+    var k;
+    for (k = 0; k < ship.cells.length; k++) fxExplosion(idx, ship.cells[k], 1.3, k * 0.08);
+    shake[idx] = 10;
+  }
+
+  /* =====================================================================
+     FLUJO DE PARTIDA
+     ===================================================================== */
+  function startGame(mode) {
+    G.mode = mode;
+    G.sides = [newSide(0), newSide(1)];
+    G.turn = (G.matchNo % 2); G.turnCount = 0; G.over = false; G.winner = -1;
+    G.phase = 'think'; G.phaseT = 0; G.target = -1; G.conf = 0; G.overT = 0;
+    G.matchNo++;
+    lastCountdown = -1;
+    FX[0].length = 0; FX[1].length = 0; shake[0] = 0; shake[1] = 0;
+    recomputeHeat(G.sides[0]); recomputeHeat(G.sides[1]);
+    logEl.innerHTML = '';
+    addLog('sys', '<span>PARTIDA ' + G.matchNo + ' // ' + (mode === 'ai' ? 'GEMINI 4 CARBON vs CLAUDE FABLE 5.2' : 'HUMANO AZUL vs IA NARANJA') + ' // FLOTA 5-4-3-3-2</span>');
+    applyModeLabels();
+    beginTurn();
+  }
+
+  function firstUnknown(side) {
+    var i;
+    for (i = 0; i < NN; i++) if (side.flat[i] === 0) return i;
+    return -1;
+  }
+
+  function aiPick() {
+    var def = G.sides[1 - G.turn], copy = [], r, shot = null, t0, ms, cell = -1, rr, cc;
+    for (r = 0; r < N; r++) copy.push(def.view[r].slice());
+    t0 = nowMs();
+    try {
+      var brainFn = (G.turn === 0 && typeof window.__carbonChooseNavalShot === 'function')
+        ? window.__carbonChooseNavalShot
+        : window.chooseNavalShot;
+      shot = brainFn(copy, def.remaining.slice());
+    } catch (e) { shot = null; }
+    ms = nowMs() - t0;
+    aiStats.last = ms; aiStats.sum += ms; aiStats.n++;
+    if (ms > aiStats.max) aiStats.max = ms;
+    if (shot && typeof shot.row === 'number' && typeof shot.col === 'number') {
+      rr = shot.row | 0; cc = shot.col | 0;
+      if (rr >= 0 && rr < N && cc >= 0 && cc < N) cell = rr * N + cc;
+    }
+    if (cell < 0 || def.flat[cell] !== 0) cell = firstUnknown(def);
+    G.target = cell;
+    G.conf = (shot && typeof shot.confidence === 'number' && shot.confidence >= 0) ? Math.min(1, shot.confidence) : 0;
+    sfx('ping');
+  }
+
+  function beginTurn() {
+    G.phaseT = 0; G.target = -1;
+    if (G.mode === 'human' && G.turn === 0) {
+      G.phase = 'await';
+    } else {
+      G.phase = 'think';
+      aiPick();
+    }
+    updateHUD();
+  }
+
+  function resolveShot() {
+    var shooter = G.sides[G.turn], def = G.sides[1 - G.turn];
+    var t = G.target, r, c, si, ship, result, k, cell, pos, res;
+    if (t < 0 || def.flat[t] !== 0) t = firstUnknown(def);
+    if (t < 0) { G.phase = 'post'; G.phaseT = 0; return; }
+    r = (t / N) | 0; c = t % N;
+    G.turnCount++; shooter.shots++;
+    si = def.grid[t]; ship = null;
+    if (si < 0) {
+      def.flat[t] = 1; def.view[r][c] = 1; result = 'miss';
+      fxSplash(def.idx, t); sfx('splash');
+    } else {
+      ship = def.ships[si]; ship.hits++; shooter.hits++;
+      if (ship.hits >= ship.len) {
+        ship.sunk = true; def.afloat--;
+        for (k = 0; k < ship.cells.length; k++) {
+          cell = ship.cells[k];
+          def.flat[cell] = 3; def.view[(cell / N) | 0][cell % N] = 3;
+        }
+        pos = def.remaining.indexOf(ship.len);
+        if (pos >= 0) def.remaining.splice(pos, 1);
+        result = 'sunk';
+        fxSink(def.idx, ship); sfx('sink');
+      } else {
+        def.flat[t] = 2; def.view[r][c] = 2; result = 'hit';
+        fxExplosion(def.idx, t, 1, 0); sfx('boom');
+      }
+    }
+    res = result === 'miss' ? 'AGUA' : (result === 'hit' ? 'IMPACTO' : 'HUNDIDO ' + ship.name.toUpperCase());
+    addLog(result + ' f' + G.turn,
+      '<span class="ln">#' + pad3(G.turnCount) + '</span><span class="lf">' + FLEET_NAMES[G.turn] + '</span><span class="lc">' +
+      cellName(t) + '</span><span class="lr">' + res + '</span><span class="lp">' + Math.round(G.conf * 100) + '%</span>');
+    window.__pushArenaEvent({
+      matchNo: G.matchNo,
+      turn: G.turnCount,
+      shooter: FLEET_NAMES[G.turn],
+      coord: cellName(t),
+      result: result,
+      shipSunk: (result === 'sunk' && ship) ? ship.name : null,
+      confidence: Math.round(G.conf * 1000) / 1000,
+      solverMs: Math.round(aiStats.last * 100) / 100,
+      shooterShots: shooter.shots,
+      shooterHits: shooter.hits,
+      defenderAfloat: def.afloat
+    });
+    recomputeHeat(def);
+    if (def.afloat <= 0) {
+      G.over = true; G.winner = G.turn; G.phase = 'over'; G.phaseT = 0; G.overT = 0;
+      series[G.turn]++;
+      matchHistory.push({
+        matchNo: G.matchNo,
+        winner: FLEET_NAMES[G.turn],
+        totalTurns: G.turnCount,
+        carbonShots: G.sides[0].shots,
+        carbonHits: G.sides[0].hits,
+        carbonShipsLeft: G.sides[0].afloat,
+        fableShots: G.sides[1].shots,
+        fableHits: G.sides[1].hits,
+        fableShipsLeft: G.sides[1].afloat
+      });
+      window.__pushArenaEvent({
+        matchNo: G.matchNo,
+        turn: G.turnCount,
+        type: 'MATCH_END',
+        winner: FLEET_NAMES[G.turn],
+        seriesCarbon: series[0],
+        seriesFable: series[1]
+      });
+      lastCountdown = -1;
+      addLog('win', '<span>VICTORIA FLOTA ' + FLEET_NAMES[G.turn] + ' // ' + shooter.shots + ' DISPAROS // ' +
+        (shooter.hits / shooter.shots * 100).toFixed(1) + '% PRECISION</span>');
+    } else {
+      G.phase = 'post'; G.phaseT = 0;
+    }
+    updateHUD();
+  }
+
+  function logic(dt) {
+    var left;
+    if (G.phase === 'over') {
+      G.overT += dt;
+      if (G.mode === 'ai') {
+        left = Math.max(0, Math.ceil(RESTART_S - G.overT));
+        if (left !== lastCountdown) { lastCountdown = left; el.statusSub.textContent = overSubText(); }
+        if (series[0] >= SERIES_TARGET || series[1] >= SERIES_TARGET) {
+          el.statusMain.textContent = 'CAMPEON DE SERIE: ' + (series[0] > series[1] ? FLEET_NAMES[0] : FLEET_NAMES[1]) + ' (' + series[0] + ' - ' + series[1] + ')';
+          el.statusSub.textContent = 'Serie al Mejor de 3 finalizada con registro determinista';
+          return;
+        }
+        if (G.overT >= RESTART_S) startGame('ai');
+      }
+      return;
+    }
+    if (G.phase === 'await') return;
+    G.phaseT += dt * speed;
+    if (G.phase === 'think') {
+      if (G.phaseT >= T_THINK) { G.phase = 'flight'; G.phaseT = 0; }
+    } else if (G.phase === 'flight') {
+      if (G.phaseT >= T_FLIGHT) resolveShot();
+    } else if (G.phase === 'post') {
+      if (G.phaseT >= T_POST) { G.turn = 1 - G.turn; beginTurn(); }
+    }
+  }
+
+  /* =====================================================================
+     RENDER
+     ===================================================================== */
+  var MONO = '"SF Mono","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace';
+  var SANS = '"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif';
+  var ratio = 0, clock = 0, hoverCell = -1;
+
+  function makeGlow(size, stops) {
+    var c = document.createElement('canvas'), x, g, i;
+    c.width = size; c.height = size;
+    x = c.getContext('2d');
+    g = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    for (i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+    x.fillStyle = g; x.fillRect(0, 0, size, size);
+    return c;
+  }
+  var SPR = {
+    fire: makeGlow(64, [[0, 'rgba(255,246,210,1)'], [0.25, 'rgba(253,186,60,0.9)'], [0.6, 'rgba(244,63,94,0.35)'], [1, 'rgba(244,63,94,0)']]),
+    smoke: makeGlow(64, [[0, 'rgba(150,160,175,0.6)'], [0.5, 'rgba(90,102,122,0.32)'], [1, 'rgba(30,41,59,0)']]),
+    foam: makeGlow(32, [[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(207,250,254,0.7)'], [1, 'rgba(165,243,252,0)']]),
+    flash: makeGlow(128, [[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(254,240,138,0.8)'], [1, 'rgba(251,146,60,0)']])
+  };
+
+  var WATER_GRAD = [null, null];
+  (function () {
+    var i, g;
+    for (i = 0; i < 2; i++) {
+      g = CTX[i].createRadialGradient(OX + GS * 0.5, OY + GS * 0.45, 40, OX + GS * 0.5, OY + GS * 0.5, GS * 0.75);
+      if (i === 0) { g.addColorStop(0, '#0C3F6E'); g.addColorStop(0.6, '#082B50'); g.addColorStop(1, '#041A33'); }
+      else { g.addColorStop(0, '#0B4468'); g.addColorStop(0.6, '#07304E'); g.addColorStop(1, '#041C30'); }
+      WATER_GRAD[i] = g;
+    }
+  })();
+
+  var GLINTS = [];
+  (function () {
+    var i;
+    for (i = 0; i < 44; i++) GLINTS.push({ x: Math.random() * GS, y: 6 + Math.random() * (GS - 12), p: Math.random() * TAU, s: 0.8 + Math.random() * 1.4 });
+  })();
+
+  var HEAT_LUT = [];
+  (function () {
+    var stops = [[0, 20, 70, 140], [0.3, 34, 211, 238], [0.55, 16, 185, 129], [0.8, 251, 191, 36], [1, 244, 63, 94]];
+    var i, v, k, a, b, f;
+    for (i = 0; i < 64; i++) {
+      v = i / 63; k = 0;
+      while (k < stops.length - 2 && v > stops[k + 1][0]) k++;
+      a = stops[k]; b = stops[k + 1];
+      f = (v - a[0]) / (b[0] - a[0]); if (f < 0) f = 0; if (f > 1) f = 1;
+      HEAT_LUT.push('rgb(' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ',' + Math.round(a[3] + (b[3] - a[3]) * f) + ')');
+    }
+  })();
+  var PCT = [];
+  (function () { var i; for (i = 0; i <= 100; i++) PCT.push(String(i)); })();
+
+  function resize() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080), dpr, rr, i;
+    if (!(s > 0)) s = 1;
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+    dpr = window.devicePixelRatio || 1;
+    rr = Math.ceil(dpr * s * 4) / 4;
+    if (rr < 1) rr = 1; if (rr > 2) rr = 2;
+    if (rr !== ratio) {
+      ratio = rr;
+      for (i = 0; i < 2; i++) { CV[i].width = Math.round(CW * ratio); CV[i].height = Math.round(CW * ratio); }
+    }
+  }
+
+  /* ---------- siluetas metalicas ---------- */
+  function hullPath(ctx, type, hl, hw, dx, dy) {
+    var rr;
+    ctx.beginPath();
+    if (type === 'sub') {
+      rr = hw;
+      ctx.moveTo(dx - hl + rr, dy - rr);
+      ctx.lineTo(dx + hl - rr * 1.8, dy - rr);
+      ctx.quadraticCurveTo(dx + hl, dy - rr, dx + hl, dy);
+      ctx.quadraticCurveTo(dx + hl, dy + rr, dx + hl - rr * 1.8, dy + rr);
+      ctx.lineTo(dx - hl + rr, dy + rr);
+      ctx.quadraticCurveTo(dx - hl - rr * 0.2, dy + rr, dx - hl, dy);
+      ctx.quadraticCurveTo(dx - hl - rr * 0.2, dy - rr, dx - hl + rr, dy - rr);
+    } else if (type === 'carrier') {
+      ctx.moveTo(dx - hl, dy - hw * 0.8);
+      ctx.lineTo(dx - hl + 8, dy - hw);
+      ctx.lineTo(dx + hl * 0.62, dy - hw);
+      ctx.lineTo(dx + hl, dy - hw * 0.42);
+      ctx.lineTo(dx + hl, dy + hw * 0.42);
+      ctx.lineTo(dx + hl * 0.62, dy + hw);
+      ctx.lineTo(dx - hl + 8, dy + hw);
+      ctx.lineTo(dx - hl, dy + hw * 0.8);
+    } else {
+      ctx.moveTo(dx - hl, dy - hw * 0.62);
+      ctx.quadraticCurveTo(dx - hl * 0.3, dy - hw * 1.05, dx + hl * 0.45, dy - hw * 0.82);
+      ctx.quadraticCurveTo(dx + hl * 0.82, dy - hw * 0.55, dx + hl, dy);
+      ctx.quadraticCurveTo(dx + hl * 0.82, dy + hw * 0.55, dx + hl * 0.45, dy + hw * 0.82);
+      ctx.quadraticCurveTo(dx - hl * 0.3, dy + hw * 1.05, dx - hl, dy + hw * 0.62);
+    }
+    ctx.closePath();
+  }
+
+  function turret(ctx, x, r, dirSign) {
+    ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, -r * 0.38); ctx.lineTo(x + dirSign * r * 2.2, -r * 0.38);
+    ctx.moveTo(x, r * 0.38); ctx.lineTo(x + dirSign * r * 2.2, r * 0.38);
+    ctx.stroke();
+    ctx.fillStyle = '#94A3B8'; ctx.strokeStyle = '#0F172A'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, 0, r, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#E2E8F0';
+    ctx.beginPath(); ctx.arc(x, 0, r * 0.35, 0, TAU); ctx.fill();
+  }
+
+  var HW = { carrier: 0.30, battleship: 0.26, cruiser: 0.23, sub: 0.19, frigate: 0.21 };
+
+  function drawShip(ctx, ship, t, fleetIdx, ghost) {
+    var L = ship.len, type = ship.type;
+    var cx = OX + (ship.c + (ship.dir === 0 ? L / 2 : 0.5)) * CS;
+    var cy = OY + (ship.r + (ship.dir === 1 ? L / 2 : 0.5)) * CS;
+    var hl = (L * CS - 14) / 2, hw = CS * HW[type], gr;
+    ctx.save();
+    ctx.translate(cx + Math.sin(t * 0.9 + ship.id * 1.7) * 0.8, cy + Math.cos(t * 1.1 + ship.id) * 0.8);
+    if (ship.dir === 1) ctx.rotate(Math.PI / 2);
+    if (ship.flip) ctx.rotate(Math.PI);
+    ctx.globalAlpha = ship.sunk ? 0.62 : (ghost ? 0.55 : 1);
+
+    /* espuma y sombra */
+    hullPath(ctx, type, hl, hw, 0, 0);
+    ctx.strokeStyle = 'rgba(224,242,254,0.16)'; ctx.lineWidth = 7; ctx.stroke();
+    hullPath(ctx, type, hl, hw, 3, 4);
+    ctx.fillStyle = 'rgba(2,6,14,0.5)'; ctx.fill();
+
+    /* casco metalico */
+    gr = ctx.createLinearGradient(0, -hw, 0, hw);
+    if (type === 'sub') {
+      gr.addColorStop(0, '#94A3B8'); gr.addColorStop(0.3, '#64748B'); gr.addColorStop(0.7, '#334155'); gr.addColorStop(1, '#0F172A');
+    } else {
+      gr.addColorStop(0, '#F1F5F9'); gr.addColorStop(0.18, '#CBD5E1'); gr.addColorStop(0.5, '#64748B'); gr.addColorStop(0.82, '#334155'); gr.addColorStop(1, '#0F172A');
+    }
+    hullPath(ctx, type, hl, hw, 0, 0);
+    ctx.fillStyle = gr; ctx.fill();
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = ship.sunk ? 'rgba(244,63,94,0.95)' : (fleetIdx === 0 ? 'rgba(103,232,249,0.95)' : 'rgba(253,186,116,0.95)');
+    ctx.stroke();
+
+    if (type === 'carrier') {
+      ctx.fillStyle = 'rgba(30,41,59,0.78)';
+      ctx.fillRect(-hl + 8, -hw + 4, hl * 1.62 - 8, hw * 2 - 8);
+      ctx.strokeStyle = 'rgba(251,191,36,0.95)'; ctx.lineWidth = 2;
+      ctx.setLineDash([9, 7]);
+      ctx.beginPath(); ctx.moveTo(-hl + 16, 0); ctx.lineTo(hl * 0.62 - 6, 0); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(226,232,240,0.6)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-hl + 16, hw - 6); ctx.lineTo(hl * 0.25, -hw + 6); ctx.stroke();
+      ctx.fillStyle = '#CBD5E1'; ctx.strokeStyle = '#0F172A'; ctx.lineWidth = 1;
+      ctx.fillRect(hl * 0.08, -hw - 1, hl * 0.3, hw * 0.6); ctx.strokeRect(hl * 0.08, -hw - 1, hl * 0.3, hw * 0.6);
+      ctx.fillStyle = '#1E293B';
+      ctx.fillRect(hl * 0.12, -hw + hw * 0.18, hl * 0.22, hw * 0.16);
+      ctx.strokeStyle = 'rgba(226,232,240,0.5)';
+      ctx.strokeRect(-hl * 0.55, hw * 0.25, hl * 0.16, hw * 0.5);
+      ctx.strokeRect(hl * 0.3, hw * 0.25, hl * 0.16, hw * 0.5);
+    } else if (type === 'battleship') {
+      ctx.fillStyle = '#475569'; ctx.strokeStyle = '#0F172A'; ctx.lineWidth = 1;
+      ctx.fillRect(-hl * 0.24, -hw * 0.62, hl * 0.46, hw * 1.24); ctx.strokeRect(-hl * 0.24, -hw * 0.62, hl * 0.46, hw * 1.24);
+      ctx.fillStyle = '#CBD5E1';
+      ctx.fillRect(-hl * 0.06, -hw * 0.38, hl * 0.2, hw * 0.76);
+      ctx.fillStyle = '#1E293B';
+      ctx.beginPath(); ctx.arc(-hl * 0.15, 0, hw * 0.22, 0, TAU); ctx.fill();
+      turret(ctx, hl * 0.58, hw * 0.36, 1);
+      turret(ctx, hl * 0.36, hw * 0.42, 1);
+      turret(ctx, -hl * 0.5, hw * 0.42, -1);
+    } else if (type === 'cruiser') {
+      ctx.fillStyle = '#475569'; ctx.strokeStyle = '#0F172A'; ctx.lineWidth = 1;
+      ctx.fillRect(-hl * 0.25, -hw * 0.58, hl * 0.5, hw * 1.16); ctx.strokeRect(-hl * 0.25, -hw * 0.58, hl * 0.5, hw * 1.16);
+      ctx.fillStyle = '#CBD5E1';
+      ctx.fillRect(hl * 0.02, -hw * 0.34, hl * 0.17, hw * 0.68);
+      ctx.fillStyle = '#1E293B';
+      ctx.beginPath(); ctx.arc(-hl * 0.12, 0, hw * 0.24, 0, TAU); ctx.fill();
+      turret(ctx, hl * 0.52, hw * 0.4, 1);
+      turret(ctx, -hl * 0.55, hw * 0.38, -1);
+    } else if (type === 'sub') {
+      ctx.strokeStyle = 'rgba(226,232,240,0.35)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-hl + 10, 0); ctx.lineTo(hl - 12, 0); ctx.stroke();
+      ctx.strokeStyle = '#64748B'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(-hl + 7, -hw - 4); ctx.lineTo(-hl + 7, hw + 4); ctx.stroke();
+      ctx.fillStyle = '#94A3B8'; ctx.strokeStyle = '#0F172A'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(hl * 0.12, 0, hl * 0.2, hw * 0.55, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#0F172A';
+      ctx.beginPath(); ctx.arc(hl * 0.18, 0, 2.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(226,232,240,0.6)';
+      ctx.beginPath(); ctx.arc(-hl * 0.35, 0, 2, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(hl * 0.55, 0, 2, 0, TAU); ctx.fill();
+    } else {
+      ctx.fillStyle = '#475569'; ctx.strokeStyle = '#0F172A'; ctx.lineWidth = 1;
+      ctx.fillRect(-hl * 0.45, -hw * 0.52, hl * 0.62, hw * 1.04); ctx.strokeRect(-hl * 0.45, -hw * 0.52, hl * 0.62, hw * 1.04);
+      ctx.fillStyle = '#CBD5E1';
+      ctx.fillRect(-hl * 0.2, -hw * 0.3, hl * 0.26, hw * 0.6);
+      turret(ctx, hl * 0.48, hw * 0.36, 1);
+    }
+
+    if (ship.sunk) {
+      hullPath(ctx, type, hl, hw, 0, 0);
+      ctx.fillStyle = 'rgba(10,4,6,0.6)'; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- sonar ---------- */
+  function drawSonar(ctx, t, idx, flat) {
+    var cx = OX + GS / 2, cy = OY + GS / 2, R = GS * 0.72;
+    var ang = (t * 1.5 + idx * 2.1) % TAU;
+    var k, a0, a1, f, i, x, y, d, ph, steps = 26, span = 1.3;
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(34,211,238,0.11)';
+    ctx.beginPath();
+    for (k = 1; k <= 4; k++) { ctx.moveTo(cx + R * k / 4, cy); ctx.arc(cx, cy, R * k / 4, 0, TAU); }
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+    for (k = 0; k < steps; k++) {
+      f = 1 - k / steps;
+      a0 = ang - span * (k + 1) / steps; a1 = ang - span * k / steps + 0.004;
+      ctx.globalAlpha = 0.17 * f * f;
+      ctx.fillStyle = k < 9 ? '#34F5B0' : '#22D3EE';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 0.75; ctx.strokeStyle = '#A7F3D0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R); ctx.stroke();
+    ph = (t * 0.45 + idx * 0.5) % 1;
+    ctx.globalAlpha = (1 - ph) * 0.35; ctx.strokeStyle = '#10B981'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, R * ph, 0, TAU); ctx.stroke();
+    /* contactos: los impactos vivos destellan cuando pasa el barrido */
+    ctx.strokeStyle = '#6EE7B7'; ctx.lineWidth = 2;
+    for (i = 0; i < NN; i++) {
+      if (flat[i] !== 2) continue;
+      x = cellX(i); y = cellY(i);
+      d = ((ang - Math.atan2(y - cy, x - cx)) % TAU + TAU) % TAU;
+      if (d > 2.4) continue;
+      f = 1 - d / 2.4;
+      ctx.globalAlpha = f * f * 0.9;
+      ctx.beginPath(); ctx.arc(x, y, 12 + d * 7, 0, TAU); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* ---------- marcadores de agua / impacto / hundido ---------- */
+  function drawMarkers(ctx, side, t, dt, idx) {
+    var flat = side.flat, i, v, x, y, s, fl;
+    for (i = 0; i < NN; i++) {
+      v = flat[i];
+      if (v === 0) continue;
+      x = cellX(i); y = cellY(i);
+      if (v === 1) {
+        ctx.globalAlpha = 0.5 + 0.15 * Math.sin(t * 2 + i);
+        ctx.strokeStyle = '#BAE6FD'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, y, 11 + Math.sin(t * 1.7 + i * 0.9) * 1.5, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = 0.88; ctx.fillStyle = '#F0F9FF';
+        ctx.beginPath(); ctx.arc(x, y, 4.5, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      } else {
+        if (v === 3) {
+          ctx.fillStyle = 'rgba(244,63,94,0.16)';
+          ctx.fillRect(x - CS / 2 + 2, y - CS / 2 + 2, CS - 4, CS - 4);
+          ctx.strokeStyle = 'rgba(244,63,94,0.55)'; ctx.lineWidth = 1.5;
+          ctx.strokeRect(x - CS / 2 + 3, y - CS / 2 + 3, CS - 6, CS - 6);
+        }
+        ctx.strokeStyle = v === 2 ? '#F43F5E' : 'rgba(254,205,211,0.8)'; ctx.lineWidth = 3;
+        s = 8;
+        ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.stroke();
+        fl = (v === 2 ? 46 : 26) + Math.sin(t * 19 + i * 3.1) * 5 + Math.sin(t * 31 + i) * 3;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = v === 2 ? 0.85 : 0.45;
+        ctx.drawImage(SPR.fire, x - fl / 2, y - fl / 2 - 3, fl, fl);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        if (Math.random() < (v === 2 ? 5 : 1.1) * dt) {
+          push(idx, P(T_SMOKE, x + (Math.random() - 0.5) * 8, y - 4, 10 + Math.random() * 14, -(35 + Math.random() * 45), 0,
+            7 + Math.random() * 4, 16 + Math.random() * 8, 1.2 + Math.random() * 0.8, 0));
+        }
+        if (v === 2 && Math.random() < 7 * dt) {
+          push(idx, P(T_FIRE, x + (Math.random() - 0.5) * 10, y, (Math.random() - 0.5) * 16, -(30 + Math.random() * 40), 0,
+            7 + Math.random() * 6, -6, 0.3 + Math.random() * 0.3, 0));
+        }
+      }
+    }
+  }
+
+  /* ---------- particulas ---------- */
+  function drawParticles(ctx, arr, dt) {
+    var i, p, u, s, e, ty;
+    for (i = arr.length - 1; i >= 0; i--) {
+      p = arr[i]; p.life += dt;
+      if (p.life < 0) continue;
+      if (p.life >= p.max) { arr[i] = arr[arr.length - 1]; arr.pop(); continue; }
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.size += p.grow * dt;
+      if (p.size < 0.5) p.size = 0.5;
+    }
+    for (i = 0; i < arr.length; i++) {
+      p = arr[i]; if (p.life < 0) continue;
+      ty = p.type; u = p.life / p.max;
+      if (ty === T_SMOKE) {
+        ctx.globalAlpha = (1 - u) * Math.min(1, u * 8) * 0.9; s = p.size;
+        ctx.drawImage(SPR.smoke, p.x - s, p.y - s, s * 2, s * 2);
+      } else if (ty === T_FOAM) {
+        ctx.globalAlpha = 1 - u * u; s = p.size;
+        ctx.drawImage(SPR.foam, p.x - s, p.y - s, s * 2, s * 2);
+      } else if (ty === T_RING) {
+        e = 1 - (1 - u) * (1 - u);
+        ctx.globalAlpha = (1 - u) * 0.8;
+        ctx.strokeStyle = p.col === 1 ? '#FDBA74' : '#E0F2FE';
+        ctx.lineWidth = 2.5 * (1 - u) + 0.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size + (p.r1 - p.size) * e, 0, TAU); ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#FDE68A'; ctx.lineWidth = 2;
+    for (i = 0; i < arr.length; i++) {
+      p = arr[i]; if (p.life < 0) continue;
+      ty = p.type; u = p.life / p.max;
+      if (ty === T_FIRE) {
+        ctx.globalAlpha = 1 - u; s = p.size;
+        ctx.drawImage(SPR.fire, p.x - s, p.y - s, s * 2, s * 2);
+      } else if (ty === T_FLASH) {
+        ctx.globalAlpha = (1 - u) * (1 - u); s = p.size;
+        ctx.drawImage(SPR.flash, p.x - s, p.y - s, s * 2, s * 2);
+      } else if (ty === T_SPARK) {
+        ctx.globalAlpha = 1 - u;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* ---------- reticula, proyectil y cursor humano ---------- */
+  function drawTargeting(ctx, idx, t) {
+    var shooter = G.turn, col, cell, cx, cy, u, e, sz, b, k, sx, sy, f, f2, x0, y0, px, py, side, a;
+    if (G.over || 1 - shooter !== idx) return;
+    side = G.sides[idx];
+    if (G.phase === 'await') {
+      if (heatOn && side.suggestion >= 0 && side.flat[side.suggestion] === 0) {
+        cx = cellX(side.suggestion); cy = cellY(side.suggestion);
+        a = 0.55 + 0.35 * Math.sin(t * 5);
+        ctx.strokeStyle = 'rgba(251,191,36,' + a.toFixed(2) + ')'; ctx.lineWidth = 2.5;
+        ctx.setLineDash([8, 6]); ctx.lineDashOffset = -t * 20;
+        ctx.strokeRect(cx - CS / 2 + 3, cy - CS / 2 + 3, CS - 6, CS - 6);
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      }
+      if (hoverCell >= 0 && side.flat[hoverCell] === 0) {
+        cx = cellX(hoverCell); cy = cellY(hoverCell);
+        ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(cx - CS / 2, cy - CS / 2, CS, CS);
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.5; ctx.strokeRect(cx - CS / 2 + 1.5, cy - CS / 2 + 1.5, CS - 3, CS - 3);
+        ctx.strokeStyle = 'rgba(34,211,238,0.5)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(OX, cy); ctx.lineTo(OX + GS, cy); ctx.moveTo(cx, OY); ctx.lineTo(cx, OY + GS); ctx.stroke();
+      }
+      return;
+    }
+    cell = G.target;
+    if (cell < 0 || (G.phase !== 'think' && G.phase !== 'flight')) return;
+    col = shooter === 0 ? '34,211,238' : '251,146,60';
+    cx = cellX(cell); cy = cellY(cell);
+    u = G.phase === 'think' ? Math.min(1, G.phaseT / T_THINK) : 1;
+    e = 1 - (1 - u) * (1 - u);
+    sz = CS * (1.9 - 0.95 * e) / 2;
+    ctx.strokeStyle = 'rgba(' + col + ',0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(OX, cy); ctx.lineTo(OX + GS, cy); ctx.moveTo(cx, OY); ctx.lineTo(cx, OY + GS); ctx.stroke();
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate((1 - e) * 0.9);
+    ctx.strokeStyle = 'rgba(' + col + ',0.98)'; ctx.lineWidth = 3;
+    b = sz * 0.45;
+    ctx.beginPath();
+    for (k = 0; k < 4; k++) {
+      sx = (k & 1) ? 1 : -1; sy = (k & 2) ? 1 : -1;
+      ctx.moveTo(sx * sz, sy * (sz - b)); ctx.lineTo(sx * sz, sy * sz); ctx.lineTo(sx * (sz - b), sy * sz);
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(' + col + ',0.95)';
+    ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (G.phase === 'flight') {
+      f = Math.min(1, G.phaseT / T_FLIGHT);
+      x0 = shooter === 0 ? -20 : CW + 20; y0 = cy - 50;
+      ctx.fillStyle = 'rgba(2,6,14,0.35)';
+      ctx.beginPath(); ctx.ellipse(x0 + (cx - x0) * f, y0 + (cy - y0) * f + 6, 9, 4, 0, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
+      for (k = 6; k >= 0; k--) {
+        f2 = f - k * 0.035; if (f2 < 0) continue;
+        px = x0 + (cx - x0) * f2; py = y0 + (cy - y0) * f2 - Math.sin(Math.PI * f2) * 110;
+        ctx.globalAlpha = (1 - k / 7) * 0.9;
+        sz = (k === 0 ? 15 : 11 - k) * (0.8 + 0.5 * Math.sin(Math.PI * f2));
+        ctx.drawImage(SPR.fire, px - sz, py - sz, sz * 2, sz * 2);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      px = x0 + (cx - x0) * f; py = y0 + (cy - y0) * f - Math.sin(Math.PI * f) * 110;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath(); ctx.arc(px, py, 3.2, 0, TAU); ctx.fill();
+    }
+  }
+
+  /* ---------- tablero completo ---------- */
+  function drawBoard(idx, dt) {
+    var ctx = CTX[idx], side = G.sides[idx], t = clock, flat = side.flat;
+    var r, c, i, j, x, y, w, y0, yy, gl, a, gx, sh, hd, heat, k, mx, nrm, ship, visible, targeted, lose, v, pv;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, CW, CW);
+
+    sh = shake[idx];
+    if (sh > 0.08) {
+      ctx.translate((Math.random() - 0.5) * sh * 2, (Math.random() - 0.5) * sh * 2);
+      shake[idx] = sh * Math.pow(0.002, dt);
+    } else { shake[idx] = 0; }
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(OX, OY, GS, GS); ctx.clip();
+
+    /* agua viva */
+    ctx.fillStyle = WATER_GRAD[idx]; ctx.fillRect(OX, OY, GS, GS);
+    ctx.fillStyle = '#38BDF8';
+    for (r = 0; r < N; r++) {
+      for (c = 0; c < N; c++) {
+        w = Math.sin(t * 0.9 + r * 0.7 + c * 0.45) * Math.sin(t * 0.6 - r * 0.35 + c * 0.8 + 1.3 + idx);
+        ctx.globalAlpha = 0.07 + 0.06 * w;
+        ctx.fillRect(OX + c * CS, OY + r * CS, CS, CS);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(125,211,252,0.13)';
+    for (j = 0; j < 10; j++) {
+      y0 = OY + ((j * 61 + t * 11) % (GS + 20)) - 10;
+      ctx.beginPath();
+      for (x = 0; x <= GS; x += 20) {
+        yy = y0 + Math.sin(x * 0.031 + t * 1.5 + j * 1.9) * 5 + Math.sin(x * 0.012 - t * 0.8 + j) * 4;
+        if (x === 0) ctx.moveTo(OX + x, yy); else ctx.lineTo(OX + x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#E0F2FE'; ctx.lineWidth = 1.4;
+    for (j = 0; j < GLINTS.length; j++) {
+      gl = GLINTS[j];
+      a = Math.sin(t * gl.s + gl.p);
+      if (a <= 0.2) continue;
+      ctx.globalAlpha = (a - 0.2) * 0.5;
+      gx = OX + (gl.x + t * 6) % GS; y = OY + gl.y;
+      ctx.beginPath(); ctx.moveTo(gx - 7, y); ctx.quadraticCurveTo(gx, y - 4, gx + 7, y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    /* mapa de calor bayesiano (relleno) */
+    hd = side.heatDisp; heat = side.heat;
+    k = Math.min(1, dt * 9); mx = 0;
+    for (i = 0; i < NN; i++) {
+      hd[i] += (heat[i] - hd[i]) * k;
+      if (hd[i] > mx) mx = hd[i];
+    }
+    if (heatOn && mx > 0.002) {
+      for (i = 0; i < NN; i++) {
+        if (flat[i] !== 0) continue;
+        v = hd[i]; if (v < 0.002) continue;
+        nrm = v / mx; if (nrm > 1) nrm = 1;
+        ctx.globalAlpha = 0.12 + 0.5 * nrm;
+        ctx.fillStyle = HEAT_LUT[(nrm * 63) | 0];
+        ctx.fillRect(OX + (i % N) * CS + 2, OY + ((i / N) | 0) * CS + 2, CS - 4, CS - 4);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    /* rejilla */
+    ctx.strokeStyle = 'rgba(148,197,233,0.17)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (i = 1; i < N; i++) {
+      ctx.moveTo(OX + i * CS + 0.5, OY); ctx.lineTo(OX + i * CS + 0.5, OY + GS);
+      ctx.moveTo(OX, OY + i * CS + 0.5); ctx.lineTo(OX + GS, OY + i * CS + 0.5);
+    }
+    ctx.stroke();
+
+    /* barcos */
+    for (i = 0; i < side.ships.length; i++) {
+      ship = side.ships[i];
+      visible = G.mode === 'ai' || idx === 0 || ship.sunk || G.over;
+      if (visible) drawShip(ctx, ship, t, idx, G.mode === 'human' && idx === 1 && !ship.sunk);
+    }
+
+    /* barrido de sonar */
+    drawSonar(ctx, t, idx, flat);
+    ctx.restore();
+
+    /* marcadores */
+    drawMarkers(ctx, side, t, dt, idx);
+
+    /* porcentajes del mapa de calor */
+    if (heatOn && mx > 0.002) {
+      ctx.font = 'bold 12px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (i = 0; i < NN; i++) {
+        if (flat[i] !== 0) continue;
+        v = hd[i]; pv = Math.round(v * 100);
+        if (pv < 1) continue;
+        if (pv > 100) pv = 100;
+        nrm = v / mx; if (nrm > 1) nrm = 1;
+        x = OX + (i % N) * CS + 3; y = OY + ((i / N) | 0) * CS + 3;
+        ctx.globalAlpha = 0.5 + 0.3 * nrm;
+        ctx.fillStyle = '#040C18';
+        ctx.fillRect(x, y, 24, 15);
+        ctx.globalAlpha = 0.6 + 0.4 * nrm;
+        ctx.fillStyle = nrm > 0.92 ? '#FDE68A' : '#F0F9FF';
+        ctx.fillText(PCT[pv], x + 12, y + 8);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    /* reticula / proyectil */
+    drawTargeting(ctx, idx, t);
+
+    /* particulas: espuma, fuego, humo */
+    drawParticles(ctx, FX[idx], dt);
+
+    /* marco y coordenadas */
+    targeted = !G.over && (1 - G.turn) === idx;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = idx === 0 ? 'rgba(34,211,238,0.8)' : 'rgba(251,146,60,0.8)';
+    if (targeted) { ctx.shadowColor = G.turn === 0 ? '#22D3EE' : '#FB923C'; ctx.shadowBlur = 16; }
+    ctx.strokeRect(OX - 1, OY - 1, GS + 2, GS + 2);
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    ctx.font = 'bold 17px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#94A3B8';
+    for (i = 0; i < N; i++) {
+      ctx.fillText(COLS.charAt(i), OX + (i + 0.5) * CS, OY - 19);
+      ctx.fillText(String(i + 1), OX - 20, OY + (i + 0.5) * CS);
+    }
+
+    /* cierre de partida */
+    if (G.over) {
+      lose = G.winner !== idx;
+      ctx.fillStyle = lose ? 'rgba(6,10,18,0.45)' : 'rgba(6,10,18,0.18)';
+      ctx.fillRect(OX, OY, GS, GS);
+      ctx.fillStyle = 'rgba(6,10,18,0.82)';
+      ctx.fillRect(OX, OY + GS / 2 - 62, GS, 124);
+      ctx.fillStyle = lose ? '#F43F5E' : '#FBBF24';
+      ctx.fillRect(OX, OY + GS / 2 - 62, GS, 3);
+      ctx.fillRect(OX, OY + GS / 2 + 59, GS, 3);
+      ctx.font = '800 46px ' + SANS;
+      ctx.fillText(lose ? 'FLOTA HUNDIDA' : 'VICTORIA', OX + GS / 2, OY + GS / 2 - 12);
+      ctx.font = '700 19px ' + SANS; ctx.fillStyle = '#E2E8F0';
+      ctx.fillText(lose ? ('FLOTA ' + FLEET_NAMES[idx] + ' // 0 BARCOS A FLOTE') : ('FLOTA ' + FLEET_NAMES[idx] + ' // ' + side.afloat + ' BARCOS A FLOTE'),
+        OX + GS / 2, OY + GS / 2 + 32);
+    }
+  }
+
+  /* =====================================================================
+     BUCLE PRINCIPAL
+     ===================================================================== */
+  var lastT = nowMs(), lastRaf = nowMs(), fpsAcc = 0, fpsFrames = 0;
+  function raf(cb) {
+    if (typeof window.requestAnimationFrame === 'function') return window.requestAnimationFrame(cb);
+    return setTimeout(cb, 16);
+  }
+
+  function frame() {
+    raf(frame);
+    var t = nowMs(), raw = (t - lastT) / 1000, dt;
+    lastT = t; lastRaf = t;
+    if (raw < 0) raw = 0;
+    dt = raw > 0.1 ? 0.1 : raw;
+    clock += dt;
+    try {
+      logic(dt);
+      drawBoard(0, dt);
+      drawBoard(1, dt);
+    } catch (e) {
+      if (window.console && console.error) console.error(e);
+    }
+    fpsAcc += raw; fpsFrames++;
+    if (fpsAcc >= 0.5) {
+      fpsVal = fpsFrames / fpsAcc;
+      el.fps.textContent = String(Math.round(fpsVal));
+      fpsAcc = 0; fpsFrames = 0;
+    }
+  }
+
+  /* si la pestana queda oculta (rAF en pausa), la partida sigue avanzando */
+  setInterval(function () {
+    var t = nowMs();
+    if (t - lastRaf > 400) {
+      try { logic(0.1); } catch (e) { /* sin efecto */ }
+      lastT = t;
+    }
+  }, 100);
+
+  /* =====================================================================
+     CONTROLES
+     ===================================================================== */
+  function setSpeed(v) {
+    speed = v;
+    btn1.className = v === 1 ? 'on' : '';
+    btn3.className = v === 3 ? 'on' : '';
+  }
+  function setHeat(v) {
+    heatOn = !!v;
+    btnHeat.className = heatOn ? 'on' : '';
+    el.heatState.textContent = heatOn ? 'ACTIVO' : 'OCULTO';
+    el.heatState.className = 'tag' + (heatOn ? '' : ' off');
+  }
+  function cellFromEvent(e) {
+    var rect = CV[1].getBoundingClientRect(), x, y, c, r;
+    if (!rect.width || !rect.height) return -1;
+    x = (e.clientX - rect.left) / rect.width * CW;
+    y = (e.clientY - rect.top) / rect.height * CW;
+    c = Math.floor((x - OX) / CS); r = Math.floor((y - OY) / CS);
+    if (c < 0 || c >= N || r < 0 || r >= N) return -1;
+    return r * N + c;
+  }
+
+  btn1.addEventListener('click', function () { setSpeed(1); });
+  btn3.addEventListener('click', function () { setSpeed(3); });
+  btnHeat.addEventListener('click', function () { setHeat(!heatOn); });
+  btnNew.addEventListener('click', function () { startGame(G.mode); });
+  btnDemo.addEventListener('click', function () { startGame('ai'); });
+  btnHuman.addEventListener('click', function () { startGame('human'); });
+  btnSound.addEventListener('click', function () {
+    if (!AC) initAudio();
+    if (AC && AC.state === 'suspended' && AC.resume) { try { AC.resume(); } catch (e) { /* sin efecto */ } }
+    soundOn = !soundOn && !!AC;
+    btnSound.className = soundOn ? 'on' : '';
+    el.soundLbl.textContent = soundOn ? 'Sonido: si' : 'Sonido: no';
+    if (soundOn) sfx('ping');
+  });
+
+  CV[1].addEventListener('mousemove', function (e) { hoverCell = cellFromEvent(e); });
+  CV[1].addEventListener('mouseleave', function () { hoverCell = -1; });
+  CV[1].addEventListener('click', function (e) {
+    var cell;
+    if (G.mode !== 'human' || G.over || G.turn !== 0 || G.phase !== 'await') return;
+    cell = cellFromEvent(e);
+    if (cell < 0 || G.sides[1].flat[cell] !== 0) return;
+    G.target = cell;
+    G.conf = G.sides[1].heat[cell] || 0;
+    G.phase = 'flight'; G.phaseT = 0;
+    sfx('ping');
+    updateHUD();
+  });
+
+  window.addEventListener('keydown', function (e) {
+    var k = (e.key || '').toLowerCase();
+    if (k === '1') setSpeed(1);
+    else if (k === '3') setSpeed(3);
+    else if (k === 'h') setHeat(!heatOn);
+    else if (k === 'n') startGame(G.mode);
+    else if (k === 'd') startGame('ai');
+    else if (k === 'j') startGame('human');
+  });
+  window.addEventListener('resize', resize);
+
+  /* =====================================================================
+     ARRANQUE: la demostracion IA vs IA empieza viva en el segundo 0.0
+     ===================================================================== */
+  resize();
+  window.__ARENA_SUMMARY__ = function() {
+    var champ = series[0] > series[1] ? 'GEMINI 4 CARBON' : (series[1] > series[0] ? 'CLAUDE FABLE 5.2' : 'EMPATE');
+    return {
+      challenge: '04-batalla-naval-sonar',
+      hostSimulatorWinnerFaseA: 'CLAUDE FABLE 5.2',
+      seed: 20261104,
+      winnerFaseB: champ,
+      seriesScore: { carbon: series[0], fable: series[1] },
+      matches: matchHistory,
+      totalLoggedActions: window.__ARENA_LOG__.length,
+      sampleLogs: window.__ARENA_LOG__.filter(function(e){ return e.result === 'sunk' || e.type === 'MATCH_END'; }),
+      fullLogs: window.__ARENA_LOG__
+    };
+  };
+  setSpeed(3);
+  setHeat(true);
+  startGame('ai');
+  lastT = nowMs(); lastRaf = lastT;
+  raf(frame);
+})();
+</script>
+</body>
+</html>

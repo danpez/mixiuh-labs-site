@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mixiuh Forensic AI - Detective Ley de Benford (1,000 Facturas)</title>
+  <style>
+    :root {
+      --bg-deep: #070B14;
+      --bg-panel: rgba(15, 23, 42, 0.88);
+      --bg-card: rgba(15, 23, 42, 0.95);
+      --border-dim: rgba(148, 163, 184, 0.16);
+      --border-cyan: rgba(34, 211, 238, 0.42);
+      --border-coral: rgba(244, 63, 94, 0.55);
+      --cyan: #22D3EE;
+      --emerald: #10B981;
+      --amber: #FBBF24;
+      --coral: #F43F5E;
+      --text-main: #F8FAFC;
+      --text-secondary: #CBD5E1;
+      --text-muted: #94A3B8;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 64px 122px 1fr 34px;
+      gap: 10px;
+      padding: 10px 16px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-cyan);
+      border-radius: 12px;
+      padding: 0 18px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand-group { display: flex; align-items: center; gap: 14px; }
+
+    .brand-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(244, 63, 94, 0.22));
+      border: 1px solid var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(244, 63, 94, 0.18);
+      color: var(--coral);
+      border: 1px solid rgba(244, 63, 94, 0.5);
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    .top-controls { display: flex; align-items: center; gap: 8px; }
+
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-dim);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .mode-pill:hover {
+      border-color: var(--cyan);
+      color: var(--text-main);
+      transform: translateY(-1px);
+    }
+
+    .mode-pill.active-cyan {
+      background: rgba(34, 211, 238, 0.15);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.22);
+    }
+
+    .mode-pill.active-coral {
+      background: rgba(244, 63, 94, 0.18);
+      border-color: var(--coral);
+      color: #FDA4AF;
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.28);
+    }
+
+    .mode-pill.active-emerald {
+      background: rgba(16, 185, 129, 0.16);
+      border-color: var(--emerald);
+      color: #6EE7B7;
+    }
+
+    .mode-pill.active-amber {
+      background: rgba(251, 191, 36, 0.16);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+      animation: pulseGlow 1.4s infinite ease-in-out;
+    }
+
+    .pulse-dot.coral {
+      background: var(--coral);
+      box-shadow: 0 0 10px var(--coral);
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.65; }
+    }
+
+    .verdict-strip {
+      display: grid;
+      grid-template-columns: 1.25fr 1.1fr 1.15fr 1.15fr;
+      gap: 10px;
+    }
+
+    .kpi-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--cyan);
+    }
+
+    .kpi-card.culprit-card {
+      border-color: var(--border-coral);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.14) 0%, rgba(15, 23, 42, 0.95) 65%);
+    }
+    .kpi-card.culprit-card::before { background: var(--coral); }
+
+    .kpi-card.amber-card {
+      border-color: rgba(251, 191, 36, 0.45);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.10) 0%, rgba(15, 23, 42, 0.95) 65%);
+    }
+    .kpi-card.amber-card::before { background: var(--amber); }
+
+    .kpi-card.cyan-card {
+      border-color: rgba(34, 211, 238, 0.45);
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.10) 0%, rgba(15, 23, 42, 0.95) 65%);
+    }
+    .kpi-card.cyan-card::before { background: var(--cyan); }
+
+    .kpi-card.emerald-card {
+      border-color: rgba(16, 185, 129, 0.45);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, rgba(15, 23, 42, 0.95) 65%);
+    }
+    .kpi-card.emerald-card::before { background: var(--emerald); }
+
+    .kpi-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .kpi-badge {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+
+    .badge-coral { background: rgba(244, 63, 94, 0.2); color: #FDA4AF; border: 1px solid rgba(244, 63, 94, 0.45); }
+    .badge-amber { background: rgba(251, 191, 36, 0.18); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.45); }
+    .badge-cyan  { background: rgba(34, 211, 238, 0.16); color: var(--cyan); border: 1px solid rgba(34, 211, 238, 0.45); }
+    .badge-emerald { background: rgba(16, 185, 129, 0.16); color: #6EE7B7; border: 1px solid rgba(16, 185, 129, 0.45); }
+
+    .kpi-main {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 3px 0;
+    }
+
+    .kpi-main.mono { font-family: var(--font-mono); font-size: 24px; }
+
+    .kpi-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1.28fr 1.22fr 1.05fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .panel-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text-main);
+    }
+
+    .panel-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      margin-bottom: 6px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+    .canvas-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      border-radius: 8px;
+      background: rgba(7, 11, 20, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      overflow: hidden;
+    }
+
+    .canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .digit-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 5px;
+      margin-top: 8px;
+      flex-shrink: 0;
+    }
+
+    .digit-cell {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 7px;
+      padding: 5px 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .digit-cell:hover, .digit-cell.active {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.14);
+      transform: translateY(-1px);
+    }
+
+    .digit-cell.anomaly {
+      border-color: rgba(244, 63, 94, 0.55);
+      background: rgba(244, 63, 94, 0.12);
+    }
+
+    .digit-cell .d-num { font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--text-main); }
+    .digit-cell .d-teo { font-family: var(--font-mono); font-size: 9.5px; color: var(--cyan); }
+    .digit-cell .d-culp { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--coral); }
+
+    .center-col {
+      display: grid;
+      grid-template-rows: 1.15fr 0.95fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .matrix-split {
+      display: grid;
+      grid-template-columns: 1.38fr 0.92fr;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .list-box {
+      background: rgba(7, 11, 20, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 8px;
+      padding: 6px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .list-box::-webkit-scrollbar, .scanner-table-wrap::-webkit-scrollbar { width: 5px; }
+    .list-box::-webkit-scrollbar-thumb, .scanner-table-wrap::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 4px;
+    }
+
+    .sup-row {
+      display: grid;
+      grid-template-columns: 1fr 42px 76px 62px;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .sup-row:hover {
+      border-color: rgba(34, 211, 238, 0.4);
+      background: rgba(30, 41, 59, 0.85);
+    }
+
+    .sup-row.selected {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.15);
+    }
+
+    .sup-row.culprit-row {
+      border-color: rgba(244, 63, 94, 0.65);
+      background: linear-gradient(90deg, rgba(244, 63, 94, 0.22), rgba(15, 23, 42, 0.85));
+    }
+
+    .sup-name {
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-main);
+    }
+
+    .sup-stat {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      text-align: right;
+      color: var(--text-secondary);
+    }
+
+    .chi-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      text-align: right;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .filter-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .filter-select {
+      width: 100%;
+      background: rgba(7, 11, 20, 0.9);
+      color: var(--text-main);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .filter-select:focus { border-color: var(--cyan); }
+
+    .scanner-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(7, 11, 20, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 7px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .scanner-table-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(7, 11, 20, 0.68);
+    }
+
+    table.forensic-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    table.forensic-table thead {
+      position: sticky;
+      top: 0;
+      background: #0F172A;
+      z-index: 2;
+      box-shadow: 0 1px 0 rgba(148, 163, 184, 0.2);
+    }
+
+    table.forensic-table th {
+      text-align: left;
+      padding: 7px 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    table.forensic-table td {
+      padding: 5.5px 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      color: var(--text-secondary);
+    }
+
+    table.forensic-table tr.fraud-row { background: rgba(244, 63, 94, 0.11); }
+    table.forensic-table tr.fraud-row td { color: #FECDD3; }
+    table.forensic-table tr:hover { background: rgba(34, 211, 238, 0.16); cursor: pointer; }
+
+    .footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 0 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .footer-metrics { display: flex; align-items: center; gap: 18px; }
+    .footer-metrics strong { color: var(--text-main); }
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="app-shell">
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-badge">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4" stroke="#F43F5E" stroke-width="2.3"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">
+            <span>AUDITORIA FORENSE ANTIFRAUDE // LEY DE BENFORD</span>
+            <span class="brand-tag">DESFALCO HORMIGA DETECTADO</span>
+          </div>
+          <div class="brand-sub">
+            Grupo Comercial Mixiuh Retail &middot; 1,000 Facturas Reales &middot; 8 Sucursales &middot; 12 Proveedores &middot; Tope Auto: $10,000.00 MXN
+          </div>
+        </div>
+      </div>
+
+      <div class="top-controls">
+        <button id="btnViewAll" class="mode-pill active-cyan" onclick="setQuickMode('ALL')">
+          <span class="pulse-dot"></span>
+          <span>AUDITORIA GLOBAL (1,000)</span>
+        </button>
+        <button id="btnViewCulprit" class="mode-pill" onclick="setQuickMode('CULPRIT')">
+          <span class="pulse-dot coral"></span>
+          <span>AISLAR CULPABLE (115)</span>
+        </button>
+        <button id="btnViewHonest" class="mode-pill" onclick="setQuickMode('HONEST')">
+          <span>PROVEEDORES HONESTOS (885)</span>
+        </button>
+        <button id="btnAutoDemo" class="mode-pill active-emerald" onclick="toggleAutoDemo()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="autoDemoLabel">AUTO-DEMO: ON</span>
+        </button>
+        <button id="btnAudio" class="mode-pill" onclick="toggleAudio()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span id="audioLabel">SONAR: OFF</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 4 FORENSIC VERDICT CARDS -->
+    <section class="verdict-strip">
+      <div class="kpi-card culprit-card">
+        <div class="kpi-head">
+          <span>VEREDICTO FORENSE &middot; PROVEEDOR FANTASMA</span>
+          <span class="kpi-badge badge-coral">CULPABLE CONFIRMADO</span>
+        </div>
+        <div class="kpi-main" style="color: #FFE4E6;">Logistica Fantasma del Norte</div>
+        <div class="kpi-foot">
+          <span>Rubro: <strong style="color:#FDA4AF;">Consultoria Express (100%)</strong></span>
+          <span>Digito 1: <strong style="color:#F43F5E;">0.0%</strong> vs 30.1%</span>
+        </div>
+      </div>
+
+      <div class="kpi-card amber-card">
+        <div class="kpi-head">
+          <span>SUCURSAL COMPLICE &amp; EVASION DE TOPE</span>
+          <span class="kpi-badge badge-amber">100% EN 1 SUCURSAL</span>
+        </div>
+        <div class="kpi-main" style="color: #FEF3C7;">Monterrey-04</div>
+        <div class="kpi-foot">
+          <span>Aprobador: <strong style="color:#FBBF24;">Sistema_Auto (115/115)</strong></span>
+          <span>Max: <strong style="color:#FBBF24;">$9,926.47</strong> (&lt;$10k)</span>
+        </div>
+      </div>
+
+      <div class="kpi-card cyan-card">
+        <div class="kpi-head">
+          <span>MONTO EXACTO ROBADO &amp; FACTURAS FALSAS</span>
+          <span class="kpi-badge badge-cyan">115 FACTURAS FALSAS</span>
+        </div>
+        <div class="kpi-main mono" style="color: #22D3EE;" id="kpiStolenAmount">$957,439.59 MXN</div>
+        <div class="kpi-foot">
+          <span>Promedio: <strong>$8,325.56 MXN</strong></span>
+          <span>Digitos 8 y 9: <strong style="color:#F43F5E;">70.43% (81/115)</strong></span>
+        </div>
+      </div>
+
+      <div class="kpi-card emerald-card">
+        <div class="kpi-head">
+          <span>PRUEBA CHI-CUADRADO LEY DE BENFORD</span>
+          <span class="kpi-badge badge-emerald">UMBRAL CRITICO: 26.12</span>
+        </div>
+        <div class="kpi-main mono" style="color: #6EE7B7;">
+          <span style="color:#F43F5E;">&chi;&sup2; = 577.24</span>
+          <span style="font-size:14px;color:#94A3B8;font-weight:600;"> vs 14.31 Honestos</span>
+        </div>
+        <div class="kpi-foot">
+          <span>Seleccion actual: <strong id="activeChiLabel" style="color:#22D3EE;">&chi;&sup2; = 60.48 (N=1,000)</strong></span>
+          <span>gl = 8 (p &lt; 10^-118)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN 3-COLUMN WORKSPACE -->
+    <main class="workspace">
+      <!-- COL 1: BENFORD COMPARATIVE CHART -->
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Curva de Benford: Teorica vs Honestos vs Culpable</div>
+            <div class="panel-subtitle">P(d) = log10(1 + 1/d) &middot; Anomalia severa en digitos 8 (28.7%) y 9 (41.7%) por fraccionamiento</div>
+          </div>
+          <span class="kpi-badge badge-coral" id="benfordFocusBadge">MODO COMPARATIVO</span>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-item"><span class="swatch" style="background:#22D3EE;border-radius:50%;"></span><span>Benford Teorico (30.1% en d=1)</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#10B981;"></span><span>11 Prov. Honestos (N=885, &chi;&sup2;=14.31)</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#F43F5E;"></span><span>Logistica Fantasma (N=115, &chi;&sup2;=577.24)</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#FBBF24;"></span><span>Filtro Activo</span></div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="benfordCanvas"></canvas>
+        </div>
+
+        <div class="digit-grid" id="digitGrid"></div>
+      </section>
+
+      <!-- COL 2: $10,000 THRESHOLD RADAR + SUPPLIER/BRANCH MATRIX -->
+      <div class="center-col">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Radar del Tope de Aprobacion ($10,000 MXN)</div>
+              <div class="panel-subtitle">Agrupamiento artificial entre $4,815 y $9,926 MXN para evadir revision de Director_Regional</div>
+            </div>
+            <div style="display:flex;gap:5px;">
+              <button id="btnScaleTrap" class="mode-pill active-amber" style="padding:3px 8px;font-size:10px;" onclick="setScatterScale('TRAP')">ZONA $0-$12K</button>
+              <button id="btnScaleFull" class="mode-pill" style="padding:3px 8px;font-size:10px;" onclick="setScatterScale('FULL')">RANGO $0-$72K</button>
+            </div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="scatterCanvas"></canvas>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Ranking Forense: 12 Proveedores y 8 Sucursales</div>
+              <div class="panel-subtitle">Haz clic en cualquier proveedor o sucursal para auditar su firma de Benford</div>
+            </div>
+            <span class="kpi-badge badge-cyan">CLICK PARA FILTRAR</span>
+          </div>
+          <div class="matrix-split">
+            <div class="list-box" id="supplierList"></div>
+            <div class="list-box" id="branchList"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- COL 3: LIVE INVOICE SCANNER -->
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Escaner Forense de Facturas en Vivo</div>
+            <div class="panel-subtitle">Inspeccion en tiempo real sobre las 1,000 facturas contables</div>
+          </div>
+          <span class="kpi-badge badge-amber" id="scannerCountBadge">1,000 REGISTROS</span>
+        </div>
+
+        <div class="filter-bar">
+          <select id="selSupplier" class="filter-select" onchange="applyManualFilters()">
+            <option value="ALL">Proveedor: Todos (12)</option>
+            <option value="Logistica Fantasma del Norte">SOLO CULPABLE: Logistica Fantasma del Norte (115)</option>
+            <option value="HONEST_ONLY">SOLO HONESTOS: 11 Proveedores Legitimos (885)</option>
+          </select>
+          <select id="selBranch" class="filter-select" onchange="applyManualFilters()">
+            <option value="ALL">Sucursal: Todas (8)</option>
+          </select>
+          <select id="selDigit" class="filter-select" onchange="applyManualFilters()">
+            <option value="ALL">Digito Inicial: Todos (1 a 9)</option>
+            <option value="1">Digito 1 (Teorico 30.1%)</option>
+            <option value="2">Digito 2 (Teorico 17.6%)</option>
+            <option value="3">Digito 3 (Teorico 12.5%)</option>
+            <option value="4">Digito 4 (Teorico 9.7%)</option>
+            <option value="5">Digito 5 (Teorico 7.9%)</option>
+            <option value="6">Digito 6 (Teorico 6.7%)</option>
+            <option value="7">Digito 7 (Teorico 5.8%)</option>
+            <option value="8">Digito 8 (Teorico 5.1% - Pico Fraude 28.7%)</option>
+            <option value="9">Digito 9 (Teorico 4.6% - Pico Fraude 41.7%)</option>
+          </select>
+          <select id="selBand" class="filter-select" onchange="applyManualFilters()">
+            <option value="ALL">Rango Monto: Todos</option>
+            <option value="EVASION">Banda Evasion ($8,000 - $9,999.99)</option>
+            <option value="UNDER10K">Auto-Aprobadas (&lt; $10,000 MXN)</option>
+            <option value="OVER10K">Director Regional (&gt;= $10,000 MXN)</option>
+          </select>
+        </div>
+
+        <div class="scanner-summary">
+          <span>Suma Filtro: <strong id="filterSumMxn" style="color:#22D3EE;">$5,045,340.17 MXN</strong></span>
+          <span>Sospechosas: <strong id="filterFraudCount" style="color:#F43F5E;">115 / 1,000</strong></span>
+        </div>
+
+        <div class="scanner-table-wrap" id="scannerWrap">
+          <table class="forensic-table">
+            <thead>
+              <tr>
+                <th>Factura</th>
+                <th>Fecha</th>
+                <th>Sucursal</th>
+                <th>Proveedor</th>
+                <th>d1</th>
+                <th style="text-align:right;">Monto MXN</th>
+              </tr>
+            </thead>
+            <tbody id="invoiceTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer-bar">
+      <div class="footer-metrics">
+        <span>ESTADO: <strong id="statusStageText" style="color:#22D3EE;">AUDITORIA EN VIVO 60 FPS</strong></span>
+        <span>API FORENSE: <strong>window.__auditForensics()</strong></span>
+        <span>PROVEEDOR CULPABLE: <strong style="color:#F43F5E;">Logistica Fantasma del Norte</strong></span>
+        <span>SUCURSAL COMPLICE: <strong style="color:#FBBF24;">Monterrey-04</strong></span>
+        <span>DESFALCO TOTAL: <strong style="color:#10B981;">$957,439.59 MXN (115 Facturas)</strong></span>
+      </div>
+      <div class="footer-metrics">
+        <span>FPS: <strong id="fpsCounter" style="color:#10B981;">60</strong></span>
+        <span>ESTANDAR MIXIUH LABS 1080P60</span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+  // ============================================================================
+  // 1. EMBEDDED AUTHENTIC DATASET (1,000 INVOICES FROM p04_facturas_cadena.json)
+  // ============================================================================
+  const BRANCHES = ["CDMX-Centro", "CDMX-Sur", "Guadalajara-01", "Merida-01", "Monterrey-04", "Puebla-02", "Queretaro-01", "Tijuana-03"];
+  const SUPPLIERS = ["Acero Industrial SA", "Empaques del Bajio", "Energia Limpia MX", "Fletes Nacionales", "Insumos Medicos Sur", "Logistica Fantasma del Norte", "Papeleria Corporativa", "Redes y Fibra Optica", "Servicios Hidraulicos", "Suministros Electricos", "Tecnologia Nube MX", "Uniformes Textiles"];
+  const APPROVERS = ["Director_Regional", "Sistema_Auto"];
+  const CATEGORIES = ["Consultoria Express", "Inventario", "Mantenimiento", "Operaciones", "TI", "Transporte"];
+  const AUTO_LIMIT_MXN = 10000.0;
+  const CULPRIT_SUPPLIER = "Logistica Fantasma del Norte";
+  const CULPRIT_BRANCH = "Monterrey-04";
+
+  const RAW_ROWS = [
+    ["FAC-10141","2026-09-19",0,11,7338.53,1,4],["FAC-10390","2026-04-14",5,0,1256.96,1,5],["FAC-10885","2026-04-27",7,8,360.42,1,4],["FAC-10733","2026-08-28",6,9,27990.15,0,5],["FAC-10257","2026-07-13",7,11,2628.08,1,1],["FAC-10250","2026-05-26",7,3,360.53,1,1],["FAC-10842","2026-01-24",3,0,972.63,1,1],["FAC-10739","2026-10-15",0,9,324.95,1,1],["FAC-10819","2026-08-19",6,4,1404.33,1,5],["FAC-10434","2026-09-04",0,8,974.69,1,4],["FAC-10421","2026-07-12",6,0,5245.85,1,3],["FAC-10617","2026-04-09",3,2,5272.92,1,2],["FAC-10931","2026-04-24",4,5,8690.94,1,0],["FAC-10690","2026-08-11",4,4,1094.89,1,5],["FAC-10910","2026-03-04",4,5,8898.35,1,0],["FAC-10035","2026-02-18",3,2,875.25,1,5],["FAC-10997","2026-05-17",4,5,9163.73,1,0],["FAC-10546","2026-08-24",1,1,2693.06,1,3],["FAC-10103","2026-08-28",1,10,1667.22,1,2],["FAC-10023","2026-10-27",4,2,2692.82,1,1],["FAC-10951","2026-03-02",4,5,8217.07,1,0],["FAC-10543","2026-01-15",4,9,1591.26,1,1],["FAC-10732","2026-06-12",4,7,1076.96,1,3],["FAC-10615","2026-05-21",4,1,2898.16,1,4],["FAC-10266","2026-06-05",2,11,45.02,1,3],["FAC-10121","2026-06-11",7,3,2198.41,1,2],["FAC-10171","2026-04-22",3,11,2038.64,1,2],["FAC-10709","2026-08-14",5,2,4178.12,1,5],["FAC-10094","2026-10-13",5,4,323.21,1,1],["FAC-10674","2026-08-12",1,0,5915.49,1,5],["FAC-10686","2026-06-04",1,4,5426.88,1,3],["FAC-10305","2026-10-18",0,4,239.68,1,2],["FAC-10099","2026-06-01",7,3,395.47,1,3],["FAC-10984","2026-08-19",4,5,4815.71,1,0],["FAC-10388","2026-08-26",6,1,350.73,1,1],["FAC-10314","2026-04-04",3,11,23225.89,0,5],["FAC-10151","2026-08-23",7,8,2590.88,1,4],["FAC-10722","2026-06-01",1,6,7623.08,1,3],["FAC-10064","2026-09-25",2,6,1719.47,1,1],["FAC-10990","2026-10-08",4,5,9805.68,1,0],
+    ["FAC-10014","2026-07-11",0,4,3451.43,1,2],["FAC-10097","2026-02-25",4,4,1836.74,1,2],["FAC-10160","2026-07-09",6,6,437.76,1,1],["FAC-10199","2026-05-15",3,2,107.82,1,5],["FAC-10446","2026-07-02",2,2,1160.76,1,4],["FAC-10608","2026-09-18",1,1,755.12,1,1],["FAC-10200","2026-02-12",6,4,1348.2,1,1],["FAC-10897","2026-09-13",4,5,9646.35,1,0],["FAC-10384","2026-03-12",6,3,1673.32,1,5],["FAC-10587","2026-10-05",0,1,956.2,1,3],["FAC-10824","2026-09-21",7,6,3138.15,1,1],["FAC-10058","2026-04-12",0,8,3977.59,1,5],["FAC-10924","2026-09-26",4,5,8904.62,1,0],["FAC-10896","2026-03-01",4,5,8892.2,1,0],["FAC-10011","2026-10-01",5,10,2943.52,1,5],["FAC-10579","2026-08-01",5,8,3832.46,1,5],["FAC-10969","2026-05-25",4,5,9104.21,1,0],["FAC-10287","2026-01-23",4,7,2213.22,1,4],["FAC-10865","2026-03-06",4,7,204.42,1,2],["FAC-10291","2026-01-27",4,4,930.99,1,2],["FAC-10870","2026-07-23",7,11,3744.17,1,5],["FAC-10067","2026-05-27",2,2,342.86,1,2],["FAC-10234","2026-04-23",2,4,259.93,1,1],["FAC-10220","2026-09-08",0,3,1428.2,1,3],["FAC-10697","2026-01-01",1,2,1635.08,1,2],["FAC-10974","2026-06-27",4,5,9126.13,1,0],["FAC-10903","2026-08-17",4,5,8288.62,1,0],["FAC-10860","2026-08-17",2,1,561.08,1,3],["FAC-10531","2026-08-28",6,9,1791.91,1,3],["FAC-10696","2026-09-24",0,10,5578.16,1,5],["FAC-10455","2026-01-23",6,1,6774.88,1,5],["FAC-10360","2026-07-09",0,4,4434.64,1,4],["FAC-10074","2026-02-26",7,8,252.86,1,4],["FAC-10892","2026-09-03",4,5,9511.6,1,0],["FAC-10665","2026-05-03",0,8,1780.84,1,1],["FAC-10338","2026-03-04",5,4,2276.76,1,4],["FAC-10569","2026-08-02",6,0,401.24,1,4],["FAC-10120","2026-01-07",3,6,744.71,1,2],["FAC-10653","2026-05-06",0,2,448.48,1,4],["FAC-10106","2026-04-26",5,6,1219.31,1,4],
+    ["FAC-10075","2026-03-15",7,6,45315.15,0,3],["FAC-10664","2026-09-05",2,8,6400.98,1,1],["FAC-10693","2026-03-12",3,10,1049.16,1,4],["FAC-10707","2026-05-27",5,10,2796.1,1,3],["FAC-10817","2026-04-02",2,10,507.99,1,3],["FAC-10078","2026-05-07",6,10,20820.26,0,5],["FAC-10622","2026-09-23",1,3,1855.65,1,1],["FAC-10299","2026-04-20",7,11,5509.47,1,1],["FAC-10827","2026-01-13",3,0,823.62,1,5],["FAC-10792","2026-01-03",0,4,1660.16,1,4],["FAC-10804","2026-02-11",4,0,6400.81,1,5],["FAC-10193","2026-08-15",1,3,1340.77,1,5],["FAC-10935","2026-07-11",4,5,4821.55,1,0],["FAC-10514","2026-07-26",4,3,293.92,1,5],["FAC-10189","2026-06-22",7,11,6387.15,1,5],["FAC-10835","2026-02-03",2,1,404.8,1,1],["FAC-10399","2026-01-14",1,6,6997.58,1,2],["FAC-10201","2026-02-13",5,8,3384.63,1,4],["FAC-10349","2026-03-21",3,0,359.6,1,3],["FAC-10037","2026-07-20",4,7,5031.6,1,4],["FAC-10424","2026-03-04",2,7,9895.54,1,3],["FAC-10270","2026-03-03",5,3,4721.34,1,3],["FAC-10472","2026-08-25",2,2,49.83,1,2],["FAC-10436","2026-10-28",0,2,1112.43,1,3],["FAC-10734","2026-09-08",1,8,506.21,1,5],["FAC-10048","2026-06-23",6,4,6836.59,1,3],["FAC-10309","2026-06-10",3,4,2322.88,1,2],["FAC-10679","2026-08-12",7,9,3574.26,1,2],["FAC-10944","2026-06-09",4,5,8629.44,1,0],["FAC-10940","2026-06-28",4,5,9199.89,1,0],["FAC-10453","2026-01-21",3,7,5002.0,1,4],["FAC-10369","2026-08-28",4,1,5979.72,1,3],["FAC-10956","2026-05-22",4,5,4927.9,1,0],["FAC-10649","2026-04-04",4,3,210.56,1,2],["FAC-10015","2026-01-02",6,0,20558.12,0,4],["FAC-10927","2026-05-21",4,5,9243.51,1,0],["FAC-10435","2026-01-03",0,11,27501.08,0,1],["FAC-10909","2026-09-14",4,5,8798.15,1,0],["FAC-10170","2026-05-18",0,1,2808.11,1,5],["FAC-10833","2026-09-25",1,3,38637.48,0,5],
+    ["FAC-10998","2026-05-03",4,5,4936.05,1,0],["FAC-10016","2026-07-03",0,2,60.59,1,1],["FAC-10761","2026-07-07",3,0,40846.05,0,2],["FAC-10582","2026-05-17",7,8,530.73,1,1],["FAC-10317","2026-05-19",7,9,15802.88,0,3],["FAC-10776","2026-09-24",6,3,20604.54,0,5],["FAC-10509","2026-10-17",3,0,765.97,1,3],["FAC-10680","2026-01-26",0,8,2666.42,1,4],["FAC-10232","2026-05-23",3,0,1286.4,1,3],["FAC-10619","2026-07-19",1,0,6085.59,1,4],["FAC-10229","2026-04-03",4,11,886.29,1,4],["FAC-10089","2026-10-02",0,4,2246.29,1,3],["FAC-10461","2026-05-10",0,4,2042.68,1,1],["FAC-10265","2026-06-28",1,11,483.32,1,4],["FAC-10812","2026-04-26",7,3,2384.94,1,3],["FAC-10517","2026-08-01",7,3,2075.44,1,1],["FAC-10162","2026-03-23",7,2,79.68,1,5],["FAC-10949","2026-05-14",4,5,4979.83,1,0],["FAC-10677","2026-01-28",5,7,1671.07,1,4],["FAC-10030","2026-04-10",5,6,2796.69,1,1],["FAC-10091","2026-01-19",7,9,4862.73,1,4],["FAC-10290","2026-01-19",0,1,6234.42,1,5],["FAC-10845","2026-03-23",2,7,3410.44,1,1],["FAC-10524","2026-08-21",1,8,3001.25,1,4],["FAC-10487","2026-09-18",7,6,1714.31,1,1],["FAC-10253","2026-05-25",4,8,186.68,1,3],["FAC-10464","2026-02-22",2,8,5941.32,1,1],["FAC-10430","2026-09-12",6,0,812.08,1,1],["FAC-10729","2026-02-10",6,11,633.99,1,2],["FAC-10520","2026-04-02",5,10,340.77,1,3],["FAC-10459","2026-08-12",2,1,12650.78,0,2],["FAC-10036","2026-03-14",2,7,2795.11,1,1],["FAC-10661","2026-03-05",4,8,1805.26,1,1],["FAC-10400","2026-10-23",6,3,10186.41,0,4],["FAC-10358","2026-05-14",4,0,1640.18,1,4],["FAC-10118","2026-03-28",1,6,1373.88,1,2],["FAC-10202","2026-05-20",4,6,4397.5,1,3],["FAC-10554","2026-10-14",4,4,539.18,1,4],["FAC-10143","2026-06-20",3,3,45.0,1,5],["FAC-10090","2026-07-28",3,10,1596.19,1,5],
+    ["FAC-10775","2026-09-28",1,7,776.89,1,2],["FAC-10832","2026-03-24",6,11,583.24,1,2],["FAC-10671","2026-01-03",6,8,1133.98,1,5],["FAC-10303","2026-10-22",6,9,1422.56,1,4],["FAC-10213","2026-05-02",3,9,1523.34,1,4],["FAC-10108","2026-04-15",0,8,4138.06,1,1],["FAC-10878","2026-10-15",3,11,159.47,1,5],["FAC-10204","2026-03-14",4,11,71872.42,0,1],["FAC-10088","2026-10-16",0,3,160.66,1,5],["FAC-10822","2026-10-16",5,1,2808.58,1,4],["FAC-10448","2026-02-18",7,4,1690.92,1,4],["FAC-10616","2026-03-24",7,10,7402.4,1,4],["FAC-10115","2026-10-05",5,4,755.7,1,4],["FAC-10989","2026-08-19",4,5,9436.78,1,0],["FAC-10492","2026-09-14",7,10,1762.81,1,1],["FAC-10226","2026-04-02",5,3,220.6,1,5],["FAC-10999","2026-10-28",4,5,7727.03,1,0],["FAC-10356","2026-06-22",4,3,5242.19,1,3],["FAC-10589","2026-02-21",2,3,1899.28,1,3],["FAC-10371","2026-07-01",3,11,36511.33,0,3],["FAC-10261","2026-01-01",1,7,195.95,1,4],["FAC-10336","2026-01-25",7,4,2851.44,1,2],["FAC-10994","2026-08-08",4,5,8409.68,1,0],["FAC-10552","2026-02-14",4,11,5762.18,1,4],["FAC-10937","2026-07-19",4,5,8341.19,1,0],["FAC-10267","2026-02-06",5,2,16464.45,0,2],["FAC-10538","2026-06-02",6,11,1651.17,1,2],["FAC-10904","2026-10-06",4,5,9493.1,1,0],["FAC-10271","2026-01-07",2,4,2694.88,1,5],["FAC-10335","2026-07-15",6,9,4028.38,1,5],["FAC-10365","2026-07-04",4,10,535.7,1,2],["FAC-10073","2026-01-28",2,1,3018.68,1,4],["FAC-10312","2026-06-18",6,1,5975.95,1,4],["FAC-10651","2026-05-27",3,7,622.32,1,2],["FAC-10374","2026-08-14",4,0,163.42,1,5],["FAC-10344","2026-04-21",1,2,1420.42,1,3],["FAC-10607","2026-09-03",3,10,608.35,1,1],["FAC-10658","2026-07-11",1,8,3722.54,1,2],["FAC-10838","2026-01-27",2,8,5679.88,1,1],["FAC-10849","2026-04-13",6,9,2094.57,1,2],
+    ["FAC-10316","2026-01-20",7,7,734.49,1,3],["FAC-10020","2026-09-04",1,0,901.42,1,4],["FAC-10283","2026-01-22",1,6,3913.0,1,4],["FAC-10027","2026-07-05",3,11,1006.68,1,5],["FAC-10821","2026-01-18",2,9,6942.46,1,3],["FAC-10013","2026-01-15",7,3,1075.61,1,5],["FAC-10513","2026-09-11",7,1,837.68,1,3],["FAC-10836","2026-04-07",7,11,2193.81,1,4],["FAC-10059","2026-07-19",1,10,1625.15,1,5],["FAC-10298","2026-02-16",4,3,1649.05,1,3],["FAC-10363","2026-08-09",5,1,214.79,1,2],["FAC-10503","2026-08-28",7,9,10116.85,0,5],["FAC-10128","2026-03-07",2,3,455.76,1,1],["FAC-10293","2026-04-14",2,9,406.58,1,4],["FAC-10409","2026-01-09",5,6,2756.3,1,3],["FAC-10701","2026-07-19",1,0,284.15,1,4],["FAC-10221","2026-01-25",1,7,4663.43,1,1],["FAC-10678","2026-04-16",6,4,4207.47,1,3],["FAC-10731","2026-05-24",1,3,1371.07,1,3],["FAC-10475","2026-05-20",5,4,3711.04,1,2],["FAC-10960","2026-05-10",4,5,9366.38,1,0],["FAC-10654","2026-01-01",0,3,5727.68,1,3],["FAC-10501","2026-06-06",1,4,8033.56,1,2],["FAC-10262","2026-04-21",1,9,3400.41,1,5],["FAC-10156","2026-04-14",3,3,445.42,1,1],["FAC-10182","2026-04-01",4,6,587.37,1,2],["FAC-10895","2026-07-09",4,5,8501.82,1,0],["FAC-10397","2026-01-12",6,1,24462.3,0,5],["FAC-10315","2026-02-21",0,0,1071.09,1,3],["FAC-10019","2026-02-27",6,7,1466.6,1,4],["FAC-10725","2026-05-17",6,8,3065.54,1,5],["FAC-10863","2026-10-14",0,2,489.32,1,4],["FAC-10883","2026-07-23",7,4,3410.52,1,3],["FAC-10881","2026-07-25",6,8,943.96,1,4],["FAC-10246","2026-03-20",3,4,1055.02,1,1],["FAC-10051","2026-08-14",5,6,953.95,1,5],["FAC-10913","2026-07-21",4,5,9355.21,1,0],["FAC-10426","2026-02-06",0,6,348.6,1,5],["FAC-10799","2026-08-27",3,1,981.51,1,4],["FAC-10479","2026-10-15",1,9,8251.76,1,1],
+    ["FAC-10745","2026-03-08",5,1,4509.56,1,3],["FAC-10296","2026-08-25",0,0,519.35,1,2],["FAC-10663","2026-06-17",6,7,692.34,1,3],["FAC-10796","2026-08-01",2,8,896.45,1,3],["FAC-10875","2026-05-07",4,7,1540.77,1,3],["FAC-10606","2026-05-09",5,0,115.07,1,1],["FAC-10965","2026-10-09",4,5,8413.4,1,0],["FAC-10345","2026-09-04",0,6,8315.93,1,5],["FAC-10535","2026-06-21",6,4,219.7,1,4],["FAC-10112","2026-10-04",1,11,13060.3,0,3],["FAC-10717","2026-01-16",0,9,5299.62,1,1],["FAC-10370","2026-03-23",0,1,4086.37,1,3],["FAC-10380","2026-05-23",5,11,1014.51,1,4],["FAC-10868","2026-04-27",3,6,3348.93,1,2],["FAC-10598","2026-01-10",0,4,5009.04,1,5],["FAC-10947","2026-04-23",4,5,9788.09,1,0],["FAC-10760","2026-06-28",5,9,291.87,1,1],["FAC-10474","2026-04-16",6,2,55.43,1,5],["FAC-10942","2026-07-16",4,5,4938.64,1,0],["FAC-10673","2026-04-22",4,6,10520.34,0,5],["FAC-10095","2026-04-06",2,10,1220.87,1,4],["FAC-10695","2026-02-21",2,9,1884.59,1,2],["FAC-10899","2026-09-26",4,5,9225.26,1,0],["FAC-10214","2026-08-21",0,2,1881.19,1,3],["FAC-10668","2026-05-09",7,1,11411.95,0,5],["FAC-10452","2026-03-21",5,6,2952.49,1,4],["FAC-10378","2026-05-10",3,11,511.1,1,2],["FAC-10542","2026-02-26",6,11,1358.28,1,1],["FAC-10876","2026-09-12",7,11,197.69,1,5],["FAC-10412","2026-05-12",5,1,1588.66,1,3],["FAC-10258","2026-01-06",3,3,6438.43,1,1],["FAC-10828","2026-03-22",7,8,596.25,1,3],["FAC-10354","2026-02-15",7,6,143.01,1,4],["FAC-10003","2026-07-15",6,10,403.71,1,2],["FAC-10601","2026-04-24",7,3,537.33,1,4],["FAC-10639","2026-07-16",2,8,261.94,1,5],["FAC-10462","2026-06-19",4,2,821.76,1,4],["FAC-10646","2026-04-15",2,2,9828.47,1,5],["FAC-10907","2026-05-11",4,5,4865.73,1,0],["FAC-10251","2026-10-02",7,6,1181.22,1,1],
+    ["FAC-10080","2026-03-24",7,2,789.36,1,3],["FAC-10818","2026-08-24",4,9,859.79,1,4],["FAC-10749","2026-01-27",7,10,693.24,1,4],["FAC-10033","2026-01-12",3,3,20275.14,0,4],["FAC-10698","2026-05-10",0,0,4316.65,1,1],["FAC-10629","2026-04-15",7,11,120.21,1,5],["FAC-10610","2026-04-25",4,3,2828.93,1,2],["FAC-10711","2026-01-18",3,1,17196.28,0,3],["FAC-10245","2026-03-07",0,8,1799.87,1,4],["FAC-10779","2026-04-27",7,7,388.11,1,3],["FAC-10307","2026-06-06",5,7,370.86,1,1],["FAC-10076","2026-04-16",2,1,4385.46,1,3],["FAC-10894","2026-10-10",4,5,7409.44,1,0],["FAC-10982","2026-05-02",4,5,9133.58,1,0],["FAC-10585","2026-07-21",7,10,3295.89,1,4],["FAC-10816","2026-05-27",6,4,3139.41,1,2],["FAC-10991","2026-08-27",4,5,4988.46,1,0],["FAC-10292","2026-08-10",3,1,6139.96,1,2],["FAC-10976","2026-04-21",4,5,9814.91,1,0],["FAC-10534","2026-08-18",5,10,2980.94,1,4],["FAC-10843","2026-07-01",5,7,825.71,1,1],["FAC-10727","2026-10-20",2,2,527.83,1,1],["FAC-10764","2026-02-21",5,7,3168.84,1,1],["FAC-10021","2026-06-21",4,3,3505.91,1,1],["FAC-10750","2026-04-19",2,2,9183.02,1,1],["FAC-10205","2026-07-20",2,2,264.75,1,3],["FAC-10496","2026-06-22",3,6,3239.77,1,3],["FAC-10540","2026-04-28",7,6,1669.4,1,5],["FAC-10491","2026-01-03",4,1,143.08,1,1],["FAC-10612","2026-09-11",4,3,12046.14,0,4],["FAC-10418","2026-06-21",3,7,5829.21,1,2],["FAC-10079","2026-09-11",2,11,7451.36,1,2],["FAC-10502","2026-09-18",1,9,11505.61,0,4],["FAC-10152","2026-02-11",2,7,101.98,1,3],["FAC-10391","2026-01-03",1,1,8976.44,1,5],["FAC-10187","2026-03-04",6,0,4340.6,1,2],["FAC-10043","2026-10-04",7,11,4476.75,1,3],["FAC-10343","2026-02-05",6,2,1689.6,1,2],["FAC-10423","2026-06-25",3,6,5756.52,1,2],["FAC-10071","2026-08-11",1,0,2021.4,1,1],
+    ["FAC-10763","2026-10-21",4,1,8403.29,1,3],["FAC-10886","2026-09-02",4,5,4936.7,1,0],["FAC-10425","2026-04-23",3,1,9655.27,1,5],["FAC-10244","2026-02-14",5,2,4266.4,1,5],["FAC-10557","2026-06-12",7,3,4680.23,1,5],["FAC-10042","2026-10-16",3,6,16466.6,0,3],["FAC-10429","2026-09-28",4,7,4697.17,1,2],["FAC-10631","2026-10-14",6,4,451.07,1,2],["FAC-10840","2026-05-12",6,11,245.86,1,2],["FAC-10393","2026-04-14",5,4,180.53,1,4],["FAC-10854","2026-10-10",1,8,4355.27,1,1],["FAC-10773","2026-08-23",4,6,2839.88,1,2],["FAC-10499","2026-04-11",5,6,5422.21,1,2],["FAC-10572","2026-06-20",7,10,11676.33,0,4],["FAC-10766","2026-05-18",2,11,205.0,1,5],["FAC-10277","2026-01-16",2,2,1030.35,1,5],["FAC-10699","2026-03-26",1,0,1330.99,1,5],["FAC-10045","2026-06-06",6,10,929.2,1,1],["FAC-10427","2026-06-14",1,2,5490.92,1,1],["FAC-10805","2026-02-13",4,2,18101.01,0,3],["FAC-10802","2026-10-01",2,1,192.06,1,4],["FAC-10703","2026-06-12",4,3,1256.18,1,2],["FAC-10367","2026-06-26",7,0,2853.97,1,1],["FAC-10688","2026-01-16",4,1,494.12,1,2],["FAC-10705","2026-07-05",7,9,784.74,1,3],["FAC-10149","2026-06-14",4,0,2567.49,1,1],["FAC-10332","2026-10-26",4,9,254.67,1,2],["FAC-10109","2026-03-26",6,4,1392.03,1,4],["FAC-10105","2026-02-24",5,3,2172.69,1,4],["FAC-10040","2026-01-17",2,0,4125.63,1,1],["FAC-10930","2026-03-18",4,5,8589.61,1,0],["FAC-10774","2026-09-08",3,0,4185.51,1,3],["FAC-10116","2026-01-25",6,10,1211.49,1,2],["FAC-10476","2026-05-14",5,2,5285.4,1,1],["FAC-10694","2026-02-21",4,4,2871.8,1,1],["FAC-10102","2026-04-17",4,3,5501.31,1,3],["FAC-10635","2026-05-02",5,8,2824.49,1,1],["FAC-10968","2026-09-12",4,5,9320.34,1,0],["FAC-10483","2026-07-11",4,0,8883.85,1,5],["FAC-10153","2026-05-07",2,2,1351.95,1,4],
+    ["FAC-10284","2026-02-04",2,10,5030.58,1,4],["FAC-10769","2026-07-15",0,7,5800.06,1,2],["FAC-10602","2026-09-06",5,9,1052.72,1,4],["FAC-10280","2026-10-07",7,2,10377.84,0,4],["FAC-10249","2026-03-07",3,8,2416.92,1,5],["FAC-10662","2026-07-24",1,1,586.09,1,3],["FAC-10592","2026-07-08",4,4,1749.21,1,4],["FAC-10255","2026-09-03",2,9,21244.11,0,2],["FAC-10752","2026-10-05",6,8,204.3,1,3],["FAC-10856","2026-03-06",0,10,1395.49,1,4],["FAC-10742","2026-06-16",0,10,2455.44,1,2],["FAC-10926","2026-09-04",4,5,9363.86,1,0],["FAC-10963","2026-05-13",4,5,4967.57,1,0],["FAC-10263","2026-02-10",5,0,16143.95,0,3],["FAC-10500","2026-07-14",1,8,4475.09,1,5],["FAC-10457","2026-03-27",3,1,217.83,1,3],["FAC-10272","2026-05-08",0,3,1466.58,1,2],["FAC-10586","2026-09-15",5,0,651.78,1,2],["FAC-10847","2026-09-27",2,11,1586.09,1,3],["FAC-10279","2026-03-23",7,7,113.41,1,4],["FAC-10638","2026-10-05",4,3,455.42,1,4],["FAC-10323","2026-07-19",1,3,1639.82,1,3],["FAC-10039","2026-01-08",3,4,13249.9,0,2],["FAC-10659","2026-01-20",0,2,5823.98,1,1],["FAC-10047","2026-09-26",1,2,600.41,1,2],["FAC-10018","2026-08-22",3,0,496.32,1,3],["FAC-10887","2026-07-07",4,5,7729.1,1,0],["FAC-10504","2026-08-18",0,1,6380.52,1,4],["FAC-10672","2026-07-02",5,0,5684.09,1,5],["FAC-10920","2026-05-12",4,5,9831.15,1,0],["FAC-10512","2026-02-26",3,1,742.77,1,2],["FAC-10988","2026-03-14",4,5,9189.7,1,0],["FAC-10932","2026-05-26",4,5,9837.66,1,0],["FAC-10029","2026-03-25",5,9,2121.03,1,3],["FAC-10714","2026-03-25",0,8,6124.87,1,2],["FAC-10123","2026-04-10",4,7,14860.95,0,5],["FAC-10859","2026-09-28",4,0,4015.28,1,4],["FAC-10706","2026-04-28",7,8,405.96,1,1],["FAC-10562","2026-05-09",2,11,1223.7,1,2],["FAC-10447","2026-08-24",7,2,1366.91,1,5],
+    ["FAC-10281","2026-05-08",4,8,1744.84,1,5],["FAC-10366","2026-10-22",1,3,36351.37,0,1],["FAC-10630","2026-03-02",4,6,1826.29,1,5],["FAC-10341","2026-03-06",1,0,4823.58,1,2],["FAC-10908","2026-07-08",4,5,7903.95,1,0],["FAC-10657","2026-02-05",6,9,9705.25,1,4],["FAC-10506","2026-03-20",5,8,8902.83,1,5],["FAC-10719","2026-01-21",6,0,2986.57,1,5],["FAC-10740","2026-05-22",5,1,21804.61,0,3],["FAC-10650","2026-01-10",3,7,2304.95,1,2],["FAC-10853","2026-02-01",4,7,12876.84,0,4],["FAC-10217","2026-06-11",5,8,4584.57,1,3],["FAC-10419","2026-05-26",5,2,2033.95,1,3],["FAC-10858","2026-07-27",7,2,1489.22,1,5],["FAC-10943","2026-05-22",4,5,7671.04,1,0],["FAC-10497","2026-05-06",7,10,14978.95,0,4],["FAC-10196","2026-10-20",0,6,1560.2,1,1],["FAC-10995","2026-10-07",4,5,9790.97,1,0],["FAC-10901","2026-07-06",4,5,7472.24,1,0],["FAC-10210","2026-07-08",5,9,1783.16,1,2],["FAC-10445","2026-09-21",7,0,340.91,1,4],["FAC-10794","2026-07-24",4,6,240.86,1,1],["FAC-10275","2026-07-18",7,9,1735.58,1,1],["FAC-10770","2026-04-19",4,7,6042.61,1,3],["FAC-10230","2026-08-19",3,6,736.61,1,4],["FAC-10972","2026-09-20",4,5,8955.28,1,0],["FAC-10238","2026-01-06",6,10,718.46,1,4],["FAC-10313","2026-07-05",7,4,433.45,1,3],["FAC-10806","2026-10-05",5,10,787.55,1,5],["FAC-10414","2026-04-25",4,6,752.87,1,3],["FAC-10526","2026-08-07",0,0,306.48,1,4],["FAC-10539","2026-05-06",5,3,3059.58,1,2],["FAC-10912","2026-10-21",4,5,9668.18,1,0],["FAC-10830","2026-06-12",6,10,538.46,1,3],["FAC-10166","2026-10-25",6,7,2727.13,1,4],["FAC-10085","2026-04-20",5,2,5186.08,1,2],["FAC-10350","2026-10-24",5,1,422.69,1,1],["FAC-10449","2026-10-01",5,3,7995.58,1,5],["FAC-10256","2026-05-28",6,3,667.89,1,2],["FAC-10224","2026-09-15",0,2,4153.73,1,2],
+    ["FAC-10605","2026-10-27",3,0,4753.33,1,2],["FAC-10946","2026-08-14",4,5,9540.9,1,0],["FAC-10595","2026-01-24",6,7,554.84,1,1],["FAC-10077","2026-09-16",7,7,10025.26,0,3],["FAC-10981","2026-09-18",4,5,9406.59,1,0],["FAC-10987","2026-09-22",4,5,8245.27,1,0],["FAC-10431","2026-05-19",0,3,21144.09,0,4],["FAC-10632","2026-09-25",3,8,2029.19,1,3],["FAC-10025","2026-04-01",3,9,2554.8,1,1],["FAC-10086","2026-09-10",1,11,1073.81,1,4],["FAC-10848","2026-05-20",0,3,2185.65,1,4],["FAC-10550","2026-09-12",7,6,3759.14,1,2],["FAC-10565","2026-05-11",7,2,1045.42,1,2],["FAC-10295","2026-09-07",5,7,387.96,1,1],["FAC-10864","2026-02-07",4,0,1532.19,1,4],["FAC-10212","2026-07-04",6,4,7464.32,1,2],["FAC-10268","2026-01-19",5,0,3299.99,1,1],["FAC-10985","2026-04-24",4,5,7978.89,1,0],["FAC-10329","2026-09-01",6,2,3690.01,1,2],["FAC-10624","2026-06-22",2,1,14036.4,0,1],["FAC-10888","2026-06-28",4,5,8760.82,1,0],["FAC-10850","2026-06-12",0,9,5979.39,1,3],["FAC-10544","2026-09-15",3,2,1859.33,1,3],["FAC-10893","2026-10-27",4,5,4947.9,1,0],["FAC-10164","2026-06-08",6,1,1270.65,1,5],["FAC-10145","2026-07-07",4,1,5311.11,1,1],["FAC-10471","2026-01-06",0,11,193.23,1,4],["FAC-10735","2026-09-12",5,8,4987.71,1,2],["FAC-10568","2026-04-07",7,2,8369.34,1,1],["FAC-10803","2026-01-11",5,4,5529.95,1,1],["FAC-10918","2026-06-22",4,5,9488.97,1,0],["FAC-10596","2026-09-06",7,3,432.59,1,1],["FAC-10755","2026-04-24",0,6,2249.11,1,2],["FAC-10186","2026-10-26",5,8,5075.47,1,1],["FAC-10906","2026-08-28",4,5,9484.58,1,0],["FAC-10959","2026-04-06",4,5,8385.32,1,0],["FAC-10594","2026-04-17",3,4,2901.9,1,5],["FAC-10416","2026-05-06",0,4,1781.43,1,1],["FAC-10209","2026-02-07",2,0,11482.75,0,5],["FAC-10795","2026-10-10",6,0,4285.25,1,4],
+    ["FAC-10851","2026-04-13",5,8,2781.8,1,2],["FAC-10005","2026-02-24",4,4,4952.27,1,1],["FAC-10712","2026-10-01",4,4,35537.61,0,3],["FAC-10442","2026-01-12",1,8,2239.06,1,1],["FAC-10525","2026-04-25",3,0,1156.15,1,5],["FAC-10508","2026-01-06",6,7,333.07,1,1],["FAC-10667","2026-07-10",0,8,60898.83,0,5],["FAC-10392","2026-10-24",0,11,8761.11,1,1],["FAC-10738","2026-01-27",4,1,3484.26,1,1],["FAC-10113","2026-06-03",7,1,8510.96,1,4],["FAC-10046","2026-09-18",1,3,1440.64,1,4],["FAC-10206","2026-05-12",0,6,5473.11,1,1],["FAC-10136","2026-09-28",7,6,1379.25,1,2],["FAC-10625","2026-05-08",6,8,19872.82,0,1],["FAC-10146","2026-08-23",6,8,507.66,1,3],["FAC-10957","2026-09-28",4,5,7911.73,1,0],["FAC-10223","2026-08-19",4,1,341.13,1,2],["FAC-10788","2026-07-14",4,8,2974.17,1,5],["FAC-10222","2026-03-23",4,0,1699.28,1,5],["FAC-10137","2026-06-27",2,8,2843.26,1,5],["FAC-10405","2026-04-02",3,0,2193.08,1,5],["FAC-10218","2026-09-26",0,11,834.04,1,4],["FAC-10855","2026-01-11",4,3,23251.22,0,2],["FAC-10807","2026-01-08",4,3,5019.99,1,5],["FAC-10002","2026-06-26",6,3,4426.94,1,3],["FAC-10571","2026-01-27",5,6,54904.37,0,5],["FAC-10386","2026-08-22",5,11,1734.36,1,5],["FAC-10142","2026-06-16",5,3,43192.69,0,2],["FAC-10252","2026-04-26",1,9,1189.84,1,5],["FAC-10669","2026-04-27",2,7,149.92,1,1],["FAC-10952","2026-07-17",4,5,8995.6,1,0],["FAC-10556","2026-06-03",2,9,15773.92,0,5],["FAC-10820","2026-09-17",4,10,766.51,1,5],["FAC-10777","2026-02-23",3,11,421.55,1,5],["FAC-10730","2026-01-10",7,3,2468.64,1,5],["FAC-10009","2026-06-09",0,1,15084.7,0,2],["FAC-10737","2026-10-23",5,1,1534.7,1,5],["FAC-10882","2026-08-01",5,6,1089.66,1,4],["FAC-10288","2026-07-13",5,4,169.94,1,5],["FAC-10346","2026-04-07",5,1,28757.16,0,4],
+    ["FAC-10070","2026-09-07",2,6,4058.2,1,5],["FAC-10563","2026-09-15",6,2,176.31,1,3],["FAC-10285","2026-05-04",4,11,1775.61,1,2],["FAC-10627","2026-09-18",4,7,6145.59,1,5],["FAC-10533","2026-09-22",3,3,308.62,1,4],["FAC-10319","2026-06-04",6,8,34953.31,0,2],["FAC-10756","2026-07-28",5,3,529.31,1,2],["FAC-10614","2026-08-09",5,11,962.86,1,2],["FAC-10216","2026-08-17",4,11,2896.01,1,2],["FAC-10945","2026-04-23",4,5,8428.19,1,0],["FAC-10648","2026-10-13",3,3,5482.48,1,2],["FAC-10566","2026-03-03",3,11,5996.3,1,3],["FAC-10394","2026-02-27",3,3,28636.86,0,4],["FAC-10495","2026-07-10",4,10,10557.95,0,3],["FAC-10001","2026-06-12",7,11,1550.18,1,2],["FAC-10584","2026-08-19",6,11,1643.16,1,3],["FAC-10636","2026-07-20",3,11,41764.15,0,5],["FAC-10905","2026-06-08",4,5,9747.3,1,0],["FAC-10939","2026-08-21",4,5,9207.43,1,0],["FAC-10577","2026-08-08",4,11,853.67,1,2],["FAC-10558","2026-06-22",4,10,3080.66,1,5],["FAC-10633","2026-03-07",7,7,1334.72,1,3],["FAC-10954","2026-07-08",4,5,9579.76,1,0],["FAC-10713","2026-02-25",4,11,7425.57,1,4],["FAC-10260","2026-07-11",7,7,423.64,1,4],["FAC-10715","2026-07-13",0,7,4302.93,1,5],["FAC-10977","2026-10-18",4,5,4827.2,1,0],["FAC-10180","2026-02-07",7,2,40915.17,0,2],["FAC-10811","2026-09-18",4,9,1464.53,1,2],["FAC-10486","2026-02-15",3,7,1102.11,1,3],["FAC-10498","2026-04-25",2,6,55955.24,0,1],["FAC-10481","2026-05-23",7,0,1768.98,1,3],["FAC-10809","2026-03-01",2,8,4591.96,1,1],["FAC-10096","2026-07-04",6,2,7140.72,1,3],["FAC-10975","2026-06-27",4,5,9749.38,1,0],["FAC-10404","2026-08-08",0,3,220.52,1,3],["FAC-10488","2026-09-17",4,9,2595.96,1,4],["FAC-10576","2026-08-12",0,9,765.48,1,4],["FAC-10871","2026-03-11",0,6,906.19,1,1],["FAC-10726","2026-08-10",7,4,1667.78,1,1],
+    ["FAC-10175","2026-04-15",5,7,1845.59,1,3],["FAC-10387","2026-05-05",0,6,127.37,1,1],["FAC-10185","2026-02-23",2,11,18587.79,0,2],["FAC-10934","2026-10-14",4,5,9592.21,1,0],["FAC-10831","2026-05-11",4,9,8457.02,1,3],["FAC-10810","2026-07-04",0,8,165.42,1,5],["FAC-10748","2026-10-10",4,0,270.61,1,3],["FAC-10545","2026-02-10",5,10,727.62,1,1],["FAC-10933","2026-10-16",4,5,9910.09,1,0],["FAC-10334","2026-07-15",5,9,177.06,1,3],["FAC-10519","2026-08-07",7,1,746.32,1,1],["FAC-10757","2026-05-05",6,4,8838.21,1,4],["FAC-10351","2026-09-25",5,8,12706.44,0,4],["FAC-10148","2026-01-07",1,8,1887.65,1,3],["FAC-10613","2026-10-24",0,11,1065.35,1,3],["FAC-10410","2026-10-04",0,8,1469.71,1,4],["FAC-10834","2026-03-12",2,4,6147.78,1,4],["FAC-10628","2026-09-24",3,3,5486.51,1,4],["FAC-10670","2026-06-16",1,2,1101.93,1,2],["FAC-10604","2026-01-13",3,8,1735.02,1,4],["FAC-10264","2026-04-28",2,0,1210.76,1,4],["FAC-10877","2026-10-02",4,2,1561.66,1,3],["FAC-10964","2026-04-10",4,5,7653.44,1,0],["FAC-10050","2026-07-25",2,9,2014.83,1,5],["FAC-10054","2026-03-27",1,8,2447.7,1,2],["FAC-10061","2026-04-15",7,8,5886.76,1,2],["FAC-10326","2026-08-24",0,4,204.09,1,4],["FAC-10243","2026-06-08",0,11,1044.76,1,5],["FAC-10640","2026-01-12",6,6,390.69,1,3],["FAC-10736","2026-03-28",3,11,556.7,1,2],["FAC-10443","2026-04-15",4,6,1168.91,1,2],["FAC-10031","2026-10-13",7,1,588.76,1,3],["FAC-10966","2026-08-28",4,5,8490.41,1,0],["FAC-10494","2026-08-24",7,11,7029.11,1,4],["FAC-10923","2026-10-21",4,5,8926.25,1,0],["FAC-10375","2026-08-26",7,7,2681.82,1,1],["FAC-10135","2026-10-12",2,6,1356.58,1,4],["FAC-10098","2026-01-13",2,10,212.9,1,2],["FAC-10219","2026-08-10",0,1,128.89,1,1],["FAC-10032","2026-02-15",5,9,5748.43,1,1],
+    ["FAC-10507","2026-07-07",0,11,1382.91,1,5],["FAC-10482","2026-10-11",0,8,741.38,1,2],["FAC-10110","2026-02-17",3,3,9503.37,1,2],["FAC-10006","2026-02-02",5,8,47963.89,0,2],["FAC-10044","2026-09-14",3,2,1427.72,1,2],["FAC-10787","2026-08-15",6,7,453.25,1,3],["FAC-10723","2026-01-28",5,4,17191.72,0,3],["FAC-10921","2026-06-19",4,5,4897.82,1,0],["FAC-10286","2026-09-26",2,1,5433.65,1,5],["FAC-10970","2026-03-10",4,5,4972.46,1,0],["FAC-10746","2026-02-17",4,4,975.32,1,3],["FAC-10754","2026-01-19",6,2,694.39,1,1],["FAC-10158","2026-05-26",5,6,7304.23,1,2],["FAC-10684","2026-07-26",2,6,3403.91,1,3],["FAC-10415","2026-03-28",3,0,580.97,1,5],["FAC-10330","2026-06-04",4,7,901.0,1,5],["FAC-10024","2026-03-08",7,10,1078.68,1,4],["FAC-10401","2026-09-02",2,4,1960.72,1,2],["FAC-10407","2026-10-04",5,3,333.83,1,2],["FAC-10383","2026-01-03",1,7,4155.63,1,4],["FAC-10936","2026-08-15",4,5,7882.08,1,0],["FAC-10379","2026-10-19",2,8,147.84,1,3],["FAC-10780","2026-06-09",7,6,1007.39,1,4],["FAC-10198","2026-07-02",7,7,323.3,1,3],["FAC-10289","2026-07-13",7,6,17412.86,0,1],["FAC-10465","2026-08-08",6,4,18531.74,0,5],["FAC-10687","2026-01-14",4,0,1567.29,1,3],["FAC-10826","2026-09-13",1,10,13049.21,0,5],["FAC-10641","2026-09-10",2,0,1364.39,1,5],["FAC-10700","2026-02-08",3,4,357.93,1,1],["FAC-10682","2026-04-14",4,7,214.8,1,4],["FAC-10708","2026-07-01",7,7,932.98,1,2],["FAC-10675","2026-01-13",3,0,707.93,1,4],["FAC-10874","2026-07-17",2,1,515.74,1,5],["FAC-10055","2026-01-20",1,8,4067.19,1,2],["FAC-10473","2026-09-20",6,10,572.77,1,2],["FAC-10194","2026-05-27",1,11,1010.08,1,4],["FAC-10950","2026-05-21",4,5,7949.57,1,0],["FAC-10666","2026-03-12",1,6,13533.5,0,2],["FAC-10603","2026-05-15",2,1,3067.74,1,4],
+    ["FAC-10165","2026-08-02",7,1,815.54,1,1],["FAC-10038","2026-05-17",5,1,1363.77,1,1],["FAC-10377","2026-03-10",0,9,1006.72,1,2],["FAC-10724","2026-06-14",3,11,2666.59,1,4],["FAC-10254","2026-04-07",3,8,3895.47,1,3],["FAC-10438","2026-10-08",2,7,10989.42,0,1],["FAC-10917","2026-10-13",4,5,8898.28,1,0],["FAC-10493","2026-08-12",3,3,2463.07,1,5],["FAC-10541","2026-02-24",4,8,12409.94,0,5],["FAC-10528","2026-06-11",1,9,259.84,1,3],["FAC-10782","2026-05-18",1,1,614.54,1,5],["FAC-10441","2026-06-14",6,3,365.01,1,5],["FAC-10092","2026-06-01",1,11,3854.67,1,2],["FAC-10248","2026-05-13",1,9,559.89,1,4],["FAC-10337","2026-10-19",3,4,1779.91,1,1],["FAC-10728","2026-03-17",0,9,5944.15,1,1],["FAC-10236","2026-04-07",2,3,723.31,1,3],["FAC-10852","2026-07-22",6,7,6220.42,1,1],["FAC-10382","2026-04-11",6,2,1208.96,1,2],["FAC-10422","2026-08-13",1,10,1367.97,1,2],["FAC-10104","2026-02-11",5,0,162.18,1,3],["FAC-10884","2026-04-14",6,9,463.0,1,2],["FAC-10060","2026-03-05",6,7,1491.09,1,3],["FAC-10225","2026-05-10",3,11,52081.99,0,5],["FAC-10385","2026-07-03",6,1,6215.88,1,2],["FAC-10133","2026-10-25",5,3,285.31,1,5],["FAC-10082","2026-10-23",1,0,1760.66,1,5],["FAC-10322","2026-01-22",3,11,2003.85,1,1],["FAC-10872","2026-06-28",2,3,1098.49,1,1],["FAC-10529","2026-10-08",6,1,1290.87,1,5],["FAC-10125","2026-01-02",4,4,187.02,1,5],["FAC-10139","2026-09-03",6,4,1735.55,1,4],["FAC-10791","2026-08-28",3,2,5696.23,1,2],["FAC-10195","2026-10-26",7,1,4719.18,1,2],["FAC-10207","2026-06-04",2,4,305.24,1,1],["FAC-10190","2026-05-23",5,0,5707.63,1,5],["FAC-10396","2026-02-20",1,10,2056.48,1,3],["FAC-10320","2026-07-23",1,8,3227.81,1,4],["FAC-10993","2026-03-01",4,5,8730.38,1,0],["FAC-10454","2026-07-16",5,6,618.54,1,4],
+    ["FAC-10041","2026-09-14",4,0,333.64,1,4],["FAC-10645","2026-06-14",5,6,2016.52,1,5],["FAC-10081","2026-06-17",1,1,1017.56,1,5],["FAC-10574","2026-06-05",4,0,11489.23,0,1],["FAC-10168","2026-07-10",2,9,2171.85,1,3],["FAC-10922","2026-10-22",4,5,7405.36,1,0],["FAC-10919","2026-07-07",4,5,9560.62,1,0],["FAC-10381","2026-03-12",6,7,1094.37,1,2],["FAC-10741","2026-04-22",3,0,326.82,1,5],["FAC-10437","2026-01-18",5,8,1663.93,1,5],["FAC-10433","2026-09-15",4,7,45.0,1,1],["FAC-10339","2026-06-15",0,9,3144.07,1,5],["FAC-10179","2026-04-11",1,0,7173.96,1,4],["FAC-10478","2026-05-24",5,11,977.86,1,3],["FAC-10007","2026-08-08",3,11,995.35,1,2],["FAC-10178","2026-09-28",2,11,3182.7,1,3],["FAC-10167","2026-03-21",6,4,11620.13,0,5],["FAC-10191","2026-07-10",1,0,372.53,1,5],["FAC-10626","2026-01-28",4,3,9166.29,1,4],["FAC-10215","2026-09-17",4,4,1999.6,1,2],["FAC-10355","2026-06-01",5,8,1668.93,1,5],["FAC-10172","2026-01-03",1,9,6654.29,1,2],["FAC-10147","2026-10-24",3,7,1416.8,1,3],["FAC-10902","2026-08-26",4,5,8640.69,1,0],["FAC-10440","2026-01-16",5,6,4992.7,1,2],["FAC-10978","2026-03-28",4,5,7976.61,1,0],["FAC-10652","2026-05-04",1,3,3782.73,1,5],["FAC-10129","2026-09-15",1,6,1539.22,1,4],["FAC-10559","2026-01-21",1,6,908.61,1,4],["FAC-10364","2026-10-12",2,3,1312.68,1,3],["FAC-10609","2026-07-19",0,7,2097.01,1,2],["FAC-10583","2026-05-19",3,8,1281.95,1,3],["FAC-10184","2026-04-24",1,2,531.98,1,2],["FAC-10068","2026-02-23",6,10,13070.28,0,2],["FAC-10444","2026-09-26",6,6,4402.75,1,3],["FAC-10778","2026-01-20",7,7,16341.04,0,3],["FAC-10983","2026-04-25",4,5,9232.01,1,0],["FAC-10720","2026-02-25",4,0,347.13,1,1],["FAC-10692","2026-09-18",1,1,652.8,1,3],["FAC-10411","2026-10-28",0,4,6814.24,1,5],
+    ["FAC-10458","2026-01-01",6,0,219.89,1,5],["FAC-10880","2026-02-28",6,9,907.12,1,3],["FAC-10227","2026-09-08",3,7,6385.13,1,2],["FAC-10767","2026-03-21",6,3,363.78,1,2],["FAC-10302","2026-07-05",3,7,45.0,1,2],["FAC-10402","2026-06-04",2,9,1278.24,1,2],["FAC-10155","2026-01-08",4,0,496.43,1,5],["FAC-10683","2026-02-13",6,11,3319.14,1,1],["FAC-10530","2026-04-20",7,4,3887.96,1,4],["FAC-10485","2026-04-12",5,11,17214.22,0,3],["FAC-10083","2026-06-07",1,11,2188.82,1,5],["FAC-10549","2026-08-13",6,1,684.42,1,2],["FAC-10980","2026-05-04",4,5,8549.4,1,0],["FAC-10823","2026-09-22",6,8,11874.05,0,1],["FAC-10564","2026-07-07",3,6,423.06,1,1],["FAC-10300","2026-03-18",6,2,8134.91,1,4],["FAC-10781","2026-10-10",3,1,2710.41,1,2],["FAC-10814","2026-01-22",0,10,1214.28,1,4],["FAC-10163","2026-09-08",1,7,819.85,1,5],["FAC-10373","2026-10-12",1,10,4605.24,1,2],["FAC-10489","2026-06-05",7,6,579.36,1,4],["FAC-10140","2026-05-27",4,9,588.23,1,3],["FAC-10017","2026-03-19",4,9,8280.47,1,3],["FAC-10873","2026-08-12",4,8,7039.22,1,1],["FAC-10685","2026-09-06",1,6,5809.44,1,2],["FAC-10460","2026-01-13",4,0,3177.6,1,3],["FAC-10681","2026-07-21",7,8,1409.02,1,3],["FAC-10789","2026-03-20",1,3,544.99,1,1],["FAC-10466","2026-06-18",2,9,3004.47,1,4],["FAC-10111","2026-09-04",2,7,2544.93,1,2],["FAC-10597","2026-10-23",0,1,3683.51,1,5],["FAC-10328","2026-01-13",3,0,2916.93,1,5],["FAC-10294","2026-01-21",6,2,279.82,1,2],["FAC-10333","2026-06-23",4,7,3176.7,1,5],["FAC-10325","2026-01-09",2,2,347.66,1,5],["FAC-10527","2026-07-24",0,11,886.1,1,2],["FAC-10762","2026-05-14",1,3,28287.61,0,5],["FAC-10948","2026-06-11",4,5,9207.38,1,0],["FAC-10961","2026-06-01",4,5,9784.32,1,0],["FAC-10567","2026-01-20",4,11,2130.22,1,1],
+    ["FAC-10347","2026-05-14",4,4,278.86,1,3],["FAC-10235","2026-03-04",6,0,1706.49,1,3],["FAC-10537","2026-04-16",7,3,93.84,1,3],["FAC-10801","2026-10-13",1,10,1294.56,1,4],["FAC-10996","2026-08-03",4,5,9496.73,1,0],["FAC-10241","2026-06-20",6,7,8174.27,1,2],["FAC-10916","2026-04-07",4,5,8582.48,1,0],["FAC-10505","2026-07-24",7,4,810.15,1,4],["FAC-10490","2026-10-13",6,11,68230.42,0,1],["FAC-10065","2026-05-20",4,2,6883.3,1,2],["FAC-10962","2026-03-27",4,5,9135.09,1,0],["FAC-10308","2026-06-11",1,1,1082.8,1,2],["FAC-10578","2026-04-23",0,0,377.03,1,3],["FAC-10548","2026-01-16",6,4,374.04,1,4],["FAC-10866","2026-10-26",0,11,1413.3,1,1],["FAC-10127","2026-05-22",2,9,1043.72,1,5],["FAC-10928","2026-07-26",4,5,4823.85,1,0],["FAC-10915","2026-07-15",4,5,7836.68,1,0],["FAC-10432","2026-05-20",1,8,812.41,1,4],["FAC-11000","2026-04-02",4,5,8924.93,1,0],["FAC-10306","2026-10-12",2,8,2515.37,1,2],["FAC-10518","2026-04-20",1,10,5191.48,1,2],["FAC-10273","2026-02-13",7,6,7454.42,1,2],["FAC-10869","2026-09-25",3,10,35115.8,0,2],["FAC-10052","2026-07-27",4,7,2110.66,1,5],["FAC-10953","2026-05-11",4,5,9819.75,1,0],["FAC-10368","2026-05-27",1,0,4206.56,1,3],["FAC-10786","2026-02-04",3,11,9953.84,1,2],["FAC-10879","2026-08-19",3,8,30329.82,0,3],["FAC-10955","2026-04-09",4,5,9335.79,1,0],["FAC-10169","2026-09-14",0,6,122.32,1,3],["FAC-10716","2026-06-25",5,11,686.68,1,1],["FAC-10634","2026-05-08",0,2,162.74,1,1],["FAC-10451","2026-02-05",6,9,4226.16,1,4],["FAC-10072","2026-02-28",3,6,1355.64,1,2],["FAC-10547","2026-07-10",0,0,5023.0,1,4],["FAC-10188","2026-10-28",1,9,4229.65,1,4],["FAC-10536","2026-01-12",6,7,30154.44,0,4],["FAC-10062","2026-06-18",1,4,3185.22,1,1],["FAC-10656","2026-09-11",3,11,1340.56,1,4],
+    ["FAC-10837","2026-08-03",4,0,7213.11,1,4],["FAC-10063","2026-10-03",1,1,901.61,1,1],["FAC-10157","2026-10-16",5,6,2252.78,1,4],["FAC-10815","2026-02-08",6,7,917.41,1,5],["FAC-10467","2026-09-06",7,11,1838.73,1,4],["FAC-10010","2026-03-10",4,8,6488.48,1,1],["FAC-10144","2026-09-13",2,7,1749.13,1,3],["FAC-10359","2026-01-16",7,0,428.47,1,5],["FAC-10159","2026-02-18",3,1,777.5,1,2],["FAC-10192","2026-08-09",3,8,1307.76,1,4],["FAC-10938","2026-03-06",4,5,8940.17,1,0],["FAC-10846","2026-03-04",0,11,693.68,1,2],["FAC-10800","2026-10-05",4,4,884.34,1,4],["FAC-10239","2026-01-12",1,6,981.62,1,5],["FAC-10839","2026-07-16",7,3,10647.27,0,1],["FAC-10637","2026-08-14",1,7,2736.21,1,3],["FAC-10477","2026-10-07",6,11,2479.75,1,4],["FAC-10759","2026-06-09",4,7,3192.49,1,5],["FAC-10107","2026-10-19",5,9,374.83,1,2],["FAC-10049","2026-03-22",2,1,1661.96,1,4],["FAC-10647","2026-03-03",0,7,1173.04,1,1],["FAC-10327","2026-06-23",1,8,6139.12,1,4],["FAC-10357","2026-02-24",4,11,11830.33,0,3],["FAC-10342","2026-02-15",2,2,9216.09,1,3],["FAC-10825","2026-04-15",0,3,37754.77,0,4],["FAC-10751","2026-02-03",4,8,1246.25,1,1],["FAC-10353","2026-08-09",6,4,19749.58,0,2],["FAC-10100","2026-03-02",2,6,416.52,1,4],["FAC-10644","2026-03-23",6,1,13240.77,0,3],["FAC-10395","2026-10-15",5,7,3776.97,1,1],["FAC-10660","2026-03-25",7,10,5793.68,1,4],["FAC-10259","2026-06-23",5,0,577.63,1,3],["FAC-10797","2026-05-15",5,6,11599.59,0,5],["FAC-10066","2026-07-02",7,1,774.15,1,1],["FAC-10403","2026-06-16",7,0,251.34,1,3],["FAC-10783","2026-06-23",6,3,488.04,1,4],["FAC-10173","2026-04-21",1,3,1695.83,1,4],["FAC-10532","2026-06-18",6,4,2890.16,1,2],["FAC-10362","2026-02-14",2,7,961.17,1,3],["FAC-10301","2026-07-15",5,7,3650.45,1,5],
+    ["FAC-10516","2026-08-27",2,7,2054.06,1,2],["FAC-10898","2026-06-27",4,5,9690.05,1,0],["FAC-10655","2026-02-13",1,2,5774.1,1,4],["FAC-10967","2026-08-26",4,5,9926.47,1,0],["FAC-10247","2026-05-21",3,4,694.48,1,4],["FAC-10862","2026-08-02",2,11,801.63,1,5],["FAC-10321","2026-05-06",3,9,1480.78,1,1],["FAC-10274","2026-08-28",1,1,4459.54,1,4],["FAC-10124","2026-04-13",1,8,771.33,1,4],["FAC-10240","2026-01-20",6,10,5294.91,1,2],["FAC-10575","2026-06-10",4,11,1808.27,1,2],["FAC-10900","2026-10-15",4,5,4882.15,1,0],["FAC-10600","2026-04-09",7,10,1755.18,1,3],["FAC-10428","2026-05-06",0,11,132.99,1,1],["FAC-10891","2026-09-16",4,5,9914.21,1,0],["FAC-10028","2026-09-23",1,3,381.05,1,4],["FAC-10793","2026-04-10",1,9,1063.76,1,5],["FAC-10911","2026-08-05",4,5,9795.5,1,0],["FAC-10340","2026-02-23",1,2,408.86,1,5],["FAC-10154","2026-06-10",2,8,1733.94,1,3],["FAC-10523","2026-04-02",4,11,12874.39,0,1],["FAC-10581","2026-03-05",1,1,621.31,1,1],["FAC-10008","2026-08-18",1,3,85.19,1,4],["FAC-10269","2026-07-10",7,9,2709.89,1,3],["FAC-10553","2026-07-11",0,7,2243.07,1,3],["FAC-10311","2026-10-01",3,1,5563.07,1,3],["FAC-10242","2026-04-26",1,7,208.8,1,2],["FAC-10689","2026-03-19",0,11,3452.8,1,1],["FAC-10643","2026-05-18",6,2,1105.86,1,3],["FAC-10925","2026-03-10",4,5,9665.28,1,0],["FAC-10122","2026-09-09",6,0,2047.69,1,2],["FAC-10233","2026-05-15",5,9,736.96,1,5],["FAC-10785","2026-02-02",6,2,88.11,1,4],["FAC-10555","2026-09-06",3,1,280.96,1,3],["FAC-10857","2026-01-05",4,6,1635.7,1,5],["FAC-10765","2026-06-03",4,2,586.87,1,4],["FAC-10228","2026-10-05",7,0,2045.8,1,2],["FAC-10420","2026-06-28",1,1,3975.44,1,5],["FAC-10593","2026-03-08",4,4,2743.28,1,4],["FAC-10450","2026-08-05",2,8,11306.7,0,2],
+    ["FAC-10176","2026-05-16",2,9,912.47,1,5],["FAC-10484","2026-02-08",5,1,2094.07,1,1],["FAC-10324","2026-03-23",6,7,5582.92,1,1],["FAC-10119","2026-01-13",4,9,5345.16,1,3],["FAC-10114","2026-03-24",2,4,1572.06,1,4],["FAC-10131","2026-03-09",3,0,1739.34,1,4],["FAC-10611","2026-08-14",5,10,10382.41,0,2],["FAC-10389","2026-09-10",2,2,1080.39,1,1],["FAC-10012","2026-04-07",0,8,11522.59,0,4],["FAC-10161","2026-09-18",7,1,7687.95,1,4],["FAC-10456","2026-09-12",7,6,6515.86,1,4],["FAC-10174","2026-08-12",6,0,1352.22,1,2],["FAC-10310","2026-01-17",1,4,7514.59,1,4],["FAC-10297","2026-03-12",0,3,980.68,1,1],["FAC-10772","2026-02-25",5,11,47.87,1,4],["FAC-10130","2026-05-26",4,2,2735.33,1,4],["FAC-10710","2026-06-18",1,1,3837.81,1,2],["FAC-10743","2026-07-19",4,10,1476.76,1,5],["FAC-10237","2026-03-14",3,6,23117.43,0,2],["FAC-10406","2026-05-27",5,3,77.3,1,1],["FAC-10841","2026-02-02",2,10,2935.56,1,2],["FAC-10979","2026-07-19",4,5,8891.19,1,0],["FAC-10551","2026-09-24",5,11,5262.59,1,3],["FAC-10573","2026-03-04",3,10,50.54,1,1],["FAC-10034","2026-10-01",3,2,2028.16,1,3],["FAC-10570","2026-05-10",3,10,1846.2,1,3],["FAC-10276","2026-04-02",4,4,5374.08,1,2],["FAC-10515","2026-06-15",2,1,668.91,1,3],["FAC-10231","2026-01-20",2,2,1787.63,1,5],["FAC-10376","2026-08-01",7,0,12223.72,0,1],["FAC-10413","2026-07-04",2,11,614.15,1,5],["FAC-10304","2026-03-24",6,1,11687.44,0,5],["FAC-10914","2026-03-02",4,5,4899.0,1,0],["FAC-10181","2026-01-10",0,10,10627.34,0,4],["FAC-10069","2026-04-04",0,10,812.75,1,4],["FAC-10150","2026-03-10",3,8,1570.92,1,1],["FAC-10718","2026-06-20",3,3,2186.05,1,3],["FAC-10747","2026-06-12",7,2,2040.22,1,5],["FAC-10408","2026-01-13",3,1,2237.49,1,1],["FAC-10889","2026-10-12",4,5,8606.1,1,0],
+    ["FAC-10117","2026-02-12",3,3,1594.06,1,4],["FAC-10798","2026-08-03",5,2,3502.92,1,4],["FAC-10590","2026-08-07",3,7,3741.96,1,3],["FAC-10511","2026-04-01",1,11,5471.08,1,5],["FAC-10992","2026-10-25",4,5,7728.06,1,0],["FAC-10197","2026-09-14",7,7,53825.36,0,1],["FAC-10808","2026-03-02",2,1,5881.81,1,2],["FAC-10084","2026-05-19",4,6,1178.74,1,2],["FAC-10971","2026-09-18",4,5,7852.47,1,0],["FAC-10026","2026-06-12",6,1,1337.0,1,4],["FAC-10599","2026-10-20",5,9,5303.91,1,3],["FAC-10844","2026-02-24",5,8,2897.67,1,5],["FAC-10203","2026-04-08",4,8,814.33,1,3],["FAC-10721","2026-08-14",2,7,9131.36,1,2],["FAC-10623","2026-02-12",0,10,1471.45,1,4],["FAC-10352","2026-05-17",7,11,1630.67,1,4],["FAC-10138","2026-03-24",5,1,551.22,1,4],["FAC-10618","2026-02-11",0,0,2310.86,1,4],["FAC-10211","2026-06-27",7,2,368.85,1,2],["FAC-10753","2026-03-13",2,4,1657.95,1,3],["FAC-10372","2026-01-05",1,11,13645.73,0,1],["FAC-10676","2026-07-08",1,8,2528.36,1,1],["FAC-10744","2026-09-11",4,2,3353.8,1,1],["FAC-10278","2026-05-01",2,6,4553.71,1,4],["FAC-10958","2026-07-08",4,5,8742.52,1,0],["FAC-10126","2026-06-27",5,2,6073.61,1,3],["FAC-10056","2026-06-22",6,4,2815.69,1,3],["FAC-10470","2026-04-18",4,2,1270.16,1,1],["FAC-10588","2026-01-14",4,7,498.78,1,4],["FAC-10057","2026-02-06",6,7,19720.96,0,1],["FAC-10861","2026-05-21",6,10,749.17,1,2],["FAC-10829","2026-06-04",4,4,3498.3,1,4],["FAC-10621","2026-01-26",3,3,1288.75,1,1],["FAC-10521","2026-03-19",4,8,4983.18,1,5],["FAC-10463","2026-05-07",1,9,3333.7,1,1],["FAC-10691","2026-01-24",0,11,1028.51,1,4],["FAC-10591","2026-07-24",0,4,6082.22,1,3],["FAC-10183","2026-10-21",2,0,2901.57,1,3],["FAC-10580","2026-03-07",0,1,7331.69,1,1],["FAC-10208","2026-05-27",5,2,3175.12,1,3],
+    ["FAC-10004","2026-08-22",2,10,1250.7,1,3],["FAC-10867","2026-07-20",2,9,2180.39,1,2],["FAC-10318","2026-01-04",0,4,2850.83,1,1],["FAC-10941","2026-09-16",4,5,9617.06,1,0],["FAC-10398","2026-02-14",7,0,9855.12,1,4],["FAC-10134","2026-08-22",6,8,8619.18,1,1],["FAC-10560","2026-05-26",4,8,3872.86,1,2],["FAC-10177","2026-05-28",3,9,1150.95,1,2],["FAC-10929","2026-08-17",4,5,7777.21,1,0],["FAC-10101","2026-07-17",4,6,3290.18,1,5],["FAC-10768","2026-09-13",6,0,2586.97,1,3],["FAC-10620","2026-03-09",1,0,217.28,1,5],["FAC-10790","2026-07-16",7,7,1605.97,1,3],["FAC-10510","2026-10-07",2,0,3229.34,1,5],["FAC-10053","2026-10-27",0,3,135.12,1,1],["FAC-10087","2026-08-10",7,2,2727.5,1,2],["FAC-10986","2026-09-27",4,5,8544.53,1,0],["FAC-10642","2026-03-12",4,3,1104.63,1,5],["FAC-10758","2026-05-16",4,0,4856.71,1,3],["FAC-10771","2026-07-20",6,9,260.72,1,2],["FAC-10813","2026-03-03",7,2,2175.52,1,1],["FAC-10522","2026-05-28",2,4,251.19,1,2],["FAC-10704","2026-07-19",6,0,2774.99,1,2],["FAC-10784","2026-07-23",1,9,398.86,1,5],["FAC-10022","2026-04-20",1,7,224.42,1,4],["FAC-10480","2026-02-19",2,9,7029.51,1,1],["FAC-10417","2026-10-16",6,10,368.41,1,4],["FAC-10561","2026-01-14",1,6,12923.51,0,2],["FAC-10348","2026-04-13",3,9,4590.58,1,2],["FAC-10132","2026-07-11",0,6,5134.57,1,5],["FAC-10439","2026-04-09",3,2,344.4,1,4],["FAC-10469","2026-01-04",5,0,5095.41,1,4],["FAC-10282","2026-09-17",0,3,815.69,1,3],["FAC-10331","2026-08-26",0,8,7591.77,1,3],["FAC-10361","2026-01-07",5,1,313.85,1,2],["FAC-10702","2026-10-24",5,2,550.85,1,2],["FAC-10468","2026-02-13",5,9,469.72,1,2],["FAC-10973","2026-03-04",4,5,8611.68,1,0],["FAC-10093","2026-08-04",7,4,1817.03,1,3],["FAC-10890","2026-03-16",4,5,9417.85,1,0]
+  ];
+
+  function extractFirstDigit(amount) {
+    const s = Math.abs(amount).toFixed(6).replace(/^0+/, '').replace('.', '').replace(/^0+/, '');
+    return s.length > 0 ? parseInt(s[0], 10) : 1;
+  }
+
+  const INVOICES = RAW_ROWS.map((r, idx) => {
+    const amount = r[4];
+    const supplier = SUPPLIERS[r[3]];
+    const branch = BRANCHES[r[2]];
+    const d1 = extractFirstDigit(amount);
+    const isCulprit = supplier === CULPRIT_SUPPLIER;
+    return {
+      index: idx,
+      invoice_id: r[0],
+      date: r[1],
+      branch,
+      supplier,
+      amount_mxn: amount,
+      approved_by: APPROVERS[r[5]],
+      category: CATEGORIES[r[6]],
+      firstDigit: d1,
+      isCulprit
+    };
+  });
+
+  // ============================================================================
+  // 2. MATHEMATICAL BENFORD'S LAW & FORENSIC ENGINE
+  // ============================================================================
+  const BENFORD_PROB = {};
+  for (let d = 1; d <= 9; d++) {
+    BENFORD_PROB[d] = Math.log10(1 + 1 / d);
+  }
+
+  function computeBenfordStats(list) {
+    const n = list.length;
+    const counts = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0 };
+    let totalAmount = 0;
+    let under10k = 0;
+    let near10k = 0;
+    for (let i = 0; i < n; i++) {
+      const inv = list[i];
+      counts[inv.firstDigit] = (counts[inv.firstDigit] || 0) + 1;
+      totalAmount += inv.amount_mxn;
+      if (inv.amount_mxn < AUTO_LIMIT_MXN) under10k++;
+      if (inv.amount_mxn >= 8000 && inv.amount_mxn < AUTO_LIMIT_MXN) near10k++;
+    }
+    let chiSquare = 0;
+    const pcts = {};
+    for (let d = 1; d <= 9; d++) {
+      const obs = counts[d];
+      const exp = n * BENFORD_PROB[d];
+      if (exp > 0) {
+        chiSquare += ((obs - exp) * (obs - exp)) / exp;
+      }
+      pcts[d] = n > 0 ? (obs / n) * 100 : 0;
+    }
+    return {
+      n,
+      counts,
+      pcts,
+      chiSquare: Number(chiSquare.toFixed(2)),
+      chiSquareRaw: chiSquare,
+      totalAmount: Number(totalAmount.toFixed(2)),
+      under10k,
+      near10k
+    };
+  }
+
+  const STATS_ALL = computeBenfordStats(INVOICES);
+  const CULPRIT_INVOICES = INVOICES.filter(x => x.isCulprit);
+  const HONEST_INVOICES = INVOICES.filter(x => !x.isCulprit);
+  const STATS_CULPRIT = computeBenfordStats(CULPRIT_INVOICES);
+  const STATS_HONEST = computeBenfordStats(HONEST_INVOICES);
+
+  const SUPPLIER_STATS = SUPPLIERS.map(sup => {
+    const list = INVOICES.filter(x => x.supplier === sup);
+    const st = computeBenfordStats(list);
+    return { name: sup, ...st, isCulprit: sup === CULPRIT_SUPPLIER };
+  }).sort((a, b) => b.chiSquareRaw - a.chiSquareRaw);
+
+  const BRANCH_STATS = BRANCHES.map(br => {
+    const list = INVOICES.filter(x => x.branch === br);
+    const st = computeBenfordStats(list);
+    return { name: br, ...st, isCulpritBranch: br === CULPRIT_BRANCH };
+  }).sort((a, b) => b.chiSquareRaw - a.chiSquareRaw);
+
+  // Required public hook for automated verification
+  window.__auditForensics = function() {
+    return {
+      culpritSupplier: CULPRIT_SUPPLIER,
+      culpritBranch: CULPRIT_BRANCH,
+      suspiciousInvoiceCount: STATS_CULPRIT.n,
+      totalStolenMxn: STATS_CULPRIT.totalAmount,
+      benfordChiSquare: STATS_CULPRIT.chiSquare
+    };
+  };
+
+  // ============================================================================
+  // 3. STATE, FILTERS & WEBAUDIO SYNTHESIZER
+  // ============================================================================
+  const state = {
+    quickMode: 'ALL',
+    supplierFilter: 'ALL',
+    branchFilter: 'ALL',
+    digitFilter: 'ALL',
+    bandFilter: 'ALL',
+    scatterScale: 'TRAP',
+    autoDemo: true,
+    demoTimer: 0,
+    demoStage: 0,
+    audioEnabled: false,
+    filteredInvoices: INVOICES,
+    activeStats: STATS_ALL,
+    animPct: { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0 },
+    animCulpritPct: { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0 },
+    animHonestPct: { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0 },
+    hoverDigit: null,
+    hoverInvoice: null
+  };
+
+  let audioCtx = null;
+  function playSonarPing(freq = 660, duration = 0.07) {
+    if (!state.audioEnabled) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch (e) {}
+  }
+
+  function toggleAudio() {
+    state.audioEnabled = !state.audioEnabled;
+    const btn = document.getElementById('btnAudio');
+    const lbl = document.getElementById('audioLabel');
+    lbl.textContent = state.audioEnabled ? 'SONAR: ON' : 'SONAR: OFF';
+    btn.classList.toggle('active-cyan', state.audioEnabled);
+    if (state.audioEnabled) playSonarPing(880, 0.09);
+  }
+
+  function toggleAutoDemo() {
+    state.autoDemo = !state.autoDemo;
+    const btn = document.getElementById('btnAutoDemo');
+    const lbl = document.getElementById('autoDemoLabel');
+    lbl.textContent = state.autoDemo ? 'AUTO-DEMO: ON' : 'AUTO-DEMO: PAUSA';
+    btn.classList.toggle('active-emerald', state.autoDemo);
+    playSonarPing(540, 0.06);
+  }
+
+  function setScatterScale(mode) {
+    state.scatterScale = mode;
+    document.getElementById('btnScaleTrap').classList.toggle('active-amber', mode === 'TRAP');
+    document.getElementById('btnScaleFull').classList.toggle('active-amber', mode === 'FULL');
+    playSonarPing(720, 0.06);
+  }
+
+  function setQuickMode(mode, fromAuto = false) {
+    if (!fromAuto) state.autoDemo = false;
+    document.getElementById('btnAutoDemo').classList.toggle('active-emerald', state.autoDemo);
+    document.getElementById('autoDemoLabel').textContent = state.autoDemo ? 'AUTO-DEMO: ON' : 'AUTO-DEMO: MANUAL';
+
+    state.quickMode = mode;
+    document.getElementById('btnViewAll').classList.toggle('active-cyan', mode === 'ALL');
+    document.getElementById('btnViewCulprit').classList.toggle('active-coral', mode === 'CULPRIT');
+    document.getElementById('btnViewHonest').classList.toggle('active-emerald', mode === 'HONEST');
+
+    const selSup = document.getElementById('selSupplier');
+    const selBr = document.getElementById('selBranch');
+    const selDig = document.getElementById('selDigit');
+    const selBand = document.getElementById('selBand');
+
+    if (mode === 'ALL') {
+      selSup.value = 'ALL';
+      selBr.value = 'ALL';
+      selDig.value = 'ALL';
+      selBand.value = 'ALL';
+    } else if (mode === 'CULPRIT') {
+      selSup.value = CULPRIT_SUPPLIER;
+      selBr.value = CULPRIT_BRANCH;
+      selDig.value = 'ALL';
+      selBand.value = 'ALL';
+    } else if (mode === 'HONEST') {
+      selSup.value = 'HONEST_ONLY';
+      selBr.value = 'ALL';
+      selDig.value = 'ALL';
+      selBand.value = 'ALL';
+    }
+    recomputeFilteredData();
+    playSonarPing(mode === 'CULPRIT' ? 420 : 680, 0.08);
+  }
+
+  function applyManualFilters() {
+    state.autoDemo = false;
+    document.getElementById('btnAutoDemo').classList.remove('active-emerald');
+    document.getElementById('autoDemoLabel').textContent = 'AUTO-DEMO: MANUAL';
+    recomputeFilteredData();
+    playSonarPing(600, 0.05);
+  }
+
+  function recomputeFilteredData() {
+    const sup = document.getElementById('selSupplier').value;
+    const br = document.getElementById('selBranch').value;
+    const dig = document.getElementById('selDigit').value;
+    const band = document.getElementById('selBand').value;
+
+    state.supplierFilter = sup;
+    state.branchFilter = br;
+    state.digitFilter = dig;
+    state.bandFilter = band;
+
+    state.filteredInvoices = INVOICES.filter(inv => {
+      if (sup === 'HONEST_ONLY' && inv.isCulprit) return false;
+      if (sup !== 'ALL' && sup !== 'HONEST_ONLY' && inv.supplier !== sup) return false;
+      if (br !== 'ALL' && inv.branch !== br) return false;
+      if (dig !== 'ALL' && inv.firstDigit !== parseInt(dig, 10)) return false;
+      if (band === 'EVASION' && !(inv.amount_mxn >= 8000 && inv.amount_mxn < AUTO_LIMIT_MXN)) return false;
+      if (band === 'UNDER10K' && !(inv.amount_mxn < AUTO_LIMIT_MXN)) return false;
+      if (band === 'OVER10K' && !(inv.amount_mxn >= AUTO_LIMIT_MXN)) return false;
+      return true;
+    });
+
+    state.activeStats = computeBenfordStats(state.filteredInvoices);
+    updateDOMViews();
+  }
+
+  // ============================================================================
+  // 4. DOM POPULATION & INTERACTIVE LISTS
+  // ============================================================================
+  function initControlsAndLists() {
+    const selSup = document.getElementById('selSupplier');
+    SUPPLIERS.forEach(s => {
+      if (s === CULPRIT_SUPPLIER) return;
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = `Proveedor: ${s}`;
+      selSup.appendChild(opt);
+    });
+
+    const selBr = document.getElementById('selBranch');
+    BRANCHES.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b;
+      opt.textContent = b === CULPRIT_BRANCH ? `Sucursal: ${b} (COMPLICE)` : `Sucursal: ${b}`;
+      selBr.appendChild(opt);
+    });
+
+    renderDigitGrid();
+    renderSupplierAndBranchLists();
+    setupCanvasInteractions();
+    updateDOMViews();
+  }
+
+  function renderDigitGrid() {
+    const grid = document.getElementById('digitGrid');
+    grid.innerHTML = '';
+    for (let d = 1; d <= 9; d++) {
+      const teo = (BENFORD_PROB[d] * 100).toFixed(1);
+      const culp = STATS_CULPRIT.pcts[d].toFixed(1);
+      const isAnom = d === 1 || d === 8 || d === 9;
+      const cell = document.createElement('div');
+      cell.className = 'digit-cell' + (isAnom ? ' anomaly' : '');
+      cell.id = `digitCell_${d}`;
+      cell.innerHTML = `
+        <div class="d-num">d = ${d}</div>
+        <div class="d-teo">Ben: ${teo}%</div>
+        <div class="d-culp">Culp: ${culp}%</div>
+      `;
+      cell.onclick = () => {
+        const selDig = document.getElementById('selDigit');
+        selDig.value = selDig.value === String(d) ? 'ALL' : String(d);
+        applyManualFilters();
+      };
+      cell.onmouseenter = () => { state.hoverDigit = d; };
+      cell.onmouseleave = () => { state.hoverDigit = null; };
+      grid.appendChild(cell);
+    }
+  }
+
+  function renderSupplierAndBranchLists() {
+    const supContainer = document.getElementById('supplierList');
+    supContainer.innerHTML = '';
+    SUPPLIER_STATS.forEach(st => {
+      const row = document.createElement('div');
+      row.className = 'sup-row' + (st.isCulprit ? ' culprit-row' : '');
+      row.dataset.supplier = st.name;
+      const chiColor = st.isCulprit ? 'background:rgba(244,63,94,0.28);color:#FDA4AF;border:1px solid #F43F5E;' : 'background:rgba(16,185,129,0.15);color:#6EE7B7;';
+      row.innerHTML = `
+        <div class="sup-name">${st.name}</div>
+        <div class="sup-stat">${st.n}f</div>
+        <div class="sup-stat">$${Math.round(st.totalAmount / 1000)}k</div>
+        <div class="chi-pill" style="${chiColor}">&chi;&sup2; ${st.chiSquare.toFixed(1)}</div>
+      `;
+      row.onclick = () => {
+        const selSup = document.getElementById('selSupplier');
+        selSup.value = selSup.value === st.name ? 'ALL' : st.name;
+        if (st.isCulprit && selSup.value === st.name) {
+          document.getElementById('selBranch').value = CULPRIT_BRANCH;
+        }
+        applyManualFilters();
+      };
+      supContainer.appendChild(row);
+    });
+
+    const brContainer = document.getElementById('branchList');
+    brContainer.innerHTML = '';
+    BRANCH_STATS.forEach(st => {
+      const row = document.createElement('div');
+      row.className = 'sup-row' + (st.isCulpritBranch ? ' culprit-row' : '');
+      row.style.gridTemplateColumns = '1fr 38px 58px';
+      row.dataset.branch = st.name;
+      const chiColor = st.isCulpritBranch ? 'background:rgba(251,191,36,0.25);color:#FBBF24;border:1px solid #FBBF24;' : 'background:rgba(34,211,238,0.13);color:#22D3EE;';
+      row.innerHTML = `
+        <div class="sup-name">${st.name}</div>
+        <div class="sup-stat">${st.n}f</div>
+        <div class="chi-pill" style="${chiColor}">&chi;&sup2; ${st.chiSquare.toFixed(1)}</div>
+      `;
+      row.onclick = () => {
+        const selBr = document.getElementById('selBranch');
+        selBr.value = selBr.value === st.name ? 'ALL' : st.name;
+        applyManualFilters();
+      };
+      brContainer.appendChild(row);
+    });
+  }
+
+  function updateDOMViews() {
+    const st = state.activeStats;
+    const fraudInFilter = state.filteredInvoices.filter(x => x.isCulprit).length;
+
+    document.getElementById('activeChiLabel').textContent = `Chi2 = ${st.chiSquare.toFixed(2)} (N=${st.n})`;
+    document.getElementById('scannerCountBadge').textContent = `${st.n} FACTURAS`;
+    document.getElementById('filterSumMxn').textContent = `$${st.totalAmount.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} MXN`;
+    document.getElementById('filterFraudCount').textContent = `${fraudInFilter} / ${st.n}`;
+
+    const badge = document.getElementById('benfordFocusBadge');
+    if (state.supplierFilter === CULPRIT_SUPPLIER) {
+      badge.textContent = 'FILTRO: PROVEEDOR CULPABLE (N=115)';
+      badge.className = 'kpi-badge badge-coral';
+    } else if (state.supplierFilter === 'HONEST_ONLY') {
+      badge.textContent = 'FILTRO: 11 PROVEEDORES HONESTOS (N=885)';
+      badge.className = 'kpi-badge badge-emerald';
+    } else if (state.supplierFilter !== 'ALL' || state.branchFilter !== 'ALL') {
+      badge.textContent = `FILTRO ACTIVO (N=${st.n})`;
+      badge.className = 'kpi-badge badge-amber';
+    } else {
+      badge.textContent = 'COMPARATIVA GLOBAL (N=1,000)';
+      badge.className = 'kpi-badge badge-cyan';
+    }
+
+    document.querySelectorAll('#supplierList .sup-row').forEach(el => {
+      el.classList.toggle('selected', el.dataset.supplier === state.supplierFilter);
+    });
+    document.querySelectorAll('#branchList .sup-row').forEach(el => {
+      el.classList.toggle('selected', el.dataset.branch === state.branchFilter);
+    });
+    for (let d = 1; d <= 9; d++) {
+      const cell = document.getElementById(`digitCell_${d}`);
+      if (cell) cell.classList.toggle('active', String(d) === state.digitFilter);
+    }
+
+    const tbody = document.getElementById('invoiceTableBody');
+    const displayList = state.filteredInvoices.slice(0, 160);
+    const rowsHtml = displayList.map((inv, idx) => {
+      const cls = inv.isCulprit ? 'fraud-row' : '';
+      const dBadgeColor = inv.isCulprit && (inv.firstDigit >= 8) ? 'color:#F43F5E;font-weight:800;' : 'color:#22D3EE;';
+      return `<tr class="${cls}" data-idx="${idx}" onclick="inspectInvoice(${inv.index})">
+        <td style="font-weight:700;color:#F8FAFC;">${inv.invoice_id}</td>
+        <td>${inv.date.slice(5)}</td>
+        <td style="${inv.branch === CULPRIT_BRANCH ? 'color:#FBBF24;font-weight:700;' : ''}">${inv.branch}</td>
+        <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${inv.supplier}</td>
+        <td style="${dBadgeColor}">${inv.firstDigit}</td>
+        <td style="text-align:right;font-weight:700;color:${inv.isCulprit ? '#FDA4AF' : '#6EE7B7'};">$${inv.amount_mxn.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML = rowsHtml;
+  }
+
+  function inspectInvoice(globalIdx) {
+    const inv = INVOICES[globalIdx];
+    if (!inv) return;
+    state.hoverInvoice = inv;
+    playSonarPing(inv.isCulprit ? 390 : 780, 0.07);
+  }
+
+  // ============================================================================
+  // 5. HIGH-CONTRAST 60FPS CANVAS RENDERING & INTERACTION
+  // ============================================================================
+  const bgCanvas = document.getElementById('bgCanvas');
+  const benfordCanvas = document.getElementById('benfordCanvas');
+  const scatterCanvas = document.getElementById('scatterCanvas');
+
+  function setupCanvasInteractions() {
+    benfordCanvas.addEventListener('mousemove', e => {
+      const rect = benfordCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const padL = 44, padR = 18;
+      const plotW = rect.width - padL - padR;
+      const colW = plotW / 9;
+      const d = Math.floor((x - padL) / colW) + 1;
+      state.hoverDigit = (d >= 1 && d <= 9) ? d : null;
+    });
+    benfordCanvas.addEventListener('mouseleave', () => { state.hoverDigit = null; });
+    benfordCanvas.addEventListener('click', () => {
+      if (state.hoverDigit) {
+        const selDig = document.getElementById('selDigit');
+        selDig.value = selDig.value === String(state.hoverDigit) ? 'ALL' : String(state.hoverDigit);
+        applyManualFilters();
+      }
+    });
+
+    scatterCanvas.addEventListener('mousemove', e => {
+      const rect = scatterCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const padL = 52, padR = 16, padT = 22, padB = 26;
+      const plotW = rect.width - padL - padR;
+      const plotH = rect.height - padT - padB;
+      const maxAmt = state.scatterScale === 'TRAP' ? 12000 : 72000;
+
+      let best = null;
+      let bestDist = 144;
+      for (let i = 0; i < INVOICES.length; i++) {
+        const inv = INVOICES[i];
+        if (inv.amount_mxn > maxAmt) continue;
+        const x = padL + (i / (INVOICES.length - 1)) * plotW;
+        const y = padT + plotH - (inv.amount_mxn / maxAmt) * plotH;
+        const dist2 = (x - mx) * (x - mx) + (y - my) * (y - my);
+        if (dist2 < bestDist) {
+          bestDist = dist2;
+          best = inv;
+        }
+      }
+      state.hoverInvoice = best;
+    });
+    scatterCanvas.addEventListener('mouseleave', () => { state.hoverInvoice = null; });
+  }
+
+  function resizeCanvases() {
+    const dpr = window.devicePixelRatio || 1;
+    [bgCanvas, benfordCanvas, scatterCanvas].forEach(c => {
+      const rect = c.getBoundingClientRect();
+      c.width = Math.max(1, Math.floor(rect.width * dpr));
+      c.height = Math.max(1, Math.floor(rect.height * dpr));
+    });
+  }
+  window.addEventListener('resize', resizeCanvases);
+
+  function drawBackground(timeSec) {
+    const ctx = bgCanvas.getContext('2d');
+    const w = bgCanvas.width;
+    const h = bgCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.035)';
+    ctx.lineWidth = 1;
+    const step = 48 * (window.devicePixelRatio || 1);
+    const offset = (timeSec * 12) % step;
+    for (let x = offset; x < w; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = offset; y < h; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+  }
+
+  function drawBenfordChart(timeSec) {
+    const ctx = benfordCanvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = benfordCanvas.width;
+    const h = benfordCanvas.height;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    const cw = w / dpr;
+    const ch = h / dpr;
+
+    ctx.clearRect(0, 0, cw, ch);
+
+    const padL = 44, padR = 18, padT = 24, padB = 34;
+    const plotW = cw - padL - padR;
+    const plotH = ch - padT - padB;
+    const maxPct = 46;
+
+    for (let d = 1; d <= 9; d++) {
+      const targetAct = state.activeStats.pcts[d] || 0;
+      const targetCulp = STATS_CULPRIT.pcts[d] || 0;
+      const targetHon = STATS_HONEST.pcts[d] || 0;
+      state.animPct[d] += (targetAct - state.animPct[d]) * 0.14;
+      state.animCulpritPct[d] += (targetCulp - state.animCulpritPct[d]) * 0.12;
+      state.animHonestPct[d] += (targetHon - state.animHonestPct[d]) * 0.12;
+    }
+
+    ctx.font = '600 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    for (let p = 0; p <= 45; p += 10) {
+      const y = padT + plotH - (p / maxPct) * plotH;
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.13)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(cw - padR, y);
+      ctx.stroke();
+      ctx.fillStyle = '#94A3B8';
+      ctx.fillText(`${p}%`, padL - 6, y + 3);
+    }
+
+    const colW = plotW / 9;
+    const barW = Math.min(18, colW * 0.25);
+
+    for (let d = 1; d <= 9; d++) {
+      const cx = padL + (d - 0.5) * colW;
+      const baseY = padT + plotH;
+
+      if (state.hoverDigit === d || state.digitFilter === String(d)) {
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.08)';
+        ctx.fillRect(cx - colW * 0.46, padT, colW * 0.92, plotH);
+      }
+
+      if (d === 1 || d === 8 || d === 9) {
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.045)';
+        ctx.fillRect(cx - colW * 0.44, padT, colW * 0.88, plotH);
+      }
+
+      const hHon = (state.animHonestPct[d] / maxPct) * plotH;
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+      ctx.fillRect(cx - barW * 1.55, baseY - hHon, barW, hHon);
+
+      const hCulp = (state.animCulpritPct[d] / maxPct) * plotH;
+      ctx.fillStyle = (d >= 8) ? '#F43F5E' : 'rgba(244, 63, 94, 0.85)';
+      ctx.fillRect(cx - barW * 0.45, baseY - hCulp, barW, hCulp);
+
+      const hAct = (state.animPct[d] / maxPct) * plotH;
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.88)';
+      ctx.fillRect(cx + barW * 0.65, baseY - hAct, barW, hAct);
+
+      if (d === 8 || d === 9 || d === 4 || d === 7) {
+        ctx.fillStyle = '#FDA4AF';
+        ctx.textAlign = 'center';
+        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.fillText(`${STATS_CULPRIT.pcts[d].toFixed(1)}%`, cx, baseY - hCulp - 6);
+      } else if (d === 1) {
+        ctx.fillStyle = '#F43F5E';
+        ctx.textAlign = 'center';
+        ctx.font = '700 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('0.0%', cx, baseY - 5);
+      }
+
+      ctx.fillStyle = '#F8FAFC';
+      ctx.textAlign = 'center';
+      ctx.font = '700 11.5px "JetBrains Mono", monospace';
+      ctx.fillText(`d=${d}`, cx, baseY + 18);
+    }
+
+    ctx.save();
+    ctx.strokeStyle = '#22D3EE';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(34, 211, 238, 0.75)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    for (let d = 1; d <= 9; d++) {
+      const cx = padL + (d - 0.5) * colW;
+      const pct = BENFORD_PROB[d] * 100;
+      const py = padT + plotH - (pct / maxPct) * plotH;
+      if (d === 1) ctx.moveTo(cx, py);
+      else ctx.lineTo(cx, py);
+    }
+    ctx.stroke();
+
+    for (let d = 1; d <= 9; d++) {
+      const cx = padL + (d - 0.5) * colW;
+      const pct = BENFORD_PROB[d] * 100;
+      const py = padT + plotH - (pct / maxPct) * plotH;
+      ctx.fillStyle = '#070B14';
+      ctx.beginPath();
+      ctx.arc(cx, py, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#22D3EE';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      if (d === 1 || d === 2 || d === 9) {
+        ctx.fillStyle = '#22D3EE';
+        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${pct.toFixed(1)}%`, cx, py - 9);
+      }
+    }
+    ctx.restore();
+
+    const boxW = 305, boxH = 48;
+    const boxX = cw - padR - boxW - 6, boxY = padT + 4;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = state.hoverDigit ? '#22D3EE' : 'rgba(244, 63, 94, 0.55)';
+    ctx.lineWidth = 1;
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+    ctx.textAlign = 'left';
+    if (state.hoverDigit) {
+      const hd = state.hoverDigit;
+      const teo = (BENFORD_PROB[hd] * 100).toFixed(2);
+      const hon = STATS_HONEST.pcts[hd].toFixed(2);
+      const culp = STATS_CULPRIT.pcts[hd].toFixed(2);
+      ctx.fillStyle = '#22D3EE';
+      ctx.font = '700 10.5px "JetBrains Mono", monospace';
+      ctx.fillText(`INSPECCION DIGITO d=${hd} (CLICK PARA FILTRAR)`, boxX + 8, boxY + 17);
+      ctx.fillStyle = '#F8FAFC';
+      ctx.font = '600 10px "JetBrains Mono", monospace';
+      ctx.fillText(`Teo: ${teo}% | Honestos: ${hon}% | Culpable: ${culp}%`, boxX + 8, boxY + 35);
+    } else {
+      ctx.fillStyle = '#FDA4AF';
+      ctx.font = '700 10.5px "JetBrains Mono", monospace';
+      ctx.fillText('ALERTA BENFORD: FRACCIONAMIENTO < $10,000', boxX + 8, boxY + 17);
+      ctx.fillStyle = '#CBD5E1';
+      ctx.font = '500 10px "JetBrains Mono", monospace';
+      ctx.fillText('Digitos 8 y 9 concentran 81/115 facturas (70.4%)', boxX + 8, boxY + 35);
+    }
+
+    ctx.restore();
+  }
+
+  function drawScatterRadar(timeSec) {
+    const ctx = scatterCanvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = scatterCanvas.width;
+    const h = scatterCanvas.height;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    const cw = w / dpr;
+    const ch = h / dpr;
+
+    ctx.clearRect(0, 0, cw, ch);
+
+    const padL = 52, padR = 16, padT = 22, padB = 26;
+    const plotW = cw - padL - padR;
+    const plotH = ch - padT - padB;
+    const maxAmt = state.scatterScale === 'TRAP' ? 12000 : 72000;
+
+    const y10k = padT + plotH - Math.min(1, AUTO_LIMIT_MXN / maxAmt) * plotH;
+    const y8k = padT + plotH - Math.min(1, 8000 / maxAmt) * plotH;
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+    ctx.fillRect(padL, y10k, plotW, Math.max(2, y8k - y10k));
+
+    const steps = state.scatterScale === 'TRAP' ? [2000, 4000, 6000, 8000, 10000, 12000] : [10000, 25000, 50000, 70000];
+    ctx.font = '600 9.5px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    steps.forEach(val => {
+      const y = padT + plotH - (val / maxAmt) * plotH;
+      ctx.strokeStyle = val === 10000 ? 'rgba(251, 191, 36, 0.85)' : 'rgba(148, 163, 184, 0.12)';
+      ctx.lineWidth = val === 10000 ? 2 : 1;
+      if (val === 10000) ctx.setLineDash([6, 4]);
+      else ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(cw - padR, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = val === 10000 ? '#FBBF24' : '#94A3B8';
+      ctx.fillText(`$${val / 1000}k`, padL - 5, y + 3);
+    });
+
+    const sweepX = padL + ((timeSec * 0.18) % 1) * plotW;
+    const grad = ctx.createLinearGradient(sweepX - 35, 0, sweepX, 0);
+    grad.addColorStop(0, 'rgba(34, 211, 238, 0)');
+    grad.addColorStop(1, 'rgba(34, 211, 238, 0.18)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(sweepX - 35, padT, 35, plotH);
+
+    const totalN = INVOICES.length;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < totalN; i++) {
+        const inv = INVOICES[i];
+        if ((pass === 0 && inv.isCulprit) || (pass === 1 && !inv.isCulprit)) continue;
+        if (inv.amount_mxn > maxAmt) continue;
+
+        const x = padL + (i / (totalN - 1)) * plotW;
+        const y = padT + plotH - (inv.amount_mxn / maxAmt) * plotH;
+
+        if (!inv.isCulprit) {
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
+          ctx.beginPath();
+          ctx.arc(x, y, 2.1, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#F43F5E';
+          ctx.beginPath();
+          ctx.arc(x, y, 3.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    if (state.hoverInvoice && state.hoverInvoice.amount_mxn <= maxAmt) {
+      const hInv = state.hoverInvoice;
+      const hx = padL + (hInv.index / (totalN - 1)) * plotW;
+      const hy = padT + plotH - (hInv.amount_mxn / maxAmt) * plotH;
+      ctx.strokeStyle = '#22D3EE';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const tw = 275, th = 38;
+      const tx = Math.min(cw - padR - tw - 4, Math.max(padL + 4, hx - tw / 2));
+      const ty = Math.max(padT + 4, hy - th - 10);
+      ctx.fillStyle = 'rgba(7, 11, 20, 0.94)';
+      ctx.strokeStyle = hInv.isCulprit ? '#F43F5E' : '#22D3EE';
+      ctx.fillRect(tx, ty, tw, th);
+      ctx.strokeRect(tx, ty, tw, th);
+      ctx.fillStyle = '#F8FAFC';
+      ctx.font = '700 10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${hInv.invoice_id} | ${hInv.supplier}`, tx + 6, ty + 14);
+      ctx.fillStyle = hInv.isCulprit ? '#FDA4AF' : '#6EE7B7';
+      ctx.fillText(`${hInv.branch} | $${hInv.amount_mxn.toFixed(2)} MXN (d=${hInv.firstDigit})`, tx + 6, ty + 30);
+    }
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.fillRect(padL + 6, Math.max(padT + 2, y10k - 18), 295, 16);
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = '700 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('TOPE APROBACION AUTOMATICA: $10,000.00 MXN', padL + 10, Math.max(padT + 13, y10k - 6));
+
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = '600 9.5px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SECUENCIA CONTABLE DE 1,000 FACTURAS (PUNTOS CORAL = 115 FACTURAS DE LOGISTICA FANTASMA EN MONTERREY-04)', padL + plotW / 2, ch - 7);
+
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // 6. 60 FPS MAIN LOOP & AUTO-DEMO CHOREOGRAPHY
+  // ============================================================================
+  let lastFrameTime = performance.now();
+  let frameCount = 0;
+  let fpsLastUpdate = performance.now();
+
+  const DEMO_STAGES = [
+    { mode: 'ALL', scale: 'TRAP', label: 'AUDITORIA GLOBAL (1,000 FACTURAS) - DETECTANDO ANOMALIA CHI2 = 60.48' },
+    { mode: 'CULPRIT', scale: 'TRAP', label: 'AISLANDO CULPABLE: LOGISTICA FANTASMA DEL NORTE EN MONTERREY-04 (CHI2 = 577.24)' },
+    { mode: 'HONEST', scale: 'FULL', label: 'VERIFICANDO 11 PROVEEDORES HONESTOS (885 FACTURAS CUMPLEN BENFORD CHI2 = 14.31)' },
+    { mode: 'CULPRIT', scale: 'TRAP', label: 'EVIDENCIA DE FRACCIONAMIENTO: 115 FACTURAS POR $957,439.59 MXN DEBAJO DE $10,000' }
+  ];
+
+  function animate(now) {
+    const dt = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+    const timeSec = now / 1000;
+
+    frameCount++;
+    if (now - fpsLastUpdate >= 500) {
+      const fps = Math.min(60, Math.round((frameCount * 1000) / (now - fpsLastUpdate)));
+      document.getElementById('fpsCounter').textContent = String(fps);
+      frameCount = 0;
+      fpsLastUpdate = now;
+    }
+
+    if (state.autoDemo) {
+      state.demoTimer += dt;
+      if (state.demoTimer >= 5.5) {
+        state.demoTimer = 0;
+        state.demoStage = (state.demoStage + 1) % DEMO_STAGES.length;
+        const stg = DEMO_STAGES[state.demoStage];
+        setQuickMode(stg.mode, true);
+        setScatterScale(stg.scale);
+        document.getElementById('statusStageText').textContent = stg.label;
+      }
+    }
+
+    const wrap = document.getElementById('scannerWrap');
+    if (wrap && state.autoDemo && wrap.scrollHeight > wrap.clientHeight) {
+      wrap.scrollTop = (wrap.scrollTop + 0.45) % (wrap.scrollHeight - wrap.clientHeight);
+    }
+
+    drawBackground(timeSec);
+    drawBenfordChart(timeSec);
+    drawScatterRadar(timeSec);
+
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    initControlsAndLists();
+    resizeCanvases();
+    requestAnimationFrame(animate);
+  });
+  </script>
+</body>
+</html>

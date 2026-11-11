@@ -6,6 +6,11 @@ import { EP02_CHALLENGES } from "@/data/ep02Data";
 import { EP03_CHALLENGES, EP03_HONESTY_NOTES } from "@/data/ep03Data";
 import { EP04_BENCHMARK_TOTALS, EP04_CHALLENGES } from "@/data/ep04Data";
 import { EP05_BENCHMARK_TOTALS, EP05_CHALLENGES } from "@/data/ep05Data";
+import { EP06_BENCHMARK_TOTALS, EP06_CHALLENGES } from "@/data/ep06Data";
+import { EP07_BENCHMARK_TOTALS, EP07_CHALLENGES } from "@/data/ep07Data";
+import { EP08_BENCHMARK_TOTALS, EP08_CHALLENGES } from "@/data/ep08Data";
+import { EP09_BENCHMARK_TOTALS, EP09_CHALLENGES } from "@/data/ep09Data";
+import { EP10_BENCHMARK_TOTALS, EP10_CHALLENGES } from "@/data/ep10Data";
 import { YOUTUBE_LINKS } from "@/data/glossary";
 import type { ReleasedState } from "@/data/releaseSchedule";
 import {
@@ -16,7 +21,22 @@ import {
   type PixelSoundName,
 } from "@mixiuh/pixel-ui";
 
-export type DossierEpisode = "ep05" | "ep04" | "ep03" | "ep02" | "ep01";
+export type DossierEpisode =
+  | "ep10"
+  | "ep09"
+  | "ep08"
+  | "ep07"
+  | "ep06"
+  | "ep05"
+  | "ep04"
+  | "ep03"
+  | "ep02"
+  | "ep01";
+export type Ep10Mode = "arena" | "split" | "carbon" | "fable52";
+export type Ep09Mode = "split" | "fable52" | "opus55";
+export type Ep08Mode = "split" | "carbon" | "argon" | "recovery";
+export type Ep07Mode = "triple" | "omni12" | "omni11" | "veo31q" | "contact";
+export type Ep06Mode = "arena" | "triple" | "argon" | "opus" | "astra";
 export type Ep05Mode = "triple" | "argon" | "opus" | "astra" | "rescue";
 export type Ep04Mode = "triple" | "haiku" | "sonnet" | "opus" | "prompt";
 export type Ep03Mode = "split" | "superkit" | "vanilla" | "still" | "prompt";
@@ -32,6 +52,16 @@ export interface DossierViewProps {
   navigateToView: (view: "noticias" | "comunidad") => void;
   handleJumpToArena: (episode: DossierEpisode, challengeN: number) => void;
   playSfx: (name: PixelSoundName) => void;
+  ep10ChallengeN?: number;
+  setEp10ChallengeN?: (n: number) => void;
+  ep09ChallengeN?: number;
+  setEp09ChallengeN?: (n: number) => void;
+  ep08ChallengeN?: number;
+  setEp08ChallengeN?: (n: number) => void;
+  ep07ChallengeN?: number;
+  setEp07ChallengeN?: (n: number) => void;
+  ep06ChallengeN?: number;
+  setEp06ChallengeN?: (n: number) => void;
   ep05ChallengeN?: number;
   setEp05ChallengeN?: (n: number) => void;
   ep04ChallengeN: number;
@@ -124,6 +154,16 @@ export default function DossierView({
   navigateToView,
   handleJumpToArena,
   playSfx,
+  ep10ChallengeN = 1,
+  setEp10ChallengeN = () => {},
+  ep09ChallengeN = 1,
+  setEp09ChallengeN = () => {},
+  ep08ChallengeN = 3,
+  setEp08ChallengeN = () => {},
+  ep07ChallengeN = 1,
+  setEp07ChallengeN = () => {},
+  ep06ChallengeN = 1,
+  setEp06ChallengeN = () => {},
   ep05ChallengeN = 1,
   setEp05ChallengeN = () => {},
   ep04ChallengeN,
@@ -137,6 +177,11 @@ export default function DossierView({
   activeVideoClip,
   setActiveVideoClip,
 }: DossierViewProps) {
+  const [ep10Mode, setEp10Mode] = useState<Ep10Mode>("arena");
+  const [ep09Mode, setEp09Mode] = useState<Ep09Mode>("split");
+  const [ep08Mode, setEp08Mode] = useState<Ep08Mode>("recovery");
+  const [ep07Mode, setEp07Mode] = useState<Ep07Mode>("triple");
+  const [ep06Mode, setEp06Mode] = useState<Ep06Mode>("arena");
   const [ep05Mode, setEp05Mode] = useState<Ep05Mode>("triple");
   // English mode shows the English twin of a note where the data has one
   const fpsNote = (note: string, note_en?: string) =>
@@ -181,8 +226,8 @@ export default function DossierView({
           {/* Banner text, not a heading: each episode's title below is the view's <h1> */}
           <p className="font-display text-xl sm:text-2xl font-black text-white">
             {lang === "es"
-              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP05)"
-              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP05)"}
+              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP10)"
+              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP10)"}
           </p>
         </div>
 
@@ -235,6 +280,151 @@ export default function DossierView({
           aria-labelledby="dossier-disk-label"
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
         >
+          {released.ep10 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep10");
+              }}
+              aria-pressed={dossierEp === "ep10"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep10"
+                  ? "bg-[#182235] border-[#FFD100]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#FFD100]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#FFD100] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 10 · FINAL" : "DISK 10 · FINALE"}
+                </span>
+                <span className="text-[#FFD100]">
+                  7-3 · $8.20 vs $23.35
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Carbon vs Fable 5.2 (16 Demos + Arenas)"
+                  : "Carbon vs Fable 5.2 (16 Demos + Arenas)"}
+              </div>
+            </button>
+          )}
+
+          {released.ep09 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep09");
+              }}
+              aria-pressed={dossierEp === "ep09"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep09"
+                  ? "bg-[#182235] border-[#FB923C]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#FB923C]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#FB923C] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 09 · NUEVO" : "DISK 09 · NEW"}
+                </span>
+                <span className="text-[#FFD100]">
+                  3-1 · $17.70 vs $16.33
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Claude Fable 5.2 en Vivo vs Opus 5.5"
+                  : "Claude Fable 5.2 Live vs Opus 5.5"}
+              </div>
+            </button>
+          )}
+
+          {released.ep08 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep08");
+              }}
+              aria-pressed={dossierEp === "ep08"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep08"
+                  ? "bg-[#182235] border-[#38BDF8]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#38BDF8]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#38BDF8] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 08 · +RESCATE" : "DISK 08 · +RESCUE"}
+                </span>
+                <span className="text-[#FFD100]">
+                  3-1 · $5.36 vs $2.90
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Gemini 4 Carbon en Vivo + Recuperacion"
+                  : "Gemini 4 Carbon Live + Recovery Round"}
+              </div>
+            </button>
+          )}
+
+          {released.ep07 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep07");
+              }}
+              aria-pressed={dossierEp === "ep07"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep07"
+                  ? "bg-[#182235] border-[#38BDF8]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#38BDF8]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#38BDF8] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 07 · OMNI 1.2" : "DISK 07 · OMNI 1.2"}
+                </span>
+                <span className="text-[#FFD100]">
+                  4-0 · $2.71 vs $12.80
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1"
+                  : "Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1"}
+              </div>
+            </button>
+          )}
+
+          {released.ep06 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep06");
+              }}
+              aria-pressed={dossierEp === "ep06"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep06"
+                  ? "bg-[#182235] border-[#00E5FF]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#00E5FF]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#00E5FF] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 06 · NUEVO" : "DISK 06 · NEW"}
+                </span>
+                <span className="text-[#FFD100]">
+                  5-4-1 · $1.13 vs $17.99
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Clasicos + Arena IA en Vivo (20 Juegos)"
+                  : "Classics + Live AI Arena (20 Games)"}
+              </div>
+            </button>
+          )}
+
           {released.ep05 && (
             <button
               onClick={() => {
@@ -250,7 +440,7 @@ export default function DossierView({
             >
               <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
                 <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#10B981] text-[#090B10] font-bold">
-                  {lang === "es" ? "DISK 05 · NUEVO" : "DISK 05 · NEW"}
+                  DISK 05
                 </span>
                 <span className="text-[#FFD100]">
                   3-2-1 · $1.51 vs $32.75
@@ -370,6 +560,1448 @@ export default function DossierView({
           </button>
         </div>
       </div>
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 10 (CARBON VS FABLE 5.2 + 4 ARENAS EN VIVO)
+         ----------------------------------------------------------------- */}
+      {released.ep10 && dossierEp === "ep10" && (
+        <div id="ep10-carbon-vs-fable" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #FFD100" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#FFD100] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "GRAN FINAL TRILOGIA FRONTERA · EPISODIO 10 · 12 APPS ZERO-SHOT + 4 ARENAS IA VS IA EN VIVO (10 PUNTOS)"
+                : "FRONTIER TRILOGY FINALE · EPISODE 10 · 12 ZERO-SHOT APPS + 4 LIVE AI VS AI ARENAS (10 POINTS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Gemini 4 Carbon ($2/$10) vs Claude Fable 5.2 ($8/$40): 6 Retos Extremos, 4 Arenas IA vs IA en Vivo y 430 Jugadas Verificadas en JSON"
+                : "Gemini 4 Carbon ($2/$10) vs Claude Fable 5.2 ($8/$40): 6 Extreme Challenges, 4 Live AI vs AI Arenas & 430 Verified JSON Plays"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "El choque directo entre los dos nuevos modelos bandera de Google y Anthropic a tarifa 1x vs 4x. Primero evaluamos 6 simulaciones construidas en un solo intento sin intervenciones (Fase A, 6 puntos), y en los retos competitivos enfrentamos a los dos cerebros cara a cara dentro del simulador ganador con registro determinista de cada accion en JSON (Fase B, 4 puntos). Claude Fable 5.2 se corona campeon global 7 a 3 ($23.35 USD · 9,626 lineas), mientras Gemini 4 Carbon entrega 20,246 lineas por apenas $8.20 USD."
+                : "The direct clash between Google's and Anthropic's new flagship frontier models at 1x vs 4x API pricing. First we judge 6 unedited zero-shot simulations (Phase A, 6 points), and in the 4 head-to-head challenges both AI brains battle live inside the winning simulator with deterministic JSON action logs (Phase B, 4 points). Claude Fable 5.2 wins the 7-3 overall crown ($23.35 USD · 9,626 LOC), while Gemini 4 Carbon delivers 20,246 lines for just $8.20 USD."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#FB923C] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FB923C] font-bold">
+                  {lang === "es" ? "CAMPEON GLOBAL (7 PTS)" : "OVERALL CHAMPION (7 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Claude Fable 5.2
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP10_BENCHMARK_TOTALS.fable52_min}&nbsp;min · ${EP10_BENCHMARK_TOTALS.fable52_usd.toFixed(2)} USD · 4 Fase A + 3 Arena
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#38BDF8] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                  {lang === "es" ? "CAMPEON CALIDAD-PRECIO (3 PTS)" : "VALUE CHAMPION (3 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini 4 Carbon
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP10_BENCHMARK_TOTALS.carbon_min}&nbsp;min · ${EP10_BENCHMARK_TOTALS.carbon_usd.toFixed(2)} USD · 20,246 LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "TARIFA API COMPARADA" : "API RATE COMPARISON"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  $2/$10 vs $8/$40
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "Carbon cuesta 4x menos por token" : "Carbon costs 4x less per token"}
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                  {lang === "es" ? "AUDITORIA DETERMINISTA" : "DETERMINISTIC AUDIT"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  16 Demos + 430 Logs
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "0 errores JS en las 16 entregas" : "0 JS errors across all 16 builds"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#FFD100]">
+                {lang === "es"
+                  ? "TABLA OFICIAL EP10 (6 RETOS FASE A + 4 ARENAS IA VS IA EN VIVO · HAZ CLIC EN CUALQUIER FILA)"
+                  : "OFFICIAL EP10 TABLE (6 PHASE A BUILDS + 4 LIVE AI VS AI ARENAS · CLICK ANY ROW)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es" ? "MARCADOR FINAL: FABLE 5.2 [7] - [3] CARBON" : "FINAL SCORE: FABLE 5.2 [7] - [3] CARBON"}
+              </span>
+            </div>
+            <TableScroller label="EP10 Carbon vs Fable 5.2 Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "RETO / DATO CURIOSO" : "CHALLENGE / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#38BDF8] ${SNAP_COL}`}>GEMINI 4 CARBON ($2/$10)</th>
+                    <th className={`py-3 px-4 text-[#FB923C] ${SNAP_COL}`}>CLAUDE FABLE 5.2 ($8/$40)</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "VEREDICTO (FASE A + ARENA)" : "VERDICT (PHASE A + ARENA)"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP10_CHALLENGES.map((ch) => {
+                    const selected = ep10ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp10ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#FFD100] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#38BDF8]">
+                            {ch.carbon.min}&nbsp;min · ${ch.carbon.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.carbon.fps, ch.carbon.fps_en)} · {ch.carbon.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#FB923C]">
+                            {ch.fable52.min}&nbsp;min · ${ch.fable52.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.fable52.fps, ch.fable52.fps_en)} · {ch.fable52.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          <div>{lang === "es" ? ch.winner_label_es : ch.winner_label_en}</div>
+                          {ch.arena && (
+                            <div className="text-[11px] text-[#10B981] mt-0.5">
+                              {lang === "es" ? ch.arena.score_es : ch.arena.score_en}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur =
+              EP10_CHALLENGES.find((c) => c.n === ep10ChallengeN) || EP10_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            const activeMode: Ep10Mode = !cur.arena && ep10Mode === "arena" ? "split" : ep10Mode;
+            return (
+              <div className="bg-[#111622] border-2 border-[#FFD100] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#FFD100]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                    <p className="text-xs text-[#FFD100] mt-1">
+                      {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {cur.arena && (
+                      <button
+                        onClick={() => setEp10Mode("arena")}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === "arena"
+                            ? "bg-[#FFD100] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {lang === "es" ? "ARENA IA VS IA EN VIVO" : "LIVE AI VS AI ARENA"}
+                      </button>
+                    )}
+                    {(["split", "carbon", "fable52"] as Ep10Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp10Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === m
+                            ? "bg-[#00E5FF] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "split"
+                          ? lang === "es"
+                            ? "LADO A LADO"
+                            : "SIDE BY SIDE"
+                          : m === "carbon"
+                          ? "GEMINI 4 CARBON"
+                          : "CLAUDE FABLE 5.2"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep10", cur.n)}
+                      className="px-3 py-1.5 bg-[#10B981] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {activeMode === "arena" && cur.arena ? (
+                  <div className="flex flex-col">
+                    <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                      <span className="text-[#FFD100] font-bold">
+                        {lang === "es" ? cur.arena.summary_es : cur.arena.summary_en}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <a
+                          href={cur.arena.logUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#10B981] font-bold underline"
+                        >
+                          {lang === "es" ? "Log JSON Verificado ↗" : "Verified JSON Log ↗"}
+                        </a>
+                        <a
+                          href={cur.arena.arenaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00E5FF] font-bold underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                    </div>
+                    <iframe
+                      allowFullScreen
+                      src={cur.arena.arenaUrl}
+                      title={`EP10 Arena: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                ) : activeMode === "split" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#38BDF8] font-bold">
+                          GEMINI 4 CARBON (${cur.carbon.usd.toFixed(2)} · {cur.carbon.min}m)
+                        </span>
+                        <a href={cur.carbon.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.carbon.demoUrl} title={`Carbon: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#FB923C] font-bold">
+                          CLAUDE FABLE 5.2 (${cur.fable52.usd.toFixed(2)} · {cur.fable52.min}m)
+                        </span>
+                        <a href={cur.fable52.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#FB923C] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.fable52.demoUrl} title={`Fable 5.2: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={activeMode === "carbon" ? cur.carbon.demoUrl : cur.fable52.demoUrl}
+                    title={`${activeMode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 09 (CLAUDE FABLE 5.2 EN VIVO VS OPUS 5.5)
+         ----------------------------------------------------------------- */}
+      {released.ep09 && dossierEp === "ep09" && (
+        <div id="ep09-claude-fable-vivo" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #FB923C" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#FB923C] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "PARTE 2 TRILOGIA FRONTERA · EPISODIO 09 · CLAUDE FABLE 5.2 ($8/$40) VS CLAUDE OPUS 5.5 (8 SIMULADORES ZERO-SHOT)"
+                : "FRONTIER TRILOGY PART 2 · EPISODE 09 · CLAUDE FABLE 5.2 ($8/$40) VS CLAUDE OPUS 5.5 (8 ZERO-SHOT SIMULATORS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Claude Fable 5.2 en Vivo vs Claude Opus 5.5: Agujero Negro Gargantua GLSL, Circuito NE555, POS de los 90s y Reloj Mecanico Suizo"
+                : "Claude Fable 5.2 Live vs Claude Opus 5.5: Gargantua Black Hole GLSL, NE555 Circuit, 90s POS Refactor & Swiss Mechanical Watch"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Anthropic responde abriendo Claude Fable 5.2 al publico ($8 entrada / $40 salida por millon de tokens, mientras reserva Mythos 5.2 para laboratorios aliados). Lo pusimos a prueba a un solo intento frente a Claude Opus 5.5 en 4 retos de fisica relativista, electronica analogica, refactorizacion critica y relojeria suiza: cero errores de consola en las 8 entregas y victoria 3 a 1 para Fable 5.2."
+                : "Anthropic strikes back with Claude Fable 5.2 in public API ($8 input / $40 output per 1M tokens, while keeping Mythos 5.2 gated). Tested blind in a single attempt against Claude Opus 5.5 across general relativity, analog electronics, legacy POS rescue, and Swiss horology: zero console errors across all 8 apps and a 3-1 win for Fable 5.2."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#FB923C] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FB923C] font-bold">
+                  {lang === "es" ? "GANADOR (3 - 1)" : "WINNER (3 - 1)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">Claude Fable 5.2</div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP09_BENCHMARK_TOTALS.fable52_min}&nbsp;min · ${EP09_BENCHMARK_TOTALS.fable52_usd.toFixed(2)} USD · {EP09_BENCHMARK_TOTALS.fable52_lines} LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#C084FC] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#C084FC] font-bold">
+                  {lang === "es" ? "ANTECESOR (1 VICTORIA)" : "PREDECESSOR (1 WIN)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">Claude Opus 5.5</div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP09_BENCHMARK_TOTALS.opus55_min}&nbsp;min · ${EP09_BENCHMARK_TOTALS.opus55_usd.toFixed(2)} USD · {EP09_BENCHMARK_TOTALS.opus55_lines} LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "PRECISION ZERO-SHOT" : "ZERO-SHOT RELIABILITY"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">8 / 8 Sin Bugs</div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "0 errores JS en Playwright headless" : "0 JS errors in headless Playwright"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <TableScroller label="EP09 Fable 5.2 vs Opus 5.5 Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "PRUEBA / DATO CURIOSO" : "TEST / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#FB923C] ${SNAP_COL}`}>CLAUDE FABLE 5.2</th>
+                    <th className={`py-3 px-4 text-[#C084FC] ${SNAP_COL}`}>CLAUDE OPUS 5.5</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "GANADOR" : "WINNER"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP09_CHALLENGES.map((ch) => {
+                    const selected = ep09ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp09ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#FB923C] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#FB923C]">
+                            {ch.fable52.min}&nbsp;min · ${ch.fable52.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.fable52.fps, ch.fable52.fps_en)} · {ch.fable52.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#C084FC]">
+                            {ch.opus55.min}&nbsp;min · ${ch.opus55.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.opus55.fps, ch.opus55.fps_en)} · {ch.opus55.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          {lang === "es" ? ch.winner_label_es : ch.winner_label_en}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur =
+              EP09_CHALLENGES.find((c) => c.n === ep09ChallengeN) || EP09_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            return (
+              <div className="bg-[#111622] border-2 border-[#FB923C] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#FB923C]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {(["split", "fable52", "opus55"] as Ep09Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp09Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          ep09Mode === m
+                            ? "bg-[#FB923C] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "split"
+                          ? lang === "es"
+                            ? "LADO A LADO"
+                            : "SIDE BY SIDE"
+                          : m === "fable52"
+                          ? "CLAUDE FABLE 5.2"
+                          : "CLAUDE OPUS 5.5"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep09", cur.n)}
+                      className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {ep09Mode === "split" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#FB923C] font-bold">
+                          CLAUDE FABLE 5.2 (${cur.fable52.usd.toFixed(2)} · {cur.fable52.min}m)
+                        </span>
+                        <a href={cur.fable52.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#FB923C] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.fable52.demoUrl} title={`Fable 5.2: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#C084FC] font-bold">
+                          CLAUDE OPUS 5.5 (${cur.opus55.usd.toFixed(2)} · {cur.opus55.min}m)
+                        </span>
+                        <a href={cur.opus55.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#C084FC] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.opus55.demoUrl} title={`Opus 5.5: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={ep09Mode === "fable52" ? cur.fable52.demoUrl : cur.opus55.demoUrl}
+                    title={`${ep09Mode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 08 (GEMINI 4 CARBON EN VIVO + RONDA DE RECUPERACION)
+         ----------------------------------------------------------------- */}
+      {released.ep08 && dossierEp === "ep08" && (
+        <div id="ep08-gemini-carbon-vivo" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #38BDF8" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#38BDF8] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "PARTE 1 TRILOGIA FRONTERA · EPISODIO 08 · GEMINI 4 CARBON GA ($2/$10) VS ARGON + RONDA DE RECUPERACION"
+                : "FRONTIER TRILOGY PART 1 · EPISODE 08 · GEMINI 4 CARBON GA ($2/$10) VS ARGON + RECOVERY ROUND"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Gemini 4 Carbon Abierto para Todos vs Gemini 4 Argon: 4 Retos Reales (3 - 1) + Ronda de Recuperacion del Puente Oculto (-1 Letra)"
+                : "Gemini 4 Carbon Public GA vs Gemini 4 Argon: 4 Live Challenges (3 - 1) + 1-Letter Hidden Bridge Recovery Round"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Google DeepMind libera Gemini 4 Carbon fuera de Project Glasswing con 1M de contexto y tarifa promocional de $2/$10 USD. Gano 3 a 1 frente a Gemini 4 Argon escribiendo 12,056 lineas por $5.36 USD. En la Prueba 03 (Puente de Tacoma) dejo el lienzo en negro por escribir una sola letra 'd' extra (baseDdvy en la linea 1664); respetamos el punto oficial de Argon y abrimos la Ronda de Recuperacion borrando unicamente ese caracter para revelar el puente 2.5D de 186 cables y 50 rupturas ocultas."
+                : "Google DeepMind unlocks Gemini 4 Carbon beyond Project Glasswing with 1M context and $2/$10 promo pricing. It defeated Gemini 4 Argon 3-1 across 12,056 lines for $5.36 USD. On Challenge 03 (Tacoma Bridge), one extra letter 'd' on line 1664 (baseDdvy) blacked out the canvas; we kept Argon's official zero-shot point intact and ran an out-of-competition Recovery Round removing just that 1 character to reveal Carbon's hidden 186-cable 2.5D bridge."}
+            </p>
+
+            {/* Callout Forense Ronda de Recuperacion */}
+            <div className="p-4 sm:p-5 bg-[#041520] border-2 border-[#10B981] shadow-[4px_4px_0_#040508] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es"
+                    ? "RONDA DE RECUPERACION · PRUEBA 03 (LINEA 1664 DE 3,204 · PARCHE EXTERNO DE -1 BYTE)"
+                    : "RECOVERY ROUND · CHALLENGE 03 (LINE 1664 OF 3,204 · -1 BYTE EXTERNAL PATCH)"}
+                </div>
+                <p className="font-mono-hud text-xs text-white">
+                  {lang === "es"
+                    ? "Error original: baseDdvy[i] (mezclo baseDvy y sumDdvy en la suma RK4). Parche: baseDvy[i]. Resultado desbloqueado: 186 cables 2.5D, trafico vivo, tunel de viento, torsion de 60.2 grados con 50 cables rotos y estabilizacion por carenado + TMD."
+                    : "Original bug: baseDdvy[i] (blended baseDvy and sumDdvy in final RK4 sum). Patch: baseDvy[i]. Unlocked engine: 186 2.5D cables, highway traffic, live wind tunnel, 60.2 deg flutter snapping 50 cables, and fairing + TMD stabilization."}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setEp08ChallengeN(3);
+                  setEp08Mode("recovery");
+                }}
+                className="px-4 py-2 bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold border-2 border-[#090B10] shadow-[3px_3px_0_#040508] shrink-0 cursor-pointer"
+              >
+                {lang === "es"
+                  ? "Jugar Puente Recuperado Ahora →"
+                  : "Play Recovered Bridge Now →"}
+              </button>
+            </div>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <TableScroller label="EP08 Carbon vs Argon Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "PRUEBA / DATO CURIOSO" : "TEST / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#38BDF8] ${SNAP_COL}`}>GEMINI 4 CARBON</th>
+                    <th className={`py-3 px-4 text-[#A855F7] ${SNAP_COL}`}>GEMINI 4 ARGON</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "VEREDICTO OFICIAL" : "OFFICIAL VERDICT"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP08_CHALLENGES.map((ch) => {
+                    const selected = ep08ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp08ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#38BDF8] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#38BDF8]">
+                            {ch.carbon.min}&nbsp;min · ${ch.carbon.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.carbon.fps, ch.carbon.fps_en)} · {ch.carbon.lines} LOC
+                          </div>
+                          {ch.carbon.rescuedFps && (
+                            <div className="text-[11px] text-[#10B981] font-bold mt-0.5">
+                              {fpsNote(ch.carbon.rescuedFps, ch.carbon.rescuedFps_en)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#A855F7]">
+                            {ch.argon.min}&nbsp;min · ${ch.argon.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.argon.fps, ch.argon.fps_en)} · {ch.argon.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          {lang === "es" ? ch.winner_label_es : ch.winner_label_en}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur =
+              EP08_CHALLENGES.find((c) => c.n === ep08ChallengeN) || EP08_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            const activeMode: Ep08Mode =
+              !cur.carbon.rescuedDemoUrl && ep08Mode === "recovery" ? "split" : ep08Mode;
+            const carbonSplitUrl =
+              cur.carbon.rescuedDemoUrl ?? cur.carbon.demoUrl;
+            return (
+              <div className="bg-[#111622] border-2 border-[#38BDF8] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#38BDF8]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {cur.carbon.rescuedDemoUrl && (
+                      <button
+                        onClick={() => setEp08Mode("recovery")}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === "recovery"
+                            ? "bg-[#10B981] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-[#10B981] border-[#10B981]"
+                        }`}
+                      >
+                        {lang === "es"
+                          ? "RONDA DE RECUPERACION (-1 LETRA 'd')"
+                          : "RECOVERY ROUND (-1 LETTER 'd')"}
+                      </button>
+                    )}
+                    {(["split", "carbon", "argon"] as Ep08Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp08Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === m
+                            ? "bg-[#38BDF8] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "split"
+                          ? lang === "es"
+                            ? "LADO A LADO"
+                            : "SIDE BY SIDE"
+                          : m === "carbon"
+                          ? cur.carbon.rescuedDemoUrl
+                            ? "CARBON ZERO-SHOT (BUG)"
+                            : "GEMINI 4 CARBON"
+                          : "GEMINI 4 ARGON"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep08", cur.n)}
+                      className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {activeMode === "recovery" && cur.carbon.rescuedDemoUrl ? (
+                  <div className="flex flex-col">
+                    <div className="px-4 py-2 bg-[#041520] border-b border-[#10B981] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                      <span className="text-[#10B981] font-bold">
+                        {lang === "es"
+                          ? "PUENTE OCULTO RECUPERADO (LINEA 1664: baseDdvy -> baseDvy) · PUNTO OFICIAL SIGUE EN ARGON (3 - 1)"
+                          : "RECOVERED HIDDEN BRIDGE (LINE 1664: baseDdvy -> baseDvy) · OFFICIAL POINT STAYS WITH ARGON (3 - 1)"}
+                      </span>
+                      <a
+                        href={cur.carbon.rescuedDemoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#10B981] font-bold underline"
+                      >
+                        {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                      </a>
+                    </div>
+                    <iframe
+                      allowFullScreen
+                      src={cur.carbon.rescuedDemoUrl}
+                      title={`Recovered Carbon: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                ) : activeMode === "split" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#38BDF8] font-bold">
+                          GEMINI 4 CARBON (${cur.carbon.usd.toFixed(2)} · {cur.carbon.min}m)
+                        </span>
+                        <a href={carbonSplitUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={carbonSplitUrl} title={`Carbon: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#A855F7] font-bold">
+                          GEMINI 4 ARGON (${cur.argon.usd.toFixed(2)} · {cur.argon.min}m)
+                        </span>
+                        <a href={cur.argon.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#A855F7] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.argon.demoUrl} title={`Argon: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={activeMode === "carbon" ? cur.carbon.demoUrl : cur.argon.demoUrl}
+                    title={`${activeMode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 07 (ESPECIAL GEMINI OMNI 1.2 FLASH VS OMNI 1.1 FLASH VS VEO 3.1 QUALITY)
+         ----------------------------------------------------------------- */}
+      {released.ep07 && dossierEp === "ep07" && (
+        <div id="ep07-omni-1-2-flash" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #38BDF8" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#38BDF8] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "DOSSIER OFICIAL EPISODIO 07 · ESPECIAL GEMINI OMNI 1.2 FLASH (15S NATIVOS + 12 VIDEOS EN GOOGLE FLOW)"
+                : "OFFICIAL EPISODE 07 DOSSIER · GEMINI OMNI 1.2 FLASH SPECIAL (15S NATIVE + 12 LIVE GOOGLE FLOW VIDEOS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Google Lanza Gemini Omni 1.2 Flash ($0.069/s): 15s Continuos, 6 Ingredientes y Benchmark en Vivo vs Omni 1.1 Flash y Veo 3.1 Quality (4 - 0)"
+                : "Google Launches Gemini Omni 1.2 Flash ($0.069/s): 15s Continuous Video, 6 Ingredients & Live Benchmark vs Omni 1.1 Flash & Veo 3.1 Quality (4 - 0)"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Abrimos Google Flow en vivo y sometimos al nuevo Gemini Omni 1.2 Flash ($0.069/s en API 720p, hasta 15 segundos continuos en pasos de 1s y hasta 6 imagenes de referencia) a 4 pruebas reales frente a su predecesor Gemini Omni 1.1 Flash ($0.101/s, tope 10s) y Veo 3.1 Quality ($0.40/s, tope 8s). Omni 1.2 Flash baraja el marcador 4 a 0 ($2.71 USD totales frente a $12.80 USD de Veo 3.1 Quality), proyectando hologramas 3D reales, evitando el pasillo fantasma de Veo 3.1 en t=3.0s y fusionando las 3 fotos de referencia que Veo 3.1 Quality bloqueo."
+                : "We opened Google Flow live and put the new Gemini Omni 1.2 Flash ($0.069/s on 720p API, up to 15 continuous seconds in 1s increments, and up to 6 reference images) through 4 live tests against its predecessor Gemini Omni 1.1 Flash ($0.101/s, 10s cap) and Veo 3.1 Quality ($0.40/s, 8s cap). Omni 1.2 Flash sweeps 4-0 ($2.71 USD total vs Veo 3.1 Quality's $12.80 USD), projecting floating 3D holograms, avoiding Veo 3.1's t=3.0s ghost hallway, and fusing the 3 reference photos that Veo 3.1 Quality blocked."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#38BDF8] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                  {lang === "es" ? "CAMPEON INVICTO (4-0)" : "UNDEFEATED CHAMPION (4-0)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini Omni 1.2 Flash
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP07_BENCHMARK_TOTALS.omni12_avg} · ${EP07_BENCHMARK_TOTALS.omni12_usd.toFixed(2)} USD · 15s Nativos
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#A855F7] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#A855F7] font-bold">
+                  {lang === "es" ? "PREDECESOR (0 PTS)" : "PREDECESSOR (0 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini Omni 1.1 Flash
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP07_BENCHMARK_TOTALS.omni11_avg} · ${EP07_BENCHMARK_TOTALS.omni11_usd.toFixed(2)} USD · Tope 10s
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#F59E0B] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#F59E0B] font-bold">
+                  {lang === "es" ? "MODELO CINE (0 PTS)" : "CINEMA MODEL (0 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Veo 3.1 - Quality
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP07_BENCHMARK_TOTALS.veo31q_avg} · ${EP07_BENCHMARK_TOTALS.veo31q_usd.toFixed(2)} USD · Tope 8s
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "AHORRO EN API 720P" : "720P API SAVINGS"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  -31.7% vs 1.1 · 4.7x vs Veo
+                </div>
+                <div className="font-mono-hud text-xs text-[#10B981] mt-1">
+                  $0.069/s vs $0.101/s vs $0.400/s
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla Comparativa de las 4 Pruebas en Google Flow */}
+          <div
+            data-px-reveal="true"
+            className={`bg-[#111622] border-2 border-[#090B10] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}
+            style={{ outline: "2px solid #2A344B" }}
+          >
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <div className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                {lang === "es"
+                  ? "MATRIZ DE RESULTADOS · 4 PRUEBAS EN VIVO EN GOOGLE FLOW (12 VIDEOS 1080P)"
+                  : "BENCHMARK MATRIX · 4 LIVE TESTS IN GOOGLE FLOW (12 1080P VIDEOS)"}
+              </div>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es"
+                  ? "MARCADOR FINAL: OMNI 1.2 [4] - OMNI 1.1 [0] - VEO 3.1 [0]"
+                  : "FINAL SCORE: OMNI 1.2 [4] - OMNI 1.1 [0] - VEO 3.1 [0]"}
+              </span>
+            </div>
+            <TableScroller label={lang === "es" ? "Tabla EP07 Omni 1.2 Flash" : "EP07 Omni 1.2 Flash Table"}>
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "Prueba en Google Flow" : "Google Flow Test"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#38BDF8] ${SNAP_COL}`}>Omni 1.2 Flash</th>
+                    <th className={`py-3 px-4 text-[#A855F7] ${SNAP_COL}`}>Omni 1.1 Flash</th>
+                    <th className={`py-3 px-4 text-[#F59E0B] ${SNAP_COL}`}>Veo 3.1 Quality</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "Ganador" : "Winner"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1E2638]">
+                  {EP07_CHALLENGES.map((ch) => {
+                    const selected = ep07ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp07ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#38BDF8] max-sm:hidden">
+                          {ch.code}
+                        </td>
+                        <td className={`py-3 px-4 font-sans font-bold text-white ${pinCell(selected)}`}>
+                          {lang === "es" ? ch.name_es : ch.name_en}
+                        </td>
+                        <td className="py-3 px-4 text-[#38BDF8]">
+                          <div className="font-bold">{ch.omni12.score} · ${ch.omni12.usd.toFixed(2)}</div>
+                          <div className="text-[11px] text-[#94A3B8]">
+                            {ch.omni12.duration_s}s · {ch.omni12.gen_time_s}s gen · {ch.omni12.credits} cr
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-[#C084FC]">
+                          <div className="font-bold">{ch.omni11.score} · ${ch.omni11.usd.toFixed(2)}</div>
+                          <div className="text-[11px] text-[#94A3B8]">
+                            {ch.omni11.duration_s}s · {ch.omni11.gen_time_s}s gen · {ch.omni11.credits} cr
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-[#FBBF24]">
+                          <div className="font-bold">{ch.veo31q.score} · ${ch.veo31q.usd.toFixed(2)}</div>
+                          <div className="text-[11px] text-[#94A3B8]">
+                            {ch.veo31q.duration_s}s · {ch.veo31q.gen_time_s}s gen · {ch.veo31q.credits} cr
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#10B981]">
+                          OMNI 1.2 FLASH
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {/* Selector de Prueba y Comparador Interactivo de los 12 Videos 1080p */}
+          {(() => {
+            const cur =
+              EP07_CHALLENGES.find((c) => c.n === ep07ChallengeN) || EP07_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            return (
+              <div className="bg-[#111622] border-2 border-[#38BDF8] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 bg-[#182235] border-b border-[#2A344B] space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {EP07_CHALLENGES.map((ch) => (
+                        <button
+                          key={ch.n}
+                          onClick={() => setEp07ChallengeN(ch.n)}
+                          className={`px-3 py-1.5 font-pixel text-[10px] font-bold border cursor-pointer transition ${
+                            ep07ChallengeN === ch.n
+                              ? "bg-[#38BDF8] text-[#090B10] border-[#090B10]"
+                              : "bg-[#090B10] text-[#CBD5E1] border-[#2A344B] hover:border-[#38BDF8]"
+                          }`}
+                        >
+                          {ch.code} · {lang === "es" ? ch.name_es.split(":")[0] : ch.name_en.split(":")[0]}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 font-mono-hud text-xs">
+                      {(
+                        [
+                          ["triple", lang === "es" ? "3 Modelos Lado a Lado" : "3-Model Side-by-Side"],
+                          ["omni12", "Omni 1.2 Flash (#1)"],
+                          ["omni11", "Omni 1.1 Flash"],
+                          ["veo31q", "Veo 3.1 Quality"],
+                          ["contact", lang === "es" ? "Hoja de Contacto 4K" : "4K Contact Sheet"],
+                        ] as const
+                      ).map(([mKey, mLabel]) => (
+                        <button
+                          key={mKey}
+                          onClick={() => setEp07Mode(mKey)}
+                          className={`px-2.5 py-1 font-bold border cursor-pointer ${
+                            ep07Mode === mKey
+                              ? "bg-[#FFD100] text-[#090B10] border-[#090B10]"
+                              : "bg-[#090B10] text-[#CBD5E1] border-[#2A344B]"
+                          }`}
+                        >
+                          {mLabel}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-mono-hud text-[#38BDF8] font-bold">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h2 className="font-display text-xl font-black text-white">
+                      {cur.code}: {name}
+                    </h2>
+                    <p className="text-xs text-[#FFD100] font-semibold">
+                      {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+                    </p>
+                    <p className="text-xs text-[#CBD5E1]">
+                      {lang === "es" ? cur.verdict_es : cur.verdict_en}
+                    </p>
+                  </div>
+
+                  {/* Prompt Box */}
+                  <div className="p-3 bg-[#090B10] border border-[#2A344B] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-xs text-[#94A3B8] font-mono-hud">
+                      <span className="text-[#38BDF8] font-bold">PROMPT: </span>
+                      {lang === "es" ? cur.prompt_es : cur.prompt_en}
+                    </div>
+                    <PixelCopyButton
+                      text={lang === "es" ? cur.prompt_es : cur.prompt_en}
+                      label={lang === "es" ? "Copiar Prompt" : "Copy Prompt"}
+                      copiedLabel={lang === "es" ? "Copiado" : "Copied"}
+                    />
+                  </div>
+                </div>
+
+                {ep07Mode === "contact" ? (
+                  <div className="p-4 bg-[#090B10] space-y-4">
+                    <img
+                      src={cur.contactSheetUrl}
+                      alt={name}
+                      className="w-full h-auto border border-[#2A344B]"
+                    />
+                    {cur.proofImageUrl && (
+                      <div className="space-y-2">
+                        <div className="font-pixel text-[10px] text-[#FF3355] font-bold">
+                          {lang === "es"
+                            ? "EVIDENCIA EN VIVO: VEO 3.1 QUALITY BLOQUEANDO LOS 3 INGREDIENTES EN GOOGLE FLOW"
+                            : "LIVE PROOF: VEO 3.1 QUALITY BLOCKING ALL 3 INGREDIENTS IN GOOGLE FLOW"}
+                        </div>
+                        <img
+                          src={cur.proofImageUrl}
+                          alt="Veo 3.1 Quality Ingredients Error Proof"
+                          className="w-full max-w-3xl h-auto border-2 border-[#FF3355]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : ep07Mode === "triple" ? (
+                  <div className="p-4 bg-[#090B10] space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      {[
+                        { m: cur.omni12, color: "#38BDF8", badge: lang === "es" ? "GANADOR" : "WINNER" },
+                        { m: cur.omni11, color: "#A855F7", badge: "PREDECESOR" },
+                        { m: cur.veo31q, color: "#F59E0B", badge: "CINE 8S" },
+                      ].map(({ m, color, badge }) => (
+                        <div
+                          key={m.model_name}
+                          className="bg-[#111622] border-2 flex flex-col justify-between"
+                          style={{ borderColor: color }}
+                        >
+                          <div className="p-3 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                            <span className="font-bold" style={{ color }}>
+                              {m.model_name}
+                            </span>
+                            <span
+                              className="px-2 py-0.5 text-[10px] font-pixel font-bold text-[#090B10]"
+                              style={{ backgroundColor: color }}
+                            >
+                              {badge} · {m.score}
+                            </span>
+                          </div>
+                          <video
+                            key={m.videoUrl}
+                            src={m.videoUrl}
+                            controls
+                            playsInline
+                            preload="metadata"
+                            className="w-full aspect-video bg-black"
+                          />
+                          <div className="p-3 space-y-1 font-mono-hud text-xs">
+                            <div className="flex items-center justify-between text-[#CBD5E1]">
+                              <span>
+                                {m.duration_s}s · {m.gen_time_s}s gen
+                              </span>
+                              <span className="text-[#FFD100] font-bold">
+                                {m.credits} cr · ${m.usd.toFixed(2)} USD
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-[#94A3B8]">
+                              {lang === "es" ? m.note_es : m.note_en}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {cur.proofImageUrl && (
+                      <div className="p-4 bg-[#111622] border-2 border-[#FF3355] flex flex-col lg:flex-row items-center gap-4">
+                        <div className="space-y-1 flex-1">
+                          <div className="font-pixel text-[10px] text-[#FF3355] font-bold">
+                            {lang === "es"
+                              ? "CAPTURA REAL EN GOOGLE FLOW · BLOQUEO DE INGREDIENTES EN VEO 3.1 QUALITY"
+                              : "LIVE GOOGLE FLOW SCREENSHOT · VEO 3.1 QUALITY INGREDIENT BLOCK"}
+                          </div>
+                          <p className="text-xs text-[#CBD5E1]">
+                            {lang === "es"
+                              ? "Al adjuntar las 3 imagenes de referencia y seleccionar Veo 3.1 Quality, Google Flow deshabilita el boton de generar con la alerta: 'El modelo seleccionado no admite los ingredientes agregados'."
+                              : "When attaching all 3 reference images and selecting Veo 3.1 Quality, Google Flow disables generation with the warning: 'The selected model does not support the added ingredients'."}
+                          </p>
+                        </div>
+                        <img
+                          src={cur.proofImageUrl}
+                          alt="Veo 3.1 Quality Ingredients Error"
+                          className="w-full lg:w-96 h-auto border border-[#FF3355]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-[#090B10]">
+                    {(() => {
+                      const chosen =
+                        ep07Mode === "omni12"
+                          ? cur.omni12
+                          : ep07Mode === "omni11"
+                          ? cur.omni11
+                          : cur.veo31q;
+                      return (
+                        <div className="max-w-4xl mx-auto space-y-3">
+                          <div className="flex items-center justify-between font-mono-hud text-sm text-white">
+                            <span className="font-bold">{chosen.model_name}</span>
+                            <span className="text-[#FFD100]">
+                              {chosen.score} · {chosen.duration_s}s · {chosen.gen_time_s}s gen · ${chosen.usd.toFixed(2)} USD
+                            </span>
+                          </div>
+                          <video
+                            key={chosen.videoUrl}
+                            src={chosen.videoUrl}
+                            controls
+                            autoPlay
+                            playsInline
+                            className="w-full aspect-video bg-black border-2 border-[#38BDF8]"
+                          />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 06 (5 CLASICOS + ARENA DE SUPERVIVENCIA EN VIVO)
+         ----------------------------------------------------------------- */}
+      {released.ep06 && dossierEp === "ep06" && (
+        <div id="ep06-clasicos-arena-ia" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #00E5FF" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#00E5FF] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "DOSSIER OFICIAL EPISODIO 06 · 15 CLONES ZERO-SHOT + 5 ARENAS DE SUPERVIVENCIA EN VIVO (10 PUNTOS)"
+                : "OFFICIAL EPISODE 06 DOSSIER · 15 ZERO-SHOT CLONES + 5 LIVE SURVIVAL ARENAS (10 POINTS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Clasicos Mundiales + Arena de Supervivencia en Vivo: Gemini 4 Argon High vs Claude Opus 5.5 High vs GPT-6 Astra High (Snake, Bomberman, Pac-Man, Tanques y Hex-A-Gone 3D)"
+                : "World Classics + Live Survival Arena: Gemini 4 Argon High vs Claude Opus 5.5 High vs GPT-6 Astra High (Snake, Bomberman, Pac-Man, Tanks & 3D Hex-A-Gone)"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Por primera vez en Mixiuh Labs, cada reto vale doble: primero evaluamos cual de los 3 gigantes clono mejor cada videojuego clasico al primer intento (5 puntos de clonacion), y enseguida metemos a las 3 IAs dentro del juego que resulto ganador para que peleen a muerte entre ellas con registro de cada accion en logs verificados (5 puntos de Arena en Vivo). Tras el empate 4-4 de Opus en el clon 3D de Hex-A-Gone, Gemini 4 Argon High barre las 3 Coronas en la Arena 3D y se corona campeon 5-4-1."
+                : "For the first time at Mixiuh Labs, every round counts double: first we judge which of the 3 giants cloned each classic game best on the first attempt (5 clone points), and right after we drop all 3 AIs into the winning clone of each challenge to fight to the last survivor with verified JSON action logs (5 Live Arena points). After Opus tied the score 4-4 on the 3D Hex-A-Gone clone, Gemini 4 Argon High sweeps 3 of 3 Crowns in the 3D Arena to claim the 5-4-1 championship."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#00E5FF] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#00E5FF] font-bold">
+                  {lang === "es" ? "CAMPEON GLOBAL (5 PTS)" : "OVERALL CHAMPION (5 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini 4 Argon High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP06_BENCHMARK_TOTALS.argon_min}&nbsp;min · ${EP06_BENCHMARK_TOTALS.argon_usd.toFixed(2)} USD · 2 Clon + 3 Arena
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#C084FC] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#C084FC] font-bold">
+                  {lang === "es" ? "SUBCAMPEON (4 PTS)" : "RUNNER-UP (4 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Claude Opus 5.5 High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP06_BENCHMARK_TOTALS.opus_min}&nbsp;min · ${EP06_BENCHMARK_TOTALS.opus_usd.toFixed(2)} USD · 2 Clon + 2 Arena
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "TERCER LUGAR (1 PTO)" : "THIRD PLACE (1 PT)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  GPT-6 Astra High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP06_BENCHMARK_TOTALS.astra_min}&nbsp;min · ${EP06_BENCHMARK_TOTALS.astra_usd.toFixed(2)} USD · 1 Clon + 0 Arena
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                  {lang === "es" ? "20 JUEGOS + LOGS VERIFICADOS" : "20 GAMES + VERIFIED LOGS"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  15 Clones + 5 Arenas
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "3 IAs en el juego ganador + JSON Logs" : "3 AIs in winning clone + JSON Logs"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla Comparativa de los 5 Clasicos (Clon Zero-Shot + Arena en Vivo) */}
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#00E5FF]">
+                {lang === "es"
+                  ? "TABLA OFICIAL DE LOS 5 CLASICOS (15 CLONES ZERO-SHOT + 5 ARENAS EN VIVO · HAZ CLIC EN CUALQUIER FILA)"
+                  : "OFFICIAL 5-CLASSIC TABLE (15 ZERO-SHOT CLONES + 5 LIVE ARENAS · CLICK ANY ROW TO PLAY)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es"
+                  ? "10 PUNTOS EN JUEGO (5-4-1 ARGON)"
+                  : "10 POINTS AT STAKE (5-4-1 ARGON)"}
+              </span>
+            </div>
+            <TableScroller label="EP06 5-Classic Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "CLASICO / DATO CURIOSO" : "CLASSIC / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#00E5FF] ${SNAP_COL}`}>GEMINI 4 ARGON HIGH</th>
+                    <th className={`py-3 px-4 text-[#C084FC] ${SNAP_COL}`}>CLAUDE OPUS 5.5 HIGH</th>
+                    <th className={`py-3 px-4 text-[#10B981] ${SNAP_COL}`}>GPT-6 ASTRA HIGH</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "GANADORES (CLON + ARENA)" : "WINNERS (CLONE + ARENA)"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP06_CHALLENGES.map((ch) => {
+                    const selected = ep06ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp06ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#00E5FF] max-sm:hidden">
+                          0{ch.n}
+                        </td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#00E5FF]">
+                            {ch.argon.min}&nbsp;min · ${ch.argon.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.argon.fps, ch.argon.fps_en)} · {ch.argon.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#C084FC]">
+                            {ch.opus.min}&nbsp;min · ${ch.opus.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.opus.fps, ch.opus.fps_en)} · {ch.opus.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#10B981]">
+                            {ch.astra.min}&nbsp;min · ${ch.astra.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.astra.fps, ch.astra.fps_en)} · {ch.astra.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          {lang === "es" ? ch.winner_label_es : ch.winner_label_en}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {/* Visor Interactivo de los 20 Juegos de EP06 (Arena en Vivo + 3 Clones) */}
+          {(() => {
+            const cur =
+              EP06_CHALLENGES.find((c) => c.n === ep06ChallengeN) ||
+              EP06_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            return (
+              <div className="bg-[#111622] border-2 border-[#00E5FF] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#00E5FF]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                    <p className="text-xs text-[#FFD100] mt-1">
+                      {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {(["arena", "triple", "argon", "opus", "astra"] as Ep06Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp06Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          ep06Mode === m
+                            ? "bg-[#00E5FF] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "arena"
+                          ? lang === "es"
+                            ? "PELEA EN VIVO (3 IAS EN LA ARENA)"
+                            : "LIVE ARENA BATTLE (3 AIS)"
+                          : m === "triple"
+                          ? lang === "es"
+                            ? "3 CLONES LADO A LADO"
+                            : "3 CLONES SIDE BY SIDE"
+                          : m === "argon"
+                          ? "CLON ARGON"
+                          : m === "opus"
+                          ? "CLON OPUS 5.5"
+                          : "CLON ASTRA"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep06", cur.n)}
+                      className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {ep06Mode === "arena" ? (
+                  <div className="flex flex-col">
+                    <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                      <span className="text-[#FFD100] font-bold">
+                        {lang === "es" ? cur.verdict_es : cur.verdict_en}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <a
+                          href={cur.arenaLogUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#10B981] font-bold underline"
+                        >
+                          {lang === "es" ? "Log JSON Verificado ↗" : "Verified JSON Log ↗"}
+                        </a>
+                        <a
+                          href={cur.arenaDemoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00E5FF] font-bold underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                    </div>
+                    <iframe
+                      allowFullScreen
+                      src={cur.arenaDemoUrl}
+                      title={`Arena: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                ) : ep06Mode === "triple" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#00E5FF] font-bold">
+                          GEMINI 4 ARGON (${cur.argon.usd.toFixed(2)} · {cur.argon.min}m)
+                        </span>
+                        <a
+                          href={cur.argon.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00E5FF] underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        allowFullScreen
+                        src={cur.argon.demoUrl}
+                        title={`Argon: ${name}`}
+                        className="w-full h-[500px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#C084FC] font-bold">
+                          CLAUDE OPUS 5.5 (${cur.opus.usd.toFixed(2)} · {cur.opus.min}m)
+                        </span>
+                        <a
+                          href={cur.opus.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#C084FC] underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        allowFullScreen
+                        src={cur.opus.demoUrl}
+                        title={`Opus: ${name}`}
+                        className="w-full h-[500px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#10B981] font-bold">
+                          GPT-6 ASTRA (${cur.astra.usd.toFixed(2)} · {cur.astra.min}m)
+                        </span>
+                        <a
+                          href={cur.astra.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#10B981] underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe
+                        allowFullScreen
+                        src={cur.astra.demoUrl}
+                        title={`Astra: ${name}`}
+                        className="w-full h-[500px] border-0 bg-[#090B10]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    <iframe
+                      allowFullScreen
+                      src={
+                        ep06Mode === "argon"
+                          ? cur.argon.demoUrl
+                          : ep06Mode === "opus"
+                          ? cur.opus.demoUrl
+                          : cur.astra.demoUrl
+                      }
+                      title={`${ep06Mode}: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* -----------------------------------------------------------------
           SUB-DOSSIER 00: EPISODIO 05 (3 GIANTS TOURNAMENT + RESCUE ROUND)

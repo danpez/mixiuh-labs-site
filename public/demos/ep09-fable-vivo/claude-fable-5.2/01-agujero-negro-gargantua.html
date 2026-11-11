@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Observatorio Gargantua | Agujero Negro en Rotacion</title>
+<style>
+:root{--bg:#070B14;--panel:#0F172A;--cy:#22D3EE;--em:#10B981;--am:#FBBF24;--co:#F43F5E;--tx:#E2E8F0;--mu:#94A3B8;
+--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:"Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;color:var(--tx);font-family:var(--sans);-webkit-font-smoothing:antialiased;user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#gl.drag{cursor:grabbing}
+#stage{position:fixed;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;pointer-events:none}
+.panel{position:absolute;background:linear-gradient(180deg,rgba(15,23,42,.80),rgba(15,23,42,.66));border:1px solid rgba(34,211,238,.26);border-radius:18px;
+-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 20px 60px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06);pointer-events:auto;padding:20px 24px}
+#head{position:absolute;left:28px;top:22px;display:flex;align-items:center;gap:18px}
+#head h1{margin:0;font-size:34px;letter-spacing:.14em;font-weight:800;line-height:1.05;text-shadow:0 2px 18px rgba(0,0,0,.9)}
+#head h1 b{color:var(--cy)}
+#head p{margin:6px 0 0;font-size:17px;color:var(--mu);letter-spacing:.06em;text-shadow:0 2px 10px rgba(0,0,0,.9)}
+#chips{position:absolute;right:28px;top:30px;display:flex;gap:12px}
+.chip{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:rgba(15,23,42,.82);border:1px solid rgba(148,163,184,.28);font:700 17px var(--mono);letter-spacing:.06em}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--em);box-shadow:0 0 12px var(--em)}
+.chip.off i{background:var(--co);box-shadow:0 0 12px var(--co)}
+.chip.am i{background:var(--am);box-shadow:0 0 12px var(--am)}
+h2{margin:0 0 14px;font-size:19px;letter-spacing:.16em;font-weight:800;color:var(--cy);display:flex;align-items:center;gap:10px}
+h2 svg{flex:none}
+#left{left:28px;top:118px;width:432px;height:934px}
+#right{right:28px;top:118px;width:528px;height:934px}
+.ctl{margin-bottom:24px}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:600}
+.ctl .row span:last-child{font:700 21px var(--mono);color:var(--am)}
+.ctl .hint{display:flex;justify-content:space-between;font-size:13.5px;color:var(--mu);letter-spacing:.03em;margin-top:2px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:4px 0 0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:8px;background:linear-gradient(90deg,var(--cy) var(--p,50%),rgba(148,163,184,.25) var(--p,50%))}
+input[type=range]::-moz-range-track{height:8px;border-radius:8px;background:rgba(148,163,184,.25)}
+input[type=range]::-moz-range-progress{height:8px;border-radius:8px;background:var(--cy)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:4px solid var(--cy);margin-top:-8px;box-shadow:0 0 14px rgba(34,211,238,.8)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid var(--cy);box-shadow:0 0 14px rgba(34,211,238,.8)}
+.btns{display:flex;gap:10px;margin:8px 0 18px}
+button{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;height:48px;border-radius:12px;border:1px solid rgba(34,211,238,.45);background:rgba(34,211,238,.08);color:var(--tx);font:700 15.5px var(--sans);letter-spacing:.07em;cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{background:rgba(34,211,238,.18)}
+button.on{background:rgba(16,185,129,.20);border-color:var(--em);color:#D1FAE5}
+button.warn{border-color:rgba(244,63,94,.6);background:rgba(244,63,94,.10)}
+button.warn.on{background:rgba(244,63,94,.30);border-color:var(--co);color:#FFE4E6}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cell{background:rgba(7,11,20,.62);border:1px solid rgba(148,163,184,.16);border-radius:12px;padding:13px 14px}
+.cell small{display:block;font-size:13px;color:var(--mu);letter-spacing:.08em;text-transform:uppercase}
+.cell b{display:block;font:700 20px var(--mono);margin-top:3px;white-space:nowrap}
+.note{font-size:14.5px;line-height:1.45;color:var(--mu);margin-top:16px}
+.formula{font:700 16px var(--mono);background:rgba(7,11,20,.62);border:1px solid rgba(148,163,184,.16);border-radius:12px;padding:10px 10px;overflow:hidden;margin-bottom:12px;white-space:nowrap}
+.formula em{font-style:normal;color:var(--am)} .formula u{text-decoration:none;color:var(--cy)}
+.clocks{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.clock{background:rgba(7,11,20,.62);border-radius:14px;padding:12px 10px 12px;text-align:center;border:1px solid rgba(34,211,238,.35)}
+.clock.earth{border-color:rgba(16,185,129,.45)}
+.clock h3{margin:0 0 6px;font-size:14.5px;letter-spacing:.09em;font-weight:800;color:var(--cy);line-height:1.3;min-height:38px;display:flex;align-items:center;justify-content:center}
+.clock.earth h3{color:var(--em)}
+.clock canvas{width:200px;height:200px;display:block;margin:0 auto 6px}
+.clock .t{font:700 27px var(--mono);letter-spacing:.01em;white-space:nowrap}
+.clock .d{font:600 15px var(--mono);color:var(--mu);margin-top:2px;white-space:nowrap}
+.factor{display:flex;align-items:center;gap:16px;margin:18px 0 12px}
+.factor .big{font:800 46px var(--mono);color:var(--cy);line-height:1;text-shadow:0 0 24px rgba(34,211,238,.5);min-width:198px}
+.factor .eq{font-size:16px;color:var(--mu);line-height:1.3}
+.factor .eq b{display:block;font:700 24px var(--mono);color:var(--am);white-space:nowrap}
+.bar{height:12px;border-radius:8px;background:rgba(148,163,184,.2);overflow:hidden;margin-bottom:4px}
+.bar i{display:block;height:100%;width:50%;background:linear-gradient(90deg,var(--co),var(--am),var(--em));border-radius:8px}
+.barl{display:flex;justify-content:space-between;font-size:13px;color:var(--mu);margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font:600 15px var(--mono)}
+td{padding:5.5px 8px;border-bottom:1px solid rgba(148,163,184,.12);white-space:nowrap}
+td:last-child{text-align:right;color:var(--am)}
+tr.hot td{background:rgba(34,211,238,.12);color:#fff}
+th{font:700 13px var(--sans);letter-spacing:.08em;color:var(--mu);text-align:left;padding:2px 8px 4px;text-transform:uppercase}
+th:last-child{text-align:right}
+#legend{position:absolute;left:488px;right:584px;bottom:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-shadow:0 2px 10px #000}
+#legend .dop{width:640px;height:12px;border-radius:8px;background:linear-gradient(90deg,#7F1D1D,#F43F5E,#FB923C,#FDE68A,#fff,#BAE6FD,#60A5FA);box-shadow:0 0 0 1px rgba(255,255,255,.15)}
+#legend .lab{width:640px;display:flex;justify-content:space-between;font:700 14px var(--sans);letter-spacing:.06em;white-space:nowrap}
+#legend .tip{font-size:15px;color:var(--mu);letter-spacing:.05em}
+#tags{position:absolute;left:488px;top:128px;display:flex;flex-direction:column;gap:6px;font:600 14.5px var(--mono);text-shadow:0 2px 8px #000}
+#tags div{display:flex;align-items:center;gap:8px}
+#tags i{width:22px;height:3px;border-radius:2px}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:26px;color:var(--co);text-align:center;padding:40px;background:var(--bg)}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="stage">
+  <div id="head">
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="34" rx="29" ry="8" stroke="#FBBF24" stroke-width="3"/><path d="M12 31a20 17 0 0 1 40 0" stroke="#22D3EE" stroke-width="3" fill="none"/><circle cx="32" cy="32" r="11" fill="#070B14" stroke="#F43F5E" stroke-width="2.5"/></svg>
+    <div><h1>OBSERVATORIO <b>GARGANTUA</b></h1><p>AGUJERO NEGRO EN ROTACION &middot; TRAZADO GEODESICO GLSL EN TIEMPO REAL</p></div>
+  </div>
+  <div id="chips">
+    <div class="chip" id="chGl"><i></i><span>WEBGL2</span></div>
+    <div class="chip" id="chFps"><i></i><span>60 FPS</span></div>
+    <div class="chip am" id="chMode"><i></i><span>AUTO-DEMO</span></div>
+  </div>
+
+  <div id="tags">
+    <div><i style="background:#fff"></i>Anillo de fotones &middot; r = 1.5 Rs</div>
+    <div><i style="background:#FBBF24"></i>Disco de acrecion &middot; ISCO a <span id="tIsco">3.00</span> Rs</div>
+    <div><i style="background:#22D3EE"></i>Sonda exploradora &middot; r = <span id="tR">6.00</span> Rs</div>
+  </div>
+
+  <div class="panel" id="left">
+    <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>CONTROL DE MISION</h2>
+    <div class="ctl"><div class="row"><span>Distancia de la sonda</span><span id="vR">6.00 Rs</span></div>
+      <input type="range" id="sR" min="1.55" max="18" step="0.01" value="6">
+      <div class="hint"><span>1.55 Rs &middot; esfera de fotones</span><span>18 Rs</span></div></div>
+    <div class="ctl"><div class="row"><span>Inclinacion del disco</span><span id="vI">8.0&deg;</span></div>
+      <input type="range" id="sI" min="0" max="88" step="0.5" value="8">
+      <div class="hint"><span>0&deg; &middot; de canto</span><span>88&deg; &middot; de frente</span></div></div>
+    <div class="ctl"><div class="row"><span>Spin (a/M)</span><span id="vA">0.600</span></div>
+      <input type="range" id="sA" min="0" max="0.998" step="0.001" value="0.6">
+      <div class="hint"><span>0 &middot; Schwarzschild</span><span>0.998 &middot; Kerr extremo</span></div></div>
+    <div class="ctl"><div class="row"><span>Masa solar</span><span id="vM">1.00e8 Msol</span></div>
+      <input type="range" id="sM" min="0.5" max="10" step="0.01" value="8">
+      <div class="hint"><span>3 Msol &middot; estelar</span><span>10^10 Msol &middot; ultramasivo</span></div></div>
+    <div class="btns">
+      <button id="bAuto" class="on"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg><span>AUTO-DEMO ON</span></button>
+      <button id="bView"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>VISTA ORBITAL</span></button>
+    </div>
+    <div class="grid">
+      <div class="cell"><small>Radio Rs</small><b id="cRs">-</b></div>
+      <div class="cell"><small>Distancia sonda</small><b id="cRk">-</b></div>
+      <div class="cell"><small>Horizonte r+</small><b id="cHor">-</b></div>
+      <div class="cell"><small>ISCO prograda</small><b id="cIsco">-</b></div>
+      <div class="cell"><small>Periodo en ISCO</small><b id="cV">-</b></div>
+      <div class="cell"><small>Cruce de luz Rs/c</small><b id="cLt">-</b></div>
+    </div>
+    <div class="note">Modelo optico: geodesicas nulas de Schwarzschild integradas por pixel, con arrastre de marco de primer orden para el spin (aproximacion de Kerr). El disco emite con corrimiento Doppler y gravitacional g = sqrt(1 - Rs/r) / [ gamma (1 - beta cos) ].</div>
+  </div>
+
+  <div class="panel" id="right">
+    <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>DILATACION DEL TIEMPO &middot; RELATIVIDAD GENERAL</h2>
+    <div class="formula">sqrt(1 - Rs/r) = sqrt(1 - 1/<u id="fR">6.00</u>) = <em id="fF">0.9129</em></div>
+    <div class="clocks">
+      <div class="clock"><h3>RELOJ EN LA NAVE EXPLORADORA</h3><canvas id="cvShip" width="336" height="336"></canvas><div class="t" id="tShip">00:00:00.000</div><div class="d" id="dShip">dia 0 &middot; ritmo x1.000</div></div>
+      <div class="clock earth"><h3>RELOJ EN LA TIERRA</h3><canvas id="cvEarth" width="336" height="336"></canvas><div class="t" id="tEarth">00:00:00.000</div><div class="d" id="dEarth">dia 0 &middot; ritmo x1.095</div></div>
+    </div>
+    <div class="factor"><div class="big" id="fBig">0.9129</div>
+      <div class="eq">1 segundo en la nave equivale en la Tierra a<b id="fEq">1.095 s</b></div></div>
+    <div class="bar"><i id="fBar"></i></div>
+    <div class="barl"><span>0 &middot; tiempo congelado (horizonte)</span><span>1 &middot; espacio plano</span></div>
+    <table><thead><tr><th>Altura de la nave</th><th>Factor</th><th>1 s nave = Tierra</th></tr></thead><tbody id="lad"></tbody></table>
+    <div class="btns" style="margin:18px 0 0">
+      <button id="bSync"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg><span>SINCRONIZAR</span></button>
+      <button id="bDive" class="warn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v15M6 13l6 6 6-6"/></svg><span>IR AL HORIZONTE</span></button>
+    </div>
+  </div>
+
+  <div id="legend">
+    <div class="lab"><span style="color:#FB7185">SE ALEJA &middot; CORRIMIENTO AL ROJO</span><span style="color:#93C5FD">SE ACERCA &middot; CORRIMIENTO AL AZUL</span></div>
+    <div class="dop"></div>
+    <div class="tip">Arrastra para orbitar la camara &middot; rueda para acercar &middot; los controles pausan el auto-demo</div>
+  </div>
+</div>
+<div id="err">WebGL2 no esta disponible en este navegador. El observatorio necesita aceleracion grafica.</div>
+<script id="vs" type="x-shader/x-vertex">#version 300 es
+in vec2 aP;
+void main(){ gl_Position = vec4(aP, 0.0, 1.0); }
+</script>
+<script id="fs" type="x-shader/x-fragment">#version 300 es
+precision highp float;
+out vec4 outC;
+uniform vec2 uRes;
+uniform vec2 uOff;
+uniform float uTime;
+uniform vec3 uCam;
+uniform mat3 uBasis;
+uniform float uFov;
+uniform float uSpin;
+uniform float uRin;
+uniform vec3 uProbe;
+uniform float uProbeOn;
+const float ROUT = 13.0;
+const int NSTEP = 230;
+
+float h13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+float vn(vec3 x){
+  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h13(i), h13(i + vec3(1,0,0)), f.x), mix(h13(i + vec3(0,1,0)), h13(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(h13(i + vec3(0,0,1)), h13(i + vec3(1,0,1)), f.x), mix(h13(i + vec3(0,1,1)), h13(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p){ float a = 0.5, s = 0.0; for(int i = 0; i < 4; i++){ s += a * vn(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
+
+vec3 stars(vec3 d){
+  vec3 c = vec3(0.0);
+  for(int l = 0; l < 2; l++){
+    float K = (l == 0) ? 46.0 : 104.0;
+    vec3 q = d * K + float(l) * 19.0;
+    vec3 i = floor(q), f = fract(q) - 0.5;
+    float h = h13(i);
+    vec3 off = vec3(h13(i + 3.1), h13(i + 5.7), h13(i + 9.2)) - 0.5;
+    float dd = length(f - off * 0.6);
+    float thr = (l == 0) ? 0.90 : 0.80;
+    float b = step(thr, h) * (h - thr) / (1.0 - thr);
+    float s = b * (exp(-dd * dd * 260.0) * 2.4 + exp(-dd * dd * 40.0) * 0.25);
+    c += s * mix(vec3(1.0, 0.72, 0.5), vec3(0.65, 0.8, 1.0), h13(i + 1.3)) * ((l == 0) ? 1.6 : 0.8);
+  }
+  float bd = dot(d, normalize(vec3(0.45, 0.75, 0.35))) * 2.6;
+  float band = exp(-bd * bd);
+  float neb = fbm(d * 3.1 + 4.0) * fbm(d * 8.0 + 11.0);
+  c += band * neb * vec3(0.22, 0.30, 0.55) * 0.6 + band * vec3(0.008, 0.011, 0.02);
+  return c;
+}
+
+vec3 pal(float g){
+  vec3 c = mix(vec3(0.80, 0.05, 0.012), vec3(1.0, 0.36, 0.05), smoothstep(0.42, 0.80, g));
+  c = mix(c, vec3(1.0, 0.80, 0.52), smoothstep(0.80, 1.02, g));
+  c = mix(c, vec3(0.50, 0.72, 1.0), smoothstep(1.02, 1.36, g));
+  return c;
+}
+
+vec4 disk(vec3 pc, vec3 rd){
+  float r = length(pc.xz);
+  if(r < uRin || r > ROUT) return vec4(0.0);
+  float beta = min(sqrt(0.5 / max(r - 1.0, 0.08)), 0.9);
+  vec3 tg = normalize(vec3(-pc.z, 0.0, pc.x));
+  float gam = 1.0 / sqrt(1.0 - beta * beta);
+  float g = sqrt(max(1.0 - 1.0 / r, 0.03)) / (gam * (1.0 - beta * dot(tg, -rd)));
+  float ang = atan(pc.z, pc.x);
+  float om = 2.4 * pow(r, -1.5);
+  float T = uTime * 0.30;
+  float n = 0.0;
+  for(int k = 0; k < 2; k++){
+    float ph = fract(T * 0.09 + float(k) * 0.5);
+    float a2 = ang - om * (ph - 0.5) * 9.0 - T * 0.35;
+    n += (1.0 - abs(2.0 * ph - 1.0)) * fbm(vec3(cos(a2) * 2.6, sin(a2) * 2.6, r * 2.3 + float(k) * 13.0));
+  }
+  float tex = pow(clamp(n * 1.75, 0.0, 1.6), 2.3);
+  float dens = smoothstep(uRin, uRin + 0.4, r) * smoothstep(ROUT, ROUT * 0.5, r);
+  float bright = 2.7 * pow(uRin / r, 1.5) + 0.10;
+  vec3 col = pal(g * (0.86 + 0.28 * sqrt(uRin / r)));
+  vec3 e = col * bright * (0.25 + tex) * pow(g, 2.5) * dens;
+  float alpha = clamp(dens * (0.30 + 0.85 * tex), 0.0, 0.96);
+  return vec4(e, alpha);
+}
+
+void main(){
+  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes - uOff) / uRes.y;
+  vec3 rd = normalize(uBasis * vec3(uv * 2.0 * uFov, 1.0));
+  vec3 p = uCam, v = rd;
+  vec3 hv = cross(p, v);
+  float h2 = dot(hv, hv);
+  vec3 col = vec3(0.0);
+  float tr = 1.0, glow = 0.0, pg = 0.0;
+  bool captured = false;
+  float rfar = max(length(uCam) + 2.0, 30.0);
+  for(int i = 0; i < NSTEP; i++){
+    float r2 = dot(p, p);
+    float r = sqrt(r2);
+    if(r < 1.0){ captured = true; break; }
+    if(r > rfar && dot(p, v) > 0.0) break;
+    float dt = r * mix(0.055, 0.13, smoothstep(1.6, 8.0, r));
+    v += (-1.5 * h2 / (r2 * r2 * r)) * p * dt;
+    vec3 pn = p + v * dt;
+    float w = -0.5 * uSpin * dt / (r2 * r + 0.15);
+    float cw = cos(w), sw = sin(w);
+    mat2 R = mat2(cw, sw, -sw, cw);
+    pn.xz = R * pn.xz;
+    v.xz = R * v.xz;
+    if(p.y * pn.y < 0.0){
+      float f = p.y / (p.y - pn.y);
+      vec4 d = disk(mix(p, pn, f), normalize(v));
+      col += tr * d.rgb;
+      tr *= 1.0 - d.a;
+    }
+    if(uProbeOn > 0.5){
+      vec3 pa = uProbe - p, ba = pn - p;
+      float hh = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      vec3 dv = pa - ba * hh;
+      float d2 = dot(dv, dv);
+      pg = max(pg, tr * (exp(-d2 * 110.0) * 1.8 + exp(-d2 * 12.0) * 0.22));
+    }
+    float gr = (r - 1.5) * 5.0;
+    glow += dt * exp(-gr * gr);
+    p = pn;
+    if(tr < 0.01) break;
+  }
+  if(!captured){
+    col += tr * stars(normalize(v));
+    col += tr * vec3(1.0, 0.84, 0.62) * max(glow - 0.6, 0.0) * 0.32;
+  }
+  col += vec3(0.20, 0.88, 1.0) * pg * (captured ? 0.3 : 1.0);
+  float mx = max(col.r, max(col.g, col.b));
+  vec3 hueKeep = col * ((1.0 - exp(-mx * 1.3)) / max(mx, 1e-4));
+  col = mix(1.0 - exp(-col * 1.3), hueKeep, 0.72);
+  col = pow(col, vec3(0.4545));
+  vec2 q = gl_FragCoord.xy / uRes;
+  col *= 0.86 + 0.14 * smoothstep(0.0, 0.25, q.x * (1.0 - q.x) * 4.0 * q.y * (1.0 - q.y) * 4.0);
+  col += (h13(vec3(gl_FragCoord.xy, fract(uTime) * 91.0)) - 0.5) / 255.0;
+  outC = vec4(col, 1.0);
+}
+</script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('gl'), stage = $('stage');
+const S = { r:6, incl:8, spin:0.6, logM:8, tr:6, ti:8, ta:0.6, auto:true, orbit:true, onboard:false, dive:false, diveK:0,
+  az:0.55, dist:34, webgl:false, q:1, qMax:1, tShip:0, tEarth:0, theta:0.8, td:0 };
+let gl = null, prog = null, U = {}, fps = 0, rEff = 6, eps = 5, factor = Math.sqrt(1 - 1/6);
+const stamps = [];
+
+window.__auditBlackHole = function(){
+  return { webglActive: !!(S.webgl && gl && !gl.isContextLost()), radiusRs: rEff, timeDilationFactor: factor, fps: Math.round(fps * 10) / 10 };
+};
+
+/* ---------- fisica ---------- */
+function iscoRs(a){
+  const z1 = 1 + Math.cbrt(1 - a*a) * (Math.cbrt(1 + a) + Math.cbrt(1 - a));
+  const z2 = Math.sqrt(3*a*a + z1*z1);
+  return (3 + z2 - Math.sqrt((3 - z1) * (3 + z1 + 2*z2))) / 2;
+}
+function human(s){
+  if (s < 60) return s.toFixed(3) + ' s';
+  if (s < 3600) return (s/60).toFixed(2) + ' min';
+  if (s < 86400) return (s/3600).toFixed(2) + ' horas';
+  if (s < 31557600) return (s/86400).toFixed(2) + ' dias';
+  return (s/31557600).toFixed(2) + ' años';
+}
+function dur(s){
+  if (s < 1e-3) return (s*1e6).toFixed(1) + ' us';
+  if (s < 1) return (s*1e3).toFixed(2) + ' ms';
+  if (s < 60) return s.toFixed(2) + ' s';
+  if (s < 3600) return (s/60).toFixed(2) + ' min';
+  if (s < 86400) return (s/3600).toFixed(2) + ' h';
+  return (s/86400).toFixed(2) + ' d';
+}
+function km(x){
+  if (x < 1e5) return x.toFixed(1) + ' km';
+  if (x < 1.496e7) return x.toExponential(2).replace('e+','e') + ' km';
+  return (x/1.495979e8).toFixed(2) + ' UA';
+}
+function hms(t){
+  const d = Math.floor(t/86400); t -= d*86400;
+  const h = Math.floor(t/3600), m = Math.floor(t/60) % 60, s = t - h*3600 - m*60;
+  const p = (n, w) => String(n).padStart(w, '0');
+  let ss = s.toFixed(3); if (s < 10) ss = '0' + ss; if (ss.startsWith('60')) ss = '59.999';
+  return [p(h,2) + ':' + p(m,2) + ':' + ss, d];
+}
+function rate(x){ return x < 1000 ? x.toFixed(3) : x.toExponential(2).replace('e+','e'); }
+function fac(f){ return f >= 0.001 ? f.toFixed(4) : f.toExponential(2); }
+
+/* ---------- WebGL ---------- */
+function initGL(){
+  gl = cv.getContext('webgl2', { antialias:false, alpha:false, depth:false, stencil:false, powerPreference:'high-performance' });
+  if (!gl) return false;
+  const mk = (type, id) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, $(id).textContent.trim());
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(id, gl.getShaderInfoLog(s)); return null; }
+    return s;
+  };
+  const v = mk(gl.VERTEX_SHADER, 'vs'), f = mk(gl.FRAGMENT_SHADER, 'fs');
+  if (!v || !f) return false;
+  prog = gl.createProgram();
+  gl.attachShader(prog, v); gl.attachShader(prog, f);
+  gl.bindAttribLocation(prog, 0, 'aP');
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(prog)); return false; }
+  gl.useProgram(prog);
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  U = {};
+  ['uRes','uOff','uTime','uCam','uBasis','uFov','uSpin','uRin','uProbe','uProbeOn'].forEach(n => { U[n] = gl.getUniformLocation(prog, n); });
+  return true;
+}
+let stageScale = 1;
+function resize(){
+  const w = window.innerWidth, h = window.innerHeight;
+  stageScale = Math.min(w/1920, h/1080);
+  stage.style.transform = 'translate(' + ((w - 1920*stageScale)/2) + 'px,' + ((h - 1080*stageScale)/2) + 'px) scale(' + stageScale + ')';
+  const ps = Math.min(window.devicePixelRatio || 1, Math.sqrt(2073600 / Math.max(1, w*h))) * S.q;
+  const cw = Math.max(2, Math.round(w*ps)), ch = Math.max(2, Math.round(h*ps));
+  if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+  if (gl) gl.viewport(0, 0, cw, ch);
+}
+const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0]/l, v[1]/l, v[2]/l]; };
+const cross = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+const TILT = 32 * Math.PI / 180, E1 = [Math.cos(TILT), -Math.sin(TILT), 0], NRM = [Math.sin(TILT), Math.cos(TILT), 0];
+
+function render(time){
+  if (!S.webgl || gl.isContextLost()) return;
+  const rp = Math.max(rEff, 1.06), c = Math.cos(S.theta), s = Math.sin(S.theta);
+  const probe = [rp*E1[0]*c, rp*E1[1]*c, rp*s];
+  let cam, fwd, up, fov, offX = 0;
+  if (S.onboard) {
+    cam = probe;
+    const ph = norm(probe), tg = [-E1[0]*s, -E1[1]*s, c];
+    fwd = norm([-ph[0] + tg[0]*0.12, -ph[1] + tg[1]*0.12, -ph[2] + tg[2]*0.12]);
+    up = NRM; fov = 1.25;
+  } else {
+    const el = S.incl * Math.PI / 180;
+    cam = [S.dist*Math.cos(el)*Math.sin(S.az), S.dist*Math.sin(el), S.dist*Math.cos(el)*Math.cos(S.az)];
+    fwd = norm([-cam[0], -cam[1], -cam[2]]); up = [0, 1, 0]; fov = 0.5;
+  }
+  offX = -34 * stageScale * (cv.width / window.innerWidth);
+  const right = norm(cross(fwd, up)); up = cross(right, fwd);
+  gl.uniform2f(U.uRes, cv.width, cv.height);
+  gl.uniform2f(U.uOff, offX, 0);
+  gl.uniform1f(U.uTime, time % 3600);
+  gl.uniform3fv(U.uCam, cam);
+  gl.uniformMatrix3fv(U.uBasis, false, [right[0],right[1],right[2], up[0],up[1],up[2], fwd[0],fwd[1],fwd[2]]);
+  gl.uniform1f(U.uFov, fov);
+  gl.uniform1f(U.uSpin, S.spin);
+  gl.uniform1f(U.uRin, Math.max(iscoRs(S.spin), 1.25));
+  gl.uniform3fv(U.uProbe, probe);
+  gl.uniform1f(U.uProbeOn, S.onboard ? 0 : 1);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* ---------- interfaz ---------- */
+const sR = $('sR'), sI = $('sI'), sA = $('sA'), sM = $('sM');
+function fill(el){ el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
+function setSl(el, v){ el.value = v; fill(el); }
+function label(btn, txt, on){ btn.querySelector('span').textContent = txt; btn.classList.toggle('on', !!on); }
+function syncBtns(){
+  label($('bAuto'), S.auto ? 'AUTO-DEMO ON' : 'AUTO-DEMO OFF', S.auto);
+  label($('bView'), S.onboard ? 'VISTA A BORDO' : 'VISTA ORBITAL', S.onboard);
+  label($('bDive'), S.dive ? 'VOLVER A ORBITA' : 'IR AL HORIZONTE', S.dive);
+  const ch = $('chMode'); ch.lastElementChild.textContent = S.auto ? 'AUTO-DEMO' : 'MANUAL'; ch.classList.toggle('am', S.auto);
+}
+sR.addEventListener('input', () => { S.tr = +sR.value; S.auto = false; fill(sR); syncBtns(); });
+sI.addEventListener('input', () => { S.ti = +sI.value; S.auto = false; fill(sI); syncBtns(); });
+sA.addEventListener('input', () => { S.ta = +sA.value; S.auto = false; fill(sA); syncBtns(); });
+sM.addEventListener('input', () => { S.logM = +sM.value; fill(sM); });
+$('bAuto').addEventListener('click', () => { S.auto = !S.auto; if (S.auto) S.orbit = true; syncBtns(); });
+$('bView').addEventListener('click', () => { S.onboard = !S.onboard; syncBtns(); });
+$('bDive').addEventListener('click', () => { S.dive = !S.dive; syncBtns(); });
+$('bSync').addEventListener('click', () => { S.tShip = 0; S.tEarth = 0; });
+let drag = null;
+cv.addEventListener('pointerdown', e => { drag = { x:e.clientX, y:e.clientY }; cv.classList.add('drag'); try { cv.setPointerCapture(e.pointerId); } catch(_){}
+  S.auto = false; S.orbit = false; syncBtns(); });
+cv.addEventListener('pointermove', e => { if (!drag) return;
+  S.az -= (e.clientX - drag.x) * 0.006;
+  S.ti = Math.min(88, Math.max(0, S.ti + (e.clientY - drag.y) * 0.25)); S.incl = S.ti; setSl(sI, S.ti);
+  drag.x = e.clientX; drag.y = e.clientY; });
+const endDrag = () => { drag = null; cv.classList.remove('drag'); };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('wheel', e => { e.preventDefault(); S.dist = Math.min(80, Math.max(10, S.dist * Math.exp(e.deltaY * 0.0012))); }, { passive:false });
+window.addEventListener('resize', resize);
+cv.addEventListener('webglcontextlost', e => { e.preventDefault(); S.webgl = false; });
+cv.addEventListener('webglcontextrestored', () => { S.webgl = initGL(); resize(); });
+
+const LAD = [null, 0.55, 1e-2, 1e-4, 1e-8, 1e-10, 1e-12];
+const lad = $('lad');
+LAD.forEach((e, i) => {
+  const tr = document.createElement('tr');
+  if (i === 0) { tr.className = 'hot'; tr.innerHTML = '<td>SONDA AHORA</td><td id="lF"></td><td id="lE"></td>'; }
+  else { const f = Math.sqrt(e / (1 + e));
+    tr.innerHTML = '<td>' + (i === 1 ? 'r = 1.55 Rs' : 'Rs x (1 + ' + e.toExponential(0).replace('e-', 'e-') + ')') + '</td><td>' + fac(f) + '</td><td>' + human(1 / f) + '</td>'; }
+  lad.appendChild(tr);
+});
+
+const cxS = $('cvShip').getContext('2d'), cxE = $('cvEarth').getContext('2d');
+function dial(ctx, t, col, rev){
+  const W = 336, c = W / 2, TAU = Math.PI * 2;
+  ctx.clearRect(0, 0, W, W); ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(148,163,184,.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(c, c, 160, 0, TAU); ctx.stroke();
+  for (let i = 0; i < 60; i++) {
+    const a = i / 60 * TAU, big = i % 5 === 0, r1 = big ? 138 : 147;
+    ctx.strokeStyle = big ? '#E2E8F0' : 'rgba(148,163,184,.5)'; ctx.lineWidth = big ? 4 : 2;
+    ctx.beginPath(); ctx.moveTo(c + Math.sin(a) * r1, c - Math.cos(a) * r1); ctx.lineTo(c + Math.sin(a) * 154, c - Math.cos(a) * 154); ctx.stroke();
+  }
+  const hand = (fr, len, w, cl, rv) => {
+    const a = fr * TAU;
+    if (rv > 0.3) { const sp = Math.min(TAU, rv * TAU * 0.12);
+      ctx.fillStyle = cl; ctx.globalAlpha = 0.2; ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, len, a - Math.PI / 2 - sp, a - Math.PI / 2); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.strokeStyle = cl; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(c + Math.sin(a) * len, c - Math.cos(a) * len); ctx.stroke();
+  };
+  hand((t / 43200) % 1, 78, 9, '#E2E8F0', rev / 720);
+  hand((t / 3600) % 1, 112, 6, '#CBD5E1', rev / 60);
+  hand((t / 60) % 1, 140, 3.5, col, rev);
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(c, c, 9, 0, TAU); ctx.fill();
+}
+
+let uiTick = 0;
+function ui(){
+  const inv = 1 / factor;
+  const a = hms(S.tShip), b = hms(S.tEarth);
+  $('tShip').textContent = a[0]; $('dShip').textContent = 'dia ' + a[1] + ' · ritmo x1.000';
+  $('tEarth').textContent = b[0]; $('dEarth').textContent = 'dia ' + b[1] + ' · ritmo x' + rate(inv);
+  dial(cxS, S.tShip, '#22D3EE', 1 / 60); dial(cxE, S.tEarth, '#10B981', inv / 60);
+  if (uiTick++ % 5) return;
+  const rTxt = eps < 0.01 ? '1+' + eps.toExponential(0) : rEff.toFixed(2);
+  $('fR').textContent = rTxt; $('fF').textContent = fac(factor); $('fBig').textContent = fac(factor);
+  $('fEq').textContent = human(inv); $('fBar').style.width = (factor * 100) + '%';
+  $('lF').textContent = fac(factor); $('lE').textContent = human(inv);
+  $('vR').textContent = S.r.toFixed(2) + ' Rs'; $('vI').textContent = S.incl.toFixed(1) + '°'; $('vA').textContent = S.spin.toFixed(3);
+  const M = Math.pow(10, S.logM), rs = 2.95325 * M, isco = iscoRs(S.spin);
+  $('vM').textContent = M.toExponential(2).replace('e+', 'e') + ' Msol';
+  $('cRs').textContent = km(rs); $('cRk').textContent = km(rs * rEff);
+  $('cHor').textContent = (0.5 * (1 + Math.sqrt(1 - S.spin * S.spin))).toFixed(3) + ' Rs';
+  $('cIsco').textContent = isco.toFixed(3) + ' Rs';
+  $('cV').textContent = dur(2 * Math.PI * (Math.pow(2 * isco, 1.5) + S.spin) * 4.92549e-6 * M);
+  $('cLt').textContent = dur(rs / 299792.458);
+  $('tIsco').textContent = isco.toFixed(2); $('tR').textContent = rTxt;
+  const cf = $('chFps'); cf.lastElementChild.textContent = Math.round(fps) + ' FPS'; cf.classList.toggle('off', fps < 50);
+  const cg = $('chGl'); cg.lastElementChild.textContent = S.webgl ? 'WEBGL2 ACTIVO' : 'WEBGL2 INACTIVO'; cg.classList.toggle('off', !S.webgl);
+}
+
+/* ---------- bucle principal ---------- */
+let last = 0, accT = 0, accN = 0, lastChange = 0, lastUp = -99;
+function frame(now){
+  requestAnimationFrame(frame);
+  const t = now / 1000;
+  let dt = last ? t - last : 1 / 60; last = t;
+  if (dt <= 0) return;
+  if (dt > 0.5) { stamps.length = 0; accT = 0; accN = 0; }
+  dt = Math.min(dt, 0.1);
+  stamps.push(now); if (stamps.length > 90) stamps.shift();
+  if (stamps.length > 1) fps = (stamps.length - 1) * 1000 / (stamps[stamps.length - 1] - stamps[0]);
+
+  if (S.auto) {
+    S.td += dt;
+    S.tr = 1.55 + 16.45 * Math.pow(0.5 + 0.5 * Math.sin(S.td * 0.16 + 0.3), 1.7);
+    S.ti = 8 + 30 * Math.pow(0.5 - 0.5 * Math.cos(S.td * 0.09), 2);
+    S.ta = 0.6 + 0.39 * Math.sin(S.td * 0.07);
+    setSl(sR, S.tr); setSl(sI, S.ti); setSl(sA, S.ta);
+  }
+  if (S.orbit) S.az += dt * 0.1;
+  const k = 1 - Math.exp(-dt * 5);
+  S.r += (S.tr - S.r) * k; S.incl += (S.ti - S.incl) * k; S.spin += (S.ta - S.spin) * k;
+  S.diveK = S.dive ? Math.min(12, S.diveK + dt * 1.2) : Math.max(0, S.diveK - dt * 8);
+  eps = (S.r - 1) * Math.pow(10, -S.diveK);
+  rEff = 1 + eps;
+  factor = Math.sqrt(eps / (1 + eps));
+  S.tShip += dt; S.tEarth += dt / factor;
+  S.theta += dt * (2.2 * Math.pow(Math.max(rEff, 1.06), -1.5) + 0.05);
+
+  render(t);
+  ui();
+
+  accT += dt; accN++;
+  if (accN >= 45) {
+    const avg = accT / accN; accT = 0; accN = 0;
+    if (avg > 0.0205 && S.q > 0.4) {
+      if (t - lastUp < 5) S.qMax = Math.max(0.4, S.q / 1.12);
+      S.q = Math.max(0.4, Math.min(S.qMax, S.q * 0.82)); lastChange = t; resize();
+    } else if (avg < 0.0172 && S.q < S.qMax && t - lastChange > 5) {
+      S.q = Math.min(S.qMax, S.q * 1.12); lastChange = t; lastUp = t; resize();
+    }
+  }
+}
+
+try { S.webgl = initGL(); } catch (e) { console.error(e); S.webgl = false; }
+if (!S.webgl) $('err').style.display = 'flex';
+[sR, sI, sA, sM].forEach(fill);
+syncBtns(); resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
