@@ -332,8 +332,8 @@ export default function DossierView({
               </div>
               <div className="font-display text-sm font-black text-white mt-2 truncate">
                 {lang === "es"
-                  ? "Claude Fable 5.2 en Vivo vs Opus 5.5"
-                  : "Claude Fable 5.2 Live vs Opus 5.5"}
+                  ? "Claude Fable 5.2 vs Opus 5.5"
+                  : "Claude Fable 5.2 vs Opus 5.5"}
               </div>
             </button>
           )}
@@ -864,8 +864,8 @@ export default function DossierView({
 
             <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
               {lang === "es"
-                ? "Claude Fable 5.2 en Vivo vs Claude Opus 5.5: Agujero Negro Gargantua GLSL, Circuito NE555, POS de los 90s y Reloj Mecanico Suizo"
-                : "Claude Fable 5.2 Live vs Claude Opus 5.5: Gargantua Black Hole GLSL, NE555 Circuit, 90s POS Refactor & Swiss Mechanical Watch"}
+                ? "Claude Fable 5.2 vs Claude Opus 5.5: 4 retos, un solo intento"
+                : "Claude Fable 5.2 vs Claude Opus 5.5: 4 Challenges, One Attempt"}
             </h1>
 
             <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">

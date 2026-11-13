@@ -198,8 +198,8 @@ const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
     en: "Lab EP10: Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos + 4 Live AI Arenas)",
   },
   ep09: {
-    es: "Laboratorio EP09: Claude Fable 5.2 en Vivo vs Claude Opus 5.5 (8 Simuladores)",
-    en: "Lab EP09: Claude Fable 5.2 Live vs Claude Opus 5.5 (8 Simulators)",
+    es: "Laboratorio EP09: Claude Fable 5.2 vs Claude Opus 5.5 (8 Simuladores)",
+    en: "Lab EP09: Claude Fable 5.2 vs Claude Opus 5.5 (8 Simulators)",
   },
   ep08: {
     es: "Laboratorio EP08: Gemini 4 Carbon en Vivo vs Argon + Ronda de Recuperacion",
@@ -935,13 +935,13 @@ export default function PortalClient({
       scoreBadge_en: "FABLE 5.2 [7] - [3] CARBON",
       thumb: "/brand/thumbs/ep10/Arena_R04_futbol_t10.png",
       title_es:
-        "Gran Final Frontera: Gemini 4 Carbon ($2/$10) vs. Claude Fable 5.2 ($8/$40) en 6 Retos Reales + 4 Arenas IA vs IA en Vivo con 430 Jugadas en JSON",
+        "Gemini 4 Carbon vs Claude Fable 5.2: 6 retos y 4 duelos IA contra IA",
       title_en:
-        "Frontier Grand Finale: Gemini 4 Carbon ($2/$10) vs. Claude Fable 5.2 ($8/$40) in 6 Live Builds + 4 Head-to-Head AI Arenas with 430 Logged JSON Plays",
+        "Gemini 4 Carbon vs Claude Fable 5.2: 6 Challenges and 4 AI vs AI Duels",
       excerpt_es:
-        "El duelo definitivo 1x vs 4x en costo de API: 12 simulaciones zero-shot sin intervenciones (Rascacielos Taipei 101, Subasta Fantasma, Hospital Hora Pico, Futbol Robot 2v2, Hormigas ACO y Defensas contra Ciberataque) mas 4 Arenas en Vivo donde ambos modelos compiten dentro del simulador ganador. Fable 5.2 gana 7 a 3 ($23.35 USD), mientras Carbon entrega 20,246 lineas por solo $8.20 USD.",
+        "La final: el mismo prompt y un solo intento en 6 retos (rascacielos en sismo, cabina de DJ, sala de urgencias, batalla naval, futbol de robots e isla de lava). En 4 de ellos las dos IAs juegan una contra otra dentro del juego que gano, con 430 jugadas registradas. Fable 5.2 gana 7 a 3; Carbon cuesta $8.20 USD contra $23.35 USD y termina casi una hora antes.",
       excerpt_en:
-        "The definitive 1x vs 4x API pricing showdown: 12 unedited zero-shot simulations (Taipei 101 Seismic Tower, Blind Auction, ER Triage, 2v2 Robot Soccer, Ant Colony ACO, and Cyber Defense) plus 4 Live Arenas where both AIs compete head-to-head inside the winning build. Fable 5.2 wins 7-3 ($23.35 USD), while Carbon writes 20,246 lines for just $8.20 USD.",
+        "The final: same prompt and one single attempt across 6 challenges (skyscraper quake, DJ booth, emergency room, battleship, robot soccer and lava island). In 4 of them the two AIs play each other inside the winning game, with 430 logged plays. Fable 5.2 wins 7-3; Carbon costs $8.20 USD versus $23.35 USD and finishes almost an hour sooner.",
       metrics: [
         { label_es: "MARCADOR (10 PTS)", label_en: "SCORE (10 PTS)", val: "7 - 3 Fable 5.2" },
         { label_es: "CLAUDE FABLE 5.2", label_en: "CLAUDE FABLE 5.2", val: "152.4m · $23.35 (4 Fase A + 3 Arena)", val_en: "152.4m · $23.35 (4 Build + 3 Arena)" },
@@ -957,20 +957,20 @@ export default function PortalClient({
       date: "10 Nov 2026",
       readTime_es: "Video 4K60 · 8 Simuladores Zero-Shot",
       readTime_en: "4K60 Video · 8 Zero-Shot Simulators",
-      badge_es: "LABORATORIO EP09 · CLAUDE FABLE 5.2 EN VIVO VS OPUS 5.5",
-      badge_en: "LAB EP09 · CLAUDE FABLE 5.2 LIVE VS OPUS 5.5",
+      badge_es: "LABORATORIO EP09 · CLAUDE FABLE 5.2 VS OPUS 5.5",
+      badge_en: "LAB EP09 · CLAUDE FABLE 5.2 VS OPUS 5.5",
       accentColor: EPISODE_ACCENT.ep09,
       scoreBadge_es: "FABLE 5.2 [3] - [1] OPUS 5.5",
       scoreBadge_en: "FABLE 5.2 [3] - [1] OPUS 5.5",
       thumb: "/brand/thumbs/ep09/P01_fable52_t10.png",
       title_es:
-        "Claude Fable 5.2 ($8/$40) en Vivo vs. Claude Opus 5.5: Agujero Negro Gargantua GLSL, Circuito NE555, POS de 1994 y Reloj Mecanico Suizo",
+        "Claude Fable 5.2 vs Claude Opus 5.5: 4 retos, un solo intento",
       title_en:
-        "Claude Fable 5.2 ($8/$40) Live vs. Claude Opus 5.5: Gargantua Black Hole GLSL, NE555 Circuit, 1994 POS Rescue & Swiss Mechanical Watch",
+        "Claude Fable 5.2 vs Claude Opus 5.5: 4 Challenges, One Attempt",
       excerpt_es:
-        "Anthropic lanza Claude Fable 5.2 en API publica mientras reserva Mythos 5.2. En 4 pruebas zero-shot auditadas con cero errores de consola en las 8 entregas, Fable 5.2 razona mas profundo (690.8K tokens de salida/pensamiento) y derrota 3 a 1 a Opus 5.5 con ray-marching relativista de Kerr y un escape de ancora suizo de precision.",
+        "El modelo nuevo de Anthropic contra su antecesor, con el mismo prompt y un solo intento: un agujero negro con relatividad, un laboratorio del chip 555 con cortocircuito, el rescate de una caja registradora de 1994 y un reloj mecanico suizo de 11 engranes. Fable 5.2 gana 3 a 1 y la cuenta sale casi igual: $17.70 USD contra $16.33 USD. Las 8 entregas abren sin errores de consola.",
       excerpt_en:
-        "Anthropic launches Claude Fable 5.2 in public API alongside gated Mythos 5.2. Across 4 audited zero-shot tests with zero console errors on all 8 builds, Fable 5.2 reasons deeper (690.8K output/thinking tokens) to defeat Opus 5.5 3-1 with Kerr geodesic ray-marching and a precision Swiss lever escapement.",
+        "Anthropic's new model against its predecessor, same prompt and one single attempt: a black hole with relativity, a 555 chip lab with a short circuit, the rescue of a 1994 cash register and an 11-gear Swiss mechanical watch. Fable 5.2 wins 3-1 and the bill comes out almost the same: $17.70 USD versus $16.33 USD. All 8 builds open with zero console errors.",
       metrics: [
         { label_es: "MARCADOR FINAL", label_en: "FINAL SCORE", val: "3 - 1 Fable 5.2" },
         { label_es: "FABLE 5.2 ($8/$40)", label_en: "FABLE 5.2 ($8/$40)", val: "133.0m · $17.70 · 3,204 LOC" },
@@ -1422,8 +1422,8 @@ export default function PortalClient({
                 : "ANTHROPIC LAUNCH · 8 SIMULATORS",
             title:
               lang === "es"
-                ? "Claude Fable 5.2 en Vivo vs Claude Opus 5.5"
-                : "Claude Fable 5.2 Live vs Claude Opus 5.5",
+                ? "Claude Fable 5.2 vs Claude Opus 5.5"
+                : "Claude Fable 5.2 vs Claude Opus 5.5",
             verdict: "FABLE 5.2 [3] - [1] OPUS 5.5 (0 BUGS)",
             timeMetric: "133.0m vs 102.5m",
             costMetric: "$17.70 vs $16.33 USD",
@@ -1896,7 +1896,7 @@ export default function PortalClient({
         ...(
           [
             { ep: "ep10" as const, label: es ? "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)" : "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)", tone: "yellow" as const, show: released.ep10 },
-            { ep: "ep09" as const, label: es ? "EP09 · Claude Fable 5.2 en Vivo vs Opus 5.5" : "EP09 · Claude Fable 5.2 Live vs Opus 5.5", tone: "coral" as const, show: released.ep09 },
+            { ep: "ep09" as const, label: es ? "EP09 · Claude Fable 5.2 vs Opus 5.5" : "EP09 · Claude Fable 5.2 vs Opus 5.5", tone: "coral" as const, show: released.ep09 },
             { ep: "ep08" as const, label: es ? "EP08 · Gemini 4 Carbon en Vivo + Recuperacion" : "EP08 · Gemini 4 Carbon Live + Recovery Round", tone: "cyan" as const, show: released.ep08 },
             { ep: "ep07" as const, label: es ? "EP07 · Especial Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1" : "EP07 · Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1 Special", tone: "cyan" as const, show: released.ep07 },
             { ep: "ep06" as const, label: es ? "EP06 · Clasicos Mundiales + Arena en Vivo (20 Juegos)" : "EP06 · World Classics + Live Arena (20 Games)", tone: "cyan" as const, show: released.ep06 },

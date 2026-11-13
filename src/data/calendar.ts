@@ -37,8 +37,8 @@ export const CALENDAR_LABELS: Record<ReleaseKey, { es: string; en: string }> = {
     en: "EP08: Gemini 4 Carbon Live vs Argon + Recovery (3-1)",
   },
   ep09: {
-    es: "EP09: Claude Fable 5.2 en Vivo vs Opus 5.5 (3-1)",
-    en: "EP09: Claude Fable 5.2 Live vs Opus 5.5 (3-1)",
+    es: "EP09: Claude Fable 5.2 vs Opus 5.5 (3-1)",
+    en: "EP09: Claude Fable 5.2 vs Opus 5.5 (3-1)",
   },
   ep10: {
     es: "EP10: Carbon vs Fable 5.2 Gran Final (16 Demos + Arenas)",
