@@ -968,9 +968,9 @@ export default function PortalClient({
       title_en:
         "Claude Fable 5.2 vs Claude Opus 5.5: 4 Challenges, One Attempt",
       excerpt_es:
-        "El modelo nuevo de Anthropic contra su antecesor, con el mismo prompt y un solo intento: un agujero negro con relatividad, un laboratorio del chip 555 con cortocircuito, el rescate de una caja registradora de 1994 y un reloj mecanico suizo de 11 engranes. Fable 5.2 gana 3 a 1 y la cuenta sale casi igual: $17.70 USD contra $16.33 USD. Las 8 entregas abren sin errores de consola.",
+        "El modelo nuevo de Anthropic contra su antecesor, con el mismo prompt y un solo intento: un agujero negro con relatividad, un laboratorio del chip 555 con cortocircuito, el rescate de una caja registradora de 1994 y un reloj mecanico suizo. Fable 5.2 gana 3 a 1 y la cuenta sale casi igual: $17.70 USD contra $16.33 USD. Las 8 entregas abren sin errores de consola.",
       excerpt_en:
-        "Anthropic's new model against its predecessor, same prompt and one single attempt: a black hole with relativity, a 555 chip lab with a short circuit, the rescue of a 1994 cash register and an 11-gear Swiss mechanical watch. Fable 5.2 wins 3-1 and the bill comes out almost the same: $17.70 USD versus $16.33 USD. All 8 builds open with zero console errors.",
+        "Anthropic's new model against its predecessor, same prompt and one single attempt: a black hole with relativity, a 555 chip lab with a short circuit, the rescue of a 1994 cash register and a Swiss mechanical watch. Fable 5.2 wins 3-1 and the bill comes out almost the same: $17.70 USD versus $16.33 USD. All 8 builds open with zero console errors.",
       metrics: [
         { label_es: "MARCADOR FINAL", label_en: "FINAL SCORE", val: "3 - 1 Fable 5.2" },
         { label_es: "FABLE 5.2 ($8/$40)", label_en: "FABLE 5.2 ($8/$40)", val: "133.0m · $17.70 · 3,204 LOC" },
