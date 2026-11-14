@@ -933,7 +933,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep10,
       scoreBadge_es: "FABLE 5.2 [7] - [3] CARBON",
       scoreBadge_en: "FABLE 5.2 [7] - [3] CARBON",
-      thumb: "/brand/thumbs/ep10/Arena_R04_futbol_t10.png",
+      thumb: "/brand/thumbs/ep10/R05_arena_mid.png",
       title_es:
         "Gemini 4 Carbon vs Claude Fable 5.2: 6 retos y 4 duelos IA contra IA",
       title_en:
@@ -1398,7 +1398,7 @@ export default function PortalClient({
             verdict: "FABLE 5.2 [7] - [3] CARBON (430 LOGS JSON)",
             timeMetric: "95.6m vs 152.4m",
             costMetric: "$8.20 vs $23.35 USD",
-            thumb: "/brand/thumbs/ep10/Arena_R04_futbol_t10.png",
+            thumb: "/brand/thumbs/ep10/R05_arena_mid.png",
             accentHex: "#FFD100",
             character: "opus" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep10"),
