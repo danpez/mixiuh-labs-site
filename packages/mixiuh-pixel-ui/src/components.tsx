@@ -854,6 +854,10 @@ export function Pixel3DCRTWorkstation({
   const current = items[idx] || items[0];
   if (!current) return null;
 
+  // Channel numbers are always two digits ("CH 02/12", never "CH 02/012" or "CH 010"),
+  // so the plate keeps the same width on every channel.
+  const twoDigits = (n: number) => String(n).padStart(2, "0");
+
   const switchChannel = (nextIdx: number) => {
     const safeIdx = (nextIdx + items.length) % items.length;
     setIdx(safeIdx);
@@ -903,9 +907,10 @@ export function Pixel3DCRTWorkstation({
           degaussing ? "px-degauss-active" : ""
         }`}
       >
-        {/* Monitor Top Ventilation Slots & Model Plate. Below sm the labels of
-            the monitor wrap instead of truncating to fragments ("MIXIUH LAB…");
-            from sm up they keep the constant-height single-line layout */}
+        {/* Monitor Top Ventilation Slots & Model Plate. The labels of the monitor
+            wrap (balanced) instead of truncating to fragments ("MIXIUH LAB…") at
+            every width: the monitor is as narrow in the two-column desktop hero
+            as it is on a phone */}
         <div className="flex items-center justify-between gap-2 mb-2.5">
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -913,7 +918,7 @@ export function Pixel3DCRTWorkstation({
                 poweredOn ? "bg-[#10B981]" : "bg-[#FF3355]"
               }`}
             />
-            <span className="font-pixel text-[10px] font-bold tracking-wider min-w-0 break-words sm:truncate">
+            <span className="font-pixel text-[10px] font-bold tracking-wider min-w-0 break-words text-balance">
               {headerLabel ??
                 (lang === "es"
                   ? "MIXIUH LABS // MONITOR DE PRUEBAS"
@@ -922,7 +927,7 @@ export function Pixel3DCRTWorkstation({
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="px-2 py-0.5 bg-[#090B10] text-[#FFD100] font-pixel text-[10px]">
-              CH 0{idx + 1}/0{items.length}
+              CH {twoDigits(idx + 1)}/{twoDigits(items.length)}
             </span>
             <span className="px-2 py-0.5 bg-[#090B10] text-[#00E5FF] font-pixel text-[10px] uppercase">
               {crtMode}
@@ -932,26 +937,33 @@ export function Pixel3DCRTWorkstation({
 
         {/* CRT Recessed Dark Glass Tube — Constant Height Whether Powered ON or OFF */}
         <div className="px-3d-screen-bezel p-2.5 sm:p-3 text-[#F5F2EB] space-y-2.5 overflow-hidden">
-          {/* Top OSD Telemetry Bar inside CRT (Constant Height from sm up) */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 font-mono-hud text-[10px] min-w-0 sm:h-5">
-            <span
-              className="px-2 py-0.5 font-bold text-[#090B10] min-w-0 break-words sm:truncate"
-              style={{
-                backgroundColor: poweredOn ? current.accentHex : "#475569",
-              }}
-            >
-              {poweredOn ? current.kicker : "STANDBY // CRT POWER OFF"}
-            </span>
-            {/* On phones the two metrics wrap onto a second line instead of being cut by the bezel */}
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 min-w-0 sm:shrink-0">
-              <span className="inline-flex items-center gap-1 text-[#00E5FF] font-bold whitespace-nowrap">
-                <PixelIcon name="clock" size={11} color="#00E5FF" />
-                <span>{current.timeMetric}</span>
+          {/* Top OSD Telemetry Bar inside CRT. The tube is narrow on phones and
+              again in the two-column desktop hero, so the layout follows the room
+              the tube really has (container query), not the viewport: label on
+              top and metrics below, or a single row from 38rem of tube. Nothing
+              is truncated to "…" or cut by the bezel at any width. */}
+          <div className="@container min-w-0">
+            <div className="flex flex-col items-start gap-1.5 font-mono-hud text-[10px] min-w-0 @min-[38rem]:flex-row @min-[38rem]:flex-wrap @min-[38rem]:items-center @min-[38rem]:justify-between @min-[38rem]:gap-2">
+              <span
+                className="px-2 py-0.5 font-bold text-[#090B10] max-w-full break-words"
+                style={{
+                  backgroundColor: poweredOn ? current.accentHex : "#475569",
+                }}
+              >
+                {poweredOn ? current.kicker : "STANDBY // CRT POWER OFF"}
               </span>
-              <span className="inline-flex items-center gap-1 text-[#FFD100] font-bold whitespace-nowrap">
-                <PixelIcon name="coin" size={11} color="#FFD100" />
-                <span>{current.costMetric}</span>
-              </span>
+              {/* Each metric stays whole and moves to the next line when the row runs
+                  out; only a tube narrower than one metric lets it break at a space */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 max-w-full">
+                <span className="inline-flex items-center gap-1 min-w-0 text-[#00E5FF] font-bold">
+                  <PixelIcon name="clock" size={11} color="#00E5FF" />
+                  <span>{current.timeMetric}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 min-w-0 text-[#FFD100] font-bold">
+                  <PixelIcon name="coin" size={11} color="#FFD100" />
+                  <span>{current.costMetric}</span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -967,7 +979,7 @@ export function Pixel3DCRTWorkstation({
               {staticFlash ? (
                 <div className="w-full h-full px-dither-checker bg-[#1E293B] flex items-center justify-center">
                   <span className="font-pixel text-sm text-[#FFD100]">
-                    TUNING CH 0{idx + 1} {"//"} {current.code}...
+                    TUNING CH {twoDigits(idx + 1)} {"//"} {current.code}...
                   </span>
                 </div>
               ) : (
@@ -981,7 +993,7 @@ export function Pixel3DCRTWorkstation({
                   <div className="absolute inset-0 px-crt-scanlines pointer-events-none" />
                   {/* Top-Left Green OSD Channel Indicator */}
                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#090B10] border border-[#10B981] font-pixel text-[10px] text-[#10B981]">
-                    CH 0{idx + 1} · {current.code}
+                    CH {twoDigits(idx + 1)} · {current.code}
                   </div>
                   {/* Floating Character Sprite in Corner */}
                   <div className="absolute bottom-2 right-2 p-1 bg-[#090B10] border border-white/25">
@@ -1002,11 +1014,13 @@ export function Pixel3DCRTWorkstation({
             </div>
           )}
 
-          {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box (Constant Height from sm up) */}
+          {/* Dedicated Non-Overflowing OSD Episode Title & Verdict Box. The verdict
+              wraps instead of ending in "…"; from sm up it always reserves two
+              lines, so the box keeps its height from one channel to the next */}
           <div className="p-2.5 bg-[#111622] border border-[#2A344B] min-w-0">
             <div className="flex items-center justify-between gap-2 mb-1">
               <span
-                className="font-pixel text-[10px] font-bold min-w-0 break-words sm:truncate"
+                className="font-pixel text-[10px] font-bold min-w-0 break-words sm:flex sm:items-center sm:min-h-[2lh]"
                 style={{
                   color: poweredOn ? current.accentHex : "#94A3B8",
                 }}
@@ -1021,28 +1035,34 @@ export function Pixel3DCRTWorkstation({
                 {poweredOn ? "60Hz LOCK" : "0Hz OFF"}
               </span>
             </div>
-            <div className="font-display text-xs sm:text-sm font-black text-white leading-snug line-clamp-2 min-h-[2.75em]">
+            {/* Two lines are reserved; a narrower tube adds lines instead of clamping the title */}
+            <div className="font-display text-xs sm:text-sm font-black text-white leading-snug min-h-[2.75em] break-words">
               {current.title}
             </div>
           </div>
 
-          {/* Physical VHF Channel Push-Buttons inside Monitor Bezel */}
-          <div className="grid grid-cols-3 min-[420px]:grid-cols-5 gap-1 pt-0.5">
-            {items.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={i === idx}
-                onClick={() => switchChannel(i)}
-                className={`py-1.5 px-1 font-pixel text-[10px] border-2 transition cursor-pointer truncate ${
-                  i === idx
-                    ? "bg-[#FFD100] text-[#090B10] border-[#090B10] font-bold shadow-[2px_2px_0_#00E5FF]"
-                    : "bg-[#131824] text-[#94A3B8] border-[#2A344B] hover:text-white"
-                }`}
-              >
-                {item.code}
-              </button>
-            ))}
+          {/* Physical VHF Channel Push-Buttons inside Monitor Bezel. The number of
+              columns follows the width of the tube, not of the viewport, so a
+              six-letter code ("CARBON") is never cut to "CARB…": the tube of the
+              two-column desktop hero is as narrow as a phone */}
+          <div className="@container pt-0.5">
+            <div className="grid grid-cols-2 @min-[12rem]:grid-cols-3 @min-[22.5rem]:grid-cols-5 gap-1">
+              {items.map((item, i) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={i === idx}
+                  onClick={() => switchChannel(i)}
+                  className={`py-1.5 px-0 @min-[12rem]:px-1 font-pixel text-[10px] border-2 transition cursor-pointer truncate ${
+                    i === idx
+                      ? "bg-[#FFD100] text-[#090B10] border-[#090B10] font-bold shadow-[2px_2px_0_#00E5FF]"
+                      : "bg-[#131824] text-[#94A3B8] border-[#2A344B] hover:text-white"
+                  }`}
+                >
+                  {item.code}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

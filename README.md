@@ -10,10 +10,12 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · desplega
 | Comando | Que hace |
 | --- | --- |
 | `npm run dev` | Servidor de desarrollo en `http://localhost:3008` |
-| `npm run build` | Regenera el kit de Pixel UI (`prebuild`) y compila para produccion |
+| `npm run build` | Regenera el kit de Pixel UI y revisa los archivos estaticos (`prebuild`), luego compila para produccion |
 | `npm run start` | Sirve el build de produccion |
 | `npm run lint` | ESLint 9 (config plana en `eslint.config.mjs`) |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run check:assets` | Falla si `src/` cita una imagen, video o archivo que no esta en `public/` o no esta en git (corre solo antes de cada build) |
+| `npm run test:e2e` | Playwright sobre el build de produccion (`npm run build` antes): en el monitor de la portada ningun texto se corta ni se trunca y todas las portadas cargan, en 19 anchos de 280 a 1920 px, en espanol e ingles, en Chromium y WebKit (Safari) |
 | `npm run pixel-ui:kit` | Publica `public/pixel-ui/mixiuh-pixel-ui.css` (CDN) y `mixiuh-pixel-ui-kit.zip` |
 
 ## Estructura
