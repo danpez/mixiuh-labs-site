@@ -19,7 +19,7 @@ imports it directly (`@mixiuh/pixel-ui` path alias + `styles/pixel-ui.css`), and
 | `styles/pixel-ui.css` | Design tokens (`--px-*`), opaque spec cards (`.px-card-*`), tactile buttons (`.px-btn`), stepped corners, 1-bit dithering, 3D CRT / cartridge / keycap shells, `.px-kbd`, `.px-backdrop`, `.px-skip-link`, pixel focus ring and `prefers-reduced-motion` support. |
 | `src/sound.ts` | Procedural WebAudio 8-bit synth: 13 SFX (`click`, `hover`, `coin`, `powerup`, `achievement`, …) + `usePixelSound()`. Zero MP3 files. |
 | `src/icons.tsx` | 200+ grid-aligned 16x16 SVG icons (28 brands), 16 animated sprites, 8 scenes. `shapeRendering="crispEdges"`, zero emojis. |
-| `src/components.tsx` | Buttons, keycaps, toggles, VHF crank, cards, OS windows, floppies, cartridges, 3D CRT workstation, dialog box, charts (bar, versus, sparkline, multi-line, donut), forms (input, select, autocomplete, checkbox, radio, slider), collapse, calendar, social bar, credit badge. |
+| `src/components.tsx` | Buttons, keycaps, toggles, VHF crank, cards, OS windows, floppies, cartridges, 3D CRT workstation, dialog box, charts (bar, versus, sparkline, multi-line, donut), forms (input, select, autocomplete, checkbox, radio, slider), collapse, calendar, social bar, credit badge, light image with fallback (`PixelLightImage`). |
 | `src/overlays.tsx` (2.3) | `PixelCommandPalette` (Ctrl/Cmd+K), `PixelToaster` + `pixelToast`, `PixelTabs`, `PixelCopyButton` + `copyTextToClipboard`, `PixelBackToTop`, `PixelSwipeHint`. |
 | `src/data-table.tsx` (**new in 2.5**) | `PixelDataTable` (sortable `aria-sort` columns, accent-insensitive search, pagination, CSV export via `pixelTableToCsv` / `downloadPixelCsv`). |
 | `src/floating.tsx` (**new in 2.5**) | `PixelTooltip`, `PixelPopover` and the `usePixelFloating` positioning hook (flip + viewport clamp). |
@@ -49,6 +49,8 @@ All optional: leaving one out keeps the Spanish default text or the current beha
 - `PixelCommandPalette`: `resultsLabel(count)`, the result count announced in a polite status region once typing pauses for 400 ms (default "1 resultado" / "N resultados"; `emptyLabel` is announced when nothing matches).
 - `PixelWindow`: `minimizeLabel` / `expandLabel`, the tooltip and the start of the accessible name of the titlebar button (defaults "Minimizar ventana" / "Expandir ventana").
 - `Pixel3DCRTWorkstation` items: `thumbAlt`, the alt text of the channel screenshot (defaults to the visible `title`; set it when the image has text the title doesn't say).
+- `Pixel3DCRTWorkstation` items: `thumbLight`, a lighter file of the same screenshot (e.g. an AVIF twin). It is downloaded instead of `thumb`, and `thumb` takes over if it fails to load or decode, as it does in a browser without AVIF.
+- `PixelLightImage`: the `<img>` behind that pair, for your own images: `<PixelLightImage src="/cover.png" light="/cover.avif" alt="..." />` (other `<img>` attributes pass through; give it `key={src}` when one slot shows different pictures over time).
 - `usePixelFloating` also returns `overlapsAnchor`: true when the viewport clamp leaves the floating element on top of its anchor (`PixelTooltip` then lets clicks through to the anchor).
 
 ---

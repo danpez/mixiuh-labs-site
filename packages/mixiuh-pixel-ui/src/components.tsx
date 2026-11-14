@@ -820,6 +820,12 @@ export interface PocketConsoleCartridgeItem {
   thumb: string;
   /** Alt text of the channel screenshot (default: the visible title). */
   thumbAlt?: string;
+  /**
+   * A lighter file of the same picture (e.g. an AVIF twin). It is loaded instead of
+   * `thumb`; `thumb` takes over if it fails to load, as it does in a browser that
+   * cannot decode the format.
+   */
+  thumbLight?: string;
   accentHex: string;
   character: PixelSpriteCharacter;
   onLaunchPrimary: () => void;
@@ -836,6 +842,43 @@ export interface Pixel3DPocketConsoleProps {
    * "MIXIUH LABS // MONITOR DE PRUEBAS", or "... // BENCHMARK MONITOR" in English).
    */
   headerLabel?: string;
+}
+
+export interface PixelLightImageProps
+  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src" | "alt" | "onError"> {
+  /** The file every browser can show. It also takes over if `light` fails. */
+  src: string;
+  /** A lighter file of the same picture (e.g. an AVIF twin), loaded instead of `src`. */
+  light?: string;
+  alt: string;
+}
+
+/**
+ * `<img>` that loads `light` when there is one and switches to `src` if that file
+ * fails to load or decode, as it does in a browser that cannot show the format.
+ * Give it `key={src}` when one slot shows different pictures over time, so each
+ * picture starts on its own light file.
+ */
+export function PixelLightImage({ src, light, alt, ...imgProps }: PixelLightImageProps) {
+  const [lightFailed, setLightFailed] = useState(false);
+  const usingLight = Boolean(light) && !lightFailed;
+  return (
+    <img
+      {...imgProps}
+      ref={(img) => {
+        // An error that fired before hydration never reaches onError: look again once
+        // React owns the node. currentSrc is empty while a lazy image has not started.
+        if (usingLight && img && img.complete && img.naturalWidth === 0 && img.currentSrc) {
+          setLightFailed(true);
+        }
+      }}
+      src={usingLight ? light : src}
+      alt={alt}
+      onError={() => {
+        if (usingLight) setLightFailed(true);
+      }}
+    />
+  );
 }
 
 export function Pixel3DCRTWorkstation({
@@ -984,8 +1027,10 @@ export function Pixel3DCRTWorkstation({
                 </div>
               ) : (
                 <>
-                  <img
+                  <PixelLightImage
+                    key={current.thumb}
                     src={current.thumb}
+                    light={current.thumbLight}
                     alt={current.thumbAlt ?? current.title}
                     className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
                   />

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { LANGS, openHome, scrollWholePage } from "./helpers";
 
 /**
  * The home monitor (Pixel3DCRTWorkstation) is the first thing a visitor sees, and
@@ -18,41 +19,9 @@ const WIDTHS = [
   280, 320, 360, 375, 390, 412, 430, 540, 640, 768, 820, 900, 1024, 1100, 1180,
   1280, 1366, 1440, 1920,
 ];
-const LANGS = ["es", "en"] as const;
-type Lang = (typeof LANGS)[number];
-
 // From this width up the monitor must not change height from one channel to the
 // next (the hero would jump on every channel switch).
 const CONSTANT_HEIGHT_FROM = 1280;
-
-async function openHome(page: Page, lang: Lang, width: number, path: string) {
-  await page.addInitScript((value) => {
-    try {
-      window.localStorage.setItem("mixiuh_lang", value);
-    } catch {
-      /* storage blocked: the page falls back to Spanish */
-    }
-  }, lang);
-  await page.setViewportSize({ width, height: 900 });
-  await page.goto(path);
-  // Language and release clock are applied by effects right after hydration.
-  await expect(page.locator("html")).toHaveAttribute("lang", lang);
-  await page.locator(".px-3d-crt-shell").waitFor();
-  await page.evaluate(() => document.fonts.ready);
-  // The channel list is final once two looks 250ms apart agree.
-  let previous = -1;
-  await expect
-    .poll(
-      async () => {
-        const count = await page.locator(".px-3d-screen-bezel button").count();
-        const stable = count === previous;
-        previous = count;
-        return stable && count > 0;
-      },
-      { intervals: [250] }
-    )
-    .toBe(true);
-}
 
 /** Switches through every channel of the monitor and reports what is not fully visible. */
 async function auditMonitor(page: Page) {
@@ -76,9 +45,14 @@ async function auditMonitor(page: Page) {
       }
       button.click();
       await wait(220); // past the 140ms "TUNING" static flash
+      // On a busy machine the flash outlasts its 140ms: wait until the cover is back.
+      let cover = shell.querySelector<HTMLImageElement>(".px-3d-screen-bezel img");
+      for (let tries = 0; !cover && tries < 30; tries++) {
+        await wait(100);
+        cover = shell.querySelector<HTMLImageElement>(".px-3d-screen-bezel img");
+      }
 
       // 1. The cover of the channel must load.
-      const cover = shell.querySelector<HTMLImageElement>(".px-3d-screen-bezel img");
       if (!cover) {
         problems.push(`${code}: no cover image`);
       } else {
@@ -179,15 +153,7 @@ for (const path of ["/", "/?preview=all"]) {
 
       await openHome(page, "es", width, path);
       // Walk the whole page so every lazy image is requested.
-      await page.evaluate(async () => {
-        const step = Math.round(window.innerHeight * 0.8);
-        for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
-          window.scrollTo(0, y);
-          await new Promise((resolve) => setTimeout(resolve, 80));
-        }
-        window.scrollTo(0, document.documentElement.scrollHeight);
-      });
-      await page.waitForLoadState("networkidle");
+      await scrollWholePage(page);
 
       const broken = await page.evaluate(() =>
         Array.from(document.images)

@@ -10,12 +10,14 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · desplega
 | Comando | Que hace |
 | --- | --- |
 | `npm run dev` | Servidor de desarrollo en `http://localhost:3008` |
-| `npm run build` | Regenera el kit de Pixel UI y revisa los archivos estaticos (`prebuild`), luego compila para produccion |
+| `npm run build` | Regenera el kit de Pixel UI, revisa los archivos estaticos y las portadas ligeras (`prebuild`), luego compila para produccion |
 | `npm run start` | Sirve el build de produccion |
 | `npm run lint` | ESLint 9 (config plana en `eslint.config.mjs`) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run check:assets` | Falla si `src/` cita una imagen, video o archivo que no esta en `public/` o no esta en git (corre solo antes de cada build) |
-| `npm run test:e2e` | Playwright sobre el build de produccion (`npm run build` antes): en el monitor de la portada ningun texto se corta ni se trunca y todas las portadas cargan, en 19 anchos de 280 a 1920 px, en espanol e ingles, en Chromium y WebKit (Safari) |
+| `npm run covers` | Genera la version ligera (AVIF, 1600 px) de cada portada listada en `src/data/covers.ts` y actualiza `src/data/coverManifest.json`. Al agregar un episodio: anota su portada ahi, corre esto, usa `COVERS.<id>` como `thumb` y sube los `.avif` |
+| `npm run check:covers` | Falla si una portada no tiene su version ligera al dia o si pesa mas de 250 KB (corre solo antes de cada build) |
+| `npm run test:e2e` | Playwright sobre el build de produccion (`npm run build` antes), en Chromium y WebKit (Safari), en espanol e ingles. En el monitor de la portada ningun texto se corta ni se trunca y todas las portadas cargan, en 19 anchos de 280 a 1920 px. Ninguna portada que baja el navegador pesa mas de 250 KB, no se descarga el original pesado, y un navegador sin AVIF sigue viendo todas las portadas |
 | `npm run pixel-ui:kit` | Publica `public/pixel-ui/mixiuh-pixel-ui.css` (CDN) y `mixiuh-pixel-ui-kit.zip` |
 
 ## Estructura

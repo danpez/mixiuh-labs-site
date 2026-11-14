@@ -12,8 +12,10 @@ import {
   CALENDAR_TONES,
   PIXEL_UI_RELEASE_DATE,
 } from "@/data/calendar";
+import { COVERS, lightCover } from "@/data/covers";
 import type { ForumCounts } from "@/data/forumCounts";
 import dynamic from "next/dynamic";
+import { CoverImage } from "@/components/CoverImage";
 import type {
   DossierEpisode,
   Ep03Mode,
@@ -933,7 +935,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep10,
       scoreBadge_es: "FABLE 5.2 [7] - [3] CARBON",
       scoreBadge_en: "FABLE 5.2 [7] - [3] CARBON",
-      thumb: "/brand/thumbs/ep10/R05_arena_mid.png",
+      thumb: COVERS.ep10,
       title_es:
         "Gemini 4 Carbon vs Claude Fable 5.2: 6 retos y 4 duelos IA contra IA",
       title_en:
@@ -962,7 +964,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep09,
       scoreBadge_es: "FABLE 5.2 [3] - [1] OPUS 5.5",
       scoreBadge_en: "FABLE 5.2 [3] - [1] OPUS 5.5",
-      thumb: "/brand/thumbs/ep09/P01_fable52_t10.png",
+      thumb: COVERS.ep09,
       title_es:
         "Claude Fable 5.2 vs Claude Opus 5.5: 4 retos, un solo intento",
       title_en:
@@ -991,7 +993,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep08,
       scoreBadge_es: "CARBON [3] - [1] ARGON + RESCATE",
       scoreBadge_en: "CARBON [3] - [1] ARGON + RESCUE",
-      thumb: "/brand/thumbs/ep08/P03_carbon_recuperacion_t10.png",
+      thumb: COVERS.ep08,
       title_es:
         "Google Abre Gemini 4 Carbon ($2/$10) a Todos: 4 Pruebas en Vivo vs. Argon (3 - 1) + Ronda de Recuperacion del Puente Oculto (-1 Letra)",
       title_en:
@@ -1020,8 +1022,8 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep07,
       scoreBadge_es: "OMNI 1.2 [4] - 1.1 [0] - VEO 3.1 [0]",
       scoreBadge_en: "OMNI 1.2 [4] - 1.1 [0] - VEO 3.1 [0]",
-      thumb: "/news/omni12/thumb_A.jpg",
-      thumb_en: "/news/omni12/thumb_A_en.jpg",
+      thumb: COVERS.ep07,
+      thumb_en: COVERS.ep07_en,
       title_es:
         "Google Lanza Gemini Omni 1.2 Flash ($0.069/s): 15s Nativos, 6 Ingredientes y Benchmark en Vivo vs. Omni 1.1 Flash y Veo 3.1 Quality",
       title_en:
@@ -1050,7 +1052,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep06,
       scoreBadge_es: "ARGON 5 · OPUS 4 · ASTRA 1",
       scoreBadge_en: "ARGON 5 · OPUS 4 · ASTRA 1",
-      thumb: "/brand/thumbs/ep06/05-hexagone-piso-cae-3d_arena.png",
+      thumb: COVERS.ep06,
       title_es:
         "Clasicos Mundiales + Arena de Supervivencia en Vivo: Gemini 4 Argon High ($1.13) vs. Claude Opus 5.5 High ($17.99) vs. GPT-6 Astra High ($2.10) en Snake, Bomberman, Pac-Man, Tanques y Hex-A-Gone 3D",
       title_en:
@@ -1079,7 +1081,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep05,
       scoreBadge_es: "ASTRA 3 · ARGON 2 · OPUS 1",
       scoreBadge_en: "ASTRA 3 · ARGON 2 · OPUS 1",
-      thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_argon.png",
+      thumb: COVERS.ep05,
       title_es:
         "El Torneo de los 3 Gigantes: Gemini 4 Argon High ($1.51) vs. Claude Opus 5.5 High ($32.75) vs. GPT-6 Astra High ($2.74) en 6 Retos 3D + Ronda de Rescate",
       title_en:
@@ -1108,7 +1110,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.cc02,
       scoreBadge_es: "ASTRA 2 · ARGON 1 · OPUS 0",
       scoreBadge_en: "ASTRA 2 · ARGON 1 · OPUS 0",
-      thumb: "/brand/thumbs/cc02_thumb_A.png",
+      thumb: COVERS.cc02,
       title_es:
         "Le Pedi un Juego Tipo ROBLOX 3D a Gemini 4 Argon High ($0.32) vs. Claude Opus 5.5 High ($9.91) vs. GPT-6 Astra High ($1.11) + Bonus Opus Reparado",
       title_en:
@@ -1143,8 +1145,8 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.carbon01,
       scoreBadge_es: "NUEVO #1 MUNDIAL",
       scoreBadge_en: "NEW #1 WORLDWIDE",
-      thumb: "/brand/thumbs/carbon_thumb_A.jpg",
-      thumb_en: "/brand/thumbs/carbon_thumb_A_en.jpg",
+      thumb: COVERS.carbon01,
+      thumb_en: COVERS.carbon01_en,
       title_es:
         "Google Anuncia Gemini 4 Carbon: El Nuevo #1 Mundial (14 Dias Despues de Argon) y el Salto a $4/$20 USD",
       title_en:
@@ -1171,7 +1173,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep04,
       scoreBadge_es: "OPUS 3 · SONNET 2 · HAIKU 1",
       scoreBadge_en: "OPUS 3 · SONNET 2 · HAIKU 1",
-      thumb: "/brand/thumbs/ep04_thumb_A.jpg",
+      thumb: COVERS.ep04,
       title_es:
         "Claude Haiku 5.5 vs. Sonnet 5.5 vs. Opus 5.5: ¿En Que Nivel Conviene Gastar Tu Dinero? ($1.54 vs $12.22 vs $29.94)",
       title_en:
@@ -1200,7 +1202,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep03,
       scoreBadge_es: "SUPERKIT 4 - 2 SIN KIT",
       scoreBadge_en: "SUPERKIT 4 - 2 RAW AI",
-      thumb: "/brand/thumbs/ep03_thumb_A.jpg",
+      thumb: COVERS.ep03,
       title_es:
         "Gemini 4 Argon High Sin Kit vs. Mixiuh Superpowers Kit: ¿Siguen Sirviendo los Skills y Memoria Hoy?",
       title_en:
@@ -1229,7 +1231,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.cc01,
       scoreBadge_es: "OVERFIT STUDIO 3D",
       scoreBadge_en: "OVERFIT STUDIO 3D",
-      thumb: "/brand/thumbs/cc01_thumb_A.jpg",
+      thumb: COVERS.cc01,
       title_es:
         "De un Comentario a una Marca de Ropa IA en 3D: OVERFIT Studio 3D y la Coleccion 'Guerra de Pesos'",
       title_en:
@@ -1260,7 +1262,7 @@ export default function PortalClient({
       scoreBadge_es: "ARGON 4 - 2 OPUS 5.5",
       scoreBadge_en: "ARGON 4 - 2 OPUS 5.5",
       // 1280px copy of the same art (cards render at most ~600 CSS px wide)
-      thumb: "/brand/thumbs/ep02_thumb_A_1280.jpg",
+      thumb: COVERS.ep02,
       title_es:
         "Gemini 4 Argon vs. Claude Opus 5.5: 6 Retos Extremos de Fisica, WebGL2 y la Factura Real de Tokens",
       title_en:
@@ -1289,7 +1291,7 @@ export default function PortalClient({
       accentColor: EPISODE_ACCENT.ep01,
       scoreBadge_es: "ARGON 10 - 0 FLASH",
       scoreBadge_en: "ARGON 10 - 0 FLASH",
-      thumb: "/brand/thumbs/01_marcador-0-10_1280.jpg",
+      thumb: COVERS.ep01,
       title_es:
         "Gemini 4 Argon vs. Gemini 3.8 Flash: 10 Retos Zero-Shot y el Medio Pixel que Rompio un Mundo 3D",
       title_en:
@@ -1398,7 +1400,7 @@ export default function PortalClient({
             verdict: "FABLE 5.2 [7] - [3] CARBON (430 LOGS JSON)",
             timeMetric: "95.6m vs 152.4m",
             costMetric: "$8.20 vs $23.35 USD",
-            thumb: "/brand/thumbs/ep10/R05_arena_mid.png",
+            thumb: COVERS.ep10,
             accentHex: "#FFD100",
             character: "opus" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep10"),
@@ -1427,7 +1429,7 @@ export default function PortalClient({
             verdict: "FABLE 5.2 [3] - [1] OPUS 5.5 (0 BUGS)",
             timeMetric: "133.0m vs 102.5m",
             costMetric: "$17.70 vs $16.33 USD",
-            thumb: "/brand/thumbs/ep09/P01_fable52_t10.png",
+            thumb: COVERS.ep09,
             accentHex: "#FB923C",
             character: "opus" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep09"),
@@ -1456,7 +1458,7 @@ export default function PortalClient({
             verdict: "CARBON [3] - [1] ARGON + RESCATE P03",
             timeMetric: "75.1m vs 35.9m",
             costMetric: "$5.36 vs $2.90 USD",
-            thumb: "/brand/thumbs/ep08/P03_carbon_recuperacion_t10.png",
+            thumb: COVERS.ep08,
             accentHex: "#38BDF8",
             character: "carbon" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep08"),
@@ -1487,8 +1489,8 @@ export default function PortalClient({
             costMetric: "$2.71 vs $3.45 vs $12.80",
             thumb:
               lang === "es"
-                ? "/news/omni12/thumb_A.jpg"
-                : "/news/omni12/thumb_A_en.jpg",
+                ? COVERS.ep07
+                : COVERS.ep07_en,
             accentHex: "#38BDF8",
             character: "flash" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep07"),
@@ -1520,7 +1522,7 @@ export default function PortalClient({
                 : "ARGON 5 · OPUS 4 · ASTRA 1 (10 POINTS)",
             timeMetric: "19.5m vs 47.5m vs 98.8m",
             costMetric: "$1.13 vs $2.10 vs $17.99",
-            thumb: "/brand/thumbs/ep06/05-hexagone-piso-cae-3d_arena.png",
+            thumb: COVERS.ep06,
             accentHex: "#00E5FF",
             character: "argon" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep06"),
@@ -1552,7 +1554,7 @@ export default function PortalClient({
                 : "ASTRA 3 · ARGON 2 · OPUS 1 (+2 RESCUED)",
             timeMetric: "25.8m vs 194.6m vs 42.9m",
             costMetric: "$1.51 vs $32.75 vs $2.74",
-            thumb: "/brand/thumbs/ep05/01-impacto-planetario-3d_argon.png",
+            thumb: COVERS.ep05,
             accentHex: "#10B981",
             character: "argon" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep05"),
@@ -1584,7 +1586,7 @@ export default function PortalClient({
                 : "ASTRA 2 - ARGON 1 - OPUS 0 (+60FPS BONUS)",
             timeMetric: "18.9m vs 27.2m vs 55.1m",
             costMetric: "$1.11 vs $0.32 vs $9.91",
-            thumb: "/brand/thumbs/cc02_thumb_A.png",
+            thumb: COVERS.cc02,
             accentHex: "#10B981",
             character: "argon" as const,
             onLaunchPrimary: () => {
@@ -1618,8 +1620,8 @@ export default function PortalClient({
             costMetric: "$4/$20 USD",
             thumb:
               lang === "es"
-                ? "/brand/thumbs/carbon_thumb_A.jpg"
-                : "/brand/thumbs/carbon_thumb_A_en.jpg",
+                ? COVERS.carbon01
+                : COVERS.carbon01_en,
             accentHex: "#00E5FF",
             character: "carbon" as const,
             onLaunchPrimary: () => navigateToView("noticias"),
@@ -1648,7 +1650,7 @@ export default function PortalClient({
             verdict: "OPUS 3 · SONNET 2 · HAIKU 1",
             timeMetric: "87m/105m/179m",
             costMetric: "$1.54 - $29.94",
-            thumb: "/brand/thumbs/ep04_thumb_A.jpg",
+            thumb: COVERS.ep04,
             accentHex: EPISODE_ACCENT.ep04,
             character: "opus" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep04"),
@@ -1675,8 +1677,8 @@ export default function PortalClient({
               lang === "es" ? "SUPERKIT 4 - 2 SIN KIT" : "SUPERKIT 4 - 2 RAW AI",
             timeMetric: "276m vs 302m",
             costMetric: "$10.85 vs $7.69",
-            thumb: "/brand/thumbs/ep03_thumb_A.jpg",
-            thumbAlt: lang === "en" ? SPANISH_COVER_ALT_EN["/brand/thumbs/ep03_thumb_A.jpg"] : undefined,
+            thumb: COVERS.ep03,
+            thumbAlt: lang === "en" ? SPANISH_COVER_ALT_EN[COVERS.ep03] : undefined,
             accentHex: "#10B981",
             character: "mixiuh" as const,
             onLaunchPrimary: () => navigateToView("dossiers", "ep03"),
@@ -1705,8 +1707,8 @@ export default function PortalClient({
                 : "3 3D MANNEQUINS + 10 2K PRINTS",
             timeMetric: "BLENDER + GLB",
             costMetric: "EXPORT 4K",
-            thumb: "/brand/thumbs/cc01_thumb_A.jpg",
-            thumbAlt: lang === "en" ? SPANISH_COVER_ALT_EN["/brand/thumbs/cc01_thumb_A.jpg"] : undefined,
+            thumb: COVERS.cc01,
+            thumbAlt: lang === "en" ? SPANISH_COVER_ALT_EN[COVERS.cc01] : undefined,
             accentHex: "#FFD100",
             character: "flash" as const,
             onLaunchPrimary: () => navigateToView("comunidad"),
@@ -1728,7 +1730,7 @@ export default function PortalClient({
       verdict: "ARGON 4 - 2 OPUS 5.5",
       timeMetric: "90m vs 159m",
       costMetric: "$6.26 vs $16.26",
-      thumb: "/brand/thumbs/ep02_thumb_A_1280.jpg",
+      thumb: COVERS.ep02,
       accentHex: "#A855F7",
       character: "argon" as const,
       onLaunchPrimary: () => navigateToView("dossiers", "ep02"),
@@ -1740,6 +1742,11 @@ export default function PortalClient({
       secondaryLabel: "ARENA",
     },
   ];
+  // Each channel downloads the light AVIF twin of its cover (src/data/covers.ts).
+  const monitorItems: PocketConsoleCartridgeItem[] = pocketConsoleItems.map((item) => ({
+    ...item,
+    thumbLight: lightCover(item.thumb),
+  }));
 
   const navItems: {
     view: MainView;
@@ -2520,7 +2527,7 @@ export default function PortalClient({
                 {/* Right Column: Interactive 3D Retro CRT Monitor Workstation */}
                 <div className="lg:col-span-5">
                   <Pixel3DCRTWorkstation
-                    items={pocketConsoleItems}
+                    items={monitorItems}
                     lang={lang}
                   />
                 </div>
@@ -2773,7 +2780,7 @@ export default function PortalClient({
                         className="relative aspect-video bg-[#090B10] border-b-2 border-[#090B10] overflow-hidden cursor-pointer group"
                       >
                         {/* Below the fold: lazy also keeps it out of the <head> preloads React adds for eager images */}
-                        <img
+                        <CoverImage
                           src={lang === "es" ? art.thumb : (art.thumb_en ?? art.thumb)}
                           alt={
                             lang === "es"
