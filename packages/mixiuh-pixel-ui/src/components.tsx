@@ -942,12 +942,13 @@ export function Pixel3DCRTWorkstation({
             >
               {poweredOn ? current.kicker : "STANDBY // CRT POWER OFF"}
             </span>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="inline-flex items-center gap-1 text-[#00E5FF] font-bold">
+            {/* On phones the two metrics wrap onto a second line instead of being cut by the bezel */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 min-w-0 sm:shrink-0">
+              <span className="inline-flex items-center gap-1 text-[#00E5FF] font-bold whitespace-nowrap">
                 <PixelIcon name="clock" size={11} color="#00E5FF" />
                 <span>{current.timeMetric}</span>
               </span>
-              <span className="inline-flex items-center gap-1 text-[#FFD100] font-bold">
+              <span className="inline-flex items-center gap-1 text-[#FFD100] font-bold whitespace-nowrap">
                 <PixelIcon name="coin" size={11} color="#FFD100" />
                 <span>{current.costMetric}</span>
               </span>
