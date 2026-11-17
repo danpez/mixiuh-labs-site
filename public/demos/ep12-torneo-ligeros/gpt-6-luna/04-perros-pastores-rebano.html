@@ -1,0 +1,1780 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#060A12">
+  <title>Arena de Pastoreo · Selfish Herd / Boids</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --night: #060A12;
+      --panel: #0F172A;
+      --panel-soft: #111D32;
+      --line: #23354D;
+      --muted: #91A4BC;
+      --white: #F1F7FF;
+      --cyan: #22D3EE;
+      --blue: #38BDF8;
+      --orange: #FB923C;
+      --green: #10B981;
+      --gold: #FBBF24;
+      --coral: #F43F5E;
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      min-width: 340px;
+      min-height: 100%;
+      margin: 0;
+      background: var(--night);
+      color: var(--white);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(ellipse at 48% -20%, rgba(34, 211, 238, .12), transparent 46%),
+        linear-gradient(180deg, #080E19 0%, var(--night) 54%);
+    }
+
+    button,
+    input { font: inherit; }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(34, 211, 238, .85);
+      outline-offset: 3px;
+    }
+
+    .app {
+      width: min(1880px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 22px 28px 16px;
+      display: grid;
+      grid-template-rows: auto minmax(520px, 1fr) auto auto;
+      gap: 15px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 86px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      position: relative;
+      width: 56px;
+      height: 56px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(34, 211, 238, .55);
+      border-radius: 17px;
+      background: linear-gradient(145deg, rgba(34, 211, 238, .18), rgba(16, 185, 129, .08));
+      box-shadow: inset 0 0 22px rgba(34, 211, 238, .08), 0 0 32px rgba(34, 211, 238, .08);
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      border: 2px solid var(--cyan);
+      border-radius: 50%;
+    }
+
+    .brand-mark::before {
+      inset: 11px;
+      border-right-color: transparent;
+      transform: rotate(-34deg);
+    }
+
+    .brand-mark::after {
+      width: 7px;
+      height: 7px;
+      right: 11px;
+      top: 12px;
+      background: var(--gold);
+      border: 0;
+      box-shadow: 0 0 13px rgba(251, 191, 36, .8);
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 2.15vw, 40px);
+      line-height: 1.05;
+      letter-spacing: -.04em;
+      font-weight: 850;
+    }
+
+    .subtitle {
+      margin: 7px 0 0;
+      color: #A5B5CA;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .top-status {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 11px;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 15px;
+      border: 1px solid #263A52;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, .88);
+      color: #DCE8F7;
+      font-size: 14px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(16, 185, 129, .85);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      50% { opacity: .42; transform: scale(.78); }
+    }
+
+    .main-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 350px;
+      gap: 15px;
+    }
+
+    .arena-card,
+    .side-card,
+    .control-deck,
+    .footer {
+      border: 1px solid rgba(76, 101, 132, .34);
+      background: linear-gradient(155deg, rgba(15, 23, 42, .96), rgba(9, 16, 29, .98));
+      box-shadow: 0 16px 50px rgba(0, 0, 0, .22);
+    }
+
+    .arena-card {
+      position: relative;
+      min-width: 0;
+      min-height: 520px;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: #07131C;
+    }
+
+    #arena {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      touch-action: manipulation;
+    }
+
+    .arena-label {
+      position: absolute;
+      z-index: 2;
+      top: 17px;
+      left: 18px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 10px;
+      background: rgba(6, 10, 18, .72);
+      color: #DBE8F6;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .arena-label span:first-child {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 12px var(--green);
+    }
+
+    .legend {
+      position: absolute;
+      z-index: 2;
+      left: 18px;
+      bottom: 15px;
+      display: flex;
+      gap: 15px;
+      padding: 8px 11px;
+      border: 1px solid rgba(148, 163, 184, .2);
+      border-radius: 9px;
+      background: rgba(6, 10, 18, .74);
+      color: #CDDAE9;
+      font-size: 12px;
+      font-weight: 700;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+    .side-column {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 13px;
+    }
+
+    .side-card {
+      min-width: 0;
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: -.02em;
+      font-weight: 820;
+    }
+
+    .section-kicker {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .pen-list { display: grid; gap: 10px; }
+
+    .pen-row {
+      display: grid;
+      grid-template-columns: 11px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 11px;
+      min-height: 50px;
+      padding: 9px 10px;
+      border: 1px solid rgba(90, 115, 145, .27);
+      border-radius: 11px;
+      background: rgba(6, 12, 23, .62);
+    }
+
+    .pen-swatch {
+      width: 9px;
+      height: 30px;
+      border-radius: 99px;
+      box-shadow: 0 0 13px currentColor;
+    }
+
+    .pen-name {
+      overflow: hidden;
+      color: #E6EEF8;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .015em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pen-dog {
+      display: block;
+      margin-top: 4px;
+      color: #8296AF;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .score {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      min-width: 53px;
+      justify-content: flex-end;
+    }
+
+    .score strong { font-size: 24px; line-height: 1; letter-spacing: -.05em; }
+    .score small { color: #8EA1B8; font-size: 11px; font-weight: 750; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .metric {
+      min-height: 76px;
+      padding: 12px 12px 10px;
+      border: 1px solid rgba(90, 115, 145, .25);
+      border-radius: 11px;
+      background: rgba(6, 12, 23, .64);
+    }
+
+    .metric-label {
+      color: #91A4BC;
+      font-size: 11px;
+      font-weight: 760;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 6px;
+      color: #F1F7FF;
+      font-size: 27px;
+      line-height: 1;
+      letter-spacing: -.05em;
+      font-weight: 850;
+    }
+
+    .metric-value em {
+      color: var(--cyan);
+      font-size: 13px;
+      font-style: normal;
+      letter-spacing: 0;
+    }
+
+    .theory-card { padding-bottom: 15px; }
+
+    .law {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+      color: #BAC9DA;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .law-index {
+      width: 23px;
+      height: 23px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: rgba(34, 211, 238, .13);
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .law strong { color: #F0F6FF; }
+
+    .control-deck {
+      display: grid;
+      grid-template-columns: auto minmax(190px, 1fr) minmax(190px, 1fr) minmax(240px, 1.2fr) auto;
+      align-items: center;
+      gap: 18px;
+      min-height: 94px;
+      padding: 14px 17px;
+      border-radius: var(--radius);
+    }
+
+    .controls-title { min-width: 145px; }
+    .controls-title strong { display: block; font-size: 15px; font-weight: 820; }
+    .controls-title span { display: block; margin-top: 4px; color: #8EA1B8; font-size: 11px; }
+
+    .control-group { min-width: 0; }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: #A8B8CA;
+      font-size: 11px;
+      font-weight: 780;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .control-label output { color: var(--cyan); }
+
+    input[type="range"] {
+      display: block;
+      width: 100%;
+      height: 6px;
+      margin: 0;
+      border-radius: 99px;
+      appearance: none;
+      background: linear-gradient(90deg, rgba(34, 211, 238, .72), rgba(34, 211, 238, .18));
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      width: 16px;
+      height: 16px;
+      border: 3px solid #07111B;
+      border-radius: 50%;
+      appearance: none;
+      background: var(--cyan);
+      box-shadow: 0 0 0 1px var(--cyan), 0 0 13px rgba(34, 211, 238, .55);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 11px;
+      height: 11px;
+      border: 3px solid #07111B;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 0 1px var(--cyan), 0 0 13px rgba(34, 211, 238, .55);
+    }
+
+    .button-row { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .action-button {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 14px;
+      border: 1px solid #2A415B;
+      border-radius: 10px;
+      background: #111F33;
+      color: #E8F1FB;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background .16s ease, border-color .16s ease, transform .16s ease;
+      white-space: nowrap;
+    }
+
+    .action-button:hover { background: #192B43; border-color: #4D6C8D; }
+    .action-button:active { transform: translateY(1px); }
+
+    .action-button.primary {
+      border-color: rgba(34, 211, 238, .6);
+      background: linear-gradient(135deg, rgba(8, 145, 178, .85), rgba(8, 145, 178, .55));
+      color: #F5FCFF;
+      box-shadow: 0 0 18px rgba(34, 211, 238, .13);
+    }
+
+    .action-button.primary:hover { background: linear-gradient(135deg, #0891B2, #0E7490); }
+
+    .button-icon {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .icon-pause::before,
+    .icon-pause::after {
+      content: "";
+      position: absolute;
+      top: 1px;
+      bottom: 1px;
+      width: 4px;
+      border-radius: 1px;
+      background: currentColor;
+    }
+
+    .icon-pause::before { left: 1px; }
+    .icon-pause::after { right: 1px; }
+
+    .icon-play {
+      width: 0;
+      height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 11px solid currentColor;
+    }
+
+    .icon-reset {
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+    }
+
+    .icon-reset::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -2px;
+      border-left: 5px solid currentColor;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      transform: rotate(-28deg);
+    }
+
+    .footer {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 7px 13px;
+      border-radius: 10px;
+      color: #8296AF;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .footer strong { color: #B8C7D8; font-weight: 750; }
+    .footer-right { color: #A4B5C9; white-space: nowrap; }
+
+    .toast {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      top: 18px;
+      max-width: min(520px, calc(100% - 32px));
+      padding: 10px 15px;
+      border: 1px solid rgba(34, 211, 238, .45);
+      border-radius: 10px;
+      background: rgba(6, 10, 18, .86);
+      color: #EBF8FF;
+      font-size: 13px;
+      font-weight: 760;
+      text-align: center;
+      opacity: 0;
+      transform: translate(-50%, -8px);
+      transition: opacity .22s ease, transform .22s ease;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .toast.visible { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (min-width: 1500px) and (min-height: 850px) {
+      .app { grid-template-rows: auto minmax(620px, 1fr) auto auto; }
+      .main-grid { grid-template-columns: minmax(0, 1fr) 370px; }
+      .arena-card, #arena { min-height: 620px; }
+    }
+
+    @media (max-width: 1180px) {
+      .app { padding: 16px; grid-template-rows: auto auto auto auto; }
+      .main-grid { grid-template-columns: minmax(0, 1fr) 310px; }
+      .arena-card, #arena { min-height: 540px; }
+      .control-deck { grid-template-columns: 1fr 1fr 1fr auto; }
+      .controls-title { grid-column: 1 / -1; }
+      .controls-title span { display: inline; margin-left: 7px; }
+    }
+
+    @media (max-width: 820px) {
+      .app { padding: 12px; gap: 11px; }
+      .topbar { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .top-status { justify-content: flex-start; }
+      .main-grid { grid-template-columns: 1fr; }
+      .arena-card, #arena { min-height: min(68vh, 560px); }
+      .side-column { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
+      .side-column .theory-card { grid-column: 1 / -1; }
+      .control-deck { grid-template-columns: 1fr 1fr; }
+      .controls-title { grid-column: 1 / -1; }
+      .button-row { justify-content: flex-start; }
+      .footer { align-items: flex-start; flex-direction: column; }
+      .footer-right { white-space: normal; }
+    }
+
+    @media (max-width: 520px) {
+      .brand-mark { width: 46px; height: 46px; border-radius: 14px; }
+      .brand { gap: 12px; }
+      .subtitle { font-size: 13px; }
+      .status-pill { min-height: 36px; font-size: 12px; padding: 0 11px; }
+      .arena-card, #arena { min-height: 390px; }
+      .side-column { grid-template-columns: 1fr; }
+      .side-column .theory-card { grid-column: auto; }
+      .control-deck { grid-template-columns: 1fr 1fr; gap: 14px 12px; }
+      .control-group.wide { grid-column: 1 / -1; }
+      .button-row { grid-column: 1 / -1; }
+      .action-button { flex: 1; padding: 0 10px; }
+      .legend { gap: 9px; font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <p class="eyebrow">Mixiuh Labs · Arena 04 / 06</p>
+          <h1>Pastores contra el rebaño</h1>
+          <p class="subtitle">Selfish herd, boids y estrategia de flanqueo en tres corrales</p>
+        </div>
+      </div>
+      <div class="top-status">
+        <div class="status-pill"><span class="status-dot"></span><span id="runStatus">SIMULACIÓN EN VIVO</span></div>
+        <div class="status-pill"><span id="fpsValue">60</span> FPS</div>
+        <div class="status-pill"><span id="clockValue">00:00</span> · <span id="roundValue">RONDA 1</span></div>
+      </div>
+    </header>
+
+    <section class="main-grid" aria-label="Arena de pastoreo">
+      <div class="arena-card">
+        <canvas id="arena" aria-label="Pradera con sesenta ovejas y tres perros pastores"></canvas>
+        <div class="arena-label"><span></span><span>Campo de prueba · 60 ovejas</span></div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div class="legend" aria-hidden="true">
+          <div class="legend-item"><span class="legend-dot" style="background:#E7F0F8"></span>Rebaño</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#FBBF24"></span>Doble valor</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#F43F5E"></span>Radio de alerta</div>
+        </div>
+      </div>
+
+      <aside class="side-column" aria-label="Marcador y métricas">
+        <section class="side-card">
+          <div class="section-head">
+            <h2>Marcador de corrales</h2>
+            <span class="section-kicker">peso x2 doradas</span>
+          </div>
+          <div class="pen-list" id="penList"></div>
+        </section>
+
+        <section class="side-card">
+          <div class="section-head">
+            <h2>Estado del rebaño</h2>
+            <span class="section-kicker">telemetría</span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric">
+              <div class="metric-label">Cohesión</div>
+              <div class="metric-value" id="cohesionValue">--<em>%</em></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Ovejas libres</div>
+              <div class="metric-value" id="freeValue">60</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Doble valor</div>
+              <div class="metric-value" id="goldValue">6</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Tiro activo</div>
+              <div class="metric-value" id="eventValue" style="font-size:18px">FLANQUEO</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="side-card theory-card">
+          <div class="section-head">
+            <h2>Reglas del movimiento</h2>
+            <span class="section-kicker">Hamilton + boids</span>
+          </div>
+          <div class="law">
+            <span class="law-index">1</span>
+            <div><strong>Calma:</strong> separación corta y alineación local evitan choques.</div>
+          </div>
+          <div class="law">
+            <span class="law-index">2</span>
+            <div><strong>Alerta:</strong> acercarse al centro de vecinos reduce el riesgo de quedar en el borde.</div>
+          </div>
+          <div class="law">
+            <span class="law-index">3</span>
+            <div><strong>Pastor:</strong> arco detrás del grupo; empuje frontal dispersa la manada.</div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="control-deck" aria-label="Controles de simulación">
+      <div class="controls-title">
+        <strong>Mandos de arena</strong>
+        <span>la demostración inicia automáticamente</span>
+      </div>
+      <label class="control-group">
+        <span class="control-label"><span>Radio de alerta</span><output id="alertOutput">155</output></span>
+        <input id="alertSlider" type="range" min="90" max="240" value="155" aria-label="Radio de alerta de los perros">
+      </label>
+      <label class="control-group">
+        <span class="control-label"><span>Impulso de pastoreo</span><output id="driveOutput">1.0x</output></span>
+        <input id="driveSlider" type="range" min="50" max="160" value="100" aria-label="Intensidad del impulso de pastoreo">
+      </label>
+      <label class="control-group wide">
+        <span class="control-label"><span>Demostración automática</span><output id="speedOutput">1.0x</output></span>
+        <input id="speedSlider" type="range" min="50" max="150" value="100" aria-label="Velocidad de la simulación">
+      </label>
+      <div class="button-row">
+        <button class="action-button primary" id="pauseButton" type="button"><span class="button-icon icon-pause" id="pauseIcon"></span><span id="pauseText">Pausar</span></button>
+        <button class="action-button" id="resetButton" type="button"><span class="button-icon icon-reset"></span><span>Reiniciar</span></button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span><strong>Hamilton:</strong> la contracción del rebaño emerge bajo amenaza; el perro guía desde el arco exterior.</span>
+      <span class="footer-right">Arrastra un perro para cambiar su trayectoria · clic en la pradera para crear un estímulo</span>
+    </footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    (() => {
+      const TAU = Math.PI * 2;
+      const WORLD = { w: 1200, h: 720 };
+      const PEN_DEFS = [
+        { x: 95, y: 92, r: 70, name: "CORRAL HYDROGEN CIAN", short: "HYDROGEN", dog: "Perro cian", color: "#22D3EE", dark: "#073C49" },
+        { x: 1105, y: 92, r: 70, name: "CORRAL HAIKU AMBAR", short: "HAIKU", dog: "Perro ámbar", color: "#FB923C", dark: "#49250F" },
+        { x: 102, y: 628, r: 70, name: "CORRAL LUNA ESMERALDA", short: "LUNA", dog: "Perro esmeralda", color: "#10B981", dark: "#07392C" }
+      ];
+      const COLORS = {
+        grassA: "#102B2D",
+        grassB: "#0A2028",
+        grassLine: "rgba(116, 201, 159, .075)",
+        sheep: "#E8F1F6",
+        sheepShade: "#A8BBC8",
+        gold: "#FBBF24",
+        coral: "#F43F5E",
+        white: "#F5FAFF"
+      };
+
+      const canvas = document.getElementById("arena");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const ui = {
+        fps: document.getElementById("fpsValue"),
+        clock: document.getElementById("clockValue"),
+        round: document.getElementById("roundValue"),
+        status: document.getElementById("runStatus"),
+        penList: document.getElementById("penList"),
+        cohesion: document.getElementById("cohesionValue"),
+        free: document.getElementById("freeValue"),
+        gold: document.getElementById("goldValue"),
+        event: document.getElementById("eventValue"),
+        toast: document.getElementById("toast"),
+        pauseButton: document.getElementById("pauseButton"),
+        pauseIcon: document.getElementById("pauseIcon"),
+        pauseText: document.getElementById("pauseText")
+      };
+
+      let fieldW = WORLD.w;
+      let fieldH = WORLD.h;
+      let pens = [];
+      let dogs = [];
+      let sheep = [];
+      let sparks = [];
+      let trails = [];
+      let disturbances = [];
+      let running = true;
+      let simTime = 0;
+      let lastFrame = 0;
+      let fpsFrames = 0;
+      let fpsStart = performance.now();
+      let displayFps = 60;
+      let toastTimer = 0;
+      let eventIndex = 0;
+      let currentEvent = "FLANQUEO";
+      let lastAutoEvent = -1;
+      let dragDog = -1;
+      let pointerWorld = null;
+      let pixelRatio = 1;
+      let viewScaleX = 1;
+      let viewScaleY = 1;
+      let arenaRect = null;
+      let accumulated = 0;
+
+      const settings = {
+        alertRadius: 155,
+        drive: 1,
+        speed: 1,
+        maxSubsteps: 3
+      };
+
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const hypot = (x, y) => Math.sqrt(x * x + y * y);
+      const rand = (min, max) => min + Math.random() * (max - min);
+      const normalize = (x, y) => {
+        const length = hypot(x, y) || 1;
+        return { x: x / length, y: y / length };
+      };
+      const distance = (a, b) => hypot(a.x - b.x, a.y - b.y);
+      const penColor = index => PEN_DEFS[index % PEN_DEFS.length].color;
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        arenaRect = rect;
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.round(rect.width * pixelRatio));
+        canvas.height = Math.max(1, Math.round(rect.height * pixelRatio));
+        viewScaleX = rect.width / WORLD.w;
+        viewScaleY = rect.height / WORLD.h;
+      }
+
+      function makePen(definition, index) {
+        return {
+          ...definition,
+          index,
+          score: 0,
+          pennedCount: 0,
+          glowPhase: rand(0, TAU),
+          gateAngle: index === 0 ? Math.PI / 4 : index === 1 ? Math.PI * .75 : -Math.PI / 4
+        };
+      }
+
+      function initialDog(index) {
+        const pen = PEN_DEFS[index];
+        const away = normalize(WORLD.w * .5 - pen.x, WORLD.h * .5 - pen.y);
+        const side = index === 1 ? -1 : 1;
+        return {
+          x: clamp(pen.x + away.x * 108 + -away.y * side * 28, 70, WORLD.w - 70),
+          y: clamp(pen.y + away.y * 108 + away.x * side * 28, 70, WORLD.h - 70),
+          vx: 0,
+          vy: 0,
+          index,
+          color: pen.color,
+          penIndex: index,
+          radius: 17,
+          mode: "gather",
+          phase: rand(0, TAU),
+          crouch: false,
+          commanded: false,
+          lastTarget: null,
+          barkPulse: 0
+        };
+      }
+
+      function spawnSheep(index) {
+        const angle = index * 2.399963229728653 + rand(-.13, .13);
+        const radius = Math.sqrt(index / 60) * 112 + rand(-10, 10);
+        return {
+          x: WORLD.w * .5 + Math.cos(angle) * radius,
+          y: WORLD.h * .5 + Math.sin(angle) * radius * .72,
+          vx: rand(-9, 9),
+          vy: rand(-9, 9),
+          golden: index < 6,
+          pennedBy: -1,
+          targetPen: index % 3,
+          targetDog: index % 3,
+          id: index,
+          heading: angle,
+          panic: 0,
+          wiggle: rand(0, TAU),
+          size: index < 6 ? 7.8 : rand(6.1, 7.2),
+          scorePulse: 0
+        };
+      }
+
+      function initPenUI() {
+        ui.penList.innerHTML = PEN_DEFS.map((pen, index) => `
+          <div class="pen-row" data-pen="${index}">
+            <span class="pen-swatch" style="background:${pen.color};color:${pen.color}"></span>
+            <span class="pen-name">${pen.name}<span class="pen-dog">${pen.dog} · estrategia de arco</span></span>
+            <span class="score"><strong id="score${index}" style="color:${pen.color}">0</strong><small>pts</small></span>
+          </div>
+        `).join("");
+      }
+
+      function resetSimulation() {
+        fieldW = WORLD.w;
+        fieldH = WORLD.h;
+        pens = PEN_DEFS.map(makePen);
+        dogs = PEN_DEFS.map((_, index) => initialDog(index));
+        sheep = Array.from({ length: 60 }, (_, index) => spawnSheep(index));
+        sparks = [];
+        trails = [];
+        disturbances = [];
+        simTime = 0;
+        eventIndex = 0;
+        currentEvent = "FLANQUEO";
+        lastAutoEvent = -1;
+        accumulated = 0;
+        for (let i = 0; i < 3; i += 1) {
+          const score = document.getElementById(`score${i}`);
+          if (score) score.textContent = "0";
+        }
+        updateMetrics();
+        showToast("Rebaño preparado · los tres perros entran en modo de flanqueo");
+      }
+
+      function showToast(message) {
+        ui.toast.textContent = message;
+        ui.toast.classList.add("visible");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => ui.toast.classList.remove("visible"), 2100);
+      }
+
+      function computeShepherdDogAI(state, dogIndex) {
+        const dog = state.dogs[dogIndex];
+        const pen = state.pens[dogIndex % state.pens.length];
+        const group = state.sheep.filter((item, itemIndex) => {
+          const assignedDog = Number.isInteger(item.targetDog)
+            ? item.targetDog
+            : Number.isInteger(item.targetPen)
+              ? item.targetPen
+              : (Number.isInteger(item.id) ? item.id : itemIndex) % state.dogs.length;
+          return item.pennedBy < 0 && assignedDog === dogIndex;
+        });
+        if (!dog || !pen || group.length === 0) {
+          return { vx: 0, vy: 0, crouch: true };
+        }
+
+        let cx = 0;
+        let cy = 0;
+        let meanVx = 0;
+        let meanVy = 0;
+        for (const item of group) {
+          cx += item.x;
+          cy += item.y;
+          meanVx += item.vx;
+          meanVy += item.vy;
+        }
+        cx /= group.length;
+        cy /= group.length;
+        meanVx /= group.length;
+        meanVy /= group.length;
+
+        const towardPen = normalize(pen.x - cx, pen.y - cy);
+        const awayFromPen = { x: -towardPen.x, y: -towardPen.y };
+        const groupRadius = Math.max(34, Math.sqrt(group.length) * 12.5);
+        const flankingDistance = clamp(groupRadius + 74, 105, 190);
+        const flankX = cx + awayFromPen.x * flankingDistance;
+        const flankY = cy + awayFromPen.y * flankingDistance;
+        const offset = Math.sin(simTime * .52 + dogIndex * 2.12) * .28;
+        const sideX = -towardPen.y * offset * flankingDistance;
+        const sideY = towardPen.x * offset * flankingDistance;
+        const targetX = clamp(flankX + sideX, 38, state.fieldW - 38);
+        const targetY = clamp(flankY + sideY, 38, state.fieldH - 38);
+        const arrival = normalize(targetX - dog.x, targetY - dog.y);
+        const dogToCenter = normalize(cx - dog.x, cy - dog.y);
+        const dogDistance = distance(dog, { x: cx, y: cy });
+        const lineAlignment = dogToCenter.x * towardPen.x + dogToCenter.y * towardPen.y;
+        const isBehind = lineAlignment < -.28;
+        const closeTooSoon = dogDistance < groupRadius + 26 && !isBehind;
+        const orbit = .18 + .09 * Math.sin(simTime * .8 + dogIndex);
+        let vx;
+        let vy;
+        let crouch;
+
+        if (closeTooSoon) {
+          const back = normalize(dog.x - cx, dog.y - cy);
+          const sidestep = dogIndex % 2 === 0 ? 1 : -1;
+          vx = back.x * 104 + -back.y * sidestep * 82;
+          vy = back.y * 104 + back.x * sidestep * 82;
+          crouch = false;
+        } else {
+          const approachSpeed = dogDistance > flankingDistance * .62 ? 132 : 82;
+          vx = arrival.x * approachSpeed + -towardPen.y * orbit * 78 + meanVx * .16;
+          vy = arrival.y * approachSpeed + towardPen.x * orbit * 78 + meanVy * .16;
+          crouch = dogDistance < settings.alertRadius * .9 && isBehind;
+        }
+
+        const desired = normalize(vx, vy);
+        const maxSpeed = closeTooSoon ? 154 : 145;
+        const speed = Math.min(maxSpeed, hypot(vx, vy));
+        return { vx: desired.x * speed, vy: desired.y * speed, crouch, targetX, targetY };
+      }
+
+      window.computeShepherdDogAI = computeShepherdDogAI;
+
+      function worldState() {
+        return {
+          fieldW,
+          fieldH,
+          pens: pens.map(pen => ({ x: pen.x, y: pen.y, r: pen.r })),
+          dogs: dogs.map(dog => ({ x: dog.x, y: dog.y, vx: dog.vx, vy: dog.vy })),
+          sheep: sheep.map(item => ({
+            x: item.x,
+            y: item.y,
+            vx: item.vx,
+            vy: item.vy,
+            golden: item.golden,
+            pennedBy: item.pennedBy,
+            targetPen: item.targetPen,
+            targetDog: item.targetDog,
+            id: item.id
+          }))
+        };
+      }
+
+      function __auditShepherd() {
+        const counts = pens.map((_, index) => sheep.filter(item => item.pennedBy === index).length);
+        return {
+          pennedCounts: counts,
+          flockCohesion: calculateCohesion(),
+          totalSheep: sheep.length,
+          aiHookReady: typeof window.computeShepherdDogAI === "function"
+        };
+      }
+
+      window.__auditShepherd = __auditShepherd;
+
+      function calculateCohesion() {
+        if (sheep.length < 2) return 1;
+        const free = sheep.filter(item => item.pennedBy < 0);
+        if (free.length < 2) return 1;
+        let cx = 0;
+        let cy = 0;
+        for (const item of free) {
+          cx += item.x;
+          cy += item.y;
+        }
+        cx /= free.length;
+        cy /= free.length;
+        let average = 0;
+        for (const item of free) average += distance(item, { x: cx, y: cy });
+        average /= free.length;
+        return clamp(1 - average / 370, 0, 1);
+      }
+
+      function closestThreat(item, state) {
+        let chosen = null;
+        let closest = Infinity;
+        for (let index = 0; index < state.dogs.length; index += 1) {
+          const dog = state.dogs[index];
+          const d = distance(item, dog);
+          const targetMatch = item.targetDog === index;
+          const effective = d * (targetMatch ? .8 : 1.08);
+          if (effective < closest) {
+            closest = effective;
+            chosen = { dog, distance: d, index };
+          }
+        }
+        return chosen;
+      }
+
+      function sheepSteering(item, state, delta) {
+        const neighborRadius = item.panic > .08 ? 102 : 52;
+        let count = 0;
+        let neighborX = 0;
+        let neighborY = 0;
+        let alignX = 0;
+        let alignY = 0;
+        let sepX = 0;
+        let sepY = 0;
+
+        for (const other of sheep) {
+          if (other === item || other.pennedBy >= 0) continue;
+          const dx = other.x - item.x;
+          const dy = other.y - item.y;
+          const d = hypot(dx, dy);
+          if (d > neighborRadius || d < .001) continue;
+          count += 1;
+          neighborX += other.x;
+          neighborY += other.y;
+          alignX += other.vx;
+          alignY += other.vy;
+          if (d < 22) {
+            const force = (22 - d) / 22;
+            sepX -= dx / d * force;
+            sepY -= dy / d * force;
+          }
+        }
+
+        let ax = 0;
+        let ay = 0;
+        let neighborCenter = null;
+        if (count > 0) {
+          neighborCenter = { x: neighborX / count, y: neighborY / count };
+          const calm = item.panic < .1;
+          const cohesionWeight = calm ? .105 : .52 + item.panic * .24;
+          const towardNeighbors = normalize(neighborCenter.x - item.x, neighborCenter.y - item.y);
+          ax += towardNeighbors.x * cohesionWeight * 65;
+          ay += towardNeighbors.y * cohesionWeight * 65;
+          const align = normalize(alignX / count - item.vx, alignY / count - item.vy);
+          ax += align.x * (calm ? 9 : 18);
+          ay += align.y * (calm ? 9 : 18);
+        }
+
+        ax += sepX * (item.panic > .1 ? 16 : 39);
+        ay += sepY * (item.panic > .1 ? 16 : 39);
+
+        const threat = closestThreat(item, state);
+        item.panic = Math.max(0, item.panic - delta * .32);
+        if (threat && threat.distance < settings.alertRadius) {
+          const strength = 1 - threat.distance / settings.alertRadius;
+          item.panic = Math.max(item.panic, strength);
+          const flee = normalize(item.x - threat.dog.x, item.y - threat.dog.y);
+          const edgeRisk = neighborCenter ? distance(item, neighborCenter) / neighborRadius : .5;
+          const compress = neighborCenter ? normalize(neighborCenter.x - item.x, neighborCenter.y - item.y) : { x: 0, y: 0 };
+          const escapeWeight = (120 + strength * 290) * settings.drive;
+          const hamiltonWeight = (32 + strength * 130 + edgeRisk * 72) * settings.drive;
+          ax += flee.x * escapeWeight + compress.x * hamiltonWeight;
+          ay += flee.y * escapeWeight + compress.y * hamiltonWeight;
+        }
+
+        for (const disturbance of disturbances) {
+          const d = distance(item, disturbance);
+          if (d < disturbance.radius && d > 1) {
+            const power = (1 - d / disturbance.radius) * disturbance.power;
+            const away = normalize(item.x - disturbance.x, item.y - disturbance.y);
+            ax += away.x * power;
+            ay += away.y * power;
+            item.panic = Math.max(item.panic, power / 150);
+          }
+        }
+
+        const assignedPen = state.pens[item.targetPen];
+        if (assignedPen && item.panic > .03 && threat && threat.distance < settings.alertRadius * 1.45) {
+          const toPen = normalize(assignedPen.x - item.x, assignedPen.y - item.y);
+          const shepherdBehind = normalize(threat.dog.x - item.x, threat.dog.y - item.y);
+          const aligned = -(toPen.x * shepherdBehind.x + toPen.y * shepherdBehind.y);
+          const guidance = Math.max(0, aligned) * item.panic * 38;
+          ax += toPen.x * guidance;
+          ay += toPen.y * guidance;
+        }
+
+        const margin = 25;
+        if (item.x < margin) ax += (margin - item.x) * 2.1;
+        if (item.x > WORLD.w - margin) ax -= (item.x - (WORLD.w - margin)) * 2.1;
+        if (item.y < margin) ay += (margin - item.y) * 2.1;
+        if (item.y > WORLD.h - margin) ay -= (item.y - (WORLD.h - margin)) * 2.1;
+
+        const maxSpeed = item.golden ? 79 : 70;
+        item.vx = (item.vx + ax * delta) * Math.pow(.985, delta * 60);
+        item.vy = (item.vy + ay * delta) * Math.pow(.985, delta * 60);
+        const speed = hypot(item.vx, item.vy);
+        if (speed > maxSpeed) {
+          item.vx = item.vx / speed * maxSpeed;
+          item.vy = item.vy / speed * maxSpeed;
+        }
+        if (speed < 5) {
+          const direction = normalize(Math.cos(item.wiggle), Math.sin(item.wiggle));
+          item.vx += direction.x * delta * 7;
+          item.vy += direction.y * delta * 7;
+        }
+        item.x += item.vx * delta;
+        item.y += item.vy * delta;
+        item.heading = Math.atan2(item.vy, item.vx);
+        item.wiggle += delta * (item.panic > .2 ? 8 : 2.5);
+        return { threat, neighborCenter };
+      }
+
+      function dogSteering(dog, index, state, delta) {
+        const external = computeShepherdDogAI(state, index);
+        let desiredX = external.vx;
+        let desiredY = external.vy;
+        const ownGroup = sheep.filter(item => item.pennedBy < 0 && item.targetDog === index);
+        const center = ownGroup.length
+          ? ownGroup.reduce((sum, item) => ({ x: sum.x + item.x / ownGroup.length, y: sum.y + item.y / ownGroup.length }), { x: 0, y: 0 })
+          : { x: PEN_DEFS[index].x, y: PEN_DEFS[index].y };
+
+        for (let otherIndex = 0; otherIndex < dogs.length; otherIndex += 1) {
+          if (otherIndex === index) continue;
+          const other = dogs[otherIndex];
+          const dx = dog.x - other.x;
+          const dy = dog.y - other.y;
+          const d = hypot(dx, dy);
+          if (d < 92 && d > 1) {
+            const repel = (92 - d) / 92 * 95;
+            desiredX += dx / d * repel;
+            desiredY += dy / d * repel;
+          }
+        }
+
+        const speedCap = 156;
+        const desiredLength = hypot(desiredX, desiredY) || 1;
+        desiredX = desiredX / desiredLength * Math.min(speedCap, desiredLength);
+        desiredY = desiredY / desiredLength * Math.min(speedCap, desiredLength);
+        const response = 3.3;
+        dog.vx += (desiredX - dog.vx) * Math.min(1, response * delta);
+        dog.vy += (desiredY - dog.vy) * Math.min(1, response * delta);
+        dog.x += dog.vx * delta;
+        dog.y += dog.vy * delta;
+        dog.x = clamp(dog.x, 20, WORLD.w - 20);
+        dog.y = clamp(dog.y, 20, WORLD.h - 20);
+        dog.crouch = external.crouch;
+        dog.lastTarget = external.targetX == null ? center : { x: external.targetX, y: external.targetY };
+        dog.phase += delta * (dog.crouch ? 2 : 5.3);
+        dog.barkPulse = Math.max(0, dog.barkPulse - delta * 2.2);
+        if (hypot(desiredX, desiredY) > 105 && Math.random() < delta * .16) dog.barkPulse = 1;
+      }
+
+      function settlePens() {
+        for (const item of sheep) {
+          if (item.pennedBy >= 0) continue;
+          const target = pens[item.targetPen];
+          const gateX = target.x + Math.cos(target.gateAngle) * target.r * .75;
+          const gateY = target.y + Math.sin(target.gateAngle) * target.r * .75;
+          const dToPen = distance(item, target);
+          const dToGate = distance(item, { x: gateX, y: gateY });
+          if (dToPen < target.r - 9 && dToGate < target.r * .74 && item.panic < .35) {
+            item.pennedBy = target.index;
+            item.vx = 0;
+            item.vy = 0;
+            item.scorePulse = 1;
+            target.pennedCount += 1;
+            target.score += item.golden ? 2 : 1;
+            sparks.push({ x: item.x, y: item.y, color: item.golden ? COLORS.gold : target.color, life: 1, size: item.golden ? 14 : 10 });
+            const score = document.getElementById(`score${target.index}`);
+            if (score) score.textContent = String(target.score);
+            showToast(item.golden ? `OVEJA DORADA · ${target.short} suma doble valor` : `Entrada válida · ${target.short} recibe una oveja`);
+          }
+        }
+      }
+
+      function triggerEvent(kind, announce = true) {
+        currentEvent = kind;
+        eventIndex += 1;
+        const center = sheep.reduce((sum, item) => ({ x: sum.x + item.x / sheep.length, y: sum.y + item.y / sheep.length }), { x: 0, y: 0 });
+        const leadDog = dogs[(eventIndex - 1) % dogs.length];
+        if (kind === "EMBESTIDA") {
+          const aim = normalize(center.x - leadDog.x, center.y - leadDog.y);
+          leadDog.vx = aim.x * 180;
+          leadDog.vy = aim.y * 180;
+          leadDog.commanded = true;
+          leadDog.barkPulse = 1;
+          disturbances.push({ x: center.x, y: center.y, radius: 165, power: 315, life: 1.3 });
+          for (const item of sheep) {
+            if (item.pennedBy >= 0) continue;
+            const side = item.y < center.y ? -1 : 1;
+            item.vx += aim.x * 78 + side * -aim.y * 48;
+            item.vy += aim.y * 78 + side * aim.x * 48;
+            item.panic = .94;
+          }
+          if (announce) showToast("EMBESTIDA CENTRAL · el rebaño se abre en dos corrientes");
+        } else if (kind === "ARCO LATERAL" || kind === "FLANQUEO") {
+          const destination = pens[leadDog.index];
+          const toPen = normalize(destination.x - center.x, destination.y - center.y);
+          const flank = { x: center.x - toPen.x * 148 + -toPen.y * 45, y: center.y - toPen.y * 148 + toPen.x * 45 };
+          leadDog.x = clamp(flank.x, 35, WORLD.w - 35);
+          leadDog.y = clamp(flank.y, 35, WORLD.h - 35);
+          leadDog.vx = 0;
+          leadDog.vy = 0;
+          leadDog.commanded = false;
+          leadDog.crouch = true;
+          for (const item of sheep) {
+            if (item.targetDog === leadDog.index && item.pennedBy < 0) item.panic = Math.max(item.panic, .52);
+          }
+          if (announce) showToast(`${kind} · ${PEN_DEFS[leadDog.index].short} lidera el bloque hacia su corral`);
+        } else if (kind === "CAMBIO DE VIENTO") {
+          disturbances.push({ x: center.x + rand(-35, 35), y: center.y + rand(-35, 35), radius: 210, power: 230, life: 1.15, dx: -1, dy: .25 });
+          if (announce) showToast("CAMBIO DE VIENTO · las ovejas reajustan dirección y alineación");
+        } else if (kind === "DORADA EN JUEGO") {
+          const golden = sheep.find(item => item.golden && item.pennedBy < 0);
+          if (golden) {
+            const dog = dogs[golden.targetDog];
+            dog.barkPulse = 1;
+            golden.panic = .85;
+            golden.vx += (dog.x < golden.x ? 1 : -1) * 38;
+          }
+          if (announce) showToast("OVEJA DORADA EN JUEGO · valor doble si cruza la puerta" );
+        }
+        sparks.push({ x: center.x, y: center.y, color: kind === "EMBESTIDA" ? COLORS.coral : COLORS.gold, life: 1.3, size: 36 });
+      }
+
+      function autoEvents() {
+        const cycle = Math.floor(simTime / 7.4);
+        if (cycle === lastAutoEvent) return;
+        lastAutoEvent = cycle;
+        const events = ["FLANQUEO", "CAMBIO DE VIENTO", "ARCO LATERAL", "DORADA EN JUEGO", "EMBESTIDA", "FLANQUEO"];
+        const event = events[cycle % events.length];
+        if (cycle > 0) triggerEvent(event, true);
+        else currentEvent = "FLANQUEO";
+      }
+
+      function step(delta) {
+        simTime += delta;
+        autoEvents();
+        const state = worldState();
+        for (const item of sheep) {
+          item.scorePulse = Math.max(0, item.scorePulse - delta * 1.3);
+          if (item.pennedBy >= 0) {
+            const pen = pens[item.pennedBy];
+            item.x += (pen.x + Math.sin(item.id * 2.1 + simTime) * 18 - item.x) * Math.min(1, delta * 2.5);
+            item.y += (pen.y + Math.cos(item.id * 1.7 + simTime) * 15 - item.y) * Math.min(1, delta * 2.5);
+            continue;
+          }
+          sheepSteering(item, state, delta);
+          item.x = clamp(item.x, 16, WORLD.w - 16);
+          item.y = clamp(item.y, 16, WORLD.h - 16);
+        }
+
+        for (let index = 0; index < dogs.length; index += 1) {
+          const dogState = worldState();
+          dogSteering(dogs[index], index, dogState, delta);
+        }
+
+        settlePens();
+        for (const disturbance of disturbances) {
+          disturbance.life -= delta;
+          if (disturbance.dx) {
+            disturbance.x += disturbance.dx * delta * 15;
+            disturbance.y += disturbance.dy * delta * 8;
+          }
+        }
+        disturbances = disturbances.filter(item => item.life > 0);
+        for (const spark of sparks) spark.life -= delta * .8;
+        sparks = sparks.filter(spark => spark.life > 0);
+        trails.push(...dogs.map(dog => ({ x: dog.x, y: dog.y, color: dog.color, life: .2, radius: dog.crouch ? 12 : 7 })));
+        for (const trail of trails) trail.life -= delta;
+        trails = trails.filter(trail => trail.life > 0);
+      }
+
+      function roundRect(context, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.arcTo(x + width, y, x + width, y + height, r);
+        context.arcTo(x + width, y + height, x, y + height, r);
+        context.arcTo(x, y + height, x, y, r);
+        context.arcTo(x, y, x + width, y, r);
+        context.closePath();
+      }
+
+      function drawGround() {
+        const gradient = ctx.createLinearGradient(0, 0, WORLD.w, WORLD.h);
+        gradient.addColorStop(0, COLORS.grassA);
+        gradient.addColorStop(.5, "#0B272B");
+        gradient.addColorStop(1, COLORS.grassB);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+        const glow = ctx.createRadialGradient(WORLD.w * .5, WORLD.h * .49, 35, WORLD.w * .5, WORLD.h * .49, 560);
+        glow.addColorStop(0, "rgba(25, 112, 92, .19)");
+        glow.addColorStop(1, "rgba(3, 11, 18, .22)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+        ctx.save();
+        ctx.strokeStyle = COLORS.grassLine;
+        ctx.lineWidth = 1;
+        for (let y = -40; y < WORLD.h + 50; y += 32) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(WORLD.w, y + 22);
+          ctx.stroke();
+        }
+        for (let x = 22; x < WORLD.w; x += 54) {
+          for (let y = 18; y < WORLD.h; y += 51) {
+            const wave = Math.sin(x * .021 + y * .034) * 4;
+            ctx.beginPath();
+            ctx.moveTo(x, y + wave);
+            ctx.lineTo(x + 2, y - 6 + wave);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+
+        ctx.save();
+        ctx.setLineDash([8, 10]);
+        ctx.strokeStyle = "rgba(164, 207, 191, .17)";
+        ctx.lineWidth = 2;
+        roundRect(ctx, 15, 15, WORLD.w - 30, WORLD.h - 30, 25);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPen(pen) {
+        const pulse = .5 + .5 * Math.sin(simTime * 2.1 + pen.glowPhase);
+        const glow = ctx.createRadialGradient(pen.x, pen.y, pen.r * .35, pen.x, pen.y, pen.r * 1.85);
+        glow.addColorStop(0, pen.color + "31");
+        glow.addColorStop(.45, pen.color + "18");
+        glow.addColorStop(1, pen.color + "00");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(pen.x, pen.y, pen.r * 1.85, 0, TAU);
+        ctx.fill();
+
+        ctx.save();
+        ctx.fillStyle = pen.dark;
+        ctx.globalAlpha = .82;
+        ctx.beginPath();
+        ctx.arc(pen.x, pen.y, pen.r * .84, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = pen.color;
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = pen.color;
+        ctx.shadowBlur = 14 + pulse * 13;
+        ctx.setLineDash([10, 6]);
+        ctx.beginPath();
+        ctx.arc(pen.x, pen.y, pen.r, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+
+        const gateStart = pen.gateAngle - .26;
+        const gateEnd = pen.gateAngle + .26;
+        ctx.strokeStyle = "#06111A";
+        ctx.lineWidth = 9;
+        ctx.beginPath();
+        ctx.arc(pen.x, pen.y, pen.r, gateStart, gateEnd);
+        ctx.stroke();
+        ctx.strokeStyle = pen.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pen.x + Math.cos(gateStart) * (pen.r - 3), pen.y + Math.sin(gateStart) * (pen.r - 3));
+        ctx.lineTo(pen.x + Math.cos(gateStart) * (pen.r + 13), pen.y + Math.sin(gateStart) * (pen.r + 13));
+        ctx.moveTo(pen.x + Math.cos(gateEnd) * (pen.r - 3), pen.y + Math.sin(gateEnd) * (pen.r - 3));
+        ctx.lineTo(pen.x + Math.cos(gateEnd) * (pen.r + 13), pen.y + Math.sin(gateEnd) * (pen.r + 13));
+        ctx.stroke();
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(242, 249, 255, .95)";
+        ctx.font = "800 12px Inter, system-ui, sans-serif";
+        ctx.fillText(pen.short, pen.x, pen.y - 5);
+        ctx.fillStyle = pen.color;
+        ctx.font = "800 11px Inter, system-ui, sans-serif";
+        ctx.fillText(`${pen.score} PTS`, pen.x, pen.y + 13);
+        ctx.restore();
+      }
+
+      function drawDisturbances() {
+        for (const disturbance of disturbances) {
+          const phase = 1 - disturbance.life / 1.3;
+          const radius = disturbance.radius * (.42 + phase * .58);
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, disturbance.life) * .38;
+          ctx.strokeStyle = COLORS.coral;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(disturbance.x, disturbance.y, radius, 0, TAU);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawSheep(item) {
+        if (item.pennedBy >= 0) {
+          const pen = pens[item.pennedBy];
+          ctx.save();
+          ctx.globalAlpha = .64;
+          ctx.translate(item.x, item.y);
+          ctx.fillStyle = item.golden ? COLORS.gold : pen.color;
+          ctx.beginPath();
+          ctx.arc(0, 0, item.golden ? 5 : 4.2, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+          return;
+        }
+
+        const size = item.size;
+        const gold = item.golden;
+        const bodyColor = gold ? "#FDE68A" : COLORS.sheep;
+        const haloColor = gold ? "rgba(251, 191, 36, .53)" : "rgba(222, 242, 250, .22)";
+        ctx.save();
+        ctx.translate(item.x, item.y);
+        ctx.rotate(item.heading);
+
+        if (gold || item.panic > .56) {
+          ctx.shadowColor = gold ? COLORS.gold : "rgba(244, 63, 94, .7)";
+          ctx.shadowBlur = gold ? 15 : 8;
+        }
+        ctx.fillStyle = haloColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * (gold ? 1.65 : 1.22), 0, TAU);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = gold ? "#B97812" : COLORS.sheepShade;
+        ctx.beginPath();
+        ctx.ellipse(-1, 0, size * 1.05, size * .72, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.ellipse(0, -.7, size * .88, size * .68, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = gold ? "#FFF4C2" : "#F8FCFF";
+        ctx.beginPath();
+        ctx.arc(size * .67, -size * .12, size * .36, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = gold ? "#7C480B" : "#526778";
+        ctx.beginPath();
+        ctx.arc(size * .78, -size * .22, Math.max(1.2, size * .1), 0, TAU);
+        ctx.fill();
+        if (gold) {
+          ctx.strokeStyle = "#FFF3BD";
+          ctx.lineWidth = 1.25;
+          ctx.beginPath();
+          ctx.arc(0, 0, size * 1.42, .4, 2.55);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawDog(dog) {
+        const heading = Math.atan2(dog.vy || .01, dog.vx || 1);
+        const alertRadius = settings.alertRadius;
+        const nearestGroup = sheep.filter(item => item.pennedBy < 0 && item.targetDog === dog.index);
+        let groupCenter = { x: dog.x, y: dog.y };
+        if (nearestGroup.length) {
+          groupCenter = nearestGroup.reduce((sum, item) => ({ x: sum.x + item.x / nearestGroup.length, y: sum.y + item.y / nearestGroup.length }), { x: 0, y: 0 });
+        }
+        const dogDistance = distance(dog, groupCenter);
+
+        ctx.save();
+        ctx.strokeStyle = dog.color + "49";
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash([5, 8]);
+        ctx.beginPath();
+        ctx.arc(dog.x, dog.y, alertRadius, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (dog.lastTarget && dogDistance > 85) {
+          ctx.strokeStyle = dog.color + "45";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(dog.x, dog.y);
+          ctx.lineTo(dog.lastTarget.x, dog.lastTarget.y);
+          ctx.stroke();
+          ctx.fillStyle = dog.color + "6B";
+          ctx.beginPath();
+          ctx.arc(dog.lastTarget.x, dog.lastTarget.y, 5, 0, TAU);
+          ctx.fill();
+        }
+
+        ctx.translate(dog.x, dog.y);
+        ctx.rotate(heading);
+        ctx.shadowColor = dog.color;
+        ctx.shadowBlur = dog.crouch ? 10 : 20 + dog.barkPulse * 14;
+        ctx.fillStyle = "rgba(4, 10, 17, .8)";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 18, 11, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = dog.color;
+        ctx.beginPath();
+        ctx.ellipse(-1, 0, 15.3, 8.7, 0, 0, TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(11, -1.2, 6.2, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = "#07111B";
+        ctx.beginPath();
+        ctx.moveTo(7, -5);
+        ctx.lineTo(7, -12);
+        ctx.lineTo(12, -7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(14, -2.2, 1.25, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = "#07111B";
+        ctx.lineWidth = 2.3;
+        ctx.beginPath();
+        ctx.moveTo(-10, 2);
+        ctx.quadraticCurveTo(-20, 4, -18, -3);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = "rgba(5, 13, 21, .83)";
+        roundRect(ctx, dog.x - 42, dog.y - 31, 84, 19, 7);
+        ctx.fill();
+        ctx.strokeStyle = dog.color + "91";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#F2F8FC";
+        ctx.font = "800 10px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const label = dog.index === 0 ? "HYDROGEN" : dog.index === 1 ? "HAIKU" : "LUNA";
+        ctx.fillText(`${label} · ${dog.crouch ? "ACECHO" : "ARCO"}`, dog.x, dog.y - 21.5);
+        ctx.restore();
+      }
+
+      function drawSparks() {
+        for (const spark of sparks) {
+          const phase = 1 - spark.life;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, spark.life);
+          ctx.strokeStyle = spark.color;
+          ctx.lineWidth = 2.2;
+          ctx.shadowColor = spark.color;
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(spark.x, spark.y, spark.size * (.5 + phase), 0, TAU);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawWorld() {
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        ctx.clearRect(0, 0, canvas.width / pixelRatio, canvas.height / pixelRatio);
+        ctx.scale(viewScaleX, viewScaleY);
+        drawGround();
+        drawDisturbances();
+        for (const pen of pens) drawPen(pen);
+        for (const item of sheep) drawSheep(item);
+        for (const trail of trails) {
+          ctx.save();
+          ctx.globalAlpha = trail.life * .34;
+          ctx.fillStyle = trail.color;
+          ctx.beginPath();
+          ctx.arc(trail.x, trail.y, trail.radius * (1 - trail.life * .5), 0, TAU);
+          ctx.fill();
+          ctx.restore();
+        }
+        for (const dog of dogs) drawDog(dog);
+        drawSparks();
+        drawFieldLabels();
+      }
+
+      function drawFieldLabels() {
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(207, 227, 222, .54)";
+        ctx.font = "800 12px Inter, system-ui, sans-serif";
+        ctx.fillText("ZONA DE REBAÑO", WORLD.w * .5, WORLD.h * .5 + 142);
+        ctx.font = "700 10px Inter, system-ui, sans-serif";
+        ctx.fillStyle = "rgba(165, 194, 186, .42)";
+        ctx.fillText("CAMPO DE VISIÓN · RADIO DE ALERTA", WORLD.w * .5, 30);
+        ctx.restore();
+      }
+
+      function updateMetrics() {
+        const free = sheep.filter(item => item.pennedBy < 0).length;
+        const goldFree = sheep.filter(item => item.golden && item.pennedBy < 0).length;
+        ui.cohesion.innerHTML = `${Math.round(calculateCohesion() * 100)}<em>%</em>`;
+        ui.free.textContent = String(free);
+        ui.gold.textContent = String(goldFree);
+        ui.event.textContent = currentEvent;
+        ui.clock.textContent = `${String(Math.floor(simTime / 60)).padStart(2, "0")}:${String(Math.floor(simTime % 60)).padStart(2, "0")}`;
+        ui.round.textContent = `RONDA ${Math.floor(simTime / 30) + 1}`;
+      }
+
+      function drawFrame(now) {
+        if (!lastFrame) lastFrame = now;
+        const elapsed = Math.min(.05, Math.max(0, (now - lastFrame) / 1000));
+        lastFrame = now;
+        fpsFrames += 1;
+        if (now - fpsStart >= 800) {
+          displayFps = Math.round(fpsFrames * 1000 / (now - fpsStart));
+          fpsFrames = 0;
+          fpsStart = now;
+          ui.fps.textContent = String(displayFps);
+        }
+
+        if (running) {
+          accumulated += elapsed * settings.speed;
+          const fixed = 1 / 60;
+          let substeps = 0;
+          while (accumulated >= fixed && substeps < settings.maxSubsteps) {
+            step(fixed);
+            accumulated -= fixed;
+            substeps += 1;
+          }
+          if (substeps === settings.maxSubsteps) accumulated = Math.min(accumulated, fixed);
+        }
+
+        drawWorld();
+        if (Math.floor(now / 180) !== Math.floor((now - 16) / 180)) updateMetrics();
+        requestAnimationFrame(drawFrame);
+      }
+
+      function pointerToWorld(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: clamp((event.clientX - rect.left) / rect.width * WORLD.w, 0, WORLD.w),
+          y: clamp((event.clientY - rect.top) / rect.height * WORLD.h, 0, WORLD.h)
+        };
+      }
+
+      canvas.addEventListener("pointerdown", event => {
+        const point = pointerToWorld(event);
+        const dog = dogs.findIndex(item => distance(item, point) < 31);
+        if (dog >= 0) {
+          dragDog = dog;
+          pointerWorld = point;
+          canvas.setPointerCapture(event.pointerId);
+          event.preventDefault();
+        }
+      });
+
+      canvas.addEventListener("pointermove", event => {
+        if (dragDog < 0) return;
+        pointerWorld = pointerToWorld(event);
+        dogs[dragDog].x = pointerWorld.x;
+        dogs[dragDog].y = pointerWorld.y;
+        dogs[dragDog].vx = 0;
+        dogs[dragDog].vy = 0;
+      });
+
+      function endPointer(event) {
+        if (dragDog >= 0) {
+          dogs[dragDog].commanded = false;
+          dragDog = -1;
+          pointerWorld = null;
+          return;
+        }
+        if (event && event.type === "pointerup") {
+          const point = pointerToWorld(event);
+          disturbances.push({ x: point.x, y: point.y, radius: 135, power: 270, life: 1.05 });
+          showToast("Estímulo en el campo · observa la contracción local del rebaño");
+        }
+      }
+
+      canvas.addEventListener("pointerup", endPointer);
+      canvas.addEventListener("pointercancel", () => { dragDog = -1; pointerWorld = null; });
+
+      ui.pauseButton.addEventListener("click", () => {
+        running = !running;
+        ui.status.textContent = running ? "SIMULACIÓN EN VIVO" : "SIMULACIÓN EN PAUSA";
+        ui.pauseText.textContent = running ? "Pausar" : "Continuar";
+        ui.pauseIcon.className = `button-icon ${running ? "icon-pause" : "icon-play"}`;
+        showToast(running ? "Simulación en marcha" : "Simulación pausada");
+      });
+
+      document.getElementById("resetButton").addEventListener("click", () => {
+        running = true;
+        ui.status.textContent = "SIMULACIÓN EN VIVO";
+        ui.pauseText.textContent = "Pausar";
+        ui.pauseIcon.className = "button-icon icon-pause";
+        resetSimulation();
+      });
+
+      document.getElementById("alertSlider").addEventListener("input", event => {
+        settings.alertRadius = Number(event.target.value);
+        document.getElementById("alertOutput").textContent = String(settings.alertRadius);
+      });
+
+      document.getElementById("driveSlider").addEventListener("input", event => {
+        settings.drive = Number(event.target.value) / 100;
+        document.getElementById("driveOutput").textContent = `${settings.drive.toFixed(1)}x`;
+      });
+
+      document.getElementById("speedSlider").addEventListener("input", event => {
+        settings.speed = Number(event.target.value) / 100;
+        document.getElementById("speedOutput").textContent = `${settings.speed.toFixed(1)}x`;
+      });
+
+      window.addEventListener("resize", resizeCanvas, { passive: true });
+      initPenUI();
+      resizeCanvas();
+      resetSimulation();
+      requestAnimationFrame(drawFrame);
+    })();
+  </script>
+</body>
+</html>

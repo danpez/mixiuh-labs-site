@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador Fisico de Billar Artistico — Efecto Masse | Mixiuh Labs</title>
+<style>
+  :root {
+    --bg: #060A12;
+    --panel: #0F172A;
+    --panel-border: #1E293B;
+    --cyan: #22D3EE;
+    --blue: #38BDF8;
+    --orange: #FB923C;
+    --emerald: #10B981;
+    --gold: #FBBF24;
+    --coral: #F43F5E;
+    --text: #F8FAFC;
+    --muted: #94A3B8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  .app {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 440px;
+    grid-template-rows: 74px 1fr;
+    gap: 14px;
+    padding: 14px;
+    background: radial-gradient(circle at 28% 50%, #0B1324 0%, #060A12 72%);
+  }
+  header {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .brand-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .brand-sub {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hud-pills {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .pill {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 112px;
+  }
+  .pill-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 700;
+  }
+  .pill-val {
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .stage {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #tableCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--blue);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .presets {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .btn-preset {
+    background: #131E36;
+    border: 1px solid #24324D;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+  }
+  .btn-preset:hover {
+    border-color: var(--cyan);
+    background: #182745;
+  }
+  .btn-preset.active {
+    border-color: var(--cyan);
+    background: rgba(34, 211, 238, 0.14);
+    color: var(--cyan);
+  }
+  .btn-preset span.tag {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .impact-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+  #impactCanvas {
+    width: 150px;
+    height: 150px;
+    border-radius: 12px;
+    background: #080E1A;
+    border: 1px solid #1E293B;
+    cursor: crosshair;
+  }
+  .sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .slider-head strong {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--cyan);
+    cursor: pointer;
+  }
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+  .btn-fire {
+    background: linear-gradient(135deg, #22D3EE 0%, #38BDF8 100%);
+    color: #060A12;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 16px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: transform 0.1s ease, filter 0.15s ease;
+  }
+  .btn-fire:hover { filter: brightness(1.08); }
+  .btn-fire:active { transform: scale(0.98); }
+  .btn-auto {
+    background: #131E36;
+    border: 1px solid #24324D;
+    color: var(--emerald);
+    border-radius: 10px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+  }
+  .btn-auto.off { color: var(--muted); }
+  .chart-wrap {
+    flex: 1;
+    min-height: 170px;
+    display: flex;
+    flex-direction: column;
+  }
+  #chartCanvas {
+    width: 100%;
+    height: 100%;
+    min-height: 155px;
+    background: #080E1A;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    display: block;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="16" stroke="#22D3EE" stroke-width="2.5" fill="#0B1324"/>
+        <path d="M9 24 C14 10, 22 10, 27 14" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="27" cy="14" r="3.5" fill="#F43F5E"/>
+        <circle cx="9" cy="24" r="3" fill="#F8FAFC"/>
+      </svg>
+      <div>
+        <div class="brand-title">BILLAR ARTISTICO — EFECTO MASSE</div>
+        <div class="brand-sub">Laboratorio de Fisica No Lineal · 60 FPS</div>
+      </div>
+    </div>
+    <div class="hud-pills">
+      <div class="pill">
+        <span class="pill-label">Elevacion Taco</span>
+        <span class="pill-val" id="hudElev" style="color: var(--cyan);">68 deg</span>
+      </div>
+      <div class="pill">
+        <span class="pill-label">Spin Axial</span>
+        <span class="pill-val" id="hudSpin" style="color: var(--gold);">3400 RPM</span>
+      </div>
+      <div class="pill">
+        <span class="pill-label">Desviacion Max</span>
+        <span class="pill-val" id="hudDev" style="color: var(--coral);">0 px</span>
+      </div>
+      <div class="pill">
+        <span class="pill-label">Bolas Embocadas</span>
+        <span class="pill-val" id="hudPocket" style="color: var(--emerald);">0</span>
+      </div>
+      <div class="pill">
+        <span class="pill-label">FPS</span>
+        <span class="pill-val" id="hudFps" style="color: var(--blue);">60</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="tableCanvas" width="1420" height="960"></canvas>
+  </main>
+
+  <aside class="sidebar">
+    <div class="card">
+      <div class="card-title">
+        <span>Escenarios Preconfigurados</span>
+        <span id="cycleBadge" style="color: var(--emerald); font-size: 11px;">CICLO ACTIVO</span>
+      </div>
+      <div class="presets">
+        <button class="btn-preset active" data-preset="0">
+          <span>1. Curva en S</span>
+          <span class="tag">66 deg · Swerve</span>
+        </button>
+        <button class="btn-preset" data-preset="1">
+          <span>2. Rodeo Doble</span>
+          <span class="tag">71 deg · Arco Largo</span>
+        </button>
+        <button class="btn-preset" data-preset="2">
+          <span>3. Masse Extremo 75°</span>
+          <span class="tag">75 deg · Giro Max</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Spin / Elevacion del Taco</span>
+        <span style="color: var(--muted); font-size: 11px;">Arrastra el punto</span>
+      </div>
+      <div class="impact-row">
+        <canvas id="impactCanvas" width="150" height="150"></canvas>
+        <div class="sliders">
+          <div class="slider-group">
+            <div class="slider-head">
+              <span>Elevacion del Taco</span>
+              <strong id="valElev">66°</strong>
+            </div>
+            <input type="range" id="rngElev" min="45" max="80" value="66">
+          </div>
+          <div class="slider-group">
+            <div class="slider-head">
+              <span>Potencia de Golpe</span>
+              <strong id="valPower">78%</strong>
+            </div>
+            <input type="range" id="rngPower" min="40" max="100" value="78">
+          </div>
+          <div class="slider-group">
+            <div class="slider-head">
+              <span>Efecto Lateral</span>
+              <strong id="valSide">-0.82</strong>
+            </div>
+            <input type="range" id="rngSide" min="-100" max="100" value="-82">
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-fire" id="btnFire">DISPARAR MASSE</button>
+        <button class="btn-auto" id="btnAuto">AUTO: ON</button>
+      </div>
+    </div>
+
+    <div class="card chart-wrap">
+      <div class="card-title">
+        <span>Velocidad Lineal vs Angular (rad/s)</span>
+        <span style="color: var(--cyan); font-size: 11px;">Tiempo Real</span>
+      </div>
+      <canvas id="chartCanvas" width="400" height="180"></canvas>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const tableCanvas = document.getElementById('tableCanvas');
+  const ctx = tableCanvas.getContext('2d');
+  const impactCanvas = document.getElementById('impactCanvas');
+  const ictx = impactCanvas.getContext('2d');
+  const chartCanvas = document.getElementById('chartCanvas');
+  const cctx = chartCanvas.getContext('2d');
+
+  // Table geometry inside 1420x960 canvas
+  const TABLE = {
+    x: 110,
+    y: 90,
+    w: 1200,
+    h: 780,
+    rail: 46,
+    pocketR: 28,
+    ballR: 18
+  };
+
+  const POCKETS = [
+    { x: TABLE.x + 8, y: TABLE.y + 8, name: 'TL' },
+    { x: TABLE.x + TABLE.w / 2, y: TABLE.y - 4, name: 'TM' },
+    { x: TABLE.x + TABLE.w - 8, y: TABLE.y + 8, name: 'TR' },
+    { x: TABLE.x + 8, y: TABLE.y + TABLE.h - 8, name: 'BL' },
+    { x: TABLE.x + TABLE.w / 2, y: TABLE.y + TABLE.h + 4, name: 'BM' },
+    { x: TABLE.x + TABLE.w - 8, y: TABLE.y + TABLE.h - 8, name: 'BR' }
+  ];
+
+  const PRESETS = [
+    {
+      name: 'Curva en S',
+      cueElev: 66,
+      power: 78,
+      sideSpin: -0.84,
+      aimAngle: -0.78, // radians
+      cuePos: { x: TABLE.x + 260, y: TABLE.y + 560 },
+      eightPos: { x: TABLE.x + 600, y: TABLE.y + 185 },
+      obstacles: [
+        { x: TABLE.x + 410, y: TABLE.y + 390, num: 3, color: '#F43F5E' },
+        { x: TABLE.x + 495, y: TABLE.y + 305, num: 11, color: '#FB923C' }
+      ]
+    },
+    {
+      name: 'Rodeo Doble',
+      cueElev: 71,
+      power: 84,
+      sideSpin: 0.88,
+      aimAngle: -1.12,
+      cuePos: { x: TABLE.x + 860, y: TABLE.y + 580 },
+      eightPos: { x: TABLE.x + 600, y: TABLE.y + 185 },
+      obstacles: [
+        { x: TABLE.x + 730, y: TABLE.y + 395, num: 2, color: '#38BDF8' },
+        { x: TABLE.x + 665, y: TABLE.y + 295, num: 14, color: '#10B981' }
+      ]
+    },
+    {
+      name: 'Masse Extremo 75°',
+      cueElev: 75,
+      power: 92,
+      sideSpin: -0.95,
+      aimAngle: -0.45,
+      cuePos: { x: TABLE.x + 280, y: TABLE.y + 600 },
+      eightPos: { x: TABLE.x + 600, y: TABLE.y + 185 },
+      obstacles: [
+        { x: TABLE.x + 430, y: TABLE.y + 425, num: 5, color: '#FBBF24' },
+        { x: TABLE.x + 510, y: TABLE.y + 325, num: 7, color: '#A855F7' }
+      ]
+    }
+  ];
+
+  let currentPreset = 0;
+  let autoCycle = true;
+  let balls = [];
+  let cueElev = 66;
+  let power = 78;
+  let sideSpin = -0.84;
+  let pocketedCount = 0;
+  let maxCurveDeviationPx = 0;
+  let shotActive = false;
+  let shotTime = 0;
+  let idleTimer = 0;
+  let cueAnimProgress = 0;
+  let trailPoints = [];
+  let historyLin = [];
+  let historyAng = [];
+  let fps = 60;
+  let frameCount = 0;
+  let lastFpsTime = performance.now();
+
+  // Audio context for subtle click on shot/pocket
+  let audioCtx = null;
+  function playClick(freq = 320, dur = 0.05) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(90, audioCtx.currentTime + dur);
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    } catch (_) {}
+  }
+
+  function createBall(x, y, num, color, isCue = false) {
+    return {
+      x, y, vx: 0, vy: 0,
+      omega: 0, // axial spin rad/s
+      spinAngle: 0,
+      rollPhase: 0,
+      num, color, isCue,
+      pocketed: false,
+      startX: x, startY: y,
+      aimX: 0, aimY: 0
+    };
+  }
+
+  function loadPreset(idx, autoFire = true) {
+    currentPreset = idx;
+    const p = PRESETS[idx];
+    cueElev = p.cueElev;
+    power = p.power;
+    sideSpin = p.sideSpin;
+
+    document.getElementById('rngElev').value = cueElev;
+    document.getElementById('rngPower').value = power;
+    document.getElementById('rngSide').value = Math.round(sideSpin * 100);
+    updateSlidersUI();
+
+    document.querySelectorAll('.btn-preset').forEach((b, i) => {
+      b.classList.toggle('active', i === idx);
+    });
+
+    balls = [
+      createBall(p.cuePos.x, p.cuePos.y, 0, '#F8FAFC', true),
+      createBall(p.eightPos.x, p.eightPos.y, 8, '#0F172A', false),
+      createBall(p.obstacles[0].x, p.obstacles[0].y, p.obstacles[0].num, p.obstacles[0].color, false),
+      createBall(p.obstacles[1].x, p.obstacles[1].y, p.obstacles[1].num, p.obstacles[1].color, false)
+    ];
+
+    shotActive = false;
+    shotTime = 0;
+    idleTimer = 0;
+    cueAnimProgress = 0;
+    trailPoints = [];
+    historyLin = [];
+    historyAng = [];
+    maxCurveDeviationPx = 0;
+
+    if (autoFire) {
+      setTimeout(() => {
+        if (!shotActive) fireMasse();
+      }, 450);
+    }
+  }
+
+  function fireMasse() {
+    const cue = balls[0];
+    if (!cue || cue.pocketed) {
+      loadPreset(currentPreset, false);
+    }
+    const p = PRESETS[currentPreset];
+    const c = balls[0];
+    const speed = (power / 100) * 920; // px/s
+    c.vx = Math.cos(p.aimAngle) * speed;
+    c.vy = Math.sin(p.aimAngle) * speed;
+    c.aimX = Math.cos(p.aimAngle);
+    c.aimY = Math.sin(p.aimAngle);
+    c.startX = c.x;
+    c.startY = c.y;
+
+    // Spin in rad/s: higher elevation + higher sideSpin => stronger axial masse spin
+    const elevFactor = Math.sin((cueElev * Math.PI) / 180);
+    c.omega = sideSpin * elevFactor * (power / 100) * 420; // rad/s (~3400+ RPM)
+    shotActive = true;
+    shotTime = 0;
+    idleTimer = 0;
+    trailPoints = [{ x: c.x, y: c.y, phase: 'slide' }];
+    historyLin = [];
+    historyAng = [];
+    maxCurveDeviationPx = 0;
+    playClick(340, 0.06);
+  }
+
+  function predictTrajectory() {
+    const cue = balls[0];
+    if (!cue) return [];
+    const p = PRESETS[currentPreset];
+    const speed = (power / 100) * 920;
+    let vx = Math.cos(p.aimAngle) * speed;
+    let vy = Math.sin(p.aimAngle) * speed;
+    const elevFactor = Math.sin((cueElev * Math.PI) / 180);
+    let omega = sideSpin * elevFactor * (power / 100) * 420;
+    let x = cue.x;
+    let y = cue.y;
+    const pts = [];
+    const dt = 1 / 60;
+    for (let i = 0; i < 150; i++) {
+      const t = i * dt;
+      const spd = Math.hypot(vx, vy);
+      if (spd < 12 && Math.abs(omega) < 5) break;
+
+      // Masse physics: first 0.28s is mostly straight sliding, then cloth friction converts axial spin into lateral curve
+      const grip = Math.min(1, t / 0.32);
+      const nx = -vy / (spd || 1);
+      const ny = vx / (spd || 1);
+      const curveAccel = omega * 3.15 * grip;
+      vx += nx * curveAccel * dt;
+      vy += ny * curveAccel * dt;
+
+      // Cloth friction
+      const drag = 0.986;
+      vx *= drag;
+      vy *= drag;
+      omega *= 0.988;
+
+      x += vx * dt;
+      y += vy * dt;
+
+      // Bounce preview off rails
+      if (x < TABLE.x + TABLE.ballR) { x = TABLE.x + TABLE.ballR; vx = Math.abs(vx) * 0.82; }
+      if (x > TABLE.x + TABLE.w - TABLE.ballR) { x = TABLE.x + TABLE.w - TABLE.ballR; vx = -Math.abs(vx) * 0.82; }
+      if (y < TABLE.y + TABLE.ballR) { y = TABLE.y + TABLE.ballR; vy = Math.abs(vy) * 0.82; }
+      if (y > TABLE.y + TABLE.h - TABLE.ballR) { y = TABLE.y + TABLE.h - TABLE.ballR; vy = -Math.abs(vy) * 0.82; }
+
+      pts.push({ x, y, phase: t < 0.28 ? 'slide' : 'curve' });
+    }
+    return pts;
+  }
+
+  function stepPhysics(dt) {
+    if (!shotActive) return;
+    shotTime += dt;
+
+    for (const b of balls) {
+      if (b.pocketed) continue;
+
+      if (b.isCue) {
+        const spd = Math.hypot(b.vx, b.vy);
+        const grip = Math.min(1, shotTime / 0.32);
+        if (spd > 1) {
+          const nx = -b.vy / spd;
+          const ny = b.vx / spd;
+          const curveAccel = b.omega * 3.15 * grip;
+          b.vx += nx * curveAccel * dt;
+          b.vy += ny * curveAccel * dt;
+        }
+        b.omega *= 0.988;
+        b.spinAngle += b.omega * dt * 0.15;
+
+        // Compute perpendicular deviation from initial aim line
+        const dx = b.x - b.startX;
+        const dy = b.y - b.startY;
+        const dev = Math.abs(dx * (-b.aimY) + dy * b.aimX);
+        if (dev > maxCurveDeviationPx) maxCurveDeviationPx = dev;
+
+        trailPoints.push({
+          x: b.x,
+          y: b.y,
+          phase: shotTime < 0.28 ? 'slide' : 'curve'
+        });
+        if (trailPoints.length > 220) trailPoints.shift();
+
+        historyLin.push(spd);
+        historyAng.push(Math.abs(b.omega));
+        if (historyLin.length > 140) {
+          historyLin.shift();
+          historyAng.shift();
+        }
+      }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.rollPhase += Math.hypot(b.vx, b.vy) * dt * 0.06;
+
+      // Cloth friction
+      b.vx *= 0.986;
+      b.vy *= 0.986;
+      if (Math.hypot(b.vx, b.vy) < 4) {
+        b.vx = 0;
+        b.vy = 0;
+      }
+
+      // Pocket detection
+      for (const pk of POCKETS) {
+        if (Math.hypot(b.x - pk.x, b.y - pk.y) < TABLE.pocketR + 4) {
+          b.pocketed = true;
+          b.vx = 0;
+          b.vy = 0;
+          if (!b.isCue) {
+            pocketedCount++;
+            playClick(540, 0.09);
+          }
+          break;
+        }
+      }
+      if (b.pocketed) continue;
+
+      // Rail collisions
+      if (b.x < TABLE.x + TABLE.ballR) { b.x = TABLE.x + TABLE.ballR; b.vx = Math.abs(b.vx) * 0.82; }
+      if (b.x > TABLE.x + TABLE.w - TABLE.ballR) { b.x = TABLE.x + TABLE.w - TABLE.ballR; b.vx = -Math.abs(b.vx) * 0.82; }
+      if (b.y < TABLE.y + TABLE.ballR) { b.y = TABLE.y + TABLE.ballR; b.vy = Math.abs(b.vy) * 0.82; }
+      if (b.y > TABLE.y + TABLE.h - TABLE.ballR) { b.y = TABLE.y + TABLE.h - TABLE.ballR; b.vy = -Math.abs(b.vy) * 0.82; }
+    }
+
+    // Ball-ball elastic collisions
+    for (let i = 0; i < balls.length; i++) {
+      for (let j = i + 1; j < balls.length; j++) {
+        const a = balls[i];
+        const b = balls[j];
+        if (a.pocketed || b.pocketed) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = TABLE.ballR * 2;
+        if (dist > 0 && dist < minDist) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const overlap = minDist - dist;
+          a.x -= nx * overlap * 0.5;
+          a.y -= ny * overlap * 0.5;
+          b.x += nx * overlap * 0.5;
+          b.y += ny * overlap * 0.5;
+
+          const dvx = a.vx - b.vx;
+          const dvy = a.vy - b.vy;
+          const vn = dvx * nx + dvy * ny;
+          if (vn > 0) {
+            a.vx -= vn * nx * 0.94;
+            a.vy -= vn * ny * 0.94;
+            b.vx += vn * nx * 0.94;
+            b.vy += vn * ny * 0.94;
+            playClick(420, 0.04);
+          }
+        }
+      }
+    }
+
+    // Check if all balls stopped
+    const moving = balls.some(b => !b.pocketed && (Math.hypot(b.vx, b.vy) > 5 || (b.isCue && Math.abs(b.omega) > 12)));
+    if (!moving && shotTime > 0.6) {
+      idleTimer += dt;
+      if (autoCycle && idleTimer > 1.4) {
+        const next = (currentPreset + 1) % PRESETS.length;
+        loadPreset(next, true);
+      }
+    }
+  }
+
+  function drawTable() {
+    ctx.clearRect(0, 0, tableCanvas.width, tableCanvas.height);
+
+    // Outer mahogany/obsidian frame
+    const r = TABLE.rail;
+    ctx.fillStyle = '#1E1B18';
+    ctx.beginPath();
+    ctx.roundRect(TABLE.x - r, TABLE.y - r, TABLE.w + r * 2, TABLE.h + r * 2, 26);
+    ctx.fill();
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Emerald felt with subtle radial lighting
+    const feltGrad = ctx.createRadialGradient(
+      TABLE.x + TABLE.w * 0.5, TABLE.y + TABLE.h * 0.45, 60,
+      TABLE.x + TABLE.w * 0.5, TABLE.y + TABLE.h * 0.5, TABLE.w * 0.72
+    );
+    feltGrad.addColorStop(0, '#0F766E');
+    feltGrad.addColorStop(0.65, '#065F46');
+    feltGrad.addColorStop(1, '#064E3B');
+    ctx.fillStyle = feltGrad;
+    ctx.beginPath();
+    ctx.roundRect(TABLE.x, TABLE.y, TABLE.w, TABLE.h, 12);
+    ctx.fill();
+
+    // Rubber cushions
+    ctx.strokeStyle = '#047857';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(TABLE.x + 4, TABLE.y + 4, TABLE.w - 8, TABLE.h - 8);
+
+    // Diamonds on rails
+    ctx.fillStyle = '#CBD5E1';
+    for (let i = 1; i <= 3; i++) {
+      const dx = TABLE.x + (TABLE.w / 4) * i;
+      ctx.beginPath(); ctx.arc(dx, TABLE.y - r / 2, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(dx, TABLE.y + TABLE.h + r / 2, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 1; i <= 2; i++) {
+      const dy = TABLE.y + (TABLE.h / 3) * i;
+      ctx.beginPath(); ctx.arc(TABLE.x - r / 2, dy, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(TABLE.x + TABLE.w + r / 2, dy, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Pockets
+    for (const pk of POCKETS) {
+      ctx.fillStyle = '#030712';
+      ctx.beginPath();
+      ctx.arc(pk.x, pk.y, TABLE.pocketR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FBBF24';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Predicted trajectory (cyan slide + gold/coral curve)
+    const pred = predictTrajectory();
+    if (pred.length > 2) {
+      for (let i = 1; i < pred.length; i++) {
+        ctx.beginPath();
+        ctx.moveTo(pred[i - 1].x, pred[i - 1].y);
+        ctx.lineTo(pred[i].x, pred[i].y);
+        ctx.strokeStyle = pred[i].phase === 'slide' ? 'rgba(34, 211, 238, 0.72)' : 'rgba(251, 191, 36, 0.78)';
+        ctx.lineWidth = pred[i].phase === 'slide' ? 3.5 : 4;
+        ctx.setLineDash([7, 6]);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    // Live trail
+    if (trailPoints.length > 1) {
+      for (let i = 1; i < trailPoints.length; i++) {
+        ctx.beginPath();
+        ctx.moveTo(trailPoints[i - 1].x, trailPoints[i - 1].y);
+        ctx.lineTo(trailPoints[i].x, trailPoints[i].y);
+        ctx.strokeStyle = trailPoints[i].phase === 'slide' ? '#22D3EE' : '#F43F5E';
+        ctx.lineWidth = 4.5;
+        ctx.stroke();
+      }
+    }
+
+    // Draw balls
+    for (const b of balls) {
+      if (b.pocketed) continue;
+
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.arc(b.x + 5, b.y + 6, TABLE.ballR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ball body
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, TABLE.ballR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Visible rotation indicator for cue ball
+      if (b.isCue) {
+        const dotX = b.x + Math.cos(b.spinAngle) * (TABLE.ballR * 0.55);
+        const dotY = b.y + Math.sin(b.spinAngle) * (TABLE.ballR * 0.55);
+        ctx.fillStyle = '#F43F5E';
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Number circle
+        ctx.fillStyle = '#F8FAFC';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 8.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0F172A';
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(b.num), b.x, b.y + 0.5);
+      }
+
+      // Specular highlight
+      const spec = ctx.createRadialGradient(b.x - 6, b.y - 6, 1, b.x - 4, b.y - 4, TABLE.ballR);
+      spec.addColorStop(0, 'rgba(255,255,255,0.75)');
+      spec.addColorStop(0.35, 'rgba(255,255,255,0.12)');
+      spec.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = spec;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, TABLE.ballR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Legend overlay on table
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(TABLE.x + 18, TABLE.y + 18, 370, 40, 10);
+    ctx.fill();
+    ctx.font = '700 13px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#22D3EE';
+    ctx.fillText('— DESLIZAMIENTO RECTO', TABLE.x + 32, TABLE.y + 38);
+    ctx.fillStyle = '#FBBF24';
+    ctx.fillText('— CURVA MASSE', TABLE.x + 225, TABLE.y + 38);
+  }
+
+  function drawImpactSphere() {
+    const w = impactCanvas.width;
+    const h = impactCanvas.height;
+    ictx.clearRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = 56;
+
+    const grad = ictx.createRadialGradient(cx - 18, cy - 18, 6, cx, cy, r);
+    grad.addColorStop(0, '#FFFFFF');
+    grad.addColorStop(0.75, '#CBD5E1');
+    grad.addColorStop(1, '#64748B');
+    ictx.fillStyle = grad;
+    ictx.beginPath();
+    ictx.arc(cx, cy, r, 0, Math.PI * 2);
+    ictx.fill();
+
+    // Crosshair
+    ictx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+    ictx.lineWidth = 1.5;
+    ictx.beginPath();
+    ictx.moveTo(cx - r, cy); ictx.lineTo(cx + r, cy);
+    ictx.moveTo(cx, cy - r); ictx.lineTo(cx, cy + r);
+    ictx.stroke();
+
+    // Impact point based on sideSpin and cueElev
+    const px = cx + sideSpin * (r * 0.72);
+    const py = cy - ((cueElev - 45) / 35) * (r * 0.45) + 12;
+    ictx.fillStyle = '#F43F5E';
+    ictx.beginPath();
+    ictx.arc(px, py, 8, 0, Math.PI * 2);
+    ictx.fill();
+    ictx.strokeStyle = '#F8FAFC';
+    ictx.lineWidth = 2;
+    ictx.stroke();
+  }
+
+  function drawChart() {
+    const w = chartCanvas.width;
+    const h = chartCanvas.height;
+    cctx.clearRect(0, 0, w, h);
+
+    // Grid
+    cctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+    cctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const y = (h / 4) * i;
+      cctx.beginPath();
+      cctx.moveTo(0, y);
+      cctx.lineTo(w, y);
+      cctx.stroke();
+    }
+
+    const plotLine = (data, maxVal, color) => {
+      if (data.length < 2) return;
+      cctx.beginPath();
+      for (let i = 0; i < data.length; i++) {
+        const x = (i / Math.max(1, data.length - 1)) * (w - 16) + 8;
+        const y = h - 14 - Math.min(1, data[i] / maxVal) * (h - 32);
+        if (i === 0) cctx.moveTo(x, y);
+        else cctx.lineTo(x, y);
+      }
+      cctx.strokeStyle = color;
+      cctx.lineWidth = 2.5;
+      cctx.stroke();
+    };
+
+    plotLine(historyLin, 950, '#22D3EE');
+    plotLine(historyAng, 450, '#FBBF24');
+
+    cctx.font = '700 11px Inter, sans-serif';
+    cctx.fillStyle = '#22D3EE';
+    cctx.fillText('V. Lineal (px/s)', 12, 16);
+    cctx.fillStyle = '#FBBF24';
+    cctx.fillText('V. Angular (rad/s)', 135, 16);
+  }
+
+  function updateSlidersUI() {
+    document.getElementById('valElev').textContent = `${cueElev}°`;
+    document.getElementById('valPower').textContent = `${power}%`;
+    document.getElementById('valSide').textContent = sideSpin.toFixed(2);
+    document.getElementById('hudElev').textContent = `${cueElev} deg`;
+    const rpm = Math.round(Math.abs(sideSpin) * Math.sin((cueElev * Math.PI) / 180) * (power / 100) * 420 * 9.549);
+    document.getElementById('hudSpin').textContent = `${rpm} RPM`;
+  }
+
+  function updateHUD() {
+    document.getElementById('hudDev').textContent = `${Math.round(maxCurveDeviationPx)} px`;
+    document.getElementById('hudPocket').textContent = String(pocketedCount);
+    document.getElementById('hudFps').textContent = String(fps);
+  }
+
+  // Event listeners
+  document.querySelectorAll('.btn-preset').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      loadPreset(Number(btn.dataset.preset), true);
+    });
+  });
+
+  document.getElementById('rngElev').addEventListener('input', (e) => {
+    cueElev = Number(e.target.value);
+    updateSlidersUI();
+  });
+  document.getElementById('rngPower').addEventListener('input', (e) => {
+    power = Number(e.target.value);
+    updateSlidersUI();
+  });
+  document.getElementById('rngSide').addEventListener('input', (e) => {
+    sideSpin = Number(e.target.value) / 100;
+    updateSlidersUI();
+  });
+
+  impactCanvas.addEventListener('pointerdown', (e) => {
+    const rect = impactCanvas.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * impactCanvas.width;
+    sideSpin = Math.max(-1, Math.min(1, (x - impactCanvas.width / 2) / 42));
+    document.getElementById('rngSide').value = Math.round(sideSpin * 100);
+    updateSlidersUI();
+  });
+
+  document.getElementById('btnFire').addEventListener('click', () => fireMasse());
+  document.getElementById('btnAuto').addEventListener('click', (e) => {
+    autoCycle = !autoCycle;
+    e.target.textContent = autoCycle ? 'AUTO: ON' : 'AUTO: OFF';
+    e.target.classList.toggle('off', !autoCycle);
+    document.getElementById('cycleBadge').textContent = autoCycle ? 'CICLO ACTIVO' : 'MANUAL';
+    document.getElementById('cycleBadge').style.color = autoCycle ? 'var(--emerald)' : 'var(--muted)';
+  });
+
+  // Expose audit API
+  window.__auditMasse = () => {
+    const rpm = Math.round(Math.abs(sideSpin) * Math.sin((cueElev * Math.PI) / 180) * (power / 100) * 420 * 9.549);
+    return {
+      cueElevationDeg: cueElev,
+      spinRpm: rpm,
+      maxCurveDeviationPx: Math.round(maxCurveDeviationPx),
+      pocketedCount,
+      fps
+    };
+  };
+
+  // Main 60 FPS loop
+  let lastTime = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - lastTime) / 1000);
+    lastTime = now;
+
+    frameCount++;
+    if (now - lastFpsTime >= 500) {
+      fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+      frameCount = 0;
+      lastFpsTime = now;
+    }
+
+    stepPhysics(dt);
+    drawTable();
+    drawImpactSphere();
+    drawChart();
+    updateHUD();
+
+    requestAnimationFrame(loop);
+  }
+
+  loadPreset(0, true);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

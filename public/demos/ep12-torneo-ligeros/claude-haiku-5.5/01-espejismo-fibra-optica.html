@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>RETO 01/06 - Espejismo y Fibra Optica (Laboratorio)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #060A12; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; }
+  #wrap { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: center; }
+  canvas { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+  .ctl { position: absolute; accent-color: #22D3EE; }
+  button {
+    position: absolute; height: 40px; background: #0F172A; color: #22D3EE;
+    border: 2px solid #22D3EE; border-radius: 8px; font: bold 18px Arial, sans-serif; cursor: pointer;
+  }
+  button:hover { background: #12304A; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <input class="ctl" type="range" id="tb" min="40" max="80" value="65" style="left:40px;top:896px;width:600px;height:22px">
+  <input class="ctl" type="range" id="n2s" min="130" max="147" value="146" style="left:40px;top:958px;width:600px;height:22px">
+  <button id="btnPause" style="left:40px;top:1000px;width:150px">Pausa</button>
+  <button id="btnFire" style="left:210px;top:1000px;width:170px">Disparar</button>
+  <button id="btnAuto" style="left:400px;top:1000px;width:220px">Auto: ON</button>
+</div>
+<script>
+(function () {
+  "use strict";
+  const W = 1920, H = 1080;
+  const C = { cy: "#22D3EE", bl: "#38BDF8", or: "#FB923C", em: "#10B981", go: "#FBBF24", co: "#F43F5E", bg: "#060A12", pn: "#0F172A", tx: "#E2E8F0", mu: "#94A3B8" };
+  const cv = document.getElementById("c");
+  const g = cv.getContext("2d");
+  const wrap = document.getElementById("wrap");
+  const tbS = document.getElementById("tb");
+  const n2S = document.getElementById("n2s");
+  const btnPause = document.getElementById("btnPause");
+  const btnFire = document.getElementById("btnFire");
+  const btnAuto = document.getElementById("btnAuto");
+
+  function fit() {
+    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    wrap.style.transform = "translate(-50%,-50%) scale(" + s + ")";
+  }
+  window.addEventListener("resize", fit);
+  fit();
+
+  // ---------- Controlador optico puro (grados en todo) ----------
+  function wrap90(a) { return ((a + 90) % 180 + 180) % 180 - 90; }
+  function computeOpticalRouting(state) {
+    const E = (state.emitters && state.emitters[0]) || { x: 0, y: 0, angle: 0 };
+    const R = state.receivers || [];
+    const M = state.mirrors || [];
+    const mirrorAngles = M.map(function (m, i) {
+      const tgt = R.length ? R[i % R.length] : { x: m.x + 1, y: m.y };
+      const din = Math.atan2(m.y - E.y, m.x - E.x);
+      const dout = Math.atan2(tgt.y - m.y, tgt.x - m.x);
+      const a = (din + dout) / 2 * 180 / Math.PI + 90;
+      const lo = m.minAngle != null ? m.minAngle : -90;
+      const hi = m.maxAngle != null ? m.maxAngle : 90;
+      const w = wrap90(a);
+      const cands = [w, w - 180, w + 180];
+      for (let k = 0; k < cands.length; k++) {
+        if (cands[k] >= lo && cands[k] <= hi) return cands[k];
+      }
+      return Math.max(lo, Math.min(hi, w));
+    });
+    const tgt0 = M[0] || R[0];
+    const emitterAngle = tgt0 ? Math.atan2(tgt0.y - E.y, tgt0.x - E.x) * 180 / Math.PI : (E.angle || 0);
+    return { mirrorAngles: mirrorAngles, emitterAngle: emitterAngle };
+  }
+  window.computeOpticalRouting = computeOpticalRouting;
+
+  // ---------- Escena de fibra ----------
+  const EM = { x: 760, y: 300, angle: 0 };
+  const RX = [{ x: 1820, y: 230, r: 28 }, { x: 1820, y: 540, r: 28 }, { x: 1820, y: 850, r: 28 }];
+  const MIR = [
+    { x: 1100, y: 300, minAngle: -60, maxAngle: 60 },
+    { x: 1420, y: 560, minAngle: -60, maxAngle: 60 },
+    { x: 1250, y: 850, minAngle: -60, maxAngle: 60 }
+  ];
+  const ROUTES = [
+    { col: C.cy, rx: 0, mi: 0, pts: [[760, 300], [950, 300], [1100, 300], [1300, 262], [1560, 240], [1820, 230]] },
+    { col: C.em, rx: 1, mi: 1, pts: [[760, 300], [900, 380], [1060, 470], [1420, 560], [1600, 560], [1820, 540]] },
+    { col: C.or, rx: 2, mi: 2, pts: [[760, 300], [860, 430], [1000, 700], [1250, 850], [1550, 850], [1820, 850]] }
+  ];
+  const PRISMS = [{ x: 1000, y: 610 }, { x: 1690, y: 400 }];
+  const N1 = 1.48;
+  const CORE_W = 22;
+  const SPEED = 420;
+
+  ROUTES.forEach(function (r) {
+    r.seg = [];
+    let L = 0;
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const a = r.pts[i], b = r.pts[i + 1];
+      const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      r.seg.push({ x0: a[0], y0: a[1], x1: b[0], y1: b[1], s0: L, l: l, ux: (b[0] - a[0]) / l, uy: (b[1] - a[1]) / l });
+      L += l;
+    }
+    r.len = L;
+    r.bends = [];
+    const mv = MIR[r.mi];
+    for (let i = 1; i < r.pts.length - 1; i++) {
+      if (r.pts[i][0] === mv.x && r.pts[i][1] === mv.y) continue; // reflexion libre en espejo, no curvatura
+      const A = r.seg[i - 1], B = r.seg[i];
+      let t = (Math.atan2(B.uy, B.ux) - Math.atan2(A.uy, A.ux)) * 180 / Math.PI;
+      if (t > 180) t -= 360;
+      if (t < -180) t += 360;
+      r.bends.push({ s: B.s0, d: Math.abs(t) * 0.4 }); // perdida de incidencia por curvatura
+    }
+  });
+
+  function critDeg() {
+    const n2 = n2S.value / 100;
+    return Math.asin(Math.min(1, n2 / N1)) * 180 / Math.PI;
+  }
+  function locate(r, s) {
+    s = Math.max(0, Math.min(r.len, s));
+    let sg = r.seg[r.seg.length - 1];
+    for (let i = 0; i < r.seg.length; i++) {
+      if (s <= r.seg[i].s0 + r.seg[i].l) { sg = r.seg[i]; break; }
+    }
+    const f = s - sg.s0;
+    return { x: sg.x0 + sg.ux * f, y: sg.y0 + sg.uy * f, nx: -sg.uy, ny: sg.ux };
+  }
+  function bendAt(r, s) {
+    let d = 0;
+    for (let i = 0; i < r.bends.length; i++) {
+      if (Math.abs(s - r.bends[i].s) < 30) d += r.bends[i].d;
+    }
+    return d;
+  }
+  function zigOffset(p, ss) {
+    const ph = (((ss % p.sp) + p.sp) % p.sp) / p.sp;
+    const tri = ph < 0.5 ? ph * 2 : 2 - ph * 2;
+    return (tri * 2 - 1) * (CORE_W / 2 - 4);
+  }
+
+  // ---------- Estado ----------
+  let pulses = [], sparks = [], flash = [0, 0, 0];
+  let tir = 0, leaked = 0, launched = 0, delivered = 0;
+  let t = 0, paused = false, autoMode = true, nextAuto = 1.0, autoCount = 0;
+  let mAngles = [0, 0, 0], emAngle = 0;
+  let lastNow = performance.now();
+
+  function launch(ri, n) {
+    const r = ROUTES[ri];
+    for (let i = 0; i < n; i++) {
+      let th = 85 + Math.random() * 2.5;
+      if (Math.random() < 0.08) th = 74 + Math.random() * 4; // desalineacion de acople
+      const sp = CORE_W * Math.tan(th * Math.PI / 180);
+      pulses.push({ ri: ri, s: -i * 46, th: th, sp: sp, nh: sp, alive: true, done: false, col: r.col });
+      launched++;
+    }
+  }
+  function salvo() {
+    launch(0, 2); launch(1, 2); launch(2, 2);
+  }
+
+  function update(dt) {
+    if (autoMode && t >= nextAuto) {
+      if (autoCount % 3 === 2) salvo();
+      else launch(autoCount % 3, 3);
+      autoCount++;
+      nextAuto = t + 2.6;
+    }
+    const cr = critDeg();
+    for (let i = 0; i < pulses.length; i++) {
+      const p = pulses[i];
+      if (!p.alive || p.done) continue;
+      p.s += SPEED * dt;
+      if (p.s < 0) continue;
+      const r = ROUTES[p.ri];
+      while (p.alive && p.s >= p.nh) {
+        const thLoc = p.th - bendAt(r, p.nh);
+        if (thLoc >= cr) {
+          tir++;
+        } else {
+          p.alive = false;
+          leaked++;
+          const q = locate(r, p.nh);
+          sparks.push({ x: q.x, y: q.y, life: 0.8 });
+        }
+        p.nh += p.sp;
+      }
+      if (p.alive && p.s >= r.len) {
+        p.done = true;
+        delivered++;
+        flash[r.rx] = 1;
+      }
+    }
+    pulses = pulses.filter(function (p) { return p.alive && !p.done; });
+    for (let i = 0; i < sparks.length; i++) sparks[i].life -= dt;
+    sparks = sparks.filter(function (s) { return s.life > 0; });
+    for (let i = 0; i < 3; i++) flash[i] = Math.max(0, flash[i] - dt * 1.5);
+
+    const st = { emitters: [EM], mirrors: MIR, receivers: RX, criticalAngleDeg: cr };
+    const res = computeOpticalRouting(st);
+    mAngles = res.mirrorAngles;
+    emAngle = res.emitterAngle;
+  }
+
+  // ---------- Utilidades de dibujo ----------
+  function panel(x, y, w, h, title) {
+    g.fillStyle = C.pn;
+    g.fillRect(x, y, w, h);
+    g.strokeStyle = "#1E293B";
+    g.lineWidth = 2;
+    g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    g.fillStyle = "rgba(6,10,18,0.75)";
+    g.fillRect(x + 2, y + 2, w - 4, 46);
+    g.fillStyle = C.go;
+    g.font = "bold 24px Arial, sans-serif";
+    g.textBaseline = "middle";
+    g.fillText(title, x + 16, y + 26);
+    g.textBaseline = "alphabetic";
+  }
+  function text(s, x, y, size, color, bold) {
+    g.fillStyle = color || C.tx;
+    g.font = (bold ? "bold " : "") + size + "px Arial, sans-serif";
+    g.fillText(s, x, y);
+  }
+
+  // ---------- Vista 1: espejismo ----------
+  const PX = 20, PY = 20, PW = 640, PH = 520, ROAD = 360, TOP = 70;
+  const SIN0 = [0.962, 0.966, 0.97, 0.974, 0.978, 0.982];
+
+  function tempAt(y, TB) {
+    const f = Math.min(1, Math.max(0, (y - TOP) / (ROAD - TOP)));
+    return 25 + (TB - 25) * f;
+  }
+  function nAt(y, TB) {
+    return 1 + 150 / (tempAt(y, TB) + 273);
+  }
+  function trace(s0, TB) {
+    const pts = [];
+    let x = 0, y = TOP, dir = 1;
+    const beta = nAt(TOP, TB) * s0; // invariante de Snell estratificado: n(y) sin(theta) = cte
+    for (let i = 0; i < 3000 && x < PW; i++) {
+      let s = beta / nAt(y, TB);
+      if (s >= 0.9995) { s = 0.9995; dir = -dir; } // reflexion interna total: el rayo se curva hacia arriba
+      const c = Math.sqrt(1 - s * s);
+      x += s * 3;
+      y += dir * c * 3;
+      if (y > ROAD || y < 0) break;
+      pts.push([x, y]);
+    }
+    return pts;
+  }
+
+  function drawMirage(TB) {
+    g.save();
+    g.beginPath(); g.rect(PX, PY, PW, PH); g.clip();
+    g.translate(PX, PY);
+    const sky = g.createLinearGradient(0, 0, 0, ROAD);
+    sky.addColorStop(0, "#0B1A33");
+    sky.addColorStop(1, "#2A2A3A");
+    g.fillStyle = sky;
+    g.fillRect(0, 0, PW, ROAD);
+    for (let y = TOP; y < ROAD; y += 4) {
+      const a = (tempAt(y, TB) - 25) / (TB - 25 + 1e-6) * 0.28;
+      g.fillStyle = "rgba(251,146,60," + a.toFixed(3) + ")";
+      g.fillRect(0, y, PW, 4);
+    }
+    const road = g.createLinearGradient(0, ROAD, 0, PH);
+    road.addColorStop(0, "#1F2937");
+    road.addColorStop(1, "#0B0F17");
+    g.fillStyle = road;
+    g.fillRect(0, ROAD, PW, PH - ROAD);
+    // charco falso (reflejo del cielo)
+    const shimmer = 0.16 + 0.05 * Math.sin(t * 3);
+    g.fillStyle = "rgba(56,189,248," + shimmer.toFixed(3) + ")";
+    g.beginPath(); g.ellipse(330, ROAD + 40, 230, 34, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(56,189,248,0.5)"; g.lineWidth = 2; g.stroke();
+    // marcas de carril
+    g.setLineDash([24, 18]);
+    g.strokeStyle = "rgba(226,232,240,0.35)"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(0, ROAD + 100); g.lineTo(PW, ROAD + 100); g.stroke();
+    g.setLineDash([]);
+    // ondulacion de calor
+    g.strokeStyle = "rgba(251,146,60,0.25)"; g.lineWidth = 1.5;
+    for (let k = 0; k < 6; k++) {
+      g.beginPath();
+      for (let x = 0; x <= PW; x += 16) {
+        const yy = ROAD - 6 - k * 7 + Math.sin(x * 0.05 + t * 4 + k) * 2;
+        if (x === 0) g.moveTo(x, yy); else g.lineTo(x, yy);
+      }
+      g.stroke();
+    }
+    // rayos del cielo y su imagen reflejada
+    const rays = SIN0.map(function (s) { return trace(s, TB); });
+    g.save();
+    g.beginPath(); g.rect(0, ROAD, PW, PH - ROAD); g.clip();
+    g.strokeStyle = "rgba(34,211,238,0.35)"; g.lineWidth = 2.5;
+    rays.forEach(function (pts) {
+      if (pts.length < 2) return;
+      g.beginPath();
+      pts.forEach(function (p, i) {
+        const yy = 2 * ROAD - p[1];
+        if (i === 0) g.moveTo(p[0], yy); else g.lineTo(p[0], yy);
+      });
+      g.stroke();
+    });
+    g.restore();
+    g.shadowColor = C.cy; g.shadowBlur = 10;
+    g.strokeStyle = C.cy; g.lineWidth = 2.5;
+    rays.forEach(function (pts) {
+      if (pts.length < 2) return;
+      g.beginPath();
+      pts.forEach(function (p, i) { if (i === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]); });
+      g.stroke();
+    });
+    g.shadowBlur = 0;
+    // fuente y observador
+    g.fillStyle = C.go;
+    g.beginPath(); g.arc(4, TOP, 9, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#1E293B";
+    g.fillRect(430, ROAD - 46, 100, 28);
+    g.fillStyle = C.bl;
+    g.fillRect(445, ROAD - 66, 62, 22);
+    g.fillStyle = "#0B1222";
+    g.beginPath(); g.arc(452, ROAD - 16, 8, 0, Math.PI * 2); g.arc(518, ROAD - 16, 8, 0, Math.PI * 2); g.fill();
+    g.restore();
+    // cabecera y pie
+    g.fillStyle = "rgba(6,10,18,0.78)";
+    g.fillRect(PX + 2, PY + 2, PW - 4, 46);
+    text("ESPEJISMO DE ASFALTO CALIENTE", PX + 16, PY + 34, 24, C.go, true);
+    const nTop = nAt(TOP, TB), nRoad = nAt(ROAD, TB);
+    text("Aire 25 C  n=" + nTop.toFixed(4) + "   |   Asfalto " + TB + " C  n=" + nRoad.toFixed(4), PX + 16, PY + PH - 14, 20, C.tx, false);
+  }
+
+  function drawPlot(TB) {
+    const x0 = 80, x1 = 600, y0 = 620, y1 = 745;
+    g.fillStyle = "#0B1222"; g.fillRect(40, 612, 580, 150);
+    g.strokeStyle = "#1E293B"; g.lineWidth = 1; g.strokeRect(40.5, 612.5, 579, 149);
+    g.strokeStyle = C.cy; g.lineWidth = 3;
+    g.beginPath();
+    for (let y = TOP; y <= ROAD; y += 4) {
+      const px = x0 + (nAt(y, TB) - 1.43) / 0.09 * (x1 - x0);
+      const py = y0 + (y - TOP) / (ROAD - TOP) * (y1 - y0);
+      if (y === TOP) g.moveTo(px, py); else g.lineTo(px, py);
+    }
+    g.stroke();
+    text("n(y): arriba = aire fresco, abajo = asfalto caliente", 48, 604, 18, C.mu, false);
+  }
+
+  // ---------- Vista 2: fibra optica ----------
+  function drawFiber() {
+    panel(680, 20, 1220, 1040, "CIRCUITO DE FIBRA OPTICA Y PRISMAS LASER");
+    g.save();
+    g.beginPath(); g.rect(680, 66, 1220, 994); g.clip();
+    g.strokeStyle = "rgba(56,189,248,0.06)"; g.lineWidth = 1;
+    for (let x = 700; x < 1900; x += 60) { g.beginPath(); g.moveTo(x, 66); g.lineTo(x, 1060); g.stroke(); }
+    for (let y = 80; y < 1060; y += 60) { g.beginPath(); g.moveTo(680, y); g.lineTo(1900, y); g.stroke(); }
+    // nucleos de vidrio
+    ROUTES.forEach(function (r) {
+      g.beginPath();
+      r.pts.forEach(function (p, i) { if (i === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]); });
+      g.strokeStyle = r.col + "22"; g.lineWidth = 34; g.lineJoin = "round"; g.stroke();
+      g.strokeStyle = "#0B2233"; g.lineWidth = CORE_W; g.stroke();
+      g.strokeStyle = r.col + "55"; g.lineWidth = 2; g.stroke();
+    });
+    // prismas
+    PRISMS.forEach(function (pr) {
+      const s = 38;
+      g.fillStyle = "rgba(56,189,248,0.22)";
+      g.strokeStyle = C.bl; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(pr.x - s, pr.y + s * 0.8); g.lineTo(pr.x + s, pr.y); g.lineTo(pr.x - s, pr.y - s * 0.8); g.closePath();
+      g.fill(); g.stroke();
+      const cols = [C.co, C.go, C.em, C.cy, C.bl];
+      for (let i = 0; i < cols.length; i++) {
+        const a = -0.25 + i * 0.12;
+        g.strokeStyle = cols[i]; g.lineWidth = 2; g.globalAlpha = 0.7;
+        g.beginPath(); g.moveTo(pr.x + s, pr.y);
+        g.lineTo(pr.x + s + 90 * Math.cos(a), pr.y + 90 * Math.sin(a)); g.stroke();
+        g.globalAlpha = 1;
+      }
+    });
+    // espejos giratorios
+    MIR.forEach(function (m, i) {
+      const a = (mAngles[i] || 0) * Math.PI / 180;
+      const dx = Math.cos(a) * 26, dy = Math.sin(a) * 26;
+      g.strokeStyle = C.go; g.lineWidth = 5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(m.x - dx, m.y - dy); g.lineTo(m.x + dx, m.y + dy); g.stroke();
+      g.lineCap = "butt";
+      g.fillStyle = "#1E293B"; g.beginPath(); g.arc(m.x, m.y, 6, 0, Math.PI * 2); g.fill();
+      g.setLineDash([6, 8]); g.strokeStyle = ROUTES[i].col + "44"; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(RX[i].x, RX[i].y); g.stroke();
+      g.setLineDash([]);
+      text("M" + (i + 1) + "  " + mAngles[i].toFixed(1) + " deg", m.x + 30, m.y - 30, 18, C.go, true);
+    });
+    // emisor
+    g.fillStyle = C.co;
+    g.beginPath(); g.arc(EM.x, EM.y, 14, 0, Math.PI * 2); g.fill();
+    text("LASER x3  " + emAngle.toFixed(1) + " deg", EM.x - 60, EM.y - 34, 18, C.co, true);
+    // receptores
+    RX.forEach(function (r, i) {
+      const f = flash[i];
+      g.fillStyle = "rgba(16,185,129," + (0.15 + 0.7 * f).toFixed(3) + ")";
+      g.beginPath(); g.arc(r.x, r.y, r.r + 6 * f, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = C.em; g.lineWidth = 3;
+      g.beginPath(); g.arc(r.x, r.y, r.r, 0, Math.PI * 2); g.stroke();
+      text("RX-" + (i + 1), r.x - 46, r.y - 40, 18, C.em, true);
+    });
+    // pulsos de luz guiados por TIR
+    pulses.forEach(function (p) {
+      if (p.s < 0) return;
+      const r = ROUTES[p.ri];
+      let prev = null;
+      for (let k = 0; k < 14; k++) {
+        const ss = p.s - k * 7;
+        if (ss < 0) break;
+        const q = locate(r, ss);
+        const o = zigOffset(p, ss);
+        const x = q.x + q.nx * o, y = q.y + q.ny * o;
+        if (prev) {
+          g.strokeStyle = p.col;
+          g.globalAlpha = 1 - k / 14;
+          g.lineWidth = 4;
+          g.beginPath(); g.moveTo(prev[0], prev[1]); g.lineTo(x, y); g.stroke();
+          g.globalAlpha = 1;
+        } else {
+          g.shadowColor = p.col; g.shadowBlur = 18;
+          g.fillStyle = "#FFFFFF";
+          g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
+          g.shadowBlur = 0;
+        }
+        prev = [x, y];
+      }
+    });
+    // chispas de fuga
+    sparks.forEach(function (s) {
+      g.fillStyle = "rgba(244,63,94," + (s.life / 0.8).toFixed(3) + ")";
+      g.beginPath(); g.arc(s.x, s.y, 4 + (0.8 - s.life) * 20, 0, Math.PI * 2); g.fill();
+    });
+    g.restore();
+    // pie del panel
+    const agg = RX.length * 100;
+    text("Lanzamiento: 100 Gbps por canal   |   Canales: 3   |   Agregado: " + agg + " Gbps   |   theta_c = " + critDeg().toFixed(1) + " deg", 700, 1046, 20, C.cy, true);
+  }
+
+  // ---------- Frame ----------
+  function audit() {
+    return {
+      totalInternalReflections: tir,
+      leakagePct: launched ? +(leaked / launched * 100).toFixed(2) : 0,
+      packetsDelivered: delivered,
+      aiHookReady: true
+    };
+  }
+  window.__auditOptics = audit;
+
+  function drawHud(TB) {
+    panel(20, 560, 640, 500, "TELEMETRIA Y CONTROL");
+    drawPlot(TB);
+    const a = audit();
+    text("Reflexiones internas totales: " + a.totalInternalReflections, 40, 800, 22, C.tx, false);
+    text("Fuga: " + a.leakagePct.toFixed(2) + " %   Paquetes entregados: " + a.packetsDelivered, 40, 830, 22, C.tx, false);
+    text("Lanzados: " + launched + "   aiHookReady: " + a.aiHookReady, 40, 860, 22, C.mu, false);
+    text("Temperatura inferior del asfalto: " + TB + " C", 40, 888, 20, C.or, true);
+    text("n2 revestimiento: " + (n2S.value / 100).toFixed(2) + "   (n1 = " + N1.toFixed(2) + ")", 40, 950, 20, C.bl, true);
+  }
+
+  function draw() {
+    g.fillStyle = C.bg;
+    g.fillRect(0, 0, W, H);
+    const TB = Number(tbS.value);
+    drawMirage(TB);
+    drawHud(TB);
+    drawFiber();
+  }
+
+  function tick(now) {
+    const dt = Math.min(0.05, (now - lastNow) / 1000);
+    lastNow = now;
+    if (!paused) {
+      t += dt;
+      update(dt);
+    }
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  btnPause.addEventListener("click", function () {
+    paused = !paused;
+    btnPause.textContent = paused ? "Reanudar" : "Pausa";
+  });
+  btnFire.addEventListener("click", function () { salvo(); });
+  btnAuto.addEventListener("click", function () {
+    autoMode = !autoMode;
+    btnAuto.textContent = autoMode ? "Auto: ON" : "Auto: OFF";
+  });
+
+  // Arranque automatico en vivo desde t = 0.0
+  salvo();
+  update(0);
+  requestAnimationFrame(function (now) { lastNow = now; requestAnimationFrame(tick); });
+})();
+</script>
+</body>
+</html>

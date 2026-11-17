@@ -9,11 +9,17 @@ import { EP07_CHALLENGES } from "@/data/ep07Data";
 import { EP08_CHALLENGES } from "@/data/ep08Data";
 import { EP09_CHALLENGES } from "@/data/ep09Data";
 import { EP10_CHALLENGES } from "@/data/ep10Data";
+import { EP11_CHALLENGES, EP11_THINKING_LEVELS } from "@/data/ep11Data";
+import { EP12_CHALLENGES } from "@/data/ep12Data";
 
 export interface ArenaLatestProps {
   lang: "es" | "en";
-  /** EP10: Carbon vs Fable 5.2 + 4 Live Arenas. EP09: Fable 5.2 vs Opus 5.5. EP08: Carbon vs Argon + Recovery Round. EP07: Gemini Omni 1.2 Flash vs 1.1 vs Veo 3.1. EP06..EP03: previous labs. */
-  episode: "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03";
+  /** EP12: 3 Lightweight Extra Tournament. EP11: Hydrogen 4 Levels vs Flash 3.8. EP10..EP03: previous labs. */
+  episode: "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03";
+  ep12ChallengeN?: number;
+  setEp12ChallengeN?: (n: number) => void;
+  ep11ChallengeN?: number;
+  setEp11ChallengeN?: (n: number) => void;
   ep10ChallengeN?: number;
   setEp10ChallengeN?: (n: number) => void;
   ep09ChallengeN?: number;
@@ -32,18 +38,22 @@ export interface ArenaLatestProps {
   setEp03ChallengeN: (n: number) => void;
   navigateToView: (
     view: "dossiers",
-    ep: "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03"
+    ep: "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03"
   ) => void;
 }
 
 /**
- * Arena of the newest episodes (EP10, EP09, EP08, EP06, EP05, EP04, EP03): challenge picker and live demos.
+ * Arena of the newest episodes (EP12 through EP03): challenge picker and live demos.
  * Loaded on demand, like the EP02/EP01 arena, so their data stays off the home page.
  * The Arena view supplies the page's <h1>, so the challenge title here is an <h2>.
  */
 export default function ArenaLatest({
   lang,
   episode,
+  ep12ChallengeN = 1,
+  setEp12ChallengeN = () => {},
+  ep11ChallengeN = 1,
+  setEp11ChallengeN = () => {},
   ep10ChallengeN = 1,
   setEp10ChallengeN = () => {},
   ep09ChallengeN = 1,
@@ -66,9 +76,350 @@ export default function ArenaLatest({
   const [showRecoveredCarbon, setShowRecoveredCarbon] = useState(true);
   const [ep06ViewMode, setEp06ViewMode] = useState<"arena" | "clones">("arena");
   const [ep10ViewMode, setEp10ViewMode] = useState<"arena" | "builds">("arena");
+  const [ep11ViewMode, setEp11ViewMode] = useState<"arena" | "builds" | "levels">("arena");
+  const [ep11LevelKey, setEp11LevelKey] = useState<"low" | "medium" | "high" | "xhigh">("xhigh");
+  const [ep12ViewMode, setEp12ViewMode] = useState<"arena" | "builds">("arena");
   // English mode shows the English twin of a note where the data has one
   const fpsNote = (note: string, note_en?: string) =>
     lang === "es" ? note : (note_en ?? note);
+
+  if (episode === "ep12") {
+    const cur =
+      EP12_CHALLENGES.find((c) => c.n === ep12ChallengeN) || EP12_CHALLENGES[0];
+    const name = lang === "es" ? cur.name_es : cur.name_en;
+    const haikuUrl = cur.haiku.rescuedDemoUrl || cur.haiku.demoUrl;
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+        <div
+          role="group"
+          aria-label={lang === "es" ? "Retos del EP12" : "EP12 challenges"}
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+        >
+          {EP12_CHALLENGES.map((ch) => (
+            <button
+              key={ch.n}
+              onClick={() => setEp12ChallengeN(ch.n)}
+              aria-pressed={ep12ChallengeN === ch.n}
+              className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
+                ep12ChallengeN === ch.n
+                  ? "bg-[#1A2132] border-[#10B981]"
+                  : "bg-[#111622] border-[#2A344B]"
+              }`}
+            >
+              <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                <span className="text-[#10B981] font-bold">R0{ch.n}</span>
+                <span className="text-[#FFD100] font-bold">
+                  {ch.arena.arenaWinner.toUpperCase()}
+                </span>
+              </div>
+              <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                {lang === "es" ? ch.name_es : ch.name_en}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-[#090B10] border-2 border-[#10B981] overflow-hidden shadow-[6px_6px_0_#040508]">
+          <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1 max-w-3xl">
+              <h2 className="font-display text-lg font-black text-white">
+                EP12 R0{cur.n}: {name}
+              </h2>
+              <p className="text-xs text-[#FFD100] font-semibold">
+                {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+              </p>
+              <p className="text-xs text-[#CBD5E1]">
+                {lang === "es" ? cur.verdict_es : cur.verdict_en}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setEp12ViewMode("arena")}
+                className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                  ep12ViewMode === "arena"
+                    ? "bg-[#10B981] text-[#090B10]"
+                    : "bg-[#111622] text-[#10B981] border-[#10B981]"
+                }`}
+              >
+                {lang === "es"
+                  ? "FASE B · ARENA 3 IAS EN VIVO"
+                  : "PHASE B · 3-WAY LIVE ARENA"}
+              </button>
+              <button
+                onClick={() => setEp12ViewMode("builds")}
+                className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                  ep12ViewMode === "builds"
+                    ? "bg-[#38BDF8] text-[#090B10]"
+                    : "bg-[#111622] text-[#38BDF8] border-[#38BDF8]"
+                }`}
+              >
+                {lang === "es"
+                  ? "FASE A · 3 MODELOS LADO A LADO"
+                  : "PHASE A · 3 BUILDS SIDE BY SIDE"}
+              </button>
+              <button
+                onClick={() => navigateToView("dossiers", "ep12")}
+                className="px-3.5 py-1.5 bg-[#FFD100] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508]"
+              >
+                {lang === "es" ? "Ver Dossier Completo EP12 →" : "Open Full EP12 Dossier →"}
+              </button>
+            </div>
+          </div>
+
+          {ep12ViewMode === "arena" ? (
+            <div className="flex flex-col">
+              <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                <span className="text-[#FFD100] font-bold">
+                  {lang === "es" ? cur.arena.score_es : cur.arena.score_en}
+                </span>
+                <div className="flex items-center gap-3">
+                  <a href={cur.arena.logUrl} target="_blank" rel="noopener noreferrer" className="text-[#10B981] font-bold underline">
+                    {lang === "es" ? "Resumen JSON ↗" : "JSON Summary ↗"}
+                  </a>
+                  <a href={cur.arena.arenaUrl} target="_blank" rel="noopener noreferrer" className="text-[#00E5FF] font-bold underline">
+                    {lang === "es" ? "Abrir Arena en Pantalla Completa ↗" : "Open Arena Fullscreen ↗"}
+                  </a>
+                </div>
+              </div>
+              <iframe
+                allowFullScreen
+                src={cur.arena.arenaUrl}
+                title={`EP12 Live Arena: ${name}`}
+                className="w-full h-[640px] border-0 bg-[#090B10]"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                    HYDROGEN (${cur.hydrogen.usd.toFixed(2)} · {cur.hydrogen.min}m)
+                  </span>
+                  <a href={cur.hydrogen.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#38BDF8] border border-[#38BDF8]/50 text-[10px] font-bold">
+                    {fpsNote(cur.hydrogen.fps, cur.hydrogen.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={cur.hydrogen.demoUrl} title={`Hydrogen: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#FB923C] font-bold">
+                    HAIKU 5.5 ({cur.haiku.rescuedLines ? `Rescate ${cur.haiku.rescuedLines} LOC` : `${cur.haiku.lines} LOC`})
+                  </span>
+                  <a href={haikuUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#FB923C] border border-[#FB923C]/50 text-[10px] font-bold">
+                    {fpsNote(cur.haiku.fps, cur.haiku.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={haikuUrl} title={`Haiku 5.5: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#10B981] font-bold">
+                    GPT-6 LUNA (${cur.luna.usd.toFixed(2)} · {cur.luna.min}m)
+                  </span>
+                  <a href={cur.luna.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#10B981] border border-[#10B981]/50 text-[10px] font-bold">
+                    {fpsNote(cur.luna.fps, cur.luna.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={cur.luna.demoUrl} title={`GPT-6 Luna: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (episode === "ep11") {
+    const cur =
+      EP11_CHALLENGES.find((c) => c.n === ep11ChallengeN) || EP11_CHALLENGES[0];
+    const name = lang === "es" ? cur.name_es : cur.name_en;
+    const effectiveMode =
+      cur.n === 1 && ep11ViewMode === "levels"
+        ? "levels"
+        : cur.arena && ep11ViewMode === "arena"
+        ? "arena"
+        : "builds";
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+        <div
+          role="group"
+          aria-label={lang === "es" ? "Retos del EP11" : "EP11 challenges"}
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+        >
+          {EP11_CHALLENGES.map((ch) => (
+            <button
+              key={ch.n}
+              onClick={() => setEp11ChallengeN(ch.n)}
+              aria-pressed={ep11ChallengeN === ch.n}
+              className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
+                ep11ChallengeN === ch.n
+                  ? "bg-[#1A2132] border-[#38BDF8]"
+                  : "bg-[#111622] border-[#2A344B]"
+              }`}
+            >
+              <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                <span className="text-[#38BDF8] font-bold">R0{ch.n}</span>
+                <span className="text-[#FFD100] font-bold">
+                  {ch.arena ? `ARENA: ${ch.arena.arenaWinner.toUpperCase()}` : `FASE A: ${ch.build_winner.toUpperCase()}`}
+                </span>
+              </div>
+              <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                {lang === "es" ? ch.name_es : ch.name_en}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-[#090B10] border-2 border-[#38BDF8] overflow-hidden shadow-[6px_6px_0_#040508]">
+          <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1 max-w-3xl">
+              <h2 className="font-display text-lg font-black text-white">
+                EP11 R0{cur.n}: {name}
+              </h2>
+              <p className="text-xs text-[#FFD100] font-semibold">
+                {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+              </p>
+              <p className="text-xs text-[#CBD5E1]">
+                {lang === "es" ? cur.verdict_es : cur.verdict_en}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {cur.n === 1 && (
+                <button
+                  onClick={() => setEp11ViewMode("levels")}
+                  className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                    effectiveMode === "levels"
+                      ? "bg-[#FFD100] text-[#090B10]"
+                      : "bg-[#111622] text-[#FFD100] border-[#FFD100]"
+                  }`}
+                >
+                  {lang === "es" ? "4 NIVELES DE PENSAMIENTO" : "4 THINKING LEVELS"}
+                </button>
+              )}
+              {cur.arena && (
+                <button
+                  onClick={() => setEp11ViewMode("arena")}
+                  className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                    effectiveMode === "arena"
+                      ? "bg-[#FFD100] text-[#090B10]"
+                      : "bg-[#111622] text-[#FFD100] border-[#FFD100]"
+                  }`}
+                >
+                  {lang === "es" ? "FASE B · ARENA IA VS IA" : "PHASE B · LIVE ARENA"}
+                </button>
+              )}
+              <button
+                onClick={() => setEp11ViewMode("builds")}
+                className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                  effectiveMode === "builds"
+                    ? "bg-[#38BDF8] text-[#090B10]"
+                    : "bg-[#111622] text-[#38BDF8] border-[#38BDF8]"
+                }`}
+              >
+                {lang === "es" ? "FASE A · 2 MODELOS LADO A LADO" : "PHASE A · 2 MODELS SIDE BY SIDE"}
+              </button>
+              <button
+                onClick={() => navigateToView("dossiers", "ep11")}
+                className="px-3.5 py-1.5 bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508]"
+              >
+                {lang === "es" ? "Ver Dossier Completo EP11 →" : "Open Full EP11 Dossier →"}
+              </button>
+            </div>
+          </div>
+
+          {effectiveMode === "levels" && cur.n === 1 ? (
+            <div className="flex flex-col">
+              <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                <div className="flex flex-wrap gap-2">
+                  {EP11_THINKING_LEVELS.map((lvl) => (
+                    <button
+                      key={lvl.key}
+                      onClick={() => setEp11LevelKey(lvl.key)}
+                      className={`px-2.5 py-1 font-bold border cursor-pointer ${
+                        ep11LevelKey === lvl.key
+                          ? "bg-[#38BDF8] text-[#090B10] border-[#090B10]"
+                          : "bg-[#111622] text-white border-[#2A344B]"
+                      }`}
+                    >
+                      {lang === "es" ? lvl.label_es : lvl.label_en} (${lvl.usd.toFixed(2)})
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const curLvl = EP11_THINKING_LEVELS.find((l) => l.key === ep11LevelKey) || EP11_THINKING_LEVELS[3];
+                  return (
+                    <a href={curLvl.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] font-bold underline">
+                      {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                    </a>
+                  );
+                })()}
+              </div>
+              {(() => {
+                const curLvl = EP11_THINKING_LEVELS.find((l) => l.key === ep11LevelKey) || EP11_THINKING_LEVELS[3];
+                return (
+                  <>
+                    <div className="px-4 py-2 bg-[#111622] border-b border-[#2A344B] font-mono-hud text-xs text-[#FFD100]">
+                      {curLvl.sec}s ({curLvl.min}m) · {curLvl.outTokens.toLocaleString()} out · {curLvl.lines} LOC —{" "}
+                      {lang === "es" ? curLvl.summary_es : curLvl.summary_en}
+                    </div>
+                    <iframe allowFullScreen src={curLvl.demoUrl} title={`Hydrogen ${curLvl.key}`} className="w-full h-[580px] border-0 bg-[#090B10]" />
+                  </>
+                );
+              })()}
+            </div>
+          ) : effectiveMode === "arena" && cur.arena ? (
+            <div className="flex flex-col">
+              <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                <span className="text-[#FFD100] font-bold">
+                  {lang === "es" ? cur.arena.score_es : cur.arena.score_en}
+                </span>
+                <div className="flex items-center gap-3">
+                  <a href={cur.arena.logUrl} target="_blank" rel="noopener noreferrer" className="text-[#10B981] font-bold underline">
+                    {lang === "es" ? "Resumen JSON ↗" : "JSON Summary ↗"}
+                  </a>
+                  <a href={cur.arena.arenaUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] font-bold underline">
+                    {lang === "es" ? "Abrir Arena en Pantalla Completa ↗" : "Open Arena Fullscreen ↗"}
+                  </a>
+                </div>
+              </div>
+              <iframe allowFullScreen src={cur.arena.arenaUrl} title={`EP11 Live Arena: ${name}`} className="w-full h-[640px] border-0 bg-[#090B10]" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                    GEMINI 4 HYDROGEN (${cur.hydrogen.usd.toFixed(2)} · {cur.hydrogen.min}m)
+                  </span>
+                  <a href={cur.hydrogen.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#38BDF8] border border-[#38BDF8]/50 text-[10px] font-bold">
+                    {fpsNote(cur.hydrogen.fps, cur.hydrogen.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={cur.hydrogen.demoUrl} title={`Hydrogen: ${name}`} className="w-full h-[560px] border-0 bg-[#090B10]" />
+              </div>
+
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#FBBF24] font-bold">
+                    GEMINI 3.8 FLASH (${cur.flash.usd.toFixed(2)} · {cur.flash.min}m)
+                  </span>
+                  <a href={cur.flash.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#FBBF24] border border-[#FBBF24]/50 text-[10px] font-bold">
+                    {fpsNote(cur.flash.fps, cur.flash.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={cur.flash.demoUrl} title={`Flash 3.8: ${name}`} className="w-full h-[560px] border-0 bg-[#090B10]" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (episode === "ep10") {
     const cur =

@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena Triple IA - Air Hockey Neon Triangular</title>
+<style>
+  :root {
+    --bg: #060A12;
+    --panel: #0F172A;
+    --cyan: #22D3EE;
+    --blue: #38BDF8;
+    --orange: #FB923C;
+    --emerald: #10B981;
+    --gold: #FBBF24;
+    --coral: #F43F5E;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; background: var(--bg); overflow: hidden;
+    font-family: "Helvetica Neue", Arial, sans-serif; color: #E2E8F0;
+  }
+  #stage {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    transform-origin: top left; background: var(--bg);
+  }
+  canvas#arena { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+  .panel {
+    position: absolute; background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 14px;
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.12);
+  }
+  #hud-title {
+    left: 40px; top: 28px; width: 620px; height: 96px; padding: 14px 22px;
+  }
+  #hud-title .kicker { font-size: 16px; letter-spacing: 4px; color: var(--cyan); font-weight: 700; }
+  #hud-title .name { font-size: 30px; font-weight: 800; margin-top: 6px; letter-spacing: 1px; white-space: nowrap; }
+  #hud-clock {
+    right: 40px; top: 28px; width: 300px; height: 96px; padding: 14px 22px; text-align: right;
+  }
+  #hud-clock .label { font-size: 16px; letter-spacing: 3px; color: #94A3B8; font-weight: 700; }
+  #hud-clock .time { font-size: 40px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; margin-top: 4px; }
+  #scoreboard {
+    left: 40px; top: 150px; width: 380px; padding: 18px 20px;
+  }
+  #scoreboard h2 { font-size: 18px; letter-spacing: 3px; color: var(--cyan); margin-bottom: 12px; }
+  .score-row {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 62px; margin-bottom: 10px; padding: 0 16px; border-radius: 10px;
+    background: rgba(2, 6, 23, 0.7); border-left: 6px solid var(--c, #fff);
+  }
+  .score-row .who { font-size: 22px; font-weight: 800; color: var(--c); letter-spacing: 1px; }
+  .score-row .num { font-size: 42px; font-weight: 900; color: #F8FAFC; font-variant-numeric: tabular-nums; }
+  #controls {
+    right: 40px; top: 150px; width: 380px; padding: 18px 20px;
+  }
+  #controls h2 { font-size: 18px; letter-spacing: 3px; color: var(--cyan); margin-bottom: 12px; }
+  .ctl-btn {
+    display: block; width: 100%; height: 52px; margin-bottom: 10px; border-radius: 10px;
+    border: 1px solid rgba(56, 189, 248, 0.5); background: #0B1322; color: #E2E8F0;
+    font-size: 18px; font-weight: 700; letter-spacing: 1px; cursor: pointer; text-align: left; padding: 0 16px;
+  }
+  .ctl-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .ctl-btn.on { background: rgba(34, 211, 238, 0.14); border-color: var(--cyan); color: var(--cyan); }
+  .ctl-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 18px; }
+  .ctl-row input[type=range] { width: 170px; accent-color: var(--cyan); }
+  #events {
+    left: 40px; bottom: 40px; width: 1840px; height: 130px; padding: 14px 20px; overflow: hidden;
+  }
+  #events h2 { font-size: 16px; letter-spacing: 3px; color: var(--cyan); margin-bottom: 8px; }
+  #event-log { font-size: 20px; line-height: 1.5; white-space: nowrap; }
+  #event-log .ev { margin-right: 36px; }
+  #stats {
+    left: 40px; top: 460px; width: 380px; padding: 16px 20px; font-size: 18px;
+  }
+  #stats h2 { font-size: 18px; letter-spacing: 3px; color: var(--cyan); margin-bottom: 10px; }
+  #stats .stat { display: flex; justify-content: space-between; height: 32px; }
+  #stats .stat b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  #overlay-msg {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: 64px; font-weight: 900; letter-spacing: 6px; color: var(--gold); opacity: 0;
+    text-shadow: 0 0 24px rgba(251, 191, 36, 0.7); pointer-events: none; transition: opacity 0.25s;
+  }
+  #overlay-msg.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="arena" width="1920" height="1080"></canvas>
+
+  <div id="hud-title" class="panel">
+    <div class="kicker">RETO 02/06 - ARENA TRIPLE IA VS IA VS IA #2</div>
+    <div class="name">AIR HOCKEY NEON TRIANGULAR</div>
+  </div>
+
+  <div id="hud-clock" class="panel">
+    <div class="label">TIEMPO DE PARTIDA</div>
+    <div class="time" id="clock-text">00:00.0</div>
+  </div>
+
+  <div id="scoreboard" class="panel">
+    <h2>MARCADOR EN VIVO</h2>
+    <div class="score-row" style="--c:#22D3EE"><span class="who">HYDROGEN CIAN</span><span class="num" id="score0">0</span></div>
+    <div class="score-row" style="--c:#FB923C"><span class="who">HAIKU AMBAR</span><span class="num" id="score1">0</span></div>
+    <div class="score-row" style="--c:#10B981"><span class="who">LUNA ESMERALDA</span><span class="num" id="score2">0</span></div>
+  </div>
+
+  <div id="stats" class="panel">
+    <h2>TELEMETRIA</h2>
+    <div class="stat"><span>Velocidad max</span><b id="st-vmax">0 km/h</b></div>
+    <div class="stat"><span>Velocidad disco 1</span><b id="st-v1">0 km/h</b></div>
+    <div class="stat"><span>Velocidad disco 2</span><b id="st-v2">0 km/h</b></div>
+    <div class="stat"><span>Paradas</span><b id="st-saves">0</b></div>
+    <div class="stat"><span>Cañonazos</span><b id="st-cannons">0</b></div>
+    <div class="stat"><span>FPS</span><b id="st-fps">0</b></div>
+  </div>
+
+  <div id="controls" class="panel">
+    <h2>CONTROLES</h2>
+    <button class="ctl-btn on" id="btn-pause">PAUSA / REANUDAR</button>
+    <button class="ctl-btn" id="btn-trails">ESTELAS: ON</button>
+    <button class="ctl-btn" id="btn-vectors">VECTORES: ON</button>
+    <button class="ctl-btn" id="btn-reset">REINICIAR PARTIDA</button>
+    <div class="ctl-row"><span>Velocidad sim</span><input type="range" id="sl-speed" min="0.25" max="2" step="0.05" value="1"><b id="sp-speed">1.00x</b></div>
+    <div class="ctl-row"><span>Auto-tiro demo</span><input type="range" id="sl-demo" min="2" max="8" step="0.5" value="4"><b id="sp-demo">4.0 s</b></div>
+  </div>
+
+  <div id="events" class="panel">
+    <h2>REGISTRO DE EVENTOS</h2>
+    <div id="event-log"></div>
+  </div>
+
+  <div id="overlay-msg">GOL</div>
+</div>
+
+<script>
+"use strict";
+/* ==================================================================
+   ARENA TRIPLE IA - AIR HOCKEY NEON TRIANGULAR (1920x1080 @ 60 FPS)
+   ================================================================== */
+
+// ---------- Constantes de mesa ----------
+const W = 1920, H = 1080;
+const CX = 960, CY = 560;            // centro del triangulo
+const TRI_R = 470;                    // radio circunscrito del triangulo equilatero
+const TRI_ANG0 = -Math.PI / 2;        // vertice superior apunta hacia arriba
+const PUCK_R = 22;
+const MALLET_R = 42;
+const DT = 1 / 60;                    // paso fijo de simulacion (60 FPS)
+
+// Vertices del triangulo
+const VERTS = [0, 1, 2].map(i => {
+  const a = TRI_ANG0 + i * 2 * Math.PI / 3;
+  return { x: CX + TRI_R * Math.cos(a), y: CY + TRI_R * Math.sin(a) };
+});
+// Lados: lado i une VERTS[i] -> VERTS[(i+1)%3]; la porteria del jugador i esta en el lado i.
+// Las porterias son el segmento del lado i (defendidas por el mazo del jugador i).
+const COLORS = ["#22D3EE", "#FB923C", "#10B981"];
+const NAMES = ["HYDROGEN CIAN", "HAIKU AMBAR", "LUNA ESMERALDA"];
+const GOAL_FRAC = 0.36;               // fraccion de cada lado que es porteria (centrada)
+
+// ---------- Constantes de fisica ----------
+const PUCK_VMAX = 1500;               // px/s (~150 km/h)
+const MALLET_VMAX = 950;              // px/s base del mazo (~95 km/h)
+const WALL_E = 0.97;                  // restitucion de muros
+const SUBSTEPS = 4;                   // 240 Hz de fisica dentro de cada frame de 60 FPS
+const PX_TO_KMH = 0.1;                // 1000 px/s = 100 km/h
+const SIDE_L = TRI_R * Math.sqrt(3);  // longitud de cada lado
+const MZ_DMIN = MALLET_R + 14;        // profundidad minima del mazo desde su porteria
+const MZ_DMAX = 210;                  // profundidad maxima del mazo (zona defensiva)
+const SPAWN = [{ x: CX - 80, y: CY - 10 }, { x: CX + 80, y: CY + 10 }];
+const SKILL = [
+  { vmul: 1.00, react: 0.10, noise: 12 },   // HYDROGEN CIAN
+  { vmul: 0.90, react: 0.13, noise: 22 },   // HAIKU AMBAR
+  { vmul: 0.95, react: 0.11, noise: 17 }    // LUNA ESMERALDA
+];
+
+// ---------- Geometria de los 3 lados (lado i = porteria del jugador i) ----------
+const SIDES = [0, 1, 2].map(i => {
+  const a = VERTS[i], b = VERTS[(i + 1) % 3];
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+  const tx = dx / len, ty = dy / len;
+  let nx = -ty, ny = tx;
+  if ((CX - a.x) * nx + (CY - a.y) * ny < 0) { nx = -nx; ny = -ny; } // normal hacia el interior
+  const sA = SIDE_L * (1 - GOAL_FRAC) / 2, sB = SIDE_L * (1 + GOAL_FRAC) / 2;
+  return {
+    a, b, tx, ty, nx, ny, sA, sB,
+    mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    gA: { x: a.x + tx * sA, y: a.y + ty * sA },
+    gB: { x: a.x + tx * sB, y: a.y + ty * sB }
+  };
+});
+
+function sideCoords(i, x, y) {
+  const S = SIDES[i];
+  const dx = x - S.a.x, dy = y - S.a.y;
+  return { d: dx * S.nx + dy * S.ny, s: dx * S.tx + dy * S.ty };
+}
+function sideToWorld(i, d, s) {
+  const S = SIDES[i];
+  return { x: S.a.x + S.tx * s + S.nx * d, y: S.a.y + S.ty * s + S.ny * d };
+}
+// Mantiene al mazo i dentro de su zona defensiva (cerca de su porteria, dentro del triangulo)
+function zoneClamp(i, x, y, r) {
+  const c = sideCoords(i, x, y);
+  const rr = r || MALLET_R;
+  const d = Math.min(MZ_DMAX, Math.max(MZ_DMIN, c.d));
+  const hw = Math.max(0, SIDE_L / 2 - d / Math.sqrt(3) - 2 * rr / Math.sqrt(3));
+  const s = SIDE_L / 2 + Math.min(hw, Math.max(-hw, c.s - SIDE_L / 2));
+  return sideToWorld(i, d, s);
+}
+
+// ---------- Estado de la partida ----------
+function makeMallets() {
+  return [0, 1, 2].map(i => {
+    const sk = SKILL[i];
+    const mid = sideToWorld(i, 150, SIDE_L / 2);
+    return {
+      idx: i, x: mid.x, y: mid.y, vx: 0, vy: 0, r: MALLET_R,
+      tx: mid.x, ty: mid.y, think: Math.random() * 0.2,
+      react: sk.react, noise: sk.noise, vmul: sk.vmul, glow: 0, color: COLORS[i]
+    };
+  });
+}
+function makePucks() {
+  return [0, 1].map(k => ({
+    x: SPAWN[k].x, y: SPAWN[k].y, vx: 0, vy: 0, r: PUCK_R, last: -1,
+    trail: [], hold: 0.6, plasma: 0, glow: 0, color: k === 0 ? "#F8FAFC" : "#FBBF24"
+  }));
+}
+let game = null;
+function newGame() {
+  game = {
+    t: 0, speedMul: 1, paused: false, trails: true, vectors: true,
+    demoEvery: 4.0, demoTimer: 4.0,
+    scores: [0, 0, 0], saves: 0, cannons: 0, maxKmh: 0,
+    mallets: makeMallets(), pucks: makePucks(), particles: [],
+    wallGlow: [0, 0, 0], flash: 0, goalFx: null, stallT: [0, 0],
+    fpsAcc: 0, fpsCount: 0, fps: 0, lastFrameMs: 0, cannonFlash: 0
+  };
+  for (let k = 0; k < 2; k++) game.stallT[k] = 0;
+}
+newGame();
+
+function logEvent(text, color) {
+  const box = document.getElementById("event-log");
+  if (!box) return;
+  const span = document.createElement("span");
+  span.className = "ev";
+  span.style.color = color || "#E2E8F0";
+  span.textContent = "[" + fmtTime(game.t) + "] " + text;
+  box.insertBefore(span, box.firstChild);
+  while (box.childNodes.length > 6) box.removeChild(box.lastChild);
+}
+function showOverlay(text, color) {
+  const el = document.getElementById("overlay-msg");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color || "#FBBF24";
+  el.classList.add("show");
+  clearTimeout(showOverlay._t);
+  showOverlay._t = setTimeout(() => el.classList.remove("show"), 1400);
+}
+function fmtTime(t) {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60), d = Math.floor((t * 10) % 10);
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0") + "." + d;
+}
+
+// ---------- Particulas (plasma, chispas, anillos) ----------
+function spawnParticles(x, y, color, count, speed, life, type) {
+  for (let n = 0; n < count; n++) {
+    if (game.particles.length > 900) break;
+    const a = Math.random() * Math.PI * 2;
+    const sp = speed * (0.3 + Math.random() * 0.7);
+    game.particles.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life, max: life, color, type: type || "spark", size: 2 + Math.random() * 3
+    });
+  }
+}
+
+// ---------- Fisica: muros, porterias, puck-puck, mazo-puck ----------
+// Saque: direccion aleatoria desde el centro (no apunta directo a la porteria)
+function serveRandom(k, speed) {
+  const pk = game.pucks[k];
+  const a = Math.random() * Math.PI * 2;
+  pk.vx = Math.cos(a) * speed;
+  pk.vy = Math.sin(a) * speed;
+}
+
+function onGoal(i, k) {
+  const pk = game.pucks[k];
+  let scorer = pk.last;
+  const own = (scorer === -1 || scorer === i);
+  if (own) scorer = (i + 1) % 3;
+  game.scores[scorer]++;
+  game.goalFx = { side: i, t: 2.2, scorer: scorer };
+  const txt = own
+    ? "AUTOGOL en porteria de " + NAMES[i] + ": punto para " + NAMES[scorer]
+    : "GOL de " + NAMES[scorer] + " en porteria de " + NAMES[i];
+  logEvent(txt, COLORS[scorer]);
+  showOverlay("GOL " + NAMES[scorer], COLORS[scorer]);
+  const mid = SIDES[i].mid;
+  spawnParticles(mid.x, mid.y, COLORS[scorer], 90, 620, 1.1, "burst");
+  game.flash = 1;
+  game.pucks.forEach((p, j) => {
+    p.hold = 1.1; p.vx = 0; p.vy = 0; p.last = -1; p.plasma = 0;
+    p.x = SPAWN[j].x; p.y = SPAWN[j].y; p.trail.length = 0;
+  });
+}
+
+// Devuelve true si hubo gol (el puck k se resetea)
+function wallsAndGoals(k) {
+  const pk = game.pucks[k];
+  for (let i = 0; i < 3; i++) {
+    const S = SIDES[i];
+    const c = sideCoords(i, pk.x, pk.y);
+    const inSpan = c.s >= S.sA && c.s <= S.sB;
+    if (inSpan && c.d < 0) { onGoal(i, k); return true; }
+    if (!inSpan && c.d < pk.r) {
+      const push = pk.r - c.d;
+      pk.x += S.nx * push; pk.y += S.ny * push;
+      const vn = pk.vx * S.nx + pk.vy * S.ny;      // < 0 => se aleja del muro
+      if (vn < 0) {
+        pk.vx -= (1 + WALL_E) * vn * S.nx;
+        pk.vy -= (1 + WALL_E) * vn * S.ny;
+        const hit = -vn;
+        game.wallGlow[i] = Math.min(1, game.wallGlow[i] + Math.min(1, hit / 900));
+        if (hit > 260) spawnParticles(pk.x, pk.y, COLORS[i], Math.min(10, 3 + hit / 200 | 0), hit * 0.25, 0.35, "spark");
+      }
+    }
+  }
+  return false;
+}
+
+function collidePucks() {
+  const a = game.pucks[0], b = game.pucks[1];
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dist = Math.hypot(dx, dy), minD = a.r + b.r;
+  if (dist >= minD || dist < 1e-6) return;
+  const nx = dx / dist, ny = dy / dist, ov = minD - dist;
+  a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5;
+  b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
+  const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+  if (vn < 0) {
+    const j = -(1 + 0.96) * vn / 2;              // masas iguales
+    a.vx -= j * nx; a.vy -= j * ny;
+    b.vx += j * nx; b.vy += j * ny;
+    for (const p of [a, b]) {
+      const sp = Math.hypot(p.vx, p.vy);
+      if (sp > PUCK_VMAX) { p.vx *= PUCK_VMAX / sp; p.vy *= PUCK_VMAX / sp; }
+    }
+    spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, "#F8FAFC", 6, 180, 0.3, "spark");
+  }
+}
+
+// Transferencia de momento lineal: mazo avanzando = canonazo; mazo retrocediendo = amortiguacion
+function collideMallet(m, k) {
+  const pk = game.pucks[k];
+  let dx = pk.x - m.x, dy = pk.y - m.y;
+  let dist = Math.hypot(dx, dy);
+  const minD = m.r + pk.r;
+  if (dist >= minD) return;
+  if (dist < 1e-6) { dx = 1; dy = 0; dist = 1; }
+  const nx = dx / dist, ny = dy / dist;
+  const ov = minD - dist;
+  pk.x += nx * ov; pk.y += ny * ov;
+
+  const vmn = m.vx * nx + m.vy * ny;           // > 0: el mazo avanza hacia el disco
+  const vrel = (pk.vx - m.vx) * nx + (pk.vy - m.vy) * ny;
+  if (vrel >= 0) return;                        // ya se separan
+
+  const advancing = vmn > 120;
+  const e = advancing ? 1.32 : 0.28;
+  const MP = 1, MM = 7;                         // masa disco 1, masa mazo 7
+
+  // Parada: el disco venia hacia la porteria propia (antes del impacto)
+  const S = SIDES[m.idx];
+  const dOwn = sideCoords(m.idx, pk.x, pk.y).d;
+  const towardOwn = (pk.vx * S.nx + pk.vy * S.ny) < 0;   // v.n < 0 => se acerca al muro propio
+  const j = -(1 + e) * vrel / (1 / MP + 1 / MM);
+  pk.vx += (j / MP) * nx; pk.vy += (j / MP) * ny;
+  m.vx -= (j / MM) * nx;  m.vy -= (j / MM) * ny;
+
+  pk.last = m.idx;
+  m.glow = 1;
+  const sp = Math.hypot(pk.vx, pk.vy);
+  if (sp > PUCK_VMAX) { pk.vx *= PUCK_VMAX / sp; pk.vy *= PUCK_VMAX / sp; }
+
+  // Parada real: amortigua un disco rapido que venia hacia su porteria
+  if (towardOwn && dOwn < 150 && !advancing && -vrel > 300) {
+    game.saves++;
+    logEvent("PARADA de " + NAMES[m.idx] + " (amortigua el disco)", m.color);
+    spawnParticles(pk.x, pk.y, "#38BDF8", 10, 200, 0.4, "ring");
+  }
+  // Canonazo real: el mazo avanza y entrega energia al disco
+  if (advancing && sp > 600) {
+    pk.plasma = 0.7;
+    game.cannons++;
+    game.cannonFlash = 1;
+    logEvent("CANONAZO de " + NAMES[m.idx] + " a " + Math.round(sp * PX_TO_KMH) + " km/h", m.color);
+    spawnParticles(pk.x, pk.y, m.color, 26, 520, 0.6, "plasma");
+  } else {
+    spawnParticles(pk.x, pk.y, "#38BDF8", 6, 140, 0.3, "ring");
+  }
+}
+
+function physicsStep(h) {
+  const G = game;
+  // Mazos: seguir objetivo de la IA con inercia y limites de zona
+  for (const m of G.mallets) {
+    const kp = 12;
+    let dvx = (m.tx - m.x) * kp, dvy = (m.ty - m.y) * kp;
+    const vmax = MALLET_VMAX * m.vmul;
+    const sp = Math.hypot(dvx, dvy);
+    if (sp > vmax) { dvx *= vmax / sp; dvy *= vmax / sp; }
+    const a = Math.min(1, h * 16);
+    m.vx += (dvx - m.vx) * a; m.vy += (dvy - m.vy) * a;
+    m.x += m.vx * h; m.y += m.vy * h;
+    const z = zoneClamp(m.idx, m.x, m.y, m.r);
+    if (Math.abs(z.x - m.x) > 1e-6 || Math.abs(z.y - m.y) > 1e-6) { m.vx *= 0.2; m.vy *= 0.2; }
+    m.x = z.x; m.y = z.y;
+  }
+
+  // Discos: sin friccion, integracion + muros + porterias
+  let goal = false;
+  for (let k = 0; k < G.pucks.length && !goal; k++) {
+    const pk = G.pucks[k];
+    if (pk.hold > 0) {
+      pk.hold -= h;
+      pk.x = SPAWN[k].x; pk.y = SPAWN[k].y; pk.vx = 0; pk.vy = 0;
+      if (pk.hold <= 0) serveRandom(k, 820);
+      continue;
+    }
+    pk.x += pk.vx * h; pk.y += pk.vy * h;
+    pk.plasma = Math.max(0, pk.plasma - h);
+    if (wallsAndGoals(k)) { goal = true; break; }
+    const sp = Math.hypot(pk.vx, pk.vy);
+    if (sp > PUCK_VMAX) { pk.vx *= PUCK_VMAX / sp; pk.vy *= PUCK_VMAX / sp; }
+  }
+  if (goal) return;
+
+  collidePucks();
+  for (const m of G.mallets) {
+    for (let k = 0; k < 2; k++) {
+      if (G.pucks[k].hold <= 0) collideMallet(m, k);
+    }
+  }
+}
+
+// ---------- IA publica: window.computeAirHockeyAI(state, playerIndex) ----------
+// state = { centerX, centerY, radius, goals:[{x1,y1,x2,y2}x3], mallets:[{x,y,vx,vy,r}x3], pucks:[{x,y,vx,vy,r}] }
+// Devuelve { targetX, targetY }: a donde debe moverse el mazo playerIndex.
+function computeAirHockeyAI(state, playerIndex) {
+  const st = state || {};
+  const cx = typeof st.centerX === "number" ? st.centerX : CX;
+  const cy = typeof st.centerY === "number" ? st.centerY : CY;
+  const R = typeof st.radius === "number" && st.radius > 0 ? st.radius : TRI_R;
+  const goals = Array.isArray(st.goals) ? st.goals : [];
+  const mallets = Array.isArray(st.mallets) ? st.mallets : [];
+  const pucks = Array.isArray(st.pucks) ? st.pucks : [];
+  const me = mallets[playerIndex];
+  const own = goals[playerIndex];
+  if (!me || !own) return { targetX: cx, targetY: cy };
+
+  const r = typeof me.r === "number" ? me.r : MALLET_R;
+  const sideLen = R * Math.sqrt(3);
+  // Marco local del lado propio: M = centro de la porteria, N = normal hacia dentro, T = tangente
+  const M = { x: (own.x1 + own.x2) / 2, y: (own.y1 + own.y2) / 2 };
+  let nx = cx - M.x, ny = cy - M.y;
+  const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+  const tx = -ny, ty = nx;
+  const hwAt = d => Math.max(0, sideLen / 2 - d / Math.sqrt(3) - 2 * r / Math.sqrt(3));
+  const toWorld = (d, s) => ({ x: M.x + tx * s + nx * d, y: M.y + ty * s + ny * d });
+  const clampZone = (d, s) => {
+    const dd = Math.min(MZ_DMAX, Math.max(MZ_DMIN, d));
+    const hw = hwAt(dd);
+    const ss = Math.min(hw, Math.max(-hw, s));
+    return toWorld(dd, ss);
+  };
+
+  // 1) Amenaza: disco que se dirige a mi porteria (el mas inminente)
+  let threat = null, bestT = Infinity;
+  for (const pk of pucks) {
+    const px = pk.x - M.x, py = pk.y - M.y;
+    const d0 = px * nx + py * ny;
+    const vd = (pk.vx || 0) * nx + (pk.vy || 0) * ny;     // d/dt de la distancia hacia dentro
+    if (d0 > 0 && vd < -15) {
+      const DEF = 78;                                     // profundidad de bloqueo
+      const t = Math.max(0, (d0 - DEF) / -vd);
+      if (t < bestT) {
+        const s0 = px * tx + py * ty;
+        const vs = (pk.vx || 0) * tx + (pk.vy || 0) * ty;
+        threat = { t, sHit: s0 + vs * t };
+        bestT = t;
+      }
+    }
+  }
+  if (threat && bestT < 1.6) {
+    const D = 78;                                         // se coloca delante de la porteria
+    const s = Math.min(hwAt(D), Math.max(-hwAt(D), threat.sHit));
+    const p = clampZone(D, s);
+    return { targetX: p.x, targetY: p.y };
+  }
+
+  // 2) Ataque: disco cerca de mi mitad -> golpear por detras hacia la porteria rival mas cercana
+  let attack = null, bestD = Infinity;
+  for (const pk of pucks) {
+    const px = pk.x - M.x, py = pk.y - M.y;
+    const d0 = px * nx + py * ny;
+    const dme = Math.hypot(pk.x - me.x, pk.y - me.y);
+    if (d0 < 280 && dme < 160 && dme < bestD) { bestD = dme; attack = { pk, d0 }; }
+  }
+  if (attack) {
+    const pk = attack.pk;
+    let bestGoal = null, bestGd = Infinity;
+    for (let j = 0; j < 3; j++) {
+      if (j === playerIndex || !goals[j]) continue;
+      const G = { x: (goals[j].x1 + goals[j].x2) / 2, y: (goals[j].y1 + goals[j].y2) / 2 };
+      // apunta a un lado de la porteria rival (no al centro exacto): tiro con angulo
+      const gl = Math.hypot(goals[j].x2 - goals[j].x1, goals[j].y2 - goals[j].y1) || 1;
+      const gtx = (goals[j].x2 - goals[j].x1) / gl, gty = (goals[j].y2 - goals[j].y1) / gl;
+      const side = ((pk.x - G.x) * gtx + (pk.y - G.y) * gty) >= 0 ? -1 : 1;
+      const A = { x: G.x + gtx * side * gl * 0.3, y: G.y + gty * side * gl * 0.3 };
+      const gd = Math.hypot(A.x - pk.x, A.y - pk.y);
+      if (gd < bestGd) { bestGd = gd; bestGoal = A; }
+    }
+    if (bestGoal) {
+      const ux = (bestGoal.x - pk.x) / (bestGd || 1), uy = (bestGoal.y - pk.y) / (bestGd || 1);
+      const behind = (pk.r || PUCK_R) + r - 4;
+      const bx = pk.x - ux * behind, by = pk.y - uy * behind;
+      const bd = (bx - M.x) * nx + (by - M.y) * ny;
+      const bs = (bx - M.x) * tx + (by - M.y) * ty;
+      const p = clampZone(bd, bs);
+      return { targetX: p.x, targetY: p.y };
+    }
+  }
+
+  // 3) Posicion base: centrado en mi porteria, desplazado hacia el disco mas cercano
+  let s = 0;
+  let nearest = null, nearestD = Infinity;
+  for (const pk of pucks) {
+    const d0 = (pk.x - M.x) * nx + (pk.y - M.y) * ny;
+    if (d0 < nearestD) { nearestD = d0; nearest = pk; }
+  }
+  if (nearest) s = ((nearest.x - M.x) * tx + (nearest.y - M.y) * ty) * 0.6;
+  const p = clampZone(125, s);
+  return { targetX: p.x, targetY: p.y };
+}
+window.computeAirHockeyAI = computeAirHockeyAI;
+
+// IA del juego: cada mazo consulta el hook publico con su propio snapshot y reacciona con retardo y ruido
+function snapshotState() {
+  return {
+    centerX: CX, centerY: CY, radius: TRI_R,
+    goals: SIDES.map(S => ({ x1: S.gA.x, y1: S.gA.y, x2: S.gB.x, y2: S.gB.y })),
+    mallets: game.mallets.map(m => ({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r })),
+    pucks: game.pucks.map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, r: p.r }))
+  };
+}
+function thinkMallets(dt) {
+  for (const m of game.mallets) {
+    m.think -= dt;
+    if (m.think > 0) continue;
+    m.think = m.react * (0.85 + Math.random() * 0.3);
+    const out = computeAirHockeyAI(snapshotState(), m.idx);
+    if (Number.isFinite(out.targetX) && Number.isFinite(out.targetY)) {
+      const jx = (Math.random() - 0.5) * m.noise * 2;
+      const jy = (Math.random() - 0.5) * m.noise * 2;
+      m.tx = out.targetX + jx; m.ty = out.targetY + jy;
+    }
+  }
+}
+
+// ---------- Render: capa estatica (mesa + microperforaciones) ----------
+const cvs = document.getElementById("arena");
+const ctx = cvs.getContext("2d");
+const STATIC = document.createElement("canvas");
+STATIC.width = W; STATIC.height = H;
+let HOLES = [];
+
+function insideTable(x, y, margin) {
+  for (let i = 0; i < 3; i++) if (sideCoords(i, x, y).d < margin) return false;
+  return true;
+}
+function buildStatic() {
+  const s = STATIC.getContext("2d");
+  const bg = s.createRadialGradient(CX, CY, 80, CX, CY, 1100);
+  bg.addColorStop(0, "#0B1322"); bg.addColorStop(1, "#060A12");
+  s.fillStyle = bg; s.fillRect(0, 0, W, H);
+
+  s.strokeStyle = "rgba(56,189,248,0.05)"; s.lineWidth = 1; s.beginPath();
+  for (let x = 0; x <= W; x += 60) { s.moveTo(x, 0); s.lineTo(x, H); }
+  for (let y = 0; y <= H; y += 60) { s.moveTo(0, y); s.lineTo(W, y); }
+  s.stroke();
+
+  s.beginPath();
+  VERTS.forEach((v, i) => (i ? s.lineTo(v.x, v.y) : s.moveTo(v.x, v.y)));
+  s.closePath();
+  const tg = s.createLinearGradient(CX, VERTS[0].y, CX, VERTS[1].y);
+  tg.addColorStop(0, "#0F172A"); tg.addColorStop(1, "#0A1322");
+  s.fillStyle = tg; s.fill();
+
+  // Microperforaciones: malla hexagonal dentro de la mesa (mas de mil agujeros de aire)
+  HOLES = [];
+  const sp = 16, rowH = sp * 0.8660254;
+  let row = 0;
+  for (let y = VERTS[0].y + 8; y <= VERTS[1].y; y += rowH, row++) {
+    const off = row % 2 ? sp / 2 : 0;
+    for (let x = 480 + off; x <= 1440; x += sp) {
+      if (insideTable(x, y, 17)) HOLES.push({ x, y });
+    }
+  }
+  s.fillStyle = "#020617"; s.beginPath();
+  for (const h of HOLES) { s.moveTo(h.x + 2.4, h.y); s.arc(h.x, h.y, 2.4, 0, Math.PI * 2); }
+  s.fill();
+  s.strokeStyle = "rgba(34,211,238,0.22)"; s.lineWidth = 0.8; s.beginPath();
+  for (const h of HOLES) { s.moveTo(h.x + 2.4, h.y); s.arc(h.x, h.y, 2.4, 0, Math.PI * 2); }
+  s.stroke();
+}
+buildStatic();
+
+// ---------- Render: frame ----------
+function drawWalls() {
+  const t = game.t;
+  for (let i = 0; i < 3; i++) {
+    const S = SIDES[i];
+    const g = game.wallGlow[i];
+    ctx.lineCap = "round";
+    // muros (las porterias quedan abiertas)
+    ctx.strokeStyle = "rgba(56,189,248," + (0.7 + g * 0.3).toFixed(3) + ")";
+    ctx.lineWidth = 6 + g * 6;
+    ctx.shadowColor = "#38BDF8"; ctx.shadowBlur = 16 + g * 34;
+    ctx.beginPath();
+    ctx.moveTo(S.a.x, S.a.y); ctx.lineTo(S.gA.x, S.gA.y);
+    ctx.moveTo(S.gB.x, S.gB.y); ctx.lineTo(S.b.x, S.b.y);
+    ctx.stroke();
+    // porteria (pulso de color del defensor)
+    const pulse = 0.65 + 0.35 * Math.sin(t * 4 + i);
+    ctx.strokeStyle = COLORS[i];
+    ctx.globalAlpha = pulse;
+    ctx.lineWidth = 10 + g * 6;
+    ctx.shadowColor = COLORS[i]; ctx.shadowBlur = 26 + g * 30;
+    ctx.beginPath(); ctx.moveTo(S.gA.x, S.gA.y); ctx.lineTo(S.gB.x, S.gB.y); ctx.stroke();
+    ctx.globalAlpha = 1;
+    // postes
+    ctx.fillStyle = COLORS[i];
+    ctx.beginPath(); ctx.arc(S.gA.x, S.gA.y, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(S.gB.x, S.gB.y, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // etiqueta de la porteria
+    const ox = -S.nx, oy = -S.ny;                       // direccion exterior del lado
+    const lx = S.mid.x + ox * 44, ly = S.mid.y + oy * 44;
+    ctx.fillStyle = COLORS[i];
+    ctx.font = "bold 22px Helvetica Neue, Arial, sans-serif";
+    ctx.textAlign = ox > 0.3 ? "left" : (ox < -0.3 ? "right" : "center");
+    ctx.textBaseline = "middle";
+    ctx.fillText(NAMES[i], lx, ly);
+  }
+  ctx.shadowBlur = 0;
+  ctx.lineCap = "butt";
+}
+
+function drawAirHoles() {
+  const R = 120, R2 = R * R;
+  ctx.fillStyle = "#22D3EE";
+  for (const h of HOLES) {
+    let best = 0;
+    for (const pk of game.pucks) {
+      const dx = h.x - pk.x, dy = h.y - pk.y, d2 = dx * dx + dy * dy;
+      if (d2 < R2) { const a = 1 - d2 / R2; if (a > best) best = a; }
+    }
+    if (best > 0.03) {
+      ctx.globalAlpha = best * 0.9;
+      ctx.beginPath(); ctx.arc(h.x, h.y, 2.4 + best * 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTrails() {
+  for (const pk of game.pucks) {
+    const n = pk.trail.length;
+    if (n < 2) continue;
+    ctx.lineCap = "round";
+    for (let i = 1; i < n; i++) {
+      const a = i / n;
+      ctx.strokeStyle = pk.color;
+      ctx.globalAlpha = a * (pk.plasma > 0 ? 0.85 : 0.35);
+      ctx.lineWidth = pk.r * 2 * a * (pk.plasma > 0 ? 1.0 : 0.6);
+      ctx.beginPath();
+      ctx.moveTo(pk.trail[i - 1].x, pk.trail[i - 1].y);
+      ctx.lineTo(pk.trail[i].x, pk.trail[i].y);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.lineCap = "butt";
+}
+
+// Trayectoria futura simulada (solo muros y porterias, sin mazos)
+function predictPath(pk, T, dt) {
+  const pts = [];
+  let x = pk.x, y = pk.y, vx = pk.vx, vy = pk.vy;
+  const steps = Math.round(T / dt);
+  for (let n = 0; n < steps; n++) {
+    x += vx * dt; y += vy * dt;
+    let goal = -1;
+    for (let i = 0; i < 3; i++) {
+      const S = SIDES[i];
+      const c = sideCoords(i, x, y);
+      const inSpan = c.s >= S.sA && c.s <= S.sB;
+      if (inSpan && c.d < 0) { goal = i; break; }
+      if (!inSpan && c.d < pk.r) {
+        const push = pk.r - c.d;
+        x += S.nx * push; y += S.ny * push;
+        const vn = vx * S.nx + vy * S.ny;
+        if (vn < 0) { vx -= (1 + WALL_E) * vn * S.nx; vy -= (1 + WALL_E) * vn * S.ny; }
+      }
+    }
+    pts.push({ x, y });
+    if (goal >= 0) { pts.goal = goal; break; }
+  }
+  return pts;
+}
+
+function drawArrow(x0, y0, x1, y1, color, width) {
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - 16 * Math.cos(ang - 0.4), y1 - 16 * Math.sin(ang - 0.4));
+  ctx.lineTo(x1 - 16 * Math.cos(ang + 0.4), y1 - 16 * Math.sin(ang + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+function drawVectors() {
+  for (const pk of game.pucks) {
+    if (pk.hold > 0) continue;
+    const path = predictPath(pk, 1.4, 1 / 60);
+    if (path.length > 1) {
+      ctx.setLineDash([10, 9]);
+      ctx.strokeStyle = "rgba(251,191,36,0.75)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pk.x, pk.y);
+      for (const p of path) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const end = path[path.length - 1];
+      ctx.fillStyle = path.goal !== undefined ? COLORS[path.goal] : "rgba(251,191,36,0.9)";
+      ctx.beginPath(); ctx.arc(end.x, end.y, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    const sp = Math.hypot(pk.vx, pk.vy);
+    if (sp > 20) {
+      const L = Math.min(sp * 0.2, 260);
+      drawArrow(pk.x, pk.y, pk.x + pk.vx / sp * L, pk.y + pk.vy / sp * L, "rgba(248,250,252,0.85)", 3);
+    }
+  }
+  // intencion de la IA: marcador de objetivo de cada mazo
+  for (const m of game.mallets) {
+    ctx.strokeStyle = m.color; ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(m.tx, m.ty, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(m.tx - 16, m.ty); ctx.lineTo(m.tx + 16, m.ty);
+    ctx.moveTo(m.tx, m.ty - 16); ctx.lineTo(m.tx, m.ty + 16); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.setLineDash([]);
+}
+
+function drawMallets() {
+  for (const m of game.mallets) {
+    const g = m.glow;
+    // halo
+    const halo = ctx.createRadialGradient(m.x, m.y, m.r * 0.4, m.x, m.y, m.r * 1.9);
+    halo.addColorStop(0, m.color + "AA"); halo.addColorStop(1, m.color + "00");
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 1.9, 0, Math.PI * 2); ctx.fill();
+    // cuerpo
+    ctx.fillStyle = "#0B1322";
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = m.color; ctx.lineWidth = 5 + g * 4;
+    ctx.shadowColor = m.color; ctx.shadowBlur = 18 + g * 30;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r - 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = m.color;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 0.32, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawPucks() {
+  for (const pk of game.pucks) {
+    const sp = Math.hypot(pk.vx, pk.vy);
+    const halo = ctx.createRadialGradient(pk.x, pk.y, pk.r * 0.3, pk.x, pk.y, pk.r * 2.6);
+    halo.addColorStop(0, pk.color + "CC"); halo.addColorStop(1, pk.color + "00");
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(pk.x, pk.y, pk.r * 2.6, 0, Math.PI * 2); ctx.fill();
+    const ringColor = pk.last >= 0 ? COLORS[pk.last] : "#E2E8F0";
+    ctx.strokeStyle = ringColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(pk.x, pk.y, pk.r + 3, 0, Math.PI * 2); ctx.stroke();
+    const body = ctx.createRadialGradient(pk.x - 6, pk.y - 6, 2, pk.x, pk.y, pk.r);
+    body.addColorStop(0, "#FFFFFF"); body.addColorStop(1, pk.color);
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(pk.x, pk.y, pk.r, 0, Math.PI * 2); ctx.fill();
+    if (sp > 20) {
+      ctx.fillStyle = "#E2E8F0";
+      ctx.font = "bold 18px Helvetica Neue, Arial, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(Math.round(sp * PX_TO_KMH) + " km/h", pk.x, pk.y - pk.r - 8);
+    }
+  }
+}
+
+function drawParticles() {
+  ctx.globalCompositeOperation = "lighter";
+  for (const p of game.particles) {
+    const a = Math.max(0, p.life / p.max);
+    if (p.type === "ring") {
+      const rr = (1 - a) * 46 + 6;
+      ctx.strokeStyle = p.color; ctx.globalAlpha = a * 0.7; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      const rad = p.size * (p.type === "plasma" ? 2.6 : 1.4) * (0.4 + a);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.type === "plasma" ? "#F0ABFC" : p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function drawFlash() {
+  const f = Math.max(game.flash, game.cannonFlash * 0.35);
+  if (f <= 0.01) return;
+  const g = ctx.createRadialGradient(CX, CY, 60, CX, CY, 760);
+  g.addColorStop(0, "rgba(251,191,36," + (0.22 * f).toFixed(3) + ")");
+  g.addColorStop(1, "rgba(251,191,36,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+function render() {
+  ctx.drawImage(STATIC, 0, 0);
+  drawWalls();
+  drawAirHoles();
+  if (game.trails) drawTrails();
+  if (game.vectors) drawVectors();
+  drawMallets();
+  drawPucks();
+  drawParticles();
+  drawFlash();
+}
+
+// ---------- Actualizacion de simulacion (paso fijo 1/60 s) ----------
+function demoShot() {
+  const G = game;
+  const shooter = Math.floor(Math.random() * 3);
+  const target = (shooter + 1 + Math.floor(Math.random() * 2)) % 3;
+  const m = G.mallets[shooter];
+  let k = 0, best = Infinity;
+  G.pucks.forEach((pk, j) => {
+    const d = Math.hypot(pk.x - m.x, pk.y - m.y);
+    if (d < best) { best = d; k = j; }
+  });
+  const pk = G.pucks[k];
+  if (pk.hold > 0) return;
+  // apunta a la porteria rival con desviacion lateral (no siempre entra)
+  const TS = SIDES[target];
+  // 20% de los canonazos buscan la porteria; el resto rebota en los muros cercanos a las esquinas
+  const aimGoal = Math.random() < 0.2;
+  const off = aimGoal
+    ? (Math.random() - 0.5) * SIDE_L * GOAL_FRAC * 0.9
+    : (Math.random() < 0.5 ? -1 : 1) * (170 + Math.random() * 140);
+  const tgt = { x: TS.mid.x + TS.tx * off, y: TS.mid.y + TS.ty * off };
+  let dx = tgt.x - m.x, dy = tgt.y - m.y;
+  const L = Math.hypot(dx, dy) || 1;
+  dx /= L; dy /= L;
+  pk.x = m.x + dx * (m.r + pk.r + 6);
+  pk.y = m.y + dy * (m.r + pk.r + 6);
+  const speed = 1380 + Math.random() * 140;
+  pk.vx = dx * speed; pk.vy = dy * speed;
+  pk.last = shooter;
+  pk.plasma = 0.8;
+  G.cannons++;
+  G.cannonFlash = 1;
+  logEvent("CANONAZO DEMO de " + NAMES[shooter] + " hacia " + NAMES[target] + " a " + Math.round(speed * PX_TO_KMH) + " km/h", COLORS[shooter]);
+  spawnParticles(pk.x, pk.y, COLORS[shooter], 30, 500, 0.6, "plasma");
+}
+
+function update(dt) {
+  const G = game;
+  G.t += dt;
+  thinkMallets(dt);
+  const h = dt / SUBSTEPS;
+  for (let s = 0; s < SUBSTEPS; s++) physicsStep(h);
+
+  // decaimientos de iluminacion reactiva
+  for (let i = 0; i < 3; i++) G.wallGlow[i] = Math.max(0, G.wallGlow[i] - dt * 1.6);
+  G.flash = Math.max(0, G.flash - dt * 1.8);
+  G.cannonFlash = Math.max(0, G.cannonFlash - dt * 2.5);
+  for (const m of G.mallets) m.glow = Math.max(0, m.glow - dt * 2.5);
+  if (G.goalFx) { G.goalFx.t -= dt; if (G.goalFx.t <= 0) G.goalFx = null; }
+
+  // particulas
+  for (let i = G.particles.length - 1; i >= 0; i--) {
+    const p = G.particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { G.particles.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    const drag = Math.pow(0.12, dt);
+    p.vx *= drag; p.vy *= drag;
+  }
+
+  // estelas y plasma de canonazo
+  for (const pk of G.pucks) {
+    pk.trail.push({ x: pk.x, y: pk.y });
+    if (pk.trail.length > 30) pk.trail.shift();
+    if (pk.plasma > 0 && pk.hold <= 0) spawnParticles(pk.x, pk.y, pk.color, 2, 60, 0.35, "plasma");
+  }
+
+  // velocidad maxima (km/h)
+  for (const pk of G.pucks) {
+    const kmh = Math.hypot(pk.vx, pk.vy) * PX_TO_KMH;
+    if (kmh > G.maxKmh) G.maxKmh = kmh;
+  }
+
+  // reactivar discos atascados (sin friccion pero sin energia) para mantener la partida viva
+  G.pucks.forEach((pk, k) => {
+    const sp = Math.hypot(pk.vx, pk.vy);
+    if (pk.hold <= 0 && sp < 90) {
+      G.stallT[k] += dt;
+      if (G.stallT[k] > 3) {
+        G.stallT[k] = 0;
+        serveRandom(k, 900);
+        logEvent("Disco " + (k + 1) + " reactivado por IA de arena", "#E2E8F0");
+      }
+    } else {
+      G.stallT[k] = 0;
+    }
+  });
+
+  // tiros demo ciclicos
+  G.demoTimer -= dt;
+  if (G.demoTimer <= 0) {
+    demoShot();
+    G.demoTimer = G.demoEvery;
+  }
+}
+
+// ---------- HUD (DOM) ----------
+function setText(id, v) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const s = String(v);
+  if (el.textContent !== s) el.textContent = s;
+}
+function updateHUD() {
+  const G = game;
+  setText("clock-text", fmtTime(G.t));
+  setText("score0", G.scores[0]);
+  setText("score1", G.scores[1]);
+  setText("score2", G.scores[2]);
+  setText("st-vmax", Math.round(G.maxKmh) + " km/h");
+  setText("st-v1", Math.round(Math.hypot(G.pucks[0].vx, G.pucks[0].vy) * PX_TO_KMH) + " km/h");
+  setText("st-v2", Math.round(Math.hypot(G.pucks[1].vx, G.pucks[1].vy) * PX_TO_KMH) + " km/h");
+  setText("st-saves", G.saves);
+  setText("st-cannons", G.cannons);
+  setText("st-fps", G.fps);
+}
+
+// ---------- Bucle 60 FPS ----------
+let lastNow = 0, accum = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!lastNow) lastNow = now;
+  const frameDt = Math.min(0.05, Math.max(0, (now - lastNow) / 1000));
+  lastNow = now;
+  game.fpsAcc += frameDt; game.fpsCount++;
+  if (game.fpsAcc >= 0.5) {
+    game.fps = Math.round(game.fpsCount / game.fpsAcc);
+    game.fpsAcc = 0; game.fpsCount = 0;
+  }
+  if (!game.paused) {
+    accum += frameDt * game.speedMul;
+    let steps = 0;
+    while (accum >= DT && steps < 4) { update(DT); accum -= DT; steps++; }
+    if (steps >= 4) accum = 0;
+  }
+  render();
+  updateHUD();
+}
+
+// ---------- Controles ----------
+function refreshButtons() {
+  const bp = document.getElementById("btn-pause");
+  bp.textContent = game.paused ? "REANUDAR" : "PAUSA";
+  bp.classList.toggle("on", !game.paused);
+  const bt = document.getElementById("btn-trails");
+  bt.textContent = "ESTELAS: " + (game.trails ? "ON" : "OFF");
+  bt.classList.toggle("on", game.trails);
+  const bv = document.getElementById("btn-vectors");
+  bv.textContent = "VECTORES: " + (game.vectors ? "ON" : "OFF");
+  bv.classList.toggle("on", game.vectors);
+}
+function togglePause() { game.paused = !game.paused; refreshButtons(); }
+function resetMatch() {
+  const keep = {
+    speedMul: game.speedMul, demoEvery: game.demoEvery,
+    trails: game.trails, vectors: game.vectors, paused: game.paused
+  };
+  newGame();
+  Object.assign(game, keep);
+  game.demoTimer = game.demoEvery;
+  document.getElementById("event-log").innerHTML = "";
+  logEvent("Partida reiniciada: 3 mazos IA en juego", "#22D3EE");
+  showOverlay("REINICIO", "#22D3EE");
+  refreshButtons();
+}
+function bindControls() {
+  document.getElementById("btn-pause").addEventListener("click", togglePause);
+  document.getElementById("btn-trails").addEventListener("click", () => { game.trails = !game.trails; refreshButtons(); });
+  document.getElementById("btn-vectors").addEventListener("click", () => { game.vectors = !game.vectors; refreshButtons(); });
+  document.getElementById("btn-reset").addEventListener("click", resetMatch);
+  const sl = document.getElementById("sl-speed");
+  sl.addEventListener("input", () => {
+    game.speedMul = parseFloat(sl.value);
+    document.getElementById("sp-speed").textContent = game.speedMul.toFixed(2) + "x";
+  });
+  const sd = document.getElementById("sl-demo");
+  sd.addEventListener("input", () => {
+    game.demoEvery = parseFloat(sd.value);
+    game.demoTimer = Math.min(game.demoTimer, game.demoEvery);
+    document.getElementById("sp-demo").textContent = game.demoEvery.toFixed(1) + " s";
+  });
+  window.addEventListener("keydown", e => {
+    if (e.code === "Space") { e.preventDefault(); togglePause(); }
+    if (e.key === "r" || e.key === "R") resetMatch();
+  });
+}
+function fitStage() {
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const st = document.getElementById("stage");
+  st.style.transform = "scale(" + s + ")";
+  st.style.left = Math.round((window.innerWidth - W * s) / 2) + "px";
+  st.style.top = Math.round((window.innerHeight - H * s) / 2) + "px";
+}
+
+// ---------- Auditoria publica ----------
+// maxPuckSpeed en km/h (1000 px/s = 100 km/h)
+window.__auditAirHockey = function () {
+  let ready = false;
+  try {
+    const probe = window.computeAirHockeyAI(snapshotState(), 1);
+    ready = typeof window.computeAirHockeyAI === "function" &&
+      Number.isFinite(probe.targetX) && Number.isFinite(probe.targetY);
+  } catch (e) { ready = false; }
+  return {
+    scores: game.scores.slice(),
+    maxPuckSpeed: Math.round(game.maxKmh * 10) / 10,
+    savesCount: game.saves,
+    aiHookReady: ready
+  };
+};
+
+// ---------- Arranque automatico ----------
+bindControls();
+fitStage();
+window.addEventListener("resize", fitStage);
+refreshButtons();
+logEvent("Arena lista: HYDROGEN CIAN, HAIKU AMBAR y LUNA ESMERALDA en juego", "#22D3EE");
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

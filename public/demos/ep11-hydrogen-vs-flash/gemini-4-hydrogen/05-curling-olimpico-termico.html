@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RETO 05/06 · Curling Olimpico · Termodinamica del Barrido &amp; Arena IA</title>
+  <style>
+    :root {
+      --bg: #060A12;
+      --panel: #0F172A;
+      --panel-alt: #131F38;
+      --border: rgba(56, 189, 248, 0.24);
+      --cyan: #22D3EE;
+      --blue: #38BDF8;
+      --orange: #FB923C;
+      --emerald: #10B981;
+      --gold: #FBBF24;
+      --coral: #F43F5E;
+      --text: #F1F5F9;
+      --muted: #94A3B8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .lab-shell {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 68px 1fr;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.08), transparent 45%),
+        radial-gradient(circle at 82% 85%, rgba(251, 146, 60, 0.07), transparent 45%),
+        linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        var(--bg);
+      background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px, 100% 100%;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      background: rgba(15, 23, 42, 0.92);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      color: var(--cyan);
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+    }
+
+    .title-text h1 {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .title-text p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .scoreboard-strip {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .score-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      background: var(--panel-alt);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .score-pill.cyan-pill { border-color: rgba(34, 211, 238, 0.45); }
+    .score-pill.orange-pill { border-color: rgba(251, 146, 60, 0.45); }
+
+    .score-pill .lbl {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .score-pill .num {
+      font-size: 22px;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 18px;
+      padding: 16px 24px 20px;
+      min-height: 0;
+    }
+
+    .stage-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      display: flex;
+    }
+
+    #iceCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 15px 17px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      padding-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .badge-cyan { background: rgba(34, 211, 238, 0.16); color: var(--cyan); border: 1px solid rgba(34, 211, 238, 0.45); }
+    .badge-orange { background: rgba(251, 146, 60, 0.16); color: var(--orange); border: 1px solid rgba(251, 146, 60, 0.45); }
+    .badge-gold { background: rgba(251, 191, 36, 0.16); color: var(--gold); border: 1px solid rgba(251, 191, 36, 0.45); }
+
+    .thermo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .stat-val {
+      font-size: 26px;
+      font-weight: 900;
+      margin-top: 3px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-sub {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .asym-bar-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .asym-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .asym-row span:first-child { width: 92px; color: var(--muted); }
+    .asym-track {
+      flex: 1;
+      height: 11px;
+      border-radius: 6px;
+      background: #060A12;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      overflow: hidden;
+    }
+    .asym-fill { height: 100%; border-radius: 5px; transition: width 0.08s linear; }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 9px;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.14s ease;
+    }
+
+    .btn:hover { border-color: var(--cyan); background: rgba(34, 211, 238, 0.12); }
+    .btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34, 211, 238, 0.18); }
+    .btn.btn-orange { border-color: rgba(251, 146, 60, 0.45); color: var(--orange); }
+    .btn.btn-orange:hover { background: rgba(251, 146, 60, 0.15); }
+    .btn.btn-gold { border-color: rgba(251, 191, 36, 0.45); color: var(--gold); }
+    .btn.btn-gold:hover { background: rgba(251, 191, 36, 0.15); }
+    .btn.sweeping {
+      background: rgba(251, 191, 36, 0.24);
+      border-color: var(--gold);
+      color: var(--gold);
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.28);
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .slider-head span:last-child {
+      color: var(--cyan);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--cyan);
+      cursor: pointer;
+    }
+
+    .stone-ledger {
+      background: var(--bg);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .ledger-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      color: #CBD5E1;
+      border-bottom: 1px dashed rgba(148, 163, 184, 0.12);
+      padding-bottom: 4px;
+    }
+
+    .ledger-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .pips-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .stone-pip {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 2px solid #475569;
+    }
+    .stone-pip.cyan { background: #22D3EE; border-color: #BAE6FD; }
+    .stone-pip.orange { background: #FB923C; border-color: #FED7AA; }
+    .stone-pip.used { opacity: 0.22; }
+  </style>
+</head>
+<body>
+  <div class="lab-shell">
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/>
+          </svg>
+          <span>MIXIUH LABS · RETO 05/06</span>
+        </div>
+        <div class="title-text">
+          <h1>CURLING OLIMPICO · TERMODINAMICA DEL BARRIDO Y ARENA IA</h1>
+          <p>Granito escoces 20 kg · Giro horario (CW) desvía a derecha · Pelicula liquida por friccion (+3m alcance)</p>
+        </div>
+      </div>
+
+      <div class="scoreboard-strip">
+        <div class="score-pill cyan-pill">
+          <span class="lbl">EQUIPO CIAN</span>
+          <span class="num" style="color:#22D3EE" id="uiScoreCyan">0</span>
+        </div>
+        <div class="score-pill orange-pill">
+          <span class="lbl">EQUIPO NARANJA</span>
+          <span class="num" style="color:#FB923C" id="uiScoreOrange">0</span>
+        </div>
+        <div class="score-pill">
+          <span class="lbl">DIST. AL TEE</span>
+          <span class="num" style="color:#FBBF24" id="uiClosestTee">-- m</span>
+        </div>
+        <div class="score-pill">
+          <span class="lbl">END</span>
+          <span class="num" style="color:#10B981" id="uiEndNum">1</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="stage-card">
+        <canvas id="iceCanvas"></canvas>
+      </section>
+
+      <aside class="sidebar">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+              </svg>
+              TERMODINAMICA DE ESCARCHA Y CURL
+            </span>
+            <span class="badge badge-gold" id="uiSweepBadge">BARRIDO ACTIVO</span>
+          </div>
+
+          <div class="thermo-grid">
+            <div class="stat-box">
+              <div class="stat-lbl">TEMP. HIELO FRONTAL</div>
+              <div class="stat-val" style="color:#22D3EE" id="uiIceTemp">-4.5 C</div>
+              <div class="stat-sub" id="uiWaterFilm">Micropelicula: 0.0 um</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-lbl">GANANCIA BARRIDO</div>
+              <div class="stat-val" style="color:#FBBF24" id="uiSweepGain">+0.0 m</div>
+              <div class="stat-sub" id="uiCurlDir">Giro CW -> Derecha</div>
+            </div>
+          </div>
+
+          <div class="asym-bar-wrap">
+            <div class="asym-row">
+              <span>Fric. Frontal</span>
+              <div class="asym-track"><div class="asym-fill" id="barFrontMu" style="width:65%;background:#38BDF8"></div></div>
+              <span id="valFrontMu">0.012</span>
+            </div>
+            <div class="asym-row">
+              <span>Fric. Trasera</span>
+              <div class="asym-track"><div class="asym-fill" id="barBackMu" style="width:82%;background:#FB923C"></div></div>
+              <span id="valBackMu">0.016</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              TIROS TACTICOS Y BARRIDO MANUAL
+            </span>
+            <span class="badge badge-cyan" id="uiTurnBadge">TURNO: CIAN</span>
+          </div>
+
+          <div class="btn-grid">
+            <button class="btn" id="btnShotGuard">TIRO GUARDIA</button>
+            <button class="btn" id="btnShotDraw">CURVA (DRAW)</button>
+            <button class="btn btn-orange" id="btnShotTakeout">DOBLE TAKEOUT</button>
+            <button class="btn btn-gold" id="btnManualSweep">BARRER AHORA (ESPACIO)</button>
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-head">
+              <span>INTENSIDAD DE BARRIDO IA</span>
+              <span id="uiSweepPowLabel">100%</span>
+            </div>
+            <input type="range" id="sliderSweepPow" min="0" max="150" step="10" value="100" />
+          </div>
+
+          <div class="btn-grid">
+            <button class="btn active" id="btnAutoCycle">DUELO IA: ACTIVO</button>
+            <button class="btn" id="btnResetEnd">NUEVO END</button>
+          </div>
+
+          <div class="btn-grid">
+            <button class="btn" id="btnFlipSpin">FORZAR GIRO: AUTO</button>
+            <button class="btn" id="btnAudio">SONIDO: ON</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex: 1; min-height: 0;">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/>
+              </svg>
+              ESTRATEGIA IA (computeCurlingShot)
+            </span>
+            <span class="badge badge-cyan">HOOK ACTIVO</span>
+          </div>
+
+          <div class="stone-ledger">
+            <div class="ledger-row"><span>Jugada actual:</span><strong id="uiAiPlay" style="color:#22D3EE">CURVA ALREDEDOR DE GUARDIA</strong></div>
+            <div class="ledger-row"><span>Vector salida:</span><strong id="uiAiVec">--</strong></div>
+            <div class="ledger-row"><span>Spin (rad/s):</span><strong id="uiAiSpin">+2.4 CW</strong></div>
+            <div class="ledger-row"><span>Piedra en casa (Shot):</span><strong id="uiShotHolder">CIAN (+1)</strong></div>
+            <div class="ledger-row">
+              <span>Piedras End:</span>
+              <div class="pips-wrap" id="uiStonePips"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // =========================================================================
+      // 1. AUDIO SYNTHESIZER (ICE HISS, SWEEP SCRUB & GRANITE CLACK)
+      // =========================================================================
+      const AudioFX = (() => {
+        let ctx = null;
+        let enabled = true;
+
+        function ensureCtx() {
+          if (!enabled) return null;
+          try {
+            if (!ctx) {
+              const AC = window.AudioContext || window.webkitAudioContext;
+              if (AC) ctx = new AC();
+            }
+            if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+          } catch (_) {
+            ctx = null;
+          }
+          return ctx;
+        }
+
+        function graniteClack(intensity = 1.0) {
+          const c = ensureCtx();
+          if (!c || c.state !== 'running') return;
+          try {
+            const now = c.currentTime;
+            // High ceramic/granite click + deep stone resonance
+            const o1 = c.createOscillator();
+            const g1 = c.createGain();
+            o1.type = 'triangle';
+            o1.frequency.setValueAtTime(1420, now);
+            o1.frequency.exponentialRampToValueAtTime(320, now + 0.045);
+            g1.gain.setValueAtTime(Math.min(0.18, 0.11 * intensity), now);
+            g1.gain.exponentialRampToValueAtTime(0.0005, now + 0.06);
+            o1.connect(g1); g1.connect(c.destination);
+            o1.start(now); o1.stop(now + 0.065);
+
+            const o2 = c.createOscillator();
+            const g2 = c.createGain();
+            o2.type = 'sine';
+            o2.frequency.setValueAtTime(240, now);
+            o2.frequency.exponentialRampToValueAtTime(85, now + 0.11);
+            g2.gain.setValueAtTime(Math.min(0.14, 0.08 * intensity), now);
+            g2.gain.exponentialRampToValueAtTime(0.0005, now + 0.12);
+            o2.connect(g2); g2.connect(c.destination);
+            o2.start(now); o2.stop(now + 0.13);
+          } catch (_) {}
+        }
+
+        function releaseWhoosh() {
+          const c = ensureCtx();
+          if (!c || c.state !== 'running') return;
+          try {
+            const now = c.currentTime;
+            const o = c.createOscillator();
+            const g = c.createGain();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(110, now);
+            o.frequency.exponentialRampToValueAtTime(260, now + 0.14);
+            g.gain.setValueAtTime(0.04, now);
+            g.gain.exponentialRampToValueAtTime(0.0005, now + 0.16);
+            o.connect(g); g.connect(c.destination);
+            o.start(now); o.stop(now + 0.17);
+          } catch (_) {}
+        }
+
+        function endBell() {
+          const c = ensureCtx();
+          if (!c || c.state !== 'running') return;
+          try {
+            const now = c.currentTime;
+            [523.25, 659.25, 783.99].forEach((freq, idx) => {
+              const o = c.createOscillator();
+              const g = c.createGain();
+              o.type = 'triangle';
+              o.frequency.setValueAtTime(freq, now + idx * 0.08);
+              g.gain.setValueAtTime(0.07, now + idx * 0.08);
+              g.gain.exponentialRampToValueAtTime(0.0005, now + idx * 0.08 + 0.25);
+              o.connect(g); g.connect(c.destination);
+              o.start(now + idx * 0.08); o.stop(now + idx * 0.08 + 0.26);
+            });
+          } catch (_) {}
+        }
+
+        return {
+          toggle() { enabled = !enabled; if (enabled) ensureCtx(); return enabled; },
+          unlock: ensureCtx,
+          graniteClack,
+          releaseWhoosh,
+          endBell
+        };
+      })();
+
+      window.addEventListener('pointerdown', () => AudioFX.unlock(), { passive: true });
+
+      // =========================================================================
+      // 2. CANONICAL SHEET GEOMETRY & CURLING PHYSICS CONSTANTS
+      // =========================================================================
+      const SHEET = {
+        w: 1320,
+        h: 360,
+        cy: 180,
+        pxPerMeter: 42, // 42 px = 1 m -> 3.0 m = 126 px
+        launchX: 85,
+        hogNearX: 300,
+        hogFarX: 745,
+        houseX: 1090,
+        houseY: 180,
+        houseRadius: 108, // 12-ft ring visual radius
+        backLineX: 1218,
+        stoneR: 13.8,
+        stoneMass: 20.0
+      };
+
+      const PHYS = {
+        ambientTempC: -4.5,
+        baseDecelCold: 152,   // px/s^2 on cold pebbled ice
+        wetFrictionDrop: 0.23, // sweeping reduces friction up to 23% -> ~3m further!
+        curlStrength: 42.5,   // lateral acceleration scale (clockwise spin > 0 curls +Y right)
+        curlWetReduction: 0.36
+      };
+
+      // Fast trajectory predictor used both by pure AI hook & visual guide
+      function predictTrajectory(startX, startY, vx, vy, spin, sweepZones, stones, ignoreTeam, houseR) {
+        const scale = houseR / SHEET.houseRadius;
+        const dt = 0.025;
+        let x = startX;
+        let y = startY;
+        let cvx = vx;
+        let cvy = vy;
+        let hitStone = null;
+        const rStone = (stones[0]?.r) || (13.8 * scale);
+
+        for (let step = 0; step < 260; step++) {
+          const speed = Math.hypot(cvx, cvy);
+          if (speed < 4 * scale) break;
+
+          // Check sweep intensity at current x
+          let sweepInt = 0;
+          if (Array.isArray(sweepZones)) {
+            for (const z of sweepZones) {
+              if (x >= z.startX && x <= z.endX) {
+                sweepInt = Math.max(sweepInt, Math.min(1, z.intensity || 0));
+              }
+            }
+          }
+
+          const film = Math.min(1, sweepInt * 0.78);
+          const decel = PHYS.baseDecelCold * scale * (1 - PHYS.wetFrictionDrop * film) * (0.92 + 0.22 / (1 + speed / (110 * scale)));
+          const ux = cvx / speed;
+          const uy = cvy / speed;
+          // Right-hand perpendicular in screen coords (+X right, +Y down)
+          const rx = -uy;
+          const ry = ux;
+
+          const curlFactor = Math.sign(spin) * Math.min(1, Math.abs(spin) / 2.2);
+          const curlAcc = PHYS.curlStrength * scale * curlFactor * (1 - PHYS.curlWetReduction * film) * (0.55 + 0.55 / (1 + speed / (95 * scale)));
+
+          cvx += (-ux * decel + rx * curlAcc) * dt;
+          cvy += (-uy * decel + ry * curlAcc) * dt;
+          x += cvx * dt;
+          y += cvy * dt;
+
+          // Check collision with existing stones
+          for (const st of stones) {
+            const d = Math.hypot(x - st.x, y - st.y);
+            if (d < rStone * 1.98) {
+              hitStone = st;
+              return { endX: x, endY: y, hitStone, finalSpeed: speed };
+            }
+          }
+          if (x > startX + houseR * 11.2) break;
+        }
+        return { endX: x, endY: y, hitStone: null, finalSpeed: 0 };
+      }
+
+      // =========================================================================
+      // 3. PURE AI HOOK: window.computeCurlingShot(state, team)
+      // =========================================================================
+      /**
+       * Pure tactical curling shot strategist.
+       * state = { houseX, houseY, houseRadius, stones: [{team, x, y, r}], stonesRemaining }
+       * team = 'cyan' | 'orange'
+       * Returns { vx: number, vy: number, spin: number, sweepZones: [{startX, endX, intensity}] }
+       */
+      window.computeCurlingShot = function computeCurlingShot(state, team) {
+        const s = state || {};
+        const houseX = Number.isFinite(s.houseX) ? s.houseX : SHEET.houseX;
+        const houseY = Number.isFinite(s.houseY) ? s.houseY : SHEET.houseY;
+        const houseR = Number.isFinite(s.houseRadius) && s.houseRadius > 0 ? s.houseRadius : SHEET.houseRadius;
+        const stones = Array.isArray(s.stones) ? s.stones : [];
+        const stonesRem = Number.isFinite(s.stonesRemaining) ? s.stonesRemaining : 6;
+        const myTeam = String(team || 'cyan').toLowerCase();
+
+        const scale = houseR / SHEET.houseRadius;
+        const launchX = houseX - (SHEET.houseX - SHEET.launchX) * scale;
+        const launchY = houseY;
+        const stoneR = (stones[0] && Number.isFinite(stones[0].r)) ? stones[0].r : SHEET.stoneR * scale;
+
+        // Analyze current house occupation
+        const oppStonesInHouse = [];
+        const myStonesInHouse = [];
+        for (const st of stones) {
+          const d = Math.hypot(st.x - houseX, st.y - houseY);
+          const stTeam = String(st.team || '').toLowerCase();
+          if (d <= houseR + stoneR) {
+            if (stTeam === myTeam) myStonesInHouse.push({ ...st, d });
+            else oppStonesInHouse.push({ ...st, d });
+          }
+        }
+        oppStonesInHouse.sort((a, b) => a.d - b.d);
+        myStonesInHouse.sort((a, b) => a.d - b.d);
+
+        const oppClosest = oppStonesInHouse[0] ? oppStonesInHouse[0].d : Infinity;
+        const myClosest = myStonesInHouse[0] ? myStonesInHouse[0].d : Infinity;
+        const opponentHoldsShot = oppClosest < myClosest;
+
+        // Check for Double Takeout opportunity (two enemy stones close to each other in house)
+        if (oppStonesInHouse.length >= 2) {
+          for (let i = 0; i < oppStonesInHouse.length; i++) {
+            for (let j = i + 1; j < oppStonesInHouse.length; j++) {
+              const a = oppStonesInHouse[i];
+              const b = oppStonesInHouse[j];
+              const pairDist = Math.hypot(a.x - b.x, a.y - b.y);
+              if (pairDist < stoneR * 6.5) {
+                // Aim slightly off-center on the front stone to carom into the second stone!
+                const front = a.x <= b.x ? a : b;
+                const back = a.x <= b.x ? b : a;
+                const angleToBack = Math.atan2(back.y - front.y, back.x - front.x);
+                const aimX = front.x - Math.cos(angleToBack) * stoneR * 1.15;
+                const aimY = front.y - Math.sin(angleToBack) * stoneR * 1.15;
+                const dx = aimX - launchX;
+                const dy = aimY - launchY;
+                const dist = Math.hypot(dx, dy);
+                const speed = 770 * scale;
+                const spin = (dy >= 0 ? -1.1 : 1.1);
+                const sweepZones = [{ startX: launchX + 180 * scale, endX: houseX - 55 * scale, intensity: 0.45 }];
+                // Small curl compensation
+                const compY = -spin * 11 * scale;
+                return {
+                  vx: Number(((dx / dist) * speed).toFixed(2)),
+                  vy: Number((((dy + compY) / dist) * speed).toFixed(2)),
+                  spin: Number(spin.toFixed(2)),
+                  sweepZones
+                };
+              }
+            }
+          }
+        }
+
+        // If opponent holds strong shot inside 4-ft / 8-ft and no guard blocks direct hit, consider Takeout
+        if (opponentHoldsShot && oppClosest < houseR * 0.72 && stonesRem <= 6) {
+          const target = oppStonesInHouse[0];
+          const pathBlocked = stones.some(st =>
+            st.x < target.x - stoneR * 2 &&
+            Math.abs(st.y - (launchY + (target.y - launchY) * ((st.x - launchX) / (target.x - launchX)))) < stoneR * 2.2
+          );
+          if (!pathBlocked) {
+            const dx = target.x - launchX;
+            const dy = target.y - launchY;
+            const dist = Math.hypot(dx, dy);
+            const speed = 755 * scale;
+            const spin = 1.2;
+            const compY = -14 * scale;
+            return {
+              vx: Number(((dx / dist) * speed).toFixed(2)),
+              vy: Number((((dy + compY) / dist) * speed).toFixed(2)),
+              spin: Number(spin.toFixed(2)),
+              sweepZones: [{ startX: launchX + 200 * scale, endX: houseX - 80 * scale, intensity: 0.35 }]
+            };
+          }
+        }
+
+        // Guard shot if early in end & we already hold shot or sheet is open
+        if (!opponentHoldsShot && myStonesInHouse.length >= 1 && stonesRem >= 4) {
+          const guardX = houseX - houseR * 2.15;
+          const guardY = myStonesInHouse[0].y + (Math.abs(myStonesInHouse[0].y - houseY) < stoneR ? 0 : (myStonesInHouse[0].y - houseY) * 0.35);
+          const spin = 2.0;
+          const sweepZones = [{ startX: launchX + 220 * scale, endX: guardX - 90 * scale, intensity: 0.55 }];
+          const sol = solveDrawForTarget(launchX, launchY, guardX, guardY, spin, sweepZones, stones, myTeam, houseR);
+          return sol;
+        }
+
+        // Default: Draw around any guard onto the Button (houseX, houseY)
+        // Evaluate both Clockwise (+spin) and Counter-Clockwise (-spin) arcs to pick cleaner lane!
+        const candidateSpins = [2.4, -2.4, 1.8, -1.8];
+        let bestPlan = null;
+        let bestErr = Infinity;
+
+        for (const spin of candidateSpins) {
+          const sweepZones = [
+            { startX: launchX + 240 * scale, endX: houseX - 180 * scale, intensity: 0.85 },
+            { startX: houseX - 170 * scale, endX: houseX - 30 * scale, intensity: 0.92 }
+          ];
+          const cand = solveDrawForTarget(launchX, launchY, houseX, houseY, spin, sweepZones, stones, myTeam, houseR);
+          const simRes = predictTrajectory(launchX, launchY, cand.vx, cand.vy, cand.spin, cand.sweepZones, stones, myTeam, houseR);
+
+          let err = Math.hypot(simRes.endX - houseX, simRes.endY - houseY);
+          if (simRes.hitStone) {
+            const hitTeam = String(simRes.hitStone.team || '').toLowerCase();
+            // Heavy penalty for hitting a front guard or own stone
+            err += (hitTeam === myTeam ? 500 : 180) * scale;
+          }
+          if (err < bestErr) {
+            bestErr = err;
+            bestPlan = cand;
+          }
+        }
+
+        return bestPlan;
+      };
+
+      function solveDrawForTarget(launchX, launchY, targetX, targetY, spin, sweepZones, stones, myTeam, houseR) {
+        const scale = houseR / SHEET.houseRadius;
+        const targetDist = Math.max(10 * scale, targetX - launchX);
+        // Analytical kinetic guess + fast shooting-method convergence
+        let vx = Math.sqrt(2 * PHYS.baseDecelCold * scale * 0.88 * targetDist);
+        // Clockwise spin (+spin) curls +Y (right), so start aimed slightly -Y (left)
+        let vy = (targetY - launchY) * 0.25 - Math.sign(spin) * 56 * scale;
+
+        for (let iter = 0; iter < 12; iter++) {
+          const res = predictTrajectory(launchX, launchY, vx, vy, spin, sweepZones, stones, myTeam, houseR);
+          if (res.hitStone) {
+            // Steer laterally around the obstruction while keeping longitudinal energy bounded
+            vy -= Math.sign(spin || 1) * 14 * scale;
+            vy = Math.max(-115 * scale, Math.min(115 * scale, vy));
+            const shortX = targetX - res.endX;
+            if (shortX > 0) vx = Math.sqrt(Math.max(1000, vx * vx + 2 * 80 * scale * shortX));
+            continue;
+          }
+          const ex = targetX - res.endX;
+          const ey = targetY - res.endY;
+          vx = Math.sqrt(Math.max(1000, vx * vx + 2 * 115 * scale * ex));
+          vy = Math.max(-115 * scale, Math.min(115 * scale, vy + ey * 0.30));
+          if (Math.hypot(ex, ey) < 4 * scale) break;
+        }
+
+        return {
+          vx: Number(vx.toFixed(2)),
+          vy: Number(vy.toFixed(2)),
+          spin: Number(spin.toFixed(2)),
+          sweepZones
+        };
+      }
+
+      // =========================================================================
+      // 4. THERMAL ICE GRID & CURLING STATE
+      // =========================================================================
+      const TGRID_COLS = 132;
+      const TGRID_ROWS = 36;
+
+      const sim = {
+        time: 0,
+        endNumber: 1,
+        scoreCyan: 0,
+        scoreOrange: 0,
+        endScoreCyan: 0,
+        endScoreOrange: 0,
+        closestDistM: 0,
+        stonesPerTeam: 4, // 8 stones per end (4 cyan, 4 orange) for crisp tactical pacing
+        stonesThrown: 0,
+        currentTurn: 'cyan',
+        autoCycle: true,
+        sweepPowerSlider: 1.0,
+        manualSweepActive: false,
+        forcedSpinMode: 0, // 0: Auto, +1: CW, -1: CCW
+
+        phase: 'SLIDING', // 'AIMING' | 'SLIDING' | 'SETTLED' | 'END_BANNER'
+        phaseTimer: 0,
+        activeStoneId: null,
+        activePlan: null,
+        activePlayLabel: 'CURVA ALREDEDOR DE GUARDIA',
+        sweepAnimPhase: 0,
+        lastSweepGainM: 0,
+        stoneStartColdEstX: 0,
+        currentFrontTempC: PHYS.ambientTempC,
+        currentWaterUm: 0,
+        currentMuFront: 0.012,
+        currentMuBack: 0.015,
+
+        nextStoneId: 1,
+        stones: [],
+        thermalGrid: new Float32Array(TGRID_COLS * TGRID_ROWS),
+        collisionVectors: [],
+        particles: [],
+        trailPoints: []
+      };
+
+      // =========================================================================
+      // 5. AUDIT HOOK: window.__auditCurling()
+      // =========================================================================
+      window.__auditCurling = function __auditCurling() {
+        return {
+          scoreCyan: sim.scoreCyan + sim.endScoreCyan,
+          scoreOrange: sim.scoreOrange + sim.endScoreOrange,
+          closestDistToTee: Number(sim.closestDistM.toFixed(2)),
+          aiHookReady: typeof window.computeCurlingShot === 'function'
+        };
+      };
+
+      // =========================================================================
+      // 6. TACTICAL PRESETS & END MANAGEMENT
+      // =========================================================================
+      function resetThermalGrid() {
+        sim.thermalGrid.fill(PHYS.ambientTempC);
+      }
+
+      function addStone(team, x, y, vx = 0, vy = 0, spin = 2.2) {
+        const st = {
+          id: sim.nextStoneId++,
+          team,
+          x,
+          y,
+          vx,
+          vy,
+          r: SHEET.stoneR,
+          mass: SHEET.stoneMass,
+          angle: 0,
+          spin,
+          sweptDistBonusPx: 0,
+          active: true
+        };
+        sim.stones.push(st);
+        return st;
+      }
+
+      function initOpeningMidEndAtZero() {
+        // Start at 0.0s ALREADY mid-action with stones in place + a live Draw Around Guard gliding in!
+        resetThermalGrid();
+        sim.stones = [];
+        sim.collisionVectors = [];
+        sim.particles = [];
+        sim.trailPoints = [];
+
+        // Stone 1: Orange Guard protecting front of house
+        addStone('orange', 905, SHEET.houseY - 6, 0, 0, 1.5);
+        // Stone 2: Orange Draw sitting near button
+        addStone('orange', SHEET.houseX + 18, SHEET.houseY + 12, 0, 0, -1.8);
+
+        sim.stonesThrown = 2;
+        sim.currentTurn = 'cyan';
+
+        // Stone 3: Live Cyan Draw Around Guard launched from hack & pre-rolled 0.45s into motion!
+        const sweepZones = [{ startX: 310, endX: 1055, intensity: 0.94 }];
+        const plan = solveDrawForTarget(SHEET.launchX, SHEET.houseY, SHEET.houseX, SHEET.houseY, 2.4, sweepZones, sim.stones, 'cyan', SHEET.houseRadius);
+        const liveStone = addStone('cyan', SHEET.launchX, SHEET.houseY, plan.vx, plan.vy, plan.spin);
+        sim.activeStoneId = liveStone.id;
+        sim.activePlan = plan;
+        sim.activePlayLabel = 'CURVA ALREDEDOR DE GUARDIA';
+        const coldEst = predictTrajectory(SHEET.launchX, SHEET.houseY, plan.vx, plan.vy, plan.spin, [], sim.stones, 'cyan', SHEET.houseRadius);
+        sim.stoneStartColdEstX = coldEst.endX;
+        sim.phase = 'SLIDING';
+        sim.phaseTimer = 0;
+        sim.stonesThrown = 3;
+        // Pre-advance 0.55s so at t=0.0s the stone is already gliding past the hog line with a glowing thermal trail!
+        for (let k = 0; k < 33; k++) {
+          stepSimulation(1 / 60);
+        }
+        sim.time = 0;
+        recomputeLiveHouseScoring();
+      }
+
+      function getPublicState() {
+        return {
+          houseX: SHEET.houseX,
+          houseY: SHEET.houseY,
+          houseRadius: SHEET.houseRadius,
+          stones: sim.stones.filter(s => s.active).map(s => ({
+            team: s.team,
+            x: s.x,
+            y: s.y,
+            r: s.r
+          })),
+          stonesRemaining: Math.max(0, sim.stonesPerTeam * 2 - sim.stonesThrown)
+        };
+      }
+
+      function launchNextShot(forcedType = null) {
+        if (sim.stonesThrown >= sim.stonesPerTeam * 2) {
+          finishEnd();
+          return;
+        }
+
+        const team = sim.currentTurn;
+        const pub = getPublicState();
+        let plan;
+        let label = 'ESTRATEGIA IA';
+
+        if (forcedType === 'GUARD') {
+          const guardX = SHEET.houseX - SHEET.houseRadius * 2.1;
+          const guardY = SHEET.houseY + (team === 'cyan' ? -22 : 22);
+          const spin = sim.forcedSpinMode !== 0 ? sim.forcedSpinMode * 2.1 : 2.1;
+          plan = solveDrawForTarget(SHEET.launchX, SHEET.houseY, guardX, guardY, spin,
+            [{ startX: 310, endX: 780, intensity: 0.55 }], pub.stones, team, SHEET.houseRadius);
+          label = 'TIRO DE GUARDIA';
+        } else if (forcedType === 'DRAW') {
+          const spin = sim.forcedSpinMode !== 0 ? sim.forcedSpinMode * 2.4 : 2.4;
+          const sweepZones = [{ startX: 310, endX: SHEET.houseX - 35, intensity: 0.92 }];
+          plan = solveDrawForTarget(SHEET.launchX, SHEET.houseY, SHEET.houseX, SHEET.houseY, spin, sweepZones, pub.stones, team, SHEET.houseRadius);
+          label = 'CURVA (DRAW AL TEE)';
+        } else if (forcedType === 'TAKEOUT') {
+          const opp = pub.stones.filter(s => s.team !== team);
+          const tgt = opp.length > 0 ? opp[0] : { x: SHEET.houseX, y: SHEET.houseY };
+          const dx = tgt.x - SHEET.launchX;
+          const dy = tgt.y - SHEET.houseY;
+          const d = Math.hypot(dx, dy);
+          const spd = 780;
+          const spin = sim.forcedSpinMode !== 0 ? sim.forcedSpinMode * 1.1 : 1.1;
+          plan = {
+            vx: (dx / d) * spd,
+            vy: ((dy - spin * 12) / d) * spd,
+            spin,
+            sweepZones: [{ startX: 290, endX: 980, intensity: 0.35 }]
+          };
+          label = 'DOBLE TAKEOUT';
+        } else {
+          plan = window.computeCurlingShot(pub, team);
+          if (sim.forcedSpinMode !== 0) {
+            plan.spin = sim.forcedSpinMode * Math.abs(plan.spin || 2.2);
+          }
+          const spd = Math.hypot(plan.vx, plan.vy);
+          if (spd > 660) label = 'DOBLE TAKEOUT IA';
+          else if (predictTrajectory(SHEET.launchX, SHEET.houseY, plan.vx, plan.vy, plan.spin, plan.sweepZones, pub.stones, team, SHEET.houseRadius).endX < SHEET.houseX - SHEET.houseRadius * 1.2) {
+            label = 'GUARDIA TACTICA IA';
+          } else {
+            label = 'CURVA ALREDEDOR DE GUARDIA';
+          }
+        }
+
+        const st = addStone(team, SHEET.launchX, SHEET.houseY, plan.vx, plan.vy, plan.spin);
+        // Estimate cold stopping X without sweeping for +m telemetry comparison
+        const coldEst = predictTrajectory(SHEET.launchX, SHEET.houseY, plan.vx, plan.vy, plan.spin, [], pub.stones, team, SHEET.houseRadius);
+        sim.stoneStartColdEstX = coldEst.endX;
+        sim.activeStoneId = st.id;
+        sim.activePlan = plan;
+        sim.activePlayLabel = label;
+        sim.phase = 'SLIDING';
+        sim.phaseTimer = 0;
+        sim.stonesThrown += 1;
+        sim.trailPoints = [];
+        AudioFX.releaseWhoosh();
+      }
+
+      function finishEnd() {
+        recomputeLiveHouseScoring();
+        sim.scoreCyan += sim.endScoreCyan;
+        sim.scoreOrange += sim.endScoreOrange;
+        sim.phase = 'END_BANNER';
+        sim.phaseTimer = 0;
+        AudioFX.endBell();
+      }
+
+      function startNewEnd() {
+        sim.endNumber += 1;
+        sim.stones = [];
+        sim.stonesThrown = 0;
+        sim.endScoreCyan = 0;
+        sim.endScoreOrange = 0;
+        sim.currentTurn = sim.endNumber % 2 === 1 ? 'cyan' : 'orange';
+        sim.trailPoints = [];
+        sim.collisionVectors = [];
+        resetThermalGrid();
+        launchNextShot('GUARD');
+      }
+
+      function recomputeLiveHouseScoring() {
+        const inHouse = [];
+        let minTee = Infinity;
+        for (const st of sim.stones) {
+          if (!st.active) continue;
+          const d = Math.hypot(st.x - SHEET.houseX, st.y - SHEET.houseY);
+          if (d < minTee) minTee = d;
+          if (d <= SHEET.houseRadius + st.r) {
+            inHouse.push({ team: st.team, d });
+          }
+        }
+        sim.closestDistM = Number.isFinite(minTee) ? (minTee / SHEET.pxPerMeter) : 0;
+
+        if (inHouse.length === 0) {
+          sim.endScoreCyan = 0;
+          sim.endScoreOrange = 0;
+          return;
+        }
+        inHouse.sort((a, b) => a.d - b.d);
+        const winner = inHouse[0].team;
+        let pts = 0;
+        for (const item of inHouse) {
+          if (item.team === winner) pts++;
+          else break;
+        }
+        sim.endScoreCyan = winner === 'cyan' ? pts : 0;
+        sim.endScoreOrange = winner === 'orange' ? pts : 0;
+      }
+
+      // =========================================================================
+      // 7. THERMODYNAMIC SWEEPING & RIGID-BODY ELASTIC PHYSICS
+      // =========================================================================
+      function sampleThermal(x, y) {
+        const col = Math.max(0, Math.min(TGRID_COLS - 1, Math.floor((x / SHEET.w) * TGRID_COLS)));
+        const row = Math.max(0, Math.min(TGRID_ROWS - 1, Math.floor((y / SHEET.h) * TGRID_ROWS)));
+        return sim.thermalGrid[row * TGRID_COLS + col];
+      }
+
+      function depositThermalHeat(cx, cy, radiusPx, intensity, dt) {
+        const minC = Math.max(0, Math.floor(((cx - radiusPx) / SHEET.w) * TGRID_COLS));
+        const maxC = Math.min(TGRID_COLS - 1, Math.ceil(((cx + radiusPx) / SHEET.w) * TGRID_COLS));
+        const minR = Math.max(0, Math.floor(((cy - radiusPx) / SHEET.h) * TGRID_ROWS));
+        const maxR = Math.min(TGRID_ROWS - 1, Math.ceil(((cy + radiusPx) / SHEET.h) * TGRID_ROWS));
+
+        const cellW = SHEET.w / TGRID_COLS;
+        const cellH = SHEET.h / TGRID_ROWS;
+
+        for (let r = minR; r <= maxR; r++) {
+          for (let c = minC; c <= maxC; c++) {
+            const gx = (c + 0.5) * cellW;
+            const gy = (r + 0.5) * cellH;
+            const d = Math.hypot(gx - cx, gy - cy);
+            if (d <= radiusPx) {
+              const falloff = 1 - d / radiusPx;
+              const idx = r * TGRID_COLS + c;
+              const cur = sim.thermalGrid[idx];
+              const heatRate = 36.0 * intensity * falloff * dt;
+              sim.thermalGrid[idx] = Math.min(-0.08, cur + heatRate);
+            }
+          }
+        }
+      }
+
+      function getCurrentSweepIntensity(stone) {
+        if (!stone || !sim.activeStoneId || stone.id !== sim.activeStoneId) return 0;
+        const speed = Math.hypot(stone.vx, stone.vy);
+        if (speed < 12) return 0;
+
+        let baseInt = 0;
+        if (sim.activePlan && Array.isArray(sim.activePlan.sweepZones)) {
+          for (const z of sim.activePlan.sweepZones) {
+            if (stone.x >= z.startX && stone.x <= z.endX) {
+              baseInt = Math.max(baseInt, z.intensity || 0);
+            }
+          }
+        }
+        baseInt *= sim.sweepPowerSlider;
+        if (sim.manualSweepActive) baseInt = Math.max(baseInt, 1.35);
+        return Math.min(1.5, baseInt);
+      }
+
+      function stepSimulation(dt) {
+        sim.time += dt;
+        sim.phaseTimer += dt;
+        sim.sweepAnimPhase += dt * 26;
+
+        // Cool thermal ice grid gently back toward -4.5 C
+        const coolFactor = Math.min(1, dt * 0.24);
+        for (let i = 0; i < sim.thermalGrid.length; i++) {
+          sim.thermalGrid[i] += (PHYS.ambientTempC - sim.thermalGrid[i]) * coolFactor;
+        }
+
+        // Handle active sweeping ahead of moving stone
+        const activeStone = sim.stones.find(s => s.id === sim.activeStoneId && s.active);
+        let activeSweep = 0;
+        if (activeStone && sim.phase === 'SLIDING') {
+          activeSweep = getCurrentSweepIntensity(activeStone);
+          const spd = Math.hypot(activeStone.vx, activeStone.vy);
+          if (activeSweep > 0.05 && spd > 14) {
+            const ux = activeStone.vx / spd;
+            const uy = activeStone.vy / spd;
+            const osc = Math.sin(sim.sweepAnimPhase) * 8;
+            const sweepX = activeStone.x + ux * (activeStone.r * 1.65) - uy * osc;
+            const sweepY = activeStone.y + uy * (activeStone.r * 1.65) + ux * osc;
+            depositThermalHeat(sweepX, sweepY, 28, activeSweep, dt);
+
+            if (Math.random() < 0.55) {
+              sim.particles.push({
+                x: sweepX,
+                y: sweepY,
+                vx: -ux * 35 + (Math.random() - 0.5) * 40,
+                vy: (Math.random() - 0.5) * 40,
+                life: 0.32,
+                maxLife: 0.32,
+                size: 2.0,
+                color: activeSweep > 0.75 ? '#FBBF24' : '#22D3EE'
+              });
+            }
+          }
+        }
+
+        // Sub-step rigid body motion & collisions
+        const subSteps = 3;
+        const sdt = dt / subSteps;
+        let anyMoving = false;
+
+        for (let step = 0; step < subSteps; step++) {
+          for (const st of sim.stones) {
+            if (!st.active) continue;
+            const spd = Math.hypot(st.vx, st.vy);
+            if (spd > 2.2) {
+              anyMoving = true;
+              const ux = st.vx / spd;
+              const uy = st.vy / spd;
+              const rx = -uy;
+              const ry = ux;
+
+              // Sample temperature right at front running band
+              const frontT = sampleThermal(st.x + ux * st.r * 1.1, st.y + uy * st.r * 1.1);
+              // Liquid water micro-film forms above -2.2 C
+              const film = Math.max(0, Math.min(1, (frontT + 2.4) / 2.3));
+              const decel = PHYS.baseDecelCold * (1 - PHYS.wetFrictionDrop * film) * (0.92 + 0.22 / (1 + spd / 110));
+
+              const curlFactor = Math.sign(st.spin) * Math.min(1, Math.abs(st.spin) / 2.2);
+              const curlAcc = PHYS.curlStrength * curlFactor * (1 - PHYS.curlWetReduction * film) * (0.55 + 0.55 / (1 + spd / 95));
+
+              st.vx += (-ux * decel + rx * curlAcc) * sdt;
+              st.vy += (-uy * decel + ry * curlAcc) * sdt;
+
+              // Update telemetry if active stone
+              if (st.id === sim.activeStoneId) {
+                sim.currentFrontTempC = frontT;
+                sim.currentWaterUm = film * 14.5;
+                sim.currentMuFront = 0.014 * (1 - 0.34 * film);
+                sim.currentMuBack = 0.0175 * (1 - 0.14 * film);
+                const gainPx = Math.max(0, st.x - sim.stoneStartColdEstX);
+                sim.lastSweepGainM = Math.min(3.4, gainPx / SHEET.pxPerMeter);
+              }
+
+              st.x += st.vx * sdt;
+              st.y += st.vy * sdt;
+              st.angle += st.spin * sdt;
+              st.spin *= Math.pow(0.92, sdt);
+
+              if (step === 0 && st.id === sim.activeStoneId && sim.trailPoints.length < 400) {
+                sim.trailPoints.push({ x: st.x, y: st.y, temp: frontT });
+              }
+
+              // Out of bounds / backline / sidelines removal
+              if (st.x - st.r > SHEET.backLineX + 18 || st.y - st.r < 12 || st.y + st.r > SHEET.h - 12) {
+                st.active = false;
+                sim.particles.push({
+                  x: Math.min(SHEET.backLineX, st.x),
+                  y: Math.max(20, Math.min(SHEET.h - 20, st.y)),
+                  vx: 0, vy: 0, life: 0.4, maxLife: 0.4, size: 7, color: '#F43F5E'
+                });
+              }
+            } else {
+              st.vx = 0;
+              st.vy = 0;
+            }
+          }
+
+          // Elastic 20kg granite stone-stone collisions
+          for (let i = 0; i < sim.stones.length; i++) {
+            const a = sim.stones[i];
+            if (!a.active) continue;
+            for (let j = i + 1; j < sim.stones.length; j++) {
+              const b = sim.stones[j];
+              if (!b.active) continue;
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.hypot(dx, dy);
+              const minD = a.r + b.r;
+              if (dist > 0.001 && dist < minD) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const overlap = minD - dist;
+                a.x -= nx * overlap * 0.5;
+                a.y -= ny * overlap * 0.5;
+                b.x += nx * overlap * 0.5;
+                b.y += ny * overlap * 0.5;
+
+                const rvx = b.vx - a.vx;
+                const rvy = b.vy - a.vy;
+                const vn = rvx * nx + rvy * ny;
+                if (vn < 0) {
+                  const restitution = 0.93;
+                  const imp = -(1 + restitution) * vn * 0.5; // equal 20kg masses
+                  a.vx -= imp * nx;
+                  a.vy -= imp * ny;
+                  b.vx += imp * nx;
+                  b.vy += imp * ny;
+
+                  // Record elastic collision vector arrows on canvas!
+                  const hitX = (a.x + b.x) * 0.5;
+                  const hitY = (a.y + b.y) * 0.5;
+                  const mag = Math.abs(imp);
+                  if (mag > 35) {
+                    AudioFX.graniteClack(Math.min(1.4, mag / 260));
+                    sim.collisionVectors.push({
+                      x: hitX, y: hitY,
+                      nx, ny,
+                      mag,
+                      life: 2.2,
+                      maxLife: 2.2
+                    });
+                    for (let k = 0; k < 14; k++) {
+                      const ang = Math.random() * Math.PI * 2;
+                      const pspd = 40 + Math.random() * 140;
+                      sim.particles.push({
+                        x: hitX, y: hitY,
+                        vx: Math.cos(ang) * pspd,
+                        vy: Math.sin(ang) * pspd,
+                        life: 0.45, maxLife: 0.45, size: 2.6, color: '#E0F2FE'
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        recomputeLiveHouseScoring();
+
+        // Phase transitions
+        if (sim.phase === 'SLIDING') {
+          if (!anyMoving && sim.phaseTimer > 0.5) {
+            sim.phase = 'SETTLED';
+            sim.phaseTimer = 0;
+            sim.currentTurn = sim.currentTurn === 'cyan' ? 'orange' : 'cyan';
+          }
+        } else if (sim.phase === 'SETTLED') {
+          if (sim.autoCycle && sim.phaseTimer >= 0.85) {
+            launchNextShot();
+          }
+        } else if (sim.phase === 'END_BANNER') {
+          if (sim.autoCycle && sim.phaseTimer >= 2.2) {
+            startNewEnd();
+          }
+        }
+
+        // Update transient FX
+        for (let i = sim.particles.length - 1; i >= 0; i--) {
+          const pt = sim.particles[i];
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.life -= dt;
+          if (pt.life <= 0) sim.particles.splice(i, 1);
+        }
+        for (let i = sim.collisionVectors.length - 1; i >= 0; i--) {
+          sim.collisionVectors[i].life -= dt;
+          if (sim.collisionVectors[i].life <= 0) sim.collisionVectors.splice(i, 1);
+        }
+      }
+
+      // =========================================================================
+      // 8. CANVAS RENDERING (TOP PANORAMIC SHEET + BOTTOM ZOOMED TACTICAL HOUSE)
+      // =========================================================================
+      const iceCanvas = document.getElementById('iceCanvas');
+      const ctx = iceCanvas.getContext('2d');
+      const CW = 1360;
+      const CH = 880;
+
+      function drawScene() {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const rect = iceCanvas.getBoundingClientRect();
+        if (rect.width > 10 && rect.height > 10) {
+          const tw = Math.round(rect.width * dpr);
+          const th = Math.round(rect.height * dpr);
+          if (iceCanvas.width !== tw || iceCanvas.height !== th) {
+            iceCanvas.width = tw;
+            iceCanvas.height = th;
+          }
+        }
+
+        ctx.save();
+        ctx.scale(iceCanvas.width / CW, iceCanvas.height / CH);
+        ctx.fillStyle = '#060A12';
+        ctx.fillRect(0, 0, CW, CH);
+
+        // ---------------------------------------------------------------------
+        // PANEL 1 (TOP): FULL OLYMPIC PEBBLED ICE SHEET (32m PANORAMIC)
+        // ---------------------------------------------------------------------
+        const topX = 20;
+        const topY = 18;
+        drawSheetViewport(topX, topY, SHEET.w, SHEET.h, 1.0, false);
+
+        // ---------------------------------------------------------------------
+        // PANEL 2 (BOTTOM): 2.15x ZOOMED HOUSE MICROSCOPE + THERMAL INSPECTOR
+        // ---------------------------------------------------------------------
+        const zoomBoxX = 20;
+        const zoomBoxY = 400;
+        const zoomBoxW = 810;
+        const zoomBoxH = 462;
+        drawZoomedHouseViewport(zoomBoxX, zoomBoxY, zoomBoxW, zoomBoxH);
+
+        // ---------------------------------------------------------------------
+        // PANEL 3 (BOTTOM RIGHT): CURL PHYSICS & FRICTION ASYMMETRY DIAGRAM
+        // ---------------------------------------------------------------------
+        const diagX = 848;
+        const diagY = 400;
+        const diagW = 492;
+        const diagH = 462;
+        drawPhysicsDiagramPanel(diagX, diagY, diagW, diagH);
+
+        ctx.restore();
+      }
+
+      function drawSheetViewport(ox, oy, vw, vh, zoomScale, isZoom) {
+        ctx.save();
+        ctx.beginPath();
+        roundRect(ctx, ox, oy, vw, vh, 14);
+        ctx.clip();
+
+        // Frosted dark-navy pebbled ice surface
+        const iceGrad = ctx.createLinearGradient(ox, oy, ox, oy + vh);
+        iceGrad.addColorStop(0, '#091526');
+        iceGrad.addColorStop(0.5, '#0D1F38');
+        iceGrad.addColorStop(1, '#091526');
+        ctx.fillStyle = iceGrad;
+        ctx.fillRect(ox, oy, vw, vh);
+
+        // Subtle pebbled ice micro-texture dots
+        ctx.fillStyle = 'rgba(186, 230, 253, 0.045)';
+        for (let px = ox + 12; px < ox + vw; px += 22) {
+          for (let py = oy + 12; py < oy + vh; py += 22) {
+            ctx.fillRect(px + ((py * 7) % 9), py, 2, 2);
+          }
+        }
+
+        // Transform into sheet world coordinates
+        ctx.save();
+        if (isZoom) {
+          const camX = SHEET.houseX - 75;
+          const camY = SHEET.houseY;
+          ctx.translate(ox + vw / 2, oy + vh / 2);
+          ctx.scale(zoomScale, zoomScale);
+          ctx.translate(-camX, -camY);
+        } else {
+          ctx.translate(ox, oy);
+        }
+
+        // Thermal Frost Trail Heat Map on the ice!
+        const cellW = SHEET.w / TGRID_COLS;
+        const cellH = SHEET.h / TGRID_ROWS;
+        for (let r = 0; r < TGRID_ROWS; r++) {
+          for (let c = 0; c < TGRID_COLS; c++) {
+            const temp = sim.thermalGrid[r * TGRID_COLS + c];
+            if (temp > PHYS.ambientTempC + 0.15) {
+              const norm = Math.min(1, (temp - PHYS.ambientTempC) / 4.2);
+              const gx = c * cellW;
+              const gy = r * cellH;
+              if (norm < 0.5) {
+                ctx.fillStyle = `rgba(34, 211, 238, ${(norm * 0.72).toFixed(3)})`;
+              } else {
+                const warm = (norm - 0.5) * 2;
+                ctx.fillStyle = `rgba(251, 191, 36, ${(0.35 + warm * 0.48).toFixed(3)})`;
+              }
+              ctx.fillRect(gx - 1, gy - 1, cellW + 2, cellH + 2);
+            }
+          }
+        }
+
+        // Sheet markings: Hog Lines, Center Line, Tee Line, Back Line
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+        ctx.lineWidth = isZoom ? 1.5 : 3;
+        [SHEET.hogNearX, SHEET.hogFarX].forEach(lx => {
+          ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, SHEET.h); ctx.stroke();
+        });
+
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+        ctx.lineWidth = isZoom ? 1.2 : 1.8;
+        ctx.beginPath(); ctx.moveTo(0, SHEET.cy); ctx.lineTo(SHEET.w, SHEET.cy); ctx.stroke(); // Center line
+        ctx.beginPath(); ctx.moveTo(SHEET.houseX, 0); ctx.lineTo(SHEET.houseX, SHEET.h); ctx.stroke(); // Tee line
+        ctx.beginPath(); ctx.moveTo(SHEET.backLineX, 0); ctx.lineTo(SHEET.backLineX, SHEET.h); ctx.stroke(); // Back line
+
+        // Olympic House Concentric Rings (12-ft Blue, 8-ft White, 4-ft Red/Coral, Button)
+        const R = SHEET.houseRadius;
+        drawRing(ctx, SHEET.houseX, SHEET.houseY, R, '#1D4ED8', 'rgba(56, 189, 248, 0.35)');
+        drawRing(ctx, SHEET.houseX, SHEET.houseY, R * 0.67, '#E2E8F0', '#94A3B8');
+        drawRing(ctx, SHEET.houseX, SHEET.houseY, R * 0.36, '#E11D48', '#FDA4AF');
+        drawRing(ctx, SHEET.houseX, SHEET.houseY, R * 0.12, '#F8FAFC', '#0F172A');
+
+        // Active trajectory breadcrumb trail
+        if (sim.trailPoints.length > 1) {
+          ctx.beginPath();
+          for (let i = 0; i < sim.trailPoints.length; i++) {
+            const pt = sim.trailPoints[i];
+            if (i === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
+          ctx.lineWidth = isZoom ? 1.5 : 2.5;
+          ctx.setLineDash([5, 5]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw all active 20kg Scottish Granite Stones
+        for (const st of sim.stones) {
+          if (!st.active) continue;
+          drawGraniteStone(ctx, st, isZoom);
+        }
+
+        // Draw animated sweeping brooms in front of active stone!
+        const activeStone = sim.stones.find(s => s.id === sim.activeStoneId && s.active);
+        if (activeStone && sim.phase === 'SLIDING') {
+          const swInt = getCurrentSweepIntensity(activeStone);
+          if (swInt > 0.05 && Math.hypot(activeStone.vx, activeStone.vy) > 14) {
+            drawSweepingBrooms(ctx, activeStone, swInt);
+          }
+        }
+
+        // Draw Elastic Collision Force Vectors on impact!
+        for (const cv of sim.collisionVectors) {
+          const alpha = Math.min(1, cv.life / 0.8);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          const arrowLen = Math.min(85, Math.max(30, cv.mag * 0.18));
+          drawVectorArrow(ctx, cv.x, cv.y, cv.x + cv.nx * arrowLen, cv.y + cv.ny * arrowLen, '#FBBF24', isZoom ? 2.2 : 3.2);
+          drawVectorArrow(ctx, cv.x, cv.y, cv.x - cv.nx * arrowLen, cv.y - cv.ny * arrowLen, '#22D3EE', isZoom ? 2.2 : 3.2);
+          ctx.restore();
+        }
+
+        // Ice spray particles
+        for (const pt of sim.particles) {
+          ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.restore();
+
+        // Viewport border & label overlay
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, ox, oy, vw, vh, 14);
+        ctx.stroke();
+
+        if (!isZoom) {
+          drawPillLabel(ctx, ox + 16, oy + 16, `PISTA OLIMPICA 32m · END ${sim.endNumber} · ${sim.activePlayLabel}`, '#22D3EE');
+          ctx.font = '700 12px "JetBrains Mono", monospace';
+          ctx.fillStyle = 'rgba(241, 245, 249, 0.65)';
+          ctx.fillText('HACK', ox + 55, oy + vh - 14);
+          ctx.fillText('HOG 1', ox + SHEET.hogNearX - 18, oy + vh - 14);
+          ctx.fillText('HOG 2', ox + SHEET.hogFarX - 18, oy + vh - 14);
+          ctx.fillText('TEE (HOUSE)', ox + SHEET.houseX - 42, oy + vh - 14);
+        }
+
+        // End banner if finished
+        if (sim.phase === 'END_BANNER' && !isZoom) {
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.84)';
+          roundRect(ctx, ox + vw / 2 - 230, oy + vh / 2 - 42, 460, 84, 12);
+          ctx.fill();
+          ctx.strokeStyle = '#FBBF24';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.font = '900 24px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#FBBF24';
+          const winTxt = sim.endScoreCyan > 0
+            ? `END ${sim.endNumber}: CIAN ANOTA +${sim.endScoreCyan}`
+            : (sim.endScoreOrange > 0 ? `END ${sim.endNumber}: NARANJA ANOTA +${sim.endScoreOrange}` : `END ${sim.endNumber}: EMPATE SIN PUNTOS`);
+          ctx.fillText(winTxt, ox + vw / 2, oy + vh / 2 + 8);
+        }
+
+        ctx.restore();
+      }
+
+      function drawZoomedHouseViewport(x, y, w, h) {
+        drawSheetViewport(x, y, w, h, 1.95, true);
+        drawPillLabel(ctx, x + 16, y + 16, 'CAMARA TACTICA HOUSE (ZOOM 1.95x) · RASTRO TERMICO Y VECTORES ELASTICOS', '#FBBF24');
+
+        // Distance caliper badge in bottom-left of zoom cam
+        const distTxt = sim.closestDistM > 0 ? `PIEDRA MAS CERCANA AL TEE: ${sim.closestDistM.toFixed(2)} m` : 'SIN PIEDRAS EN CASA';
+        drawPillLabel(ctx, x + 16, y + h - 42, distTxt, '#10B981');
+      }
+
+      function drawPhysicsDiagramPanel(x, y, w, h) {
+        ctx.save();
+        ctx.fillStyle = '#0B1221';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.34)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, x, y, w, h, 14);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '800 16px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#38BDF8';
+        ctx.textAlign = 'left';
+        ctx.fillText('FISICA DEL CURL: ASIMETRIA FRONTAL/TRASERA', x + 20, y + 34);
+
+        // Draw magnified running band cross-section diagram
+        const cx = x + 145;
+        const cy = y + 195;
+        const r = 74;
+
+        // Granite circle
+        const g = ctx.createRadialGradient(cx - 18, cy - 18, 10, cx, cy, r);
+        g.addColorStop(0, '#64748B');
+        g.addColorStop(0.7, '#334155');
+        g.addColorStop(1, '#1E293B');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#22D3EE';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Running band highlight (front vs back)
+        ctx.strokeStyle = '#22D3EE';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 12, -Math.PI * 0.4, Math.PI * 0.4);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#FB923C';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 12, Math.PI * 0.6, Math.PI * 1.4);
+        ctx.stroke();
+
+        // Rotation spin arrow
+        const activeStone = sim.stones.find(s => s.id === sim.activeStoneId && s.active) || sim.stones[0];
+        const spinVal = activeStone ? activeStone.spin : 2.3;
+        const isCW = spinVal >= 0;
+
+        ctx.strokeStyle = '#FBBF24';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 34, isCW ? -Math.PI * 0.7 : Math.PI * 0.7, isCW ? Math.PI * 0.5 : -Math.PI * 0.5, !isCW);
+        ctx.stroke();
+
+        // Curl deflection vector arrow
+        drawVectorArrow(ctx, cx, cy, cx, cy + (isCW ? 105 : -105), '#10B981', 4);
+        ctx.font = '800 13px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#10B981';
+        ctx.textAlign = 'center';
+        ctx.fillText(isCW ? 'DESVIO DERECHA (CW)' : 'DESVIO IZQUIERDA (CCW)', cx, cy + (isCW ? 128 : -118));
+
+        // Right-side comparative telemetry explanation
+        const tx = x + 255;
+        ctx.textAlign = 'left';
+        ctx.font = '800 14px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#F1F5F9';
+        ctx.fillText('ANATOMIA DEL BARRIDO', tx, y + 86);
+
+        const facts = [
+          { lbl: '1. SIN BARRER (-4.5 C)', val: 'Mayor friccion y curl pronunciado', col: '#38BDF8' },
+          { lbl: '2. CON ESCOBA (-0.2 C)', val: 'Funde escarcha -> micropelicula H2O', col: '#FBBF24' },
+          { lbl: '3. ALCANCE EXTRA', val: `+${sim.lastSweepGainM.toFixed(2)} m (hasta +3.0 m)`, col: '#10B981' },
+          { lbl: '4. GIRO HORARIO (CW)', val: 'Friccion trasera > frontal -> Derecha', col: '#FB923C' }
+        ];
+
+        let fy = y + 122;
+        for (const f of facts) {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          roundRect(ctx, tx, fy - 18, 218, 56, 8);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          ctx.font = '800 12px "JetBrains Mono", monospace';
+          ctx.fillStyle = f.col;
+          ctx.fillText(f.lbl, tx + 10, fy + 2);
+          ctx.font = '600 11.5px Inter, sans-serif';
+          ctx.fillStyle = '#CBD5E1';
+          ctx.fillText(f.val, tx + 10, fy + 24);
+          fy += 68;
+        }
+
+        // Bottom thermal color scale legend
+        const legX = x + 20;
+        const legY = y + h - 54;
+        const legW = w - 40;
+        const scaleGrad = ctx.createLinearGradient(legX, 0, legX + legW, 0);
+        scaleGrad.addColorStop(0, '#0D1F38');
+        scaleGrad.addColorStop(0.5, '#22D3EE');
+        scaleGrad.addColorStop(1, '#FBBF24');
+        ctx.fillStyle = scaleGrad;
+        roundRect(ctx, legX, legY, legW, 14, 7);
+        ctx.fill();
+
+        ctx.font = '700 12px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#94A3B8';
+        ctx.textAlign = 'left';
+        ctx.fillText('-4.5 C HIELO SECO', legX, legY + 32);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#22D3EE';
+        ctx.fillText('-2.0 C TIBIO', legX + legW / 2, legY + 32);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#FBBF24';
+        ctx.fillText('-0.1 C PELICULA LIQUIDA', legX + legW, legY + 32);
+
+        ctx.restore();
+      }
+
+      function drawRing(c, x, y, r, fill, stroke) {
+        c.fillStyle = fill;
+        c.beginPath();
+        c.arc(x, y, r, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = stroke;
+        c.lineWidth = 1.5;
+        c.stroke();
+      }
+
+      function drawGraniteStone(c, st, isZoom) {
+        c.save();
+        c.translate(st.x, st.y);
+        c.rotate(st.angle);
+
+        // Soft drop shadow
+        c.fillStyle = 'rgba(0, 0, 0, 0.42)';
+        c.beginPath();
+        c.arc(2, 2, st.r + 1.5, 0, Math.PI * 2);
+        c.fill();
+
+        // Outer Scottish granite shell
+        const granGrad = c.createRadialGradient(-st.r * 0.25, -st.r * 0.25, 2, 0, 0, st.r);
+        granGrad.addColorStop(0, '#94A3B8');
+        granGrad.addColorStop(0.65, '#475569');
+        granGrad.addColorStop(1, '#1E293B');
+        c.fillStyle = granGrad;
+        c.beginPath();
+        c.arc(0, 0, st.r, 0, Math.PI * 2);
+        c.fill();
+
+        // Striking band ring
+        const teamColor = st.team === 'cyan' ? '#22D3EE' : '#FB923C';
+        c.strokeStyle = teamColor;
+        c.lineWidth = isZoom ? 2.4 : 2.6;
+        c.beginPath();
+        c.arc(0, 0, st.r * 0.72, 0, Math.PI * 2);
+        c.stroke();
+
+        // Rotating team handle so viewer immediately sees clockwise vs CCW spin!
+        c.fillStyle = teamColor;
+        roundRect(c, -st.r * 0.2, -st.r * 0.52, st.r * 0.4, st.r * 0.85, 3);
+        c.fill();
+
+        c.fillStyle = '#0F172A';
+        c.beginPath();
+        c.arc(0, 0, st.r * 0.18, 0, Math.PI * 2);
+        c.fill();
+
+        c.restore();
+      }
+
+      function drawSweepingBrooms(c, stone, intensity) {
+        const spd = Math.hypot(stone.vx, stone.vy);
+        if (spd < 5) return;
+        const ux = stone.vx / spd;
+        const uy = stone.vy / spd;
+        const px = -uy;
+        const py = ux;
+
+        const osc = Math.sin(sim.sweepAnimPhase) * 14;
+        const bx = stone.x + ux * (stone.r * 2.15) + px * osc;
+        const by = stone.y + uy * (stone.r * 2.15) + py * osc;
+
+        c.save();
+        c.translate(bx, by);
+        c.rotate(Math.atan2(uy, ux));
+
+        // Sweeper 1 broom pad (top)
+        c.shadowColor = '#FBBF24';
+        c.shadowBlur = 12 * intensity;
+        c.fillStyle = '#FBBF24';
+        roundRect(c, -5, -22, 10, 18, 3);
+        c.fill();
+
+        // Sweeper 2 broom pad (bottom, counter-oscillating)
+        c.fillStyle = '#22D3EE';
+        roundRect(c, -5, 4 - osc * 0.4, 10, 18, 3);
+        c.fill();
+        c.shadowBlur = 0;
+
+        // Broom handles
+        c.strokeStyle = '#E2E8F0';
+        c.lineWidth = 2.6;
+        c.beginPath();
+        c.moveTo(0, -14); c.lineTo(18, -32);
+        c.moveTo(0, 12); c.lineTo(18, 30);
+        c.stroke();
+        c.restore();
+      }
+
+      function drawVectorArrow(c, x1, y1, x2, y2, color, width) {
+        const ang = Math.atan2(y2 - y1, x2 - x1);
+        c.strokeStyle = color;
+        c.fillStyle = color;
+        c.lineWidth = width;
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(x1, y1);
+        c.lineTo(x2, y2);
+        c.stroke();
+
+        const head = 8 + width;
+        c.beginPath();
+        c.moveTo(x2, y2);
+        c.lineTo(x2 - head * Math.cos(ang - 0.45), y2 - head * Math.sin(ang - 0.45));
+        c.lineTo(x2 - head * Math.cos(ang + 0.45), y2 - head * Math.sin(ang + 0.45));
+        c.closePath();
+        c.fill();
+      }
+
+      function drawPillLabel(c, x, y, text, color) {
+        c.save();
+        c.font = '800 13px "JetBrains Mono", monospace';
+        const tw = c.measureText(text).width + 20;
+        c.fillStyle = 'rgba(6, 10, 18, 0.86)';
+        roundRect(c, x, y, tw, 28, 7);
+        c.fill();
+        c.strokeStyle = color;
+        c.lineWidth = 1.5;
+        c.stroke();
+        c.fillStyle = color;
+        c.textAlign = 'left';
+        c.textBaseline = 'middle';
+        c.fillText(text, x + 10, y + 14.5);
+        c.restore();
+      }
+
+      function roundRect(c, x, y, w, h, r) {
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.arcTo(x + w, y, x + w, y + h, r);
+        c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r);
+        c.arcTo(x, y, x + w, y, r);
+        c.closePath();
+      }
+
+      // =========================================================================
+      // 9. DOM TELEMETRY & INTERACTIVE CONTROLS
+      // =========================================================================
+      function updateHUD() {
+        document.getElementById('uiScoreCyan').textContent = String(sim.scoreCyan + sim.endScoreCyan);
+        document.getElementById('uiScoreOrange').textContent = String(sim.scoreOrange + sim.endScoreOrange);
+        document.getElementById('uiClosestTee').textContent = sim.closestDistM > 0 ? `${sim.closestDistM.toFixed(2)} m` : '-- m';
+        document.getElementById('uiEndNum').textContent = String(sim.endNumber);
+
+        document.getElementById('uiIceTemp').textContent = `${sim.currentFrontTempC.toFixed(1)} C`;
+        document.getElementById('uiWaterFilm').textContent = `Micropelicula: ${sim.currentWaterUm.toFixed(1)} um`;
+        document.getElementById('uiSweepGain').textContent = `+${sim.lastSweepGainM.toFixed(2)} m`;
+
+        const activeStone = sim.stones.find(s => s.id === sim.activeStoneId && s.active);
+        const spinVal = activeStone ? activeStone.spin : (sim.activePlan ? sim.activePlan.spin : 2.3);
+        document.getElementById('uiCurlDir').textContent = spinVal >= 0 ? 'Giro CW -> Derecha' : 'Giro CCW -> Izquierda';
+
+        const swInt = activeStone ? getCurrentSweepIntensity(activeStone) : 0;
+        const sweepBadge = document.getElementById('uiSweepBadge');
+        sweepBadge.textContent = swInt > 0.05 ? 'BARRIDO ACTIVO' : 'HIELO NATURAL';
+        sweepBadge.className = `badge ${swInt > 0.05 ? 'badge-gold' : 'badge-cyan'}`;
+
+        document.getElementById('barFrontMu').style.width = `${(sim.currentMuFront / 0.02) * 100}%`;
+        document.getElementById('valFrontMu').textContent = sim.currentMuFront.toFixed(3);
+        document.getElementById('barBackMu').style.width = `${(sim.currentMuBack / 0.02) * 100}%`;
+        document.getElementById('valBackMu').textContent = sim.currentMuBack.toFixed(3);
+
+        const turnBadge = document.getElementById('uiTurnBadge');
+        turnBadge.textContent = `TURNO: ${sim.currentTurn.toUpperCase()}`;
+        turnBadge.className = `badge ${sim.currentTurn === 'cyan' ? 'badge-cyan' : 'badge-orange'}`;
+
+        document.getElementById('uiAiPlay').textContent = sim.activePlayLabel;
+        if (sim.activePlan) {
+          document.getElementById('uiAiVec').textContent = `(${Math.round(sim.activePlan.vx)}, ${Math.round(sim.activePlan.vy)}) px/s`;
+          document.getElementById('uiAiSpin').textContent = `${sim.activePlan.spin >= 0 ? '+' : ''}${sim.activePlan.spin.toFixed(1)} ${sim.activePlan.spin >= 0 ? 'CW' : 'CCW'}`;
+        }
+
+        const shotHolder = sim.endScoreCyan > 0
+          ? `CIAN (+${sim.endScoreCyan})`
+          : (sim.endScoreOrange > 0 ? `NARANJA (+${sim.endScoreOrange})` : 'CASA VACIA');
+        document.getElementById('uiShotHolder').textContent = shotHolder;
+
+        // Render stone pips remaining in end
+        const pipsWrap = document.getElementById('uiStonePips');
+        pipsWrap.innerHTML = '';
+        const total = sim.stonesPerTeam * 2;
+        for (let i = 0; i < total; i++) {
+          const pip = document.createElement('span');
+          const t = i % 2 === 0 ? 'cyan' : 'orange';
+          pip.className = `stone-pip ${t}${i < sim.stonesThrown ? ' used' : ''}`;
+          pipsWrap.appendChild(pip);
+        }
+      }
+
+      document.getElementById('btnShotGuard').addEventListener('click', () => launchNextShot('GUARD'));
+      document.getElementById('btnShotDraw').addEventListener('click', () => launchNextShot('DRAW'));
+      document.getElementById('btnShotTakeout').addEventListener('click', () => launchNextShot('TAKEOUT'));
+
+      const btnManualSweep = document.getElementById('btnManualSweep');
+      btnManualSweep.addEventListener('pointerdown', () => {
+        sim.manualSweepActive = true;
+        btnManualSweep.classList.add('sweeping');
+      });
+      window.addEventListener('pointerup', () => {
+        sim.manualSweepActive = false;
+        btnManualSweep.classList.remove('sweeping');
+      });
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          sim.manualSweepActive = true;
+          btnManualSweep.classList.add('sweeping');
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+          sim.manualSweepActive = false;
+          btnManualSweep.classList.remove('sweeping');
+        }
+      });
+
+      document.getElementById('sliderSweepPow').addEventListener('input', (e) => {
+        const pct = Number(e.target.value);
+        sim.sweepPowerSlider = pct / 100;
+        document.getElementById('uiSweepPowLabel').textContent = `${pct}%`;
+      });
+
+      document.getElementById('btnAutoCycle').addEventListener('click', (e) => {
+        sim.autoCycle = !sim.autoCycle;
+        e.currentTarget.classList.toggle('active', sim.autoCycle);
+        e.currentTarget.textContent = `DUELO IA: ${sim.autoCycle ? 'ACTIVO' : 'PAUSADO'}`;
+      });
+
+      document.getElementById('btnResetEnd').addEventListener('click', () => startNewEnd());
+
+      document.getElementById('btnFlipSpin').addEventListener('click', (e) => {
+        sim.forcedSpinMode = sim.forcedSpinMode === 0 ? 1 : (sim.forcedSpinMode === 1 ? -1 : 0);
+        const label = sim.forcedSpinMode === 0 ? 'AUTO' : (sim.forcedSpinMode === 1 ? 'CW (+)' : 'CCW (-)');
+        e.currentTarget.textContent = `FORZAR GIRO: ${label}`;
+      });
+
+      document.getElementById('btnAudio').addEventListener('click', (e) => {
+        const on = AudioFX.toggle();
+        e.currentTarget.textContent = `SONIDO: ${on ? 'ON' : 'OFF'}`;
+      });
+
+      // =========================================================================
+      // 10. BOOTSTRAP & 60 FPS LOOP (LIVE FROM 0.0s)
+      // =========================================================================
+      initOpeningMidEndAtZero();
+      stepSimulation(0.016);
+      drawScene();
+      updateHUD();
+
+      let lastTime = performance.now();
+      let tick = 0;
+
+      function loop(now) {
+        const dt = Math.min(0.033, Math.max(0.001, (now - lastTime) / 1000));
+        lastTime = now;
+
+        stepSimulation(dt);
+        drawScene();
+
+        tick++;
+        if (tick % 3 === 0) updateHUD();
+
+        requestAnimationFrame(loop);
+      }
+
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

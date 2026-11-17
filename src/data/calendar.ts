@@ -40,6 +40,14 @@ export const CALENDAR_LABELS: Record<ReleaseKey, { es: string; en: string }> = {
     es: "EP09: Claude Fable 5.2 vs Opus 5.5 (3-1)",
     en: "EP09: Claude Fable 5.2 vs Opus 5.5 (3-1)",
   },
+  ep12: {
+    es: "EP12: Torneo de Ligeros Extra (Hydrogen vs Haiku vs Luna)",
+    en: "EP12: Lightweight Extra Tournament (Hydrogen vs Haiku vs Luna)",
+  },
+  ep11: {
+    es: "EP11: Gemini 4 Hydrogen (4 Niveles) vs Flash 3.8 (18 Demos)",
+    en: "EP11: Gemini 4 Hydrogen (4 Levels) vs Flash 3.8 (18 Demos)",
+  },
   ep10: {
     es: "EP10: Carbon vs Fable 5.2 Gran Final (16 Demos + Arenas)",
     en: "EP10: Carbon vs Fable 5.2 Grand Finale (16 Demos + Arenas)",
@@ -48,6 +56,8 @@ export const CALENDAR_LABELS: Record<ReleaseKey, { es: string; en: string }> = {
 
 /** Calendar tone of each production (the same accent as its blog card). */
 export const CALENDAR_TONES: Record<ReleaseKey, PixelTone> = {
+  ep12: "emerald",
+  ep11: "cyan",
   ep10: "yellow",
   ep09: "coral",
   ep08: "cyan",

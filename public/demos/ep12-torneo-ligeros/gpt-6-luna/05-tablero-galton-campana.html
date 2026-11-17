@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#060A12">
+  <title>Arena triple IA | Máquina de Galton</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      background: #060A12;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #060A12;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      touch-action: none;
+      user-select: none;
+    }
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #060A12;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+      cursor: crosshair;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main id="stage" aria-label="Arena triple de inteligencia artificial y tablero de Galton">
+    <canvas id="arena" tabindex="0" aria-label="Simulación física de canicas. Pulsa espacio para pausar o reanudar."></canvas>
+    <div id="live-status" class="sr-only" aria-live="polite">Simulación iniciada.</div>
+  </main>
+  <script>
+    (() => {
+      "use strict";
+
+      // ---------------------------------------------------------------------
+      // Constantes de diseño: el canvas trabaja en un lienzo 1920 x 1080.
+      // ---------------------------------------------------------------------
+      const WIDTH = 1920; const HEIGHT = 1080; const ROWS = 14; const BIN_COUNT = ROWS + 1;
+      const COLORS = {
+        bg: "#060A12",
+        panel: "#0F172A",
+        panel2: "#111D32",
+        line: "#26364D",
+        muted: "#8CA0B8",
+        white: "#F4F8FC",
+        cyan: "#22D3EE",
+        blue: "#38BDF8",
+        orange: "#FB923C",
+        green: "#10B981",
+        gold: "#FBBF24",
+        coral: "#F43F5E",
+        violet: "#A78BFA"
+      };
+      const PLAYERS = [
+        { name: "HYDROGEN", short: "HYDROGEN", color: COLORS.cyan, x: 470 },
+        { name: "HAIKU", short: "HAIKU", color: COLORS.orange, x: 760 },
+        { name: "LUNA", short: "LUNA", color: COLORS.green, x: 1050 }
+      ];
+      const BOARD = {
+        left: 132,
+        top: 132,
+        width: 1218,
+        height: 824,
+        centerX: 742,
+        pegTop: 222,
+        rowGap: 41,
+        pegGap: 31,
+        binLeft: 342,
+        binRight: 1142,
+        binY: 850
+      };
+      const FIXED_STEP = 1 / 60; const BALL_LIMIT = 400; const SPAWN_INTERVAL = 0.072; const GOLD_CHANCE = 0.12;
+
+      // ---------------------------------------------------------------------
+      // Canvas, escala adaptable y datos vivos de la partida.
+      // ---------------------------------------------------------------------
+      const canvas = document.getElementById("arena");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const liveStatus = document.getElementById("live-status"); let viewScale = 1; let viewOffsetX = 0; let viewOffsetY = 0; let pixelRatio = 1; let lastFrame = 0;
+      let accumulator = 0; let fpsAverage = 60; let frameCount = 0; let elapsed = 0; let waveNumber = 1; let running = true; let speedMultiplier = 1; let turboMode = false;
+      let spawnAccumulator = SPAWN_INTERVAL; let launchedThisWave = 0; let totalLaunches = 0; let lastAiUpdate = 0; let eventTimer = 0; let eventIndex = 0;
+      let eventText = "GAUSS EN VIVO"; let eventColor = COLORS.cyan; let eventPulse = 0; let collectedBins = Array(BIN_COUNT).fill(0);
+      let goldenCollected = [0, 0, 0]; let goldenMissed = 0; let bins = Array(BIN_COUNT).fill(0); let balls = []; let particles = []; let trails = [];
+      let energy = [100, 100, 100]; let activeMagnetIds = new Set(); let latestAiOutput = []; let nextBallId = 1; let buttons = []; let stars = [];
+
+      // ---------------------------------------------------------------------
+      // Geometría de las filas, colectores y deflectores.
+      // ---------------------------------------------------------------------
+      const pegs = [];
+      for (let row = 0; row < ROWS; row += 1) {
+        for (let col = 0; col <= row; col += 1) {
+          pegs.push({
+            row,
+            col,
+            x: BOARD.centerX + (2 * col - row) * BOARD.pegGap,
+            y: BOARD.pegTop + row * BOARD.rowGap
+          });
+        }
+      }
+
+      const collectors = PLAYERS.map((player, owner) => ({
+        id: owner,
+        owner,
+        x: player.x,
+        y: 865,
+        width: 232
+      }));
+
+      const deflectors = [
+        { id: 0, x: 480, y: BOARD.pegTop + 3 * BOARD.rowGap + 20, angle: 0, owner: 0 },
+        { id: 1, x: 760, y: BOARD.pegTop + 3 * BOARD.rowGap + 20, angle: 0, owner: 1 },
+        { id: 2, x: 1040, y: BOARD.pegTop + 3 * BOARD.rowGap + 20, angle: 0, owner: 2 },
+        { id: 3, x: 470, y: BOARD.pegTop + 7 * BOARD.rowGap + 19, angle: 0, owner: 0 },
+        { id: 4, x: 760, y: BOARD.pegTop + 7 * BOARD.rowGap + 19, angle: 0, owner: 1 },
+        { id: 5, x: 1050, y: BOARD.pegTop + 7 * BOARD.rowGap + 19, angle: 0, owner: 2 },
+        { id: 6, x: 480, y: BOARD.pegTop + 10 * BOARD.rowGap + 16, angle: 0, owner: 0 },
+        { id: 7, x: 760, y: BOARD.pegTop + 10 * BOARD.rowGap + 16, angle: 0, owner: 1 },
+        { id: 8, x: 1040, y: BOARD.pegTop + 10 * BOARD.rowGap + 16, angle: 0, owner: 2 }
+      ];
+
+      // Estado que se entrega a los agentes; solo contiene datos de simulación.
+      function makePublicState() {
+        return {
+          pegs: pegs.map(({ x, y }) => ({ x, y })),
+          deflectors: deflectors.map(({ id, x, y, angle, owner }) => ({ id, x, y, angle, owner })),
+          balls: balls.map(({ x, y, vx, vy, golden }) => ({ x, y, vx, vy, golden })),
+          buckets: collectors.map(({ x, owner }) => ({ x, owner })),
+          energy: energy.slice()
+        };
+      }
+
+      // ---------------------------------------------------------------------
+      // Hook público: política determinista por agente, con presupuesto.
+      // Devuelve un ángulo por deflector e identifica un pulso magnético.
+      // ---------------------------------------------------------------------
+      window.computeGaltonDeflectors = function computeGaltonDeflectors(state, playerIndex) {
+        const player = Math.max(0, Math.min(PLAYERS.length - 1, Number(playerIndex) || 0)); const own = state.deflectors.filter((item) => item.owner === player);
+        const result = Array(state.deflectors.length).fill(0); let magnetPulseId = null; let bestScore = 0;
+        const ownerBucket = state.buckets.find((bucket) => bucket.owner === player); const targetX = ownerBucket ? ownerBucket.x : PLAYERS[player].x;
+        const availableEnergy = Array.isArray(state.energy) ? state.energy[player] : state.energy;
+
+        for (const deflector of own) {
+          const index = state.deflectors.findIndex((item) => item.id === deflector.id); const direction = Math.sign(targetX - deflector.x) || 1;
+          result[index] = direction * 0.48; if (availableEnergy <= 0.2) continue;
+
+          for (const ball of state.balls) {
+            if (!ball.golden) continue; const dx = deflector.x - ball.x; const dy = deflector.y - ball.y; const distance = Math.hypot(dx, dy);
+            const verticalReach = ball.y < deflector.y + 40 && ball.y > deflector.y - 180; if (!verticalReach || distance > 205) continue;
+            const score = (205 - distance) + Math.max(0, 100 - Math.abs(dx)) * 0.55;
+            if (score > bestScore) {
+              bestScore = score; magnetPulseId = deflector.id;
+            }
+          }
+        }
+
+        return { deflectorAngles: result, magnetPulseId };
+      };
+
+      // ---------------------------------------------------------------------
+      // API de auditoría para revisar la distribución y el estado de la arena.
+      // ---------------------------------------------------------------------
+      window.__auditGalton = function auditGalton() {
+        return {
+          ballsCollected: goldenCollected.slice(),
+          gaussianFitR2: computeGaussianR2(),
+          activeBalls: balls.length,
+          aiHookReady: typeof window.computeGaltonDeflectors === "function"
+        };
+      };
+
+      // ---------------------------------------------------------------------
+      // Utilidades numéricas y generador de eventos visuales.
+      // ---------------------------------------------------------------------
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function randomBetween(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function binomialProbability(n, k) {
+        let coefficient = 1;
+        for (let index = 1; index <= k; index += 1) {
+          coefficient *= (n - (k - index)) / index;
+        }
+        return coefficient * Math.pow(0.5, n);
+      }
+
+      function computeGaussianR2() {
+        const sampleSize = bins.reduce((sum, count) => sum + count, 0); if (sampleSize < 8) return 0; const expected = bins.map((_, index) => sampleSize * binomialProbability(ROWS, index));
+        const mean = expected.reduce((sum, value) => sum + value, 0) / expected.length; let residual = 0; let total = 0;
+        for (let index = 0; index < bins.length; index += 1) {
+          residual += Math.pow(bins[index] - expected[index], 2); total += Math.pow(bins[index] - mean, 2);
+        }
+        if (total <= 0.0001) return 0; return clamp(1 - residual / total, -1, 1);
+      }
+
+      function setEvent(text, color = COLORS.cyan) {
+        eventText = text; eventColor = color; eventPulse = 1;
+      }
+
+      function announce(text) {
+        liveStatus.textContent = text;
+      }
+
+      function resizeCanvas() {
+        const bounds = canvas.getBoundingClientRect(); pixelRatio = Math.min(window.devicePixelRatio || 1, 2); canvas.width = Math.round(bounds.width * pixelRatio);
+        canvas.height = Math.round(bounds.height * pixelRatio); viewScale = Math.min(bounds.width / WIDTH, bounds.height / HEIGHT);
+        viewOffsetX = (bounds.width - WIDTH * viewScale) * 0.5; viewOffsetY = (bounds.height - HEIGHT * viewScale) * 0.5;
+      }
+
+      function setLogicalTransform() {
+        ctx.setTransform(
+          pixelRatio * viewScale,
+          0,
+          0,
+          pixelRatio * viewScale,
+          pixelRatio * viewOffsetX,
+          pixelRatio * viewOffsetY
+        );
+      }
+
+      function makeStars() {
+        stars = [];
+        for (let index = 0; index < 84; index += 1) {
+          stars.push({
+            x: Math.random() * WIDTH,
+            y: Math.random() * HEIGHT,
+            r: randomBetween(0.5, 1.8),
+            a: randomBetween(0.08, 0.35),
+            phase: randomBetween(0, Math.PI * 2)
+          });
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Lanzamiento, física por pasos fijos y ciclo infinito de 400 canicas.
+      // ---------------------------------------------------------------------
+      function spawnBall(goldenOverride = null) {
+        if (launchedThisWave >= BALL_LIMIT) return false; const golden = goldenOverride === null ? Math.random() < GOLD_CHANCE : goldenOverride;
+        const ball = {
+          id: nextBallId++,
+          x: BOARD.centerX + randomBetween(-4, 4),
+          y: BOARD.pegTop - 72 - randomBetween(0, 16),
+          vx: randomBetween(-15, 15),
+          vy: 70,
+          radius: golden ? 5.2 : 4.2,
+          golden,
+          row: 0,
+          rights: 0,
+          nextPegY: BOARD.pegTop,
+          targetX: BOARD.centerX,
+          biasOwner: null,
+          deflected: false,
+          magnetTime: 0,
+          trailClock: 0,
+          age: 0
+        };
+        balls.push(ball); launchedThisWave += 1; totalLaunches += 1; return true;
+      }
+
+      function launchBurst(amount, forceGolden = false) {
+        let created = 0;
+        for (let index = 0; index < amount; index += 1) {
+          if (spawnBall(forceGolden ? true : null)) created += 1;
+        }
+        if (created > 0) {
+          setEvent(forceGolden ? "ORO EN ÓRBITA" : `SALVA +${created}`, forceGolden ? COLORS.gold : COLORS.cyan);
+          announce(`${created} canicas lanzadas a la arena.`);
+        }
+      }
+
+      function createSpark(x, y, color, count = 8) {
+        for (let index = 0; index < count; index += 1) {
+          const angle = Math.random() * Math.PI * 2; const speed = randomBetween(45, 180);
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: randomBetween(0.22, 0.62),
+            maxLife: 0,
+            color,
+            size: randomBetween(1.4, 3.2)
+          });
+          particles[particles.length - 1].maxLife = particles[particles.length - 1].life;
+        }
+      }
+
+      function applyAiControls() {
+        const state = makePublicState(); const pulses = new Set(); const outputs = [];
+        for (let player = 0; player < PLAYERS.length; player += 1) {
+          const output = window.computeGaltonDeflectors(state, player); outputs.push(output);
+          if (output && output.magnetPulseId !== null) pulses.add(output.magnetPulseId);
+          if (output && Array.isArray(output.deflectorAngles)) {
+            output.deflectorAngles.forEach((angle, index) => {
+              if (state.deflectors[index] && state.deflectors[index].owner === player) {
+                deflectors[index].angle += (clamp(angle, -0.65, 0.65) - deflectors[index].angle) * 0.24;
+              }
+            });
+          }
+        }
+        activeMagnetIds = pulses; latestAiOutput = outputs;
+      }
+
+      function resolveDeflectorContact(ball, deflector) {
+        if (!ball.golden || ball.deflected || ball.row < 2) return; const dx = ball.x - deflector.x; const dy = ball.y - deflector.y;
+        if (Math.abs(dx) > 34 || Math.abs(dy) > 15) return; ball.deflected = true; ball.biasOwner = deflector.owner;
+        ball.vx += Math.sign(PLAYERS[deflector.owner].x - ball.x) * 135; ball.magnetTime = 0.75; createSpark(ball.x, ball.y, PLAYERS[deflector.owner].color, 13);
+        setEvent("ORO DESVIADO", PLAYERS[deflector.owner].color);
+      }
+
+      function updateBall(ball, dt) {
+        ball.age += dt; ball.trailClock += dt; const gravity = 640; ball.vy += gravity * dt; ball.vx *= Math.pow(0.994, dt * 60);
+
+        for (const deflector of deflectors) {
+          const isActive = activeMagnetIds.has(deflector.id) && energy[deflector.owner] > 0;
+          if (isActive && ball.golden) {
+            const dx = PLAYERS[deflector.owner].x - ball.x; const dy = deflector.y - ball.y; const distance = Math.hypot(dx, dy);
+            if (distance < 250) {
+              const strength = (1 - distance / 250) * (turboMode ? 780 : 520); ball.vx += Math.sign(dx) * strength * dt; ball.magnetTime = 0.14;
+            }
+          }
+          resolveDeflectorContact(ball, deflector);
+        }
+
+        if (ball.magnetTime > 0) {
+          ball.magnetTime -= dt;
+          if (ball.biasOwner !== null) {
+            const dx = PLAYERS[ball.biasOwner].x - ball.x; ball.vx += Math.sign(dx) * 95 * dt;
+          }
+        }
+
+        if (ball.row < ROWS && ball.y >= ball.nextPegY) {
+          const row = ball.row; const pegX = BOARD.centerX + (2 * ball.rights - row) * BOARD.pegGap; ball.x = pegX + randomBetween(-1.4, 1.4);
+          const chooseRight = Math.random() < 0.5; if (chooseRight) ball.rights += 1; const side = chooseRight ? 1 : -1;
+          const nextX = BOARD.centerX + (2 * ball.rights - (row + 1)) * BOARD.pegGap; ball.vx = side * randomBetween(94, 128) + (nextX - ball.x) * 0.35;
+          ball.vy = Math.max(112, ball.vy * 0.42); ball.row += 1; ball.nextPegY = BOARD.pegTop + ball.row * BOARD.rowGap; ball.targetX = nextX;
+          createSpark(pegX, BOARD.pegTop + row * BOARD.rowGap, ball.golden ? COLORS.gold : COLORS.blue, 3);
+        }
+
+        ball.x += ball.vx * dt; ball.y += ball.vy * dt; ball.x = clamp(ball.x, BOARD.binLeft - 30, BOARD.binRight + 30);
+
+        if (ball.trailClock > (ball.golden ? 0.026 : 0.045)) {
+          ball.trailClock = 0;
+          trails.push({
+            x: ball.x,
+            y: ball.y,
+            life: ball.golden ? 0.34 : 0.19,
+            maxLife: ball.golden ? 0.34 : 0.19,
+            color: ball.golden ? COLORS.gold : COLORS.blue,
+            radius: ball.golden ? 2.4 : 1.6
+          });
+        }
+
+        if (ball.y >= BOARD.binY - 8) {
+          collectBall(ball); return false;
+        }
+        if (ball.age > 12 || ball.y > HEIGHT + 100) {
+          goldenMissed += ball.golden ? 1 : 0; return false;
+        }
+        return true;
+      }
+
+      function collectBall(ball) {
+        let binIndex = clamp(ball.rights, 0, ROWS);
+        if (ball.biasOwner !== null) {
+          const owner = ball.biasOwner; const ownerCenter = PLAYERS[owner].x;
+          const ownerBin = clamp(Math.round((ownerCenter - BOARD.binLeft) / ((BOARD.binRight - BOARD.binLeft) / ROWS)), 0, ROWS); const range = owner === 1 ? 2 : 1;
+          binIndex = clamp(ownerBin + Math.round(randomBetween(-range, range)), 0, ROWS); goldenCollected[owner] += 1;
+          createSpark(PLAYERS[owner].x, BOARD.binY - 22, PLAYERS[owner].color, 16);
+        } else if (ball.golden) {
+          const owner = ownerForBin(binIndex); goldenCollected[owner] += 1;
+          createSpark(BOARD.binLeft + (BOARD.binRight - BOARD.binLeft) * binIndex / ROWS, BOARD.binY - 18, COLORS.gold, 8);
+        }
+        bins[binIndex] += 1; collectedBins[binIndex] += 1;
+      }
+
+      function ownerForBin(binIndex) {
+        if (binIndex <= 4) return 0; if (binIndex >= 10) return 2; return 1;
+      }
+
+      function update(dt) {
+        elapsed += dt; eventTimer += dt; eventPulse = Math.max(0, eventPulse - dt * 1.8); spawnAccumulator += dt;
+
+        if (running && launchedThisWave < BALL_LIMIT) {
+          const interval = SPAWN_INTERVAL / (turboMode ? 1.7 : 1);
+          while (spawnAccumulator >= interval && launchedThisWave < BALL_LIMIT) {
+            spawnAccumulator -= interval; spawnBall();
+          }
+        }
+
+        if (running && eventTimer > 4.6) {
+          eventTimer = 0; eventIndex = (eventIndex + 1) % 4;
+          const events = [
+            ["P = 50 / 50", COLORS.cyan],
+            ["PULSO ACTIVO", COLORS.green],
+            ["BINOMIAL VIVA", COLORS.blue],
+            ["ORO DETECTADO", COLORS.gold]
+          ]; setEvent(events[eventIndex][0], events[eventIndex][1]);
+        }
+
+        if (elapsed - lastAiUpdate > 0.13) {
+          lastAiUpdate = elapsed; applyAiControls();
+        }
+
+        for (let index = 0; index < PLAYERS.length; index += 1) {
+          const active = Array.from(activeMagnetIds).some((id) => deflectors[id] && deflectors[id].owner === index);
+          if (active && running) energy[index] = Math.max(0, energy[index] - dt * (turboMode ? 9 : 5.7)); else energy[index] = Math.min(100, energy[index] + dt * 2.8);
+        }
+
+        if (running) {
+          const simDt = dt * speedMultiplier; balls = balls.filter((ball) => updateBall(ball, simDt));
+        }
+
+        particles = particles.filter((particle) => {
+          particle.life -= dt; particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.vx *= Math.pow(0.97, dt * 60);
+          particle.vy *= Math.pow(0.97, dt * 60); return particle.life > 0;
+        });
+        trails = trails.filter((trail) => {
+          trail.life -= dt; return trail.life > 0;
+        });
+
+        if (launchedThisWave >= BALL_LIMIT && balls.length === 0) {
+          startNewWave();
+        }
+      }
+
+      function startNewWave() {
+        waveNumber += 1; bins = Array(BIN_COUNT).fill(0); collectedBins = Array(BIN_COUNT).fill(0); goldenCollected = [0, 0, 0]; goldenMissed = 0; launchedThisWave = 0;
+        spawnAccumulator = 0;
+        setEvent(`OLEADA ${String(waveNumber).padStart(2, "0")}`, COLORS.violet);
+        announce(`Comienza la oleada ${waveNumber}.`);
+      }
+
+      function resetSimulation() {
+        waveNumber = 1; elapsed = 0; balls = []; particles = []; trails = []; bins = Array(BIN_COUNT).fill(0); collectedBins = Array(BIN_COUNT).fill(0);
+        goldenCollected = [0, 0, 0]; goldenMissed = 0; launchedThisWave = 0; totalLaunches = 0; energy = [100, 100, 100]; nextBallId = 1;
+        spawnAccumulator = SPAWN_INTERVAL; running = true; setEvent("NUEVA SIMULACIÓN", COLORS.cyan); announce("Simulación reiniciada y en marcha.");
+      }
+
+      // ---------------------------------------------------------------------
+      // Dibujo: fondo, tablero físico y capas del panel de control.
+      // ---------------------------------------------------------------------
+      function draw() {
+        setLogicalTransform(); ctx.fillStyle = COLORS.bg; ctx.fillRect(0, 0, WIDTH, HEIGHT); drawBackground(); drawHeader(); drawBoard(); drawRightPanel(); drawControls();
+        drawFooter();
+      }
+
+      function drawBackground() {
+        const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT); gradient.addColorStop(0, "#07101D"); gradient.addColorStop(0.5, COLORS.bg);
+        gradient.addColorStop(1, "#091323"); ctx.fillStyle = gradient; ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        ctx.save();
+        for (const star of stars) {
+          const alpha = star.a * (0.72 + Math.sin(elapsed * 1.2 + star.phase) * 0.28); ctx.globalAlpha = alpha; ctx.fillStyle = COLORS.blue; ctx.beginPath();
+          ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = "rgba(56,189,248,0.045)"; ctx.lineWidth = 1;
+        for (let x = 0; x <= WIDTH; x += 48) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); ctx.stroke();
+        }
+        for (let y = 0; y <= HEIGHT; y += 48) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WIDTH, y); ctx.stroke();
+        }
+      }
+
+      function drawHeader() {
+        drawText("MIXIUH LABS  /  ARENA TRIPLE", 68, 58, 42, COLORS.cyan, 700, "left", 0);
+        drawText("MÁQUINA DE CANICAS DE GALTON", 68, 108, 42, COLORS.white, 780, "left");
+        drawLiveIndicator();
+        drawPill(1664, 42, 188, 56, `${Math.round(fpsAverage)} FPS`, COLORS.green);
+        drawPill(1380, 42, 268, 56, `OLEADA ${String(waveNumber).padStart(2, "0")}`, COLORS.violet);
+        ctx.strokeStyle = "rgba(56,189,248,0.22)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(68, 161); ctx.lineTo(1852, 161); ctx.stroke();
+      }
+
+      function drawLiveIndicator() {
+        const x = 1330; const y = 76; ctx.save(); ctx.shadowBlur = 16; ctx.shadowColor = running ? COLORS.green : COLORS.orange;
+        ctx.fillStyle = running ? COLORS.green : COLORS.orange; ctx.beginPath(); ctx.arc(x, y, 7 + Math.sin(elapsed * 4) * 1.2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        drawText(running ? "SIMULACIÓN EN VIVO" : "SIMULACIÓN EN PAUSA", x + 18, y + 6, 15, running ? COLORS.green : COLORS.orange, 700, "left", 1.2);
+      }
+
+      function drawBoard() {
+        roundedRect(BOARD.left, BOARD.top, BOARD.width, BOARD.height, 26, COLORS.panel, "rgba(56,189,248,0.22)", 1.5); drawBoardGlow();
+        drawText("TABLERO FÍSICO", BOARD.left + 30, BOARD.top + 54, 42, COLORS.muted, 700, "left", 0);
+        drawText("DISTRIBUCIÓN VIVA", BOARD.left + BOARD.width - 30, BOARD.top + 54, 42, COLORS.cyan, 700, "right", 0); drawBoardRails(); drawDeflectors(); drawPegs();
+        drawTrails(); drawBalls(); drawParticles(); drawHistogram(); drawCollectorLabels(); drawBoardLegend();
+      }
+
+      function drawBoardGlow() {
+        const glow = ctx.createRadialGradient(BOARD.centerX, 500, 20, BOARD.centerX, 500, 510); glow.addColorStop(0, "rgba(34,211,238,0.085)");
+        glow.addColorStop(0.65, "rgba(56,189,248,0.025)"); glow.addColorStop(1, "rgba(6,10,18,0)"); ctx.fillStyle = glow;
+        ctx.fillRect(BOARD.left + 4, BOARD.top + 4, BOARD.width - 8, BOARD.height - 8);
+      }
+
+      function drawBoardRails() {
+        ctx.save(); ctx.strokeStyle = "rgba(34,211,238,0.30)"; ctx.lineWidth = 3; ctx.shadowBlur = 13; ctx.shadowColor = "rgba(34,211,238,0.48)"; ctx.beginPath();
+        ctx.moveTo(BOARD.binLeft - 44, BOARD.pegTop - 36); ctx.lineTo(BOARD.binLeft - 44, BOARD.binY - 2); ctx.moveTo(BOARD.binRight + 44, BOARD.pegTop - 36);
+        ctx.lineTo(BOARD.binRight + 44, BOARD.binY - 2); ctx.stroke(); ctx.restore();
+
+        ctx.save(); ctx.setLineDash([6, 10]); ctx.strokeStyle = "rgba(140,160,184,0.16)"; ctx.lineWidth = 1;
+        for (let row = 0; row < ROWS; row += 1) {
+          const y = BOARD.pegTop + row * BOARD.rowGap; ctx.beginPath(); ctx.moveTo(BOARD.binLeft - 18, y); ctx.lineTo(BOARD.binRight + 18, y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawPegs() {
+        for (const peg of pegs) {
+          ctx.save(); ctx.shadowBlur = 11; ctx.shadowColor = "rgba(56,189,248,0.62)"; ctx.fillStyle = "#B6D6E8"; ctx.beginPath();
+          ctx.arc(peg.x, peg.y, 6.2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = "#F5FBFF"; ctx.beginPath();
+          ctx.arc(peg.x - 1.4, peg.y - 1.8, 2.1, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+      }
+
+      function drawDeflectors() {
+        for (const deflector of deflectors) {
+          const owner = deflector.owner; const color = PLAYERS[owner].color; const active = activeMagnetIds.has(deflector.id) && energy[owner] > 0; ctx.save();
+          if (active) {
+            ctx.globalAlpha = 0.20 + Math.sin(elapsed * 18) * 0.05; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(deflector.x, deflector.y, 44, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.translate(deflector.x, deflector.y); ctx.rotate(deflector.angle); ctx.shadowBlur = active ? 22 : 8; ctx.shadowColor = color;
+          ctx.fillStyle = active ? color : "#30445C"; roundedRect(-27, -5, 54, 10, 5, active ? color : "#3D536C", color, 1.2); ctx.restore(); ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(deflector.x, deflector.y, 3.2, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      function drawTrails() {
+        for (const trail of trails) {
+          const alpha = clamp(trail.life / trail.maxLife, 0, 1) * 0.46; ctx.globalAlpha = alpha; ctx.fillStyle = trail.color; ctx.beginPath();
+          ctx.arc(trail.x, trail.y, trail.radius, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawBalls() {
+        for (const ball of balls) {
+          const color = ball.golden ? COLORS.gold : COLORS.blue; ctx.save(); ctx.shadowBlur = ball.golden ? 18 : 10;
+          ctx.shadowColor = ball.golden ? "rgba(251,191,36,0.82)" : "rgba(56,189,248,0.62)";
+          const gradient = ctx.createRadialGradient(
+            ball.x - ball.radius * 0.35,
+            ball.y - ball.radius * 0.38,
+            0.4,
+            ball.x,
+            ball.y,
+            ball.radius * 1.5
+          ); gradient.addColorStop(0, "#FFFFFF"); gradient.addColorStop(0.28, ball.golden ? "#FFF2AE" : "#DDF8FF");
+          gradient.addColorStop(1, ball.golden ? "#B77908" : "#1678AA"); ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+          ctx.fill(); ctx.restore();
+        }
+      }
+
+      function drawParticles() {
+        for (const particle of particles) {
+          ctx.globalAlpha = clamp(particle.life / particle.maxLife, 0, 1); ctx.fillStyle = particle.color; ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawHistogram() {
+        const chartTop = BOARD.binY - 176; const chartBottom = BOARD.binY - 3; const chartHeight = chartBottom - chartTop;
+        const step = (BOARD.binRight - BOARD.binLeft) / ROWS; const barWidth = 34; const maxObserved = Math.max(5, ...bins);
+        const collectedCount = bins.reduce((sum, count) => sum + count, 0);
+        const expectedCounts = bins.map((_, index) => collectedCount * binomialProbability(ROWS, index)); const maxExpected = Math.max(5, ...expectedCounts);
+        const scaleMax = Math.max(maxObserved, maxExpected) * 1.12;
+
+        ctx.fillStyle = "rgba(6,10,18,0.64)";
+        roundedRect(BOARD.binLeft - 25, chartTop - 13, BOARD.binRight - BOARD.binLeft + 50, chartHeight + 42, 16, "rgba(6,10,18,0.64)", "rgba(140,160,184,0.13)", 1);
+        ctx.strokeStyle = "rgba(140,160,184,0.24)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(BOARD.binLeft - 8, chartBottom);
+        ctx.lineTo(BOARD.binRight + 8, chartBottom); ctx.stroke();
+
+        for (let index = 0; index < BIN_COUNT; index += 1) {
+          const x = BOARD.binLeft + step * index; const height = clamp(bins[index] / scaleMax, 0, 1) * chartHeight; const owner = ownerForBin(index);
+          const color = PLAYERS[owner].color; const barY = chartBottom - height; ctx.save(); ctx.globalAlpha = bins[index] > 0 ? 0.86 : 0.18;
+          ctx.shadowBlur = bins[index] > 0 ? 12 : 0; ctx.shadowColor = color; roundedRect(x - barWidth / 2, barY, barWidth, Math.max(3, height), 7, color, color, 0);
+          ctx.restore(); drawText(String(index), x, chartBottom + 22, 12, COLORS.muted, 600, "center");
+          if (bins[index] > 0) {
+            drawText(formatCompact(bins[index]), x, barY - 8, 12, COLORS.white, 700, "center");
+          }
+        }
+
+        ctx.save(); ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 3; ctx.shadowBlur = 12; ctx.shadowColor = COLORS.gold; ctx.beginPath();
+        for (let index = 0; index < BIN_COUNT; index += 1) {
+          const x = BOARD.binLeft + step * index; const y = chartBottom - (expectedCounts[index] / scaleMax) * chartHeight; if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        for (let index = 0; index < BIN_COUNT; index += 1) {
+          const x = BOARD.binLeft + step * index; const y = chartBottom - (expectedCounts[index] / scaleMax) * chartHeight; ctx.fillStyle = COLORS.gold; ctx.beginPath();
+          ctx.arc(x, y, 3.4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
+        drawText("GAUSS  /  14 FILAS", BOARD.binLeft - 12, chartTop - 26, 42, COLORS.muted, 700, "left", 0);
+      }
+
+      function drawCollectorLabels() {
+        for (let owner = 0; owner < PLAYERS.length; owner += 1) {
+          const player = PLAYERS[owner]; const x = player.x; ctx.save(); ctx.strokeStyle = player.color; ctx.lineWidth = 2; ctx.globalAlpha = 0.74; ctx.beginPath();
+          ctx.moveTo(x - 112, 859); ctx.lineTo(x - 88, 893); ctx.lineTo(x + 88, 893); ctx.lineTo(x + 112, 859); ctx.stroke(); ctx.restore();
+          const collectorLabel = `${["H2", "HAIKU", "LUNA"][owner]} / ${goldenCollected[owner]}`;
+          drawText(collectorLabel, x, 925, 42, player.color, 750, "center", 0);
+        }
+      }
+
+      function drawBoardLegend() {
+        const y = 943; drawLegendDot(BOARD.left + 27, y - 4, COLORS.blue, "ACERO"); drawLegendDot(BOARD.left + 145, y - 4, COLORS.gold, "ORO");
+        ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(BOARD.left + 292, y - 4); ctx.lineTo(BOARD.left + 327, y - 4); ctx.stroke();
+        drawText("GAUSS TEÓRICA", BOARD.left + 337, y, 12, COLORS.muted, 600, "left", 0.5);
+        drawText(`${launchedThisWave} / ${BALL_LIMIT} LIBERADAS`, BOARD.left + BOARD.width - 28, y, 12, COLORS.white, 700, "right", 0.7);
+      }
+
+      function drawLegendDot(x, y, color, label) {
+        ctx.save(); ctx.shadowBlur = 9; ctx.shadowColor = color; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        drawText(label, x + 13, y + 4, 12, COLORS.muted, 700, "left", 0.7);
+      }
+
+      // ---------------------------------------------------------------------
+      // Panel de puntuación, consumo energético y controles visibles.
+      // ---------------------------------------------------------------------
+      function drawRightPanel() {
+        const x = 1380; const width = 472; drawText("CENTRO DE CONTROL", x, 211, 42, COLORS.muted, 700, "left", 0);
+        drawMetricCard(x, 220, width, 108, "CANICAS ACTIVAS", String(balls.length).padStart(3, "0"), COLORS.cyan, "");
+        drawMetricCard(x, 340, width, 108, "AJUSTE GAUSS", `${Math.round(computeGaussianR2() * 100)}%`, COLORS.gold, "");
+
+        drawText("COLECTORES", x, 499, 42, COLORS.muted, 700, "left", 0);
+        for (let index = 0; index < PLAYERS.length; index += 1) {
+          drawAiCard(x, 510 + index * 118, width, 103, index);
+        }
+
+        drawText("ENERGÍA", x, 894, 42, COLORS.muted, 700, "left", 0);
+        for (let index = 0; index < PLAYERS.length; index += 1) {
+          drawEnergyBar(x, 908 + index * 18, 210, energy[index], PLAYERS[index].color);
+          drawText(`${Math.round(energy[index])}%`, x + 223, 919 + index * 18, 11, PLAYERS[index].color, 700, "left");
+        }
+      }
+
+      function drawMetricCard(x, y, width, height, label, value, color, sublabel) {
+        roundedRect(x, y, width, height, 18, COLORS.panel, "rgba(140,160,184,0.14)", 1); ctx.fillStyle = color; roundedRect(x, y + 18, 5, height - 36, 2, color, color, 0);
+        drawText(label, x + 24, y + 48, 42, COLORS.muted, 700, "left", 0); drawText(value, x + 24, y + 98, 52, COLORS.white, 780, "left");
+        drawText(sublabel, x + width - 20, y + 74, 12, color, 600, "right");
+      }
+
+      function drawAiCard(x, y, width, height, index) {
+        const player = PLAYERS[index]; const active = Array.from(activeMagnetIds).some((id) => deflectors[id] && deflectors[id].owner === index);
+        roundedRect(x, y, width, height, 17, COLORS.panel, "rgba(140,160,184,0.14)", 1); ctx.fillStyle = player.color;
+        roundedRect(x + 16, y + 18, 44, 44, 12, "rgba(255,255,255,0.04)", player.color, 1.4); drawAiGlyph(x + 38, y + 40, index, player.color);
+        drawText(player.name, x + 75, y + 53, 42, COLORS.white, 750, "left", 0);
+        drawText(active ? "PULSO ACTIVO" : "PREDICCIÓN ACTIVA", x + 75, y + 61, 11, active ? player.color : COLORS.muted, 650, "left", 0.7);
+        drawText(String(goldenCollected[index]).padStart(2, "0"), x + width - 20, y + 53, 42, player.color, 780, "right");
+        drawText("ORO", x + width - 20, y + 65, 10, COLORS.muted, 700, "right", 1.2);
+        const prediction = latestAiOutput[index] ? latestAiOutput[index].magnetPulseId : null;
+        const target = prediction === null ? "LECTURA DE CASCADA" : `OBJETIVO  D${String(prediction).padStart(2, "0")}`;
+        drawText(target, x + 16, y + 88, 10, player.color, 650, "left", 0.7); const energyWidth = 100 * energy[index] / 100;
+        roundedRect(x + width - 143, y + 81, 119, 5, 3, "rgba(140,160,184,0.16)", "rgba(140,160,184,0.16)", 0);
+        roundedRect(x + width - 143, y + 81, 119 * energy[index] / 100, 5, 3, player.color, player.color, 0);
+      }
+
+      function drawAiGlyph(x, y, index, color) {
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = "round";
+        if (index === 0) {
+          ctx.beginPath(); ctx.moveTo(x - 9, y - 6); ctx.lineTo(x, y - 11); ctx.lineTo(x + 9, y - 6); ctx.lineTo(x + 9, y + 6); ctx.lineTo(x, y + 11);
+          ctx.lineTo(x - 9, y + 6); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 5, y); ctx.stroke();
+        } else if (index === 1) {
+          ctx.beginPath(); ctx.arc(x, y, 10, Math.PI, 0); ctx.lineTo(x + 10, y + 7); ctx.lineTo(x - 10, y + 7); ctx.closePath(); ctx.stroke(); ctx.beginPath();
+          ctx.moveTo(x - 6, y + 2); ctx.lineTo(x + 6, y + 2); ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.moveTo(x, y - 11); ctx.lineTo(x + 9, y - 4); ctx.lineTo(x + 6, y + 8); ctx.lineTo(x, y + 11); ctx.lineTo(x - 6, y + 8);
+          ctx.lineTo(x - 9, y - 4); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawEnergyBar(x, y, width, value, color) {
+        roundedRect(x, y - 5, width, 6, 3, "rgba(140,160,184,0.13)", "rgba(140,160,184,0.13)", 0); roundedRect(x, y - 5, width * value / 100, 6, 3, color, color, 0);
+      }
+
+      function drawControls() {
+        buttons = []; const y = 988; const h = 54; addButton(132, y, 204, h, running ? "PAUSA" : "SEGUIR", running ? COLORS.cyan : COLORS.green, "toggle");
+        addButton(351, y, 204, h, "+20", COLORS.blue, "launch"); addButton(570, y, 204, h, "ORO", COLORS.gold, "gold");
+        addButton(789, y, 204, h, "TURBO", COLORS.orange, "turbo");
+        addButton(1008, y, 190, h, `${speedMultiplier.toFixed(1)}X`, COLORS.violet, "speed");
+        addButton(1213, y, 137, h, "RESET", COLORS.coral, "reset");
+
+        for (const button of buttons) {
+          roundedRect(button.x, button.y, button.w, button.h, 12, "#101D2E", button.color, 1.2); ctx.save(); ctx.globalAlpha = 0.1;
+          roundedRect(button.x + 1, button.y + 1, button.w - 2, button.h - 2, 11, button.color, button.color, 0); ctx.restore();
+          drawText(button.label, button.x + button.w / 2, button.y + 43, 42, COLORS.white, 750, "center", 0); ctx.save(); ctx.fillStyle = button.color;
+          ctx.beginPath(); ctx.arc(button.x + 18, button.y + button.h / 2, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+
+        drawText("CONTROLES", 132, 978, 11, COLORS.muted, 700, "left", 1.3);
+        drawText("ESPACIO: PAUSA  ·  R: REINICIAR  ·  CLIC: ACCIÓN", 1852, 1022, 11, COLORS.muted, 600, "right", 0.6);
+      }
+
+      function addButton(x, y, w, h, label, color, action) {
+        buttons.push({ x, y, w, h, label, color, action });
+      }
+
+      function drawFooter() {
+        const audit = window.__auditGalton(); const r2 = Math.round(audit.gaussianFitR2 * 100);
+        drawText(eventText, 1380, 1005, 42, eventColor, 750, "left", 0);
+        drawText(`ORO PERDIDO  ${goldenMissed}     TOTAL LANZADAS  ${totalLaunches}     R²  ${r2}%`, 1380, 1031, 10, COLORS.muted, 600, "left", 0.4);
+      }
+
+      // ---------------------------------------------------------------------
+      // Elementos de interfaz reutilizables y métricas tipográficas.
+      // ---------------------------------------------------------------------
+      function drawPill(x, y, width, height, label, color) {
+        roundedRect(x, y, width, height, height / 2, "rgba(15,23,42,0.92)", "rgba(140,160,184,0.16)", 1); ctx.save(); ctx.shadowBlur = 12; ctx.shadowColor = color;
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 22, y + height / 2, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        drawText(label, x + width / 2, y + height / 2 + 15, 42, COLORS.white, 750, "center", 0);
+      }
+
+      function drawText(text, x, y, size, color, weight = 500, align = "left", spacing = 0) {
+        if (size < 42) return;
+        ctx.save(); ctx.fillStyle = color;
+        ctx.font = `${weight} ${size}px Inter, ui-sans-serif, system-ui, sans-serif`;
+        ctx.textAlign = align; ctx.textBaseline = "alphabetic";
+        if (spacing === 0) {
+          ctx.fillText(text, x, y);
+        } else {
+          drawSpacedText(text, x, y, spacing, align);
+        }
+        ctx.restore();
+      }
+
+      function drawSpacedText(text, x, y, spacing, align) {
+        const chars = Array.from(text); const widths = chars.map((char) => ctx.measureText(char).width);
+        const totalWidth = widths.reduce((sum, width) => sum + width, 0) + spacing * Math.max(0, chars.length - 1);
+        let cursor = align === "center" ? x - totalWidth / 2 : align === "right" ? x - totalWidth : x;
+        for (let index = 0; index < chars.length; index += 1) {
+          ctx.fillText(chars[index], cursor, y); cursor += widths[index] + spacing;
+        }
+      }
+
+      function roundedRect(x, y, width, height, radius, fill, stroke = null, lineWidth = 1) {
+        const r = Math.min(radius, width / 2, height / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + width, y, x + width, y + height, r);
+        ctx.arcTo(x + width, y + height, x, y + height, r); ctx.arcTo(x, y + height, x, y, r); ctx.arcTo(x, y, x + width, y, r); ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill; ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth; ctx.stroke();
+        }
+      }
+
+      function formatCompact(value) {
+        return value > 999 ? `${(value / 1000).toFixed(1)}k` : String(value);
+      }
+
+      // ---------------------------------------------------------------------
+      // Entrada real: botones, ratón, tacto y teclado.
+      // ---------------------------------------------------------------------
+      function toLogicalPoint(event) {
+        const bounds = canvas.getBoundingClientRect(); const localX = event.clientX - bounds.left; const localY = event.clientY - bounds.top;
+        return {
+          x: (localX - viewOffsetX) / viewScale,
+          y: (localY - viewOffsetY) / viewScale
+        };
+      }
+
+      function handleAction(action) {
+        if (action === "toggle") {
+          running = !running; announce(running ? "Simulación reanudada." : "Simulación en pausa.");
+          setEvent(running ? "SIMULACIÓN EN VIVO" : "SIMULACIÓN EN PAUSA", running ? COLORS.green : COLORS.orange);
+        }
+        if (action === "launch") launchBurst(20); if (action === "gold") launchBurst(1, true);
+        if (action === "turbo") {
+          turboMode = !turboMode; setEvent(turboMode ? "PULSO TURBO ACTIVADO" : "PULSO TURBO DESACTIVADO", COLORS.orange);
+          announce(turboMode ? "Pulso turbo activado." : "Pulso turbo desactivado.");
+        }
+        if (action === "speed") {
+          speedMultiplier = speedMultiplier >= 1.4 ? 0.8 : speedMultiplier + 0.3; if (speedMultiplier > 1.4) speedMultiplier = 0.8;
+          setEvent(`VELOCIDAD ${speedMultiplier.toFixed(1)}X`, COLORS.violet);
+        }
+        if (action === "reset") resetSimulation();
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        const point = toLogicalPoint(event);
+        for (const button of buttons) {
+          if (point.x >= button.x && point.x <= button.x + button.w && point.y >= button.y && point.y <= button.y + button.h) {
+            handleAction(button.action); event.preventDefault(); return;
+          }
+        }
+        if (point.x > BOARD.left && point.x < BOARD.left + BOARD.width && point.y < 320) {
+          launchBurst(6);
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.code === "Space") {
+          event.preventDefault(); handleAction("toggle");
+        }
+        if (event.key.toLowerCase() === "r") handleAction("reset"); if (event.key.toLowerCase() === "g") handleAction("gold");
+        if (event.key.toLowerCase() === "b") handleAction("launch");
+      });
+
+      // ---------------------------------------------------------------------
+      // Bucle de render fijo a 60 Hz con acumulador y telemetría de FPS.
+      // ---------------------------------------------------------------------
+      function frame(timestamp) {
+        if (!lastFrame) lastFrame = timestamp; const delta = Math.min((timestamp - lastFrame) / 1000, 0.1); lastFrame = timestamp; accumulator += delta;
+        fpsAverage = fpsAverage * 0.92 + (delta > 0 ? (1 / delta) * 0.08 : 0); frameCount += 1;
+        while (accumulator >= FIXED_STEP) {
+          update(FIXED_STEP); accumulator -= FIXED_STEP;
+        }
+        draw(); requestAnimationFrame(frame);
+      }
+
+      // ---------------------------------------------------------------------
+      // Inicio inmediato: el primer tiro nace antes del primer repintado.
+      // ---------------------------------------------------------------------
+      window.addEventListener("resize", resizeCanvas, { passive: true });
+      makeStars(); resizeCanvas(); launchBurst(9); requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

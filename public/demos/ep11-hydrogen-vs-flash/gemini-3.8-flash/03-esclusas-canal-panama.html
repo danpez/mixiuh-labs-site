@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Hidráulico de Esclusas del Canal de Panamá</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #060A12;
+      color: #E2E8F0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #app-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 50% 30%, #0F172A 0%, #060A12 100%);
+      position: relative;
+    }
+
+    /* Top Navigation HUD */
+    #top-bar {
+      height: 80px;
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      backdrop-filter: blur(10px);
+      z-index: 20;
+    }
+    .brand-title {
+      display: flex;
+      flex-direction: column;
+    }
+    .main-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sub-title {
+      font-size: 11px;
+      color: #94A3B8;
+      letter-spacing: 0.02em;
+    }
+
+    /* Top Telemetry Chips */
+    .telemetry-strip {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .telemetry-chip {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      padding: 6px 14px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+    .chip-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      color: #94A3B8;
+      letter-spacing: 0.05em;
+    }
+    .chip-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: #22D3EE;
+      font-family: monospace;
+    }
+    .chip-green {
+      color: #10B981;
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    /* Main Simulator Area */
+    #sim-view {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas#canal-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Stage Steps Overlay */
+    #stage-progress {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 30px;
+      padding: 6px 20px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    .stage-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #64748B;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .stage-item.active {
+      color: #FBBF24;
+    }
+    .stage-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #334155;
+    }
+    .stage-item.active .stage-dot {
+      background: #FBBF24;
+      box-shadow: 0 0 8px #FBBF24;
+    }
+
+    /* Bottom Control Bar */
+    #bottom-bar {
+      height: 72px;
+      background: rgba(15, 23, 42, 0.95);
+      border-top: 1px solid rgba(56, 189, 248, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      z-index: 20;
+    }
+    .controls-left {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn {
+      background: #1E293B;
+      border: 1px solid #38BDF8;
+      color: #E2E8F0;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #22D3EE;
+    }
+    .btn-speed {
+      background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+      color: #FFFFFF;
+      border: none;
+      box-shadow: 0 2px 10px rgba(2, 132, 199, 0.4);
+    }
+    .btn-speed.boost {
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+      box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);
+    }
+    .callout-zero-pumps {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid #10B981;
+      padding: 8px 16px;
+      border-radius: 8px;
+      color: #10B981;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Top Bar -->
+    <div id="top-bar">
+      <div class="brand-title">
+        <div class="main-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+            <path d="M2 7l10 5 10-5"></path>
+          </svg>
+          Esclusas del Canal de Panamá: Hidráulica 0 Bombas
+        </div>
+        <div class="sub-title">Elevación de Buque Neopanamax de 80,000 Toneladas por Vasos Comunicantes</div>
+      </div>
+
+      <div class="telemetry-strip">
+        <div class="telemetry-chip">
+          <div class="chip-label">Elevación Buque</div>
+          <div class="chip-value" id="hud-elevation">+0.0 m</div>
+        </div>
+        <div class="telemetry-chip">
+          <div class="chip-label">Caudal Alcantarilla</div>
+          <div class="chip-value" id="hud-flow">0.0 m³/s</div>
+        </div>
+        <div class="telemetry-chip">
+          <div class="chip-label">Volumen Desplazado</div>
+          <div class="chip-value" id="hud-disp">80,000 t</div>
+        </div>
+        <div class="telemetry-chip chip-green">
+          <div class="chip-label">Bombas de Agua</div>
+          <div class="chip-value" style="color:#10B981;">0 PUMPS (100% Gravedad)</div>
+        </div>
+        <div class="telemetry-chip">
+          <div class="chip-label">FPS</div>
+          <div class="chip-value" id="hud-fps">60</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulator View -->
+    <div id="sim-view">
+      <canvas id="canal-canvas"></canvas>
+
+      <!-- Stage Step Indicator -->
+      <div id="stage-progress">
+        <div class="stage-item active" id="st-0"><div class="stage-dot"></div>1. Océano (0m)</div>
+        <div class="stage-item" id="st-1"><div class="stage-dot"></div>2. Cámara 1 (+8.7m)</div>
+        <div class="stage-item" id="st-2"><div class="stage-dot"></div>3. Cámara 2 (+17.3m)</div>
+        <div class="stage-item" id="st-3"><div class="stage-dot"></div>4. Cámara 3 (+26.0m)</div>
+        <div class="stage-item" id="st-4"><div class="stage-dot"></div>5. Lago Gatún</div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar Controls -->
+    <div id="bottom-bar">
+      <div class="controls-left">
+        <button class="btn btn-speed" id="btn-speed-toggle">Acelerar Tránsito Completo 3X</button>
+        <button class="btn" id="btn-reset-cycle">Reiniciar Tránsito</button>
+      </div>
+
+      <div class="callout-zero-pumps">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+        <span>0 kWh EN BOMBEO · HIDROSTÁTICA NATURAL DEL LAGO GATÚN</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * SIMULADOR HIDRAULICO CORTE TRANSVERSAL ESCLUSAS DEL CANAL DE PANAMA
+     * Mixiuh Labs - Estándar 1080p60
+     */
+
+    // Motor de Audio Sintético Procedural WebAudio
+    const CanalAudio = {
+      ctx: null,
+      waterGain: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.ctx = new AudioContextClass();
+            // Ruido rosa/marrón para torrente de agua
+            const bufferSize = this.ctx.sampleRate * 2;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            let b0 = 0, b1 = 0, b2 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+              const white = Math.random() * 2 - 1;
+              b0 = 0.99 * b0 + white * 0.05;
+              b1 = 0.95 * b1 + white * 0.1;
+              data[i] = (b0 + b1) * 0.3;
+            }
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            noise.loop = true;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+
+            this.waterGain = this.ctx.createGain();
+            this.waterGain.gain.value = 0.001;
+
+            noise.connect(filter);
+            filter.connect(this.waterGain);
+            this.waterGain.connect(this.ctx.destination);
+            noise.start(0);
+          }
+        }
+      },
+      setWaterFlowVolume(volume) {
+        if (!this.waterGain || !this.ctx) return;
+        const target = Math.max(0.001, Math.min(0.35, volume * 0.35));
+        this.waterGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.1);
+      },
+      playHorn() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(120, now);
+        osc2.frequency.setValueAtTime(151, now); // tercera menor marina
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 1.25);
+        osc2.stop(now + 1.25);
+      }
+    };
+
+    // Parámetros Físicos y Escala
+    const GATUN_ELEVATION_METERS = 26.0;
+    const STEP_ELEVATION = 8.666; // 26 / 3 metros por escalón
+
+    const state = {
+      timeMultiplier: 1.0,
+      shipElevationMeters: 0.0,
+      chamberLevels: [0.0, 8.67, 17.33], // Niveles actuales de las 3 cámaras
+      targetChamberLevels: [0.0, 8.67, 17.33],
+      culvertFlowM3s: 0.0,
+      pumpsUsed: 0,
+      fps: 60,
+      frameCount: 0,
+      lastFpsTime: performance.now(),
+
+      // Buque Neopanamax
+      ship: {
+        x: 0,
+        y: 0,
+        targetX: 0,
+        currentChamberIndex: -1, // -1: Océano, 0: Cámara 1, 1: Cámara 2, 2: Cámara 3, 3: Gatún
+        speed: 45, // px/s
+        isMoving: false,
+        length: 220,
+        beam: 36,
+        draft: 15.2, // metros de calado
+        weightTonnes: 80000
+      },
+
+      // Compuertas en Mitra (4 compuertas: 0, 1, 2, 3)
+      // open: 0 (cerrada) a 1 (abierta)
+      gates: [
+        { open: 0, targetOpen: 0 },
+        { open: 0, targetOpen: 0 },
+        { open: 0, targetOpen: 0 },
+        { open: 0, targetOpen: 0 }
+      ],
+
+      // Válvulas de Culverts (3 pares de válvulas)
+      culvertValves: [
+        { open: 0, targetOpen: 0 },
+        { open: 0, targetOpen: 0 },
+        { open: 0, targetOpen: 0 }
+      ],
+
+      phase: 'OCEAN_APPROACH',
+      phaseTimer: 0
+    };
+
+    const canvas = document.getElementById('canal-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Burbujas y Vectores de Flujo
+    const waterParticles = [];
+
+    function resizeCanvas() {
+      const parent = document.getElementById('sim-view');
+      canvas.width = parent.clientWidth;
+      canvas.height = parent.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Geometría del Canal
+    function getCanalGeometry() {
+      const w = canvas.width;
+      const h = canvas.height;
+      const groundY = h * 0.78;
+      const chamberWidth = w * 0.22;
+      const marginX = w * 0.04;
+
+      // Secciones:
+      // 0: Océano (0 a x0)
+      // 1: Cámara 1 (x0 a x1)
+      // 2: Cámara 2 (x1 a x2)
+      // 3: Cámara 3 (x2 a x3)
+      // 4: Lago Gatún (x3 a w)
+      const x0 = marginX + w * 0.14;
+      const x1 = x0 + chamberWidth;
+      const x2 = x1 + chamberWidth;
+      const x3 = x2 + chamberWidth;
+
+      const pxPerMeter = (h * 0.38) / GATUN_ELEVATION_METERS;
+
+      return { w, h, groundY, x0, x1, x2, x3, chamberWidth, pxPerMeter };
+    }
+
+    // Inicializar Posición del Barco
+    function initShipPosition() {
+      const geo = getCanalGeometry();
+      state.ship.x = geo.marginX || 40;
+      state.ship.currentChamberIndex = -1; // Océano
+      state.phase = 'OCEAN_APPROACH';
+      state.phaseTimer = 0;
+      state.chamberLevels = [0.0, 8.67, 17.33];
+      state.shipElevationMeters = 0.0;
+    }
+
+    // Máquina de Estados del Tránsito Completo (Loop Continuo Autónomo)
+    function updateTransitSequence(dt) {
+      state.phaseTimer += dt;
+      const geo = getCanalGeometry();
+
+      switch (state.phase) {
+        case 'OCEAN_APPROACH':
+          updateStageHUD(0);
+          // Nivel cámara 1 debe estar a 0m para abrir compuerta 0
+          state.targetChamberLevels[0] = 0.0;
+          if (Math.abs(state.chamberLevels[0] - 0.0) < 0.1) {
+            state.gates[0].targetOpen = 1.0;
+          }
+          // Avanzar barco hacia Cámara 1
+          const targetX1 = geo.x0 + geo.chamberWidth * 0.5;
+          if (state.ship.x < targetX1) {
+            state.ship.x += state.ship.speed * dt;
+          } else {
+            state.gates[0].targetOpen = 0.0; // Cerrar compuerta tras entrada
+            if (state.gates[0].open < 0.05) {
+              state.phase = 'FILL_CHAMBER_1';
+              state.phaseTimer = 0;
+              state.culvertValves[0].targetOpen = 1.0; // Abrir alcantarilla 1
+              state.targetChamberLevels[0] = STEP_ELEVATION; // Subir a 8.7m
+            }
+          }
+          break;
+
+        case 'FILL_CHAMBER_1':
+          updateStageHUD(1);
+          // Llenando cámara 1 hasta igualar cámara 2 (8.7m)
+          if (Math.abs(state.chamberLevels[0] - STEP_ELEVATION) < 0.15) {
+            state.culvertValves[0].targetOpen = 0.0; // Cerrar alcantarilla
+            state.gates[1].targetOpen = 1.0; // Niveles iguales -> abrir compuerta 1
+            if (state.gates[1].open > 0.9) {
+              state.phase = 'MOVE_TO_CHAMBER_2';
+              state.phaseTimer = 0;
+            }
+          }
+          break;
+
+        case 'MOVE_TO_CHAMBER_2':
+          updateStageHUD(2);
+          const targetX2 = geo.x1 + geo.chamberWidth * 0.5;
+          if (state.ship.x < targetX2) {
+            state.ship.x += state.ship.speed * dt;
+          } else {
+            state.gates[1].targetOpen = 0.0; // Cerrar compuerta 1
+            if (state.gates[1].open < 0.05) {
+              state.phase = 'FILL_CHAMBER_2';
+              state.phaseTimer = 0;
+              state.culvertValves[1].targetOpen = 1.0;
+              state.targetChamberLevels[1] = STEP_ELEVATION * 2; // Subir a 17.3m
+            }
+          }
+          break;
+
+        case 'FILL_CHAMBER_2':
+          updateStageHUD(2);
+          if (Math.abs(state.chamberLevels[1] - STEP_ELEVATION * 2) < 0.15) {
+            state.culvertValves[1].targetOpen = 0.0;
+            state.gates[2].targetOpen = 1.0; // Abrir compuerta 2
+            if (state.gates[2].open > 0.9) {
+              state.phase = 'MOVE_TO_CHAMBER_3';
+              state.phaseTimer = 0;
+            }
+          }
+          break;
+
+        case 'MOVE_TO_CHAMBER_3':
+          updateStageHUD(3);
+          const targetX3 = geo.x2 + geo.chamberWidth * 0.5;
+          if (state.ship.x < targetX3) {
+            state.ship.x += state.ship.speed * dt;
+          } else {
+            state.gates[2].targetOpen = 0.0; // Cerrar compuerta 2
+            if (state.gates[2].open < 0.05) {
+              state.phase = 'FILL_CHAMBER_3';
+              state.phaseTimer = 0;
+              state.culvertValves[2].targetOpen = 1.0;
+              state.targetChamberLevels[2] = GATUN_ELEVATION_METERS; // Subir a 26m
+            }
+          }
+          break;
+
+        case 'FILL_CHAMBER_3':
+          updateStageHUD(3);
+          if (Math.abs(state.chamberLevels[2] - GATUN_ELEVATION_METERS) < 0.15) {
+            state.culvertValves[2].targetOpen = 0.0;
+            state.gates[3].targetOpen = 1.0; // Abrir compuerta hacia Lago Gatún
+            if (state.gates[3].open > 0.9) {
+              state.phase = 'SAIL_GATUN_LAKE';
+              state.phaseTimer = 0;
+              CanalAudio.playHorn();
+            }
+          }
+          break;
+
+        case 'SAIL_GATUN_LAKE':
+          updateStageHUD(4);
+          const targetGatunX = geo.w + 150;
+          if (state.ship.x < targetGatunX) {
+            state.ship.x += state.ship.speed * dt;
+          } else {
+            // Reiniciar ciclo de tránsito suavemente
+            initShipPosition();
+          }
+          break;
+      }
+    }
+
+    function updateStageHUD(activeIdx) {
+      for (let i = 0; i < 5; i++) {
+        const el = document.getElementById(`st-${i}`);
+        if (el) el.classList.toggle('active', i === activeIdx);
+      }
+    }
+
+    // Actualización Hidráulica de Niveles y Caudal Torricelli
+    function updateHydraulics(dt) {
+      let totalFlow = 0;
+      const Cd = 0.62;
+      const culvertArea = 28; // m^2 de sección de alcantarilla real
+
+      // Nivel de cada cámara converge por gravedad hacia su target
+      for (let i = 0; i < 3; i++) {
+        const diff = state.targetChamberLevels[i] - state.chamberLevels[i];
+        if (Math.abs(diff) > 0.02) {
+          // Ley de Torricelli aproximada: Q = Cd * A * sqrt(2 * g * deltaH)
+          const deltaH = Math.max(0.5, Math.abs(diff));
+          const flow = Cd * culvertArea * Math.sqrt(2 * 9.81 * deltaH);
+          const rate = 1.25 * (diff > 0 ? 1 : -1);
+          state.chamberLevels[i] += rate * dt;
+          totalFlow += flow;
+
+          // Generar burbujas y vectores en los difusores de fondo
+          if (Math.random() < 0.7) {
+            const geo = getCanalGeometry();
+            const cx = geo.x0 + geo.chamberWidth * (i + 0.5);
+            waterParticles.push({
+              x: cx + (Math.random() - 0.5) * geo.chamberWidth * 0.7,
+              y: geo.groundY - 10,
+              vy: -(Math.random() * 40 + 30),
+              vx: (Math.random() - 0.5) * 15,
+              alpha: 0.8,
+              radius: Math.random() * 4 + 2
+            });
+          }
+        } else {
+          state.chamberLevels[i] = state.targetChamberLevels[i];
+        }
+      }
+
+      state.culvertFlowM3s = totalFlow;
+      CanalAudio.setWaterFlowVolume(totalFlow / 240);
+
+      // Compuertas y Válvulas
+      state.gates.forEach(g => {
+        const d = g.targetOpen - g.open;
+        g.open += d * Math.min(1.0, dt * 1.8);
+      });
+      state.culvertValves.forEach(v => {
+        const d = v.targetOpen - v.open;
+        v.open += d * Math.min(1.0, dt * 2.5);
+      });
+
+      // Calcular Elevación Actual del Buque por Arquímedes según su X
+      const geo = getCanalGeometry();
+      const sx = state.ship.x;
+      let targetElevation = 0.0;
+
+      if (sx < geo.x0) {
+        targetElevation = 0.0; // Océano
+      } else if (sx < geo.x1) {
+        targetElevation = state.chamberLevels[0];
+      } else if (sx < geo.x2) {
+        targetElevation = state.chamberLevels[1];
+      } else if (sx < geo.x3) {
+        targetElevation = state.chamberLevels[2];
+      } else {
+        targetElevation = GATUN_ELEVATION_METERS; // Lago Gatún
+      }
+
+      // El barco flota siguiendo el empuje hidrostático
+      state.shipElevationMeters += (targetElevation - state.shipElevationMeters) * Math.min(1.0, dt * 3.5);
+    }
+
+    // Dibujo del Simulador Hidráulico en Corte Transversal
+    function drawCanal() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const geo = getCanalGeometry();
+      const { w, h, groundY, x0, x1, x2, x3, chamberWidth, pxPerMeter } = geo;
+
+      // 1. Cielo Tropical Panameño
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+      skyGrad.addColorStop(0, '#020617');
+      skyGrad.addColorStop(0.6, '#0B1528');
+      skyGrad.addColorStop(1, '#111E38');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, groundY);
+
+      // Silueta de Selva Tropical del Corte Culebra al Fondo
+      ctx.fillStyle = '#061A14';
+      ctx.beginPath();
+      ctx.moveTo(0, groundY * 0.85);
+      ctx.lineTo(w * 0.2, groundY * 0.78);
+      ctx.lineTo(w * 0.5, groundY * 0.72);
+      ctx.lineTo(w * 0.8, groundY * 0.65);
+      ctx.lineTo(w, groundY * 0.60);
+      ctx.lineTo(w, groundY);
+      ctx.lineTo(0, groundY);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Estructura Masiva de Concreto de las Cámaras (Corte Transversal)
+      ctx.fillStyle = '#1E293B';
+      // Muros divisores y lecho
+      ctx.fillRect(0, groundY, w, h - groundY); // Subsuelo rocoso
+
+      // Muros de las esclusas
+      const wallThickness = 28;
+      const chamberH = groundY - (GATUN_ELEVATION_METERS * pxPerMeter + 40);
+
+      // Dibujar muros verticales de concreto
+      [x0, x1, x2, x3].forEach(wx => {
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(wx - wallThickness / 2, chamberH, wallThickness, groundY - chamberH);
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(wx - wallThickness / 2, chamberH, wallThickness, groundY - chamberH);
+
+        // Vías de engranaje para locomotoras ("mulas") sobre el muro
+        ctx.fillStyle = '#F59E0B';
+        ctx.fillRect(wx - wallThickness / 2, chamberH - 6, wallThickness, 6);
+      });
+
+      // 3. Alcantarillas Subterráneas Gigantes (Culverts bajo las cámaras)
+      const culvertY = groundY + 35;
+      const culvertH = 45;
+      ctx.fillStyle = '#090D16';
+      ctx.fillRect(marginX || 40, culvertY, w - 80, culvertH);
+      ctx.strokeStyle = '#22D3EE';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(marginX || 40, culvertY, w - 80, culvertH);
+
+      // Flujo de Agua dentro de las Alcantarillas con Vectores
+      if (state.culvertFlowM3s > 5) {
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.4)';
+        ctx.fillRect(marginX || 40, culvertY + 4, w - 80, culvertH - 8);
+
+        // Flechas de dirección de flujo gravitacional
+        ctx.fillStyle = '#FFFFFF';
+        for (let fx = 100; fx < w - 100; fx += 90) {
+          drawFlowArrow(ctx, fx + (Date.now() * 0.1) % 90, culvertY + culvertH / 2, 14);
+        }
+      }
+
+      // Rótulo técnico de alcantarillas
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('ALCANTARILLAS GIGANTES DE FONDO (CULVERTS - FLUJO POR GRAVEDAD)', 60, culvertY + 28);
+
+      // 4. Masas de Agua por Sección (comunicantes)
+      // Océano (0m)
+      const oceanLevelY = groundY - (0.0 * pxPerMeter);
+      drawWaterBody(0, oceanLevelY, x0 - wallThickness / 2, groundY);
+
+      // Cámara 1
+      const c1LevelY = groundY - (state.chamberLevels[0] * pxPerMeter);
+      drawWaterBody(x0 + wallThickness / 2, c1LevelY, x1 - wallThickness / 2, groundY);
+
+      // Cámara 2
+      const c2LevelY = groundY - (state.chamberLevels[1] * pxPerMeter);
+      drawWaterBody(x1 + wallThickness / 2, c2LevelY, x2 - wallThickness / 2, groundY);
+
+      // Cámara 3
+      const c3LevelY = groundY - (state.chamberLevels[2] * pxPerMeter);
+      drawWaterBody(x2 + wallThickness / 2, c3LevelY, x3 - wallThickness / 2, groundY);
+
+      // Lago Gatún (+26m)
+      const gatunLevelY = groundY - (GATUN_ELEVATION_METERS * pxPerMeter);
+      drawWaterBody(x3 + wallThickness / 2, gatunLevelY, w, groundY);
+
+      // Rótulos de Niveles de Agua
+      drawWaterLabel(x0 - 50, oceanLevelY, '0.0 m (Océano)');
+      drawWaterLabel(x0 + chamberWidth * 0.5, c1LevelY, `+${state.chamberLevels[0].toFixed(1)} m`);
+      drawWaterLabel(x1 + chamberWidth * 0.5, c2LevelY, `+${state.chamberLevels[1].toFixed(1)} m`);
+      drawWaterLabel(x2 + chamberWidth * 0.5, c3LevelY, `+${state.chamberLevels[2].toFixed(1)} m`);
+      drawWaterLabel(x3 + 80, gatunLevelY, '+26.0 m (Lago Gatún)');
+
+      // 5. Compuertas en Mitra (Miter Gates)
+      const gatePositions = [x0, x1, x2, x3];
+      gatePositions.forEach((gx, idx) => {
+        const g = state.gates[idx];
+        const gateH = 140;
+        const gateBaseY = groundY;
+        const openOffset = g.open * (gateH * 0.85);
+
+        ctx.fillStyle = '#475569';
+        ctx.strokeStyle = '#F43F5E';
+        ctx.lineWidth = 2;
+
+        // Hoja de compuerta retraída / abierta
+        ctx.beginPath();
+        ctx.rect(gx - 5, gateBaseY - gateH + openOffset, 10, gateH - openOffset);
+        ctx.fill();
+        ctx.stroke();
+
+        // Indicador de estado
+        ctx.fillStyle = g.open > 0.8 ? '#10B981' : '#F43F5E';
+        ctx.beginPath();
+        ctx.arc(gx, chamberH - 14, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 6. Burbujas de Agua Turbulenta y Difusores
+      for (let i = waterParticles.length - 1; i >= 0; i--) {
+        const p = waterParticles[i];
+        p.x += p.vx * 0.016;
+        p.y += p.vy * 0.016;
+        p.alpha -= 0.016 * 0.8;
+
+        if (p.alpha <= 0) {
+          waterParticles.splice(i, 1);
+          continue;
+        }
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 7. Buque Portacontenedores Neopanamax (80,000 Toneladas)
+      drawNeopanamaxShip(state.ship.x, groundY - (state.shipElevationMeters * pxPerMeter));
+
+      // 8. Locomotoras Eléctricas ("Mulas") y Cables de Acero
+      drawElectricMules(geo);
+    }
+
+    function drawWaterBody(xStart, ySurface, xEnd, yFloor) {
+      const grad = ctx.createLinearGradient(0, ySurface, 0, yFloor);
+      grad.addColorStop(0, 'rgba(56, 189, 248, 0.75)');
+      grad.addColorStop(0.3, 'rgba(2, 132, 199, 0.85)');
+      grad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(xStart, ySurface, xEnd - xStart, yFloor - ySurface);
+
+      // Superficie brillante con pequeñas olas
+      ctx.strokeStyle = '#22D3EE';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(xStart, ySurface);
+      for (let x = xStart; x <= xEnd; x += 15) {
+        const wave = Math.sin(x * 0.05 + Date.now() * 0.003) * 1.5;
+        ctx.lineTo(x, ySurface + wave);
+      }
+      ctx.stroke();
+    }
+
+    function drawWaterLabel(x, y, text) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, x, y - 8);
+    }
+
+    function drawFlowArrow(ctx, x, y, size) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - size / 2);
+      ctx.lineTo(x + size, y);
+      ctx.lineTo(x, y + size / 2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Dibujo Detallado del Buque Neopanamax
+    function drawNeopanamaxShip(cx, waterSurfaceY) {
+      const shipW = 180;
+      const shipH = 55;
+      const bowX = cx + shipW * 0.5;
+      const sternX = cx - shipW * 0.5;
+      const draftPx = 18; // sumergido en agua
+
+      const hullTopY = waterSurfaceY - (shipH - draftPx);
+      const keelY = waterSurfaceY + draftPx;
+
+      ctx.save();
+
+      // Casco Rojo y Azul Oscuro
+      ctx.beginPath();
+      ctx.moveTo(sternX, hullTopY);
+      ctx.lineTo(bowX - 25, hullTopY);
+      ctx.quadraticCurveTo(bowX, hullTopY + 10, bowX, hullTopY + 25);
+      ctx.lineTo(bowX - 10, keelY);
+      ctx.lineTo(sternX + 15, keelY);
+      ctx.lineTo(sternX, hullTopY + 20);
+      ctx.closePath();
+
+      // Gradiente del Casco
+      const hullGrad = ctx.createLinearGradient(0, hullTopY, 0, keelY);
+      hullGrad.addColorStop(0, '#0F172A');
+      hullGrad.addColorStop(0.5, '#1E293B');
+      hullGrad.addColorStop(0.51, '#DC2626'); // Obra viva roja
+      hullGrad.addColorStop(1, '#991B1B');
+      ctx.fillStyle = hullGrad;
+      ctx.fill();
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Contenedores Estibados Multicolores
+      const containerColors = ['#0284C7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+      const contW = 14;
+      const contH = 9;
+      const stackRows = 4;
+      const startX = sternX + 24;
+      const endX = bowX - 45;
+
+      let cIdx = 0;
+      for (let x = startX; x < endX; x += contW + 2) {
+        for (let row = 0; row < stackRows; row++) {
+          const cy = hullTopY - (row + 1) * (contH + 1);
+          ctx.fillStyle = containerColors[(cIdx + row) % containerColors.length];
+          ctx.fillRect(x, cy, contW, contH);
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, cy, contW, contH);
+        }
+        cIdx++;
+      }
+
+      // Puente de Mando y Navegación a Popa
+      const bridgeX = sternX + 4;
+      const bridgeY = hullTopY - 48;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(bridgeX, bridgeY, 18, 48);
+      // Ventanales del puente
+      ctx.fillStyle = '#0284C7';
+      ctx.fillRect(bridgeX + 2, bridgeY + 4, 14, 5);
+
+      // Chimenea con logo
+      ctx.fillStyle = '#DC2626';
+      ctx.fillRect(bridgeX + 4, bridgeY - 10, 8, 10);
+
+      // Rótulo Neopanamax
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('NEOPANAMAX 80,000T', cx, hullTopY + 14);
+
+      ctx.restore();
+    }
+
+    // Locomotoras Eléctricas ("Mulas") con Cables
+    function drawElectricMules(geo) {
+      const shipX = state.ship.x;
+      const geoGroundY = geo.groundY;
+      const pxPerMeter = geo.pxPerMeter;
+      const shipY = geoGroundY - (state.shipElevationMeters * pxPerMeter);
+
+      const mule1X = shipX + 110;
+      const mule2X = shipX - 110;
+      const muleY = geoGroundY - (GATUN_ELEVATION_METERS * pxPerMeter + 46);
+
+      // Dibujar Mulas (pequeños vehículos eléctricos sobre rieles)
+      [mule1X, mule2X].forEach(mx => {
+        ctx.fillStyle = '#FBBF24';
+        ctx.fillRect(mx - 10, muleY, 20, 10);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(mx - 10, muleY, 20, 10);
+
+        // Luz de advertencia
+        ctx.fillStyle = '#EF4444';
+        ctx.beginPath();
+        ctx.arc(mx, muleY - 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Cables de Acero en Tensión hacia Proa y Popa
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      // Cable proa
+      ctx.moveTo(mule1X, muleY + 5);
+      ctx.lineTo(shipX + 80, shipY);
+      // Cable popa
+      ctx.moveTo(mule2X, muleY + 5);
+      ctx.lineTo(shipX - 80, shipY);
+      ctx.stroke();
+    }
+
+    // Actualización de Métricas del HUD
+    function updateHUD() {
+      document.getElementById('hud-elevation').innerText = `+${state.shipElevationMeters.toFixed(2)} m`;
+      document.getElementById('hud-flow').innerText = `${state.culvertFlowM3s.toFixed(1)} m³/s`;
+      document.getElementById('hud-fps').innerText = state.fps;
+    }
+
+    // Botones de Control
+    const btnSpeed = document.getElementById('btn-speed-toggle');
+    btnSpeed.addEventListener('click', () => {
+      if (state.timeMultiplier === 1.0) {
+        state.timeMultiplier = 3.0;
+        state.ship.speed = 45 * 3.0;
+        btnSpeed.classList.add('boost');
+        btnSpeed.innerText = 'Velocidad: 3X (Acelerado)';
+      } else {
+        state.timeMultiplier = 1.0;
+        state.ship.speed = 45;
+        btnSpeed.classList.remove('boost');
+        btnSpeed.innerText = 'Acelerar Tránsito Completo 3X';
+      }
+    });
+
+    document.getElementById('btn-reset-cycle').addEventListener('click', () => {
+      initShipPosition();
+    });
+
+    // Hook Requerido por el Benchmark de Mixiuh Labs
+    window.__auditLocks = function() {
+      return {
+        shipElevationMeters: parseFloat(state.shipElevationMeters.toFixed(2)),
+        chamberLevels: state.chamberLevels.map(lvl => parseFloat(lvl.toFixed(2))),
+        culvertFlowM3s: parseFloat(state.culvertFlowM3s.toFixed(2)),
+        pumpsUsed: state.pumpsUsed,
+        fps: state.fps
+      };
+    };
+
+    // Bucle Principal de Animación a 60 FPS
+    let lastTime = performance.now();
+    function loop(currentTime) {
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
+      lastTime = currentTime;
+
+      // Medición FPS
+      state.frameCount++;
+      if (currentTime - state.lastFpsTime >= 500) {
+        state.fps = Math.round((state.frameCount * 1000) / (currentTime - state.lastFpsTime));
+        state.frameCount = 0;
+        state.lastFpsTime = currentTime;
+      }
+
+      // Física y Secuencia
+      updateTransitSequence(dt * state.timeMultiplier);
+      updateHydraulics(dt * state.timeMultiplier);
+
+      // Renderizado
+      drawCanal();
+      updateHUD();
+
+      requestAnimationFrame(loop);
+    }
+
+    // Inicialización Inmediata al Cargar
+    window.addEventListener('DOMContentLoaded', () => {
+      CanalAudio.init();
+      initShipPosition();
+      requestAnimationFrame(loop);
+    });
+  </script>
+</body>
+</html>

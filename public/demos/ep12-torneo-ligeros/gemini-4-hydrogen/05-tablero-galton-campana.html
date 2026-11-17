@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mixiuh Labs EP12-05 | Maquina de Galton y Campana de Gauss</title>
+<style>
+  :root {
+    --bg: #060A12;
+    --panel: #0F172A;
+    --border: rgba(56, 189, 248, 0.24);
+    --text: #F8FAFC;
+    --muted: #94A3B8;
+    --cyan: #22D3EE;
+    --blue: #38BDF8;
+    --amber: #FB923C;
+    --gold: #FBBF24;
+    --emerald: #10B981;
+    --coral: #F43F5E;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .app {
+    display: grid;
+    grid-template-rows: 64px 1fr;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at 35% 30%, #0C182D 0%, #060A12 72%);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: rgba(15, 23, 42, 0.94);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    z-index: 10;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(56,189,248,0.24), rgba(251,191,36,0.16));
+    border: 1px solid rgba(56, 189, 248, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .title-kicker {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--cyan);
+    font-weight: 700;
+  }
+
+  .title-main {
+    font-size: 18px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .scoreboard-pills {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .score-pill {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 13px;
+    border-radius: 10px;
+    background: rgba(6, 10, 18, 0.85);
+    border: 1px solid rgba(255,255,255,0.12);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-pill.p0 { border-color: rgba(34,211,238,0.55); }
+  .score-pill.p1 { border-color: rgba(251,146,60,0.55); }
+  .score-pill.p2 { border-color: rgba(16,185,129,0.55); }
+
+  .pill-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .pill-name { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; }
+  .pill-val { font-size: 20px; font-weight: 900; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 13px;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(15, 23, 42, 0.92);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.14s ease, border-color 0.14s ease, transform 0.1s ease;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: rgba(34, 211, 238, 0.16); border-color: var(--cyan); }
+  .btn:active { transform: scale(0.97); }
+  .btn.active { background: rgba(34, 211, 238, 0.22); border-color: var(--cyan); color: var(--cyan); }
+  .btn.gold { border-color: rgba(251, 191, 36, 0.55); color: #FDE68A; }
+  .btn.gold:hover { background: rgba(251, 191, 36, 0.2); border-color: var(--gold); }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 14px;
+    padding: 14px 18px;
+    min-height: 0;
+  }
+
+  .board-wrap {
+    position: relative;
+    background: #050912;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.8);
+  }
+
+  canvas#galtonCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: pointer;
+  }
+
+  .board-hud-pill {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 15px;
+    border-radius: 999px;
+    background: rgba(6, 10, 18, 0.86);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    font-size: 13.5px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+
+  .r2-pill {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    background: rgba(6, 10, 18, 0.88);
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    font-size: 14px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    pointer-events: none;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--blue);
+  }
+
+  .ai-card {
+    background: rgba(6, 10, 18, 0.72);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left-width: 4px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .ai-card.a0 { border-left-color: var(--cyan); }
+  .ai-card.a1 { border-left-color: var(--amber); }
+  .ai-card.a2 { border-left-color: var(--emerald); }
+
+  .ai-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ai-name { font-size: 15px; font-weight: 800; }
+  .ai-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.08);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  .ai-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .stat-cell {
+    background: rgba(15, 23, 42, 0.9);
+    padding: 5px 8px;
+    border-radius: 6px;
+  }
+
+  .stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+  .stat-val { font-size: 15px; font-weight: 800; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .energy-bar {
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.95);
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .energy-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.08s linear;
+  }
+
+  .gauss-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .g-box {
+    background: rgba(6, 10, 18, 0.72);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+
+  .g-box strong {
+    display: block;
+    font-size: 10.5px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .g-box span {
+    font-size: 18px;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  .log-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .log-row {
+    font-size: 12.5px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    background: rgba(6, 10, 18, 0.72);
+    border-left: 3px solid var(--gold);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .log-t {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+  }
+
+  @media (max-width: 1180px) {
+    .workspace { grid-template-columns: 1fr 340px; }
+    .scoreboard-pills { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-badge" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 20c4 0 5-14 9-14s5 14 9 14"/>
+          <circle cx="12" cy="6" r="2" fill="#FBBF24" stroke="none"/>
+          <line x1="2" y1="20" x2="22" y2="20"/>
+        </svg>
+      </div>
+      <div>
+        <div class="title-kicker">MIXIUH LABS // ARENA TRIPLE RETO 05</div>
+        <div class="title-main">TABLERO DE GALTON MAGNETICO &amp; CAMPANA DE GAUSS</div>
+      </div>
+    </div>
+
+    <div class="scoreboard-pills">
+      <div class="score-pill p0">
+        <span class="pill-dot" style="background:#22D3EE;box-shadow:0 0 10px #22D3EE;"></span>
+        <span class="pill-name" style="color:#22D3EE;">HYDROGEN</span>
+        <span class="pill-val" id="topPts0">0</span>
+      </div>
+      <div class="score-pill p1">
+        <span class="pill-dot" style="background:#FB923C;box-shadow:0 0 10px #FB923C;"></span>
+        <span class="pill-name" style="color:#FB923C;">HAIKU</span>
+        <span class="pill-val" id="topPts1">0</span>
+      </div>
+      <div class="score-pill p2">
+        <span class="pill-dot" style="background:#10B981;box-shadow:0 0 10px #10B981;"></span>
+        <span class="pill-name" style="color:#10B981;">LUNA</span>
+        <span class="pill-val" id="topPts2">0</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="btnPause">PAUSA</button>
+      <button class="btn" id="btnSpeed">1.0X</button>
+      <button class="btn gold" id="btnBurst">RAFAGA DORADA</button>
+      <button class="btn active" id="btnGauss">GAUSS ON</button>
+      <button class="btn" id="btnReset">REINICIAR 400</button>
+      <button class="btn" id="btnAudio">AUDIO OFF</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="board-wrap">
+      <canvas id="galtonCanvas"></canvas>
+      <div class="board-hud-pill">
+        <span id="hudCycle" style="color:#22D3EE;font-family:monospace;">CICLO 01</span>
+        <span style="color:#475569;">|</span>
+        <span>CANICAS: <strong id="hudSpawned">0</strong> / 400</span>
+        <span style="color:#475569;">|</span>
+        <span>EN VUELO: <strong id="hudActive" style="color:#FBBF24;">0</strong></span>
+      </div>
+      <div class="r2-pill">
+        <span style="color:#94A3B8;">AJUSTE GAUSS R²:</span>
+        <span id="hudR2" style="color:#10B981;">0.000</span>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-title">
+          <span>COLECTORES IA &amp; ELECTROIMANES</span>
+          <span style="color:var(--muted);font-size:11px;">CLICK = SOLTAR DORADA</span>
+        </div>
+
+        <div class="ai-card a0">
+          <div class="ai-head">
+            <span class="ai-name" style="color:#22D3EE;">HYDROGEN (CUBETAS 0,3,6,9,12)</span>
+            <span class="ai-badge" id="aiMode0">RASTREO</span>
+          </div>
+          <div class="ai-stats">
+            <div class="stat-cell"><div class="stat-lbl">PUNTOS</div><div class="stat-val" id="aiPts0" style="color:#22D3EE;">0</div></div>
+            <div class="stat-cell"><div class="stat-lbl">CANICAS</div><div class="stat-val" id="aiBalls0">0</div></div>
+            <div class="stat-cell"><div class="stat-lbl">DORADAS (5X)</div><div class="stat-val" id="aiGold0" style="color:#FBBF24;">0</div></div>
+          </div>
+          <div class="energy-bar"><div class="energy-fill" id="aiEn0" style="width:100%;background:#22D3EE;"></div></div>
+        </div>
+
+        <div class="ai-card a1">
+          <div class="ai-head">
+            <span class="ai-name" style="color:#FB923C;">HAIKU (CUBETAS 1,4,7,10,13)</span>
+            <span class="ai-badge" id="aiMode1">RASTREO</span>
+          </div>
+          <div class="ai-stats">
+            <div class="stat-cell"><div class="stat-lbl">PUNTOS</div><div class="stat-val" id="aiPts1" style="color:#FB923C;">0</div></div>
+            <div class="stat-cell"><div class="stat-lbl">CANICAS</div><div class="stat-val" id="aiBalls1">0</div></div>
+            <div class="stat-cell"><div class="stat-lbl">DORADAS (5X)</div><div class="stat-val" id="aiGold1" style="color:#FBBF24;">0</div></div>
+          </div>
+          <div class="energy-bar"><div class="energy-fill" id="aiEn1" style="width:100%;background:#FB923C;"></div></div>
+        </div>
+
+        <div class="ai-card a2">
+          <div class="ai-head">
+            <span class="ai-name" style="color:#10B981;">LUNA (CUBETAS 2,5,8,11,14)</span>
+            <span class="ai-badge" id="aiMode2">RASTREO</span>
+          </div>
+          <div class="ai-stats">
+            <div class="stat-cell"><div class="stat-lbl">PUNTOS</div><div class="stat-val" id="aiPts2" style="color:#10B981;">0</div></div>
+            <div class="stat-cell"><div class="stat-lbl">CANICAS</div><div class="stat-val" id="aiBalls2">0</div></div>
+            <div class="stat-cell"><div class="stat-lbl">DORADAS (5X)</div><div class="stat-val" id="aiGold2" style="color:#FBBF24;">0</div></div>
+          </div>
+          <div class="energy-bar"><div class="energy-fill" id="aiEn2" style="width:100%;background:#10B981;"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>DISTRIBUCION BINOMIAL B(14, 0.5)</span>
+          <span style="color:#FBBF24;">14 FILAS HEX</span>
+        </div>
+        <div class="gauss-metrics">
+          <div class="g-box">
+            <strong>MEDIA TEORICA</strong>
+            <span>k = 7.00</span>
+          </div>
+          <div class="g-box">
+            <strong>DESV. ESTANDAR</strong>
+            <span>1.871 bins</span>
+          </div>
+          <div class="g-box">
+            <strong>COLECTADAS</strong>
+            <span id="statLanded">0</span>
+          </div>
+          <div class="g-box">
+            <strong>BONDAD AJUSTE R²</strong>
+            <span id="statR2" style="color:#10B981;">0.000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1;min-height:0;">
+        <div class="card-title">
+          <span>PULSOS MAGNETICOS &amp; CAPTURAS</span>
+          <span style="color:var(--muted);font-size:11px;">60 FPS</span>
+        </div>
+        <div class="log-list" id="eventLog"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const BOARD_W = 1320;
+  const BOARD_H = 980;
+  const ROWS = 14;
+  const BUCKET_COUNT = ROWS + 1; // 15 buckets (k = 0..14)
+  const MAX_MARBLES = 400;
+  const PEG_DX = 64;
+  const PEG_DY = 38;
+  const TOP_Y = 122;
+  const BUCKET_TOP_Y = 678;
+  const BUCKET_BOT_Y = 935;
+  const GRAVITY = 960;
+  const BALL_R = 6.2;
+  const PEG_R = 7.6;
+
+  const AI_META = [
+    { name: 'HYDROGEN', color: '#22D3EE', glow: 'rgba(34,211,238,0.28)' },
+    { name: 'HAIKU', color: '#FB923C', glow: 'rgba(251,146,60,0.28)' },
+    { name: 'LUNA', color: '#10B981', glow: 'rgba(16,185,129,0.28)' }
+  ];
+
+  // Binomial coefficients C(14, k) for exact B(14, 0.5) probabilities (sum = 16384)
+  const BINOM_14 = [1, 14, 91, 364, 1001, 2002, 3003, 3432, 3003, 2002, 1001, 364, 91, 14, 1];
+
+  const canvas = document.getElementById('galtonCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let pegs = [];
+  let deflectors = [];
+  let buckets = [];
+  let balls = [];
+  let particles = [];
+  let pulses = [];
+
+  let cycleNumber = 1;
+  let simTime = 0;
+  let spawnedCount = 0;
+  let spawnTimer = 0;
+  let resetDelay = 0;
+  let paused = false;
+  let simSpeed = 1;
+  let showGauss = true;
+  let audioEnabled = false;
+  let audioCtx = null;
+
+  let aiState = [
+    { energy: 100, points: 0, balls: 0, golden: 0, cooldown: 0, mode: 'RASTREO' },
+    { energy: 100, points: 0, balls: 0, golden: 0, cooldown: 0, mode: 'RASTREO' },
+    { energy: 100, points: 0, balls: 0, golden: 0, cooldown: 0, mode: 'RASTREO' }
+  ];
+
+  let gaussianFitR2 = 0;
+
+  let rngSeed = 5142026;
+  function rand() {
+    rngSeed = (rngSeed * 1664525 + 1013904223) >>> 0;
+    return rngSeed / 4294967296;
+  }
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  function addLog(msg, color = '#FBBF24') {
+    const el = document.getElementById('eventLog');
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    row.style.borderLeftColor = color;
+    row.innerHTML = `<span>${msg}</span><span class="log-t">${simTime.toFixed(1)}s</span>`;
+    el.prepend(row);
+    while (el.children.length > 6) el.removeChild(el.lastChild);
+  }
+
+  function playBeep(freq, dur, vol, type = 'sine') {
+    if (!audioEnabled) return;
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      g.gain.setValueAtTime(vol, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(g);
+      g.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    } catch (_) {}
+  }
+
+  function buildBoardGeometry() {
+    const cx = BOARD_W * 0.5;
+    pegs = [];
+    for (let r = 0; r < ROWS; r++) {
+      const count = r + 1;
+      for (let c = 0; c < count; c++) {
+        pegs.push({
+          id: pegs.length,
+          row: r,
+          x: cx + (c - r * 0.5) * PEG_DX,
+          y: TOP_Y + r * PEG_DY,
+          flash: 0
+        });
+      }
+    }
+
+    // 15 Buckets (k = 0..14) with mathematically fair modulo-3 AI ownership (each ~33.33% expected binomial mass)
+    buckets = [];
+    for (let k = 0; k < BUCKET_COUNT; k++) {
+      buckets.push({
+        index: k,
+        x: cx + (k - (BUCKET_COUNT - 1) * 0.5) * PEG_DX,
+        w: PEG_DX,
+        owner: k % 3,
+        count: 0,
+        goldenCount: 0,
+        flash: 0
+      });
+    }
+
+    // 9 Intermediate Deflector Gates & Electromagnets (3 per AI in rows 5, 7, 9)
+    deflectors = [];
+    const defRows = [
+      { rowGap: 5.5, offsets: [-2.0, 0.0, 2.0], owners: [0, 1, 2] },
+      { rowGap: 7.5, offsets: [-3.0, 0.0, 3.0], owners: [1, 2, 0] },
+      { rowGap: 9.5, offsets: [-4.0, 0.0, 4.0], owners: [2, 0, 1] }
+    ];
+    let did = 1;
+    for (let g = 0; g < defRows.length; g++) {
+      const spec = defRows[g];
+      const yPos = TOP_Y + spec.rowGap * PEG_DY;
+      for (let j = 0; j < spec.offsets.length; j++) {
+        deflectors.push({
+          id: did++,
+          x: cx + spec.offsets[j] * PEG_DX,
+          y: yPos,
+          angle: 0,
+          targetAngle: 0,
+          owner: spec.owners[j],
+          halfLen: 22,
+          pulseTimer: 0
+        });
+      }
+    }
+  }
+
+  function spawnMarble(forceGolden = false, customX = null) {
+    if (spawnedCount >= MAX_MARBLES && !forceGolden) return;
+    if (!forceGolden) spawnedCount++;
+    const isGolden = forceGolden || (spawnedCount % 7 === 0);
+    const cx = customX !== null ? customX : BOARD_W * 0.5 + (rand() - 0.5) * 3.0;
+    const cy = customX !== null ? 72 : 46;
+    balls.push({
+      x: cx,
+      y: cy,
+      vx: (rand() - 0.5) * 14,
+      vy: 60 + rand() * 35,
+      r: isGolden ? BALL_R + 1.0 : BALL_R,
+      golden: isGolden,
+      lastPegId: -1,
+      lastDefId: -1,
+      trail: []
+    });
+  }
+
+  function resetCycle(advance = false) {
+    if (advance) cycleNumber++;
+    simTime = 0;
+    spawnedCount = 0;
+    spawnTimer = 0;
+    resetDelay = 0;
+    balls = [];
+    particles = [];
+    pulses = [];
+    gaussianFitR2 = 0;
+
+    buildBoardGeometry();
+    for (let i = 0; i < 3; i++) {
+      aiState[i] = { energy: 100, points: 0, balls: 0, golden: 0, cooldown: 0, mode: 'RASTREO' };
+    }
+
+    // Immediate opening cascade from t = 0.0s so action starts alive right away!
+    for (let i = 0; i < 12; i++) {
+      spawnMarble(i === 5 || i === 10);
+      balls[i].y = 48 + i * 24;
+    }
+
+    document.getElementById('eventLog').innerHTML = '';
+    addLog(`Ciclo ${cycleNumber} iniciado: 400 canicas en cascada`, '#38BDF8');
+  }
+
+  // Mandatory AI hook: window.computeGaltonDeflectors(state, playerIndex)
+  // state = { pegs: [{x,y}], deflectors: [{id,x,y,angle,owner}], balls: [{x,y,vx,vy,golden}], buckets: [{x,owner}], energy }
+  // returns { deflectorAngles: number[], magnetPulseId: number | null }
+  window.computeGaltonDeflectors = function computeGaltonDeflectors(state, playerIndex) {
+    const ownedBuckets = [];
+    for (let i = 0; i < state.buckets.length; i++) {
+      if (state.buckets[i].owner === playerIndex) ownedBuckets.push(state.buckets[i]);
+    }
+    const angles = state.deflectors.map(d => d.angle);
+    let magnetPulseId = null;
+    let bestUrgency = 0;
+
+    for (let di = 0; di < state.deflectors.length; di++) {
+      const def = state.deflectors[di];
+      if (def.owner !== playerIndex) continue;
+
+      // Find nearest incoming golden marble above or near this deflector
+      let bestBall = null;
+      let bestScore = Infinity;
+      for (let bi = 0; bi < state.balls.length; bi++) {
+        const b = state.balls[bi];
+        if (!b.golden) continue;
+        const dy = def.y - b.y;
+        const dx = b.x - def.x;
+        if (dy > -26 && dy < 175 && Math.abs(dx) < 135) {
+          const score = Math.abs(dx) + Math.max(0, dy) * 0.65;
+          if (score < bestScore) {
+            bestScore = score;
+            bestBall = b;
+          }
+        }
+      }
+
+      if (bestBall && ownedBuckets.length > 0) {
+        // Probabilistic short-horizon projection
+        const predX = bestBall.x + bestBall.vx * 0.34;
+        // Pick nearest owned bucket to steer toward
+        let targetBucket = ownedBuckets[0];
+        let minBDist = Infinity;
+        for (let k = 0; k < ownedBuckets.length; k++) {
+          const dB = Math.abs(ownedBuckets[k].x - def.x);
+          if (dB < minBDist) {
+            minBDist = dB;
+            targetBucket = ownedBuckets[k];
+          }
+        }
+        const desiredShift = targetBucket.x - bestBall.x;
+        angles[di] = clamp(desiredShift * 0.011, -0.78, 0.78);
+
+        // Fire magnet pulse at the exact millisecond the golden marble enters close capture window
+        const distToDef = Math.hypot(bestBall.x - def.x, bestBall.y - def.y);
+        if (state.energy >= 24 && distToDef < 105) {
+          // Check if currently heading toward rival bucket
+          let nearestAll = state.buckets[0];
+          let minAll = Infinity;
+          for (let k = 0; k < state.buckets.length; k++) {
+            const dAll = Math.abs(state.buckets[k].x - predX);
+            if (dAll < minAll) {
+              minAll = dAll;
+              nearestAll = state.buckets[k];
+            }
+          }
+          const urgency = (nearestAll.owner !== playerIndex ? 1.8 : 0.7) * (1 - distToDef / 110);
+          if (urgency > bestUrgency) {
+            bestUrgency = urgency;
+            magnetPulseId = def.id;
+          }
+        }
+      } else {
+        // Keep neutral vertical alignment so steel balls preserve clean Binomial distribution
+        angles[di] = 0;
+      }
+    }
+
+    return { deflectorAngles: angles, magnetPulseId };
+  };
+
+  function computeGaussianR2() {
+    let total = 0;
+    for (let k = 0; k < buckets.length; k++) total += buckets[k].count;
+    if (total < 12) return 0;
+
+    let meanObs = total / BUCKET_COUNT;
+    let ssRes = 0;
+    let ssTot = 0;
+    for (let k = 0; k < BUCKET_COUNT; k++) {
+      const obs = buckets[k].count;
+      const exp = total * (BINOM_14[k] / 16384);
+      ssRes += (obs - exp) * (obs - exp);
+      ssTot += (obs - meanObs) * (obs - meanObs);
+    }
+    if (ssTot < 1e-6) return 0;
+    return clamp(1 - ssRes / ssTot, 0, 1);
+  }
+
+  // Mandatory audit hook
+  window.__auditGalton = function __auditGalton() {
+    return {
+      ballsCollected: [aiState[0].balls, aiState[1].balls, aiState[2].balls],
+      gaussianFitR2: Number(gaussianFitR2.toFixed(4)),
+      activeBalls: balls.length,
+      aiHookReady: typeof window.computeGaltonDeflectors === 'function'
+    };
+  };
+
+  function buildAIState(playerIndex) {
+    return {
+      pegs: pegs.map(p => ({ x: p.x, y: p.y })),
+      deflectors: deflectors.map(d => ({ id: d.id, x: d.x, y: d.y, angle: d.angle, owner: d.owner })),
+      balls: balls.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, golden: b.golden })),
+      buckets: buckets.map(bk => ({ x: bk.x, owner: bk.owner })),
+      energy: aiState[playerIndex].energy
+    };
+  }
+
+  function stepSimulation(dt) {
+    simTime += dt;
+
+    // Continuous marble feeder up to 400 per cycle
+    if (spawnedCount < MAX_MARBLES) {
+      spawnTimer += dt;
+      const dropInterval = 0.044;
+      while (spawnTimer >= dropInterval && spawnedCount < MAX_MARBLES) {
+        spawnTimer -= dropInterval;
+        spawnMarble(false);
+      }
+    } else if (balls.length === 0) {
+      resetDelay += dt;
+      if (resetDelay >= 3.2) {
+        resetCycle(true);
+        return;
+      }
+    }
+
+    // Update AI energy & decisions
+    for (let p = 0; p < 3; p++) {
+      aiState[p].energy = clamp(aiState[p].energy + 11.5 * dt, 0, 100);
+      if (aiState[p].cooldown > 0) aiState[p].cooldown = Math.max(0, aiState[p].cooldown - dt);
+
+      const snapshot = buildAIState(p);
+      const decision = window.computeGaltonDeflectors(snapshot, p) || { deflectorAngles: [], magnetPulseId: null };
+
+      if (Array.isArray(decision.deflectorAngles)) {
+        const ownedDefs = deflectors.filter(d => d.owner === p);
+        if (decision.deflectorAngles.length === deflectors.length) {
+          for (let i = 0; i < deflectors.length; i++) {
+            if (deflectors[i].owner === p && Number.isFinite(decision.deflectorAngles[i])) {
+              deflectors[i].targetAngle = clamp(decision.deflectorAngles[i], -0.82, 0.82);
+            }
+          }
+        } else {
+          for (let i = 0; i < Math.min(ownedDefs.length, decision.deflectorAngles.length); i++) {
+            if (Number.isFinite(decision.deflectorAngles[i])) {
+              ownedDefs[i].targetAngle = clamp(decision.deflectorAngles[i], -0.82, 0.82);
+            }
+          }
+        }
+      }
+
+      if (decision.magnetPulseId !== null && decision.magnetPulseId !== undefined && aiState[p].cooldown <= 0 && aiState[p].energy >= 24) {
+        const targetDef = deflectors.find(d => d.id === decision.magnetPulseId && d.owner === p);
+        if (targetDef) {
+          aiState[p].energy -= 24;
+          aiState[p].cooldown = 0.55;
+          targetDef.pulseTimer = 0.34;
+          aiState[p].mode = 'PULSO IMAN';
+          pulses.push({ x: targetDef.x, y: targetDef.y, r: 14, maxR: 125, color: AI_META[p].color, alpha: 0.9 });
+          playBeep(520 + p * 95, 0.11, 0.035, 'triangle');
+        }
+      } else {
+        const activeTilt = deflectors.some(d => d.owner === p && Math.abs(d.targetAngle) > 0.12);
+        aiState[p].mode = activeTilt ? 'DESVIO ACTIVO' : 'RASTREO';
+      }
+    }
+
+    // Smoothly rotate deflector blades and decay magnet pulses
+    for (let i = 0; i < deflectors.length; i++) {
+      const d = deflectors[i];
+      d.angle += (d.targetAngle - d.angle) * Math.min(1, 16 * dt);
+      if (d.pulseTimer > 0) d.pulseTimer = Math.max(0, d.pulseTimer - dt);
+    }
+
+    for (let i = 0; i < pegs.length; i++) {
+      if (pegs[i].flash > 0) pegs[i].flash = Math.max(0, pegs[i].flash - dt * 4);
+    }
+    for (let i = 0; i < buckets.length; i++) {
+      if (buckets[i].flash > 0) buckets[i].flash = Math.max(0, buckets[i].flash - dt * 3);
+    }
+
+    // Step marbles with circle-vs-hexagon physics + magnetic deflector influence
+    const cx = BOARD_W * 0.5;
+    for (let i = balls.length - 1; i >= 0; i--) {
+      const b = balls[i];
+      b.vy += GRAVITY * dt;
+
+      // Magnetic field attraction for golden marbles when deflector pulse is active
+      if (b.golden) {
+        for (let di = 0; di < deflectors.length; di++) {
+          const def = deflectors[di];
+          if (def.pulseTimer > 0) {
+            const dx = def.x + Math.sin(def.angle) * 44 - b.x;
+            const dy = def.y + 18 - b.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 135 && dist > 4) {
+              const pull = (1 - dist / 135) * 1650;
+              b.vx += (dx / dist) * pull * dt;
+              b.vy += (dy / dist) * pull * 0.35 * dt;
+            }
+          }
+        }
+      }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+
+      // Funnel / board diagonal guide walls to keep balls inside the 14-row binomial triangle
+      const rowProgress = clamp((b.y - TOP_Y) / (BUCKET_TOP_Y - TOP_Y), 0, 1);
+      const halfSpan = (1.6 + rowProgress * (ROWS - 0.6)) * (PEG_DX * 0.5);
+      if (b.y > TOP_Y - 25 && b.y < BUCKET_TOP_Y) {
+        if (b.x < cx - halfSpan + b.r) {
+          b.x = cx - halfSpan + b.r;
+          b.vx = Math.abs(b.vx) * 0.6 + 22;
+        } else if (b.x > cx + halfSpan - b.r) {
+          b.x = cx + halfSpan - b.r;
+          b.vx = -Math.abs(b.vx) * 0.6 - 22;
+        }
+      }
+
+      // Collision with hexagonal pegs (50/50 physical bounce calibrated for B(14, 0.5))
+      for (let pi = 0; pi < pegs.length; pi++) {
+        const p = pegs[pi];
+        if (Math.abs(b.y - p.y) > PEG_R + b.r + 4 || Math.abs(b.x - p.x) > PEG_R + b.r + 4) continue;
+        if (b.lastPegId === p.id) continue;
+
+        const res = collideCircleHexagon(b.x, b.y, b.r, p.x, p.y, PEG_R);
+        if (res.hit) {
+          b.x += res.nx * res.penetration;
+          b.y += res.ny * res.penetration;
+          const vn = b.vx * res.nx + b.vy * res.ny;
+          if (vn < 0) {
+            const restitution = 0.42;
+            b.vx -= (1 + restitution) * vn * res.nx;
+            b.vy -= (1 + restitution) * vn * res.ny;
+
+            // Unbiased 50/50 split on exact top apex impacts + calibrated lateral hop into next row
+            const sideDir = Math.abs(res.nx) < 0.06 ? (rand() < 0.5 ? -1 : 1) : (res.nx > 0 ? 1 : -1);
+            b.vy = -42;
+            const tHop = (42 + Math.sqrt(42 * 42 + 2 * GRAVITY * PEG_DY)) / GRAVITY;
+            const targetX = p.x + sideDir * (PEG_DX * 0.5);
+            const dxRemain = targetX - b.x;
+            b.vx = (dxRemain / tHop) * (0.94 + rand() * 0.12);
+
+            b.lastPegId = p.id;
+            p.flash = 1.0;
+          }
+        }
+      }
+
+      // Collision with rotating AI deflector vanes (electromagnetic gates couple strongly to golden marbles)
+      for (let di = 0; di < deflectors.length; di++) {
+        const def = deflectors[di];
+        if (!b.golden) continue;
+        if (Math.abs(b.y - def.y) > def.halfLen + 12 || Math.abs(b.x - def.x) > def.halfLen + 12) continue;
+        if (b.lastDefId === def.id) continue;
+
+        // Vane segment rotated by def.angle from vertical
+        const sx = Math.sin(def.angle) * def.halfLen;
+        const sy = Math.cos(def.angle) * def.halfLen;
+        const ax = def.x - sx, ay = def.y - sy;
+        const bx2 = def.x + sx, by2 = def.y + sy;
+        const hitSeg = closestPointOnSegment(b.x, b.y, ax, ay, bx2, by2);
+        const dx = b.x - hitSeg.x;
+        const dy = b.y - hitSeg.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < b.r + 3.5 && dist > 0.001) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          b.x = hitSeg.x + nx * (b.r + 3.5);
+          b.y = hitSeg.y + ny * (b.r + 3.5);
+          const vn = b.vx * nx + b.vy * ny;
+          if (vn < 0) {
+            b.vx -= 1.5 * vn * nx;
+            b.vy -= 1.5 * vn * ny;
+            b.vx += Math.sin(def.angle) * (b.golden ? 195 : 85);
+            b.lastDefId = def.id;
+          }
+        }
+      }
+
+      // Trail update
+      if (b.golden || (i % 3 === 0)) {
+        b.trail.push({ x: b.x, y: b.y });
+        if (b.trail.length > (b.golden ? 14 : 6)) b.trail.shift();
+      }
+
+      // Bucket collection at base
+      if (b.y >= BUCKET_TOP_Y + 8) {
+        const kRaw = Math.round((b.x - cx) / PEG_DX + (BUCKET_COUNT - 1) * 0.5);
+        const k = clamp(kRaw, 0, BUCKET_COUNT - 1);
+        const bk = buckets[k];
+        bk.count++;
+        if (b.golden) bk.goldenCount++;
+        bk.flash = 1.0;
+
+        const owner = bk.owner;
+        aiState[owner].balls++;
+        if (b.golden) {
+          aiState[owner].golden++;
+          aiState[owner].points += 5;
+          spawnParticles(bk.x, BUCKET_TOP_Y + 12, '#FBBF24', 10);
+          addLog(`${AI_META[owner].name} captura DORADA (+5) en cubeta ${k}`, '#FBBF24');
+          playBeep(740 + k * 18, 0.14, 0.04, 'sine');
+        } else {
+          aiState[owner].points += 1;
+          spawnParticles(bk.x, BUCKET_TOP_Y + 12, AI_META[owner].color, 3);
+        }
+
+        balls.splice(i, 1);
+      }
+    }
+
+    // Update particles & magnetic pulses
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 220 * dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (let i = pulses.length - 1; i >= 0; i--) {
+      const pl = pulses[i];
+      pl.r += 320 * dt;
+      pl.alpha -= 2.2 * dt;
+      if (pl.alpha <= 0 || pl.r >= pl.maxR) pulses.splice(i, 1);
+    }
+
+    gaussianFitR2 = computeGaussianR2();
+    updateHud();
+  }
+
+  function spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const a = -Math.PI * rand();
+      const s = 55 + rand() * 115;
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.45 + rand() * 0.25, maxLife: 0.7, color });
+    }
+  }
+
+  // Exact circle vs pointy-top regular hexagon distance check
+  function collideCircleHexagon(bx, by, br, hx, hy, hr) {
+    let minD2 = Infinity;
+    let bestX = hx, bestY = hy;
+    for (let k = 0; k < 6; k++) {
+      const a1 = -Math.PI * 0.5 + k * (Math.PI / 3);
+      const a2 = -Math.PI * 0.5 + ((k + 1) % 6) * (Math.PI / 3);
+      const x1 = hx + Math.cos(a1) * hr;
+      const y1 = hy + Math.sin(a1) * hr;
+      const x2 = hx + Math.cos(a2) * hr;
+      const y2 = hy + Math.sin(a2) * hr;
+      const pt = closestPointOnSegment(bx, by, x1, y1, x2, y2);
+      const dx = bx - pt.x;
+      const dy = by - pt.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < minD2) {
+        minD2 = d2;
+        bestX = pt.x;
+        bestY = pt.y;
+      }
+    }
+    if (minD2 < br * br) {
+      const d = Math.max(0.0001, Math.sqrt(minD2));
+      return { hit: true, nx: (bx - bestX) / d, ny: (by - bestY) / d, penetration: br - d };
+    }
+    return { hit: false };
+  }
+
+  function closestPointOnSegment(px, py, ax, ay, bx, by) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const len2 = abx * abx + aby * aby;
+    if (len2 === 0) return { x: ax, y: ay };
+    const t = clamp(((px - ax) * abx + (py - ay) * aby) / len2, 0, 1);
+    return { x: ax + abx * t, y: ay + aby * t };
+  }
+
+  function updateHud() {
+    document.getElementById('hudCycle').textContent = `CICLO ${String(cycleNumber).padStart(2, '0')}`;
+    document.getElementById('hudSpawned').textContent = spawnedCount;
+    document.getElementById('hudActive').textContent = balls.length;
+
+    const r2Str = gaussianFitR2.toFixed(3);
+    document.getElementById('hudR2').textContent = r2Str;
+    document.getElementById('statR2').textContent = r2Str;
+
+    let landed = 0;
+    for (let k = 0; k < buckets.length; k++) landed += buckets[k].count;
+    document.getElementById('statLanded').textContent = landed;
+
+    for (let i = 0; i < 3; i++) {
+      document.getElementById(`topPts${i}`).textContent = aiState[i].points;
+      document.getElementById(`aiPts${i}`).textContent = aiState[i].points;
+      document.getElementById(`aiBalls${i}`).textContent = aiState[i].balls;
+      document.getElementById(`aiGold${i}`).textContent = aiState[i].golden;
+      document.getElementById(`aiMode${i}`).textContent = aiState[i].mode;
+      document.getElementById(`aiEn${i}`).style.width = `${Math.round(aiState[i].energy)}%`;
+    }
+  }
+
+  function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(640, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(480, Math.floor(rect.height * dpr));
+  }
+
+  function render() {
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const scale = Math.min(w / BOARD_W, h / BOARD_H);
+    const ox = (w - BOARD_W * scale) * 0.5;
+    const oy = (h - BOARD_H * scale) * 0.5;
+
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.scale(scale, scale);
+
+    // Background glow & structural rails
+    const cx = BOARD_W * 0.5;
+    const bg = ctx.createLinearGradient(0, 0, 0, BOARD_H);
+    bg.addColorStop(0, '#091426');
+    bg.addColorStop(0.65, '#07101E');
+    bg.addColorStop(1, '#040810');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+
+    // Subtle vertical lane guides
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+    ctx.lineWidth = 1;
+    for (let k = 0; k < BUCKET_COUNT; k++) {
+      const bx = buckets[k].x;
+      ctx.beginPath(); ctx.moveTo(bx, BUCKET_TOP_Y); ctx.lineTo(bx, BUCKET_BOT_Y); ctx.stroke();
+    }
+
+    // Entry funnel hopper at top
+    ctx.strokeStyle = '#38BDF8';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 82, 26); ctx.lineTo(cx - 16, 86);
+    ctx.moveTo(cx + 82, 26); ctx.lineTo(cx + 16, 86);
+    ctx.stroke();
+
+    // Diagonal outer containment glass rails of Galton triangle
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.42)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 1.6 * PEG_DX * 0.5, TOP_Y - 12);
+    ctx.lineTo(cx - (ROWS + 1.1) * PEG_DX * 0.5, BUCKET_TOP_Y);
+    ctx.moveTo(cx + 1.6 * PEG_DX * 0.5, TOP_Y - 12);
+    ctx.lineTo(cx + (ROWS + 1.1) * PEG_DX * 0.5, BUCKET_TOP_Y);
+    ctx.stroke();
+
+    // Magnetic pulses
+    for (let i = 0; i < pulses.length; i++) {
+      const pl = pulses[i];
+      ctx.save();
+      ctx.globalAlpha = clamp(pl.alpha, 0, 1);
+      ctx.strokeStyle = pl.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 14 Rows of Hexagonal Pegs
+    for (let i = 0; i < pegs.length; i++) {
+      const p = pegs[i];
+      drawHexPeg(p.x, p.y, PEG_R, p.flash);
+    }
+
+    // Intermediate AI Deflector Gates & Electromagnets
+    for (let i = 0; i < deflectors.length; i++) {
+      const d = deflectors[i];
+      const meta = AI_META[d.owner];
+      ctx.save();
+      ctx.translate(d.x, d.y);
+
+      // Coil base ring
+      ctx.strokeStyle = d.pulseTimer > 0 ? '#FBBF24' : meta.color;
+      ctx.lineWidth = d.pulseTimer > 0 ? 3 : 1.8;
+      ctx.fillStyle = d.pulseTimer > 0 ? meta.glow : 'rgba(15, 23, 42, 0.85)';
+      ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // Rotating vane blade
+      ctx.rotate(-d.angle);
+      ctx.shadowColor = meta.color;
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#F8FAFC';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, -d.halfLen);
+      ctx.lineTo(0, d.halfLen);
+      ctx.stroke();
+
+      ctx.strokeStyle = meta.color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -d.halfLen);
+      ctx.lineTo(0, d.halfLen);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Buckets & Live Binomial Histogram at Base
+    let totalLanded = 0;
+    let maxCount = 1;
+    for (let k = 0; k < buckets.length; k++) {
+      totalLanded += buckets[k].count;
+      if (buckets[k].count > maxCount) maxCount = buckets[k].count;
+    }
+    const maxExpected = Math.max(maxCount, totalLanded * (BINOM_14[7] / 16384), 8);
+    const barMaxH = BUCKET_BOT_Y - BUCKET_TOP_Y - 34;
+
+    for (let k = 0; k < buckets.length; k++) {
+      const bk = buckets[k];
+      const meta = AI_META[bk.owner];
+      const x0 = bk.x - bk.w * 0.46;
+      const bw = bk.w * 0.92;
+      const barH = (bk.count / maxExpected) * barMaxH;
+
+      // Bucket container outline
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+      ctx.strokeStyle = bk.flash > 0.1 ? '#FBBF24' : 'rgba(148, 163, 184, 0.28)';
+      ctx.lineWidth = bk.flash > 0.1 ? 2.4 : 1.2;
+      ctx.fillRect(x0, BUCKET_TOP_Y, bw, BUCKET_BOT_Y - BUCKET_TOP_Y);
+      ctx.strokeRect(x0, BUCKET_TOP_Y, bw, BUCKET_BOT_Y - BUCKET_TOP_Y);
+
+      // Histogram bar fill
+      if (barH > 0.5) {
+        const g = ctx.createLinearGradient(0, BUCKET_BOT_Y - barH, 0, BUCKET_BOT_Y);
+        g.addColorStop(0, meta.color);
+        g.addColorStop(1, 'rgba(15, 23, 42, 0.85)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x0 + 2, BUCKET_BOT_Y - barH, bw - 4, barH);
+      }
+
+      // Owner bottom strip & bucket index
+      ctx.fillStyle = meta.color;
+      ctx.fillRect(x0, BUCKET_BOT_Y - 6, bw, 6);
+
+      ctx.fillStyle = '#CBD5E1';
+      ctx.font = '700 13px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(bk.count), bk.x, BUCKET_BOT_Y + 20);
+      ctx.fillStyle = meta.color;
+      ctx.font = '800 11px "JetBrains Mono", monospace';
+      ctx.fillText(`B${k}`, bk.x, BUCKET_BOT_Y + 35);
+    }
+
+    // Theoretical Gaussian Bell Curve Overlay (Normal approximation of B(14, 0.5))
+    if (showGauss) {
+      const mu = 7.0;
+      const sigma = Math.sqrt(ROWS * 0.25); // 1.8708
+      const normScale = Math.max(totalLanded, 16);
+      const curveMaxExp = Math.max(maxCount, normScale * (BINOM_14[7] / 16384), 8);
+
+      ctx.save();
+      ctx.strokeStyle = '#FBBF24';
+      ctx.lineWidth = 3.5;
+      ctx.shadowColor = 'rgba(251, 191, 36, 0.75)';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      const steps = 120;
+      for (let s = 0; s <= steps; s++) {
+        const kFloat = (s / steps) * (BUCKET_COUNT - 1);
+        const z = (kFloat - mu) / sigma;
+        const pdf = Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+        const expectedCount = normScale * pdf;
+        const px = cx + (kFloat - mu) * PEG_DX;
+        const py = BUCKET_BOT_Y - (expectedCount / curveMaxExp) * barMaxH;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Label Gaussian Curve
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#FBBF24';
+      ctx.font = '800 14px "SF Pro Display", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('CAMPANA DE GAUSS TEORICA (N = ' + totalLanded + ')', 34, BUCKET_TOP_Y - 14);
+      ctx.restore();
+    }
+
+    // Falling Marbles (Steel & Golden)
+    for (let i = 0; i < balls.length; i++) {
+      const b = balls[i];
+      if (b.trail.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = b.golden ? 'rgba(251, 191, 36, 0.55)' : 'rgba(56, 189, 248, 0.22)';
+        ctx.lineWidth = b.golden ? 3.2 : 1.6;
+        ctx.beginPath();
+        ctx.moveTo(b.trail[0].x, b.trail[0].y);
+        for (let t = 1; t < b.trail.length; t++) ctx.lineTo(b.trail[t].x, b.trail[t].y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.save();
+      if (b.golden) {
+        ctx.shadowColor = '#FBBF24';
+        ctx.shadowBlur = 14;
+        const grad = ctx.createRadialGradient(b.x - 2, b.y - 2, 1, b.x, b.y, b.r);
+        grad.addColorStop(0, '#FEF08A');
+        grad.addColorStop(0.55, '#FBBF24');
+        grad.addColorStop(1, '#B45309');
+        ctx.fillStyle = grad;
+      } else {
+        const grad = ctx.createRadialGradient(b.x - 2, b.y - 2, 1, b.x, b.y, b.r);
+        grad.addColorStop(0, '#F8FAFC');
+        grad.addColorStop(0.5, '#94A3B8');
+        grad.addColorStop(1, '#334155');
+        ctx.fillStyle = grad;
+      }
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Sparks
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.save();
+      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function drawHexPeg(x, y, r, flash) {
+    ctx.save();
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = -Math.PI * 0.5 + k * (Math.PI / 3);
+      const vx = x + Math.cos(a) * r;
+      const vy = y + Math.sin(a) * r;
+      if (k === 0) ctx.moveTo(vx, vy);
+      else ctx.lineTo(vx, vy);
+    }
+    ctx.closePath();
+    ctx.fillStyle = flash > 0.15 ? '#38BDF8' : '#1E293B';
+    ctx.strokeStyle = flash > 0.15 ? '#E0F2FE' : '#64748B';
+    ctx.lineWidth = 1.6;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Interactive Controls
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = canvas.width / rect.width;
+    const cx = (e.clientX - rect.left) * dpr;
+    const scale = Math.min(canvas.width / BOARD_W, canvas.height / BOARD_H);
+    const ox = (canvas.width - BOARD_W * scale) * 0.5;
+    const bx = clamp((cx - ox) / scale, BOARD_W * 0.5 - 120, BOARD_W * 0.5 + 120);
+    spawnMarble(true, bx);
+    playBeep(880, 0.08, 0.03, 'sine');
+  });
+
+  document.getElementById('btnPause').addEventListener('click', () => {
+    paused = !paused;
+    document.getElementById('btnPause').textContent = paused ? 'REANUDAR' : 'PAUSA';
+    document.getElementById('btnPause').classList.toggle('active', paused);
+  });
+
+  document.getElementById('btnSpeed').addEventListener('click', () => {
+    simSpeed = simSpeed === 1 ? 2 : (simSpeed === 2 ? 0.5 : 1);
+    document.getElementById('btnSpeed').textContent = `${simSpeed.toFixed(1)}X`;
+  });
+
+  document.getElementById('btnBurst').addEventListener('click', () => {
+    for (let i = 0; i < 6; i++) {
+      spawnMarble(true, BOARD_W * 0.5 + (i - 2.5) * 8);
+    }
+    addLog('Rafaga de 6 canicas doradas lanzada', '#FBBF24');
+    playBeep(820, 0.18, 0.04, 'triangle');
+  });
+
+  document.getElementById('btnGauss').addEventListener('click', () => {
+    showGauss = !showGauss;
+    const b = document.getElementById('btnGauss');
+    b.textContent = showGauss ? 'GAUSS ON' : 'GAUSS OFF';
+    b.classList.toggle('active', showGauss);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', () => resetCycle(true));
+
+  document.getElementById('btnAudio').addEventListener('click', () => {
+    audioEnabled = !audioEnabled;
+    const b = document.getElementById('btnAudio');
+    b.textContent = audioEnabled ? 'AUDIO ON' : 'AUDIO OFF';
+    b.classList.toggle('active', audioEnabled);
+    if (audioEnabled) playBeep(660, 0.12, 0.04, 'triangle');
+  });
+
+  // Main 60 FPS loop starting from 0.0s
+  let lastTs = performance.now();
+  function frame(now) {
+    const rawDt = (now - lastTs) / 1000;
+    lastTs = now;
+    if (!paused) {
+      const dt = Math.min(rawDt, 0.033) * simSpeed;
+      const substeps = 2;
+      for (let s = 0; s < substeps; s++) {
+        stepSimulation(dt / substeps);
+      }
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  resetCycle(false);
+  stepSimulation(1 / 60);
+  render();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

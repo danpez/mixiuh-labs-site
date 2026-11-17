@@ -19,7 +19,9 @@ export type ReleaseKey =
   | "ep07"
   | "ep08"
   | "ep09"
-  | "ep10";
+  | "ep10"
+  | "ep11"
+  | "ep12";
 
 export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   // EP01: Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos) — Publicado Vie 16 Oct 2026 11:00 CST
@@ -48,6 +50,10 @@ export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   ep09: "2026-11-16T12:00:00-06:00",
   // EP10: Gran Final Frontera Gemini 4 Carbon ($2/$10) vs Claude Fable 5.2 ($8/$40) (12 Apps + 4 Arenas IA en Vivo) — Jue 19 al Sab 21 Nov 2026
   ep10: "2026-11-19T12:00:00-06:00",
+  // EP11: Intro Gemini 4 Hydrogen ($1.50/$7.50, 4 Niveles) vs Gemini 3.8 Flash (15 Demos + 3 Arenas IA) — Dom 22 al Mar 24 Nov 2026
+  ep11: "2026-11-22T12:00:00-06:00",
+  // EP12: Torneo de los 3 Ligeros Extra (Hydrogen Extra vs Haiku 5.5 Extra vs GPT-6 Luna Extra · 20 Demos + 6 Arenas Triples) — Mie 25 al Vie 27 Nov 2026
+  ep12: "2026-11-25T12:00:00-06:00",
 };
 
 export interface ReleasedState {
@@ -64,6 +70,8 @@ export interface ReleasedState {
   ep08: boolean;
   ep09: boolean;
   ep10: boolean;
+  ep11: boolean;
+  ep12: boolean;
 }
 
 export function isContentReleased(
@@ -94,6 +102,8 @@ export function getReleasedStatus(
     ep08: isContentReleased("ep08", now, previewAll),
     ep09: isContentReleased("ep09", now, previewAll),
     ep10: isContentReleased("ep10", now, previewAll),
+    ep11: isContentReleased("ep11", now, previewAll),
+    ep12: isContentReleased("ep12", now, previewAll),
   };
 }
 
@@ -103,5 +113,5 @@ export function getReleasedStatus(
  * the live clock after mount.
  */
 export const BUILD_TIME = new Date(
-  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-11-11T14:30:00-06:00"
+  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-11-17T06:00:00-06:00"
 );

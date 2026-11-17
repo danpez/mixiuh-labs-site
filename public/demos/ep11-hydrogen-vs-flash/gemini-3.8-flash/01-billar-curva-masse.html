@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Físico de Billar Artístico y Efecto Massé</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #060A12;
+      color: #E2E8F0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+    #app-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      background: radial-gradient(circle at 50% 50%, #0F172A 0%, #060A12 100%);
+    }
+    /* Main Canvas Area */
+    #canvas-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    canvas#table-canvas {
+      display: block;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.15);
+      border-radius: 12px;
+    }
+    /* Sidebar HUD */
+    #sidebar {
+      width: 480px;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      border-left: 1px solid rgba(56, 189, 248, 0.2);
+      backdrop-filter: blur(12px);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      z-index: 10;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    }
+    .hud-header {
+      border-bottom: 2px solid #22D3EE;
+      padding-bottom: 12px;
+    }
+    .hud-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: #38BDF8;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hud-subtitle {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-top: 4px;
+      letter-spacing: 0.02em;
+    }
+    .panel-box {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .panel-box h3 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #22D3EE;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+    /* Spin Widget */
+    .spin-container {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas#spin-canvas {
+      background: radial-gradient(circle at 40% 40%, #1E293B, #0F172A);
+      border-radius: 50%;
+      border: 2px solid #38BDF8;
+      cursor: crosshair;
+    }
+    .spin-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      color: #94A3B8;
+    }
+    .metric-val {
+      font-weight: 700;
+      color: #FBBF24;
+      font-family: monospace;
+    }
+    /* Sliders */
+    .control-group {
+      margin-bottom: 10px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #CBD5E1;
+      margin-bottom: 4px;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 6px;
+      background: #334155;
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #22D3EE;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(34, 211, 238, 0.8);
+      border: 1px solid #FFFFFF;
+    }
+    /* Scenarios buttons */
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: #1E293B;
+      color: #E2E8F0;
+      border: 1px solid #38BDF8;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #22D3EE;
+      color: #FFFFFF;
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+    }
+    .btn.active {
+      background: #0284C7;
+      border-color: #38BDF8;
+      color: #FFFFFF;
+      box-shadow: 0 0 12px rgba(2, 132, 199, 0.5);
+    }
+    .btn-fire {
+      background: linear-gradient(135deg, #F43F5E 0%, #FB923C 100%);
+      border: none;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4);
+      transition: all 0.2s;
+    }
+    .btn-fire:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(244, 63, 94, 0.6);
+      filter: brightness(1.1);
+    }
+    .btn-fire:active {
+      transform: translateY(1px);
+    }
+    /* Realtime Graphs */
+    canvas#chart-canvas {
+      width: 100%;
+      height: 110px;
+      background: #090D16;
+      border-radius: 6px;
+      border: 1px solid #1E293B;
+    }
+    /* Legend */
+    .legend-row {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-color {
+      width: 12px;
+      height: 4px;
+      border-radius: 2px;
+    }
+    /* Table HUD overlay */
+    #overlay-hud {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      pointer-events: none;
+      display: flex;
+      gap: 16px;
+    }
+    .stat-badge {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 8px 16px;
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+    }
+    .stat-badge-label {
+      font-size: 10px;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .stat-badge-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #22D3EE;
+      font-family: monospace;
+    }
+    #status-toast {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid #10B981;
+      color: #10B981;
+      padding: 8px 24px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <div id="canvas-container">
+      <canvas id="table-canvas" width="1360" height="920"></canvas>
+      <div id="overlay-hud">
+        <div class="stat-badge">
+          <div class="stat-badge-label">Desviación Curva Máx</div>
+          <div class="stat-badge-val" id="hud-curve">0.0 px</div>
+        </div>
+        <div class="stat-badge">
+          <div class="stat-badge-label">Giro Axial (RPM)</div>
+          <div class="stat-badge-val" id="hud-rpm">0</div>
+        </div>
+        <div class="stat-badge">
+          <div class="stat-badge-label">Bolas Embolsadas</div>
+          <div class="stat-badge-val" id="hud-pocketed">0</div>
+        </div>
+        <div class="stat-badge">
+          <div class="stat-badge-label">FPS</div>
+          <div class="stat-badge-val" id="hud-fps">60</div>
+        </div>
+      </div>
+      <div id="status-toast">BOLA 8 EMBOLSADA CON EFECTO MASSE</div>
+    </div>
+
+    <!-- Sidebar Controls & Telemetry -->
+    <div id="sidebar">
+      <div class="hud-header">
+        <div class="hud-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+            <path d="M2 12h20"></path>
+          </svg>
+          Física de Tiro Massé
+        </div>
+        <div class="hud-subtitle">Dinámica no-lineal: Deslizamiento y Curvatura por Fricción</div>
+      </div>
+
+      <!-- Presets -->
+      <div class="panel-box">
+        <h3>Escenarios Preconfigurados</h3>
+        <div class="button-grid">
+          <button class="btn active" id="btn-scen-1">Curva en S</button>
+          <button class="btn" id="btn-scen-2">Rodeo Doble</button>
+          <button class="btn" id="btn-scen-3">Massé 75°</button>
+        </div>
+      </div>
+
+      <!-- Cue Impact Visualizer -->
+      <div class="panel-box">
+        <h3>Impacto en Bola Blanca (Spin & Offset)</h3>
+        <div class="spin-container">
+          <canvas id="spin-canvas" width="130" height="130"></canvas>
+          <div class="spin-info">
+            <div class="metric-row"><span>Offset X:</span><span class="metric-val" id="val-offset-x">+0.48 R</span></div>
+            <div class="metric-row"><span>Offset Y:</span><span class="metric-val" id="val-offset-y">-0.42 R</span></div>
+            <div class="metric-row"><span>Elevación Taco:</span><span class="metric-val" id="val-elev-deg">68.0°</span></div>
+            <div class="metric-row"><span>Tipo Efecto:</span><span class="metric-val" id="val-spin-type" style="color:#22D3EE;">Swerve Masé</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shot Parameters -->
+      <div class="panel-box">
+        <h3>Parámetros de Disparo</h3>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Elevación del Taco (45° - 80°)</span>
+            <span class="metric-val" id="disp-elevation">68°</span>
+          </div>
+          <input type="range" id="slider-elevation" min="45" max="80" step="1" value="68">
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Potencia del Golpe</span>
+            <span class="metric-val" id="disp-power">88%</span>
+          </div>
+          <input type="range" id="slider-power" min="30" max="100" step="1" value="88">
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Spin Lateral (Efecto Curva)</span>
+            <span class="metric-val" id="disp-sidespin">+0.55</span>
+          </div>
+          <input type="range" id="slider-sidespin" min="-0.85" max="0.85" step="0.05" value="0.55">
+        </div>
+      </div>
+
+      <!-- Telemetry Charts -->
+      <div class="panel-box">
+        <h3>Telemetría en Vivo (v lineal vs ω angular)</h3>
+        <canvas id="chart-canvas" width="430" height="110"></canvas>
+        <div class="legend-row">
+          <div class="legend-item">
+            <div class="legend-color" style="background:#22D3EE;"></div>
+            <span>Vel. Lineal v (m/s)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background:#F59E0B;"></div>
+            <span>Vel. Angular ω (rad/s)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background:#F43F5E;"></div>
+            <span>Tramo Curva Fricción</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button class="btn-fire" id="btn-fire-masse">Disparar Massé (Espacio)</button>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * SIMULADOR FISICO DE BILLAR ARTISTICO Y TIRO MASSE - MIXIUH LABS
+     * Implementación completa 60 FPS con ecuaciones dinámicas reales de fricción de paño
+     */
+
+    // Audio FX con WebAudio sintético
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+      },
+      playCueHit(strength = 1.0) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+        gain.gain.setValueAtTime(0.5 * strength, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      },
+      playBallClack(volume = 0.8) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1600, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.04);
+        gain.gain.setValueAtTime(volume * 0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.04);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      },
+      playPocket() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.25);
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+      }
+    };
+
+    // Parámetros Físicos
+    const PHYSICS = {
+      ballRadius: 18,        // píxeles
+      ballMass: 0.17,        // kg
+      gravity: 9.81,         // m/s^2
+      muSlide: 0.22,         // coeficiente de fricción deslizamiento paño
+      muRoll: 0.015,         // fricción de rodadura
+      restitution: 0.94,     // elasticidad choque bolas
+      cushionRestitution: 0.78,
+      pxPerMeter: 380        // escala píxeles a metros
+    };
+
+    // Estado de la Simulación
+    const state = {
+      elevationDeg: 68,
+      power: 88,
+      offsetX: 0.55,    // de -0.85 a +0.85
+      offsetY: -0.45,   // de -0.85 a +0.85 (negativo = bajo centro / backspin)
+      scenario: 1,
+      isShooting: false,
+      maxCurveDeviationPx: 0,
+      pocketedCount: 0,
+      fps: 60,
+      frameCount: 0,
+      lastFpsTime: performance.now(),
+      autoCycleTimer: 0,
+      autoCycleDelay: 5.5, // segundos antes del siguiente tiro auto
+      telemetryHistory: [] // { t, v, w, phase }
+    };
+
+    // Geometría de Mesa
+    const tableCanvas = document.getElementById('table-canvas');
+    const tctx = tableCanvas.getContext('2d');
+    const spinCanvas = document.getElementById('spin-canvas');
+    const sctx = spinCanvas.getContext('2d');
+    const chartCanvas = document.getElementById('chart-canvas');
+    const cctx = chartCanvas.getContext('2d');
+
+    const tableRect = {
+      x: 80,
+      y: 60,
+      width: 1200,
+      height: 800,
+      cushionWidth: 38
+    };
+
+    const pockets = [
+      { x: tableRect.x + tableRect.cushionWidth, y: tableRect.y + tableRect.cushionWidth, r: 32, id: 'TL' },
+      { x: tableRect.x + tableRect.width / 2, y: tableRect.y + tableRect.cushionWidth - 6, r: 30, id: 'TM' },
+      { x: tableRect.x + tableRect.width - tableRect.cushionWidth, y: tableRect.y + tableRect.cushionWidth, r: 32, id: 'TR' },
+      { x: tableRect.x + tableRect.cushionWidth, y: tableRect.y + tableRect.height - tableRect.cushionWidth, r: 32, id: 'BL' },
+      { x: tableRect.x + tableRect.width / 2, y: tableRect.y + tableRect.height - tableRect.cushionWidth + 6, r: 30, id: 'BM' },
+      { x: tableRect.x + tableRect.width - tableRect.cushionWidth, y: tableRect.y + tableRect.height - tableRect.cushionWidth, r: 32, id: 'BR' }
+    ];
+
+    // Clases de Bolas
+    class Ball {
+      constructor(id, number, color, isStripe = false) {
+        this.id = id;
+        this.number = number;
+        this.color = color;
+        this.isStripe = isStripe;
+        this.x = 0;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        // Velocidad angular 3D (wx, wy, wz en rad/s)
+        this.wx = 0;
+        this.wy = 0;
+        this.wz = 0;
+        this.radius = PHYSICS.ballRadius;
+        this.inPocket = false;
+        this.pocketScale = 1.0;
+        this.rotationAngle = 0;
+        this.startX = 0;
+        this.startY = 0;
+        this.trail = [];
+      }
+
+      reset(x, y) {
+        this.x = x;
+        this.y = y;
+        this.startX = x;
+        this.startY = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.wx = 0;
+        this.wy = 0;
+        this.wz = 0;
+        this.inPocket = false;
+        this.pocketScale = 1.0;
+        this.rotationAngle = 0;
+        this.trail = [];
+      }
+
+      get speed() {
+        return Math.hypot(this.vx, this.vy);
+      }
+
+      get spinRpm() {
+        const totalW = Math.hypot(this.wx, this.wy, this.wz);
+        return (totalW * 60) / (2 * Math.PI);
+      }
+    }
+
+    // Instancias de Bolas
+    const cueBall = new Ball('cue', 0, '#FFFFFF', false);
+    const eightBall = new Ball('eight', 8, '#111827', false);
+    const obsBall1 = new Ball('obs1', 3, '#EF4444', false); // Roja solida
+    const obsBall2 = new Ball('obs2', 10, '#3B82F6', true);  // Azul rayada
+
+    const allBalls = [cueBall, eightBall, obsBall1, obsBall2];
+
+    // Configurar Escenarios
+    function setupScenario(num) {
+      state.scenario = num;
+      document.querySelectorAll('.btn-grid .btn').forEach((b, idx) => {
+        b.classList.toggle('active', idx + 1 === num);
+      });
+
+      const playW = tableRect.width - 2 * tableRect.cushionWidth;
+      const playH = tableRect.height - 2 * tableRect.cushionWidth;
+      const left = tableRect.x + tableRect.cushionWidth;
+      const top = tableRect.y + tableRect.cushionWidth;
+
+      if (num === 1) {
+        // Escenario 1: Curva en S con tronera superior central
+        cueBall.reset(left + playW * 0.42, top + playH * 0.82);
+        eightBall.reset(left + playW * 0.50, top + playH * 0.18);
+        obsBall1.reset(left + playW * 0.46, top + playH * 0.52);
+        obsBall2.reset(left + playW * 0.48, top + playH * 0.44);
+
+        state.elevationDeg = 68;
+        state.power = 86;
+        state.offsetX = 0.55;
+        state.offsetY = -0.45;
+      } else if (num === 2) {
+        // Escenario 2: Rodeo Doble hacia tronera superior izquierda
+        cueBall.reset(left + playW * 0.58, top + playH * 0.85);
+        eightBall.reset(left + playW * 0.22, top + playH * 0.22);
+        obsBall1.reset(left + playW * 0.38, top + playH * 0.58);
+        obsBall2.reset(left + playW * 0.30, top + playH * 0.46);
+
+        state.elevationDeg = 72;
+        state.power = 92;
+        state.offsetX = -0.65;
+        state.offsetY = -0.40;
+      } else if (num === 3) {
+        // Escenario 3: Masse Extremo 75 grados alrededor de obstáculo muy pegado
+        cueBall.reset(left + playW * 0.50, top + playH * 0.78);
+        eightBall.reset(left + playW * 0.50, top + playH * 0.16);
+        obsBall1.reset(left + playW * 0.50, top + playH * 0.62);
+        obsBall2.reset(left + playW * 0.50, top + playH * 0.50);
+
+        state.elevationDeg = 76;
+        state.power = 96;
+        state.offsetX = 0.75;
+        state.offsetY = -0.50;
+      }
+
+      syncSliders();
+      state.maxCurveDeviationPx = 0;
+      state.telemetryHistory = [];
+    }
+
+    function syncSliders() {
+      document.getElementById('slider-elevation').value = state.elevationDeg;
+      document.getElementById('disp-elevation').innerText = state.elevationDeg + '°';
+      document.getElementById('val-elev-deg').innerText = state.elevationDeg.toFixed(1) + '°';
+
+      document.getElementById('slider-power').value = state.power;
+      document.getElementById('disp-power').innerText = state.power + '%';
+
+      document.getElementById('slider-sidespin').value = state.offsetX;
+      document.getElementById('disp-sidespin').innerText = (state.offsetX >= 0 ? '+' : '') + state.offsetX.toFixed(2);
+      document.getElementById('val-offset-x').innerText = (state.offsetX >= 0 ? '+' : '') + state.offsetX.toFixed(2) + ' R';
+      document.getElementById('val-offset-y').innerText = (state.offsetY >= 0 ? '+' : '') + state.offsetY.toFixed(2) + ' R';
+
+      drawSpinWidget();
+    }
+
+    // Disparar Tiro Massé
+    function fireMasse() {
+      AudioEngine.init();
+      AudioEngine.playCueHit(state.power / 100);
+
+      const R = PHYSICS.ballRadius / PHYSICS.pxPerMeter; // metros
+      const theta = (state.elevationDeg * Math.PI) / 180; // inclinación taco
+      const V_impulse = (state.power / 100) * 8.5; // m/s equivalente
+
+      // Orientación general del taco: hacia arriba (apunta hacia Bola 8 inicial)
+      const target = eightBall;
+      const dx = target.x - cueBall.x;
+      const dy = target.y - cueBall.y;
+      const baseAimAngle = Math.atan2(dy, dx);
+
+      // Velocidad lineal inicial reducida por el ángulo cenital del taco (cos theta)
+      const v0 = V_impulse * Math.cos(theta);
+      cueBall.vx = v0 * Math.cos(baseAimAngle) * PHYSICS.pxPerMeter;
+      cueBall.vy = v0 * Math.sin(baseAimAngle) * PHYSICS.pxPerMeter;
+
+      // Cálculo de Spin 3D del taco inclinado
+      // Offset lateral produce spin z (axial) y spin x/y
+      const mass = PHYSICS.ballMass;
+      const I = (2 / 5) * mass * R * R;
+      const J = mass * V_impulse; // impulso
+
+      // Spin en rad/s
+      const spinMult = 350;
+      // Sidespin horizontal genera componente vertical de rotación (wz)
+      cueBall.wz = -state.offsetX * spinMult * Math.sin(theta);
+      // Backspin genera componente perpendicular al avance
+      const backspinAmt = -state.offsetY * spinMult * Math.cos(theta);
+      cueBall.wx = -backspinAmt * Math.sin(baseAimAngle);
+      cueBall.wy = backspinAmt * Math.cos(baseAimAngle);
+
+      state.isShooting = true;
+      state.maxCurveDeviationPx = 0;
+      state.telemetryHistory = [];
+      cueBall.trail = [{ x: cueBall.x, y: cueBall.y, type: 'slide' }];
+    }
+
+    // Predicción de Trayectoria (Forward Euler para dibujo de líneas cian/coral)
+    function calculatePredictedTrajectory() {
+      const points = [];
+      let simX = cueBall.x;
+      let simY = cueBall.y;
+      let simVx = cueBall.vx;
+      let simVy = cueBall.vy;
+      let simWx = cueBall.wx;
+      let simWy = cueBall.wy;
+      let simWz = cueBall.wz;
+
+      // Si la bola está quieta, proyectar desde el estado del disparo configurado
+      if (!state.isShooting) {
+        const R = PHYSICS.ballRadius / PHYSICS.pxPerMeter;
+        const theta = (state.elevationDeg * Math.PI) / 180;
+        const V_impulse = (state.power / 100) * 8.5;
+        const target = eightBall;
+        const dx = target.x - cueBall.x;
+        const dy = target.y - cueBall.y;
+        const baseAimAngle = Math.atan2(dy, dx);
+        const v0 = V_impulse * Math.cos(theta);
+        simVx = v0 * Math.cos(baseAimAngle) * PHYSICS.pxPerMeter;
+        simVy = v0 * Math.sin(baseAimAngle) * PHYSICS.pxPerMeter;
+        const spinMult = 350;
+        simWz = -state.offsetX * spinMult * Math.sin(theta);
+        const backspinAmt = -state.offsetY * spinMult * Math.cos(theta);
+        simWx = -backspinAmt * Math.sin(baseAimAngle);
+        simWy = backspinAmt * Math.cos(baseAimAngle);
+      }
+
+      const dt = 1 / 90;
+      const R_px = PHYSICS.ballRadius;
+      const R_m = R_px / PHYSICS.pxPerMeter;
+      const g = PHYSICS.gravity;
+
+      for (let step = 0; step < 180; step++) {
+        const vLineal = Math.hypot(simVx, simVy) / PHYSICS.pxPerMeter; // m/s
+        const totalW = Math.hypot(simWx, simWy, simWz);
+
+        if (vLineal < 0.02 && totalW < 1.0) break;
+
+        // Velocidad en el punto de contacto con el paño:
+        // Vc = V + w x r_contact (donde r_contact = [0, 0, -R])
+        // w x [0, 0, -R] = [-wy * (-R), wx * (-R), 0] = [wy * R, -wx * R, 0]
+        const vcX = (simVx / PHYSICS.pxPerMeter) + (simWy * R_m);
+        const vcY = (simVy / PHYSICS.pxPerMeter) - (simWx * R_m);
+        const vcMag = Math.hypot(vcX, vcY);
+
+        let phase = 'slide';
+        if (vcMag > 0.08) {
+          // Fase de deslizamiento: Fuerza de fricción opuesta a Vc
+          const fMag = PHYSICS.muSlide * g;
+          const fx = -fMag * (vcX / vcMag);
+          const fy = -fMag * (vcY / vcMag);
+
+          // Aceleración lineal
+          simVx += fx * PHYSICS.pxPerMeter * dt;
+          simVy += fy * PHYSICS.pxPerMeter * dt;
+
+          // Par de frenado del spin
+          const torqueFactor = (5 / (2 * R_m)) * fMag * dt;
+          simWx -= fy * torqueFactor * 0.15;
+          simWy += fx * torqueFactor * 0.15;
+          simWz *= Math.max(0, 1 - 0.015);
+        } else {
+          // Fase de rodadura pura: la trayectoria se estabiliza con fricción baja
+          phase = 'roll';
+          const rollFric = PHYSICS.muRoll * g;
+          const currentSpeed = Math.hypot(simVx, simVy) / PHYSICS.pxPerMeter;
+          if (currentSpeed > 0) {
+            simVx -= (simVx / (currentSpeed * PHYSICS.pxPerMeter)) * rollFric * PHYSICS.pxPerMeter * dt;
+            simVy -= (simVy / (currentSpeed * PHYSICS.pxPerMeter)) * rollFric * PHYSICS.pxPerMeter * dt;
+          }
+        }
+
+        // Efecto Curvatura por Fricción Lateral (Fuerza de Massé residual)
+        if (Math.abs(simWz) > 1.0) {
+          const sideFric = simWz * 0.0035 * (simVx / PHYSICS.pxPerMeter);
+          simVx += -simVy * sideFric * dt;
+          simVy += simVx * sideFric * dt;
+        }
+
+        simX += simVx * dt;
+        simY += simVy * dt;
+
+        points.push({ x: simX, y: simY, phase });
+      }
+
+      return points;
+    }
+
+    // Actualización Física de Bolas en Movimiento
+    function updatePhysics(dt) {
+      const R_px = PHYSICS.ballRadius;
+      const R_m = R_px / PHYSICS.pxPerMeter;
+      const g = PHYSICS.gravity;
+      let anyMoving = false;
+
+      // 1. Integración de movimiento para cada bola
+      allBalls.forEach(ball => {
+        if (ball.inPocket) {
+          if (ball.pocketScale > 0.01) {
+            ball.pocketScale = Math.max(0, ball.pocketScale - 0.04);
+          }
+          return;
+        }
+
+        const speed = ball.speed;
+        const totalW = Math.hypot(ball.wx, ball.wy, ball.wz);
+
+        if (speed > 1.5 || totalW > 0.8) {
+          anyMoving = true;
+
+          // Dinámica de paño real para bola blanca con spin
+          if (ball.id === 'cue') {
+            const vcX = (ball.vx / PHYSICS.pxPerMeter) + (ball.wy * R_m);
+            const vcY = (ball.vy / PHYSICS.pxPerMeter) - (ball.wx * R_m);
+            const vcMag = Math.hypot(vcX, vcY);
+
+            let currentPhase = 'slide';
+            if (vcMag > 0.08) {
+              const fMag = PHYSICS.muSlide * g;
+              const fx = -fMag * (vcX / vcMag);
+              const fy = -fMag * (vcY / vcMag);
+
+              ball.vx += fx * PHYSICS.pxPerMeter * dt;
+              ball.vy += fy * PHYSICS.pxPerMeter * dt;
+
+              const torqueFactor = (5 / (2 * R_m)) * fMag * dt;
+              ball.wx -= fy * torqueFactor * 0.18;
+              ball.wy += fx * torqueFactor * 0.18;
+              ball.wz *= Math.max(0, 1 - 0.012);
+            } else {
+              currentPhase = 'roll';
+              const rollFric = PHYSICS.muRoll * g;
+              const currentSpeed = speed / PHYSICS.pxPerMeter;
+              if (currentSpeed > 0) {
+                ball.vx -= (ball.vx / (currentSpeed * PHYSICS.pxPerMeter)) * rollFric * PHYSICS.pxPerMeter * dt;
+                ball.vy -= (ball.vy / (currentSpeed * PHYSICS.pxPerMeter)) * rollFric * PHYSICS.pxPerMeter * dt;
+              }
+            }
+
+            // Desviación lateral Massé debida al spin axial (wz)
+            if (Math.abs(ball.wz) > 1.0) {
+              const curveFactor = ball.wz * 0.0038 * (ball.vx / PHYSICS.pxPerMeter);
+              ball.vx += -ball.vy * curveFactor * dt;
+              ball.vy += ball.vx * curveFactor * dt;
+            }
+
+            // Calcular desviación de la línea recta original
+            const directDx = ball.x - ball.startX;
+            const directDy = ball.y - ball.startY;
+            const distFromStart = Math.hypot(directDx, directDy);
+            if (distFromStart > 20) {
+              // Distancia perpendicular a la línea recta entre inicio y bola 8 inicial
+              const target = eightBall;
+              const lineX = target.startX - ball.startX;
+              const lineY = target.startY - ball.startY;
+              const lineMag = Math.hypot(lineX, lineY);
+              const perpDist = Math.abs(directDx * lineY - directDy * lineX) / (lineMag || 1);
+              if (perpDist > state.maxCurveDeviationPx) {
+                state.maxCurveDeviationPx = perpDist;
+              }
+            }
+
+            // Guardar trayectoria y telemetría
+            if (state.frameCount % 2 === 0) {
+              ball.trail.push({ x: ball.x, y: ball.y, phase: currentPhase });
+              if (state.telemetryHistory.length < 240) {
+                state.telemetryHistory.push({
+                  v: (speed / PHYSICS.pxPerMeter).toFixed(2),
+                  w: totalW.toFixed(1),
+                  phase: currentPhase
+                });
+              }
+            }
+          } else {
+            // Bolas objetivo (fricción de rodadura estándar)
+            const rollFric = PHYSICS.muRoll * g * 2.2;
+            const currentSpeed = speed / PHYSICS.pxPerMeter;
+            if (currentSpeed > 0) {
+              ball.vx -= (ball.vx / (currentSpeed * PHYSICS.pxPerMeter)) * rollFric * PHYSICS.pxPerMeter * dt;
+              ball.vy -= (ball.vy / (currentSpeed * PHYSICS.pxPerMeter)) * rollFric * PHYSICS.pxPerMeter * dt;
+            }
+          }
+
+          ball.x += ball.vx * dt;
+          ball.y += ball.vy * dt;
+          ball.rotationAngle += speed * dt * 0.05;
+        } else {
+          ball.vx = 0;
+          ball.vy = 0;
+          ball.wx = 0;
+          ball.wy = 0;
+          ball.wz = 0;
+        }
+
+        // 2. Colisión con Bandas de Caucho
+        const minX = tableRect.x + tableRect.cushionWidth + ball.radius;
+        const maxX = tableRect.x + tableRect.width - tableRect.cushionWidth - ball.radius;
+        const minY = tableRect.y + tableRect.cushionWidth + ball.radius;
+        const maxY = tableRect.y + tableRect.height - tableRect.cushionWidth - ball.radius;
+
+        if (ball.x < minX) {
+          ball.x = minX;
+          ball.vx = -ball.vx * PHYSICS.cushionRestitution;
+          AudioEngine.playCueHit(0.3);
+        } else if (ball.x > maxX) {
+          ball.x = maxX;
+          ball.vx = -ball.vx * PHYSICS.cushionRestitution;
+          AudioEngine.playCueHit(0.3);
+        }
+        if (ball.y < minY) {
+          ball.y = minY;
+          ball.vy = -ball.vy * PHYSICS.cushionRestitution;
+          AudioEngine.playCueHit(0.3);
+        } else if (ball.y > maxY) {
+          ball.y = maxY;
+          ball.vy = -ball.vy * PHYSICS.cushionRestitution;
+          AudioEngine.playCueHit(0.3);
+        }
+
+        // 3. Detección de Troneras
+        pockets.forEach(pocket => {
+          const distToPocket = Math.hypot(ball.x - pocket.x, ball.y - pocket.y);
+          if (distToPocket < pocket.r && !ball.inPocket) {
+            ball.inPocket = true;
+            ball.vx = 0;
+            ball.vy = 0;
+            state.pocketedCount++;
+            AudioEngine.playPocket();
+            if (ball.id === 'eight') {
+              showToast('¡BOLA 8 EMBOLSADA CON EFECTO MASSE!');
+            }
+          }
+        });
+      });
+
+      // 4. Colisiones Elásticas Entre Bolas
+      for (let i = 0; i < allBalls.length; i++) {
+        for (let j = i + 1; j < allBalls.length; j++) {
+          const b1 = allBalls[i];
+          const b2 = allBalls[j];
+          if (b1.inPocket || b2.inPocket) continue;
+
+          const dx = b2.x - b1.x;
+          const dy = b2.y - b1.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = b1.radius + b2.radius;
+
+          if (dist < minDist && dist > 0) {
+            // Separar bolas para evitar superposición
+            const overlap = 0.5 * (minDist - dist);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            b1.x -= overlap * nx;
+            b1.y -= overlap * ny;
+            b2.x += overlap * nx;
+            b2.y += overlap * ny;
+
+            // Velocidades relativas en el vector normal
+            const kx = b1.vx - b2.vx;
+            const ky = b1.vy - b2.vy;
+            const p = 2 * (nx * kx + ny * ky) / (1 + 1); // masas iguales
+
+            b1.vx -= p * nx * PHYSICS.restitution;
+            b1.vy -= p * ny * PHYSICS.restitution;
+            b2.vx += p * nx * PHYSICS.restitution;
+            b2.vy += p * ny * PHYSICS.restitution;
+
+            AudioEngine.playBallClack(Math.min(1.0, (Math.hypot(kx, ky) / 300)));
+          }
+        }
+      }
+
+      // Final del disparo
+      if (state.isShooting && !anyMoving) {
+        state.isShooting = false;
+        state.autoCycleTimer = 0;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('status-toast');
+      toast.innerText = msg;
+      toast.style.opacity = '1';
+      setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    // Dibujo de la Mesa de Billar
+    function drawTable() {
+      tctx.clearRect(0, 0, tableCanvas.width, tableCanvas.height);
+
+      // Marco Exterior de Madera Caoba
+      tctx.save();
+      const outerR = 18;
+      tctx.fillStyle = '#2B1408';
+      tctx.beginPath();
+      tctx.roundRect(tableRect.x, tableRect.y, tableRect.width, tableRect.height, outerR);
+      tctx.fill();
+
+      // Borde Biselado Metálico
+      tctx.strokeStyle = '#D97706';
+      tctx.lineWidth = 3;
+      tctx.stroke();
+
+      // Diamantes Marcadores en los Bordes
+      tctx.fillStyle = '#FDE68A';
+      const diamondCountX = 7;
+      const diamondCountY = 4;
+      for (let i = 1; i < diamondCountX; i++) {
+        const x = tableRect.x + (tableRect.width / diamondCountX) * i;
+        // Superior e Inferior
+        drawDiamond(tctx, x, tableRect.y + 16, 5);
+        drawDiamond(tctx, x, tableRect.y + tableRect.height - 16, 5);
+      }
+      for (let j = 1; j < diamondCountY; j++) {
+        const y = tableRect.y + (tableRect.height / diamondCountY) * j;
+        // Izquierda y Derecha
+        drawDiamond(tctx, tableRect.x + 16, y, 5);
+        drawDiamond(tctx, tableRect.x + tableRect.width - 16, y, 5);
+      }
+
+      // Paño Verde Esmeralda de Alto Contraste
+      const clothX = tableRect.x + tableRect.cushionWidth;
+      const clothY = tableRect.y + tableRect.cushionWidth;
+      const clothW = tableRect.width - 2 * tableRect.cushionWidth;
+      const clothH = tableRect.height - 2 * tableRect.cushionWidth;
+
+      const clothGrad = tctx.createRadialGradient(
+        clothX + clothW / 2, clothY + clothH / 2, 50,
+        clothX + clothW / 2, clothY + clothH / 2, clothW * 0.7
+      );
+      clothGrad.addColorStop(0, '#0f5132'); // Esmeralda vibrante
+      clothGrad.addColorStop(1, '#083320'); // Oscuro sutil
+      tctx.fillStyle = clothGrad;
+      tctx.fillRect(clothX, clothY, clothW, clothH);
+
+      // Líneas de la Mesa (Head string & Spot)
+      tctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      tctx.lineWidth = 1.5;
+      tctx.beginPath();
+      tctx.moveTo(clothX + clothW * 0.25, clothY);
+      tctx.lineTo(clothX + clothW * 0.25, clothY + clothH);
+      tctx.stroke();
+
+      // Punto de Pie
+      tctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      tctx.beginPath();
+      tctx.arc(clothX + clothW * 0.75, clothY + clothH * 0.5, 4, 0, Math.PI * 2);
+      tctx.fill();
+
+      // Bandas de Caucho con Sombras
+      tctx.fillStyle = '#062919';
+      // Banda Superior
+      tctx.fillRect(clothX, clothY - 4, clothW, 5);
+      // Banda Inferior
+      tctx.fillRect(clothX, clothY + clothH - 1, clothW, 5);
+      // Bandas Laterales
+      tctx.fillRect(clothX - 4, clothY, 5, clothH);
+      tctx.fillRect(clothX + clothW - 1, clothY, 5, clothH);
+
+      // 6 Troneras
+      pockets.forEach(p => {
+        // Tronera exterior sombra
+        tctx.fillStyle = '#030712';
+        tctx.beginPath();
+        tctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        tctx.fill();
+
+        // Aro de cuero
+        tctx.strokeStyle = '#4B5563';
+        tctx.lineWidth = 3;
+        tctx.stroke();
+
+        // Malla interior
+        tctx.fillStyle = '#111827';
+        tctx.beginPath();
+        tctx.arc(p.x, p.y, p.r - 4, 0, Math.PI * 2);
+        tctx.fill();
+      });
+
+      // Dibujar Trayectoria Predicha en Vivo (Cian tramo deslizamiento, Coral tramo curva)
+      const predPoints = calculatePredictedTrajectory();
+      if (predPoints.length > 1) {
+        for (let i = 1; i < predPoints.length; i++) {
+          const ptPrev = predPoints[i - 1];
+          const pt = predPoints[i];
+
+          tctx.beginPath();
+          tctx.moveTo(ptPrev.x, ptPrev.y);
+          tctx.lineTo(pt.x, pt.y);
+
+          if (pt.phase === 'slide') {
+            tctx.strokeStyle = '#22D3EE'; // Cian
+            tctx.lineWidth = 2.5;
+            tctx.setLineDash([4, 4]);
+          } else {
+            tctx.strokeStyle = '#F43F5E'; // Coral / Oro
+            tctx.lineWidth = 3.5;
+            tctx.setLineDash([]);
+          }
+          tctx.stroke();
+        }
+        tctx.setLineDash([]);
+      }
+
+      // Dibujar Estela Recorrida Real de la Bola Blanca
+      if (cueBall.trail.length > 1) {
+        for (let i = 1; i < cueBall.trail.length; i++) {
+          const p1 = cueBall.trail[i - 1];
+          const p2 = cueBall.trail[i];
+          tctx.beginPath();
+          tctx.moveTo(p1.x, p1.y);
+          tctx.lineTo(p2.x, p2.y);
+          tctx.strokeStyle = p2.phase === 'slide' ? 'rgba(34, 211, 238, 0.4)' : 'rgba(244, 63, 94, 0.6)';
+          tctx.lineWidth = 3;
+          tctx.stroke();
+        }
+      }
+
+      // Dibujar Bolas
+      allBalls.forEach(ball => {
+        if (ball.inPocket && ball.pocketScale <= 0.01) return;
+
+        tctx.save();
+        tctx.translate(ball.x, ball.y);
+        tctx.scale(ball.pocketScale, ball.pocketScale);
+
+        // Sombra Proyectada
+        tctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        tctx.beginPath();
+        tctx.ellipse(3, 5, ball.radius * 0.95, ball.radius * 0.7, 0, 0, Math.PI * 2);
+        tctx.fill();
+
+        // Cuerpo de la Bola
+        tctx.beginPath();
+        tctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
+        tctx.fillStyle = ball.color;
+        tctx.fill();
+
+        // Si es rayada
+        if (ball.isStripe) {
+          tctx.save();
+          tctx.clip();
+          tctx.fillStyle = '#FFFFFF';
+          tctx.fillRect(-ball.radius, -ball.radius * 0.4, ball.radius * 2, ball.radius * 0.8);
+          tctx.restore();
+        }
+
+        // Círculo del número
+        if (ball.number > 0) {
+          tctx.fillStyle = '#FFFFFF';
+          tctx.beginPath();
+          tctx.arc(0, 0, ball.radius * 0.45, 0, Math.PI * 2);
+          tctx.fill();
+
+          tctx.fillStyle = '#0F172A';
+          tctx.font = 'bold 9px monospace';
+          tctx.textAlign = 'center';
+          tctx.textBaseline = 'middle';
+          tctx.fillText(ball.number, 0, 0);
+        }
+
+        // Brillo Especular Superior 3D
+        const gradShine = tctx.createRadialGradient(
+          -ball.radius * 0.35, -ball.radius * 0.35, 1,
+          0, 0, ball.radius
+        );
+        gradShine.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+        gradShine.addColorStop(0.3, 'rgba(255, 255, 255, 0.1)');
+        gradShine.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+        tctx.fillStyle = gradShine;
+        tctx.beginPath();
+        tctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
+        tctx.fill();
+
+        // Indicador de rotación visible si tiene spin alto
+        if (ball.id === 'cue' && ball.spinRpm > 50) {
+          tctx.rotate(ball.rotationAngle);
+          tctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+          tctx.lineWidth = 2;
+          tctx.beginPath();
+          tctx.arc(0, 0, ball.radius * 0.7, 0, Math.PI * 0.8);
+          tctx.stroke();
+        }
+
+        tctx.restore();
+      });
+
+      // Taco de Billar (si no se está disparando)
+      if (!state.isShooting && cueBall.inPocket === false) {
+        drawCueStick();
+      }
+
+      tctx.restore();
+    }
+
+    function drawDiamond(ctx, x, y, size) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - size);
+      ctx.lineTo(x + size, y);
+      ctx.lineTo(x, y + size);
+      ctx.lineTo(x - size, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawCueStick() {
+      tctx.save();
+      const target = eightBall;
+      const angle = Math.atan2(target.y - cueBall.y, target.x - cueBall.x);
+
+      tctx.translate(cueBall.x, cueBall.y);
+      tctx.rotate(angle + Math.PI); // taco detrás de la bola
+
+      const cueOffset = 26 + (100 - state.power) * 0.15;
+      const cueLength = 280;
+
+      // Sombra del taco
+      tctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      tctx.fillRect(cueOffset + 5, 8, cueLength, 6);
+
+      // Taco con acabado en madera degradada y punta azul
+      const cueGrad = tctx.createLinearGradient(cueOffset, 0, cueOffset + cueLength, 0);
+      cueGrad.addColorStop(0, '#38BDF8'); // Suela tiza azul
+      cueGrad.addColorStop(0.04, '#F8FAFC'); // Virola blanca
+      cueGrad.addColorStop(0.3, '#D97706'); // Madera maple
+      cueGrad.addColorStop(1, '#1E293B'); // Agarre oscuro
+
+      tctx.fillStyle = cueGrad;
+      tctx.beginPath();
+      tctx.moveTo(cueOffset, -2.5);
+      tctx.lineTo(cueOffset + cueLength, -6);
+      tctx.lineTo(cueOffset + cueLength, 6);
+      tctx.lineTo(cueOffset, 2.5);
+      tctx.closePath();
+      tctx.fill();
+
+      // Indicador de elevación (arco lateral)
+      tctx.strokeStyle = '#22D3EE';
+      tctx.lineWidth = 2;
+      tctx.beginPath();
+      tctx.arc(cueOffset + 30, -18, 14, 0, (state.elevationDeg / 90) * Math.PI);
+      tctx.stroke();
+
+      tctx.restore();
+    }
+
+    // Widget de Impacto Spin (Esfera Blanca 3D)
+    function drawSpinWidget() {
+      sctx.clearRect(0, 0, spinCanvas.width, spinCanvas.height);
+      const cx = spinCanvas.width / 2;
+      const cy = spinCanvas.height / 2;
+      const r = 50;
+
+      // Sombra y esfera
+      const grad = sctx.createRadialGradient(cx - 15, cy - 15, 5, cx, cy, r);
+      grad.addColorStop(0, '#FFFFFF');
+      grad.addColorStop(0.7, '#CBD5E1');
+      grad.addColorStop(1, '#475569');
+
+      sctx.fillStyle = grad;
+      sctx.beginPath();
+      sctx.arc(cx, cy, r, 0, Math.PI * 2);
+      sctx.fill();
+
+      // Retículas de precisión
+      sctx.strokeStyle = 'rgba(15, 23, 42, 0.3)';
+      sctx.lineWidth = 1;
+      sctx.beginPath();
+      sctx.moveTo(cx - r, cy);
+      sctx.lineTo(cx + r, cy);
+      sctx.moveTo(cx, cy - r);
+      sctx.lineTo(cx, cy + r);
+      sctx.stroke();
+
+      // Círculos concéntricos de referencia
+      sctx.setLineDash([2, 2]);
+      sctx.beginPath();
+      sctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+      sctx.stroke();
+      sctx.setLineDash([]);
+
+      // Punto de impacto del taco (rojo coral)
+      const hitX = cx + state.offsetX * (r * 0.85);
+      const hitY = cy + state.offsetY * (r * 0.85);
+
+      sctx.fillStyle = '#F43F5E';
+      sctx.beginPath();
+      sctx.arc(hitX, hitY, 7, 0, Math.PI * 2);
+      sctx.fill();
+
+      sctx.strokeStyle = '#FFFFFF';
+      sctx.lineWidth = 2;
+      sctx.stroke();
+
+      // Vector de curvatura anticipada
+      sctx.strokeStyle = '#22D3EE';
+      sctx.lineWidth = 2;
+      sctx.beginPath();
+      sctx.moveTo(hitX, hitY);
+      sctx.lineTo(hitX - state.offsetX * 20, hitY - 15);
+      sctx.stroke();
+    }
+
+    // Gráfica de Telemetría (Velocidad lineal vs angular)
+    function drawTelemetryChart() {
+      cctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+
+      const w = chartCanvas.width;
+      const h = chartCanvas.height;
+
+      // Líneas de fondo del grid
+      cctx.strokeStyle = '#1E293B';
+      cctx.lineWidth = 1;
+      for (let y = 20; y < h; y += 25) {
+        cctx.beginPath();
+        cctx.moveTo(0, y);
+        cctx.lineTo(w, y);
+        cctx.stroke();
+      }
+
+      if (state.telemetryHistory.length < 2) {
+        cctx.fillStyle = '#64748B';
+        cctx.font = '11px monospace';
+        cctx.fillText('DISPARA O ESPERA EL CICLO AUTOMATICO PARA TELEMETRIA', 20, h / 2);
+        return;
+      }
+
+      const points = state.telemetryHistory;
+      const stepX = w / 240;
+
+      // Curva 1: Velocidad Lineal (Cian)
+      cctx.beginPath();
+      cctx.strokeStyle = '#22D3EE';
+      cctx.lineWidth = 2;
+      points.forEach((pt, i) => {
+        const x = i * stepX;
+        const y = h - (parseFloat(pt.v) / 7.0) * (h - 20) - 10;
+        if (i === 0) cctx.moveTo(x, y);
+        else cctx.lineTo(x, y);
+      });
+      cctx.stroke();
+
+      // Curva 2: Velocidad Angular (Oro)
+      cctx.beginPath();
+      cctx.strokeStyle = '#F59E0B';
+      cctx.lineWidth = 2;
+      points.forEach((pt, i) => {
+        const x = i * stepX;
+        const y = h - (parseFloat(pt.w) / 180.0) * (h - 20) - 10;
+        if (i === 0) cctx.moveTo(x, y);
+        else cctx.lineTo(x, y);
+      });
+      cctx.stroke();
+    }
+
+    // Actualización de HUD de Texto
+    function updateHUD() {
+      document.getElementById('hud-curve').innerText = state.maxCurveDeviationPx.toFixed(1) + ' px';
+      document.getElementById('hud-rpm').innerText = Math.round(cueBall.spinRpm);
+      document.getElementById('hud-pocketed').innerText = state.pocketedCount;
+      document.getElementById('hud-fps').innerText = state.fps;
+    }
+
+    // Interacción con Canvas de Spin
+    spinCanvas.addEventListener('mousedown', (e) => {
+      const rect = spinCanvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left - spinCanvas.width / 2;
+      const clickY = e.clientY - rect.top - spinCanvas.height / 2;
+      const maxR = 50 * 0.85;
+
+      state.offsetX = Math.max(-0.85, Math.min(0.85, clickX / maxR));
+      state.offsetY = Math.max(-0.85, Math.min(0.85, clickY / maxR));
+      syncSliders();
+    });
+
+    // Control de Sliders
+    document.getElementById('slider-elevation').addEventListener('input', (e) => {
+      state.elevationDeg = parseFloat(e.target.value);
+      syncSliders();
+    });
+    document.getElementById('slider-power').addEventListener('input', (e) => {
+      state.power = parseFloat(e.target.value);
+      syncSliders();
+    });
+    document.getElementById('slider-sidespin').addEventListener('input', (e) => {
+      state.offsetX = parseFloat(e.target.value);
+      syncSliders();
+    });
+
+    // Botones de Escenario
+    document.getElementById('btn-scen-1').addEventListener('click', () => setupScenario(1));
+    document.getElementById('btn-scen-2').addEventListener('click', () => setupScenario(2));
+    document.getElementById('btn-scen-3').addEventListener('click', () => setupScenario(3));
+
+    // Botón Disparo
+    document.getElementById('btn-fire-masse').addEventListener('click', () => {
+      if (!state.isShooting) fireMasse();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !state.isShooting) {
+        e.preventDefault();
+        fireMasse();
+      }
+    });
+
+    // Hook Requerido por el Benchmark de Mixiuh Labs
+    window.__auditMasse = function() {
+      return {
+        cueElevationDeg: state.elevationDeg,
+        spinRpm: Math.round(cueBall.spinRpm),
+        maxCurveDeviationPx: parseFloat(state.maxCurveDeviationPx.toFixed(2)),
+        pocketedCount: state.pocketedCount,
+        fps: state.fps
+      };
+    };
+
+    // Bucle Principal de Renderizado a 60 FPS
+    let lastTime = performance.now();
+    function loop(currentTime) {
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
+      lastTime = currentTime;
+
+      // Cálculo de FPS
+      state.frameCount++;
+      if (currentTime - state.lastFpsTime >= 500) {
+        state.fps = Math.round((state.frameCount * 1000) / (currentTime - state.lastFpsTime));
+        state.frameCount = 0;
+        state.lastFpsTime = currentTime;
+      }
+
+      // Física y simulación
+      updatePhysics(dt);
+
+      // Dibujar elementos
+      drawTable();
+      drawTelemetryChart();
+      updateHUD();
+
+      // Auto-running continuo desde 0.0s
+      if (!state.isShooting) {
+        state.autoCycleTimer += dt;
+        if (state.autoCycleTimer >= state.autoCycleDelay) {
+          state.autoCycleTimer = 0;
+          const nextScen = (state.scenario % 3) + 1;
+          setupScenario(nextScen);
+          setTimeout(() => { fireMasse(); }, 400);
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    // Inicialización Inmediata al Cargar
+    window.addEventListener('DOMContentLoaded', () => {
+      setupScenario(1);
+      // Auto-disparo inmediato a los 600ms de carga para arrancar vivo a 60fps
+      setTimeout(() => {
+        fireMasse();
+      }, 600);
+      requestAnimationFrame(loop);
+    });
+  </script>
+</body>
+</html>

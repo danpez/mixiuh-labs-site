@@ -113,6 +113,8 @@ type BlogFilter = "all" | "laboratorios" | "comunidad" | "noticias";
 type ForoSubTab = "hilos" | "glosario";
 
 const DOSSIER_HASH: Record<DossierEpisode, string> = {
+  ep12: "ep12-torneo-ligeros-extra",
+  ep11: "ep11-hydrogen-vs-flash",
   ep10: "ep10-carbon-vs-fable",
   ep09: "ep09-claude-fable-vivo",
   ep08: "ep08-gemini-carbon-vivo",
@@ -169,6 +171,8 @@ function viewForHash(
   ) {
     return { view: "noticias" };
   }
+  if (h === "ep12-torneo-ligeros-extra" && rel.ep12) return { view: "dossiers", ep: "ep12" };
+  if (h === "ep11-hydrogen-vs-flash" && rel.ep11) return { view: "dossiers", ep: "ep11" };
   if (h === "ep10-carbon-vs-fable" && rel.ep10) return { view: "dossiers", ep: "ep10" };
   if (h === "ep09-claude-fable-vivo" && rel.ep09) return { view: "dossiers", ep: "ep09" };
   if (h === "ep08-gemini-carbon-vivo" && rel.ep08) return { view: "dossiers", ep: "ep08" };
@@ -195,6 +199,14 @@ const SITE_TITLE = {
 } as const;
 
 const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
+  ep12: {
+    es: "Laboratorio EP12: Torneo de Ligeros Extra — Hydrogen vs Haiku 5.5 vs GPT-6 Luna (24 Demos)",
+    en: "Lab EP12: Lightweight Extra Tournament — Hydrogen vs Haiku 5.5 vs GPT-6 Luna (24 Demos)",
+  },
+  ep11: {
+    es: "Laboratorio EP11: Gemini 4 Hydrogen (4 Niveles) vs Gemini 3.8 Flash (18 Demos)",
+    en: "Lab EP11: Gemini 4 Hydrogen (4 Thinking Levels) vs Gemini 3.8 Flash (18 Demos)",
+  },
   ep10: {
     es: "Laboratorio EP10: Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos + 4 Arenas IA en Vivo)",
     en: "Lab EP10: Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos + 4 Live AI Arenas)",
@@ -286,6 +298,8 @@ function writeHash(hash: string, mode: "push" | "replace") {
 
 /** One accent per production, shared by blog cards, calendar, CRT and floppy selector. */
 const EPISODE_ACCENT: Record<ReleaseKey, string> = {
+  ep12: "#10B981",
+  ep11: "#38BDF8",
   ep10: "#FFD100",
   ep09: "#FB923C",
   ep08: "#38BDF8",
@@ -303,6 +317,8 @@ const EPISODE_ACCENT: Record<ReleaseKey, string> = {
 
 /** Deep link of each production (used by the share popover). */
 const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  ep12: "ep12-torneo-ligeros-extra",
+  ep11: "ep11-hydrogen-vs-flash",
   ep10: "ep10-carbon-vs-fable",
   ep09: "ep09-claude-fable-vivo",
   ep08: "ep08-gemini-carbon-vivo",
@@ -497,6 +513,8 @@ export default function PortalClient({
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep12) return "ep12";
+    if (r.ep11) return "ep11";
     if (r.ep10) return "ep10";
     if (r.ep09) return "ep09";
     if (r.ep08) return "ep08";
@@ -512,9 +530,11 @@ export default function PortalClient({
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
   const [arenaMode, setArenaMode] = useState<
-    "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
+    "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
   >(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep12) return "ep12";
+    if (r.ep11) return "ep11";
     if (r.ep10) return "ep10";
     if (r.ep09) return "ep09";
     if (r.ep08) return "ep08";
@@ -526,7 +546,9 @@ export default function PortalClient({
     return "ep02_ep01";
   });
 
-  // EP10, EP09, EP08 & EP07 interactive comparator states
+  // EP12, EP11, EP10, EP09, EP08 & EP07 interactive comparator states
+  const [ep12ChallengeN, setEp12ChallengeN] = useState<number>(1);
+  const [ep11ChallengeN, setEp11ChallengeN] = useState<number>(1);
   const [ep10ChallengeN, setEp10ChallengeN] = useState<number>(1);
   const [ep09ChallengeN, setEp09ChallengeN] = useState<number>(1);
   const [ep08ChallengeN, setEp08ChallengeN] = useState<number>(3);
@@ -658,7 +680,11 @@ export default function PortalClient({
     // Default episode/arena = newest published one (content may have been
     // released after this HTML was built); the hash below can override it.
     setDossierEp(
-      rel.ep10
+      rel.ep12
+        ? "ep12"
+        : rel.ep11
+        ? "ep11"
+        : rel.ep10
         ? "ep10"
         : rel.ep09
         ? "ep09"
@@ -677,7 +703,11 @@ export default function PortalClient({
         : "ep02"
     );
     setArenaMode(
-      rel.ep10
+      rel.ep12
+        ? "ep12"
+        : rel.ep11
+        ? "ep11"
+        : rel.ep10
         ? "ep10"
         : rel.ep09
         ? "ep09"
@@ -829,7 +859,15 @@ export default function PortalClient({
     episode: DossierEpisode,
     challengeN: number
   ) => {
-    if (episode === "ep10" && released.ep10) {
+    if (episode === "ep12" && released.ep12) {
+      setEp12ChallengeN(challengeN);
+      setArenaMode("ep12");
+      setMainView("arena");
+    } else if (episode === "ep11" && released.ep11) {
+      setEp11ChallengeN(challengeN);
+      setArenaMode("ep11");
+      setMainView("arena");
+    } else if (episode === "ep10" && released.ep10) {
       setEp10ChallengeN(challengeN);
       setArenaMode("ep10");
       setMainView("arena");
@@ -922,8 +960,66 @@ export default function PortalClient({
   const glossaryPlain = (g: (typeof LAB_GLOSSARY)[number]) =>
     lang === "es" ? g.plain_es : (g.plain_en ?? g.plain_es);
 
-  // Blog Cards Data (All 8 Productions across the 3 Editorial Pillars, gated by releaseSchedule.ts)
+  // Blog Cards Data across the 3 Editorial Pillars, gated by releaseSchedule.ts
   const BLOG_ARTICLES: BlogArticle[] = [
+    {
+      id: "ep12" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "25 Nov 2026",
+      readTime_es: "Video 4K60 · 24 Demos (18 Apps + 6 Arenas Triples)",
+      readTime_en: "4K60 Video · 24 Demos (18 Apps + 6 Triple Arenas)",
+      badge_es: "TORNEO EP12 · LIGEROS EN EXTRA (HYDROGEN VS HAIKU VS LUNA)",
+      badge_en: "EP12 TOURNAMENT · LIGHTWEIGHT EXTRA (HYDROGEN VS HAIKU VS LUNA)",
+      accentColor: EPISODE_ACCENT.ep12,
+      scoreBadge_es: "HYDROGEN [6] - LUNA [4] - HAIKU [2]",
+      scoreBadge_en: "HYDROGEN [6] - LUNA [4] - HAIKU [2]",
+      thumb: COVERS.ep12,
+      title_es:
+        "El Torneo de los 3 Ligeros en Extra: Gemini 4 Hydrogen vs Claude Haiku 5.5 vs GPT-6 Luna",
+      title_en:
+        "The 3 Lightweight Models in Extra Mode: Gemini 4 Hydrogen vs Claude Haiku 5.5 vs GPT-6 Luna",
+      excerpt_es:
+        "6 retos ineditos con 6 arenas todos contra todos: espejo de carretera y fibra optica, air hockey triangular de 2 discos, subasta bayesiana ciega, pastoreo de 60 ovejas, tablero de Galton y sumo de robots magneticos. Hydrogen gana 6-2-4 en 14.5 minutos ($2.26 USD), GPT-6 Luna da la sorpresa economica sumando 4 puntos completos por apenas $0.17 USD en total y Claude Haiku 5.5 requiere 2 rescates tras agotar el techo de 256K tokens pensando.",
+      excerpt_en:
+        "6 brand-new builds with 6 free-for-all arenas: highway mirage and fiber optics, 2-puck triangular air hockey, blind Bayesian auction, 60-sheep herding, Galton pegboard and magnetic robot sumo. Hydrogen wins 6-2-4 in 14.5 min ($2.26 USD), GPT-6 Luna steals 4 points for an astonishing $0.17 USD total bill, while Haiku 5.5 triggers 2 recovery rounds after hitting its 256K thinking ceiling.",
+      metrics: [
+        { label_es: "MARCADOR (12 PTS)", label_en: "SCORE (12 PTS)", val: "6 - 2 - 4 Hydrogen" },
+        { label_es: "HYDROGEN EXTRA", label_en: "HYDROGEN EXTRA", val: "14.5m · $2.26 · 9,766 LOC" },
+        { label_es: "GPT-6 LUNA EXTRA", label_en: "GPT-6 LUNA EXTRA", val: "58.7m · $0.17 · 4 Pts (9,145 LOC)" },
+        { label_es: "CLAUDE HAIKU 5.5", label_en: "CLAUDE HAIKU 5.5", val: "147.0m · $1.66 + 2 Rescates", val_en: "147.0m · $1.66 + 2 Rescues" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep12"),
+      onOpenArena: () => handleJumpToArena("ep12", 1),
+    },
+    {
+      id: "ep11" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "22 Nov 2026",
+      readTime_es: "Video 4K60 · 18 Demos (15 Simuladores + 3 Arenas IA)",
+      readTime_en: "4K60 Video · 18 Demos (15 Sims + 3 AI Arenas)",
+      badge_es: "ESTRENO EP11 · GEMINI 4 HYDROGEN (4 NIVELES) VS FLASH 3.8",
+      badge_en: "EP11 LAUNCH · GEMINI 4 HYDROGEN (4 LEVELS) VS FLASH 3.8",
+      accentColor: EPISODE_ACCENT.ep11,
+      scoreBadge_es: "HYDROGEN [7] - [2] FLASH 3.8",
+      scoreBadge_en: "HYDROGEN [7] - [2] FLASH 3.8",
+      thumb: COVERS.ep11,
+      title_es:
+        "Gemini 4 Hydrogen ($1.50/$7.50) vs Gemini 3.8 Flash: 4 niveles a prueba y 3 duelos IA",
+      title_en:
+        "Gemini 4 Hydrogen ($1.50/$7.50) vs Gemini 3.8 Flash: 4 Thinking Levels & 3 AI Duels",
+      excerpt_es:
+        "Estreno del nuevo modelo ligero de Google con 4 niveles configurables de pensamiento (Low, Medium, High, Extra), ventana plana de 1 millon de tokens y 54 puntos en el indice de inteligencia en Extra. Primero probamos sus 4 niveles sobre Billar Masse ($0.14 a $1.18 USD) y luego lo medimos en 6 retos + 3 arenas contra Flash 3.8: Hydrogen gana 7 a 2 ($3.22 vs $0.58 USD).",
+      excerpt_en:
+        "First look at Google's new lightweight model with 4 configurable thinking levels (Low, Medium, High, Extra), flat 1M context window, and 54 on the Intelligence Index in Extra. First we benchmark all 4 depths on Trick-Shot Pool ($0.14 to $1.18 USD), then face Flash 3.8 across 6 challenges and 3 AI duels: Hydrogen sweeps 7-2 ($3.22 vs $0.58 USD).",
+      metrics: [
+        { label_es: "MARCADOR (9 PTS)", label_en: "SCORE (9 PTS)", val: "7 - 2 Hydrogen" },
+        { label_es: "HYDROGEN EXTRA", label_en: "HYDROGEN EXTRA", val: "22.8m · $3.22 · 11,565 LOC" },
+        { label_es: "FLASH 3.8 HIGH", label_en: "FLASH 3.8 HIGH", val: "11.3m · $0.58 · 7,445 LOC" },
+        { label_es: "ESCALERA BILLAR", label_en: "POOL LEVELS", val: "Low 49s -> Extra 10.7m" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep11"),
+      onOpenArena: () => handleJumpToArena("ep11", 4),
+    },
     {
       id: "ep10" as ReleaseKey,
       filter: "laboratorios" as const,
@@ -1331,7 +1427,9 @@ export default function PortalClient({
     (released.ep07 ? 1 : 0) +
     (released.ep08 ? 1 : 0) +
     (released.ep09 ? 1 : 0) +
-    (released.ep10 ? 1 : 0);
+    (released.ep10 ? 1 : 0) +
+    (released.ep11 ? 1 : 0) +
+    (released.ep12 ? 1 : 0);
   const totalComunidadCount =
     (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
@@ -1346,7 +1444,9 @@ export default function PortalClient({
     (released.ep07 ? 12 : 0) +
     (released.ep08 ? 9 : 0) +
     (released.ep09 ? 8 : 0) +
-    (released.ep10 ? 16 : 0);
+    (released.ep10 ? 16 : 0) +
+    (released.ep11 ? 18 : 0) +
+    (released.ep12 ? 24 : 0);
   const totalPromptsCount =
     10 +
     6 +
@@ -1358,7 +1458,9 @@ export default function PortalClient({
     (released.ep07 ? 4 : 0) +
     (released.ep08 ? 4 : 0) +
     (released.ep09 ? 4 : 0) +
-    (released.ep10 ? 6 : 0);
+    (released.ep10 ? 6 : 0) +
+    (released.ep11 ? 6 : 0) +
+    (released.ep12 ? 6 : 0);
   // Same size as the forum's thread list (counted on the server, see forumCounts.ts)
   const totalForumThreadsCount = (
     Object.keys(forumCounts.byRelease) as ReleaseKey[]
@@ -1384,6 +1486,64 @@ export default function PortalClient({
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.ep12
+      ? [
+          {
+            id: "ep12",
+            code: "EP.12",
+            kicker:
+              lang === "es"
+                ? "TORNEO LIGEROS · 6 RETOS + 6 ARENAS"
+                : "LITE TOURNAMENT · 6 BUILDS + 6 ARENAS",
+            title:
+              lang === "es"
+                ? "Hydrogen Extra vs Haiku 5.5 vs GPT-6 Luna"
+                : "Hydrogen Extra vs Haiku 5.5 vs GPT-6 Luna",
+            verdict: "HYDROGEN 6 - LUNA 4 - HAIKU 2",
+            timeMetric: "14.5m / 58.7m / 147m",
+            costMetric: "$2.26 / $0.17 / $1.66 USD",
+            thumb: COVERS.ep12,
+            accentHex: "#10B981",
+            character: "haiku" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep12"),
+            onLaunchSecondary: () => handleJumpToArena("ep12", 1),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR TORNEO EP12 (24 DEMOS)"
+                : "OPEN EP12 TOURNAMENT (24 DEMOS)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
+    ...(released.ep11
+      ? [
+          {
+            id: "ep11",
+            code: "EP.11",
+            kicker:
+              lang === "es"
+                ? "4 NIVELES PENSAMIENTO · 3 ARENAS IA"
+                : "4 THINKING LEVELS · 3 LIVE ARENAS",
+            title:
+              lang === "es"
+                ? "Gemini 4 Hydrogen vs Gemini 3.8 Flash"
+                : "Gemini 4 Hydrogen vs Gemini 3.8 Flash",
+            verdict: "HYDROGEN [7] - [2] FLASH 3.8",
+            timeMetric: "22.8m vs 11.3m",
+            costMetric: "$3.22 vs $0.58 USD",
+            thumb: COVERS.ep11,
+            accentHex: "#38BDF8",
+            character: "flash" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep11"),
+            onLaunchSecondary: () => handleJumpToArena("ep11", 4),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR LABORATORIO EP11 (18 DEMOS)"
+                : "OPEN EP11 LAB (18 DEMOS)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
     ...(released.ep10
       ? [
           {
@@ -1902,6 +2062,8 @@ export default function PortalClient({
           : []),
         ...(
           [
+            { ep: "ep12" as const, label: es ? "EP12 · Torneo de Ligeros Extra (Hydrogen vs Haiku vs Luna)" : "EP12 · Lightweight Extra Tournament (Hydrogen vs Haiku vs Luna)", tone: "emerald" as const, show: released.ep12 },
+            { ep: "ep11" as const, label: es ? "EP11 · Gemini 4 Hydrogen (4 Niveles) vs Flash 3.8 (18 Demos)" : "EP11 · Gemini 4 Hydrogen (4 Levels) vs Flash 3.8 (18 Demos)", tone: "cyan" as const, show: released.ep11 },
             { ep: "ep10" as const, label: es ? "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)" : "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)", tone: "yellow" as const, show: released.ep10 },
             { ep: "ep09" as const, label: es ? "EP09 · Claude Fable 5.2 vs Opus 5.5" : "EP09 · Claude Fable 5.2 vs Opus 5.5", tone: "coral" as const, show: released.ep09 },
             { ep: "ep08" as const, label: es ? "EP08 · Gemini 4 Carbon en Vivo + Recuperacion" : "EP08 · Gemini 4 Carbon Live + Recovery Round", tone: "cyan" as const, show: released.ep08 },
@@ -1934,7 +2096,9 @@ export default function PortalClient({
             onSelect: () =>
               handleJumpToArena(
                 e.ep,
-                e.ep === "ep10"
+                e.ep === "ep12"
+                  ? 1
+                  : e.ep === "ep11" || e.ep === "ep10"
                   ? 4
                   : e.ep === "ep08"
                   ? 3
@@ -3189,6 +3353,10 @@ export default function PortalClient({
             navigateToView={navigateToView}
             handleJumpToArena={handleJumpToArena}
             playSfx={playSfx}
+            ep12ChallengeN={ep12ChallengeN}
+            setEp12ChallengeN={setEp12ChallengeN}
+            ep11ChallengeN={ep11ChallengeN}
+            setEp11ChallengeN={setEp11ChallengeN}
             ep10ChallengeN={ep10ChallengeN}
             setEp10ChallengeN={setEp10ChallengeN}
             ep09ChallengeN={ep09ChallengeN}
@@ -3938,6 +4106,36 @@ m.p.pos[m.axis] = m.base + offset;`}
                 aria-labelledby="arena-mode-label"
                 className="flex flex-wrap items-center gap-2 font-mono-hud text-xs"
               >
+                {released.ep12 && (
+                  <button
+                    onClick={() => setArenaMode("ep12")}
+                    aria-pressed={arenaMode === "ep12"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep12"
+                        ? "bg-[#10B981] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP12: Ligeros Extra (24)"
+                      : "EP12: Lightweight Extra (24)"}
+                  </button>
+                )}
+                {released.ep11 && (
+                  <button
+                    onClick={() => setArenaMode("ep11")}
+                    aria-pressed={arenaMode === "ep11"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep11"
+                        ? "bg-[#38BDF8] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP11: Hydrogen vs Flash (18)"
+                      : "EP11: Hydrogen vs Flash (18)"}
+                  </button>
+                )}
                 {released.ep10 && (
                   <button
                     onClick={() => setArenaMode("ep10")}
@@ -4114,7 +4312,9 @@ m.p.pos[m.axis] = m.base + offset;`}
             </div>
           </div>
 
-          {(released.ep10 && arenaMode === "ep10") ||
+          {(released.ep12 && arenaMode === "ep12") ||
+          (released.ep11 && arenaMode === "ep11") ||
+          (released.ep10 && arenaMode === "ep10") ||
           (released.ep09 && arenaMode === "ep09") ||
           (released.ep08 && arenaMode === "ep08") ||
           (released.ep07 && arenaMode === "ep07") ||
@@ -4125,6 +4325,10 @@ m.p.pos[m.axis] = m.base + offset;`}
             <ArenaLatest
               lang={lang}
               episode={arenaMode}
+              ep12ChallengeN={ep12ChallengeN}
+              setEp12ChallengeN={setEp12ChallengeN}
+              ep11ChallengeN={ep11ChallengeN}
+              setEp11ChallengeN={setEp11ChallengeN}
               ep10ChallengeN={ep10ChallengeN}
               setEp10ChallengeN={setEp10ChallengeN}
               ep09ChallengeN={ep09ChallengeN}

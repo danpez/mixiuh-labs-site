@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galton Pachinko - Arena Triple IA #5</title>
+<style>
+  :root {
+    --bg: #060A12;
+    --panel: #0F172A;
+    --cyan: #22D3EE;
+    --blue: #38BDF8;
+    --orange: #FB923C;
+    --emerald: #10B981;
+    --gold: #FBBF24;
+    --coral: #F43F5E;
+    --text: #E2E8F0;
+    --muted: #64748B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; overflow: hidden;
+  }
+  #app {
+    width: 1920px; height: 1080px; position: absolute; left: 50%; top: 50%;
+    transform-origin: center center; background: var(--bg);
+  }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+  #board { position: absolute; left: 0; top: 0; }
+  .hud-title {
+    position: absolute; left: 40px; top: 22px; font-size: 40px; font-weight: 800;
+    letter-spacing: 2px; color: var(--cyan); text-shadow: 0 0 18px rgba(34,211,238,.45);
+  }
+  .hud-sub { position: absolute; left: 42px; top: 74px; font-size: 20px; color: var(--muted); letter-spacing: 1px; }
+  .panel {
+    position: absolute; background: var(--panel); border: 1px solid rgba(56,189,248,.25);
+    border-radius: 14px; padding: 16px 18px; box-shadow: 0 0 24px rgba(0,0,0,.45);
+  }
+  .panel h3 { font-size: 20px; color: var(--blue); letter-spacing: 1.5px; margin-bottom: 10px; text-transform: uppercase; }
+  .stat-row { display: flex; justify-content: space-between; font-size: 22px; margin: 6px 0; }
+  .stat-row b { font-weight: 800; font-variant-numeric: tabular-nums; }
+  #controls { right: 40px; top: 120px; width: 380px; }
+  #controls button {
+    display: block; width: 100%; margin: 6px 0; padding: 10px 14px; font-size: 20px; font-weight: 700;
+    color: var(--bg); background: var(--cyan); border: 0; border-radius: 10px; cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  #controls button.alt { background: var(--orange); }
+  #controls button.ghost { background: transparent; color: var(--cyan); border: 2px solid var(--cyan); }
+  #controls button:hover { filter: brightness(1.12); }
+  #controls label { display: block; font-size: 18px; color: var(--text); margin: 10px 0 4px; }
+  #controls input[type=range] { width: 100%; accent-color: var(--cyan); }
+  #aiPanel { right: 40px; top: 590px; width: 380px; }
+  .ai-card { margin: 8px 0; padding: 8px 10px; border-left: 4px solid var(--blue); background: rgba(15,23,42,.9); border-radius: 8px; }
+  .ai-card .name { font-size: 22px; font-weight: 800; }
+  .ai-card .meta { font-size: 17px; color: var(--muted); margin-top: 2px; }
+  .energy-bar { height: 10px; background: #1E293B; border-radius: 6px; margin-top: 6px; overflow: hidden; }
+  .energy-bar > div { height: 100%; background: var(--emerald); width: 100%; transition: width .2s; }
+  #log { left: 40px; bottom: 30px; width: 1120px; height: 180px; font-size: 19px; overflow: hidden; }
+  #log .entry { margin: 3px 0; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #legend { left: 1200px; bottom: 30px; width: 680px; height: 180px; }
+  #legend .row { font-size: 19px; margin: 6px 0; display: flex; align-items: center; gap: 10px; }
+  #legend svg { flex: 0 0 auto; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row button { flex: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="board" width="1920" height="1080"></canvas>
+    <div class="hud-title">GALTON PACHINKO / ARENA TRIPLE IA #5</div>
+    <div class="hud-sub">Tablero magnetico 14 filas - 400 canicas - Campana de Gauss en vivo - 60 FPS</div>
+    <div id="stats" class="panel" style="left:1110px;top:120px;width:770px;height:256px;right:auto">
+      <h3>Telemetria del tablero</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:30px;">
+        <div class="stat-row"><span>Canicas en juego</span><b id="stActive">0</b></div>
+        <div class="stat-row"><span>Canicas totales</span><b id="stTotal">0</b></div>
+        <div class="stat-row"><span>Doradas en juego</span><b id="stGolden" style="color:#FBBF24">0</b></div>
+        <div class="stat-row"><span>Doradas recolectadas</span><b id="stCollected">0</b></div>
+        <div class="stat-row"><span>R2 ajuste Gauss</span><b id="stR2" style="color:#22D3EE">0.000</b></div>
+        <div class="stat-row"><span>Cronometro</span><b id="stTime">0.0 s</b></div>
+        <div class="stat-row"><span>FPS</span><b id="stFps" style="color:#10B981">60</b></div>
+        <div class="stat-row" style="grid-column:1 / -1"><span>Evento</span><b id="stEvent" style="color:#FB923C;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:560px">Arranque</b></div>
+      </div>
+    </div>
+    <div id="aiPanel" class="panel" style="left:1110px;top:392px;width:770px;height:352px;right:auto">
+      <h3>Colectores IA - energia y deflectores</h3>
+      <div class="ai-card" style="border-left-color:#22D3EE">
+        <div class="name" style="color:#22D3EE">HYDROGEN</div>
+        <div class="meta" id="ai0Meta">Deflectores: 0 - Doradas: 0 - Imanes: 0</div>
+        <div class="energy-bar"><div id="ai0Energy"></div></div>
+      </div>
+      <div class="ai-card" style="border-left-color:#FB923C">
+        <div class="name" style="color:#FB923C">HAIKU</div>
+        <div class="meta" id="ai1Meta">Deflectores: 0 - Doradas: 0 - Imanes: 0</div>
+        <div class="energy-bar"><div id="ai1Energy" style="background:#FB923C"></div></div>
+      </div>
+      <div class="ai-card" style="border-left-color:#FBBF24">
+        <div class="name" style="color:#FBBF24">LUNA</div>
+        <div class="meta" id="ai2Meta">Deflectores: 0 - Doradas: 0 - Imanes: 0</div>
+        <div class="energy-bar"><div id="ai2Energy" style="background:#FBBF24"></div></div>
+      </div>
+      <div style="font-size:16px;color:#64748B;margin-top:10px;white-space:nowrap">Costo: 8 de energia por deflector - 30 por iman - regeneracion 5/s</div>
+    </div>
+    <div id="controls" class="panel" style="left:1110px;top:764px;width:770px;right:auto">
+      <h3>Controles</h3>
+      <div class="btn-row">
+        <button id="btnPause">Pausa</button>
+        <button id="btnGolden" class="alt">Lanzar dorada</button>
+        <button id="btnReset" class="ghost">Reiniciar</button>
+      </div>
+      <div class="btn-row">
+        <button id="btnAuto">IA automatica: ON</button>
+        <button id="btnMagnet" class="alt">Pulso iman manual</button>
+        <button id="btnGauss" class="ghost">Curva Gauss: ON</button>
+      </div>
+      <label for="rate">Ritmo de caida de canicas: <span id="rateVal">1.0</span>x</label>
+      <input id="rate" type="range" min="0.2" max="3" step="0.1" value="1">
+      <label for="speed">Velocidad de simulacion: <span id="speedVal">1.0</span>x</label>
+      <input id="speed" type="range" min="0.25" max="2" step="0.25" value="1">
+    </div>
+  </div>
+</div>
+<script>
+// ===== SCRIPT PART (added below) =====
+(function () {
+'use strict';
+
+// ===================== CONSTANTES DEL TABLERO =====================
+const W = 1920, H = 1080;
+const CX = 550, S = 58, Y0 = 180, RH = 40;     // centro, separacion horizontal/vertical de clavijas
+const ROWS = 14, NB = 15;                      // 14 filas de clavijas -> 15 cubetas (bins)
+const PR = 6.5, BR_STEEL = 6, BR_GOLD = 7.5;   // radios
+const GRAV = 1500, REST = 0.32;                // fisica
+const BIN_TOP = 735, BIN_BASE = 940, BIN_MAX_H = 180;
+const SPAWN_Y = 126, POOL_SIZE = 400, GOLD_POOL = 40;
+const SPAWN_INT = 0.05, FIX_DT = 1 / 120;
+const FRAME_L = 92, FRAME_R = 1008, FRAME_T = 112, FRAME_B = 1008;
+const WALL_HALF = 7.4 * S;
+const AI_NAMES = ['HYDROGEN', 'HAIKU', 'LUNA'];
+const AI_COLORS = ['#22D3EE', '#FB923C', '#FBBF24'];
+const AI_BINS = [3, 7, 11];                    // cubetas colectoras de cada IA
+const GATE_COST = 8, MAGNET_COST = 30, ENERGY_MAX = 100, ENERGY_REGEN = 5;
+const GATE_ANGLE = 0.7, ARM_TIMEOUT = 2.6, MAGNET_TIME = 0.45, MAGNET_RANGE = 170, GOLD_STEER = 0.9;
+const GATE_LAYOUT = [
+  [{ r: 4, k: 1 }, { r: 7, k: 3 }, { r: 10, k: 5 }],   // HYDROGEN
+  [{ r: 5, k: 3 }, { r: 8, k: 6 }, { r: 11, k: 8 }],   // HAIKU
+  [{ r: 4, k: 3 }, { r: 7, k: 5 }, { r: 10, k: 8 }]    // LUNA
+];
+
+const pegX = (r, k) => CX + (k - r / 2) * S;
+const pegY = (r) => Y0 + r * RH;
+const binX = (j) => CX + (j - 7) * S;
+const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
+
+// Triangulo de Pascal hasta la fila 14 -> coeficientes binomiales
+const BINOM = [];
+for (let n = 0; n <= ROWS; n++) {
+  BINOM.push([]);
+  for (let k = 0; k <= n; k++) {
+    BINOM[n][k] = (k === 0 || k === n) ? 1 : BINOM[n - 1][k - 1] + BINOM[n - 1][k];
+  }
+}
+function binomProb(m, k) { return BINOM[m][k] / Math.pow(2, m); }
+const Q14 = [];
+for (let j = 0; j < NB; j++) Q14.push(binomProb(ROWS, j));
+
+const PEG_LIST = [];
+for (let r = 0; r < ROWS; r++) for (let k = 0; k <= r; k++) PEG_LIST.push({ x: pegX(r, k), y: pegY(r) });
+
+// ===================== ESTADO =====================
+const st = {
+  t: 0, paused: false, rate: 1, speed: 1, autoAI: true, showGauss: true,
+  pool: [], idle: [], active: [], gates: [], pegMap: {}, magnets: [], burst: [],
+  counts: new Array(NB).fill(0), landed: 0, cycles: 0, goldLost: 0,
+  collected: [0, 0, 0], energy: [ENERGY_MAX, ENERGY_MAX, ENERGY_MAX],
+  spawnTimer: 0, aiTimer: 0, eventTimer: 4.0, eventSeq: 0,
+  log: [], fps: 60, r2: 0
+};
+
+function pushLog(msg) {
+  st.log.unshift({ t: st.t, msg: msg });
+  if (st.log.length > 3) st.log.length = 3;
+}
+
+function initPool() {
+  st.pool = [];
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const golden = i < GOLD_POOL;
+    st.pool.push({ id: i + 1, golden: golden, rad: golden ? BR_GOLD : BR_STEEL,
+      x: CX, y: SPAWN_Y, vx: 0, vy: 0, bounces: 0, rights: 0, lastPeg: -1, lastT: -9, steer: -1 });
+  }
+  st.idle = st.pool.slice();
+  st.active = [];
+}
+
+function initGates() {
+  st.gates = [];
+  st.pegMap = {};
+  let id = 1;
+  GATE_LAYOUT.forEach(function (list, pi) {
+    list.forEach(function (p) {
+      const g = { id: id++, pi: pi, owner: AI_NAMES[pi], r: p.r, k: p.k,
+        x: pegX(p.r, p.k), y: pegY(p.r), angle: 0, armT: 0, flashT: 0, uses: 0 };
+      st.gates.push(g);
+      st.pegMap[p.r + '_' + p.k] = g;
+    });
+  });
+}
+
+function resetAll() {
+  st.t = 0; st.magnets = []; st.burst = [];
+  st.counts = new Array(NB).fill(0); st.landed = 0; st.cycles = 0; st.goldLost = 0;
+  st.collected = [0, 0, 0];
+  st.energy = [ENERGY_MAX, ENERGY_MAX, ENERGY_MAX];
+  st.spawnTimer = 0; st.aiTimer = 0; st.eventTimer = 4.0; st.eventSeq = 0;
+  st.log = [];
+  initPool();
+  initGates();
+  pushLog('Tablero reiniciado en t = 0.0 s');
+}
+
+// ===================== POOL DE CANICAS (400) =====================
+function takeIdle(wantGold) {
+  const a = st.idle;
+  for (let i = a.length - 1; i >= 0; i--) {
+    if (a[i].golden === wantGold) return a.splice(i, 1)[0];
+  }
+  return a.length ? a.pop() : null;
+}
+
+function spawnOne(wantGold, x) {
+  const b = takeIdle(!!wantGold);
+  if (!b) return null;
+  b.x = (x === undefined) ? CX + (Math.random() - 0.5) * 6 : clamp(x, CX - WALL_HALF + 8, CX + WALL_HALF - 8);
+  b.y = SPAWN_Y;
+  b.vx = (Math.random() - 0.5) * 24;
+  b.vy = 0;
+  b.bounces = 0; b.rights = 0; b.lastPeg = -1; b.lastT = -9; b.steer = -1;
+  st.active.push(b);
+  return b;
+}
+
+function landBall(i) {
+  const b = st.active[i];
+  st.active.splice(i, 1);
+  const jx = clamp(Math.round((b.x - CX) / S + 7), 0, NB - 1);
+  const j = (b.bounces === ROWS) ? b.rights : jx;   // cubeta logica = numero de rebotes a la derecha
+  st.counts[j] += 1;
+  st.landed += 1;
+  st.cycles += 1;
+  if (b.golden) {
+    // Credito solo si la IA duena de la cubeta fue quien desvio la dorada (compuerta o iman)
+    const pi = AI_BINS.indexOf(j);
+    if (pi >= 0 && b.steer === pi) {
+      st.collected[pi] += 1;
+      pushLog(AI_NAMES[pi] + ' captura dorada desviada en cubeta ' + j);
+    } else {
+      st.goldLost += 1;
+    }
+  }
+  st.idle.push(b);
+  if (st.landed > 1400) {
+    for (let q = 0; q < NB; q++) st.counts[q] *= 0.5;
+    st.landed *= 0.5;
+  }
+}
+
+// ===================== FISICA =====================
+function hitPeg(b, r, k, nx, ny, vn) {
+  const gate = st.pegMap[r + '_' + k];
+  let dir, steered = false;
+  if (gate && b.golden && gate.angle !== 0 && Math.random() < GOLD_STEER) {
+    dir = gate.angle > 0 ? 1 : -1;     // deflector armado: desvia la dorada
+    steered = true;
+  } else {
+    dir = Math.random() < 0.5 ? -1 : 1; // 50% izquierda / 50% derecha en cada clavo
+  }
+  const u = Math.max(34, Math.abs(vn) * REST);                 // rapidez vertical tras el rebote
+  const tRow = (u + Math.sqrt(u * u + 2 * GRAV * RH)) / GRAV;  // tiempo de caida a la siguiente fila
+  b.vy = -u;
+  b.vx = dir * (S / 2) / tRow * (0.92 + Math.random() * 0.16); // medio paso hacia el siguiente clavo
+  b.bounces++;
+  if (dir > 0) b.rights++;
+  if (steered) {
+    b.steer = gate.pi;
+    gate.angle = 0;
+    gate.armT = 0;
+    gate.flashT = 0.6;
+    gate.uses++;
+    pushLog(gate.owner + ' desvia dorada en fila ' + (r + 1));
+  }
+}
+
+function stepBall(b, dt) {
+  b.vy += GRAV * dt;
+  b.vx *= 1 - 0.12 * dt;
+  if (b.golden) {
+    for (let mi = 0; mi < st.magnets.length; mi++) {
+      const m = st.magnets[mi];
+      const dx = b.x - m.x, dy = b.y - m.y;
+      if (dx * dx + dy * dy < MAGNET_RANGE * MAGNET_RANGE) {
+        const tx = binX(AI_BINS[m.pi]);   // el electroiman atrae hacia la cubeta de su IA
+        b.vx += clamp((tx - b.x) * 9, -1100, 1100) * dt;
+        b.steer = m.pi;
+      }
+    }
+  }
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  if (b.x < CX - WALL_HALF) { b.x = CX - WALL_HALF; b.vx = Math.abs(b.vx) * 0.5; }
+  if (b.x > CX + WALL_HALF) { b.x = CX + WALL_HALF; b.vx = -Math.abs(b.vx) * 0.5; }
+
+  const rr = Math.round((b.y - Y0) / RH);
+  for (let r = Math.max(0, rr - 1); r <= Math.min(ROWS - 1, rr + 1); r++) {
+    const kc = Math.round((b.x - CX) / S + r / 2);
+    for (let k = Math.max(0, kc - 1); k <= Math.min(r, kc + 1); k++) {
+      const px = pegX(r, k), py = pegY(r);
+      const dx = b.x - px, dy = b.y - py;
+      const minD = b.rad + PR;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < minD * minD && d2 > 1e-9) {
+        const d = Math.sqrt(d2);
+        const nx = dx / d, ny = dy / d;
+        b.x = px + nx * minD;
+        b.y = py + ny * minD;
+        const vn = b.vx * nx + b.vy * ny;
+        const key = r * 16 + k;
+        if (vn < 0 && !(b.lastPeg === key && st.t - b.lastT < 0.08)) {
+          b.lastPeg = key;
+          b.lastT = st.t;
+          hitPeg(b, r, k, nx, ny, vn);
+        }
+      }
+    }
+  }
+}
+
+function updateGates(dt) {
+  for (let i = 0; i < st.gates.length; i++) {
+    const g = st.gates[i];
+    if (g.angle !== 0) {
+      g.armT += dt;
+      if (g.armT > ARM_TIMEOUT) { g.angle = 0; g.armT = 0; }
+    }
+    if (g.flashT > 0) g.flashT -= dt;
+  }
+  for (let i = st.magnets.length - 1; i >= 0; i--) {
+    st.magnets[i].timer -= dt;
+    if (st.magnets[i].timer <= 0) st.magnets.splice(i, 1);
+  }
+}
+
+function fixedStep(dt) {
+  st.t += dt;
+  for (let i = 0; i < 3; i++) st.energy[i] = Math.min(ENERGY_MAX, st.energy[i] + ENERGY_REGEN * dt);
+
+  st.spawnTimer -= dt * st.rate;
+  while (st.spawnTimer <= 0) {
+    spawnOne(Math.random() < 0.1);
+    st.spawnTimer += SPAWN_INT;
+  }
+  for (let i = st.burst.length - 1; i >= 0; i--) {
+    if (st.burst[i].at <= st.t) { spawnOne(st.burst[i].gold); st.burst.splice(i, 1); }
+  }
+
+  st.eventTimer -= dt;
+  if (st.eventTimer <= 0) { runEvent(); st.eventTimer += 6.5; }
+
+  st.aiTimer -= dt;
+  if (st.aiTimer <= 0) { st.aiTimer += 1 / 30; if (st.autoAI) runAI(); }
+
+  updateGates(dt);
+
+  for (let i = st.active.length - 1; i >= 0; i--) {
+    const b = st.active[i];
+    stepBall(b, dt);
+    if (b.y >= BIN_TOP) landBall(i);
+  }
+}
+
+// ===================== IA: PREDICCION DE CASCADA Y DEFLECTORES =====================
+// Numero de filas ya atravesadas por una canica segun su altura.
+function bouncesDone(y) {
+  return clamp(Math.floor((y - Y0) / RH) + 1, 0, ROWS);
+}
+// Probabilidad binomial de terminar en el destino D (medios pasos) con m rebotes restantes.
+function pathProb(m, D) {
+  const R = Math.round((D + m) / 2);
+  if (R < 0 || R > m) return 0;
+  return binomProb(m, R);
+}
+
+// HOOK OBLIGATORIO: state = { pegs, deflectors:[{id,x,y,angle,owner}], balls:[{x,y,vx,vy,golden}],
+// buckets:[{x,owner}], energy } -> { deflectorAngles: number[], magnetPulseId: number|null }
+// deflectorAngles va en el mismo orden que los deflectores de este jugador dentro de state.deflectors.
+function computeGaltonDeflectors(state, playerIndex) {
+  let pi = (typeof playerIndex === 'number') ? playerIndex : AI_NAMES.indexOf(String(playerIndex).toUpperCase());
+  if (!(pi >= 0 && pi < 3)) pi = 0;
+  const name = AI_NAMES[pi];
+  const s = state || {};
+  const defs = Array.isArray(s.deflectors) ? s.deflectors : [];
+  const mine = defs.filter(function (d) { return d && (d.owner === name || d.owner === pi); });
+  const out = { deflectorAngles: mine.map(function () { return 0; }), magnetPulseId: null };
+  if (!mine.length) return out;
+
+  const balls = Array.isArray(s.balls) ? s.balls : [];
+  const buckets = Array.isArray(s.buckets) ? s.buckets : [];
+  const bucket = buckets.find(function (b) { return b && b.owner === name; });
+  const tx = (bucket && isFinite(bucket.x)) ? Number(bucket.x) : binX(AI_BINS[pi]);
+  const tBin = clamp(Math.round((tx - CX) / S + 7), 0, NB - 1);
+  const targetHalf = 2 * tBin - 14;              // posicion final objetivo en medios pasos
+  let budget = Number(s.energy) || 0;
+  const golds = balls.filter(function (b) { return b && b.golden; });
+  const order = mine.map(function (_, i) { return i; })
+    .sort(function (a, b) { return mine[a].y - mine[b].y; });   // primero el deflector que la canica encuentra antes
+
+  // 1) Deflectores: cada dorada cercana se asigna al primer deflector que va a encontrar
+  const used = new Set();
+  for (const i of order) {
+    const g = mine[i];
+    let best = null, bestDy = Infinity;
+    for (const b of golds) {
+      if (used.has(b)) continue;
+      const dy = g.y - b.y;                      // > 0 => la canica esta encima del deflector
+      if (dy < -6 || dy > 3 * RH) continue;
+      if (Math.abs(b.x - g.x) > 1.3 * S) continue;
+      if (Math.abs(dy) < bestDy) { bestDy = Math.abs(dy); best = b; }
+    }
+    if (!best) continue;
+    const D = targetHalf - (best.x - CX) / (S / 2);   // medios pasos que faltan hacia la cubeta
+    if (Math.abs(D) < 1) continue;                    // ya va bien encaminada
+    const cost = (Number(g.angle) || 0) !== 0 ? 0 : GATE_COST;
+    if (budget < cost) continue;                      // presupuesto de energia
+    budget -= cost;
+    used.add(best);
+    out.deflectorAngles[i] = (D > 0 ? 1 : -1) * GATE_ANGLE;
+  }
+
+  // 2) Electroiman: solo si la canica dorada esta cerca y su trayectoria natural no llega a la cubeta
+  if (budget >= MAGNET_COST) {
+    let pick = null, bestDist = Infinity;
+    for (const i of order) {
+      const g = mine[i];
+      for (const b of golds) {
+        const dist = Math.hypot(b.x - g.x, b.y - g.y);
+        if (dist > MAGNET_RANGE) continue;
+        const D = targetHalf - (b.x - CX) / (S / 2);
+        if (Math.abs(D) < 2) continue;
+        const m = ROWS - bouncesDone(b.y);
+        if (m <= 0) continue;
+        if (pathProb(m, D) > 0.15) continue;
+        if (dist < bestDist) { bestDist = dist; pick = g; }
+      }
+    }
+    if (pick) out.magnetPulseId = pick.id;
+  }
+  return out;
+}
+
+function buildState(pi) {
+  return {
+    pegs: PEG_LIST,
+    deflectors: st.gates.map(function (g) {
+      return { id: g.id, x: g.x, y: g.y, angle: g.angle, owner: g.owner };
+    }),
+    balls: st.active.map(function (b) {
+      return { x: b.x, y: b.y, vx: b.vx, vy: b.vy, golden: b.golden };
+    }),
+    buckets: AI_BINS.map(function (j, i) { return { x: binX(j), owner: AI_NAMES[i] }; }),
+    energy: st.energy[pi]
+  };
+}
+
+function applyDecision(pi, res) {
+  const mine = st.gates.filter(function (g) { return g.pi === pi; });
+  const angles = Array.isArray(res.deflectorAngles) ? res.deflectorAngles : [];
+  for (let i = 0; i < mine.length; i++) {
+    const g = mine[i];
+    const a = Number(angles[i]) || 0;
+    if (a === 0) { g.angle = 0; g.armT = 0; continue; }
+    if (g.angle === 0) {
+      if (st.energy[pi] >= GATE_COST) {
+        st.energy[pi] -= GATE_COST;
+        g.angle = a;
+        g.armT = 0;
+      }
+    } else {
+      g.angle = a;
+    }
+  }
+  if (res.magnetPulseId !== null && res.magnetPulseId !== undefined) {
+    const g = st.gates.find(function (q) { return q.id === res.magnetPulseId && q.pi === pi; });
+    const already = st.magnets.some(function (m) { return m.pi === pi; });
+    if (g && !already && st.energy[pi] >= MAGNET_COST) {
+      st.energy[pi] -= MAGNET_COST;
+      st.magnets.push({ x: g.x, y: g.y, pi: pi, timer: MAGNET_TIME });
+      pushLog(AI_NAMES[pi] + ' activa iman en fila ' + (g.r + 1));
+    }
+  }
+}
+
+function runAI() {
+  for (let pi = 0; pi < 3; pi++) {
+    let res = null;
+    try { res = window.computeGaltonDeflectors(buildState(pi), pi); } catch (e) { res = null; }
+    if (res) applyDecision(pi, res);
+  }
+}
+
+function firePulses() {
+  let fired = 0;
+  for (let pi = 0; pi < 3; pi++) {
+    if (st.energy[pi] < MAGNET_COST) continue;
+    if (st.magnets.some(function (m) { return m.pi === pi; })) continue;
+    const mine = st.gates.filter(function (g) { return g.pi === pi; });
+    let pick = mine[1], bestD = Infinity;
+    for (const g of mine) {
+      for (const b of st.active) {
+        if (!b.golden) continue;
+        const d = Math.hypot(b.x - g.x, b.y - g.y);
+        if (d < bestD) { bestD = d; pick = g; }
+      }
+    }
+    st.energy[pi] -= MAGNET_COST;
+    st.magnets.push({ x: pick.x, y: pick.y, pi: pi, timer: MAGNET_TIME });
+    fired++;
+  }
+  return fired;
+}
+
+// ===================== EVENTOS ESPECTACULARES (CICLO) =====================
+function runEvent() {
+  const seq = st.eventSeq % 4;
+  st.eventSeq++;
+  if (seq === 0) {
+    pushLog('Rafaga dorada: 8 canicas doradas');
+    for (let i = 0; i < 8; i++) st.burst.push({ at: st.t + i * 0.18, gold: true });
+  } else if (seq === 1) {
+    pushLog('Lluvia de canicas: 30 en 2 segundos');
+    for (let i = 0; i < 30; i++) st.burst.push({ at: st.t + i * 0.066, gold: false });
+  } else if (seq === 2) {
+    const n = firePulses();
+    pushLog('Pulso magnetico coordinado: ' + n + ' iman(es)');
+  } else {
+    pushLog('Duelo: 6 doradas para HAIKU y LUNA');
+    for (let i = 0; i < 6; i++) st.burst.push({ at: st.t + i * 0.25, gold: true });
+  }
+}
+
+// ===================== AUDITORIA Y R2 GAUSS =====================
+function gaussR2() {
+  let total = 0;
+  for (let j = 0; j < NB; j++) total += st.counts[j];
+  if (total < 1) return 0;
+  const p = [];
+  let mean = 0;
+  for (let j = 0; j < NB; j++) { p.push(st.counts[j] / total); mean += p[j] / NB; }
+  let ssRes = 0, ssTot = 0;
+  for (let j = 0; j < NB; j++) {
+    ssRes += (p[j] - Q14[j]) * (p[j] - Q14[j]);
+    ssTot += (p[j] - mean) * (p[j] - mean);
+  }
+  return ssTot > 0 ? clamp(1 - ssRes / ssTot, -1, 1) : 0;
+}
+
+function hookSelfTest() {
+  try {
+    const r = window.computeGaltonDeflectors({
+      pegs: PEG_LIST,
+      deflectors: [{ id: 1, x: CX, y: 300, angle: 0, owner: 'HYDROGEN' }],
+      balls: [{ x: CX + 20, y: 260, vx: 0, vy: 0, golden: true }],
+      buckets: [{ x: binX(3), owner: 'HYDROGEN' }],
+      energy: 100
+    }, 0);
+    return !!r && Array.isArray(r.deflectorAngles) && r.deflectorAngles.length === 1 &&
+      (r.magnetPulseId === null || typeof r.magnetPulseId === 'number');
+  } catch (e) { return false; }
+}
+
+window.computeGaltonDeflectors = computeGaltonDeflectors;
+window.__auditGalton = function () {
+  return {
+    ballsCollected: st.collected.slice(),
+    gaussianFitR2: Number(gaussR2().toFixed(4)),
+    activeBalls: st.active.length,
+    aiHookReady: typeof window.computeGaltonDeflectors === 'function' && hookSelfTest()
+  };
+};
+
+// ===================== RENDER =====================
+const $ = function (id) { return document.getElementById(id); };
+const cv = $('board');
+const ctx = cv.getContext('2d');
+const app = $('app');
+const bgLayer = document.createElement('canvas');
+bgLayer.width = W; bgLayer.height = H;
+const bctx = bgLayer.getContext('2d');
+
+function rrPath(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.arcTo(x + w, y, x + w, y + r, r);
+  c.lineTo(x + w, y + h - r);
+  c.arcTo(x + w, y + h, x + w - r, y + h, r);
+  c.lineTo(x + r, y + h);
+  c.arcTo(x, y + h, x, y + h - r, r);
+  c.lineTo(x, y + r);
+  c.arcTo(x, y, x + r, y, r);
+  c.closePath();
+}
+
+function hexPath(c, x, y, rad) {
+  c.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 3 * i + Math.PI / 6;
+    const px = x + rad * Math.cos(a), py = y + rad * Math.sin(a);
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.closePath();
+}
+
+// Capa estatica: fondo, marco, clavijas hexagonales, cubetas y etiquetas (se dibuja una sola vez)
+function buildStatic() {
+  const c = bctx;
+  c.fillStyle = '#060A12';
+  c.fillRect(0, 0, W, H);
+  const rg = c.createRadialGradient(CX, 560, 80, CX, 560, 760);
+  rg.addColorStop(0, 'rgba(34,211,238,0.12)');
+  rg.addColorStop(1, 'rgba(6,10,18,0)');
+  c.fillStyle = rg;
+  c.fillRect(0, 0, W, H);
+
+  rrPath(c, FRAME_L, FRAME_T, FRAME_R - FRAME_L, FRAME_B - FRAME_T, 18);
+  c.fillStyle = '#0F172A';
+  c.fill();
+  c.lineWidth = 2;
+  c.strokeStyle = 'rgba(34,211,238,0.55)';
+  c.shadowColor = '#22D3EE';
+  c.shadowBlur = 18;
+  c.stroke();
+  c.shadowBlur = 0;
+
+  // clavijas hexagonales (las compuertas se dibujan aparte)
+  for (let r = 0; r < ROWS; r++) {
+    for (let k = 0; k <= r; k++) {
+      if (st.pegMap[r + '_' + k]) continue;
+      hexPath(c, pegX(r, k), pegY(r), PR + 1.2);
+      c.fillStyle = '#0B1B33';
+      c.shadowColor = '#38BDF8';
+      c.shadowBlur = 8;
+      c.fill();
+      c.lineWidth = 1.2;
+      c.strokeStyle = 'rgba(56,189,248,0.9)';
+      c.stroke();
+    }
+  }
+  c.shadowBlur = 0;
+
+  // divisiones de cubetas y base
+  c.strokeStyle = 'rgba(56,189,248,0.30)';
+  c.lineWidth = 1;
+  for (let j = 0; j <= NB; j++) {
+    const x = CX + (j - 7.5) * S;
+    c.beginPath();
+    c.moveTo(x, BIN_TOP - 4);
+    c.lineTo(x, BIN_BASE);
+    c.stroke();
+  }
+  c.strokeStyle = '#22D3EE';
+  c.lineWidth = 2.5;
+  c.shadowColor = '#22D3EE';
+  c.shadowBlur = 10;
+  c.beginPath();
+  c.moveTo(CX - 7.5 * S, BIN_BASE);
+  c.lineTo(CX + 7.5 * S, BIN_BASE);
+  c.stroke();
+  c.shadowBlur = 0;
+
+  c.textAlign = 'center';
+  c.textBaseline = 'alphabetic';
+  c.font = '600 15px "Segoe UI", Arial, sans-serif';
+  c.fillStyle = '#64748B';
+  for (let j = 0; j < NB; j++) c.fillText(String(j), binX(j), BIN_BASE + 18);
+
+  for (let pi = 0; pi < 3; pi++) {
+    const x = binX(AI_BINS[pi]);
+    c.fillStyle = AI_COLORS[pi];
+    c.fillRect(x - S * 0.5, BIN_BASE + 4, S, 6);
+    c.font = '800 16px "Segoe UI", Arial, sans-serif';
+    c.fillText(AI_NAMES[pi], x, BIN_BASE + 44);
+  }
+
+  c.textAlign = 'left';
+  c.font = '600 14px "Segoe UI", Arial, sans-serif';
+  c.fillStyle = '#94A3B8';
+  c.fillText('Barras: histograma vivo  |  Puntos: B(14, 0.5)  |  Curva: Gauss', FRAME_L + 18, FRAME_T + 26);
+}
+
+function drawHistogram() {
+  let total = 0, cmax = 0;
+  for (let j = 0; j < NB; j++) {
+    total += st.counts[j];
+    if (st.counts[j] > cmax) cmax = st.counts[j];
+  }
+  const maxVal = Math.max(cmax, total * Q14[7], 6) * 1.12;
+  const hw = S * 0.40;
+  for (let j = 0; j < NB; j++) {
+    const h = st.counts[j] / maxVal * BIN_MAX_H;
+    if (h <= 0.2) continue;
+    const pi = AI_BINS.indexOf(j);
+    const y = BIN_BASE - h;
+    const grd = ctx.createLinearGradient(0, y, 0, BIN_BASE);
+    grd.addColorStop(0, pi >= 0 ? AI_COLORS[pi] : '#38BDF8');
+    grd.addColorStop(1, 'rgba(15,23,42,0.9)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(binX(j) - hw, y, hw * 2, h);
+  }
+  if (st.showGauss && total > 0) {
+    const VAR = 3.5, sig = Math.sqrt(VAR);
+    ctx.beginPath();
+    let first = true;
+    for (let xx = -0.5; xx <= 14.5001; xx += 0.05) {
+      const pdf = Math.exp(-((xx - 7) * (xx - 7)) / (2 * VAR)) / (sig * Math.sqrt(2 * Math.PI));
+      const px = CX + (xx - 7) * S;
+      const py = BIN_BASE - total * pdf / maxVal * BIN_MAX_H;
+      if (first) { ctx.moveTo(px, py); first = false; } else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = '#FB923C';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#FB923C';
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  for (let j = 0; j < NB; j++) {
+    const ty = BIN_BASE - total * Q14[j] / maxVal * BIN_MAX_H;
+    ctx.beginPath();
+    ctx.arc(binX(j), ty, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#FBBF24';
+    ctx.fill();
+  }
+  ctx.textAlign = 'right';
+  ctx.font = '700 17px "Segoe UI", Arial, sans-serif';
+  ctx.fillStyle = '#22D3EE';
+  ctx.fillText('muestras: ' + Math.round(total), FRAME_R - 18, FRAME_T + 28);
+  ctx.textAlign = 'left';
+}
+
+function drawGates() {
+  for (let i = 0; i < st.gates.length; i++) {
+    const g = st.gates[i];
+    const col = AI_COLORS[g.pi];
+    const armed = g.angle !== 0;
+    ctx.save();
+    hexPath(ctx, g.x, g.y, PR + 3);
+    ctx.fillStyle = armed ? col : '#0B1B33';
+    ctx.shadowColor = col;
+    ctx.shadowBlur = armed ? 22 : 8;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = col;
+    ctx.stroke();
+    ctx.restore();
+    if (armed) {
+      ctx.save();
+      ctx.translate(g.x, g.y);
+      ctx.rotate(g.angle);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.moveTo(-18, 0);
+      ctx.lineTo(18, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (g.flashT > 0) {
+      ctx.save();
+      ctx.globalAlpha = clamp(g.flashT / 0.6, 0, 1);
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, PR + 4 + (0.6 - g.flashT) * 40, 0, Math.PI * 2);
+      ctx.strokeStyle = AI_COLORS[g.pi];
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+function drawMagnets() {
+  for (let i = 0; i < st.magnets.length; i++) {
+    const m = st.magnets[i];
+    const a = clamp(m.timer / MAGNET_TIME, 0, 1);
+    const tx = binX(AI_BINS[m.pi]);
+    ctx.save();
+    ctx.globalAlpha = 0.3 + 0.6 * a;
+    ctx.setLineDash([6, 8]);
+    ctx.strokeStyle = '#F43F5E';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, MAGNET_RANGE * (1 - 0.35 * a), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = AI_COLORS[m.pi];
+    ctx.lineWidth = 3;
+    ctx.shadowColor = AI_COLORS[m.pi];
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(m.x, m.y);
+    ctx.lineTo(tx, BIN_TOP);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBalls() {
+  for (let i = 0; i < st.active.length; i++) {
+    const b = st.active[i];
+    if (b.golden) {
+      ctx.save();
+      const g = ctx.createRadialGradient(b.x - 2.5, b.y - 2.5, 1, b.x, b.y, b.rad);
+      g.addColorStop(0, '#FFF7CC');
+      g.addColorStop(0.45, '#FBBF24');
+      g.addColorStop(1, '#B45309');
+      ctx.fillStyle = g;
+      ctx.shadowColor = '#FBBF24';
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      const g = ctx.createRadialGradient(b.x - 2, b.y - 2, 0.5, b.x, b.y, b.rad);
+      g.addColorStop(0, '#F8FAFC');
+      g.addColorStop(0.5, '#94A3B8');
+      g.addColorStop(1, '#334155');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawBottom() {
+  ctx.save();
+  ctx.font = '600 16px "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'left';
+  for (let i = 0; i < st.log.length; i++) {
+    const e = st.log[i];
+    ctx.fillStyle = i === 0 ? '#E2E8F0' : '#64748B';
+    ctx.fillText('[' + e.t.toFixed(1) + ' s]  ' + e.msg, FRAME_L + 6, 1026 + i * 22);
+  }
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#94A3B8';
+  ctx.fillText('Pool 400 canicas  |  en juego ' + st.active.length + '  |  ciclos ' + st.cycles, FRAME_R, 1026);
+  ctx.restore();
+}
+
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(bgLayer, 0, 0);
+  drawHistogram();
+  drawGates();
+  drawMagnets();
+  drawBalls();
+  drawBottom();
+  if (st.paused) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '800 54px "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = 'rgba(244,63,94,0.9)';
+    ctx.fillText('PAUSA', CX, 470);
+    ctx.restore();
+  }
+}
+
+// ===================== HUD (DOM) =====================
+const hud = {
+  active: $('stActive'), total: $('stTotal'), golden: $('stGolden'), collected: $('stCollected'),
+  r2: $('stR2'), time: $('stTime'), fps: $('stFps'), event: $('stEvent'),
+  rateVal: $('rateVal'), speedVal: $('speedVal'), btnPause: $('btnPause'),
+  btnAuto: $('btnAuto'), btnGauss: $('btnGauss'),
+  ai: [0, 1, 2].map(function (i) { return { meta: $('ai' + i + 'Meta'), energy: $('ai' + i + 'Energy') }; })
+};
+let hudTick = 0;
+function updateHUD() {
+  hudTick++;
+  if (hudTick % 6 !== 0) return;
+  let gold = 0;
+  for (let i = 0; i < st.active.length; i++) if (st.active[i].golden) gold++;
+  hud.active.textContent = st.active.length;
+  hud.total.textContent = st.cycles;
+  hud.golden.textContent = gold;
+  hud.collected.textContent = st.collected[0] + st.collected[1] + st.collected[2];
+  hud.r2.textContent = gaussR2().toFixed(3);
+  hud.time.textContent = st.t.toFixed(1) + ' s';
+  hud.fps.textContent = st.fps;
+  hud.event.textContent = st.log.length ? st.log[0].msg : 'Arranque';
+  for (let pi = 0; pi < 3; pi++) {
+    const armed = st.gates.filter(function (g) { return g.pi === pi && g.angle !== 0; }).length;
+    const magnets = st.magnets.filter(function (m) { return m.pi === pi; }).length;
+    hud.ai[pi].meta.textContent = 'Armados: ' + armed + '/3  -  Capturas: ' + st.collected[pi] +
+      '  -  Imanes activos: ' + magnets + '  -  Energia: ' + Math.round(st.energy[pi]);
+    hud.ai[pi].energy.style.width = clamp(st.energy[pi] / ENERGY_MAX * 100, 0, 100).toFixed(1) + '%';
+  }
+}
+
+// ===================== CONTROLES =====================
+function wire() {
+  hud.btnPause.onclick = function () {
+    st.paused = !st.paused;
+    hud.btnPause.textContent = st.paused ? 'Reanudar' : 'Pausa';
+  };
+  $('btnGolden').onclick = function () {
+    let n = 0;
+    for (let i = 0; i < 3; i++) if (spawnOne(true, CX + (Math.random() - 0.5) * 300)) n++;
+    pushLog('Lanzamiento manual de ' + n + ' doradas');
+  };
+  $('btnReset').onclick = function () { resetAll(); };
+  hud.btnAuto.onclick = function () {
+    st.autoAI = !st.autoAI;
+    hud.btnAuto.textContent = 'IA automatica: ' + (st.autoAI ? 'ON' : 'OFF');
+  };
+  $('btnMagnet').onclick = function () {
+    const n = firePulses();
+    pushLog('Pulso manual: ' + n + ' iman(es)');
+  };
+  hud.btnGauss.onclick = function () {
+    st.showGauss = !st.showGauss;
+    hud.btnGauss.textContent = 'Curva Gauss: ' + (st.showGauss ? 'ON' : 'OFF');
+  };
+  $('rate').oninput = function (e) {
+    st.rate = Number(e.target.value);
+    hud.rateVal.textContent = st.rate.toFixed(1);
+  };
+  $('speed').oninput = function (e) {
+    st.speed = Number(e.target.value);
+    hud.speedVal.textContent = st.speed.toFixed(2);
+  };
+  cv.addEventListener('click', function (e) {
+    const rect = cv.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width * W;
+    const y = (e.clientY - rect.top) / rect.height * H;
+    if (x > FRAME_L && x < FRAME_R && y > FRAME_T && y < BIN_TOP - 60) {
+      if (spawnOne(true, x)) pushLog('Dorada lanzada por el usuario en x = ' + Math.round(x));
+    }
+  });
+  window.addEventListener('resize', fit);
+}
+
+function fit() {
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  app.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+}
+
+// ===================== BUCLE 60 FPS =====================
+let lastNow = 0, accum = 0, frames = 0, fpsClock = 0;
+function loop(now) {
+  if (!lastNow) lastNow = now;
+  const dtReal = Math.min(0.05, Math.max(0, (now - lastNow) / 1000));
+  lastNow = now;
+  if (!st.paused) {
+    accum += dtReal * st.speed;
+    let steps = 0;
+    while (accum >= FIX_DT && steps < 64) {
+      fixedStep(FIX_DT);
+      accum -= FIX_DT;
+      steps++;
+    }
+    if (steps >= 64) accum = 0;
+  }
+  frames++;
+  fpsClock += dtReal;
+  if (fpsClock >= 0.5) {
+    st.fps = Math.round(frames / fpsClock);
+    frames = 0;
+    fpsClock = 0;
+  }
+  render();
+  updateHUD();
+  requestAnimationFrame(loop);
+}
+
+// ===================== ARRANQUE =====================
+function init() {
+  initPool();
+  initGates();
+  buildStatic();
+  wire();
+  fit();
+  pushLog('Sistema listo - canicas cayendo desde t = 0.0 s');
+  requestAnimationFrame(loop);
+}
+init();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Subasta Ciega - Maldicion del Ganador (Winner's Curse)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; background: #060A12; color: #E2E8F0;
+    font-family: "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+  #top { position: absolute; left: 0; top: 0; width: 1920px; height: 86px; background: #0F172A;
+    border-bottom: 2px solid #22D3EE; display: flex; align-items: center; padding: 0 28px; gap: 16px; }
+  #top h1 { font-size: 30px; color: #22D3EE; letter-spacing: 1px; margin-right: auto; }
+  button { background: #0B1220; color: #E2E8F0; border: 2px solid #38BDF8; border-radius: 8px;
+    padding: 10px 16px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  button:hover { background: #38BDF8; color: #060A12; }
+  button.on { background: #FB923C; border-color: #FB923C; color: #060A12; }
+  canvas { position: absolute; left: 0; top: 86px; }
+</style>
+</head>
+<body>
+<div id="top">
+  <h1>SUBASTA CIEGA · WINNER'S CURSE</h1>
+  <button id="bPause">PAUSA</button>
+  <button id="bSpeed">VELOCIDAD x1</button>
+  <button id="bMode">ESTRATEGIA: H INGENUO</button>
+  <button id="bNext">SIGUIENTE LOTE</button>
+  <button id="bReset">NUEVO TORNEO</button>
+</div>
+<canvas id="c" width="1920" height="994"></canvas>
+<script>
+"use strict";
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+const W = 1920, H = 994;
+const RES = 200;            // precio de reserva (ask inicial)
+const LOTS = 12;            // contenedores por torneo
+const START = 10000;        // presupuesto inicial USD
+const NAMES = ["HYDROGEN", "HAIKU", "LUNA"];
+const COL = ["#22D3EE", "#38BDF8", "#FB923C"];
+const TK = ["servidor", "auto", "cobre", "reliquia", "chatarra"];
+const TY = {
+  servidor:  { n: "SERVIDOR CUANTICO", min: 8000,  max: 14000, se: 1400 },
+  auto:      { n: "AUTO CLASICO",      min: 15000, max: 30000, se: 3000 },
+  cobre:     { n: "BOBINA DE COBRE",   min: 3000,  max: 6000,  se: 500 },
+  reliquia:  { n: "CAJA DE RELIQUIAS", min: 5000,  max: 20000, se: 2500 },
+  chatarra:  { n: "CHATARRA OXIDADA",  min: 300,   max: 1500,  se: 250 }
+};
+const MODES = [
+  ["naive", "bayes", "bayes"],
+  ["bayes", "bayes", "bayes"],
+  ["naive", "naive", "naive"]
+];
+const MODE_LABEL = ["ESTRATEGIA: H INGENUO", "ESTRATEGIA: TODOS BAYES", "ESTRATEGIA: TODOS INGENUOS"];
+let modeIdx = 0;
+let STRATS = MODES[0].slice();
+let paused = false;
+let speed = 1;
+let G = null;
+const TOT = { wc: 0, lots: 0 };   // acumulados globales (no se reinician)
+
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function fmt(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+function fmtSigned(n) { return (n >= 0 ? "+" : "-") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US"); }
+
+// ---------------------------------------------------------------
+// ESTRATEGIA: funcion expuesta para la arena (hook obligatorio)
+// state = { round, totalRounds, currentAsk, myBudget, allBudgets,
+//           mySignalEstimate, signalNoiseStd, itemHints:{minVal,maxVal,risk} }
+// devuelve { bid: number, fold: boolean }
+// ---------------------------------------------------------------
+window.decideAuctionBid = function (state, bidderIndex) {
+  const s = Number(state.mySignalEstimate);
+  const se = Math.max(1e-6, Number(state.signalNoiseStd) || 1);
+  const h = state.itemHints || { minVal: RES, maxVal: 2 * RES, risk: 0.1 };
+  const ask = Number(state.currentAsk) || RES;
+  const budget = Math.max(0, Number(state.myBudget) || 0);
+  const mu = (h.minVal + h.maxVal) / 2;                 // media a priori
+  const sv = Math.max(1e-6, (h.maxVal - h.minVal) / Math.sqrt(12)); // desv. a priori
+  let bid;
+  if (STRATS[bidderIndex] === "naive") {
+    bid = s;                                            // puja ingenua: su estimacion
+  } else {
+    const k = (sv * sv) / (sv * sv + se * se);          // peso de la senal
+    const post = mu + k * (s - mu);                     // E[V | s_i]
+    const pvar = (sv * sv * se * se) / (sv * sv + se * se);
+    bid = post - 0.5 * Math.sqrt(pvar);                 // sombreado por la maldicion
+  }
+  bid = Math.min(bid, budget);
+  bid = Math.max(0, Math.round(bid));
+  return { bid: bid, fold: bid < ask || budget < ask };
+};
+
+// ---------------------------------------------------------------
+// MOTOR DE SUBASTA
+// ---------------------------------------------------------------
+function newTournament() {
+  G = {
+    lot: 0, done: 0, budgets: [START, START, START], won: [0, 0, 0],
+    hist: [[START], [START], [START]], wc: 0, cur: null, res: [],
+    phase: "open", t: 0, log: [], alert: 0, alertTxt: ""
+  };
+  startLot();
+}
+
+function startLot() {
+  G.lot++;
+  const k = TK[Math.floor(Math.random() * TK.length)];
+  const ty = TY[k];
+  const V = Math.round(ty.min + Math.random() * (ty.max - ty.min));
+  const sig = [0, 1, 2].map(() => V + gauss() * ty.se);
+  G.cur = { k: k, ty: ty, V: V, sig: sig, bids: [null, null, null], dec: [null, null, null],
+    w: -1, price: 0, mu: (ty.min + ty.max) / 2, seed: Math.random() * 1000 };
+  G.phase = "open";
+  G.t = 0;
+}
+
+function runBids() {
+  const c = G.cur;
+  for (let i = 0; i < 3; i++) {
+    const state = {
+      round: G.lot, totalRounds: LOTS, currentAsk: RES, myBudget: G.budgets[i],
+      allBudgets: G.budgets.slice(), mySignalEstimate: c.sig[i], signalNoiseStd: c.ty.se,
+      itemHints: { minVal: c.ty.min, maxVal: c.ty.max, risk: c.ty.se / ((c.ty.min + c.ty.max) / 2) }
+    };
+    let d;
+    try { d = window.decideAuctionBid(state, i); } catch (e) { d = { bid: 0, fold: true }; }
+    let bid = Number(d && d.bid);
+    if (!isFinite(bid)) bid = 0;
+    bid = Math.min(Math.max(0, Math.round(bid)), G.budgets[i]);
+    const fold = !!(d && d.fold) || bid < RES;
+    c.dec[i] = { bid: bid, fold: fold };
+    c.bids[i] = fold ? null : bid;
+  }
+}
+
+function settle() {
+  const c = G.cur;
+  let best = -1;
+  for (let i = 0; i < 3; i++) {
+    if (c.bids[i] !== null && (best < 0 || c.bids[i] > c.bids[best])) best = i;
+  }
+  c.w = best;
+  if (best >= 0) {
+    c.price = c.bids[best];
+    G.budgets[best] -= c.price;
+    G.won[best] += c.V;
+    const over = c.price - c.V;
+    if (over > 0) {
+      G.wc++; TOT.wc++;
+      G.alert = 4.5;
+      G.alertTxt = NAMES[best] + " pago " + fmtSigned(over) + " por encima del valor real";
+      pushLog("LOTE " + G.lot + ": " + NAMES[best] + " GANO A " + fmt(c.price) + " (V=" + fmt(c.V) + ") MALDICION");
+    } else {
+      pushLog("LOTE " + G.lot + ": " + NAMES[best] + " GANO A " + fmt(c.price) + " (V=" + fmt(c.V) + ")");
+    }
+  } else {
+    pushLog("LOTE " + G.lot + ": SIN VENTA (todos retirados)");
+  }
+  G.res.push({ w: best, over: best >= 0 && c.price > c.V });
+  for (let i = 0; i < 3; i++) G.hist[i].push(G.budgets[i] + G.won[i]);
+  G.done++; TOT.lots++;
+}
+
+function pushLog(s) {
+  G.log.push(s);
+  if (G.log.length > 9) G.log.shift();
+}
+
+function update(dt) {
+  if (G.phase === "end") {
+    G.t += dt;
+    if (G.t > 3) newTournament();
+    return;
+  }
+  G.t += dt;
+  if (G.alert > 0) G.alert -= dt;
+  if (G.phase === "open" && G.t >= 2.5) { G.phase = "bid"; G.t = 0; runBids(); }
+  else if (G.phase === "bid" && G.t >= 2.5) { G.phase = "reveal"; G.t = 0; settle(); }
+  else if (G.phase === "reveal" && G.t >= 4.0) {
+    if (G.lot >= LOTS) { G.phase = "end"; G.t = 0; pushLog("TORNEO FINALIZADO. NUEVO TORNEO EN 3 s"); }
+    else startLot();
+  }
+}
+
+function skipPhase() {
+  if (G.phase === "open") { G.t = 2.5; }
+  else if (G.phase === "bid") { G.t = 2.5; }
+  else if (G.phase === "reveal") { G.t = 4.0; }
+}
+
+// ---------------------------------------------------------------
+// AUDITORIA
+// ---------------------------------------------------------------
+window.__auditAuction = function () {
+  let ready = false;
+  try {
+    const r = window.decideAuctionBid({ round: 1, totalRounds: LOTS, currentAsk: RES, myBudget: START,
+      allBudgets: [START, START, START], mySignalEstimate: 10000, signalNoiseStd: 1000,
+      itemHints: { minVal: 8000, maxVal: 12000, risk: 0.1 } }, 0);
+    ready = !!r && typeof r.bid === "number" && isFinite(r.bid) && typeof r.fold === "boolean";
+  } catch (e) { ready = false; }
+  return {
+    netWorths: [0, 1, 2].map(i => G.budgets[i] + G.won[i]),
+    winnersCurseCount: TOT.wc,
+    lotsCompleted: TOT.lots,
+    aiHookReady: ready
+  };
+};
+
+// ---------------------------------------------------------------
+// RENDER HELPERS
+// ---------------------------------------------------------------
+function panel(x, y, w, h, title) {
+  ctx.fillStyle = "#0F172A";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "rgba(34,211,238,0.35)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+  if (title) {
+    ctx.fillStyle = "#22D3EE";
+    ctx.font = "bold 20px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(title, x + 16, y + 30);
+  }
+}
+
+function drawBg(t) {
+  ctx.fillStyle = "#060A12";
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(56,189,248,0.04)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  const g = ctx.createRadialGradient(590, 340, 40, 590, 340, 560);
+  g.addColorStop(0, "rgba(34,211,238,0.10)");
+  g.addColorStop(1, "rgba(6,10,18,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(30, 20, 1120, 600);
+  // muelle: lamparas de vapor
+  for (let i = 0; i < 4; i++) {
+    const lx = 120 + i * 320, ly = 40 + Math.sin(t * 0.8 + i) * 2;
+    const lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, 90);
+    lg.addColorStop(0, "rgba(251,191,36,0.10)");
+    lg.addColorStop(1, "rgba(251,191,36,0)");
+    ctx.fillStyle = lg;
+    ctx.fillRect(lx - 90, ly - 90, 180, 180);
+  }
+}
+
+function drawContainer(cx, cy, w, h, p) {
+  const x0 = cx - w / 2, y0 = cy - h / 2;
+  // cuerpo corrugado
+  ctx.fillStyle = "#1E293B";
+  ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(148,163,184,0.18)";
+  for (let x = x0 + 14; x < x0 + w; x += 22) { ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + h); ctx.stroke(); }
+  // interior clipeado
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x0 + 10, y0 + 10, w - 20, h - 20); ctx.clip();
+  ctx.fillStyle = "#010409";
+  ctx.fillRect(x0 + 10, y0 + 10, w - 20, h - 20);
+  const T = G.t + (G.phase === "bid" ? 2.5 : 0) + (G.phase === "reveal" ? 5 : 0);
+  drawItem(G.cur.k, cx, cy + 10, T, G.cur.seed);
+  ctx.restore();
+  // puertas metalicas que se abren
+  const dw = (w / 2) * (1 - p);
+  ctx.fillStyle = "#334155";
+  ctx.fillRect(x0, y0, dw, h);
+  ctx.fillRect(x0 + w - dw, y0, dw, h);
+  ctx.fillStyle = "#FBBF24";
+  for (let k = 0; k < 6; k++) {
+    if (dw > 12) {
+      ctx.fillRect(x0 + 4, y0 + 10 + k * (h / 6), Math.min(dw - 8, 20), 6);
+      ctx.fillRect(x0 + w - dw + 4, y0 + 10 + k * (h / 6), Math.min(dw - 8, 20), 6);
+    }
+  }
+  ctx.strokeStyle = "#22D3EE";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(x0, y0, w, h);
+}
+
+function rnd(seed, i) {
+  const v = Math.sin(seed + i * 12.9898) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+function drawItem(k, cx, cy, T, seed) {
+  if (k === "servidor") {
+    for (let r = 0; r < 4; r++) {
+      const y = cy - 110 + r * 60;
+      ctx.fillStyle = "#0B1324";
+      ctx.fillRect(cx - 150, y, 300, 48);
+      ctx.strokeStyle = "#22D3EE";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx - 150, y, 300, 48);
+      for (let j = 0; j < 6; j++) {
+        const on = (Math.floor(T * 4 + r + j) % 2) === 0;
+        ctx.fillStyle = on ? "#10B981" : "#22D3EE";
+        ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(cx + 60 + j * 22, y + 24, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillStyle = "rgba(34,211,238,0.5)";
+      ctx.fillRect(cx - 130, y + 18, 90, 4);
+    }
+  } else if (k === "auto") {
+    ctx.fillStyle = "#B45309";
+    ctx.beginPath();
+    ctx.moveTo(cx - 170, cy + 30); ctx.lineTo(cx - 170, cy);
+    ctx.quadraticCurveTo(cx - 130, cy - 40, cx - 70, cy - 50);
+    ctx.lineTo(cx + 50, cy - 50);
+    ctx.quadraticCurveTo(cx + 110, cy - 40, cx + 150, cy);
+    ctx.lineTo(cx + 170, cy + 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#020617";
+    [-100, 100].forEach(dx => {
+      ctx.beginPath(); ctx.arc(cx + dx, cy + 36, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#94A3B8"; ctx.lineWidth = 4; ctx.stroke();
+    });
+    // lona que cubre el auto
+    ctx.fillStyle = "rgba(148,163,184,0.55)";
+    ctx.beginPath();
+    ctx.moveTo(cx - 185, cy - 80); ctx.lineTo(cx + 40, cy - 80);
+    ctx.lineTo(cx + 10, cy + 20); ctx.lineTo(cx - 185, cy + 20); ctx.closePath(); ctx.fill();
+  } else if (k === "cobre") {
+    for (let r = 120; r >= 20; r -= 25) {
+      ctx.strokeStyle = (Math.round(r / 25) % 2) ? "#F59E0B" : "#B45309";
+      ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = "#010409";
+    ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+  } else if (k === "reliquia") {
+    ctx.fillStyle = "#78350F";
+    ctx.fillRect(cx - 120, cy - 20, 240, 130);
+    ctx.strokeStyle = "#FBBF24"; ctx.lineWidth = 6;
+    ctx.strokeRect(cx - 120, cy - 20, 240, 130);
+    ctx.fillStyle = "#92400E";
+    ctx.fillRect(cx - 132, cy - 60, 264, 44);
+    ctx.strokeRect(cx - 132, cy - 60, 264, 44);
+    ctx.fillStyle = "#FBBF24";
+    ctx.fillRect(cx - 10, cy - 60, 20, 170);
+    const gp = 0.6 + 0.4 * Math.sin(T * 3);
+    ctx.shadowColor = "#22D3EE"; ctx.shadowBlur = 25 * gp;
+    ctx.fillStyle = "#22D3EE";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 120); ctx.lineTo(cx + 22, cy - 92);
+    ctx.lineTo(cx, cy - 66); ctx.lineTo(cx - 22, cy - 92); ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+  } else {
+    // chatarra oxidada: poligonos aleatorios estables por semilla
+    for (let i = 0; i < 16; i++) {
+      const px = cx + (rnd(seed, i * 3) - 0.5) * 260;
+      const py = cy + (rnd(seed, i * 3 + 1) - 0.5) * 200;
+      const sz = 20 + rnd(seed, i * 3 + 2) * 50;
+      const cols = ["#9A3412", "#C2410C", "#7C2D12", "#57534E", "#B45309"];
+      ctx.fillStyle = cols[i % cols.length];
+      ctx.beginPath();
+      for (let j = 0; j < 5; j++) {
+        const a = j * 1.26 + rnd(seed, i + j);
+        const r = sz * (0.6 + rnd(seed, i * 7 + j) * 0.5);
+        const x = px + Math.cos(a) * r, y = py + Math.sin(a) * r;
+        if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+function drawStage() {
+  panel(30, 20, 1120, 600, null);
+  const c = G.cur;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#22D3EE";
+  ctx.font = "bold 24px Arial";
+  ctx.fillText("MUELLE NOCTURNO  ·  CONTENEDOR " + G.lot + " / " + LOTS, 52, 58);
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#FB923C";
+  const phaseTxt = { open: "FASE: APERTURA", bid: "FASE: PUJAS CIEGAS", reveal: "FASE: REVELACION", end: "TORNEO TERMINADO" };
+  ctx.fillText(phaseTxt[G.phase] || "", 1128, 58);
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#E2E8F0";
+  ctx.font = "bold 22px Arial";
+  ctx.fillText(c.ty.n, 52, 92);
+  ctx.fillStyle = G.phase === "reveal" ? "#10B981" : "#FBBF24";
+  ctx.textAlign = "right";
+  ctx.fillText(G.phase === "reveal" ? "VALOR REAL V = " + fmt(c.V) : "V = ??????", 1128, 92);
+  ctx.textAlign = "left";
+
+  let p = 1;
+  if (G.phase === "open") p = Math.min(1, G.t / 1.2);
+  if (G.phase === "end") p = 1;
+  drawContainer(590, 370, 460, 300, p);
+
+  // signals visibles tras la apertura
+  if (G.phase !== "open" || G.t > 1.2) {
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#94A3B8";
+    ctx.fillText("Senales privadas: s_i = V + e_i  (sigma = " + fmt(c.ty.se) + ")", 590, 556);
+  }
+  // resultado
+  if (G.phase === "reveal") {
+    ctx.textAlign = "center";
+    ctx.font = "bold 26px Arial";
+    if (c.w >= 0) {
+      const diff = c.price - c.V;
+      ctx.fillStyle = diff > 0 ? "#F43F5E" : "#10B981";
+      ctx.fillText(NAMES[c.w] + " PAGO " + fmt(c.price) + "  |  DIFERENCIA " + fmtSigned(-diff) + " SOBRE V", 590, 596);
+    } else {
+      ctx.fillStyle = "#94A3B8";
+      ctx.fillText("SIN VENTA", 590, 596);
+    }
+  }
+  if (G.phase === "bid") {
+    ctx.textAlign = "center";
+    ctx.font = "bold 22px Arial";
+    ctx.fillStyle = "#38BDF8";
+    ctx.fillText("PUJAS SELLADAS EN CURSO...", 590, 596);
+  }
+  drawAlert();
+}
+
+function drawAlert() {
+  if (G.alert <= 0) return;
+  const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 120);
+  ctx.globalAlpha = Math.min(1, G.alert / 0.6) * pulse;
+  ctx.fillStyle = "rgba(244,63,94,0.92)";
+  ctx.fillRect(120, 110, 940, 70);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 34px Arial";
+  ctx.fillText("MALDICION DEL GANADOR", 590, 145);
+  ctx.font = "bold 18px Arial";
+  ctx.fillText(G.alertTxt, 590, 170);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "left";
+}
+
+function drawBidders() {
+  panel(1180, 20, 710, 390, "AGENTES EN LA SUBASTA");
+  const c = G.cur;
+  for (let i = 0; i < 3; i++) {
+    const y = 60 + i * 107;
+    const winner = G.phase === "reveal" && c.w === i;
+    ctx.fillStyle = "#0B1220";
+    ctx.fillRect(1196, y, 678, 95);
+    ctx.strokeStyle = winner ? "#10B981" : COL[i];
+    ctx.lineWidth = winner ? 4 : 2;
+    ctx.strokeRect(1196, y, 678, 95);
+    ctx.font = "bold 26px Arial";
+    ctx.fillStyle = COL[i];
+    ctx.textAlign = "left";
+    ctx.fillText(NAMES[i], 1214, y + 34);
+    ctx.font = "bold 16px Arial";
+    ctx.fillStyle = "#94A3B8";
+    ctx.textAlign = "right";
+    ctx.fillText("ESTRATEGIA: " + (STRATS[i] === "naive" ? "INGENUA" : "BAYESIANA"), 1856, y + 30);
+    ctx.textAlign = "left";
+    ctx.font = "20px Arial";
+    ctx.fillStyle = "#E2E8F0";
+    ctx.fillText("PRESUPUESTO " + fmt(G.budgets[i]) + "   PATRIMONIO " + fmt(G.budgets[i] + G.won[i]), 1214, y + 62);
+    ctx.font = "19px Arial";
+    const showSig = G.phase !== "open" || G.t > 1.2;
+    const sigTxt = showSig ? "s = " + fmt(c.sig[i]) : "s = ----";
+    let bidTxt;
+    if (G.phase === "open") bidTxt = "PUJA: pendiente";
+    else if (G.phase === "bid") bidTxt = c.dec[i] && c.dec[i].fold ? "PUJA: RETIRADO" : "PUJA: (oculta)";
+    else bidTxt = c.dec[i] && c.dec[i].fold ? "RETIRADO" : "PUJA " + fmt(c.dec[i].bid);
+    ctx.fillStyle = "#38BDF8";
+    ctx.fillText(sigTxt + "     " + bidTxt, 1214, y + 86);
+  }
+}
+
+function drawLog() {
+  panel(1180, 430, 710, 210, "REGISTRO DE SUBASTA");
+  ctx.font = "18px Arial";
+  ctx.fillStyle = "#CBD5E1";
+  ctx.textAlign = "left";
+  G.log.forEach((s, i) => {
+    ctx.fillStyle = s.indexOf("MALDICION") >= 0 ? "#F43F5E" : "#CBD5E1";
+    ctx.fillText(s.length > 74 ? s.slice(0, 74) + "..." : s, 1196, 466 + i * 19);
+  });
+}
+
+function drawStrip() {
+  panel(30, 640, 1120, 150, "CONTENEDORES DEL TORNEO");
+  for (let i = 0; i < LOTS; i++) {
+    const x = 50 + i * 92, y = 690;
+    let fill = "#1E293B", stroke = "#334155";
+    let label = "--", sub = "";
+    if (i < G.res.length) {
+      const r = G.res[i];
+      if (r.w < 0) { fill = "#1E293B"; label = "-"; sub = "SIN VENTA"; }
+      else {
+        fill = r.over ? "#9F1239" : "#065F46";
+        label = NAMES[r.w][0];
+        sub = r.over ? "MALDICION" : "OK";
+      }
+    } else if (i === G.lot - 1 && G.phase !== "end") {
+      fill = "#0E7490"; stroke = "#22D3EE"; label = "?";
+    }
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, y, 84, 90);
+    ctx.strokeStyle = stroke; ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, 84, 90);
+    ctx.fillStyle = "#E2E8F0";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(String(i + 1), x + 42, y + 24);
+    ctx.font = "bold 24px Arial";
+    ctx.fillText(label, x + 42, y + 56);
+    ctx.font = "bold 11px Arial";
+    ctx.fillText(sub, x + 42, y + 78);
+  }
+  ctx.textAlign = "left";
+  ctx.font = "19px Arial";
+  ctx.fillStyle = "#94A3B8";
+  ctx.fillText("Ganador: inicial de la IA. Naranja/coral = pago por encima de V. Verde = pago dentro de V.", 50, 774);
+}
+
+function drawExplain() {
+  panel(30, 810, 1120, 164, "MODELO ECONOMICO");
+  ctx.font = "21px Arial";
+  ctx.fillStyle = "#E2E8F0";
+  ctx.fillText("Estimacion privada: s_i = V + e_i,  e_i ~ N(0, sigma).  Primer precio sellado: el mayor puja gana y paga su puja.", 52, 858);
+  ctx.fillStyle = "#F43F5E";
+  ctx.fillText("Ingenuo: puja s_i. Gana cuando s_i es el maximo, es decir cuando mas sobreestima -> pierde dinero.", 52, 894);
+  ctx.fillStyle = "#10B981";
+  ctx.fillText("Bayesiano: E[V | s_i] = mu + k(s_i - mu), k = sv^2/(sv^2+se^2); puja con sombreado -0.5*sd_post.", 52, 930);
+  ctx.fillStyle = "#FBBF24";
+  ctx.fillText("Maldicion del ganador: lotes con pago > V = " + G.wc + " en este torneo  |  total global = " + TOT.wc, 52, 966);
+}
+
+function drawChart() {
+  panel(1180, 660, 710, 314, "PATRIMONIO NETO · 3 MODELOS");
+  const L = 1240, R = 1860, T = 730, B = 930;
+  let mn = START, mx = START;
+  for (let i = 0; i < 3; i++) for (const v of G.hist[i]) { mn = Math.min(mn, v); mx = Math.max(mx, v); }
+  mn -= 500; mx += 500;
+  if (mx - mn < 1) mx = mn + 1;
+  const yOf = v => B - (v - mn) / (mx - mn) * (B - T);
+  ctx.strokeStyle = "rgba(148,163,184,0.25)";
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath(); ctx.moveTo(L, yOf(START)); ctx.lineTo(R, yOf(START)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "#334155";
+  ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, B); ctx.lineTo(R, B); ctx.stroke();
+  for (let i = 0; i < 3; i++) {
+    const h = G.hist[i];
+    ctx.strokeStyle = COL[i]; ctx.lineWidth = 4;
+    ctx.beginPath();
+    h.forEach((v, j) => {
+      const x = L + (R - L) * j / LOTS;
+      if (j === 0) ctx.moveTo(x, yOf(v)); else ctx.lineTo(x, yOf(v));
+    });
+    ctx.stroke();
+    const lx = L + (R - L) * (h.length - 1) / LOTS;
+    ctx.fillStyle = COL[i];
+    ctx.beginPath(); ctx.arc(lx, yOf(h[h.length - 1]), 6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.font = "bold 17px Arial";
+  ctx.textAlign = "left";
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = COL[i];
+    const nw = G.budgets[i] + G.won[i];
+    ctx.fillText(NAMES[i] + " " + fmt(nw), 1196 + i * 232, 700);
+  }
+  ctx.fillStyle = "#64748B";
+  ctx.font = "15px Arial";
+  ctx.fillText("Lote", R - 30, B + 20);
+  ctx.fillText(fmt(mx), L - 58, T + 8);
+  ctx.fillText(fmt(mn), L - 58, B);
+}
+
+function draw(t) {
+  drawBg(t);
+  drawStage();
+  drawBidders();
+  drawLog();
+  drawStrip();
+  drawExplain();
+  drawChart();
+}
+
+// ---------------------------------------------------------------
+// CONTROLES
+// ---------------------------------------------------------------
+document.getElementById("bPause").onclick = function () {
+  paused = !paused;
+  this.textContent = paused ? "REANUDAR" : "PAUSA";
+  this.classList.toggle("on", paused);
+};
+document.getElementById("bSpeed").onclick = function () {
+  speed = speed === 1 ? 2 : (speed === 2 ? 4 : 1);
+  this.textContent = "VELOCIDAD x" + speed;
+};
+document.getElementById("bMode").onclick = function () {
+  modeIdx = (modeIdx + 1) % MODES.length;
+  STRATS = MODES[modeIdx].slice();
+  this.textContent = MODE_LABEL[modeIdx];
+};
+document.getElementById("bNext").onclick = function () { skipPhase(); };
+document.getElementById("bReset").onclick = function () { newTournament(); };
+
+// ---------------------------------------------------------------
+// BUCLE A 60 FPS (arranque automatico en t = 0)
+// ---------------------------------------------------------------
+newTournament();
+let last = performance.now();
+let simTime = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (!paused) { update(dt * speed); simTime += dt * speed; }
+  draw(simTime);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

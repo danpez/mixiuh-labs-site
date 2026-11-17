@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RETO 04/06 · Máquina Arcade de Garra · Secreto del Solenoide &amp; Duelo IA</title>
+  <style>
+    :root {
+      --bg: #060A12;
+      --panel: #0F172A;
+      --panel-alt: #131F38;
+      --border: rgba(56, 189, 248, 0.22);
+      --cyan: #22D3EE;
+      --blue: #38BDF8;
+      --orange: #FB923C;
+      --emerald: #10B981;
+      --gold: #FBBF24;
+      --coral: #F43F5E;
+      --text: #F1F5F9;
+      --muted: #94A3B8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .lab-shell {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 68px 1fr;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(34, 211, 238, 0.08), transparent 42%),
+        radial-gradient(circle at 85% 88%, rgba(251, 146, 60, 0.06), transparent 40%),
+        linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        var(--bg);
+      background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px, 100% 100%;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      background: rgba(15, 23, 42, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      color: var(--cyan);
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+    }
+
+    .title-text h1 {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    .title-text p {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    .kpi-strip {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .kpi-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      background: var(--panel-alt);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-pill .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .kpi-pill .val {
+      font-size: 20px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .val.cyan { color: var(--cyan); }
+    .val.gold { color: var(--gold); }
+    .val.emerald { color: var(--emerald); }
+    .val.coral { color: var(--coral); }
+    .val.orange { color: var(--orange); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 480px;
+      gap: 18px;
+      padding: 16px 24px 20px;
+      min-height: 0;
+    }
+
+    .stage-card {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      display: flex;
+    }
+
+    #simCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      padding-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .badge-24v {
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+    }
+
+    .badge-9v {
+      background: rgba(244, 63, 94, 0.16);
+      color: var(--coral);
+      border: 1px solid rgba(244, 63, 94, 0.45);
+    }
+
+    .badge-idle {
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--blue);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .voltage-hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .meter-box {
+      background: var(--bg);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .meter-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .meter-big {
+      font-size: 36px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-top: 4px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .meter-sub {
+      font-size: 12px;
+      margin-top: 4px;
+      color: var(--muted);
+    }
+
+    .force-bar-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .force-bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .force-track {
+      height: 16px;
+      border-radius: 8px;
+      background: #080E1A;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .force-fill {
+      height: 100%;
+      border-radius: 7px;
+      transition: width 0.08s linear, background-color 0.12s ease;
+    }
+
+    .force-threshold {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--gold);
+      box-shadow: 0 0 8px var(--gold);
+    }
+
+    #scopeCanvas {
+      width: 100%;
+      height: 130px;
+      background: #060A12;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 10px;
+      display: block;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.14s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.12);
+    }
+
+    .btn.active {
+      background: rgba(34, 211, 238, 0.2);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.2);
+    }
+
+    .btn.btn-gold.active, .btn.btn-gold:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(251, 191, 36, 0.14);
+    }
+
+    .btn.btn-orange {
+      border-color: rgba(251, 146, 60, 0.45);
+      color: var(--orange);
+    }
+
+    .btn.btn-orange:hover {
+      background: rgba(251, 146, 60, 0.16);
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .slider-head span:last-child {
+      color: var(--cyan);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--cyan);
+      cursor: pointer;
+    }
+
+    .ai-log {
+      background: var(--bg);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 10px;
+      padding: 11px 13px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #CBD5E1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .ai-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed rgba(148, 163, 184, 0.12);
+      padding: 3px 0;
+    }
+
+    .ai-row:last-child {
+      border-bottom: none;
+    }
+
+    .legend-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="lab-shell">
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M12 2v6m0 0l-6 5v4m6-9l6 5v4M5 17l3 3m11-3l-3 3"/>
+          </svg>
+          <span>MIXIUH LABS · RETO 04/06</span>
+        </div>
+        <div class="title-text">
+          <h1>MAQUINA DE GARRA ARCADE · SECRETO DEL SOLENOIDE Y DUELO IA</h1>
+          <p>Péndulo real · 3 dedos articulados · Caída de voltaje 24V a 9V vs Enganche Lateral IA</p>
+        </div>
+      </div>
+
+      <div class="kpi-strip">
+        <div class="kpi-pill">
+          <span class="label">INTENTOS</span>
+          <span class="val cyan" id="uiAttempts">0</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="label">PREMIOS</span>
+          <span class="val emerald" id="uiWon">0</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="label">TASA PAGO</span>
+          <span class="val gold" id="uiPayoutPct">0%</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="label">VOLTAJE</span>
+          <span class="val coral" id="uiTopVoltage">24.0 V</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="stage-card">
+        <canvas id="simCanvas"></canvas>
+      </section>
+
+      <aside class="sidebar">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              SECRETO DEL SOLENOIDE (PAYOUT RATE)
+            </span>
+            <span class="badge badge-24v" id="uiSolenoidBadge">24V PLENO</span>
+          </div>
+
+          <div class="voltage-hero">
+            <div class="meter-box">
+              <div class="meter-label">VOLTAJE BOBINA</div>
+              <div class="meter-big emerald" id="uiVoltageBig">24.0 V</div>
+              <div class="meter-sub" id="uiVoltageNote">Agarre nominal completo</div>
+            </div>
+            <div class="meter-box">
+              <div class="meter-label">FUERZA DE AGARRE</div>
+              <div class="meter-big cyan" id="uiForceBig">46.0 N</div>
+              <div class="meter-sub" id="uiWeightReq">Peso objetivo: -- N</div>
+            </div>
+          </div>
+
+          <div class="force-bar-wrap">
+            <div class="force-bar-labels">
+              <span>MARGEN DE RETENCION VS DESLIZAMIENTO</span>
+              <span id="uiSlipPct">0% SLIP</span>
+            </div>
+            <div class="force-track">
+              <div class="force-fill" id="uiForceFill" style="width: 85%; background: #10B981;"></div>
+              <div class="force-threshold" id="uiForceThreshold" style="left: 48%;" title="Peso necesario para sostener"></div>
+            </div>
+          </div>
+
+          <canvas id="scopeCanvas"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+              </svg>
+              MODO DE ARENA Y CONTROLES
+            </span>
+            <span class="badge badge-idle" id="uiModeBadge">ARENA AUTO</span>
+          </div>
+
+          <div class="mode-grid">
+            <button class="btn active" id="btnModeArena">ARENA AUTO (CICLO)</button>
+            <button class="btn" id="btnModeAiSkill">IA EXPERTO (9V)</button>
+            <button class="btn" id="btnModeNaive">TIRO INGENUO (9V)</button>
+            <button class="btn btn-gold" id="btnModeFull24">PAGO TOTAL (24V)</button>
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-head">
+              <span>FRECUENCIA DE PAGO 24V (PAYOUT)</span>
+              <span id="uiPayoutLabel">1 de cada 3 tiros</span>
+            </div>
+            <input type="range" id="sliderPayout" min="1" max="6" step="1" value="3" />
+          </div>
+
+          <div class="mode-grid">
+            <button class="btn btn-orange" id="btnForceDrop">BAJAR GARRA AHORA</button>
+            <button class="btn" id="btnResetPit">REPONER 12 PREMIOS</button>
+          </div>
+
+          <div class="mode-grid">
+            <button class="btn" id="btnPulseSwing">IMPULSAR PENDULO</button>
+            <button class="btn" id="btnAudio">SONIDO: ON</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex: 1; min-height: 0;">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 15l3-3 3 2 4-5"/>
+              </svg>
+              CONTROLADOR IA (decideClawAction)
+            </span>
+            <span class="badge badge-24v">HOOK ACTIVO</span>
+          </div>
+
+          <div class="ai-log">
+            <div class="ai-row"><span>Estrategia actual:</span><strong id="uiAiStrategy" style="color:#22D3EE">ENGANCHE DE ARO</strong></div>
+            <div class="ai-row"><span>Objetivo (targetX):</span><strong id="uiAiTargetX">-- px</strong></div>
+            <div class="ai-row"><span>Balanceo (swingDeg):</span><strong id="uiAiSwing">-- deg</strong></div>
+            <div class="ai-row"><span>Angulo cable real:</span><strong id="uiRopeDeg">0.0 deg</strong></div>
+            <div class="ai-row"><span>Estado garra:</span><strong id="uiPhaseLabel">POSICIONANDO</strong></div>
+          </div>
+
+          <div class="legend-row">
+            <div class="legend-item"><span class="dot" style="background:#FBBF24"></span>Capsula Dorada (Aro)</div>
+            <div class="legend-item"><span class="dot" style="background:#FB923C"></span>Caja Pesada</div>
+            <div class="legend-item"><span class="dot" style="background:#38BDF8"></span>Esfera Resbaladiza</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // =========================================================================
+      // 1. AUDIO SYNTHESIZER (WEB AUDIO API, AUTO-UNLOCK SAFE)
+      // =========================================================================
+      const AudioFX = (() => {
+        let ctx = null;
+        let enabled = true;
+
+        function ensureCtx() {
+          if (!enabled) return null;
+          try {
+            if (!ctx) {
+              const AC = window.AudioContext || window.webkitAudioContext;
+              if (AC) ctx = new AC();
+            }
+            if (ctx && ctx.state === 'suspended') {
+              ctx.resume().catch(() => {});
+            }
+          } catch (_) {
+            ctx = null;
+          }
+          return ctx;
+        }
+
+        function tone(freq, dur, type = 'sine', gainVal = 0.08, endFreq = null) {
+          const c = ensureCtx();
+          if (!c || c.state !== 'running') return;
+          try {
+            const now = c.currentTime;
+            const osc = c.createOscillator();
+            const g = c.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, now);
+            if (endFreq !== null) {
+              osc.frequency.exponentialRampToValueAtTime(Math.max(30, endFreq), now + dur);
+            }
+            g.gain.setValueAtTime(0.001, now);
+            g.gain.linearRampToValueAtTime(gainVal, now + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.0005, now + dur);
+            osc.connect(g);
+            g.connect(c.destination);
+            osc.start(now);
+            osc.stop(now + dur + 0.02);
+          } catch (_) {}
+        }
+
+        return {
+          get enabled() { return enabled; },
+          toggle() {
+            enabled = !enabled;
+            if (enabled) ensureCtx();
+            return enabled;
+          },
+          unlock: ensureCtx,
+          grab24V() { tone(240, 0.14, 'triangle', 0.09, 520); },
+          drop9V() { tone(440, 0.24, 'sawtooth', 0.07, 135); },
+          slip() { tone(310, 0.18, 'sine', 0.06, 120); },
+          win() {
+            tone(523.25, 0.12, 'triangle', 0.09);
+            setTimeout(() => tone(659.25, 0.12, 'triangle', 0.09), 90);
+            setTimeout(() => tone(783.99, 0.18, 'triangle', 0.10), 180);
+            setTimeout(() => tone(1046.5, 0.28, 'sine', 0.10), 280);
+          },
+          clank() { tone(165, 0.09, 'square', 0.04, 95); }
+        };
+      })();
+
+      window.addEventListener('pointerdown', () => AudioFX.unlock(), { passive: true });
+
+      // =========================================================================
+      // 2. PURE AI HOOK: window.decideClawAction(state)
+      // =========================================================================
+      /**
+       * Pure AI controller for the Claw Machine.
+       * state = { clawX, clawY, ropeAngle, voltageMode, chuteX, prizes: [{id, x, y, r, mass, value, shape}] }
+       * Returns { targetX: number, dropNow: boolean, swingTimingDeg: number }
+       */
+      window.decideClawAction = function decideClawAction(state) {
+        if (!state || !Array.isArray(state.prizes) || state.prizes.length === 0) {
+          const fallbackX = state && Number.isFinite(state.chuteX) ? state.chuteX + 220 : 640;
+          return { targetX: fallbackX, dropNow: false, swingTimingDeg: 0 };
+        }
+
+        const chuteX = Number.isFinite(state.chuteX) ? state.chuteX : 245;
+        const clawX = Number.isFinite(state.clawX) ? state.clawX : chuteX + 200;
+        const ropeAngleRad = Number.isFinite(state.ropeAngle) ? state.ropeAngle : 0;
+        const ropeDeg = ropeAngleRad * (180 / Math.PI);
+        const modeStr = String(state.voltageMode || 'RIGGED_9V').toUpperCase();
+        const isFullVoltage = modeStr.includes('24') || modeStr.includes('FULL') || modeStr.includes('PAYOUT');
+
+        // Estimate characteristic workspace span for scale-invariant thresholds
+        let minPx = chuteX;
+        let maxPx = chuteX;
+        for (const p of state.prizes) {
+          if (p.x < minPx) minPx = p.x;
+          if (p.x > maxPx) maxPx = p.x;
+        }
+        const span = Math.max(200, maxPx - minPx);
+
+        // Score each prize dynamically according to voltage mode
+        let bestPrize = state.prizes[0];
+        let bestScore = -Infinity;
+
+        for (const p of state.prizes) {
+          const distToChute = Math.abs(p.x - chuteX);
+          const normDist = distToChute / span;
+          const shape = String(p.shape || 'sphere').toLowerCase();
+          const mass = Number.isFinite(p.mass) ? p.mass : 1.2;
+          const val = Number.isFinite(p.value) ? p.value : 200;
+
+          let score = val * 0.45;
+          if (isFullVoltage) {
+            // At 24V, heavy/valuable prizes stay securely clamped: prioritize highest value + clean top access
+            score += val * 0.9 - normDist * 110 - (shape === 'sphere' ? 40 : 0);
+          } else {
+            // At 9V rigged voltage:
+            // 1) Golden capsules with top ring can be mechanically hooked!
+            // 2) Prizes close to the chute can be flung/hooked into the chute with pendulum swing before slip completes!
+            const ringBonus = shape.includes('capsule') || shape.includes('ring') ? 320 : 0;
+            const heavyPenalty = mass > 1.8 ? (mass - 1.5) * 140 : 0;
+            const slipperyPenalty = shape.includes('sphere') ? 135 : 0;
+            const chuteProximityBonus = (1.0 - Math.min(1.0, normDist)) * 280;
+            const heightBonus = Number.isFinite(p.y) ? Math.max(0, (700 - p.y) * 0.6) : 0;
+            score += ringBonus + chuteProximityBonus + heightBonus - heavyPenalty - slipperyPenalty;
+          }
+
+          // Prefer prizes that aren't deeply buried beneath another prize
+          let buriedCount = 0;
+          for (const other of state.prizes) {
+            if (other.id === p.id) continue;
+            if (other.y < p.y - p.r * 0.4 && Math.abs(other.x - p.x) < (p.r + other.r) * 0.72) {
+              buriedCount++;
+            }
+          }
+          score -= buriedCount * 220;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestPrize = p;
+          }
+        }
+
+        const dirToChute = bestPrize.x > chuteX ? -1 : 1;
+        const shape = String(bestPrize.shape || '').toLowerCase();
+        const distFromChute = Math.abs(bestPrize.x - chuteX);
+
+        let targetX = bestPrize.x;
+        let swingTimingDeg = 0;
+
+        if (!isFullVoltage) {
+          if (shape.includes('capsule') || shape.includes('ring')) {
+            // Slight offset to catch the top ring on a prong and induce inward swing toward chute
+            targetX = bestPrize.x - dirToChute * (bestPrize.r * 0.14);
+            swingTimingDeg = dirToChute * 5.0;
+          } else {
+            // Controlled inward swing toward the chute to fling over the barrier before 9V slip completes
+            targetX = bestPrize.x - dirToChute * (bestPrize.r * 0.18);
+            const swingMag = distFromChute < span * 0.38 ? 6.5 : 8.0;
+            swingTimingDeg = dirToChute * swingMag;
+          }
+        } else {
+          // Precision center grab for 24V payout shot
+          targetX = bestPrize.x;
+          swingTimingDeg = dirToChute * 1.5;
+        }
+
+        const alignTol = Math.max(10, (bestPrize.r || 26) * 0.48);
+        const posAligned = Math.abs(clawX - targetX) <= alignTol;
+
+        // Check pendulum swing synchronization (keep angle tight enough so fast drop hits target reliably)
+        let swingAligned = true;
+        if (!isFullVoltage && Math.abs(swingTimingDeg) > 4) {
+          swingAligned = Math.abs(ropeDeg) <= 6.5;
+        } else {
+          swingAligned = Math.abs(ropeDeg) <= 5.0;
+        }
+
+        return {
+          targetX: Number(targetX.toFixed(2)),
+          dropNow: Boolean(posAligned && swingAligned),
+          swingTimingDeg: Number(swingTimingDeg.toFixed(2))
+        };
+      };
+
+      // =========================================================================
+      // 3. CABINET & SIMULATION CONSTANTS (LOGICAL CANVAS 1280x880)
+      // =========================================================================
+      const W = 1280;
+      const H = 880;
+      const CAB = {
+        left: 110,
+        right: 1170,
+        top: 66,
+        bottom: 774,
+        railY: 132,
+        floorY: 716,
+        chuteLeft: 132,
+        chuteRight: 324,
+        chuteX: 228,
+        barrierX: 332,
+        barrierTopY: 548,
+        minCarriageX: 228,
+        maxCarriageX: 1100
+      };
+
+      const PX_PER_M = 125;
+      const GRAVITY = 9.81;
+
+      const PRIZE_TEMPLATES = [
+        { shape: 'capsule_ring', name: 'Capsula Dorada', r: 28, mass: 1.35, friction: 0.44, value: 500, color: '#FBBF24', accent: '#FEF08A', hasRing: true },
+        { shape: 'box',          name: 'Caja Titanio',   r: 31, mass: 2.35, friction: 0.58, value: 320, color: '#FB923C', accent: '#FED7AA', hasRing: false },
+        { shape: 'sphere',       name: 'Esfera Crio',    r: 27, mass: 0.92, friction: 0.25, value: 180, color: '#38BDF8', accent: '#BAE6FD', hasRing: false }
+      ];
+
+      // =========================================================================
+      // 4. SIMULATION STATE
+      // =========================================================================
+      const sim = {
+        time: 0,
+        mode: 'AUTO_ARENA', // 'AUTO_ARENA' | 'AI_9V' | 'NAIVE_9V' | 'FULL_24V'
+        payoutEvery: 3,
+        attempts: 0,
+        prizesWon: 0,
+        voltageMode: 'RIGGED_9V', // 'RIGGED_9V' | 'FULL_24V'
+        currentVoltage: 24.0,
+        targetVoltage: 24.0,
+        gripForceN: 46.0,
+
+        // Carriage & pendulum state
+        clawX: 520,
+        clawVx: 0,
+        targetX: 680,
+        ropeLength: 74,
+        ropeAngle: 0.11, // starts already visibly swinging at 0.0s!
+        ropeAngularVel: -0.25,
+        clawOpen: 0.72,
+        desiredClawOpen: 0.72,
+
+        // State machine
+        phase: 'POSITIONING', // POSITIONING | DESCENDING | GRABBING | ASCENDING | RETURNING | DROPPING
+        phaseTime: 0,
+        activeController: 'NAIVE_DEMO', // 'AI_SKILL' | 'NAIVE_DEMO' | 'PAYOUT_24V'
+        swingTimingDeg: 0,
+        swingExcitedPhase: 0,
+
+        // Grabbed prize & slip physics
+        grabbedId: null,
+        ringHooked: false,
+        slipProgress: 0,
+        slipTilt: 0,
+        requiredHoldN: 0,
+        grabOffsetX: 0,
+
+        // Entities & visual FX
+        nextPrizeId: 1,
+        prizes: [],
+        wonTray: [],
+        particles: [],
+        floatingCallouts: [],
+        sensorFlash: 0,
+
+        // Telemetry scope history
+        scopeHistory: new Array(160).fill(24),
+        scopeForceHistory: new Array(160).fill(46),
+        scopeTimer: 0,
+        bannerText: 'INICIANDO DEMO EN VIVO · ANALISIS DE SOLENOIDE',
+        bannerColor: '#22D3EE'
+      };
+
+      // =========================================================================
+      // 5. AUDIT HOOK: window.__auditClaw()
+      // =========================================================================
+      window.__auditClaw = function __auditClaw() {
+        return {
+          attempts: sim.attempts,
+          prizesWon: sim.prizesWon,
+          currentVoltage: Number(sim.currentVoltage.toFixed(2)),
+          aiHookReady: typeof window.decideClawAction === 'function'
+        };
+      };
+
+      // =========================================================================
+      // 6. PRIZE SPAWNING & 2D COLLISION PIT PHYSICS
+      // =========================================================================
+      function createPrize(templateIdx, x, y) {
+        const tpl = PRIZE_TEMPLATES[templateIdx % PRIZE_TEMPLATES.length];
+        const jitterR = tpl.r + ((sim.nextPrizeId % 3) - 1) * 1.5;
+        return {
+          id: sim.nextPrizeId++,
+          shape: tpl.shape,
+          name: tpl.name,
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          angle: ((sim.nextPrizeId * 37) % 100) / 100 - 0.5,
+          angVel: 0,
+          r: jitterR,
+          mass: tpl.mass + ((sim.nextPrizeId % 3) * 0.08),
+          friction: tpl.friction,
+          value: tpl.value,
+          color: tpl.color,
+          accent: tpl.accent,
+          hasRing: tpl.hasRing,
+          comOffsetY: tpl.hasRing ? jitterR * 0.24 : (tpl.shape === 'box' ? jitterR * 0.14 : 0),
+          inChute: false,
+          scored: false,
+          highlight: 0
+        };
+      }
+
+      function populateTwelvePrizes() {
+        sim.prizes = [];
+        // Balanced mix: 4 Golden Capsules with top rings, 4 Heavy Boxes, 4 Slippery Spheres = 12
+        const layout = [
+          // Front / near-chute strategic prizes
+          { t: 0, x: 398, y: 682 },
+          { t: 1, x: 472, y: 684 },
+          { t: 2, x: 545, y: 686 },
+          { t: 0, x: 618, y: 682 },
+          { t: 1, x: 696, y: 684 },
+          { t: 2, x: 774, y: 686 },
+          { t: 0, x: 854, y: 682 },
+          { t: 1, x: 938, y: 684 },
+          { t: 2, x: 1025, y: 686 },
+          // Upper stacked layer (3 prizes perched on top)
+          { t: 1, x: 508, y: 626 },
+          { t: 0, x: 734, y: 622 },
+          { t: 2, x: 896, y: 628 }
+        ];
+        for (const item of layout) {
+          sim.prizes.push(createPrize(item.t, item.x, item.y));
+        }
+      }
+
+      function respawnMissingPrizes() {
+        const activeCount = sim.prizes.filter(p => !p.inChute && !p.scored).length;
+        if (activeCount < 12) {
+          // Count current archetypes to keep balanced variety
+          const counts = { capsule_ring: 0, box: 0, sphere: 0 };
+          for (const p of sim.prizes) {
+            if (!p.inChute && !p.scored) counts[p.shape] = (counts[p.shape] || 0) + 1;
+          }
+          let tIdx = 0;
+          if (counts.box < counts.capsule_ring && counts.box <= counts.sphere) tIdx = 1;
+          else if (counts.sphere < counts.capsule_ring && counts.sphere <= counts.box) tIdx = 2;
+
+          const spawnX = 430 + ((sim.nextPrizeId * 137) % 580);
+          const p = createPrize(tIdx, spawnX, 240);
+          p.vy = 60;
+          sim.prizes.push(p);
+          spawnParticles(spawnX, 240, p.color, 10);
+        }
+      }
+
+      function spawnParticles(x, y, color, count = 16) {
+        for (let i = 0; i < count; i++) {
+          const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+          const spd = 60 + Math.random() * 210;
+          sim.particles.push({
+            x, y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 40,
+            life: 0.45 + Math.random() * 0.45,
+            maxLife: 0.9,
+            size: 2.5 + Math.random() * 3.5,
+            color
+          });
+        }
+      }
+
+      function addCallout(x, y, text, color) {
+        sim.floatingCallouts.push({
+          x, y, text, color, life: 1.8, maxLife: 1.8
+        });
+      }
+
+      // =========================================================================
+      // 7. CYCLE SCHEDULING & SHOT PLANNING
+      // =========================================================================
+      function beginNextAttempt() {
+        sim.attempts += 1;
+        sim.phase = 'POSITIONING';
+        sim.phaseTime = 0;
+        sim.grabbedId = null;
+        sim.ringHooked = false;
+        sim.slipProgress = 0;
+        sim.slipTilt = 0;
+        sim.requiredHoldN = 0;
+        sim.desiredClawOpen = 0.85;
+        sim.swingExcitedPhase = 0;
+
+        // Decide voltage mode & strategy for this attempt
+        if (sim.mode === 'FULL_24V') {
+          sim.voltageMode = 'FULL_24V';
+          sim.activeController = 'PAYOUT_24V';
+          sim.bannerText = 'MODO PAGO COMPLETO: SOLENOIDE SOSTIENE 24.0V';
+          sim.bannerColor = '#10B981';
+        } else if (sim.mode === 'NAIVE_9V') {
+          sim.voltageMode = 'RIGGED_9V';
+          sim.activeController = 'NAIVE_DEMO';
+          sim.bannerText = 'TIRO INGENUO EN 9V: CAIDA DE VOLTAJE TRUCADA';
+          sim.bannerColor = '#F43F5E';
+        } else if (sim.mode === 'AI_9V') {
+          sim.voltageMode = 'RIGGED_9V';
+          sim.activeController = 'AI_SKILL';
+          sim.bannerText = 'IA ACTIVA EN 9V: ENGANCHE LATERAL Y PENDULO';
+          sim.bannerColor = '#22D3EE';
+        } else {
+          // AUTO_ARENA cycle:
+          // Attempt 1 -> Naive 9V Trap (clearly shows the 24V->9V drop & slip!)
+          // Attempt 2 -> AI Skill 9V (exploits ring hook or pendulum fling to win at 9V!)
+          // Every payoutEvery-th attempt -> Full 24V Payout Win!
+          if (sim.attempts % sim.payoutEvery === 0) {
+            sim.voltageMode = 'FULL_24V';
+            sim.activeController = 'PAYOUT_24V';
+            sim.bannerText = `CICLO DE PAGO #${sim.attempts}: 24V CONTINUOS HASTA COMPUERTA`;
+            sim.bannerColor = '#10B981';
+          } else if (sim.attempts % 2 === 1) {
+            sim.voltageMode = 'RIGGED_9V';
+            sim.activeController = 'NAIVE_DEMO';
+            sim.bannerText = `INTENTO #${sim.attempts}: AGARRE NORMAL CON CAIDA A 9V TRUCADO`;
+            sim.bannerColor = '#F43F5E';
+          } else {
+            sim.voltageMode = 'RIGGED_9V';
+            sim.activeController = 'AI_SKILL';
+            sim.bannerText = `INTENTO #${sim.attempts}: IA EXPLOTA PENDULO / ARO A 9V`;
+            sim.bannerColor = '#22D3EE';
+          }
+        }
+
+        sim.targetVoltage = 24.0;
+      }
+
+      function buildPublicState() {
+        const activePrizes = sim.prizes
+          .filter(p => !p.inChute && !p.scored)
+          .map(p => ({
+            id: p.id,
+            x: p.x,
+            y: p.y,
+            r: p.r,
+            mass: p.mass,
+            value: p.value,
+            shape: p.shape
+          }));
+        const head = getClawHead();
+        return {
+          clawX: sim.clawX,
+          clawY: head.y,
+          ropeAngle: sim.ropeAngle,
+          voltageMode: sim.voltageMode,
+          chuteX: CAB.chuteX,
+          prizes: activePrizes
+        };
+      }
+
+      function getClawHead() {
+        return {
+          x: sim.clawX + Math.sin(sim.ropeAngle) * sim.ropeLength,
+          y: CAB.railY + Math.cos(sim.ropeAngle) * sim.ropeLength
+        };
+      }
+
+      // Naive baseline target selector (picks heaviest/shiniest center box with zero swing compensation)
+      function decideNaiveAction(state) {
+        const candidates = state.prizes.filter(p => p.x > CAB.barrierX + 60);
+        const list = candidates.length ? candidates : state.prizes;
+        // Naive player often goes straight for a heavy box or far shiny sphere
+        let pick = list[0];
+        let best = -1;
+        for (const p of list) {
+          const s = (p.shape === 'box' ? 300 : 120) + (p.x > 460 && p.x < 850 ? 150 : 0) - p.y * 0.2;
+          if (s > best) { best = s; pick = p; }
+        }
+        const aligned = Math.abs(state.clawX - pick.x) < 10 && Math.abs(state.ropeAngle) < 0.14;
+        return { targetX: pick.x, dropNow: aligned, swingTimingDeg: 0 };
+      }
+
+      // =========================================================================
+      // 8. PHYSICS STEP (60 FPS FIXED/SUB-STEPPED)
+      // =========================================================================
+      function stepSimulation(dt) {
+        sim.time += dt;
+        sim.phaseTime += dt;
+        sim.sensorFlash = Math.max(0, sim.sensorFlash - dt * 2.4);
+
+        // Smooth solenoid voltage response (realistic inductive decay/rise)
+        sim.currentVoltage += (sim.targetVoltage - sim.currentVoltage) * Math.min(1, dt * 18);
+        // Grip force in Newtons: 24V -> 46 N, 9V -> 10.6 N, 0V -> 0 N
+        sim.gripForceN = (sim.currentVoltage / 24.0) * 46.0;
+        sim.clawOpen += (sim.desiredClawOpen - sim.clawOpen) * Math.min(1, dt * 11);
+
+        // Record scope every 30ms
+        sim.scopeTimer += dt;
+        if (sim.scopeTimer >= 0.03) {
+          sim.scopeTimer = 0;
+          sim.scopeHistory.push(sim.currentVoltage);
+          if (sim.scopeHistory.length > 160) sim.scopeHistory.shift();
+          sim.scopeForceHistory.push(sim.gripForceN);
+          if (sim.scopeForceHistory.length > 160) sim.scopeForceHistory.shift();
+        }
+
+        let carriageAccel = 0;
+
+        // ---------------------------------------------------------------------
+        // PHASE MACHINE
+        // ---------------------------------------------------------------------
+        if (sim.phase === 'POSITIONING') {
+          sim.targetVoltage = 24.0;
+          const pubState = buildPublicState();
+          const decision = sim.activeController === 'NAIVE_DEMO'
+            ? decideNaiveAction(pubState)
+            : window.decideClawAction(pubState);
+
+          sim.targetX = Math.max(CAB.barrierX + 32, Math.min(CAB.maxCarriageX, decision.targetX));
+          sim.swingTimingDeg = decision.swingTimingDeg || 0;
+
+          // Subtle pendulum excitation near target for AI swing timing without pushing off-target
+          let effectiveTarget = sim.targetX;
+          if (Math.abs(sim.swingTimingDeg) > 4 && Math.abs(sim.clawX - sim.targetX) < 30 && sim.phaseTime < 1.1) {
+            sim.swingExcitedPhase += dt * 4.0;
+            effectiveTarget = sim.targetX + Math.sin(sim.swingExcitedPhase) * 10;
+          }
+
+          const err = effectiveTarget - sim.clawX;
+          // Active trolley anti-sway damping when settling in FULL_24V or aligning over target
+          const antiSway = sim.activeController !== 'NAIVE_DEMO' ? (sim.ropeAngle * 180 + sim.ropeAngularVel * 85) : 0;
+          carriageAccel = Math.max(-950, Math.min(950, err * 18 - sim.clawVx * 7.8 + antiSway));
+          sim.clawVx += carriageAccel * dt;
+          sim.clawX += sim.clawVx * dt;
+
+          // Safety timeout so positioning never stalls
+          const lowSwing = Math.abs(sim.ropeAngle) < 0.11 && Math.abs(sim.ropeAngularVel) < 0.42;
+          const forceReady = sim.phaseTime > 2.4 && Math.abs(sim.clawX - sim.targetX) < 32;
+          if (((decision.dropNow && lowSwing) || forceReady) && sim.phaseTime > 0.5) {
+            sim.phase = 'DESCENDING';
+            sim.phaseTime = 0;
+            sim.desiredClawOpen = 1.0;
+          }
+        } else if (sim.phase === 'DESCENDING') {
+          sim.targetVoltage = 24.0;
+          const descErr = sim.targetX - sim.clawX;
+          carriageAccel = Math.max(-420, Math.min(420, descErr * 6 - sim.clawVx * 9));
+          sim.clawVx += carriageAccel * dt;
+          sim.clawX += sim.clawVx * dt;
+
+          const dropSpeed = 560;
+          sim.ropeLength += dropSpeed * dt;
+          const head = getClawHead();
+
+          // Check contact with prizes once fingers wrap down around target height
+          let hitPrize = null;
+          for (const p of sim.prizes) {
+            if (p.inChute || p.scored) continue;
+            const dx = p.x - head.x;
+            const dy = p.y - (head.y + 42);
+            if (Math.abs(dx) < p.r + 22 && dy <= 10 && dy >= -p.r) {
+              hitPrize = p;
+              break;
+            }
+          }
+
+          if (hitPrize || head.y >= CAB.floorY - 62 || sim.ropeLength >= 530) {
+            sim.phase = 'GRABBING';
+            sim.phaseTime = 0;
+            sim.desiredClawOpen = 0.24;
+            AudioFX.grab24V();
+
+            // Capture nearest prize inside the 3-finger span
+            let closest = hitPrize;
+            let bestDist = 78;
+            for (const p of sim.prizes) {
+              if (p.inChute || p.scored) continue;
+              const d = Math.hypot(p.x - head.x, p.y - (head.y + 42));
+              if (d < bestDist) {
+                bestDist = d;
+                closest = p;
+              }
+            }
+            if (closest) {
+              sim.grabbedId = closest.id;
+              sim.grabOffsetX = Math.max(-closest.r * 0.4, Math.min(closest.r * 0.4, closest.x - head.x));
+              sim.slipProgress = 0;
+              sim.slipTilt = 0;
+              // Check top-ring mechanical hook for Golden Capsules!
+              const lateralAlignment = Math.abs(closest.x - head.x);
+              sim.ringHooked = Boolean(closest.hasRing && lateralAlignment < 28 && sim.activeController !== 'NAIVE_DEMO');
+              // Required hold force in Newtons
+              const shapeSlipFactor = closest.shape === 'sphere' ? 1.55 : (closest.shape === 'box' ? 1.25 : 0.92);
+              const offCenterTorque = 1 + Math.min(0.6, Math.abs(sim.grabOffsetX) / closest.r);
+              sim.requiredHoldN = closest.mass * GRAVITY * shapeSlipFactor * offCenterTorque / (0.35 + closest.friction);
+              closest.highlight = 1.0;
+              spawnParticles(closest.x, closest.y - closest.r * 0.4, sim.ringHooked ? '#FBBF24' : '#22D3EE', 12);
+              if (sim.ringHooked) {
+                addCallout(head.x, head.y - 30, 'ARO ENGANCHADO!', '#FBBF24');
+              }
+            }
+          }
+        } else if (sim.phase === 'GRABBING') {
+          sim.targetVoltage = 24.0;
+          carriageAccel = -sim.clawVx * 12;
+          sim.clawVx += carriageAccel * dt;
+          sim.clawX += sim.clawVx * dt;
+
+          if (sim.phaseTime >= 0.34) {
+            sim.phase = 'ASCENDING';
+            sim.phaseTime = 0;
+          }
+        } else if (sim.phase === 'ASCENDING') {
+          const riggedDropPoint = sim.ropeLength < 345; // Mid-ascent voltage collapse!
+
+          if (sim.voltageMode === 'RIGGED_9V' && riggedDropPoint) {
+            if (sim.targetVoltage > 12) {
+              AudioFX.drop9V();
+              const head = getClawHead();
+              addCallout(head.x + 18, head.y - 18, 'CAIDA A 9V!', '#F43F5E');
+              spawnParticles(head.x, head.y, '#F43F5E', 14);
+            }
+            sim.targetVoltage = 9.0;
+          } else {
+            sim.targetVoltage = 24.0;
+          }
+
+          sim.ropeLength = Math.max(78, sim.ropeLength - 265 * dt);
+
+          // In AI skill mode on 9V, begin pulling carriage toward chute EARLY while ascending so pendulum slings prize!
+          if (sim.activeController === 'AI_SKILL' && sim.ropeLength < 395) {
+            const err = CAB.chuteX - sim.clawX;
+            carriageAccel = Math.max(-760, Math.min(760, err * 7.5 - sim.clawVx * 4.0));
+            sim.clawVx += carriageAccel * dt;
+            sim.clawX = Math.max(CAB.minCarriageX, sim.clawX + sim.clawVx * dt);
+          } else {
+            carriageAccel = -sim.clawVx * 10;
+            sim.clawVx += carriageAccel * dt;
+            sim.clawX += sim.clawVx * dt;
+          }
+
+          updateGrabbedPrizePhysics(dt);
+
+          if (sim.ropeLength <= 82) {
+            sim.phase = 'RETURNING';
+            sim.phaseTime = 0;
+          }
+        } else if (sim.phase === 'RETURNING') {
+          if (sim.voltageMode === 'RIGGED_9V') sim.targetVoltage = 9.0;
+          else sim.targetVoltage = 24.0;
+
+          const err = CAB.chuteX - sim.clawX;
+          carriageAccel = Math.max(-920, Math.min(920, err * 14 - sim.clawVx * 6.0));
+          sim.clawVx += carriageAccel * dt;
+          sim.clawX = Math.max(CAB.minCarriageX, Math.min(CAB.maxCarriageX, sim.clawX + sim.clawVx * dt));
+
+          updateGrabbedPrizePhysics(dt);
+
+          if (Math.abs(sim.clawX - CAB.chuteX) < 16 && Math.abs(sim.clawVx) < 55) {
+            sim.phase = 'DROPPING';
+            sim.phaseTime = 0;
+            sim.targetVoltage = 0.0;
+            sim.desiredClawOpen = 1.0;
+            releaseGrabbedPrize();
+          }
+        } else if (sim.phase === 'DROPPING') {
+          sim.targetVoltage = 0.0;
+          carriageAccel = -sim.clawVx * 12;
+          sim.clawVx += carriageAccel * dt;
+          sim.clawX += sim.clawVx * dt;
+
+          if (sim.phaseTime >= 1.05) {
+            respawnMissingPrizes();
+            beginNextAttempt();
+          }
+        }
+
+        // Pendulum dynamics driven by carriage acceleration
+        const L_m = Math.max(0.55, sim.ropeLength / PX_PER_M);
+        const accel_m = carriageAccel / PX_PER_M;
+        const alpha = -(GRAVITY / L_m) * Math.sin(sim.ropeAngle) - (accel_m / L_m) * Math.cos(sim.ropeAngle) - 0.65 * sim.ropeAngularVel;
+        sim.ropeAngularVel += alpha * dt;
+        sim.ropeAngle += sim.ropeAngularVel * dt;
+        sim.ropeAngle = Math.max(-0.55, Math.min(0.55, sim.ropeAngle));
+
+        // Step free prizes in pit and chute
+        stepPrizePitPhysics(dt);
+        stepVisualFX(dt);
+      }
+
+      function updateGrabbedPrizePhysics(dt) {
+        if (sim.grabbedId === null) return;
+        const p = sim.prizes.find(item => item.id === sim.grabbedId);
+        if (!p) { sim.grabbedId = null; return; }
+
+        const head = getClawHead();
+        // Effective holding force: mechanical ring hook holds securely even at 9V!
+        const effectiveHold = sim.ringHooked ? Math.max(sim.gripForceN, 42.0) : sim.gripForceN;
+        const deficit = sim.requiredHoldN - effectiveHold;
+
+        if (deficit > 0 && sim.currentVoltage < 15.0) {
+          // Slipping under 9V!
+          const slipRate = 0.55 + Math.min(1.6, deficit * 0.045);
+          sim.slipProgress += slipRate * dt;
+          sim.slipTilt += (sim.grabOffsetX >= 0 ? 1 : -1) * dt * 2.2;
+          sim.desiredClawOpen = 0.24 + sim.slipProgress * 0.35;
+        } else {
+          sim.slipProgress = Math.max(0, sim.slipProgress - dt * 0.5);
+        }
+
+        p.x = head.x + sim.grabOffsetX * (1 - sim.slipProgress * 0.35);
+        p.y = head.y + 42 + sim.slipProgress * 22;
+        p.angle = sim.ropeAngle * 0.75 + sim.slipTilt;
+
+        // Inherited release velocity if it slips out completely!
+        if (sim.slipProgress >= 1.0) {
+          AudioFX.slip();
+          addCallout(p.x, p.y - 25, 'DESLIZAMIENTO (9V)!', '#FB923C');
+          releaseGrabbedPrize();
+        }
+      }
+
+      function releaseGrabbedPrize() {
+        if (sim.grabbedId === null) return;
+        const p = sim.prizes.find(item => item.id === sim.grabbedId);
+        if (p) {
+          // Inherit carriage velocity + pendulum tangential velocity
+          const tangential = sim.ropeLength * sim.ropeAngularVel;
+          p.vx = sim.clawVx + tangential * Math.cos(sim.ropeAngle);
+          p.vy = -tangential * Math.sin(sim.ropeAngle) + 45;
+          p.angVel = sim.slipTilt * 2.5 + sim.ropeAngularVel;
+        }
+        sim.grabbedId = null;
+        sim.ringHooked = false;
+      }
+
+      function stepPrizePitPhysics(dt) {
+        const subSteps = 3;
+        const sdt = dt / subSteps;
+
+        for (let s = 0; s < subSteps; s++) {
+          for (const p of sim.prizes) {
+            if (p.scored || p.id === sim.grabbedId) continue;
+            p.highlight = Math.max(0, p.highlight - sdt * 1.5);
+
+            // Gravity
+            p.vy += GRAVITY * PX_PER_M * sdt;
+            p.x += p.vx * sdt;
+            p.y += p.vy * sdt;
+            p.angle += p.angVel * sdt;
+
+            // Left cabinet wall
+            if (p.x - p.r < CAB.chuteLeft) {
+              p.x = CAB.chuteLeft + p.r;
+              p.vx = Math.abs(p.vx) * 0.45;
+            }
+            // Right cabinet wall
+            if (p.x + p.r > CAB.right - 22) {
+              p.x = CAB.right - 22 - p.r;
+              p.vx = -Math.abs(p.vx) * 0.45;
+            }
+
+            // Chute acrylic divider wall (x = CAB.barrierX, top at CAB.barrierTopY)
+            if (p.y + p.r > CAB.barrierTopY) {
+              const distToBarrier = p.x - CAB.barrierX;
+              if (Math.abs(distToBarrier) < p.r + 6) {
+                if (p.y < CAB.barrierTopY + 12) {
+                  // Top sloped lip bounce toward chute or pit
+                  p.y = CAB.barrierTopY - p.r;
+                  p.vy = -Math.abs(p.vy) * 0.35;
+                  p.vx += (distToBarrier < 0 ? -75 : 55) * sdt * 20;
+                } else if (distToBarrier >= 0) {
+                  p.x = CAB.barrierX + 6 + p.r;
+                  p.vx = Math.abs(p.vx) * 0.42;
+                } else {
+                  p.x = CAB.barrierX - 6 - p.r;
+                  p.vx = -Math.abs(p.vx) * 0.42;
+                }
+              }
+            }
+
+            // Check if inside Prize Chute drop tunnel!
+            if (p.x < CAB.barrierX - 8) {
+              if (p.y > CAB.floorY - 30) {
+                p.inChute = true;
+              }
+              if (p.y > CAB.bottom - 10) {
+                p.scored = true;
+                sim.prizesWon += 1;
+                sim.sensorFlash = 1.0;
+                sim.wonTray.push({ shape: p.shape, color: p.color, accent: p.accent, value: p.value });
+                if (sim.wonTray.length > 9) sim.wonTray.shift();
+                AudioFX.win();
+                spawnParticles(CAB.chuteX, CAB.floorY - 12, '#10B981', 28);
+                addCallout(CAB.chuteX + 20, CAB.barrierTopY - 25, `+1 PREMIO ($${p.value})`, '#10B981');
+              }
+            } else {
+              // Pit floor collision
+              if (p.y + p.r > CAB.floorY) {
+                if (p.vy > 180) AudioFX.clank();
+                p.y = CAB.floorY - p.r;
+                p.vy = -p.vy * (p.shape === 'sphere' ? 0.35 : 0.16);
+                const rollFriction = p.shape === 'sphere' ? 0.96 : 0.82;
+                p.vx *= rollFriction;
+                p.angVel = p.vx / p.r;
+              }
+            }
+
+            // Air drag
+            p.vx *= 0.996;
+            p.angVel *= 0.985;
+          }
+
+          // Pairwise prize-prize collisions
+          for (let i = 0; i < sim.prizes.length; i++) {
+            const a = sim.prizes[i];
+            if (a.scored || a.inChute || a.id === sim.grabbedId) continue;
+            for (let j = i + 1; j < sim.prizes.length; j++) {
+              const b = sim.prizes[j];
+              if (b.scored || b.inChute || b.id === sim.grabbedId) continue;
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.hypot(dx, dy);
+              const minD = a.r + b.r;
+              if (dist > 0.001 && dist < minD) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const overlap = minD - dist;
+                const totalM = a.mass + b.mass;
+                a.x -= nx * overlap * (b.mass / totalM);
+                a.y -= ny * overlap * (b.mass / totalM);
+                b.x += nx * overlap * (a.mass / totalM);
+                b.y += ny * overlap * (a.mass / totalM);
+
+                const rvx = b.vx - a.vx;
+                const rvy = b.vy - a.vy;
+                const velAlongNormal = rvx * nx + rvy * ny;
+                if (velAlongNormal < 0) {
+                  const e = 0.28;
+                  const jImp = -(1 + e) * velAlongNormal / (1 / a.mass + 1 / b.mass);
+                  a.vx -= (jImp / a.mass) * nx;
+                  a.vy -= (jImp / a.mass) * ny;
+                  b.vx += (jImp / b.mass) * nx;
+                  b.vy += (jImp / b.mass) * ny;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      function stepVisualFX(dt) {
+        for (let i = sim.particles.length - 1; i >= 0; i--) {
+          const pt = sim.particles[i];
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.vy += 320 * dt;
+          pt.life -= dt;
+          if (pt.life <= 0) sim.particles.splice(i, 1);
+        }
+        for (let i = sim.floatingCallouts.length - 1; i >= 0; i--) {
+          const c = sim.floatingCallouts[i];
+          c.y -= 36 * dt;
+          c.life -= dt;
+          if (c.life <= 0) sim.floatingCallouts.splice(i, 1);
+        }
+      }
+
+      // =========================================================================
+      // 9. CANVAS RENDERING (MAIN ARCADE CABINET + OSCILLOSCOPE)
+      // =========================================================================
+      const simCanvas = document.getElementById('simCanvas');
+      const ctx = simCanvas.getContext('2d');
+      const scopeCanvas = document.getElementById('scopeCanvas');
+      const sctx = scopeCanvas.getContext('2d');
+
+      function drawCabinetScene() {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const rect = simCanvas.getBoundingClientRect();
+        if (rect.width > 10 && rect.height > 10) {
+          const targetW = Math.round(rect.width * dpr);
+          const targetH = Math.round(rect.height * dpr);
+          if (simCanvas.width !== targetW || simCanvas.height !== targetH) {
+            simCanvas.width = targetW;
+            simCanvas.height = targetH;
+          }
+        }
+
+        ctx.save();
+        ctx.scale(simCanvas.width / W, simCanvas.height / H);
+
+        // Background ambient lighting
+        ctx.fillStyle = '#060A12';
+        ctx.fillRect(0, 0, W, H);
+
+        // Neon arcade glow behind cabinet
+        const cabGlow = ctx.createRadialGradient(W * 0.5, H * 0.45, 80, W * 0.5, H * 0.45, 620);
+        cabGlow.addColorStop(0, 'rgba(34, 211, 238, 0.14)');
+        cabGlow.addColorStop(0.55, 'rgba(56, 189, 248, 0.05)');
+        cabGlow.addColorStop(1, 'rgba(6, 10, 18, 0)');
+        ctx.fillStyle = cabGlow;
+        ctx.fillRect(0, 0, W, H);
+
+        // Outer arcade cabinet frame
+        ctx.fillStyle = '#0B1221';
+        roundRect(ctx, CAB.left - 24, CAB.top - 42, (CAB.right - CAB.left) + 48, (CAB.bottom - CAB.top) + 128, 22);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = sim.currentVoltage > 15 ? 'rgba(34, 211, 238, 0.55)' : 'rgba(244, 63, 94, 0.6)';
+        ctx.stroke();
+
+        // Top Neon Marquee inside cabinet
+        const marqGrad = ctx.createLinearGradient(CAB.left, CAB.top - 32, CAB.right, CAB.top + 36);
+        marqGrad.addColorStop(0, '#0F172A');
+        marqGrad.addColorStop(0.5, '#172554');
+        marqGrad.addColorStop(1, '#0F172A');
+        ctx.fillStyle = marqGrad;
+        roundRect(ctx, CAB.left - 4, CAB.top - 30, (CAB.right - CAB.left) + 8, 56, 10);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Status banner inside Marquee
+        ctx.font = '800 20px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = sim.bannerColor;
+        ctx.fillText(sim.bannerText, (CAB.left + CAB.right) / 2, CAB.top - 2);
+
+        // Interior glass backplate & illuminated vertical LED strips
+        const interiorGrad = ctx.createLinearGradient(0, CAB.top + 30, 0, CAB.floorY + 20);
+        interiorGrad.addColorStop(0, '#09111F');
+        interiorGrad.addColorStop(1, '#0D182C');
+        ctx.fillStyle = interiorGrad;
+        ctx.fillRect(CAB.left, CAB.top + 34, CAB.right - CAB.left, CAB.floorY - CAB.top - 34);
+
+        // LED side tubes inside cabinet
+        const ledColor = sim.currentVoltage > 15 ? '#22D3EE' : '#F43F5E';
+        ctx.fillStyle = ledColor;
+        ctx.shadowColor = ledColor;
+        ctx.shadowBlur = 14;
+        ctx.fillRect(CAB.left + 4, CAB.top + 42, 6, CAB.floorY - CAB.top - 52);
+        ctx.fillRect(CAB.right - 10, CAB.top + 42, 6, CAB.floorY - CAB.top - 52);
+        ctx.shadowBlur = 0;
+
+        // Subtle interior measurement grid (cm / meters)
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
+        ctx.lineWidth = 1;
+        for (let gx = CAB.left + 80; gx < CAB.right; gx += 80) {
+          ctx.beginPath(); ctx.moveTo(gx, CAB.top + 40); ctx.lineTo(gx, CAB.floorY); ctx.stroke();
+        }
+        for (let gy = CAB.top + 100; gy < CAB.floorY; gy += 80) {
+          ctx.beginPath(); ctx.moveTo(CAB.left + 12, gy); ctx.lineTo(CAB.right - 12, gy); ctx.stroke();
+        }
+
+        // Mid-ascent 9V rigged threshold marker line!
+        const dropLineY = CAB.railY + 345;
+        ctx.save();
+        ctx.setLineDash([10, 8]);
+        ctx.strokeStyle = sim.voltageMode === 'RIGGED_9V' ? 'rgba(244, 63, 94, 0.55)' : 'rgba(16, 185, 129, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(CAB.barrierX + 20, dropLineY);
+        ctx.lineTo(CAB.right - 20, dropLineY);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = '700 13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillStyle = sim.voltageMode === 'RIGGED_9V' ? '#F43F5E' : '#10B981';
+        ctx.fillText(
+          sim.voltageMode === 'RIGGED_9V'
+            ? 'UMBRAL DE CAIDA A 9V (MITAD DE SUBIDA)'
+            : 'ZONA SEGURA 24V (PAGO COMPLETO)',
+          CAB.right - 24,
+          dropLineY - 12
+        );
+
+        // Prize Pit Floor & Chute Tunnel
+        ctx.fillStyle = '#111E35';
+        ctx.fillRect(CAB.barrierX, CAB.floorY, CAB.right - CAB.barrierX, 54);
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(CAB.barrierX, CAB.floorY);
+        ctx.lineTo(CAB.right, CAB.floorY);
+        ctx.stroke();
+
+        // Prize Chute Well
+        const chuteGrad = ctx.createLinearGradient(CAB.chuteLeft, CAB.barrierTopY, CAB.chuteLeft, CAB.bottom);
+        chuteGrad.addColorStop(0, 'rgba(16, 185, 129, 0.08)');
+        chuteGrad.addColorStop(1, 'rgba(6, 10, 18, 0.96)');
+        ctx.fillStyle = chuteGrad;
+        ctx.fillRect(CAB.chuteLeft - 6, CAB.barrierTopY + 12, CAB.barrierX - CAB.chuteLeft + 6, CAB.bottom - CAB.barrierTopY - 12);
+
+        // Optical Laser Win Sensor across Chute
+        const beamAlpha = 0.45 + sim.sensorFlash * 0.55;
+        ctx.strokeStyle = sim.sensorFlash > 0.1 ? `rgba(251, 191, 36, ${beamAlpha})` : `rgba(16, 185, 129, ${beamAlpha})`;
+        ctx.lineWidth = 2 + sim.sensorFlash * 4;
+        ctx.beginPath();
+        ctx.moveTo(CAB.chuteLeft, CAB.floorY - 14);
+        ctx.lineTo(CAB.barrierX - 6, CAB.floorY - 14);
+        ctx.stroke();
+
+        ctx.font = '800 15px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#10B981';
+        ctx.fillText('COMPUERTA', CAB.chuteX, CAB.floorY - 46);
+        ctx.font = '700 12px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('PRIZE CHUTE', CAB.chuteX, CAB.floorY - 28);
+
+        // Acrylic Chute Divider Wall
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2;
+        roundRect(ctx, CAB.barrierX - 6, CAB.barrierTopY, 12, CAB.bottom - CAB.barrierTopY, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        // Top rail & motorized gantry track
+        ctx.fillStyle = '#1E293B';
+        ctx.fillRect(CAB.left + 14, CAB.railY - 12, CAB.right - CAB.left - 28, 16);
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(CAB.left + 14, CAB.railY - 12, CAB.right - CAB.left - 28, 16);
+
+        // Draw target alignment guide if positioning
+        if (sim.phase === 'POSITIONING') {
+          ctx.save();
+          ctx.setLineDash([5, 6]);
+          ctx.strokeStyle = 'rgba(34, 211, 238, 0.35)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(sim.targetX, CAB.railY + 8);
+          ctx.lineTo(sim.targetX, CAB.floorY);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Draw all 12 prizes
+        for (const p of sim.prizes) {
+          if (p.scored) continue;
+          drawPrize(p);
+        }
+
+        // Draw pendulum cable + carriage + 3-finger articulated metallic claw
+        drawClawAssembly();
+
+        // Draw won prize tray at bottom of cabinet
+        drawWonTray();
+
+        // Particles & callouts
+        for (const pt of sim.particles) {
+          const a = Math.max(0, pt.life / pt.maxLife);
+          ctx.globalAlpha = a;
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        for (const c of sim.floatingCallouts) {
+          const a = Math.min(1, c.life / 0.6);
+          ctx.save();
+          ctx.globalAlpha = a;
+          ctx.font = '800 18px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          const tw = ctx.measureText(c.text).width + 20;
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.88)';
+          roundRect(ctx, c.x - tw / 2, c.y - 16, tw, 30, 8);
+          ctx.fill();
+          ctx.strokeStyle = c.color;
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+          ctx.fillStyle = c.color;
+          ctx.fillText(c.text, c.x, c.y + 4);
+          ctx.restore();
+        }
+
+        // Live In-Canvas Solenoid HUD Badge (top-right inside cabinet)
+        drawCanvasSolenoidHUD();
+
+        ctx.restore();
+      }
+
+      function drawPrize(p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+
+        if (p.highlight > 0.05) {
+          ctx.shadowColor = '#22D3EE';
+          ctx.shadowBlur = 18 * p.highlight;
+        }
+
+        if (p.shape === 'sphere') {
+          // Slippery glossy sphere
+          const g = ctx.createRadialGradient(-p.r * 0.35, -p.r * 0.35, p.r * 0.12, 0, 0, p.r);
+          g.addColorStop(0, '#E0F2FE');
+          g.addColorStop(0.35, p.color);
+          g.addColorStop(1, '#0C4A6E');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(186, 230, 253, 0.7)';
+          ctx.stroke();
+
+          // Glossy specular highlight
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
+          ctx.beginPath();
+          ctx.ellipse(-p.r * 0.32, -p.r * 0.34, p.r * 0.25, p.r * 0.13, -0.6, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.shape === 'box') {
+          // Heavy chamfered industrial crate
+          const s = p.r * 1.65;
+          const half = s / 2;
+          const g = ctx.createLinearGradient(-half, -half, half, half);
+          g.addColorStop(0, p.accent);
+          g.addColorStop(0.4, p.color);
+          g.addColorStop(1, '#9A3412');
+          ctx.fillStyle = g;
+          roundRect(ctx, -half, -half, s, s, 7);
+          ctx.fill();
+          ctx.lineWidth = 2.4;
+          ctx.strokeStyle = '#FFEDD5';
+          ctx.stroke();
+
+          // Cross bracing & mass label
+          ctx.strokeStyle = 'rgba(6, 10, 18, 0.55)';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(-half + 6, -half + 6); ctx.lineTo(half - 6, half - 6);
+          ctx.moveTo(half - 6, -half + 6); ctx.lineTo(-half + 6, half - 6);
+          ctx.stroke();
+
+          ctx.fillStyle = '#060A12';
+          roundRect(ctx, -16, -9, 32, 18, 4);
+          ctx.fill();
+          ctx.font = '800 10px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#FB923C';
+          ctx.fillText(`${p.mass.toFixed(1)}kg`, 0, 0.5);
+        } else {
+          // Golden Capsule with Top Ring ("Aro Superior")
+          const r = p.r * 0.92;
+          // Top metallic ring
+          ctx.strokeStyle = '#FEF08A';
+          ctx.lineWidth = 4.5;
+          ctx.beginPath();
+          ctx.arc(0, -r - 4, 9, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.strokeStyle = '#B45309';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          // Upper gold hemisphere
+          const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 3, 0, 0, r * 1.2);
+          g.addColorStop(0, '#FEF9C3');
+          g.addColorStop(0.45, '#FBBF24');
+          g.addColorStop(1, '#92400E');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(0, 0, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#FDE68A';
+          ctx.stroke();
+
+          // Center seam band
+          ctx.fillStyle = '#0F172A';
+          ctx.fillRect(-r, -3.5, r * 2, 7);
+          ctx.fillStyle = '#22D3EE';
+          ctx.beginPath();
+          ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Weighted CoM indicator dot at bottom
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.beginPath();
+          ctx.arc(0, p.comOffsetY, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      function drawClawAssembly() {
+        const head = getClawHead();
+
+        // Motorized Trolley Carriage on Rail
+        ctx.save();
+        ctx.fillStyle = '#1E293B';
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2.2;
+        roundRect(ctx, sim.clawX - 34, CAB.railY - 18, 68, 30, 7);
+        ctx.fill();
+        ctx.stroke();
+
+        // Carriage wheels
+        ctx.fillStyle = '#94A3B8';
+        ctx.beginPath();
+        ctx.arc(sim.clawX - 20, CAB.railY - 4, 5, 0, Math.PI * 2);
+        ctx.arc(sim.clawX + 20, CAB.railY - 4, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pendulum Cable
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(sim.clawX, CAB.railY + 12);
+        ctx.lineTo(head.x, head.y);
+        ctx.stroke();
+
+        // Vertical reference arc for pendulum angle visibility
+        if (Math.abs(sim.ropeAngle) > 0.03) {
+          ctx.save();
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(sim.clawX, CAB.railY + 12);
+          ctx.lineTo(sim.clawX, CAB.railY + Math.min(200, sim.ropeLength));
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Claw Hub & Solenoid Coil
+        ctx.translate(head.x, head.y);
+        ctx.rotate(sim.ropeAngle);
+
+        const coilColor = sim.currentVoltage > 15 ? '#10B981' : (sim.currentVoltage > 3 ? '#F43F5E' : '#475569');
+        ctx.shadowColor = coilColor;
+        ctx.shadowBlur = sim.currentVoltage > 3 ? 16 : 0;
+
+        // Solenoid housing
+        ctx.fillStyle = '#0F172A';
+        ctx.strokeStyle = coilColor;
+        ctx.lineWidth = 2.5;
+        roundRect(ctx, -18, -8, 36, 32, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Voltage LED bar on claw head
+        ctx.fillStyle = coilColor;
+        roundRect(ctx, -11, 2, 22, 8, 3);
+        ctx.fill();
+
+        // Finger 3 (Rear/Center depth finger for true 3-finger perspective)
+        const rearExtend = 24 + (1 - sim.clawOpen) * 6;
+        ctx.strokeStyle = '#64748B';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, 22);
+        ctx.lineTo(0, 22 + rearExtend);
+        ctx.lineTo(0, 26 + rearExtend + 12);
+        ctx.stroke();
+
+        // Front Left & Right Articulated Fingers (2-segment mechanical linkage)
+        const spread = 0.25 + sim.clawOpen * 0.78;
+        drawArticulatedFinger(ctx, -1, spread, coilColor);
+        drawArticulatedFinger(ctx,  1, spread, coilColor);
+
+        ctx.restore();
+      }
+
+      function drawArticulatedFinger(c, side, spread, accentColor) {
+        const pivotX = side * 14;
+        const pivotY = 20;
+        const upperLen = 30;
+        const lowerLen = 30;
+
+        const elbowX = pivotX + side * Math.sin(spread) * upperLen;
+        const elbowY = pivotY + Math.cos(spread * 0.75) * upperLen;
+
+        // Tip curves inward to cradle prize
+        const tipAngle = spread - 0.85;
+        const tipX = elbowX + side * Math.sin(tipAngle) * lowerLen;
+        const tipY = elbowY + Math.cos(tipAngle) * lowerLen;
+
+        // Metallic arm
+        c.strokeStyle = '#CBD5E1';
+        c.lineWidth = 6.5;
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        c.beginPath();
+        c.moveTo(pivotX, pivotY);
+        c.lineTo(elbowX, elbowY);
+        c.lineTo(tipX, tipY);
+        c.stroke();
+
+        // Joint pins
+        c.fillStyle = accentColor;
+        c.beginPath();
+        c.arc(pivotX, pivotY, 4, 0, Math.PI * 2);
+        c.arc(elbowX, elbowY, 4.2, 0, Math.PI * 2);
+        c.fill();
+
+        // Rubberized grip pad at tip
+        c.fillStyle = '#22D3EE';
+        c.beginPath();
+        c.arc(tipX, tipY, 4.5, 0, Math.PI * 2);
+        c.fill();
+      }
+
+      function drawWonTray() {
+        const trayY = CAB.bottom + 14;
+        ctx.fillStyle = '#090F1D';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, CAB.left, trayY, CAB.right - CAB.left, 56, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '700 13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('BANDEJA DE PREMIOS GANADOS:', CAB.left + 18, trayY + 28);
+
+        let tx = CAB.left + 280;
+        for (const item of sim.wonTray) {
+          ctx.save();
+          ctx.translate(tx, trayY + 28);
+          ctx.fillStyle = item.color;
+          if (item.shape === 'box') {
+            roundRect(ctx, -14, -14, 28, 28, 4);
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fill();
+            if (item.shape === 'capsule_ring') {
+              ctx.strokeStyle = '#FEF08A';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(0, -16, 4, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+          tx += 42;
+        }
+      }
+
+      function drawCanvasSolenoidHUD() {
+        const bx = CAB.right - 255;
+        const by = CAB.top + 48;
+        ctx.save();
+        ctx.fillStyle = 'rgba(6, 10, 18, 0.86)';
+        ctx.strokeStyle = sim.currentVoltage > 15 ? 'rgba(16, 185, 129, 0.65)' : 'rgba(244, 63, 94, 0.65)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, bx, by, 232, 82, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '700 12px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('SOLENOIDE EN TIEMPO REAL', bx + 14, by + 20);
+
+        ctx.font = '900 32px "JetBrains Mono", monospace';
+        ctx.fillStyle = sim.currentVoltage > 15 ? '#10B981' : (sim.currentVoltage > 3 ? '#F43F5E' : '#64748B');
+        ctx.fillText(`${sim.currentVoltage.toFixed(1)}V`, bx + 14, by + 56);
+
+        ctx.font = '800 18px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#22D3EE';
+        ctx.fillText(`${sim.gripForceN.toFixed(1)} N`, bx + 218, by + 56);
+        ctx.restore();
+      }
+
+      function drawVoltageScope() {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const rect = scopeCanvas.getBoundingClientRect();
+        if (rect.width > 10 && rect.height > 10) {
+          const tw = Math.round(rect.width * dpr);
+          const th = Math.round(rect.height * dpr);
+          if (scopeCanvas.width !== tw || scopeCanvas.height !== th) {
+            scopeCanvas.width = tw;
+            scopeCanvas.height = th;
+          }
+        }
+        const sw = scopeCanvas.width;
+        const sh = scopeCanvas.height;
+
+        sctx.clearRect(0, 0, sw, sh);
+        sctx.fillStyle = '#060A12';
+        sctx.fillRect(0, 0, sw, sh);
+
+        // Reference dashed lines at 24V and 9V
+        const y24 = sh * 0.16;
+        const y9 = sh * 0.64;
+        sctx.save();
+        sctx.setLineDash([5, 5]);
+        sctx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+        sctx.lineWidth = 1.5;
+        sctx.beginPath(); sctx.moveTo(0, y24); sctx.lineTo(sw, y24); sctx.stroke();
+        sctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+        sctx.beginPath(); sctx.moveTo(0, y9); sctx.lineTo(sw, y9); sctx.stroke();
+        sctx.restore();
+
+        // Waveform
+        const n = sim.scopeHistory.length;
+        sctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const x = (i / (n - 1)) * sw;
+          const v = sim.scopeHistory[i];
+          const y = sh - 10 - (v / 28) * (sh - 20);
+          if (i === 0) sctx.moveTo(x, y);
+          else sctx.lineTo(x, y);
+        }
+        sctx.strokeStyle = sim.currentVoltage > 15 ? '#10B981' : '#F43F5E';
+        sctx.lineWidth = 2.6 * dpr;
+        sctx.stroke();
+
+        sctx.font = `700 ${Math.round(11 * dpr)}px "JetBrains Mono", monospace`;
+        sctx.fillStyle = '#10B981';
+        sctx.fillText('24V FULL', 8 * dpr, y24 - 4 * dpr);
+        sctx.fillStyle = '#F43F5E';
+        sctx.fillText('9V TRUCADO', 8 * dpr, y9 - 4 * dpr);
+      }
+
+      function roundRect(c, x, y, w, h, r) {
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.arcTo(x + w, y, x + w, y + h, r);
+        c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r);
+        c.arcTo(x, y, x + w, y, r);
+        c.closePath();
+      }
+
+      // =========================================================================
+      // 10. DOM TELEMETRY & INTERACTIVE CONTROLS
+      // =========================================================================
+      const ui = {
+        attempts: document.getElementById('uiAttempts'),
+        won: document.getElementById('uiWon'),
+        payoutPct: document.getElementById('uiPayoutPct'),
+        topVoltage: document.getElementById('uiTopVoltage'),
+        solenoidBadge: document.getElementById('uiSolenoidBadge'),
+        voltageBig: document.getElementById('uiVoltageBig'),
+        voltageNote: document.getElementById('uiVoltageNote'),
+        forceBig: document.getElementById('uiForceBig'),
+        weightReq: document.getElementById('uiWeightReq'),
+        slipPct: document.getElementById('uiSlipPct'),
+        forceFill: document.getElementById('uiForceFill'),
+        forceThreshold: document.getElementById('uiForceThreshold'),
+        modeBadge: document.getElementById('uiModeBadge'),
+        aiStrategy: document.getElementById('uiAiStrategy'),
+        aiTargetX: document.getElementById('uiAiTargetX'),
+        aiSwing: document.getElementById('uiAiSwing'),
+        ropeDeg: document.getElementById('uiRopeDeg'),
+        phaseLabel: document.getElementById('uiPhaseLabel')
+      };
+
+      function updateHUD() {
+        ui.attempts.textContent = String(sim.attempts);
+        ui.won.textContent = String(sim.prizesWon);
+        const rate = sim.attempts > 0 ? Math.round((sim.prizesWon / sim.attempts) * 100) : 0;
+        ui.payoutPct.textContent = `${rate}%`;
+
+        const vStr = `${sim.currentVoltage.toFixed(1)} V`;
+        ui.topVoltage.textContent = vStr;
+        ui.voltageBig.textContent = vStr;
+        ui.forceBig.textContent = `${sim.gripForceN.toFixed(1)} N`;
+
+        const highV = sim.currentVoltage >= 15;
+        ui.topVoltage.className = `val ${highV ? 'emerald' : 'coral'}`;
+        ui.voltageBig.className = `meter-big ${highV ? 'emerald' : 'coral'}`;
+        ui.solenoidBadge.className = `badge ${highV ? 'badge-24v' : 'badge-9v'}`;
+        ui.solenoidBadge.textContent = highV ? '24V PLENO' : (sim.currentVoltage < 2 ? '0V SOLTAR' : '9V TRUCADO');
+        ui.voltageNote.textContent = highV
+          ? 'Fuerza nominal maxima (sin deslizamiento)'
+          : (sim.currentVoltage < 2 ? 'Bobina desenergizada sobre compuerta' : 'Voltaje reducido: carga pesada resbala');
+
+        const reqN = sim.requiredHoldN > 0 ? sim.requiredHoldN : 22.0;
+        ui.weightReq.textContent = `Carga requerida: ${reqN.toFixed(1)} N`;
+        const fillPct = Math.min(100, (sim.gripForceN / 50) * 100);
+        const threshPct = Math.min(95, (reqN / 50) * 100);
+        ui.forceFill.style.width = `${fillPct.toFixed(1)}%`;
+        ui.forceFill.style.background = sim.gripForceN >= reqN || sim.ringHooked ? '#10B981' : '#F43F5E';
+        ui.forceThreshold.style.left = `${threshPct.toFixed(1)}%`;
+        ui.slipPct.textContent = sim.ringHooked
+          ? 'ARO BLOQUEADO'
+          : `${Math.round(sim.slipProgress * 100)}% SLIP`;
+
+        ui.aiStrategy.textContent = sim.activeController === 'AI_SKILL'
+          ? 'PENDULO + ARO (9V)'
+          : (sim.activeController === 'PAYOUT_24V' ? 'AGARRE DIRECTO (24V)' : 'TIRO INGENUO');
+        ui.aiTargetX.textContent = `${Math.round(sim.targetX)} px`;
+        ui.aiSwing.textContent = `${sim.swingTimingDeg.toFixed(1)} deg`;
+        ui.ropeDeg.textContent = `${(sim.ropeAngle * 180 / Math.PI).toFixed(1)} deg`;
+        ui.phaseLabel.textContent = sim.phase;
+      }
+
+      const modeButtons = [
+        ['btnModeArena', 'AUTO_ARENA', 'ARENA AUTO'],
+        ['btnModeAiSkill', 'AI_9V', 'IA EXPERTO 9V'],
+        ['btnModeNaive', 'NAIVE_9V', 'INGENUO 9V'],
+        ['btnModeFull24', 'FULL_24V', 'PAGO 24V']
+      ];
+
+      for (const [id, modeVal, label] of modeButtons) {
+        document.getElementById(id).addEventListener('click', () => {
+          sim.mode = modeVal;
+          ui.modeBadge.textContent = label;
+          for (const [otherId] of modeButtons) {
+            document.getElementById(otherId).classList.toggle('active', otherId === id);
+          }
+          beginNextAttempt();
+        });
+      }
+
+      document.getElementById('sliderPayout').addEventListener('input', (e) => {
+        sim.payoutEvery = Number(e.target.value);
+        document.getElementById('uiPayoutLabel').textContent = sim.payoutEvery === 1
+          ? 'Todos los tiros (100%)'
+          : `1 de cada ${sim.payoutEvery} tiros`;
+      });
+
+      document.getElementById('btnForceDrop').addEventListener('click', () => {
+        if (sim.phase === 'POSITIONING') {
+          sim.phase = 'DESCENDING';
+          sim.phaseTime = 0;
+          sim.desiredClawOpen = 1.0;
+        }
+      });
+
+      document.getElementById('btnResetPit').addEventListener('click', () => {
+        populateTwelvePrizes();
+        beginNextAttempt();
+      });
+
+      document.getElementById('btnPulseSwing').addEventListener('click', () => {
+        sim.ropeAngularVel += (sim.ropeAngle >= 0 ? -0.95 : 0.95);
+        AudioFX.clank();
+      });
+
+      document.getElementById('btnAudio').addEventListener('click', (e) => {
+        const on = AudioFX.toggle();
+        e.currentTarget.textContent = `SONIDO: ${on ? 'ON' : 'OFF'}`;
+      });
+
+      // =========================================================================
+      // 11. BOOTSTRAP & 60 FPS LOOP (LIVE FROM 0.0s)
+      // =========================================================================
+      populateTwelvePrizes();
+      beginNextAttempt();
+      // Start frame 0 already mid-positioning with momentum so canvas is alive at 0.0s
+      stepSimulation(0.016);
+      drawCabinetScene();
+      drawVoltageScope();
+      updateHUD();
+
+      let lastTime = performance.now();
+      let hudTick = 0;
+
+      function loop(now) {
+        const dt = Math.min(0.033, Math.max(0.001, (now - lastTime) / 1000));
+        lastTime = now;
+
+        stepSimulation(dt);
+        drawCabinetScene();
+        drawVoltageScope();
+
+        hudTick++;
+        if (hudTick % 3 === 0) updateHUD();
+
+        requestAnimationFrame(loop);
+      }
+
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

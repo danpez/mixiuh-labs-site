@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RETO 06/06 - Arena Triple Sumo IA vs IA vs IA</title>
+<style>
+  :root {
+    --bg: #060A12;
+    --panel: #0F172A;
+    --cyan: #22D3EE;
+    --blue: #38BDF8;
+    --orange: #FB923C;
+    --emerald: #10B981;
+    --gold: #FBBF24;
+    --coral: #F43F5E;
+    --text: #E2E8F0;
+    --muted: #64748B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #0B1220 0%, #060A12 70%);
+  }
+  #wrap {
+    position: relative;
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
+  }
+  canvas#arena {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    border: 1px solid #1E293B;
+    border-radius: 6px;
+    background: var(--bg);
+  }
+  .hud-title {
+    position: absolute; left: 2.2%; top: 2.2%;
+    font-size: clamp(14px, 2.1vw, 40px);
+    font-weight: 800; letter-spacing: 0.08em;
+    color: var(--cyan);
+    text-shadow: 0 0 14px rgba(34,211,238,0.45);
+    pointer-events: none;
+  }
+  .hud-sub {
+    position: absolute; left: 2.2%; top: 6.2%;
+    font-size: clamp(9px, 1.0vw, 18px);
+    color: var(--muted); letter-spacing: 0.12em;
+    pointer-events: none;
+  }
+  #controls {
+    position: absolute; right: 1.6%; bottom: 2.2%;
+    display: flex; gap: 0.6vw; flex-wrap: wrap; justify-content: flex-end;
+    max-width: 60%;
+  }
+  #controls button, #controls select {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #1E3A5F;
+    border-radius: 6px;
+    padding: 0.5vw 1vw;
+    font-size: clamp(10px, 1.05vw, 19px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  #controls button:hover, #controls select:hover { border-color: var(--cyan); color: var(--cyan); }
+  #controls button.on { border-color: var(--emerald); color: var(--emerald); }
+  #controls button:focus-visible, #controls select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap">
+    <canvas id="arena" width="1920" height="1080"></canvas>
+    <div class="hud-title">ARENA TRIPLE IA VS IA VS IA #6 - SUMO MAGNETICO</div>
+    <div class="hud-sub">DOHYO DE ACERO 60 FPS - NEODIMIO x10 - CUNA ABATIBLE - LASER</div>
+    <div id="controls">
+      <button id="btnPause" type="button">PAUSA</button>
+      <button id="btnReset" type="button">REINICIAR</button>
+      <button id="btnMagnets" type="button" class="on">IMANES ON</button>
+      <button id="btnLasers" type="button" class="on">LASER ON</button>
+      <button id="btnTrail" type="button">ESTELA</button>
+      <select id="selSpeed" aria-label="Velocidad de simulacion">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1.0x</option>
+        <option value="2">2.0x</option>
+      </select>
+      <button id="btnEvent" type="button">FORZAR EVENTO</button>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+
+// ================= CONSTANTES FISICAS (px; 1 m = M px) =================
+const W = 1920, H = 1080;
+const CX = 960, CY = 540;            // centro del Dohyo
+const M = 100;                       // px por metro
+const DOHYO_R = 400;                 // radio del tatami de acero (4.0 m)
+const TAWARA_R = 420;                // radio exterior de la linea blanca
+const BOT_R = 44;                    // radio fisico del robot
+const G = 9.81 * M;                  // gravedad px/s^2
+const MU_NORMAL = 0.12;              // agarre de llanta de goma sin iman
+const MAG_MULT = 10;                 // imanes de neodimio: x10 agarre
+const MU_MAG = MU_NORMAL * MAG_MULT; // 1.2 con iman
+const V_MAX = 6.5 * M;               // 6.5 m/s crucero
+const V_DASH = 9.0 * M;              // 9.0 m/s con dash boost
+const OMEGA_MAX = 4.2;               // rad/s giro maximo
+const ALPHA_MAX = 14;                // rad/s^2 aceleracion angular
+const E_REST = 0.35;                 // restitucion del choque
+const DT_CONTACT = 0.02;             // duracion del contacto para estimar fuerza (s)
+const LIFT_TIME = 1.1;               // s con llantas levantadas por cuna baja
+const DODGE_TIME = 0.35;             // s de finta lateral
+const DODGE_SPEED = 4.5 * M;         // deslizamiento lateral de la finta
+const EJECT_SPEED = 6.0 * M;         // 6 m/s: embestida que el rival puede desviar
+const RESPAWN_TIME = 2.6;            // s fuera antes de reingresar
+const DASH_TIME = 0.6;
+const DASH_COOLDOWN = 2.8;
+const DODGE_COOLDOWN = 0.9;
+const LASER_RANGE = 3.2 * M;
+const LASER_ANGLES = [-0.9, -0.45, 0, 0.45, 0.9];
+const SUB = 4;                       // subpasos de fisica por frame
+const DT = 1 / 60;
+
+const BOT_DEFS = [
+  { name: 'HYDROGEN CIAN',  short: 'HYD', color: '#22D3EE', mass: 3.2 },
+  { name: 'HAIKU AMBAR',    short: 'HAI', color: '#FB923C', mass: 3.0 },
+  { name: 'LUNA ESMERALDA', short: 'LUN', color: '#10B981', mass: 3.4 }
+];
+
+// ================= HELPERS =================
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const wrap = (a) => {
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+};
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// ================= ESTADO DEL MUNDO =================
+const world = {
+  t: 0,
+  bots: [],
+  sparks: [],
+  popups: [],
+  trails: [],
+  knockouts: 0,
+  maxImpactForce: 0,
+  contacts: 0,
+  liftCount: 0,
+  dodgeEjects: 0,
+  paused: false,
+  speed: 1,
+  magnets: true,
+  lasers: true,
+  trailOn: false,
+  director: { timer: 3.5, idx: 0 },
+  shake: 0,
+  lastEvent: 'INICIO'
+};
+
+// ================= ROBOTS =================
+function spawnPoint(i) {
+  const a = -Math.PI / 2 + i * (2 * Math.PI / 3) + 0.25;
+  return { x: CX + Math.cos(a) * 230, y: CY + Math.sin(a) * 230, ang: a + Math.PI };
+}
+
+function resetBot(b) {
+  const p = spawnPoint(b.id);
+  Object.assign(b, {
+    x: p.x, y: p.y, vx: 0, vy: 0, angle: p.ang, omega: 0,
+    wedgeDown: false, wedgeAnim: 0, traction: 1,
+    liftTimer: 0, overshootTimer: 0,
+    dodgeTimer: 0, dodgeDir: 0, dodgeCD: 0,
+    dashTimer: 0, dashCooldown: 0, dashBoost: false,
+    alive: true, respawn: 0, flash: 0,
+    lastCmd: { leftWheel: 0, rightWheel: 0, lowerWedge: false, dashBoost: false },
+    laser: []
+  });
+}
+
+function makeBot(i) {
+  const d = BOT_DEFS[i];
+  const b = {
+    id: i, name: d.name, short: d.short, color: d.color, mass: d.mass,
+    score: 0, knockouts: 0, lastHitBy: -1, lastHitTime: -99, lastImpact: 0
+  };
+  resetBot(b);
+  return b;
+}
+
+// Integra el movimiento diferencial: llantas -> velocidad lineal/angular
+// limitada por agarre magnetico (mu * traccion * g). Finta lateral si
+// las llantas giran en contrasentido a plena potencia.
+function driveBot(b, dt, cmd) {
+  const onSteel = Math.hypot(b.x - CX, b.y - CY) <= DOHYO_R;
+  const tr = onSteel ? b.traction : 0.02;   // fuera del acero: sin iman
+  const L = clamp(cmd.leftWheel, -1, 1);
+  const R = clamp(cmd.rightWheel, -1, 1);
+
+  // Finta lateral: llantas a plena potencia en sentido opuesto
+  if (onSteel && b.dodgeCD <= 0 && Math.abs(L) >= 0.98 && Math.abs(R) >= 0.98 && L * R < 0) {
+    b.dodgeTimer = DODGE_TIME;
+    b.dodgeDir = L > 0 ? 1 : -1;
+    b.dodgeCD = DODGE_COOLDOWN;
+  }
+
+  let fx = Math.cos(b.angle), fy = Math.sin(b.angle);
+  let rx = -fy, ry = fx;
+  let u = b.vx * fx + b.vy * fy;    // velocidad hacia adelante
+  let w = b.vx * rx + b.vy * ry;    // deslizamiento lateral
+
+  const vmax = (b.dashTimer > 0 ? V_DASH : V_MAX) * (b.wedgeDown ? 0.85 : 1);
+  const grip = (world.magnets ? MU_MAG : MU_NORMAL) * tr;
+  const aMax = grip * G;
+  const uT = (L + R) * 0.5 * vmax;
+  u += clamp(uT - u, -aMax * dt, aMax * dt);
+
+  // Torque: diferencia de llantas, limitado por inercia angular
+  const oT = (R - L) * 0.5 * OMEGA_MAX * (b.wedgeDown ? 0.8 : 1) * (onSteel ? 1 : 0.1);
+  b.omega += clamp(oT - b.omega, -ALPHA_MAX * dt, ALPHA_MAX * dt);
+  b.angle = wrap(b.angle + b.omega * dt);
+
+  fx = Math.cos(b.angle); fy = Math.sin(b.angle);
+  rx = -fy; ry = fx;
+
+  if (b.dodgeTimer > 0) {
+    const wT = b.dodgeDir * DODGE_SPEED;
+    w += clamp(wT - w, -DODGE_SPEED * 12 * dt, DODGE_SPEED * 12 * dt);
+  } else {
+    w *= Math.exp(-dt * (6 * tr + 0.25));  // iman frena el deslizamiento
+  }
+
+  b.vx = fx * u + rx * w;
+  b.vy = fy * u + ry * w;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+}
+
+// Temporizadores de traccion, cuna, dash y finta
+function tickBot(b, dt) {
+  if (b.liftTimer > 0) b.liftTimer -= dt;
+  if (b.dodgeTimer > 0) b.dodgeTimer -= dt;
+  if (b.dodgeCD > 0) b.dodgeCD -= dt;
+  if (b.dashTimer > 0) b.dashTimer -= dt;
+  if (b.dashCooldown > 0) b.dashCooldown -= dt;
+  if (b.overshootTimer > 0) b.overshootTimer -= dt;
+  if (b.flash > 0) b.flash -= dt;
+
+  let target = 1;
+  if (b.liftTimer > 0) target = 0.15;
+  if (b.overshootTimer > 0) target = 0.05;
+  const rate = target < b.traction ? 20 : 4;
+  b.traction += (target - b.traction) * Math.min(1, dt * rate);
+
+  b.wedgeAnim += ((b.wedgeDown ? 1 : 0) - b.wedgeAnim) * Math.min(1, dt * 10);
+}
+
+// ================= IA DE SUMO (funcion publica) =================
+// state = { ringCenterX, ringCenterY, ringRadius, bots:[{x,y,vx,vy,angle,wedgeDown,traction,score,alive}] }
+// Devuelve { leftWheel, rightWheel, lowerWedge, dashBoost } en [-1,1] / booleanos.
+function computeSumoRobotAI(state, myIndex) {
+  const out = { leftWheel: 0, rightWheel: 0, lowerWedge: false, dashBoost: false };
+  const bots = (state && Array.isArray(state.bots)) ? state.bots : [];
+  const me = bots[myIndex];
+  if (!me || !me.alive) return out;
+
+  const cx = Number.isFinite(state.ringCenterX) ? state.ringCenterX : CX;
+  const cy = Number.isFinite(state.ringCenterY) ? state.ringCenterY : CY;
+  const R = Number.isFinite(state.ringRadius) ? state.ringRadius : DOHYO_R;
+
+  // Controlador diferencial hacia un punto. speedScale limita avance.
+  const steer = (tx, ty, speedScale) => {
+    const ang = Math.atan2(ty - me.y, tx - me.x);
+    const diff = wrap(ang - me.angle);
+    const turn = clamp(diff * 1.8, -0.8, 0.8);   // giro en sitio <= 0.8: nunca dispara finta
+    const fwd = clamp(Math.cos(diff), 0, 1) * speedScale;
+    out.leftWheel = clamp(fwd - turn, -1, 1);
+    out.rightWheel = clamp(fwd + turn, -1, 1);
+  };
+
+  const edgeGap = R - Math.hypot(me.x - cx, me.y - cy);
+
+  // Rival objetivo: cercano y, si es posible, cerca del borde del tatami
+  let best = null, bestScore = Infinity;
+  for (let j = 0; j < bots.length; j++) {
+    if (j === myIndex) continue;
+    const o = bots[j];
+    if (!o || !o.alive) continue;
+    const d = Math.hypot(o.x - me.x, o.y - me.y);
+    const oEdge = Math.max(0, R - Math.hypot(o.x - cx, o.y - cy));
+    const s = d + oEdge * 0.8;
+    if (s < bestScore) { bestScore = s; best = o; }
+  }
+
+  // Seguridad: si estoy cerca del borde, regreso al centro
+  if (edgeGap < 110) { steer(cx, cy, 0.9); return out; }
+  if (!best) { steer(cx, cy, 0.5); return out; }
+
+  const dx = best.x - me.x, dy = best.y - me.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const ux = dx / d, uy = dy / d;                              // de mi hacia el rival
+  const closing = -((best.vx - me.vx) * ux + (best.vy - me.vy) * uy); // >0: se acercan
+  const eFacesMe = Math.cos(best.angle) * (-ux) + Math.sin(best.angle) * (-uy);
+  const myFacesE = Math.cos(me.angle) * ux + Math.sin(me.angle) * uy;
+
+  // Finta lateral: embestida a >= 6 m/s de frente -> me desplazo fuera de la linea de carga
+  const incoming = closing >= EJECT_SPEED * 0.9 && eFacesMe > 0.6 && d < 180;
+  const sel = (myIndex + Math.floor(best.x / 50) * 7 + Math.floor(best.y / 50) * 13) % 5;
+  if (incoming && sel !== 0) {
+    const eRx = -Math.sin(best.angle), eRy = Math.cos(best.angle); // derecha del rival
+    const side = ((me.x - best.x) * eRx + (me.y - best.y) * eRy) >= 0 ? 1 : -1;
+    const dwx = eRx * side, dwy = eRy * side;                      // alejarse de su linea
+    const myRx = -Math.sin(me.angle), myRy = Math.cos(me.angle);
+    const dir = (dwx * myRx + dwy * myRy) >= 0 ? 1 : -1;
+    out.leftWheel = dir;       // L = +1, R = -1 -> finta a la derecha (dir = +1)
+    out.rightWheel = -dir;
+    return out;
+  }
+
+  // Ataque: cuna baja al estar frente al rival y acercandose
+  steer(best.x + best.vx * 0.25, best.y + best.vy * 0.25, 1);
+  out.lowerWedge = d < 190 && myFacesE > 0.5;
+  out.dashBoost = d > 150 && d < 300 && myFacesE > 0.9 && (me.traction === undefined || me.traction > 0.8);
+  return out;
+}
+
+// ================= FX: CHISPAS Y TEXTOS =================
+function addSparks(x, y, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = rnd(120, 520);
+    world.sparks.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 80,
+      life: rnd(0.3, 0.8), max: 0.8, color
+    });
+  }
+  if (world.sparks.length > 700) world.sparks.splice(0, world.sparks.length - 700);
+}
+
+function popup(x, y, text, color) {
+  world.popups.push({ x, y, text, color, life: 1.6, max: 1.6 });
+  if (world.popups.length > 8) world.popups.shift();
+}
+
+// ================= CONTACTOS =================
+// Cuna baja levanta las llantas del rival si el choque es frontal.
+function liftBot(victim, pusher, dirx, diry) {
+  const fresh = victim.liftTimer <= 0;
+  victim.liftTimer = LIFT_TIME;
+  victim.lastHitBy = pusher.id;
+  victim.lastHitTime = world.t;
+  if (!fresh) return;          // el empuje y las chispas solo al inicio del levantamiento
+  victim.vx += dirx * 140;     // empuje extra hacia afuera del circulo
+  victim.vy += diry * 140;
+  victim.flash = 0.5;
+  world.liftCount++;
+  addSparks(victim.x + dirx * BOT_R, victim.y + diry * BOT_R, 46, '#FBBF24');
+  popup(victim.x, victim.y - 70, 'LLANTAS LEVANTADAS', '#FBBF24');
+}
+
+// Finta lateral: el atacante a >= 6 m/s pierde el apoyo y sale por su propia inercia.
+function ejectAttacker(att, def) {
+  if (att.overshootTimer > 0) return;
+  att.overshootTimer = 1.6;
+  att.lastHitBy = def.id;
+  att.lastHitTime = world.t;
+  const ox = att.x - CX, oy = att.y - CY, od = Math.hypot(ox, oy) || 1;
+  att.vx = att.vx * 1.1 + (ox / od) * 280;
+  att.vy = att.vy * 1.1 + (oy / od) * 280;
+  world.dodgeEjects++;
+  def.flash = 0.6;
+  addSparks(att.x, att.y, 34, '#F43F5E');
+  popup(att.x, att.y - 70, 'FINTA! ATACANTE A LA INERCIA', '#F43F5E');
+  world.shake = 1;
+}
+
+// Centro de masa: con la cuna baja el CM se desplaza al frente y la masa
+// efectiva en el choque sube (palanca sobre el eje delantero).
+function massEff(b) {
+  return b.mass * (b.wedgeDown ? 1.25 : 1);
+}
+
+// Resuelve pares: finta, separacion, impulso (con fuerza estimada) y cuna.
+function pairInteract(i, j) {
+  const A = world.bots[i], B = world.bots[j];
+  if (!A.alive || !B.alive) return;
+  const dx = B.x - A.x, dy = B.y - A.y;
+  const d = Math.hypot(dx, dy) || 1e-6;
+  const nx = dx / d, ny = dy / d;                              // normal A -> B
+  const fA = Math.cos(A.angle) * nx + Math.sin(A.angle) * ny;  // A mira a B
+  const fB = -(Math.cos(B.angle) * nx + Math.sin(B.angle) * ny); // B mira a A
+  const sA = A.vx * nx + A.vy * ny;                            // A hacia B (px/s)
+  const sB = -(B.vx * nx + B.vy * ny);                         // B hacia A (px/s)
+  const closing = sA + sB;
+
+  // Finta lateral: defensor esquivando mientras el rival llega a >= 6 m/s
+  if (d < BOT_R * 2 + 50 && closing > 0) {
+    if (B.dodgeTimer > 0 && fA > 0.45 && sA >= EJECT_SPEED * 0.9) ejectAttacker(A, B);
+    else if (A.dodgeTimer > 0 && fB > 0.45 && sB >= EJECT_SPEED * 0.9) ejectAttacker(B, A);
+  }
+
+  if (d >= BOT_R * 2) return;
+
+  // Separacion geometrica
+  const pen = BOT_R * 2 - d;
+  const iA = 1 / massEff(A), iB = 1 / massEff(B), sumI = iA + iB;
+  A.x -= nx * pen * (iA / sumI); A.y -= ny * pen * (iA / sumI);
+  B.x += nx * pen * (iB / sumI); B.y += ny * pen * (iB / sumI);
+
+  // Impulso normal con restitucion
+  const vn = (B.vx - A.vx) * nx + (B.vy - A.vy) * ny;   // < 0 si se acercan
+  if (vn < 0) {
+    const jImp = -(1 + E_REST) * vn / sumI;              // kg*px/s
+    A.vx -= jImp * iA * nx; A.vy -= jImp * iA * ny;
+    B.vx += jImp * iB * nx; B.vy += jImp * iB * ny;
+    const F = (jImp / M) / DT_CONTACT;                   // fuerza estimada en N
+    if (F > world.maxImpactForce) world.maxImpactForce = F;
+    if (F > 40) world.contacts++;   // solo impactos reales, no contacto sostenido
+    A.lastImpact = F; B.lastImpact = F;
+    if (F > 150) addSparks((A.x + B.x) / 2, (A.y + B.y) / 2, Math.min(36, 6 + F / 30), '#FBBF24');
+    if (F > 250) world.shake = Math.max(world.shake, Math.min(1, F / 700));
+    // Atribucion de empuje: quien empuja mas, se queda con el punto si el otro sale
+    if (sA > sB + 40) { B.lastHitBy = i; B.lastHitTime = world.t; }
+    else if (sB > sA + 40) { A.lastHitBy = j; A.lastHitTime = world.t; }
+  }
+
+  // Cuna: si ambos miran al rival y solo uno tiene la cuna baja, levanta al otro
+  if (fA > 0.45 && fB > 0.45) {
+    if (A.wedgeDown && !B.wedgeDown) liftBot(B, A, nx, ny);
+    else if (B.wedgeDown && !A.wedgeDown) liftBot(A, B, -nx, -ny);
+  }
+}
+
+// Expulsion: el centro del robot cruza el borde del Dohyo.
+function checkRingOut(b) {
+  if (Math.hypot(b.x - CX, b.y - CY) <= DOHYO_R) return;
+  b.alive = false;
+  b.respawn = RESPAWN_TIME;
+  b.vx = 0; b.vy = 0;
+  b.traction = 0.02;
+  b.wedgeDown = false;
+  b.dashTimer = 0;
+  b.liftTimer = 0;
+  b.overshootTimer = 0;
+  world.knockouts++;
+  if (b.lastHitBy >= 0 && world.t - b.lastHitTime <= 4.5) {
+    const w = world.bots[b.lastHitBy];
+    w.score += 1;
+    w.knockouts += 1;
+    popup(CX, CY - 260, w.short + ' +1 PUNTO: ' + b.short + ' FUERA', w.color);
+    b.lastHitBy = -1;
+  } else {
+    popup(CX, CY - 260, b.short + ' FUERA DEL DOHYO', '#94A3B8');
+  }
+  addSparks(b.x, b.y, 26, b.color);
+}
+
+// ================= EVENTOS DEL DIRECTOR =================
+const EVENTS = ['CUNA', 'FINTA', 'EMPUJE'];
+const EVENT_LABEL = {
+  CUNA: 'CUNA BAJA: LEVANTAMIENTO MAGNETICO',
+  FINTA: 'FINTA LATERAL vs EMBESTIDA 6 m/s',
+  EMPUJE: 'EMPUJE FRONTAL: CUNAS BAJAS SIMULTANEAS'
+};
+
+function runEvent(kind) {
+  const a = Math.floor(Math.random() * 3);
+  const d = (a + 1 + Math.floor(Math.random() * 2)) % 3;
+  const A = world.bots[a], D = world.bots[d];
+  if (!A.alive) resetBot(A);
+  if (!D.alive) resetBot(D);
+  const th = Math.random() * Math.PI * 2;
+  const ux = Math.cos(th), uy = Math.sin(th);
+  const px = CX + rnd(-80, 80), py = CY + rnd(-80, 80);
+  A.x = px - ux * 130; A.y = py - uy * 130; A.angle = th;
+  D.x = px + ux * 130; D.y = py + uy * 130; D.angle = th + Math.PI;
+  A.omega = 0; D.omega = 0;
+  A.traction = 1; D.traction = 1; A.liftTimer = 0; D.liftTimer = 0;
+  D.dodgeCD = 0; D.dodgeTimer = 0;
+  if (kind === 'CUNA') {
+    A.vx = ux * 650; A.vy = uy * 650; D.vx = 0; D.vy = 0;
+  } else if (kind === 'FINTA') {
+    A.vx = ux * 650; A.vy = uy * 650; D.vx = 0; D.vy = 0;
+  } else {
+    A.vx = ux * 300; A.vy = uy * 300; D.vx = -ux * 300; D.vy = -uy * 300;
+  }
+  world.event = { type: kind, a, d, time: 2.2, dir: Math.random() < 0.5 ? 1 : -1 };
+  world.lastEvent = EVENT_LABEL[kind];
+  world.lastKind = kind;
+}
+
+function updateDirector(dt) {
+  const dr = world.director;
+  dr.timer -= dt;
+  if (dr.timer <= 0 && !world.event) {
+    const kind = EVENTS[dr.idx % EVENTS.length];
+    dr.idx++;
+    runEvent(kind);
+    dr.timer = 7.5;
+  }
+}
+
+// Sobrescribe la IA durante un evento para que sea reproducible y espectacular
+function applyEventOverrides(cmds, dt) {
+  const ev = world.event;
+  if (!ev) return;
+  ev.time -= dt;
+  if (ev.time <= 0) { world.event = null; return; }
+  const A = world.bots[ev.a], D = world.bots[ev.d];
+  const dist = Math.hypot(A.x - D.x, A.y - D.y);
+  if (ev.type === 'CUNA') {
+    cmds[ev.a] = { leftWheel: 1, rightWheel: 1, lowerWedge: true, dashBoost: false };
+    cmds[ev.d] = { leftWheel: 0, rightWheel: 0, lowerWedge: false, dashBoost: false };
+  } else if (ev.type === 'FINTA') {
+    cmds[ev.a] = { leftWheel: 1, rightWheel: 1, lowerWedge: false, dashBoost: true };
+    cmds[ev.d] = dist < 170
+      ? { leftWheel: ev.dir, rightWheel: -ev.dir, lowerWedge: false, dashBoost: false }
+      : { leftWheel: 0, rightWheel: 0, lowerWedge: false, dashBoost: false };
+  } else {
+    cmds[ev.a] = { leftWheel: 1, rightWheel: 1, lowerWedge: true, dashBoost: false };
+    cmds[ev.d] = { leftWheel: 1, rightWheel: 1, lowerWedge: true, dashBoost: false };
+  }
+}
+
+// ================= PASO DE SIMULACION (1/60 s fijo) =================
+function buildState() {
+  return {
+    ringCenterX: CX,
+    ringCenterY: CY,
+    ringRadius: DOHYO_R,
+    bots: world.bots.map((b) => ({
+      x: b.x, y: b.y, vx: b.vx, vy: b.vy, angle: b.angle,
+      wedgeDown: b.wedgeDown, traction: b.traction,
+      score: b.score, alive: b.alive
+    }))
+  };
+}
+
+function stepSim(dt) {
+  world.t += dt;
+  updateDirector(dt);
+
+  // Decisiones de IA a 60 Hz (cada robot solo ve el estado publico)
+  const state = buildState();
+  const cmds = world.bots.map((b, i) => (b.alive ? computeSumoRobotAI(state, i)
+    : { leftWheel: 0, rightWheel: 0, lowerWedge: false, dashBoost: false }));
+  applyEventOverrides(cmds, dt);
+
+  for (const b of world.bots) {
+    if (!b.alive) continue;
+    const c = cmds[b.id];
+    b.lastCmd = c;
+    b.wedgeDown = !!c.lowerWedge;
+    if (c.dashBoost && b.dashTimer <= 0 && b.dashCooldown <= 0) {
+      b.dashTimer = DASH_TIME;
+      b.dashCooldown = DASH_COOLDOWN;
+    }
+    b.dashBoost = b.dashTimer > 0;
+  }
+
+  // Subpasos de fisica
+  const h = dt / SUB;
+  for (let s = 0; s < SUB; s++) {
+    for (const b of world.bots) {
+      if (!b.alive) continue;
+      tickBot(b, h);
+      driveBot(b, h, cmds[b.id]);
+    }
+    for (let i = 0; i < world.bots.length; i++)
+      for (let j = i + 1; j < world.bots.length; j++)
+        pairInteract(i, j);
+    for (const b of world.bots) if (b.alive) checkRingOut(b);
+  }
+
+  // Reingreso tras expulsion
+  for (const b of world.bots) {
+    if (b.alive) continue;
+    b.respawn -= dt;
+    if (b.respawn <= 0) {
+      resetBot(b);
+      b.lastHitBy = -1;
+      b.lastHitTime = -99;
+    }
+  }
+
+  updateFx(dt);
+}
+
+function updateFx(dt) {
+  for (const s of world.sparks) {
+    s.life -= dt;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.vy += 500 * dt;
+    s.vx *= Math.exp(-dt * 2.5);
+  }
+  world.sparks = world.sparks.filter((s) => s.life > 0);
+  for (const p of world.popups) { p.life -= dt; }
+  world.popups = world.popups.filter((p) => p.life > 0);
+  if (world.trailOn) {
+    for (const b of world.bots) if (b.alive) world.trails.push({ x: b.x, y: b.y, c: b.color, life: 0.7, max: 0.7 });
+  }
+  for (const t of world.trails) t.life -= dt;
+  world.trails = world.trails.filter((t) => t.life > 0);
+  if (world.trails.length > 900) world.trails.splice(0, world.trails.length - 900);
+  world.shake *= Math.exp(-dt * 6);
+}
+
+// ================= RENDER: ESCENA =================
+const canvas = document.getElementById('arena');
+const ctx = canvas.getContext('2d');
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function txt(s, x, y, size, color, align, weight) {
+  ctx.font = (weight || '700') + ' ' + size + 'px "Helvetica Neue", Arial, sans-serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = align || 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(s, x, y);
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#060A12';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(56,189,248,0.05)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= W; x += 60) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = 0; y <= H; y += 60) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+}
+
+function drawDohyo() {
+  ctx.save();
+  // Halo fuera del acero: zona sin iman
+  const halo = ctx.createRadialGradient(CX, CY, DOHYO_R, CX, CY, DOHYO_R + 200);
+  halo.addColorStop(0, 'rgba(244,63,94,0.10)');
+  halo.addColorStop(1, 'rgba(6,10,18,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(CX, CY, DOHYO_R + 200, 0, Math.PI * 2); ctx.fill();
+
+  // Tatami de acero negro
+  const steel = ctx.createRadialGradient(CX - 70, CY - 70, 40, CX, CY, DOHYO_R);
+  steel.addColorStop(0, '#1B2433');
+  steel.addColorStop(0.7, '#0C121D');
+  steel.addColorStop(1, '#070B13');
+  ctx.fillStyle = steel;
+  ctx.beginPath(); ctx.arc(CX, CY, DOHYO_R, 0, Math.PI * 2); ctx.fill();
+
+  // Textura cepillada
+  ctx.strokeStyle = 'rgba(148,163,184,0.05)';
+  ctx.lineWidth = 1;
+  for (let r = 10; r < DOHYO_R; r += 6) {
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // Anillos del campo magnetico
+  ctx.strokeStyle = 'rgba(34,211,238,0.12)';
+  ctx.setLineDash([4, 10]);
+  ctx.beginPath(); ctx.arc(CX, CY, DOHYO_R * 0.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX, CY, DOHYO_R * 0.78, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Remaches del acero
+  ctx.fillStyle = 'rgba(148,163,184,0.14)';
+  for (let k = 0; k < 24; k++) {
+    const a = k / 24 * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(CX + Math.cos(a) * (DOHYO_R - 16), CY + Math.sin(a) * (DOHYO_R - 16), 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Tawara: linea blanca de salida
+  ctx.strokeStyle = '#F8FAFC';
+  ctx.lineWidth = 12;
+  ctx.shadowColor = 'rgba(248,250,252,0.6)';
+  ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.arc(CX, CY, DOHYO_R - 6, 0, Math.PI * 2); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Marcas de salida (shikiri)
+  ctx.strokeStyle = 'rgba(226,232,240,0.7)';
+  ctx.lineWidth = 4;
+  for (let i = 0; i < 3; i++) {
+    const p = spawnPoint(i);
+    const px = -Math.sin(p.ang), py = Math.cos(p.ang);
+    ctx.beginPath();
+    ctx.moveTo(p.x + px * 26, p.y + py * 26);
+    ctx.lineTo(p.x - px * 26, p.y - py * 26);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Trazado de 5 laseres: borde del Dohyo y circulos de los rivales
+function castLasers(b) {
+  const res = [];
+  for (const a of LASER_ANGLES) {
+    const ang = b.angle + a;
+    const dx = Math.cos(ang), dy = Math.sin(ang);
+    const ox = b.x + dx * BOT_R, oy = b.y + dy * BOT_R;
+    let best = LASER_RANGE, hit = 0;
+    const fx = ox - CX, fy = oy - CY;
+    const bq = fx * dx + fy * dy;
+    const cq = fx * fx + fy * fy - DOHYO_R * DOHYO_R;
+    const disc = bq * bq - cq;
+    if (disc >= 0) {
+      const t = -bq + Math.sqrt(disc);
+      if (t > 0 && t < best) { best = t; hit = 1; }
+    }
+    for (const o of world.bots) {
+      if (o === b || !o.alive) continue;
+      const rx = o.x - ox, ry = o.y - oy;
+      const proj = rx * dx + ry * dy;
+      if (proj <= 0) continue;
+      const perp2 = rx * rx + ry * ry - proj * proj;
+      if (perp2 <= BOT_R * BOT_R) {
+        const t = proj - Math.sqrt(BOT_R * BOT_R - perp2);
+        if (t > 0 && t < best) { best = t; hit = 2; }
+      }
+    }
+    res.push({ len: best / M, hit, ox, oy, ex: ox + dx * best, ey: oy + dy * best });
+  }
+  return res;
+}
+
+function drawLasers() {
+  for (const b of world.bots) {
+    if (!b.alive) continue;
+    for (const L of b.laser) {
+      const col = L.hit === 1 ? 'rgba(244,63,94,0.85)' : L.hit === 2 ? 'rgba(251,146,60,0.9)' : b.color;
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = L.hit ? 0.9 : 0.28;
+      ctx.lineWidth = L.hit ? 2.5 : 1.5;
+      ctx.beginPath();
+      ctx.moveTo(L.ox, L.oy);
+      ctx.lineTo(L.ex, L.ey);
+      ctx.stroke();
+      if (L.hit) {
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(L.ex, L.ey, 4, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBot(b) {
+  const lifted = b.liftTimer > 0;
+  const lf = lifted ? 1 : 0;
+  const pulse = 0.5 + 0.5 * Math.sin(world.t * 6 + b.id * 2);
+
+  // Huella magnetica (x10 agarre) bajo el robot
+  if (b.alive && world.magnets) {
+    const gr = ctx.createRadialGradient(b.x, b.y, BOT_R * 0.6, b.x, b.y, BOT_R * 1.9);
+    gr.addColorStop(0, `rgba(34,211,238,${(0.18 + 0.1 * pulse).toFixed(3)})`);
+    gr.addColorStop(1, 'rgba(34,211,238,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(b.x, b.y, BOT_R * 1.9, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.save();
+  ctx.globalAlpha = b.alive ? 1 : 0.28;
+  ctx.translate(b.x, b.y);
+
+  // Sombra (se separa cuando esta levantado)
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(6 + lf * 14, 8 + lf * 14, BOT_R * 0.95, BOT_R * 0.9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.rotate(b.angle);
+  const sc = 1 + lf * 0.07;
+  ctx.scale(sc, sc);
+
+  // Escape del dash
+  if (b.dashBoost && b.alive) {
+    for (let k = 0; k < 3; k++) {
+      ctx.fillStyle = k === 1 ? 'rgba(251,191,36,0.85)' : 'rgba(251,146,60,0.55)';
+      ctx.beginPath();
+      ctx.moveTo(-40, -10 + k * 10);
+      ctx.lineTo(-40 - 30 - k * 8 - pulse * 14, -6 + k * 6);
+      ctx.lineTo(-40, 6 + k * 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // Llantas con iman (rojas si estan levantadas)
+  ctx.fillStyle = lifted ? '#F43F5E' : '#0B1020';
+  for (const sx of [-30, 30]) for (const sy of [-1, 1]) {
+    ctx.fillRect(sx - 11, sy * (BOT_R - 6) - 6, 22, 12);
+  }
+
+  // Chasis
+  const body = ctx.createLinearGradient(-36, -36, 36, 36);
+  body.addColorStop(0, b.color);
+  body.addColorStop(1, '#0F172A');
+  ctx.fillStyle = body;
+  rr(-36, -36, 72, 72, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(15,23,42,0.9)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(15,23,42,0.6)';
+  rr(-24, -24, 40, 48, 6);
+  ctx.fill();
+
+  // Imanes inferiores (puntos de neodimio)
+  ctx.fillStyle = '#E2E8F0';
+  for (const sx of [-16, 8]) for (const sy of [-12, 12]) {
+    ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Cuna frontal abatible (wedge)
+  const wa = b.wedgeAnim;
+  const tipX = 40 + 26 * wa, tipH = 16 - 8 * wa;
+  ctx.fillStyle = wa > 0.5 ? '#FB923C' : '#64748B';
+  ctx.strokeStyle = '#0F172A';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(34, -32);
+  ctx.lineTo(tipX, -tipH);
+  ctx.lineTo(tipX, tipH);
+  ctx.lineTo(34, 32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Emisor laser frontal
+  ctx.fillStyle = '#F43F5E';
+  ctx.beginPath(); ctx.arc(46, 0, 4, 0, Math.PI * 2); ctx.fill();
+
+  // Destello de impacto
+  if (b.flash > 0) {
+    ctx.strokeStyle = `rgba(248,250,252,${(b.flash / 0.6).toFixed(3)})`;
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(0, 0, BOT_R + 10, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Etiqueta sobre el robot (sin rotar)
+  if (b.alive) {
+    txt(b.short + ' ' + b.score, b.x, b.y - 68, 18, b.color, 'center', '800');
+  } else {
+    txt(b.short + ' FUERA', b.x, b.y - 68, 16, '#94A3B8', 'center', '700');
+  }
+}
+
+function drawFx() {
+  for (const s of world.sparks) {
+    const a = clamp(s.life / s.max, 0, 1);
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x - s.vx * 0.04, s.y - s.vy * 0.04);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  const np = world.popups.length;
+  world.popups.forEach((p, k) => {
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.globalAlpha = Math.min(1, a * 1.5);
+    const stack = (np - 1 - k) * 34;      // apila los textos recientes sin superponerlos
+    txt(p.text, p.x, p.y - stack - (p.max - p.life) * 30, 24, p.color, 'center', '800');
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ================= RENDER: HUD =================
+function drawPanel(x, y, w, h, border) {
+  ctx.save();
+  rr(x, y, w, h, 14);
+  ctx.fillStyle = 'rgba(15,23,42,0.94)';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = border || '#1E3A5F';
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Icono iman en U (Canvas, sin emojis)
+function drawMagnetIcon(x, y, s, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = s * 0.2;
+  ctx.beginPath();
+  ctx.arc(x, y, s * 0.5, Math.PI, 0, false);
+  ctx.moveTo(x - s * 0.5, y); ctx.lineTo(x - s * 0.5, y + s * 0.45);
+  ctx.moveTo(x + s * 0.5, y); ctx.lineTo(x + s * 0.5, y + s * 0.45);
+  ctx.stroke();
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillRect(x - s * 0.5 - s * 0.1, y + s * 0.3, s * 0.2, s * 0.2);
+  ctx.fillRect(x + s * 0.5 - s * 0.1, y + s * 0.3, s * 0.2, s * 0.2);
+  ctx.restore();
+}
+
+// Icono de robot con cuna (Canvas)
+function drawBotIcon(x, y, s, color, wedgeDown) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  rr(-s * 0.5, -s * 0.5, s, s, s * 0.14);
+  ctx.fill();
+  ctx.fillStyle = wedgeDown ? '#FB923C' : '#64748B';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.5, -s * 0.36);
+  ctx.lineTo(s * 0.5 + s * (wedgeDown ? 0.34 : 0.14), -s * 0.1);
+  ctx.lineTo(s * 0.5 + s * (wedgeDown ? 0.34 : 0.14), s * 0.1);
+  ctx.lineTo(s * 0.5, s * 0.36);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCard(b, x, y, w, h) {
+  const speed = Math.hypot(b.vx, b.vy) / M;
+  const minL = b.alive && b.laser.length ? Math.min.apply(null, b.laser.map((l) => l.len)) : 0;
+  drawPanel(x, y, w, h, b.color);
+  drawBotIcon(x + 34, y + 36, 30, b.color, b.wedgeDown);
+  txt(b.name, x + 62, y + 32, 24, b.color, 'left', '800');
+  txt('PUNTOS', x + w - 20, y + 24, 14, '#64748B', 'right', '700');
+  txt(String(b.score), x + w - 20, y + 62, 50, '#F8FAFC', 'right', '900');
+
+  txt('KO ' + b.knockouts, x + 20, y + 74, 18, '#E2E8F0');
+  txt('CUNA ' + (b.wedgeDown ? 'BAJA' : 'ALTA'), x + 110, y + 74, 18, b.wedgeDown ? '#FB923C' : '#94A3B8');
+  txt('VEL ' + speed.toFixed(1) + ' m/s', x + 20, y + 102, 18, '#E2E8F0');
+  txt('LASER ' + minL.toFixed(2) + ' m', x + 200, y + 102, 18, '#E2E8F0');
+  const dashTxt = b.dashTimer > 0 ? 'DASH ON' : (b.dashCooldown > 0 ? 'DASH RECARGA' : 'DASH LISTO');
+  txt(dashTxt, x + 20, y + 130, 18, b.dashTimer > 0 ? '#FBBF24' : '#94A3B8');
+  if (b.alive && b.liftTimer > 0) txt('LEVANTADO', x + w - 20, y + 130, 18, '#F43F5E', 'right', '800');
+  if (!b.alive) txt('FUERA DEL DOHYO', x + w - 20, y + 130, 18, '#94A3B8', 'right', '800');
+
+  txt('TRACCION', x + 20, y + h - 22, 15, '#94A3B8');
+  const tr = clamp(b.traction, 0, 1);
+  ctx.fillStyle = '#1E293B';
+  rr(x + 130, y + h - 30, w - 150, 14, 7);
+  ctx.fill();
+  if (tr > 0.01) {
+    ctx.fillStyle = tr > 0.6 ? '#10B981' : (tr > 0.3 ? '#FBBF24' : '#F43F5E');
+    rr(x + 130, y + h - 30, (w - 150) * tr, 14, 7);
+    ctx.fill();
+  }
+}
+
+function drawHUD() {
+  // Cabecera de rendimiento
+  txt('60 FPS  |  PASO FIJO 60 Hz  |  T ' + world.t.toFixed(1) + ' s', W - 40, 40, 18, '#10B981', 'right', '800');
+
+  // Telemetria izquierda
+  drawPanel(40, 170, 440, 600, '#1E3A5F');
+  txt('TELEMETRIA DEL DOHYO', 64, 200, 24, '#22D3EE', 'left', '800');
+  const rows = [
+    ['TIEMPO', world.t.toFixed(1) + ' s', '#E2E8F0'],
+    ['VELOCIDAD SIM', world.speed.toFixed(1) + 'x', '#E2E8F0'],
+    ['CONTACTOS', String(world.contacts), '#E2E8F0'],
+    ['CUNAS: RUEDAS LEVANTADAS', String(world.liftCount), '#FBBF24'],
+    ['FINTAS: ATACANTE FUERA', String(world.dodgeEjects), '#FB923C'],
+    ['FUERZA MAX DE IMPACTO', world.maxImpactForce.toFixed(0) + ' N', '#F43F5E'],
+    ['ELIMINACIONES', String(world.knockouts), '#10B981']
+  ];
+  let yy = 246;
+  for (const r of rows) {
+    txt(r[0], 64, yy, 17, '#94A3B8', 'left', '700');
+    txt(r[1], 455, yy, 22, r[2], 'right', '800');
+    yy += 40;
+  }
+
+  // Bloque iman de neodimio
+  drawMagnetIcon(440, 560, 38, world.magnets ? '#22D3EE' : '#64748B');
+  txt('IMAN DE NEODIMIO', 64, 556, 20, '#22D3EE', 'left', '800');
+  txt('AGARRE NORMAL MU ' + MU_NORMAL.toFixed(2), 64, 590, 17, '#94A3B8');
+  txt('AGARRE CON IMAN MU ' + MU_MAG.toFixed(2), 64, 616, 17, world.magnets ? '#22D3EE' : '#64748B');
+  ctx.fillStyle = '#1E293B';
+  rr(64, 640, 390, 14, 7);
+  ctx.fill();
+  ctx.fillStyle = world.magnets ? '#22D3EE' : '#F43F5E';
+  rr(64, 640, world.magnets ? 390 : 39, 14, 7);
+  ctx.fill();
+  txt(world.magnets ? 'MULTIPLICADOR x10 ACTIVO' : 'SIN IMAN: MULTIPLICADOR x1', 64, 672,
+    17, world.magnets ? '#22D3EE' : '#F43F5E', 'left', '800');
+  txt('PROXIMO EVENTO EN ' + Math.max(0, world.director.timer).toFixed(1) + ' s', 64, 706, 17, '#38BDF8');
+  txt('ULTIMO EVENTO: ' + world.lastKind, 64, 734, 17, '#64748B');
+
+  // Reglas (izquierda inferior)
+  drawPanel(40, 800, 440, 190, '#1E3A5F');
+  txt('REGLAS DE LA ARENA', 64, 828, 20, '#FBBF24', 'left', '800');
+  const rules = [
+    'CUNA BAJA + FRONTAL: levanta las llantas del rival',
+    '  con chispas y lo empuja fuera del circulo.',
+    'FINTA LATERAL vs EMBESTIDA 6 m/s: el atacante',
+    '  sale del Dohyo por su propia inercia.',
+    'SALIR DEL DOHYO: +1 punto al ultimo empujador.',
+    'LASER: naranja = rival, coral = borde del acero.'
+  ];
+  let ry = 860;
+  for (const s of rules) { txt(s, 64, ry, 15, '#CBD5E1', 'left', '600'); ry += 24; }
+
+  // Tarjetas de robots (derecha)
+  for (let i = 0; i < world.bots.length; i++) {
+    drawCard(world.bots[i], 1440, 170 + i * 200, 440, 180);
+  }
+
+  // Banner del evento en curso
+  if (world.event) {
+    drawPanel(1440, 790, 440, 84, '#FB923C');
+    txt('EVENTO EN CURSO', 1460, 814, 17, '#FB923C', 'left', '800');
+    txt(world.lastEvent, 1460, 846, 17, '#F8FAFC', 'left', '700');
+  } else {
+    drawPanel(1440, 790, 440, 84, '#1E3A5F');
+    txt('MARCADOR', 1460, 814, 17, '#94A3B8', 'left', '800');
+    const sc = world.bots.map((b) => b.short + ' ' + b.score).join('   ');
+    txt(sc, 1460, 846, 20, '#E2E8F0', 'left', '800');
+  }
+}
+
+function drawPaused() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,10,18,0.55)';
+  ctx.fillRect(0, 0, W, H);
+  txt('PAUSA', CX, CY, 72, '#22D3EE', 'center', '900');
+  ctx.restore();
+}
+
+function render() {
+  for (const b of world.bots) b.laser = b.alive ? castLasers(b) : [];
+  drawBackground();
+  ctx.save();
+  if (world.shake > 0.01) {
+    ctx.translate((Math.random() - 0.5) * world.shake * 10, (Math.random() - 0.5) * world.shake * 10);
+  }
+  drawDohyo();
+  if (world.trailOn) {
+    for (const t of world.trails) {
+      ctx.globalAlpha = clamp(t.life / t.max, 0, 1) * 0.35;
+      ctx.fillStyle = t.c;
+      ctx.beginPath(); ctx.arc(t.x, t.y, BOT_R * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (world.lasers) drawLasers();
+  for (const b of world.bots) drawBot(b);
+  drawFx();
+  ctx.restore();
+  drawHUD();
+  if (world.paused) drawPaused();
+}
+
+// ================= CONTROLES Y BUCLE =================
+function resetWorld() {
+  world.t = 0;
+  world.bots = [makeBot(0), makeBot(1), makeBot(2)];
+  world.sparks = [];
+  world.popups = [];
+  world.trails = [];
+  world.knockouts = 0;
+  world.maxImpactForce = 0;
+  world.contacts = 0;
+  world.liftCount = 0;
+  world.dodgeEjects = 0;
+  world.event = null;
+  world.shake = 0;
+  world.director = { timer: 3.5, idx: 0 };
+  world.lastEvent = 'INICIO';
+  world.lastKind = 'INICIO';
+  updateButtons();
+}
+
+function updateButtons() {
+  const $ = (id) => document.getElementById(id);
+  $('btnPause').textContent = world.paused ? 'REANUDAR' : 'PAUSA';
+  $('btnPause').classList.toggle('on', world.paused);
+  $('btnMagnets').textContent = world.magnets ? 'IMANES ON' : 'IMANES OFF';
+  $('btnMagnets').classList.toggle('on', world.magnets);
+  $('btnLasers').textContent = world.lasers ? 'LASER ON' : 'LASER OFF';
+  $('btnLasers').classList.toggle('on', world.lasers);
+  $('btnTrail').textContent = world.trailOn ? 'ESTELA ON' : 'ESTELA';
+  $('btnTrail').classList.toggle('on', world.trailOn);
+}
+
+function bindControls() {
+  const $ = (id) => document.getElementById(id);
+  $('btnPause').addEventListener('click', () => { world.paused = !world.paused; updateButtons(); });
+  $('btnReset').addEventListener('click', () => resetWorld());
+  $('btnMagnets').addEventListener('click', () => { world.magnets = !world.magnets; updateButtons(); });
+  $('btnLasers').addEventListener('click', () => { world.lasers = !world.lasers; updateButtons(); });
+  $('btnTrail').addEventListener('click', () => { world.trailOn = !world.trailOn; updateButtons(); });
+  $('selSpeed').addEventListener('change', (e) => { world.speed = parseFloat(e.target.value) || 1; });
+  $('btnEvent').addEventListener('click', () => {
+    const kind = EVENTS[world.director.idx % EVENTS.length];
+    world.director.idx++;
+    runEvent(kind);
+    world.director.timer = 7.5;
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); world.paused = !world.paused; updateButtons(); }
+    else if (e.code === 'KeyR') resetWorld();
+    else if (e.code === 'KeyE') $('btnEvent').click();
+  });
+}
+
+let lastTs = performance.now();
+let acc = 0;
+let fpsFrames = 0;
+let fpsTime = 0;
+
+function loop(now) {
+  const real = Math.min(0.1, Math.max(0, (now - lastTs) / 1000));
+  lastTs = now;
+  if (!world.paused) {
+    acc += real * world.speed;
+    let guard = 0;
+    while (acc >= DT && guard < 8) {
+      stepSim(DT);
+      acc -= DT;
+      guard++;
+    }
+    if (guard >= 8) acc = 0;
+  }
+  render();
+  fpsFrames++;
+  fpsTime += real;
+  if (fpsTime >= 1) { fpsFrames = 0; fpsTime = 0; }
+  requestAnimationFrame(loop);
+}
+
+// ================= API DE AUDITORIA (window) =================
+window.computeSumoRobotAI = computeSumoRobotAI;
+
+window.__auditSumo = function () {
+  let aiHookReady = false;
+  try {
+    const probe = computeSumoRobotAI({
+      ringCenterX: CX, ringCenterY: CY, ringRadius: DOHYO_R,
+      bots: [
+        { x: CX - 200, y: CY, vx: 0, vy: 0, angle: 0, wedgeDown: false, traction: 1, score: 0, alive: true },
+        { x: CX + 200, y: CY, vx: -600, vy: 0, angle: Math.PI, wedgeDown: false, traction: 1, score: 0, alive: true }
+      ]
+    }, 0);
+    aiHookReady = !!probe &&
+      typeof probe.leftWheel === 'number' && typeof probe.rightWheel === 'number' &&
+      typeof probe.lowerWedge === 'boolean' && typeof probe.dashBoost === 'boolean';
+  } catch (err) {
+    aiHookReady = false;
+  }
+  return {
+    scores: world.bots.map((b) => b.score),
+    knockouts: world.knockouts,
+    maxImpactForce: world.maxImpactForce,
+    aiHookReady
+  };
+};
+
+// ================= ARRANQUE =================
+resetWorld();
+bindControls();
+updateButtons();
+requestAnimationFrame((t) => { lastTs = t; loop(t); });
+</script>
+</body>
+</html>

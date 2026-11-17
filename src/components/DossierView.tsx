@@ -11,6 +11,12 @@ import { EP07_BENCHMARK_TOTALS, EP07_CHALLENGES } from "@/data/ep07Data";
 import { EP08_BENCHMARK_TOTALS, EP08_CHALLENGES } from "@/data/ep08Data";
 import { EP09_BENCHMARK_TOTALS, EP09_CHALLENGES } from "@/data/ep09Data";
 import { EP10_BENCHMARK_TOTALS, EP10_CHALLENGES } from "@/data/ep10Data";
+import {
+  EP11_BENCHMARK_TOTALS,
+  EP11_CHALLENGES,
+  EP11_THINKING_LEVELS,
+} from "@/data/ep11Data";
+import { EP12_BENCHMARK_TOTALS, EP12_CHALLENGES } from "@/data/ep12Data";
 import { YOUTUBE_LINKS } from "@/data/glossary";
 import type { ReleasedState } from "@/data/releaseSchedule";
 import {
@@ -22,6 +28,8 @@ import {
 } from "@mixiuh/pixel-ui";
 
 export type DossierEpisode =
+  | "ep12"
+  | "ep11"
   | "ep10"
   | "ep09"
   | "ep08"
@@ -32,6 +40,14 @@ export type DossierEpisode =
   | "ep03"
   | "ep02"
   | "ep01";
+export type Ep12Mode =
+  | "arena"
+  | "triple"
+  | "hydrogen"
+  | "haiku"
+  | "haiku_rescue"
+  | "luna";
+export type Ep11Mode = "arena" | "split" | "hydrogen" | "flash" | "levels";
 export type Ep10Mode = "arena" | "split" | "carbon" | "fable52";
 export type Ep09Mode = "split" | "fable52" | "opus55";
 export type Ep08Mode = "split" | "carbon" | "argon" | "recovery";
@@ -52,6 +68,10 @@ export interface DossierViewProps {
   navigateToView: (view: "noticias" | "comunidad") => void;
   handleJumpToArena: (episode: DossierEpisode, challengeN: number) => void;
   playSfx: (name: PixelSoundName) => void;
+  ep12ChallengeN?: number;
+  setEp12ChallengeN?: (n: number) => void;
+  ep11ChallengeN?: number;
+  setEp11ChallengeN?: (n: number) => void;
   ep10ChallengeN?: number;
   setEp10ChallengeN?: (n: number) => void;
   ep09ChallengeN?: number;
@@ -154,6 +174,10 @@ export default function DossierView({
   navigateToView,
   handleJumpToArena,
   playSfx,
+  ep12ChallengeN = 1,
+  setEp12ChallengeN = () => {},
+  ep11ChallengeN = 1,
+  setEp11ChallengeN = () => {},
   ep10ChallengeN = 1,
   setEp10ChallengeN = () => {},
   ep09ChallengeN = 1,
@@ -177,6 +201,9 @@ export default function DossierView({
   activeVideoClip,
   setActiveVideoClip,
 }: DossierViewProps) {
+  const [ep12Mode, setEp12Mode] = useState<Ep12Mode>("arena");
+  const [ep11Mode, setEp11Mode] = useState<Ep11Mode>("arena");
+  const [ep11LevelKey, setEp11LevelKey] = useState<"low" | "medium" | "high" | "xhigh">("xhigh");
   const [ep10Mode, setEp10Mode] = useState<Ep10Mode>("arena");
   const [ep09Mode, setEp09Mode] = useState<Ep09Mode>("split");
   const [ep08Mode, setEp08Mode] = useState<Ep08Mode>("recovery");
@@ -226,8 +253,8 @@ export default function DossierView({
           {/* Banner text, not a heading: each episode's title below is the view's <h1> */}
           <p className="font-display text-xl sm:text-2xl font-black text-white">
             {lang === "es"
-              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP10)"
-              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP10)"}
+              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP12)"
+              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP12)"}
           </p>
         </div>
 
@@ -280,6 +307,64 @@ export default function DossierView({
           aria-labelledby="dossier-disk-label"
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
         >
+          {released.ep12 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep12");
+              }}
+              aria-pressed={dossierEp === "ep12"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep12"
+                  ? "bg-[#182235] border-[#10B981]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#10B981]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#10B981] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 12 · LIGEROS" : "DISK 12 · LITE EXTRA"}
+                </span>
+                <span className="text-[#10B981]">
+                  6-2-4 · $2.26 / $1.66 / $0.17
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Hydrogen vs Haiku vs Luna (Extra · 24 Demos)"
+                  : "Hydrogen vs Haiku vs Luna (Extra · 24 Demos)"}
+              </div>
+            </button>
+          )}
+
+          {released.ep11 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep11");
+              }}
+              aria-pressed={dossierEp === "ep11"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep11"
+                  ? "bg-[#182235] border-[#38BDF8]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#38BDF8]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#38BDF8] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 11 · HYDROGEN" : "DISK 11 · HYDROGEN"}
+                </span>
+                <span className="text-[#38BDF8]">
+                  7-2 · $3.22 vs $0.58
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Gemini 4 Hydrogen vs Flash 3.8 (18 Demos)"
+                  : "Gemini 4 Hydrogen vs Flash 3.8 (18 Demos)"}
+              </div>
+            </button>
+          )}
+
           {released.ep10 && (
             <button
               onClick={() => {
@@ -560,6 +645,628 @@ export default function DossierView({
           </button>
         </div>
       </div>
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 12 (TORNEO DE LOS 3 LIGEROS EN EXTRA)
+         ----------------------------------------------------------------- */}
+      {released.ep12 && dossierEp === "ep12" && (
+        <div id="ep12-torneo-ligeros-extra" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #10B981" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#10B981] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "EPISODIO 12 · TORNEO DE LIGEROS EN EXTRA · 6 RETOS + 6 ARENAS TRIPLES (12 PUNTOS)"
+                : "EPISODE 12 · LIGHTWEIGHT EXTRA TOURNAMENT · 6 CHALLENGES + 6 3-WAY ARENAS (12 PTS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "El Torneo de los 3 Ligeros en Extra: Gemini 4 Hydrogen ($1.50/$7.50) vs Claude Haiku 5.5 ($0.10/$0.50) vs GPT-6 Luna ($0.10/$0.50)"
+                : "The 3 Lightweight Models in Extra Mode: Gemini 4 Hydrogen vs Claude Haiku 5.5 vs GPT-6 Luna"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Enfrentamos a los tres modelos rapidos de frontera llevados a su maximo nivel de razonamiento (Extra / xHigh) en 6 retos fisicos y economicos completamente nuevos, seguidos por 6 arenas todos contra todos dentro de cada simulador ganador. Gemini 4 Hydrogen se corona campeon 6 a 2 a 4 en apenas 14.5 minutos totales ($2.26 USD), GPT-6 Luna sorprende ganando 4 puntos (Air Hockey y Robot Sumo) por solo $0.17 USD en total, y Claude Haiku 5.5 queda expuesto cuando agota el techo de 256K tokens en R01 y R03 antes de rescatar sus builds en Ronda de Recuperacion."
+                : "We pushed the three leading lightweight models to maximum Extra thinking across 6 brand-new physics and game-theory builds followed by 6 free-for-all AI arenas. Gemini 4 Hydrogen claims the 6-2-4 title in just 14.5 minutes ($2.26 USD), GPT-6 Luna upsets with 4 points for an astonishing $0.17 USD total bill, while Claude Haiku 5.5 burned 256K thinking tokens with zero output twice before recovery rounds unblocked it."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#38BDF8] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                  {lang === "es" ? "CAMPEON TORNEO (6 PTS)" : "TOURNAMENT WINNER (6 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini 4 Hydrogen Extra
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP12_BENCHMARK_TOTALS.hydrogen_min}&nbsp;min · ${EP12_BENCHMARK_TOTALS.hydrogen_usd.toFixed(2)} USD · {EP12_BENCHMARK_TOTALS.hydrogen_lines} LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "SORPRESA ECONOMICA (4 PTS)" : "VALUE SENSATION (4 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  GPT-6 Luna Extra
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP12_BENCHMARK_TOTALS.luna_min}&nbsp;min · ${EP12_BENCHMARK_TOTALS.luna_usd.toFixed(2)} USD · {EP12_BENCHMARK_TOTALS.luna_lines} LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FB923C] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FB923C] font-bold">
+                  {lang === "es" ? "TERCER LUGAR (2 PTS + RESCATE)" : "THIRD PLACE (2 PTS + RESCUE)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Claude Haiku 5.5 Extra
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP12_BENCHMARK_TOTALS.haiku_min}&nbsp;min · ${EP12_BENCHMARK_TOTALS.haiku_usd.toFixed(2)} USD · {EP12_BENCHMARK_TOTALS.haiku_tokens}
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                  {lang === "es" ? "6 ARENAS TODOS CONTRA TODOS" : "6 FREE-FOR-ALL ARENAS"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  24 Demos + JSON
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "Mismo sandbox · 0 errores consola" : "Shared sandbox · 0 console errors"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#10B981]">
+                {lang === "es"
+                  ? "TABLA OFICIAL EP12 (6 RETOS + 6 ARENAS TRIPLES + RESCATE HAIKU · CLIC EN CUALQUIER FILA)"
+                  : "OFFICIAL EP12 TABLE (6 BUILDS + 6 3-WAY ARENAS + HAIKU RESCUE · CLICK ANY ROW)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es" ? "MARCADOR FINAL: HYDROGEN 6 - LUNA 4 - HAIKU 2" : "FINAL SCORE: HYDROGEN 6 - LUNA 4 - HAIKU 2"}
+              </span>
+            </div>
+            <TableScroller label="EP12 3 Lightweight Models Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "RETO / DATO CURIOSO" : "CHALLENGE / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#38BDF8] ${SNAP_COL}`}>HYDROGEN ($1.50/$7.50)</th>
+                    <th className={`py-3 px-4 text-[#FB923C] ${SNAP_COL}`}>HAIKU 5.5 ($0.10/$0.50*)</th>
+                    <th className={`py-3 px-4 text-[#10B981] ${SNAP_COL}`}>GPT-6 LUNA ($0.10/$0.50)</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "GANADORES" : "WINNERS"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP12_CHALLENGES.map((ch) => {
+                    const selected = ep12ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp12ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#10B981] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#38BDF8]">
+                            {ch.hydrogen.min}&nbsp;min · ${ch.hydrogen.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.hydrogen.fps, ch.hydrogen.fps_en)} · {ch.hydrogen.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#FB923C]">
+                            {ch.haiku.min}&nbsp;min · ${ch.haiku.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.haiku.fps, ch.haiku.fps_en)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#10B981]">
+                            {ch.luna.min}&nbsp;min · ${ch.luna.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.luna.fps, ch.luna.fps_en)} · {ch.luna.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          <div>{lang === "es" ? ch.winner_label_es : ch.winner_label_en}</div>
+                          <div className="text-[11px] text-[#10B981] mt-0.5">
+                            {lang === "es" ? ch.arena.score_es : ch.arena.score_en}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur = EP12_CHALLENGES.find((c) => c.n === ep12ChallengeN) || EP12_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            const activeMode: Ep12Mode =
+              ep12Mode === "haiku_rescue" && !cur.haiku.rescuedDemoUrl ? "haiku" : ep12Mode;
+            const haikuDisplayUrl = cur.haiku.rescuedDemoUrl || cur.haiku.demoUrl;
+            return (
+              <div className="bg-[#111622] border-2 border-[#10B981] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#10B981]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                    <p className="text-xs text-[#FFD100] mt-1">
+                      {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {(["arena", "triple", "hydrogen", "haiku", ...(cur.haiku.rescuedDemoUrl ? ["haiku_rescue"] : []), "luna"] as Ep12Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp12Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === m
+                            ? "bg-[#10B981] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "arena"
+                          ? lang === "es"
+                            ? "ARENA 3 IAS EN VIVO"
+                            : "LIVE 3-WAY ARENA"
+                          : m === "triple"
+                          ? lang === "es"
+                            ? "3 SIMULADORES LADO A LADO"
+                            : "3 BUILDS SIDE BY SIDE"
+                          : m === "hydrogen"
+                          ? "HYDROGEN"
+                          : m === "haiku"
+                          ? "HAIKU 5.5"
+                          : m === "haiku_rescue"
+                          ? lang === "es"
+                            ? "HAIKU RESCATE"
+                            : "HAIKU RESCUED"
+                          : "GPT-6 LUNA"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep12", cur.n)}
+                      className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {activeMode === "arena" ? (
+                  <div className="flex flex-col">
+                    <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                      <span className="text-[#FFD100] font-bold">
+                        {lang === "es" ? cur.arena.summary_es : cur.arena.summary_en}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <a href={cur.arena.logUrl} target="_blank" rel="noopener noreferrer" className="text-[#10B981] font-bold underline">
+                          {lang === "es" ? "Resumen JSON ↗" : "JSON Summary ↗"}
+                        </a>
+                        <a href={cur.arena.arenaUrl} target="_blank" rel="noopener noreferrer" className="text-[#00E5FF] font-bold underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                    </div>
+                    <iframe
+                      allowFullScreen
+                      src={cur.arena.arenaUrl}
+                      title={`EP12 Arena: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                ) : activeMode === "triple" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#38BDF8] font-bold">HYDROGEN (${cur.hydrogen.usd.toFixed(2)} · {cur.hydrogen.min}m)</span>
+                        <a href={cur.hydrogen.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] underline">
+                          {lang === "es" ? "Abrir ↗" : "Open ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.hydrogen.demoUrl} title={`Hydrogen: ${name}`} className="w-full h-[500px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#FB923C] font-bold">
+                          HAIKU 5.5 ({cur.haiku.rescuedLines ? `Rescate ${cur.haiku.rescuedLines} LOC` : `${cur.haiku.lines} LOC`})
+                        </span>
+                        <a href={haikuDisplayUrl} target="_blank" rel="noopener noreferrer" className="text-[#FB923C] underline">
+                          {lang === "es" ? "Abrir ↗" : "Open ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={haikuDisplayUrl} title={`Haiku 5.5: ${name}`} className="w-full h-[500px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#10B981] font-bold">GPT-6 LUNA (${cur.luna.usd.toFixed(2)} · {cur.luna.min}m)</span>
+                        <a href={cur.luna.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#10B981] underline">
+                          {lang === "es" ? "Abrir ↗" : "Open ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.luna.demoUrl} title={`GPT-6 Luna: ${name}`} className="w-full h-[500px] border-0 bg-[#090B10]" />
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={
+                      activeMode === "hydrogen"
+                        ? cur.hydrogen.demoUrl
+                        : activeMode === "haiku_rescue"
+                        ? haikuDisplayUrl
+                        : activeMode === "haiku"
+                        ? cur.haiku.demoUrl
+                        : cur.luna.demoUrl
+                    }
+                    title={`${activeMode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 11 (GEMINI 4 HYDROGEN 4 NIVELES VS FLASH 3.8)
+         ----------------------------------------------------------------- */}
+      {released.ep11 && dossierEp === "ep11" && (
+        <div id="ep11-hydrogen-vs-flash" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #38BDF8" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#38BDF8] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "EPISODIO 11 · ESTRENO GEMINI 4 HYDROGEN (4 NIVELES) VS FLASH 3.8 · 15 DEMOS + 3 ARENAS IA (9 PUNTOS)"
+                : "EPISODE 11 · GEMINI 4 HYDROGEN (4 LEVELS) VS FLASH 3.8 · 15 DEMOS + 3 AI ARENAS (9 POINTS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Gemini 4 Hydrogen ($1.50/$7.50 · 4 Niveles de Pensamiento) vs Gemini 3.8 Flash ($0.75/$3.75): 6 Retos y 3 Arenas IA vs IA"
+                : "Gemini 4 Hydrogen ($1.50/$7.50 · 4 Thinking Levels) vs Gemini 3.8 Flash ($0.75/$3.75): 6 Challenges & 3 Live Arenas"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Estrenamos el nuevo sucesor de Flash con ventana plana de 1 millon de tokens, 54 puntos en el indice de inteligencia en modo Extra y 4 niveles configurables de pensamiento (Low, Medium, High, Extra). Primero medimos sus 4 niveles en vivo sobre el Billar Masse, y luego lo enfrentamos a Gemini 3.8 Flash en 6 retos con 3 arenas cabeza a cabeza: Hydrogen barre 7 a 2 ($3.22 USD y 22.8 min frente a $0.58 USD y 11.3 min de Flash)."
+                : "Introducing Google's new Flash successor featuring a flat 1M context window, 54 points on the Intelligence Index in Extra mode, and 4 tunable thinking tiers (Low, Medium, High, Extra). First we benchmark all 4 thinking depths side-by-side on Trick-Shot Pool, then pit Hydrogen Extra against Gemini 3.8 Flash High across 6 challenges and 3 live arenas: Hydrogen wins 7 to 2 ($3.22 USD in 22.8 min vs $0.58 USD in 11.3 min)."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#38BDF8] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                  {lang === "es" ? "GANADOR OFICIAL (7 - 2)" : "OFFICIAL WINNER (7 - 2)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini 4 Hydrogen Extra
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP11_BENCHMARK_TOTALS.hydrogen_min}&nbsp;min · ${EP11_BENCHMARK_TOTALS.hydrogen_usd.toFixed(2)} USD · {EP11_BENCHMARK_TOTALS.hydrogen_lines} LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FBBF24] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FBBF24] font-bold">
+                  {lang === "es" ? "PREDECESOR RAPIDO (2 PTS)" : "FAST PREDECESSOR (2 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Gemini 3.8 Flash High
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP11_BENCHMARK_TOTALS.flash_min}&nbsp;min · ${EP11_BENCHMARK_TOTALS.flash_usd.toFixed(2)} USD · {EP11_BENCHMARK_TOTALS.flash_lines} LOC
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "TARIFA OFICIAL API" : "OFFICIAL API PRICING"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  $1.50 / $7.50 (2x)
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "Ventana plana 1M · 54 pts Extra" : "Flat 1M context · 54 pts Extra"}
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FFD100] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                  {lang === "es" ? "ESCALERA + ARENAS" : "THINKING TIERS + ARENAS"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  15 Demos + 3 Arenas
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "Incluye Low/Med/High/Extra en vivo" : "Includes live Low/Med/High/Extra"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Banco Interactivo de los 4 Niveles de Pensamiento de Gemini 4 Hydrogen */}
+          <div className="bg-[#111622] border-2 border-[#38BDF8] shadow-[6px_6px_0_#040508] overflow-hidden">
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-pixel text-[10px] text-[#38BDF8]">
+                  {lang === "es" ? "EXPERIMENTO EP11 · MISMO PROMPT EN LOS 4 NIVELES DE HYDROGEN" : "EP11 EXPERIMENT · SAME PROMPT ACROSS HYDROGEN'S 4 THINKING LEVELS"}
+                </div>
+                <h2 className="font-display text-lg font-black text-white mt-1">
+                  {lang === "es" ? "Low ($0.14) vs Medium ($0.37) vs High ($0.67) vs Extra ($1.18)" : "Low ($0.14) vs Medium ($0.37) vs High ($0.67) vs Extra ($1.18)"}
+                </h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                {EP11_THINKING_LEVELS.map((lvl) => (
+                  <button
+                    key={lvl.key}
+                    onClick={() => setEp11LevelKey(lvl.key)}
+                    aria-pressed={ep11LevelKey === lvl.key}
+                    className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                      ep11LevelKey === lvl.key
+                        ? "bg-[#38BDF8] text-[#090B10] border-[#090B10]"
+                        : "bg-[#131824] text-white border-[#2A344B]"
+                    }`}
+                  >
+                    {lang === "es" ? lvl.label_es : lvl.label_en} (${lvl.usd.toFixed(2)})
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(() => {
+              const curLvl = EP11_THINKING_LEVELS.find((l) => l.key === ep11LevelKey) || EP11_THINKING_LEVELS[3];
+              return (
+                <div className="flex flex-col">
+                  <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                    <span className="text-[#CBD5E1]">
+                      <strong className="text-[#FFD100]">{curLvl.sec}s ({curLvl.min}m)</strong> · ${curLvl.usd.toFixed(4)} USD · {curLvl.outTokens.toLocaleString()} out · {curLvl.lines} LOC —{" "}
+                      {lang === "es" ? curLvl.summary_es : curLvl.summary_en}
+                    </span>
+                    <a href={curLvl.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] font-bold underline shrink-0">
+                      {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                    </a>
+                  </div>
+                  <iframe
+                    allowFullScreen
+                    src={curLvl.demoUrl}
+                    title={`Hydrogen ${curLvl.key}`}
+                    className="w-full h-[540px] border-0 bg-[#090B10]"
+                  />
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#38BDF8]">
+                {lang === "es"
+                  ? "TABLA OFICIAL EP11 (6 RETOS + 3 ARENAS IA VS IA · HAZ CLIC EN CUALQUIER FILA)"
+                  : "OFFICIAL EP11 TABLE (6 CHALLENGES + 3 LIVE AI ARENAS · CLICK ANY ROW)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es" ? "MARCADOR FINAL: HYDROGEN 7 - 2 FLASH 3.8" : "FINAL SCORE: HYDROGEN 7 - 2 FLASH 3.8"}
+              </span>
+            </div>
+            <TableScroller label="EP11 Hydrogen vs Flash 3.8 Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "RETO / DATO CURIOSO" : "CHALLENGE / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#38BDF8] ${SNAP_COL}`}>GEMINI 4 HYDROGEN ($1.50/$7.50)</th>
+                    <th className={`py-3 px-4 text-[#FBBF24] ${SNAP_COL}`}>GEMINI 3.8 FLASH ($0.75/$3.75)</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>
+                      {lang === "es" ? "VEREDICTO (FASE A + ARENA)" : "VERDICT (PHASE A + ARENA)"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP11_CHALLENGES.map((ch) => {
+                    const selected = ep11ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp11ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#38BDF8] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#38BDF8]">
+                            {ch.hydrogen.min}&nbsp;min · ${ch.hydrogen.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.hydrogen.fps, ch.hydrogen.fps_en)} · {ch.hydrogen.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#FBBF24]">
+                            {ch.flash.min}&nbsp;min · ${ch.flash.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.flash.fps, ch.flash.fps_en)} · {ch.flash.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          <div>{lang === "es" ? ch.winner_label_es : ch.winner_label_en}</div>
+                          {ch.arena && (
+                            <div className="text-[11px] text-[#10B981] mt-0.5">
+                              {lang === "es" ? ch.arena.score_es : ch.arena.score_en}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur = EP11_CHALLENGES.find((c) => c.n === ep11ChallengeN) || EP11_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            const activeMode: Ep11Mode = !cur.arena && ep11Mode === "arena" ? "split" : ep11Mode;
+            return (
+              <div className="bg-[#111622] border-2 border-[#38BDF8] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#38BDF8]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                    <p className="text-xs text-[#FFD100] mt-1">
+                      {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {cur.arena && (
+                      <button
+                        onClick={() => setEp11Mode("arena")}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === "arena"
+                            ? "bg-[#FFD100] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {lang === "es" ? "ARENA IA VS IA EN VIVO" : "LIVE AI VS AI ARENA"}
+                      </button>
+                    )}
+                    {(["split", "hydrogen", "flash"] as Ep11Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp11Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === m
+                            ? "bg-[#38BDF8] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "split"
+                          ? lang === "es"
+                            ? "LADO A LADO"
+                            : "SIDE BY SIDE"
+                          : m === "hydrogen"
+                          ? "GEMINI 4 HYDROGEN"
+                          : "GEMINI 3.8 FLASH"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep11", cur.n)}
+                      className="px-3 py-1.5 bg-[#10B981] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {activeMode === "arena" && cur.arena ? (
+                  <div className="flex flex-col">
+                    <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                      <span className="text-[#FFD100] font-bold">
+                        {lang === "es" ? cur.arena.summary_es : cur.arena.summary_en}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <a href={cur.arena.logUrl} target="_blank" rel="noopener noreferrer" className="text-[#10B981] font-bold underline">
+                          {lang === "es" ? "Resumen JSON ↗" : "JSON Summary ↗"}
+                        </a>
+                        <a href={cur.arena.arenaUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] font-bold underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                    </div>
+                    <iframe
+                      allowFullScreen
+                      src={cur.arena.arenaUrl}
+                      title={`EP11 Arena: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                ) : activeMode === "split" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#38BDF8] font-bold">
+                          GEMINI 4 HYDROGEN (${cur.hydrogen.usd.toFixed(2)} · {cur.hydrogen.min}m)
+                        </span>
+                        <a href={cur.hydrogen.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.hydrogen.demoUrl} title={`Hydrogen: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#FBBF24] font-bold">
+                          GEMINI 3.8 FLASH (${cur.flash.usd.toFixed(2)} · {cur.flash.min}m)
+                        </span>
+                        <a href={cur.flash.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#FBBF24] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.flash.demoUrl} title={`Flash 3.8: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={activeMode === "hydrogen" ? cur.hydrogen.demoUrl : cur.flash.demoUrl}
+                    title={`${activeMode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* -----------------------------------------------------------------
           SUB-DOSSIER EPISODIO 10 (CARBON VS FABLE 5.2 + 4 ARENAS EN VIVO)

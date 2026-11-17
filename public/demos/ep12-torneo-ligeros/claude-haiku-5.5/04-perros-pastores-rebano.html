@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena de Pastoreo Triple IA - Border Collie y Fisica de Rebano (Boids)</title>
+<style>
+  :root{--bg:#060A12;--panel:#0F172A;--cian:#22D3EE;--azul:#38BDF8;--naranja:#FB923C;--esmeralda:#10B981;--oro:#FBBF24;--coral:#F43F5E;--texto:#E2E8F0;--muted:#94A3B8;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:"Segoe UI","Inter",Arial,Helvetica,sans-serif;color:var(--texto);user-select:none}
+  #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;background:var(--bg);overflow:hidden}
+  #arena{position:absolute;left:0;top:0;width:1920px;height:1080px;display:block}
+  #controls{position:absolute;right:26px;bottom:15px;display:flex;gap:10px;align-items:center;z-index:2}
+  .btn{height:50px;padding:0 16px;border-radius:12px;border:2px solid var(--cian);background:#0B1222;color:var(--cian);font:700 17px/1 "Segoe UI",Arial,sans-serif;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;white-space:nowrap;transition:background .15s,transform .1s}
+  .btn:hover{background:#12213A}
+  .btn:active{transform:scale(.97)}
+  .btn.on{background:var(--cian);color:#060A12}
+  .btn.warn{border-color:var(--naranja);color:var(--naranja)}
+  .btn.warn:hover{background:#2A1A10}
+  .btn svg{width:20px;height:20px;flex:0 0 20px}
+  .btn:focus-visible{outline:3px solid var(--oro);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="arena" width="1920" height="1080"></canvas>
+  <div id="controls">
+    <button class="btn" id="btnPause" type="button" title="Tecla ESPACIO">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>
+      <span>PAUSA</span>
+    </button>
+    <button class="btn" id="btnSpeed" type="button" title="Teclas 1, 2 y 4">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5l9 7-9 7z M12 5l9 7-9 7z" fill="currentColor"/></svg>
+      <span>VEL. x1</span>
+    </button>
+    <button class="btn" id="btnEvent" type="button" title="Tecla E">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z" fill="currentColor"/></svg>
+      <span>EVENTO</span>
+    </button>
+    <button class="btn warn" id="btnCharge" type="button" title="Tecla C: embestida del perro con mas ovejas cerca">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h13M11 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>EMBESTIDA</span>
+    </button>
+    <button class="btn" id="btnTrail" type="button" title="Tecla T">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c4-6 6 2 10-4s5-3 8-6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+      <span>ESTELAS</span>
+    </button>
+    <button class="btn" id="btnDebug" type="button" title="Tecla D">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2.4" fill="none"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>
+      <span>DEBUG</span>
+    </button>
+    <button class="btn" id="btnReset" type="button" title="Tecla R">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>REINICIAR</span>
+    </button>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+
+/* ================= CONSTANTES DE ARENA ================= */
+const W = 1920, H = 1080;
+const FIELD = { x0: 40, y0: 132, x1: 1880, y1: 986 };
+const N_SHEEP = 60, N_GOLD = 6;
+const DT = 1 / 60;
+const SEP_R = 30;        // separacion corta (ley de calma)
+const NEI_R = 118;       // radio de vecindad del rebano
+const ALERT_R = 235;     // radio de alerta ante el perro
+const CHARGE_R = 120;    // radio de embestida que parte el rebano
+const DOG_MAX = 320, DOG_CHARGE_MAX = 470, DOG_ACC = 1300;
+const ROUND_LIMIT = 85;  // segundos maximos por ronda
+const EVENT_EVERY = 6.5; // segundos entre eventos espectaculares
+const DOG_HOME = [[380, 430], [1540, 430], [380, 700]];
+const HOME = { cx: 960, cy: 575, rad: 190 };
+const PENS = [
+  { key: 'cian',      name: 'CORRAL HYDROGEN CIAN',  short: 'HYDROGEN CIAN',  color: '#22D3EE', x: 215,  y: 305, r: 108 },
+  { key: 'ambar',     name: 'CORRAL HAIKU AMBAR',    short: 'HAIKU AMBAR',    color: '#FB923C', x: 1705, y: 305, r: 108 },
+  { key: 'esmeralda', name: 'CORRAL LUNA ESMERALDA', short: 'LUNA ESMERALDA', color: '#10B981', x: 215,  y: 795, r: 108 }
+];
+const EVENT_NAMES = ['EMBESTIDA DEL PERRO', 'ESTAMPIDA DE SUBGRUPO', 'VIENTO DE LADERA', 'OVEJA DORADA'];
+
+/* ================= UTILIDADES ================= */
+const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const r2 = v => Math.round(v * 100) / 100;
+function wrapPi(a){
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+function steerTo(from, tx, ty, maxSp, gain){
+  const dx = tx - from.x, dy = ty - from.y, d = Math.hypot(dx, dy);
+  if (d < 3) return { vx: 0, vy: 0 };
+  const k = Math.min(maxSp, d * (gain || 2.2));
+  return { vx: dx / d * k, vy: dy / d * k };
+}
+
+/* ==========================================================================
+   CEREBRO PUBLICO DEL PERRO PASTOR (stateless, solo depende de `state`)
+   Estrategia por geometria del rebano:
+   1) Voronoi entre perros: cada perro gestiona las ovejas mas cercanas a el.
+   2) Centro de masa C y radio R del subgrupo. Vector hacia el corral u.
+   3) Si el perro esta delante del rebano (lado del corral): ARCO de flanqueo
+      alrededor del rebano (radio R+175) hasta quedar detras, sin cruzar el centro.
+   4) Detras del rebano: EMPUJE, se mantiene a ~0.55R+70 detras de C y avanza
+      hacia el corral; el rebano huye del perro, es decir, hacia el corral.
+   5) Si el perro esta dentro/cerca del rebano sin estar en posicion, se empuja
+      hacia afuera (no embestir por el centro salvo embestida explicita).
+   6) dog.charge = true fuerza EMBESTIDA directa al centro del subgrupo.
+   ========================================================================== */
+// Asignacion determinista de rezagadas: el perro j toma la libre mas cercana a su corral
+// no reclamada por perros anteriores. Todos los perros calculan la misma tabla.
+function stragglerFocus(free, pens, idx){
+  const taken = new Set();
+  for (let j = 0; j < pens.length; j++){
+    let best = null, bd = Infinity;
+    for (const s of free){
+      if (taken.has(s)) continue;
+      const d = Math.hypot(s.x - pens[j].x, s.y - pens[j].y);
+      if (d < bd){ bd = d; best = s; }
+    }
+    if (!best) break;
+    taken.add(best);
+    if (j === idx) return best;
+  }
+  return null;
+}
+
+function computeShepherdDogAI(state, dogIndex){
+  const idle = { vx: 0, vy: 0, crouch: false };
+  try {
+    if (!state || !Array.isArray(state.dogs) || !Array.isArray(state.sheep) || !Array.isArray(state.pens)) return idle;
+    const idx = Math.floor(Number(dogIndex));
+    const dog = state.dogs[idx], pen = state.pens[idx];
+    if (!dog || !pen) return idle;
+    const fw = Number(state.fieldW) || W, fh = Number(state.fieldH) || H;
+    const dx0 = dog.x, dy0 = dog.y;
+    const others = state.dogs;
+
+    // 1) ovejas libres (no encerradas)
+    const free = [];
+    for (const s of state.sheep){
+      if (!(typeof s.pennedBy === 'number' && s.pennedBy >= 0)) free.push(s);
+    }
+    if (free.length === 0){
+      const m = steerTo(dog, fw / 2, fh / 2, 90, 1.2);
+      return { vx: r2(m.vx), vy: r2(m.vy), crouch: false };
+    }
+
+    // 2) reparto estable: cada oveja libre va al perro cuyo corral la atrae mas
+    //    (distancia al corral + 0.35 x distancia al perro). Evita cambios bruscos.
+    const mine = [];
+    for (const s of free){
+      let best = -1, bestScore = Infinity;
+      for (let j = 0; j < others.length; j++){
+        const pj = state.pens[j], dj = others[j];
+        if (!pj || !dj) continue;
+        const sc = Math.hypot(s.x - pj.x, s.y - pj.y) + 0.35 * Math.hypot(s.x - dj.x, s.y - dj.y);
+        if (sc < bestScore){ bestScore = sc; best = j; }
+      }
+      if (best === idx) mine.push(s);
+    }
+    let set = mine;
+    if (set.length < 3){
+      // pocas ovejas en su zona: cada perro toma una rezagada distinta (greedy por corral)
+      const focus = stragglerFocus(free, state.pens, idx);
+      set = [focus || free.reduce((a, b) =>
+        Math.hypot(a.x - dx0, a.y - dy0) <= Math.hypot(b.x - dx0, b.y - dy0) ? a : b)];
+    }
+
+    // 3) centro de masa C y radio R del subgrupo
+    const n = set.length;
+    let cx = 0, cy = 0;
+    for (const s of set){ cx += s.x; cy += s.y; }
+    cx /= n; cy /= n;
+    let ms = 0;
+    for (const s of set){ const ex = s.x - cx, ey = s.y - cy; ms += ex * ex + ey * ey; }
+    let R = Math.max(42, Math.sqrt(ms / n));
+    // rezagadas: 1-3 ovejas dispersas -> el perro persigue la mas cercana
+    if (n <= 3 && R > 110){
+      let focus = set[0], fd = Infinity;
+      for (const s of set){
+        const dd = Math.hypot(s.x - dx0, s.y - dy0);
+        if (dd < fd){ fd = dd; focus = s; }
+      }
+      cx = focus.x; cy = focus.y; R = 42;
+    }
+
+    // 4) embestida explicita (evento): directo al centro del rebano
+    if (dog.charge){
+      const ex = cx - dx0, ey = cy - dy0, ed = Math.hypot(ex, ey) || 1;
+      return { vx: r2(ex / ed * DOG_CHARGE_MAX), vy: r2(ey / ed * DOG_CHARGE_MAX), crouch: false };
+    }
+
+    // 5) direccion del corral respecto al rebano
+    let ux = pen.x - cx, uy = pen.y - cy;
+    const pd = Math.hypot(ux, uy);
+    if (pd < 20){
+      const m = steerTo(dog, cx, cy, 110, 1.0);
+      return { vx: r2(m.vx), vy: r2(m.vy), crouch: false };
+    }
+    ux /= pd; uy /= pd;
+
+    const ARC = R + 175;        // radio del arco de flanqueo
+    const PUSH_D = clamp(R * 0.55 + 70, 90, 150); // distancia de empuje detras del rebano (dentro de la alerta)
+    const wx = dx0 - cx, wy = dy0 - cy;
+    const dC = Math.hypot(wx, wy) || 1;
+    const cosFront = (wx * ux + wy * uy) / dC; // >0: el perro esta del lado del corral
+    const aDog = Math.atan2(wy, wx);
+    const aBack = Math.atan2(-uy, -ux);
+    const diff = wrapPi(aBack - aDog);
+
+    let tx, ty, maxSp = 300, crouch = false;
+    const behind = cosFront < -0.6 && dC <= ARC + 70;
+    if (behind){
+      // 6) EMPUJE: detras del rebano, avanzando hacia el corral
+      tx = cx - ux * PUSH_D;
+      ty = cy - uy * PUSH_D;
+      crouch = dC < R + 170;
+    } else {
+      // 7) ARCO DE FLANQUEO alrededor del rebano hacia la zona trasera
+      const step = clamp(diff, -0.6, 0.6);
+      const a = aDog + step;
+      tx = cx + Math.cos(a) * ARC;
+      ty = cy + Math.sin(a) * ARC;
+      maxSp = 330;
+    }
+
+    // margen de campo
+    // el perro puede posicionarse justo fuera del area de ovejas para empujar desde la pared
+    tx = clamp(tx, FIELD.x0 - 24, FIELD.x1 + 24);
+    ty = clamp(ty, FIELD.y0 - 8, FIELD.y1 + 8);
+
+    let v = steerTo({ x: dx0, y: dy0 }, tx, ty, maxSp, 2.4);
+
+    // 8) evitar otros perros
+    for (let j = 0; j < others.length; j++){
+      if (j === idx || !others[j]) continue;
+      const ex = dx0 - others[j].x, ey = dy0 - others[j].y, ed = Math.hypot(ex, ey) + 1e-6;
+      if (ed < 150){
+        const k = (150 - ed) / 150 * 260;
+        v.vx += ex / ed * k;
+        v.vy += ey / ed * k;
+      }
+    }
+    const sp = Math.hypot(v.vx, v.vy);
+    if (sp > maxSp){ v.vx *= maxSp / sp; v.vy *= maxSp / sp; }
+    return { vx: r2(v.vx), vy: r2(v.vy), crouch: !!crouch };
+  } catch (e){
+    return idle;
+  }
+}
+window.computeShepherdDogAI = computeShepherdDogAI;
+
+/* ================= ESTADO DE SIMULACION ================= */
+const sim = {
+  t: 0, speed: 1, paused: false, trails: true, debug: false,
+  sheep: [], dogs: [],
+  totals: [0, 0, 0],
+  round: 0, roundT: 0, roundEnding: 0,
+  eventIdx: 0, eventTimer: 2.5,
+  banner: { text: '', color: '#22D3EE', t: 0 },
+  big: { text: '', color: '#FBBF24', t: 0 },
+  wind: { t: 0, ax: 0, ay: 0 },
+  spot: null, popups: [], particles: [],
+  lastEvent: ''
+};
+const thr = new Float64Array(N_SHEEP), spl = new Float64Array(N_SHEEP);
+const FX = new Float64Array(N_SHEEP), FY = new Float64Array(N_SHEEP);
+const KX = new Float64Array(N_SHEEP), KY = new Float64Array(N_SHEEP);
+const PX = new Float64Array(N_SHEEP), PY = new Float64Array(N_SHEEP);
+const PVX = new Float64Array(N_SHEEP), PVY = new Float64Array(N_SHEEP);
+
+function makeSheep(i){
+  const a = Math.random() * Math.PI * 2, rr = HOME.rad * Math.sqrt(Math.random());
+  return {
+    id: i, x: HOME.cx + Math.cos(a) * rr, y: HOME.cy + Math.sin(a) * rr * 0.8,
+    vx: rnd(-20, 20), vy: rnd(-20, 20), golden: false, pennedBy: -1,
+    alert: 0, panic: 0, phase: Math.random() * 6.283, hd: 0
+  };
+}
+function resetRound(){
+  sim.round++;
+  sim.roundT = 0; sim.roundEnding = 0;
+  sim.wind = { t: 0, ax: 0, ay: 0 };
+  sim.spot = null; sim.particles = [];
+  sim.sheep = [];
+  for (let i = 0; i < N_SHEEP; i++) sim.sheep.push(makeSheep(i));
+  const ids = []; for (let i = 0; i < N_SHEEP; i++) ids.push(i);
+  for (let i = ids.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = ids[i]; ids[i] = ids[j]; ids[j] = t; }
+  for (let k = 0; k < N_GOLD; k++) sim.sheep[ids[k]].golden = true;
+  sim.dogs = DOG_HOME.map((p, i) => ({
+    id: i, x: p[0], y: p[1], vx: 0, vy: 0, crouch: false, charge: false, chargeT: 0,
+    mode: 'ESPERA', speed: 0, trail: []
+  }));
+}
+
+function buildState(){
+  return {
+    fieldW: W, fieldH: H,
+    pens: PENS.map(p => ({ x: p.x, y: p.y, r: p.r })),
+    dogs: sim.dogs.map(d => ({ x: d.x, y: d.y, vx: d.vx, vy: d.vy, charge: d.charge })),
+    sheep: sim.sheep.map(s => ({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, golden: s.golden, pennedBy: s.pennedBy }))
+  };
+}
+function addPopup(x, y, text, color){ sim.popups.push({ x, y, text, color, t: 1.3 }); }
+function spawnParticles(x, y, color, n){
+  for (let k = 0; k < n; k++){
+    const a = Math.random() * 6.283, sp = rnd(40, 160);
+    sim.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rnd(0.5, 1.1), max: 1.1, color });
+  }
+}
+function setBanner(text, color, t){ sim.banner = { text, color, t: t || 2.6 }; }
+function setBig(text, color){ sim.big = { text, color, t: 1.7 }; }
+function freeIdx(){
+  const out = [];
+  for (let i = 0; i < sim.sheep.length; i++) if (sim.sheep[i].pennedBy < 0) out.push(i);
+  return out;
+}
+
+/* ================= PERROS: DECISION VIA API PUBLICA ================= */
+function stepDogs(dt){
+  for (let i = 0; i < sim.dogs.length; i++){
+    const d = sim.dogs[i];
+    let out = null;
+    try { out = window.computeShepherdDogAI(buildState(), i); } catch (e){ out = null; }
+    let tvx = out && Number.isFinite(out.vx) ? out.vx : 0;
+    let tvy = out && Number.isFinite(out.vy) ? out.vy : 0;
+    const maxV = d.charge ? DOG_CHARGE_MAX : DOG_MAX;
+    const sp = Math.hypot(tvx, tvy);
+    if (sp > maxV){ tvx *= maxV / sp; tvy *= maxV / sp; }
+    const ex = tvx - d.vx, ey = tvy - d.vy, ed = Math.hypot(ex, ey);
+    const lim = (d.charge ? 1000 : DOG_ACC) * dt;
+    if (ed > lim){ d.vx += ex / ed * lim; d.vy += ey / ed * lim; }
+    else { d.vx = tvx; d.vy = tvy; }
+    d.x = clamp(d.x + d.vx * dt, FIELD.x0 - 24, FIELD.x1 + 24);
+    d.y = clamp(d.y + d.vy * dt, FIELD.y0 - 8, FIELD.y1 + 8);
+    d.crouch = !!(out && out.crouch);
+    d.speed = Math.hypot(d.vx, d.vy);
+    d.mode = d.charge ? 'EMBESTIDA' : (d.speed < 14 ? 'ESPERA' : (d.crouch ? 'EMPUJE' : 'ARCO'));
+    d.trail.push({ x: d.x, y: d.y });
+    if (d.trail.length > 40) d.trail.shift();
+  }
+}
+
+/* ================= REBANO: LEYES DE HAMILTON ================= */
+function stepSheep(dt){
+  const S = sim.sheep, n = S.length, dogs = sim.dogs;
+  // 1) amenaza por perro (alerta) y embestida que parte el rebano
+  for (let i = 0; i < n; i++){
+    const s = S[i];
+    let threat = 0, fx = 0, fy = 0, kx = 0, ky = 0, split = 0;
+    if (s.pennedBy < 0){
+      for (const d of dogs){
+        const dx = s.x - d.x, dy = s.y - d.y, dd = Math.hypot(dx, dy) + 1e-6;
+        if (dd < ALERT_R){
+          const t = (ALERT_R - dd) / ALERT_R;
+          if (t > threat) threat = t;
+          const k = t * t;
+          fx += dx / dd * k; fy += dy / dd * k;
+          const ds = Math.hypot(d.vx, d.vy);
+          if (dd < CHARGE_R && ds > 170){
+            const sp = Math.min(1, (ds - 170) / 140) * (1 - dd / CHARGE_R);
+            if (sp > split) split = sp;
+            kx += dx / dd * sp; ky += dy / dd * sp;
+          }
+        }
+      }
+    }
+    thr[i] = threat; spl[i] = split;
+    FX[i] = fx; FY[i] = fy; KX[i] = kx; KY[i] = ky;
+    s.alert += (threat - s.alert) * Math.min(1, dt * 5);
+    s.panic *= Math.exp(-dt * 1.8);
+  }
+  // 2) instantanea de posiciones y velocidades (orden independiente)
+  for (let i = 0; i < n; i++){ PX[i] = S[i].x; PY[i] = S[i].y; PVX[i] = S[i].vx; PVY[i] = S[i].vy; }
+  // 3) ovejas libres: calma (separacion + cohesion debil) y alerta (compresion)
+  for (let i = 0; i < n; i++){
+    const s = S[i];
+    if (s.pennedBy >= 0) continue;
+    const a = clamp(Math.max(s.alert, s.panic * 0.9), 0, 1);
+    const sp_ = spl[i];
+    const cRad = lerp(NEI_R, 74, a);                       // la vecindad se comprime con la alerta
+    const wCoh = (0.45 + 2.6 * a) * (1 - 0.85 * sp_);      // cohesion sube, se rompe si embiste
+    const wAli = (0.28 + 0.6 * a) * (1 - 0.85 * sp_);
+    const wSep = 1 + 0.5 * a;
+    const x = PX[i], y = PY[i];
+    let sx = 0, sy = 0, cx = 0, cy = 0, nc = 0, avx = 0, avy = 0, na = 0;
+    for (let j = 0; j < n; j++){
+      if (j === i || S[j].pennedBy >= 0) continue;
+      const dx = PX[j] - x, dy = PY[j] - y, d2 = dx * dx + dy * dy;
+      if (d2 > NEI_R * NEI_R) continue;
+      const d = Math.sqrt(d2) + 1e-6;
+      if (d < SEP_R){ const k = (SEP_R - d) / SEP_R; sx -= dx / d * k; sy -= dy / d * k; }
+      if (d2 <= cRad * cRad){ cx += PX[j]; cy += PY[j]; nc++; }
+      avx += PVX[j]; avy += PVY[j]; na++;
+    }
+    let ax = sx * 260 * wSep, ay = sy * 260 * wSep;
+    if (nc > 0){ ax += (cx / nc - x) * wCoh * 1.1; ay += (cy / nc - y) * wCoh * 1.1; }
+    if (na > 0){ ax += (avx / na - s.vx) * wAli * 0.9; ay += (avy / na - s.vy) * wAli * 0.9; }
+    const fk = 1150 * (1 - 0.5 * sp_);
+    ax += FX[i] * fk + KX[i] * 900;
+    ay += FY[i] * fk + KY[i] * 900;
+    s.phase += dt * 1.3;
+    const calm = 1 - a;
+    ax += Math.sin(s.phase * 1.7 + s.id) * 14 + rnd(-18, 18) * calm;
+    ay += Math.cos(s.phase * 1.3 + s.id * 0.7) * 14 + rnd(-18, 18) * calm;
+    const windOn = sim.wind.t > 0;
+    if (windOn){ ax += sim.wind.ax; ay += sim.wind.ay; }
+    const m = 60;
+    if (x < FIELD.x0 + m) ax += (FIELD.x0 + m - x) * 6;
+    if (x > FIELD.x1 - m) ax -= (x - (FIELD.x1 - m)) * 6;
+    if (y < FIELD.y0 + m) ay += (FIELD.y0 + m - y) * 6;
+    if (y > FIELD.y1 - m) ay -= (y - (FIELD.y1 - m)) * 6;
+    s.vx += ax * dt; s.vy += ay * dt;
+    const vmax = lerp(30, 150, a) + 70 * sp_ + 90 * clamp(s.panic, 0, 1) + (windOn ? 45 : 0);
+    const v = Math.hypot(s.vx, s.vy);
+    if (v > vmax){ s.vx *= vmax / v; s.vy *= vmax / v; }
+    const damp = Math.exp(-0.25 * dt);
+    s.vx *= damp; s.vy *= damp;
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.x < FIELD.x0 + 12){ s.x = FIELD.x0 + 12; s.vx = Math.abs(s.vx) * 0.5; }
+    if (s.x > FIELD.x1 - 12){ s.x = FIELD.x1 - 12; s.vx = -Math.abs(s.vx) * 0.5; }
+    if (s.y < FIELD.y0 + 12){ s.y = FIELD.y0 + 12; s.vy = Math.abs(s.vy) * 0.5; }
+    if (s.y > FIELD.y1 - 12){ s.y = FIELD.y1 - 12; s.vy = -Math.abs(s.vy) * 0.5; }
+    if (Math.hypot(s.vx, s.vy) > 3){
+      const target = Math.atan2(s.vy, s.vx);
+      s.hd += wrapPi(target - s.hd) * Math.min(1, dt * 6);
+    }
+  }
+  // 4) ovejas encerradas: contenidas en el corral y con separacion local
+  for (let i = 0; i < n; i++){
+    const s = S[i];
+    if (s.pennedBy < 0) continue;
+    const p = PENS[s.pennedBy];
+    const dx = s.x - p.x, dy = s.y - p.y, d = Math.hypot(dx, dy) + 1e-6;
+    const lim = p.r * 0.74;
+    let ax = 0, ay = 0;
+    if (d > lim){ const k = (d - lim) * 7; ax -= dx / d * k; ay -= dy / d * k; }
+    for (let j = 0; j < n; j++){
+      if (j === i) continue;
+      const o = S[j];
+      if (o.pennedBy !== s.pennedBy) continue;
+      const ex = s.x - o.x, ey = s.y - o.y, ed = Math.hypot(ex, ey) + 1e-6;
+      if (ed < 26){ const k = (26 - ed) / 26 * 180; ax += ex / ed * k; ay += ey / ed * k; }
+    }
+    s.phase += dt * 0.9;
+    ax += Math.sin(s.phase * 2.1 + s.id) * 10 + rnd(-6, 6);
+    ay += Math.cos(s.phase * 1.7 + s.id) * 10 + rnd(-6, 6);
+    s.vx += ax * dt; s.vy += ay * dt;
+    const v = Math.hypot(s.vx, s.vy);
+    if (v > 42){ s.vx *= 42 / v; s.vy *= 42 / v; }
+    const damp = Math.exp(-2.2 * dt);
+    s.vx *= damp; s.vy *= damp;
+    s.x += s.vx * dt; s.y += s.vy * dt;
+  }
+  // 5) encierro: al entrar en el corral cuenta punto (oveja dorada = doble)
+  for (let i = 0; i < n; i++){
+    const s = S[i];
+    if (s.pennedBy >= 0) continue;
+    for (let p = 0; p < PENS.length; p++){
+      const pen = PENS[p];
+      if (Math.hypot(s.x - pen.x, s.y - pen.y) < pen.r * 0.9){
+        s.pennedBy = p; s.alert = 0; s.panic = 0;
+        s.vx *= 0.3; s.vy *= 0.3;
+        const pts = s.golden ? 2 : 1;
+        sim.totals[p] += pts;
+        addPopup(s.x, s.y - 18, '+' + pts, s.golden ? '#FBBF24' : PENS[p].color);
+        if (s.golden) spawnParticles(s.x, s.y, '#FBBF24', 12);
+        break;
+      }
+    }
+  }
+}
+
+/* ================= EVENTOS, RONDAS Y PASO DE SIMULACION ================= */
+let eventCounter = 0;
+function fireEvent(kind){
+  sim.lastEvent = EVENT_NAMES[kind];
+  if (kind === 0){
+    // embestida: el perro con mas ovejas libres cerca parte el rebano
+    let best = -1, bestN = -1;
+    sim.dogs.forEach((d, i) => {
+      let c = 0;
+      for (const s of sim.sheep) if (s.pennedBy < 0 && Math.hypot(s.x - d.x, s.y - d.y) < 340) c++;
+      if (c > bestN){ bestN = c; best = i; }
+    });
+    if (best < 0) best = Math.floor(Math.random() * sim.dogs.length);
+    const d = sim.dogs[best];
+    d.charge = true; d.chargeT = 1.25;
+    spawnParticles(d.x, d.y, '#E2E8F0', 34);
+    setBanner('EMBESTIDA DEL PERRO ' + (best + 1) + ' (' + PENS[best].short + '): EL REBANO SE PARTE', '#F43F5E', 2.8);
+    setBig('EMBESTIDA', '#F43F5E');
+  } else if (kind === 1){
+    // estampida de subgrupo: ovejas cercanas a una oveja al azar salen disparadas
+    const fr = freeIdx();
+    if (!fr.length) return;
+    const c = sim.sheep[fr[Math.floor(Math.random() * fr.length)]];
+    let k = 0;
+    for (const i of fr){
+      const s = sim.sheep[i];
+      if (Math.hypot(s.x - c.x, s.y - c.y) < 260){
+        s.panic = 1;
+        const a = Math.random() * 6.283, sp = rnd(90, 190);
+        s.vx += Math.cos(a) * sp; s.vy += Math.sin(a) * sp;
+        k++;
+      }
+    }
+    spawnParticles(c.x, c.y, '#FDE68A', 26);
+    setBanner('ESTAMPIDA: ' + k + ' OVEJAS SE DISPERSAN POR EL PRADO', '#FBBF24', 2.6);
+    setBig('ESTAMPIDA', '#FBBF24');
+  } else if (kind === 2){
+    // viento de ladera: deriva al rebano
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    sim.wind = { t: 2.8, ax: dir * 150, ay: rnd(-25, 25) };
+    setBanner('VIENTO DE LADERA HACIA EL ' + (dir < 0 ? 'OESTE' : 'ESTE') + ': EL REBANO DERIVA', '#38BDF8', 2.8);
+    setBig('VIENTO', '#38BDF8');
+  } else {
+    // oveja dorada: foco de luz y sacudida
+    const fr = freeIdx().filter(i => sim.sheep[i].golden);
+    if (fr.length){
+      const i = fr[Math.floor(Math.random() * fr.length)];
+      sim.spot = { idx: i, t: 2.8 };
+      sim.sheep[i].panic = 1;
+      setBanner('OVEJA DORADA EN JUEGO: VALE DOBLE SI LA ENCIERRAN', '#FBBF24', 2.8);
+    } else {
+      setBanner('SIN OVEJAS DORADAS LIBRES: VALOR DOBLE PENDIENTE', '#FBBF24', 2.4);
+    }
+    setBig('OVEJA DORADA', '#FBBF24');
+  }
+}
+function nextEvent(){
+  fireEvent(eventCounter % EVENT_NAMES.length);
+  eventCounter++;
+}
+
+function checkRound(dt){
+  if (sim.roundEnding > 0){
+    sim.roundEnding -= dt;
+    if (sim.roundEnding <= 0){
+      resetRound();
+      setBanner('NUEVA RONDA ' + sim.round + ': EL REBANO VUELVE AL PRADO', '#10B981', 2.6);
+      setBig('RONDA ' + sim.round, '#10B981');
+    }
+    return;
+  }
+  let free = 0;
+  for (const s of sim.sheep) if (s.pennedBy < 0) free++;
+  if (free === 0){
+    sim.roundEnding = 3.4;
+    setBanner('RONDA COMPLETA EN ' + sim.roundT.toFixed(1) + ' s: REBANO ENCERRADO', '#10B981', 3.4);
+    setBig('RONDA COMPLETA', '#10B981');
+  } else if (sim.roundT > ROUND_LIMIT){
+    sim.roundEnding = 3.0;
+    setBanner('TIEMPO AGOTADO: ' + free + ' OVEJAS FUERA DE CORRAL', '#F43F5E', 3.0);
+    setBig('TIEMPO', '#F43F5E');
+  }
+}
+
+function stepSim(dt){
+  sim.t += dt;
+  for (const d of sim.dogs){
+    if (d.charge){ d.chargeT -= dt; if (d.chargeT <= 0) d.charge = false; }
+  }
+  if (sim.wind.t > 0){
+    sim.wind.t -= dt;
+    if (sim.wind.t <= 0){ sim.wind.ax = 0; sim.wind.ay = 0; }
+  }
+  sim.big.t = Math.max(0, sim.big.t - dt);
+  sim.banner.t = Math.max(0, sim.banner.t - dt);
+  if (sim.spot){ sim.spot.t -= dt; if (sim.spot.t <= 0) sim.spot = null; }
+  for (const p of sim.popups) p.t -= dt;
+  sim.popups = sim.popups.filter(p => p.t > 0);
+  for (const p of sim.particles){
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; p.life -= dt;
+  }
+  sim.particles = sim.particles.filter(p => p.life > 0);
+
+  sim.eventTimer -= dt;
+  if (sim.eventTimer <= 0){
+    nextEvent();
+    sim.eventTimer = EVENT_EVERY + rnd(-0.6, 0.6);
+  }
+  if (sim.roundEnding <= 0) sim.roundT += dt;
+
+  stepDogs(dt);
+  stepSheep(dt);
+  checkRound(dt);
+}
+
+/* ================= AUDITORIA PUBLICA ================= */
+function hookReady(){
+  try {
+    if (typeof window.computeShepherdDogAI !== 'function') return false;
+    const probe = {
+      fieldW: W, fieldH: H,
+      pens: [{ x: 200, y: 300, r: 100 }],
+      dogs: [{ x: 500, y: 500, vx: 0, vy: 0 }],
+      sheep: [{ x: 600, y: 520, vx: 0, vy: 0, golden: false, pennedBy: -1 }]
+    };
+    const o = window.computeShepherdDogAI(probe, 0);
+    return !!o && Number.isFinite(o.vx) && Number.isFinite(o.vy) && typeof o.crouch === 'boolean';
+  } catch (e){ return false; }
+}
+window.__auditShepherd = function(){
+  const pennedCounts = [0, 0, 0];
+  for (const s of sim.sheep){
+    if (s.pennedBy >= 0 && s.pennedBy < PENS.length) pennedCounts[s.pennedBy]++;
+  }
+  // cohesion local: distancia media a las 5 vecinas libres mas cercanas
+  let flockCohesion = 1;
+  const free = sim.sheep.filter(s => s.pennedBy < 0);
+  if (free.length > 1){
+    let acc = 0;
+    for (const s of free){
+      const ds = [];
+      for (const o of free) if (o !== s) ds.push(Math.hypot(o.x - s.x, o.y - s.y));
+      ds.sort((a, b) => a - b);
+      const k = Math.min(5, ds.length);
+      let sum = 0;
+      for (let q = 0; q < k; q++) sum += ds[q];
+      acc += sum / k;
+    }
+    flockCohesion = clamp(1 - (acc / free.length) / 140, 0, 1);
+  }
+  return {
+    pennedCounts,
+    flockCohesion: Math.round(flockCohesion * 1000) / 1000,
+    totalSheep: sim.sheep.length,
+    aiHookReady: hookReady()
+  };
+};
+
+/* ================= RENDERIZADO ================= */
+const canvas = document.getElementById('arena');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+const FONT = '"Segoe UI", Inter, Arial, Helvetica, sans-serif';
+
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function rr(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Fondo prerenderizado: pradera oscura de alto contraste
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width = W; bgCanvas.height = H;
+(function buildBackground(){
+  const g = bgCanvas.getContext('2d');
+  const grd = g.createRadialGradient(W / 2, H / 2, 120, W / 2, H / 2, 1100);
+  grd.addColorStop(0, '#1B5E3F');
+  grd.addColorStop(0.55, '#124A33');
+  grd.addColorStop(1, '#06170F');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, W, H);
+  for (let x = 0; x < W; x += 160){
+    g.fillStyle = 'rgba(190,255,220,0.035)';
+    g.fillRect(x, 0, 80, H);
+  }
+  for (let i = 0; i < 2600; i++){
+    const x = Math.random() * W, y = Math.random() * H;
+    const a = rnd(-0.6, 0.6), len = rnd(4, 11);
+    g.strokeStyle = Math.random() < 0.5 ? 'rgba(34,197,94,0.22)' : 'rgba(6,20,14,0.35)';
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + Math.sin(a) * len, y - Math.cos(a) * len);
+    g.stroke();
+  }
+  g.strokeStyle = 'rgba(34,211,238,0.22)';
+  g.lineWidth = 2;
+  g.setLineDash([12, 10]);
+  g.strokeRect(FIELD.x0, FIELD.y0, FIELD.x1 - FIELD.x0, FIELD.y1 - FIELD.y0);
+  g.setLineDash([]);
+  g.strokeStyle = 'rgba(226,232,240,0.08)';
+  g.beginPath();
+  g.arc(HOME.cx, HOME.cy, HOME.rad + 40, 0, Math.PI * 2);
+  g.stroke();
+})();
+
+function drawPens(){
+  PENS.forEach((p, i) => {
+    ctx.save();
+    const glow = ctx.createRadialGradient(p.x, p.y, p.r * 0.3, p.x, p.y, p.r * 1.7);
+    glow.addColorStop(0, hexA(p.color, 0.32));
+    glow.addColorStop(1, hexA(p.color, 0));
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(6,10,18,0.62)';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hexA(p.color, 0.12);
+    ctx.fill();
+    ctx.lineWidth = 18;
+    ctx.strokeStyle = hexA(p.color, 0.16);
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([16, 12]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = hexA(p.color, 0.85);
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 16, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign = 'center';
+    ctx.font = '800 21px ' + FONT;
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.name, p.x, p.y - p.r - 34);
+    ctx.restore();
+  });
+}
+
+// contadores de encerradas: se dibujan encima de las ovejas
+function drawPenCounts(counts){
+  PENS.forEach((p, i) => {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '900 40px ' + FONT;
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillText(String(counts[i]), p.x, p.y + 14);
+    ctx.font = '700 15px ' + FONT;
+    ctx.fillStyle = hexA('#E2E8F0', 0.9);
+    ctx.fillText('ENCERRADAS', p.x, p.y + 36);
+    ctx.restore();
+  });
+}
+
+function drawTrails(){
+  if (!sim.trails) return;
+  sim.dogs.forEach((d, i) => {
+    const tr = d.trail;
+    if (tr.length < 2) return;
+    ctx.lineCap = 'round';
+    for (let k = 1; k < tr.length; k++){
+      const a = k / tr.length;
+      ctx.strokeStyle = hexA(PENS[i].color, a * 0.5);
+      ctx.lineWidth = 1 + a * 6;
+      ctx.beginPath();
+      ctx.moveTo(tr[k - 1].x, tr[k - 1].y);
+      ctx.lineTo(tr[k].x, tr[k].y);
+      ctx.stroke();
+    }
+  });
+}
+
+function drawSpot(){
+  if (!sim.spot) return;
+  const s = sim.sheep[sim.spot.idx];
+  if (!s || s.pennedBy >= 0) return;
+  const pulse = 0.5 + 0.5 * Math.sin(sim.t * 8);
+  const g = ctx.createRadialGradient(s.x, s.y, 10, s.x, s.y, 150);
+  g.addColorStop(0, hexA('#FBBF24', 0.34 + 0.16 * pulse));
+  g.addColorStop(1, hexA('#FBBF24', 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(s.x, s.y, 150, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = hexA('#FDE68A', 0.85);
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(s.x, s.y, 34 + pulse * 10, 0, Math.PI * 2); ctx.stroke();
+}
+
+function drawWind(){
+  if (sim.wind.t <= 0) return;
+  const a = Math.min(1, sim.wind.t) * 0.85;
+  const dir = sim.wind.ax >= 0 ? 1 : -1;
+  ctx.save();
+  ctx.strokeStyle = hexA('#38BDF8', a);
+  ctx.fillStyle = hexA('#38BDF8', a);
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  for (let k = 0; k < 5; k++){
+    const y = 280 + k * 150;
+    const x0 = dir > 0 ? 640 : 1280;
+    const x1 = x0 + dir * 150;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x1, y);
+    ctx.lineTo(x1 - dir * 18, y - 12);
+    ctx.lineTo(x1 - dir * 18, y + 12);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSheep(s){
+  const a = clamp(Math.max(s.alert, s.panic), 0, 1);
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.fillStyle = 'rgba(2,6,12,0.45)';
+  ctx.beginPath(); ctx.ellipse(3, 8, 15, 7, 0, 0, Math.PI * 2); ctx.fill();
+  if (a > 0.2){
+    ctx.strokeStyle = hexA('#F43F5E', Math.min(0.9, a));
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, 0, 20 + a * 4, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (s.golden){
+    ctx.fillStyle = 'rgba(251,191,36,0.28)';
+    ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); ctx.fill();
+  }
+  const wool = s.golden ? '#FBBF24' : '#F8FAFC';
+  const woolEdge = s.golden ? '#B45309' : '#CBD5E1';
+  ctx.fillStyle = woolEdge;
+  for (let k = 0; k < 6; k++){
+    const an = k * 1.047;
+    ctx.beginPath(); ctx.arc(Math.cos(an) * 6.5, Math.sin(an) * 5.5, 7.6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = wool;
+  for (let k = 0; k < 6; k++){
+    const an = k * 1.047;
+    ctx.beginPath(); ctx.arc(Math.cos(an) * 6, Math.sin(an) * 5, 6.8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, 8.4, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.rotate(s.hd);
+  ctx.fillStyle = s.golden ? '#78350F' : '#1E293B';
+  ctx.beginPath(); ctx.ellipse(11, 0, 4.6, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  if (s.pennedBy >= 0){
+    ctx.strokeStyle = hexA(PENS[s.pennedBy].color, 0.9);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (s.golden && s.pennedBy < 0){
+    ctx.fillStyle = '#FDE68A';
+    ctx.beginPath(); ctx.arc(0, -21, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#92400E';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0, -21, 5.2, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDog(d, i, now){
+  const P = PENS[i];
+  if (Math.hypot(d.vx, d.vy) > 5) d.hd = Math.atan2(d.vy, d.vx);
+  if (d.hd === undefined) d.hd = 0;
+  const sq = d.crouch ? 0.78 : 1;
+  ctx.save();
+  // aura del corral
+  const aura = ctx.createRadialGradient(d.x, d.y, 8, d.x, d.y, 60);
+  aura.addColorStop(0, hexA(P.color, 0.35));
+  aura.addColorStop(1, hexA(P.color, 0));
+  ctx.fillStyle = aura;
+  ctx.beginPath(); ctx.arc(d.x, d.y, 60, 0, Math.PI * 2); ctx.fill();
+  if (d.charge){
+    const rr2 = 46 + ((now * 0.3) % 70);
+    ctx.strokeStyle = hexA(P.color, 0.8 * (1 - ((now * 0.3) % 70) / 70));
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(d.x, d.y, rr2, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.translate(d.x, d.y);
+  ctx.fillStyle = 'rgba(2,6,12,0.5)';
+  ctx.beginPath(); ctx.ellipse(2, 9, 22, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.rotate(d.hd);
+  const wag = Math.sin(now * 0.02 + i) * 0.25;
+  ctx.strokeStyle = '#0B0F19';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-14, 0);
+  ctx.quadraticCurveTo(-26, -6 + wag * 10, -30, -14 + wag * 10);
+  ctx.stroke();
+  ctx.fillStyle = '#0B0F19';
+  ctx.beginPath(); ctx.ellipse(-2, 0, 18, 11 * sq, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#F8FAFC';
+  ctx.beginPath(); ctx.ellipse(10, 0, 7, 6 * sq, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#0B0F19';
+  ctx.lineWidth = 4;
+  const legOff = d.crouch ? 3 : 0;
+  ctx.beginPath();
+  ctx.moveTo(-8, -6 * sq); ctx.lineTo(-10 - legOff, -12 * sq);
+  ctx.moveTo(-8, 6 * sq); ctx.lineTo(-10 - legOff, 12 * sq);
+  ctx.stroke();
+  ctx.strokeStyle = P.color;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(8, -8 * sq); ctx.lineTo(8, 8 * sq); ctx.stroke();
+  const hx = 16 + (d.crouch ? 3 : 0), hy = d.crouch ? 3 : 0;
+  ctx.fillStyle = '#0B0F19';
+  ctx.beginPath(); ctx.ellipse(hx, hy, 9, 8 * sq, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0B0F19';
+  ctx.beginPath(); ctx.moveTo(hx - 2, hy - 6); ctx.lineTo(hx + 1, hy - 13); ctx.lineTo(hx + 4, hy - 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#F8FAFC';
+  ctx.beginPath(); ctx.ellipse(hx + 5, hy, 3.4, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#FBBF24';
+  ctx.beginPath(); ctx.arc(hx + 3, hy - 3, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(hx + 3, hy + 3, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.font = '800 15px ' + FONT;
+  ctx.textAlign = 'center';
+  rr(d.x - 52, d.y + 26, 104, 22, 7);
+  ctx.fillStyle = 'rgba(6,10,18,0.78)';
+  ctx.fill();
+  ctx.strokeStyle = hexA(P.color, 0.7);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = P.color;
+  ctx.fillText('PERRO ' + (i + 1), d.x, d.y + 42);
+}
+
+function drawDebug(){
+  let cx = 0, cy = 0, nf = 0;
+  for (const s of sim.sheep) if (s.pennedBy < 0){ cx += s.x; cy += s.y; nf++; }
+  sim.dogs.forEach((d, i) => {
+    ctx.save();
+    ctx.setLineDash([8, 8]);
+    ctx.strokeStyle = hexA(PENS[i].color, 0.55);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(d.x, d.y, ALERT_R, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = hexA(PENS[i].color, 0.35);
+    ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(PENS[i].x, PENS[i].y); ctx.stroke();
+    ctx.restore();
+  });
+  if (nf > 0){
+    const mx = cx / nf, my = cy / nf;
+    ctx.save();
+    ctx.strokeStyle = '#E2E8F0';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(mx - 12, my); ctx.lineTo(mx + 12, my); ctx.moveTo(mx, my - 12); ctx.lineTo(mx, my + 12); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawEffects(){
+  for (const p of sim.particles){
+    ctx.fillStyle = hexA(p.color, clamp(p.life / p.max, 0, 1) * 0.85);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.textAlign = 'center';
+  for (const p of sim.popups){
+    const a = clamp(p.t / 0.4, 0, 1);
+    ctx.fillStyle = hexA(p.color, a);
+    ctx.font = '900 26px ' + FONT;
+    ctx.fillText(p.text, p.x, p.y - (1.3 - p.t) * 40);
+  }
+  if (sim.big.t > 0){
+    const a = clamp(sim.big.t / 0.5, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = '900 84px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = sim.big.color;
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = sim.big.color;
+    ctx.fillText(sim.big.text, W / 2, 400);
+    ctx.restore();
+  }
+}
+
+function drawTop(counts, fps, cohesion){
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(0, 0, W, 118);
+  ctx.fillStyle = 'rgba(34,211,238,0.9)';
+  ctx.fillRect(0, 116, W, 2);
+  ctx.textAlign = 'left';
+  ctx.font = '900 38px ' + FONT;
+  ctx.fillStyle = '#22D3EE';
+  ctx.fillText('ARENA DE PASTOREO', 40, 52);
+  ctx.font = '700 17px ' + FONT;
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillText('PERROS PASTORES BORDER COLLIE · REBANO DE HAMILTON', 40, 80, 540);
+  ctx.font = '700 16px ' + FONT;
+  ctx.fillStyle = '#FB923C';
+  ctx.fillText('RETO 04/06 · TRIPLE IA VS IA VS IA #4', 40, 104, 540);
+  for (let i = 0; i < PENS.length; i++) drawPenCard(i, 600 + i * 324, 12, 312, 94, counts[i]);
+  drawTimeCard(1572, 12, 308, 94, fps, cohesion);
+}
+
+function drawPenCard(i, x, y, w, h, count){
+  const P = PENS[i], d = sim.dogs[i];
+  rr(x, y, w, h, 12);
+  ctx.fillStyle = '#0F172A';
+  ctx.fill();
+  ctx.strokeStyle = hexA(P.color, 0.6);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = P.color;
+  ctx.fillRect(x + 1, y + 12, 5, h - 24);
+  ctx.textAlign = 'left';
+  ctx.font = '800 18px ' + FONT;
+  ctx.fillStyle = P.color;
+  ctx.fillText(P.short, x + 18, y + 30);
+  ctx.textAlign = 'right';
+  ctx.font = '700 13px ' + FONT;
+  ctx.fillStyle = '#94A3B8';
+  ctx.fillText('P' + (i + 1) + ' ' + (d ? d.mode : ''), x + w - 14, y + 30);
+  ctx.textAlign = 'left';
+  ctx.font = '900 40px ' + FONT;
+  ctx.fillStyle = '#F8FAFC';
+  const cs = String(count);
+  ctx.fillText(cs, x + 18, y + 78);
+  const cw = ctx.measureText(cs).width;
+  ctx.font = '700 16px ' + FONT;
+  ctx.fillStyle = '#94A3B8';
+  ctx.fillText('/' + N_SHEEP + ' EN CORRAL', x + 18 + cw + 8, y + 78);
+  ctx.textAlign = 'right';
+  ctx.font = '800 17px ' + FONT;
+  ctx.fillStyle = '#FBBF24';
+  ctx.fillText('PUNTOS ' + sim.totals[i], x + w - 14, y + 78);
+}
+
+function drawTimeCard(x, y, w, h, fps, cohesion){
+  rr(x, y, w, h, 12);
+  ctx.fillStyle = '#0F172A';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(56,189,248,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  const t = sim.roundT;
+  const mm = Math.floor(t / 60);
+  const ss = (t % 60).toFixed(1).padStart(4, '0');
+  const mmS = String(mm).padStart(2, '0');
+  ctx.textAlign = 'left';
+  ctx.font = '800 18px ' + FONT;
+  ctx.fillStyle = '#38BDF8';
+  ctx.fillText('RONDA ' + String(sim.round).padStart(2, '0'), x + 16, y + 30);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#10B981';
+  ctx.fillText('FPS ' + Math.round(fps), x + w - 16, y + 30);
+  ctx.textAlign = 'left';
+  ctx.font = '700 16px ' + FONT;
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillText('T ' + mmS + ':' + ss, x + 16, y + 56);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#94A3B8';
+  ctx.fillText('COHESION ' + cohesion.toFixed(2), x + w - 16, y + 56);
+  ctx.fillStyle = '#1E293B';
+  rr(x + 16, y + 68, w - 32, 12, 6);
+  ctx.fill();
+  const bw = Math.max(0, (w - 32) * cohesion);
+  if (bw > 0){
+    const g = ctx.createLinearGradient(x + 16, 0, x + w - 16, 0);
+    g.addColorStop(0, '#38BDF8');
+    g.addColorStop(1, '#10B981');
+    ctx.fillStyle = g;
+    rr(x + 16, y + 68, bw, 12, 6);
+    ctx.fill();
+  }
+}
+
+function drawFooter(){
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(0, 984, W, 96);
+  ctx.fillStyle = 'rgba(34,211,238,0.9)';
+  ctx.fillRect(0, 984, W, 2);
+  const hasBanner = sim.banner.t > 0;
+  const text = hasBanner ? sim.banner.text : 'SIMULACION EN VIVO · TRES PERROS IA COMPITEN POR EL MISMO REBANO';
+  const col = hasBanner ? sim.banner.color : '#94A3B8';
+  ctx.font = '800 22px ' + FONT;
+  const tw = Math.min(700, ctx.measureText(text).width + 36);
+  rr(40, 1010, tw, 44, 10);
+  ctx.fillStyle = hexA(col, 0.16);
+  ctx.fill();
+  ctx.strokeStyle = hexA(col, 0.8);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.textAlign = 'left';
+  ctx.fillStyle = col;
+  ctx.fillText(text, 58, 1040, tw - 30);
+  ctx.font = '700 15px ' + FONT;
+  ctx.fillStyle = '#94A3B8';
+  ctx.fillText('SIM ' + sim.t.toFixed(1) + ' s · 60 OVEJAS · 6 DORADAS (DOBLE VALOR) · CALMA / ALERTA DE HAMILTON', 40, 1074, 660);
+}
+
+function render(counts, fps, cohesion, now){
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(bgCanvas, 0, 0);
+  drawPens();
+  drawTrails();
+  if (sim.debug) drawDebug();
+  drawWind();
+  drawSpot();
+  const order = sim.sheep.slice().sort((a, b) => a.y - b.y);
+  for (const s of order) drawSheep(s);
+  for (let i = 0; i < sim.dogs.length; i++) drawDog(sim.dogs[i], i, now);
+  drawPenCounts(counts);
+  drawEffects();
+  drawTop(counts, fps, cohesion);
+  drawFooter();
+}
+
+/* ================= CONTROLES, ESCALADO Y BUCLE 60 FPS ================= */
+const $ = id => document.getElementById(id);
+const btnPause = $('btnPause'), btnSpeed = $('btnSpeed'), btnEvent = $('btnEvent');
+const btnCharge = $('btnCharge'), btnTrail = $('btnTrail'), btnDebug = $('btnDebug'), btnReset = $('btnReset');
+const SPEEDS = [1, 2, 4];
+let speedIdx = 0;
+
+function syncButtons(){
+  const paused = sim.paused;
+  btnPause.querySelector('span').textContent = paused ? 'REANUDAR' : 'PAUSA';
+  btnPause.querySelector('svg').innerHTML = paused
+    ? '<path d="M6 4l14 8-14 8z" fill="currentColor"/>'
+    : '<rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/>';
+  btnPause.classList.toggle('on', paused);
+  btnSpeed.querySelector('span').textContent = 'VEL. x' + SPEEDS[speedIdx];
+  btnTrail.classList.toggle('on', sim.trails);
+  btnDebug.classList.toggle('on', sim.debug);
+}
+function togglePause(){ sim.paused = !sim.paused; syncButtons(); }
+function cycleSpeed(){ speedIdx = (speedIdx + 1) % SPEEDS.length; sim.speed = SPEEDS[speedIdx]; syncButtons(); }
+function setSpeed(i){ speedIdx = i; sim.speed = SPEEDS[i]; syncButtons(); }
+function triggerEvent(){ nextEvent(); sim.eventTimer = EVENT_EVERY; }
+function triggerCharge(){ fireEvent(0); sim.eventTimer = EVENT_EVERY; }
+function resetAll(){
+  sim.t = 0; sim.totals = [0, 0, 0];
+  sim.round = 0; eventCounter = 0; sim.eventTimer = 2.5;
+  sim.popups = []; sim.particles = [];
+  resetRound();
+  setBanner('PARTIDA REINICIADA: NUEVO REBANO EN EL PRADO', '#22D3EE', 2.6);
+  setBig('NUEVA PARTIDA', '#22D3EE');
+  syncButtons();
+}
+function bindBtn(el, fn){
+  el.addEventListener('click', () => { fn(); el.blur(); });
+}
+bindBtn(btnPause, togglePause);
+bindBtn(btnSpeed, cycleSpeed);
+bindBtn(btnEvent, triggerEvent);
+bindBtn(btnCharge, triggerCharge);
+bindBtn(btnTrail, () => { sim.trails = !sim.trails; syncButtons(); });
+bindBtn(btnDebug, () => { sim.debug = !sim.debug; syncButtons(); });
+bindBtn(btnReset, resetAll);
+
+window.addEventListener('keydown', e => {
+  switch (e.key){
+    case ' ': e.preventDefault(); togglePause(); break;
+    case 'e': case 'E': triggerEvent(); break;
+    case 'c': case 'C': triggerCharge(); break;
+    case 't': case 'T': sim.trails = !sim.trails; syncButtons(); break;
+    case 'd': case 'D': sim.debug = !sim.debug; syncButtons(); break;
+    case 'r': case 'R': resetAll(); break;
+    case '1': setSpeed(0); break;
+    case '2': setSpeed(1); break;
+    case '4': setSpeed(2); break;
+    default: break;
+  }
+});
+
+function fitStage(){
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  stage.style.transform = 'scale(' + s + ')';
+  stage.style.left = Math.round((window.innerWidth - W * s) / 2) + 'px';
+  stage.style.top = Math.round((window.innerHeight - H * s) / 2) + 'px';
+}
+window.addEventListener('resize', fitStage);
+
+let acc = 0;
+let lastNow = null;
+let fps = 60, fpsCount = 0, fpsTime = 0;
+function frame(now){
+  if (lastNow === null) lastNow = now;
+  let el = (now - lastNow) / 1000;
+  lastNow = now;
+  if (!(el >= 0)) el = 0;
+  if (el > 0.25) el = 0.25;
+  fpsCount++; fpsTime += el;
+  if (fpsTime >= 0.5){ fps = fpsCount / fpsTime; fpsCount = 0; fpsTime = 0; }
+  if (!sim.paused){
+    acc += el * sim.speed;
+    let steps = 0;
+    while (acc >= DT && steps < 12){ stepSim(DT); acc -= DT; steps++; }
+    if (steps >= 12) acc = 0;
+  }
+  const audit = window.__auditShepherd();
+  render(audit.pennedCounts, fps, audit.flockCohesion, now);
+  requestAnimationFrame(frame);
+}
+
+/* ================= ARRANQUE AUTOMATICO ================= */
+sim.totals = [0, 0, 0];
+resetRound();
+setBanner('PARTIDA EN VIVO: LOS TRES PERROS PASTORES SALEN A POR EL REBANO', '#22D3EE', 3.0);
+setBig('PARTIDA', '#22D3EE');
+syncButtons();
+fitStage();
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
