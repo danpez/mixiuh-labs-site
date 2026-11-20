@@ -113,6 +113,7 @@ type BlogFilter = "all" | "laboratorios" | "comunidad" | "noticias";
 type ForoSubTab = "hilos" | "glosario";
 
 const DOSSIER_HASH: Record<DossierEpisode, string> = {
+  ep14: "ep14-astra-vs-fable",
   ep13: "ep13-ecosistema-gemini-4-neon",
   ep12: "ep12-torneo-ligeros-extra",
   ep11: "ep11-hydrogen-vs-flash",
@@ -172,6 +173,7 @@ function viewForHash(
   ) {
     return { view: "noticias" };
   }
+  if (h === "ep14-astra-vs-fable" && rel.ep14) return { view: "dossiers", ep: "ep14" };
   if (h === "ep13-ecosistema-gemini-4-neon" && rel.ep13) return { view: "dossiers", ep: "ep13" };
   if (h === "ep12-torneo-ligeros-extra" && rel.ep12) return { view: "dossiers", ep: "ep12" };
   if (h === "ep11-hydrogen-vs-flash" && rel.ep11) return { view: "dossiers", ep: "ep11" };
@@ -201,6 +203,10 @@ const SITE_TITLE = {
 } as const;
 
 const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
+  ep14: {
+    es: "Laboratorio EP14: GPT-6.2 Astra vs Claude Fable 5.2 (15 Demos + 3 Arenas)",
+    en: "Lab EP14: GPT-6.2 Astra vs Claude Fable 5.2 (15 Demos + 3 Arenas)",
+  },
   ep13: {
     es: "Laboratorio EP13: Ecosistema Gemini 4 + Neon + Orchestrator (11 Demos)",
     en: "Lab EP13: Gemini 4 Ecosystem + Neon + Orchestrator (11 Demos)",
@@ -304,6 +310,7 @@ function writeHash(hash: string, mode: "push" | "replace") {
 
 /** One accent per production, shared by blog cards, calendar, CRT and floppy selector. */
 const EPISODE_ACCENT: Record<ReleaseKey, string> = {
+  ep14: "#FB7185",
   ep13: "#22D3EE",
   ep12: "#10B981",
   ep11: "#38BDF8",
@@ -324,6 +331,7 @@ const EPISODE_ACCENT: Record<ReleaseKey, string> = {
 
 /** Deep link of each production (used by the share popover). */
 const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  ep14: "ep14-astra-vs-fable",
   ep13: "ep13-ecosistema-gemini-4-neon",
   ep12: "ep12-torneo-ligeros-extra",
   ep11: "ep11-hydrogen-vs-flash",
@@ -521,6 +529,7 @@ export default function PortalClient({
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep14) return "ep14";
     if (r.ep13) return "ep13";
     if (r.ep12) return "ep12";
     if (r.ep11) return "ep11";
@@ -539,9 +548,10 @@ export default function PortalClient({
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
   const [arenaMode, setArenaMode] = useState<
-    "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
+    "ep14" | "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
   >(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep14) return "ep14";
     if (r.ep13) return "ep13";
     if (r.ep12) return "ep12";
     if (r.ep11) return "ep11";
@@ -556,7 +566,8 @@ export default function PortalClient({
     return "ep02_ep01";
   });
 
-  // EP13, EP12, EP11, EP10, EP09, EP08 & EP07 interactive comparator states
+  // EP14, EP13, EP12, EP11, EP10, EP09, EP08 & EP07 interactive comparator states
+  const [ep14ChallengeN, setEp14ChallengeN] = useState<number>(1);
   const [ep13ChallengeN, setEp13ChallengeN] = useState<number>(1);
   const [ep12ChallengeN, setEp12ChallengeN] = useState<number>(1);
   const [ep11ChallengeN, setEp11ChallengeN] = useState<number>(1);
@@ -691,7 +702,9 @@ export default function PortalClient({
     // Default episode/arena = newest published one (content may have been
     // released after this HTML was built); the hash below can override it.
     setDossierEp(
-      rel.ep13
+      rel.ep14
+        ? "ep14"
+        : rel.ep13
         ? "ep13"
         : rel.ep12
         ? "ep12"
@@ -716,7 +729,9 @@ export default function PortalClient({
         : "ep02"
     );
     setArenaMode(
-      rel.ep13
+      rel.ep14
+        ? "ep14"
+        : rel.ep13
         ? "ep13"
         : rel.ep12
         ? "ep12"
@@ -874,7 +889,11 @@ export default function PortalClient({
     episode: DossierEpisode,
     challengeN: number
   ) => {
-    if (episode === "ep13" && released.ep13) {
+    if (episode === "ep14" && released.ep14) {
+      setEp14ChallengeN(challengeN);
+      setArenaMode("ep14");
+      setMainView("arena");
+    } else if (episode === "ep13" && released.ep13) {
       setEp13ChallengeN(challengeN);
       setArenaMode("ep13");
       setMainView("arena");
@@ -981,6 +1000,35 @@ export default function PortalClient({
 
   // Blog Cards Data across the 3 Editorial Pillars, gated by releaseSchedule.ts
   const BLOG_ARTICLES: BlogArticle[] = [
+    {
+      id: "ep14" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "01 Dic 2026",
+      readTime_es: "Video 4K60 · 15 Demos (12 Builds + 3 Arenas)",
+      readTime_en: "4K60 Video · 15 Demos (12 Builds + 3 Arenas)",
+      badge_es: "DUELO EP14 · GPT-6.2 ASTRA VS CLAUDE FABLE 5.2 ($8/$40)",
+      badge_en: "EP14 CLASH · GPT-6.2 ASTRA VS CLAUDE FABLE 5.2 ($8/$40)",
+      accentColor: EPISODE_ACCENT.ep14,
+      scoreBadge_es: "ASTRA 6.2 [5] - [4] FABLE 5.2",
+      scoreBadge_en: "ASTRA 6.2 [5] - [4] FABLE 5.2",
+      thumb: COVERS.ep14,
+      title_es:
+        "GPT-6.2 Astra vs Claude Fable 5.2 al Mismo Precio ($8/$40): 12 Simuladores + 3 Arenas IA en Vivo",
+      title_en:
+        "GPT-6.2 Astra vs Claude Fable 5.2 at Same $8/$40 Price: 12 Simulators + 3 Live AI Arenas",
+      excerpt_es:
+        "Empate exacto de tarifa API ($8 entrada / $40 salida por millon) sin modelos Carbon disponibles en esta ronda. Astra 6.2 domino la fase de construccion visual 5 a 1 en 90.15 min por $13.92 USD (3,272 LOC), pero Fable 5.2 remonta barriendo las 3 arenas de decision en vivo (regata, red electrica 60 Hz y enjambre de drones WebGL2) para cerrar 5 a 4 ($55.18 USD totales, incluyendo 2 rescates de safeguard).",
+      excerpt_en:
+        "Matched token pricing ($8 in / $40 out per 1M) without Carbon in the bracket. GPT-6.2 Astra dominates Phase A visual builds 5-1 in 90.15 min for $13.92 USD (3,272 LOC), before Claude Fable 5.2 sweeps all 3 live AI arenas (regatta, 60 Hz power grid and WebGL2 drone swarm) to pull back to a razor-thin 5-4 finish ($55.18 USD total, including 2 safeguard rescues).",
+      metrics: [
+        { label_es: "MARCADOR FINAL", label_en: "FINAL SCORE", val: "Astra 5 - 4 Fable", val_en: "Astra 5 - 4 Fable" },
+        { label_es: "FASE A / ARENAS", label_en: "BUILDS / ARENAS", val: "5-1 Astra · 0-3 Fable" },
+        { label_es: "COSTO TOTAL", label_en: "TOTAL API BILL", val: "$13.92 vs $55.18 USD" },
+        { label_es: "TIEMPO / RESCATES", label_en: "TIME / RESCUES", val: "90.2m vs 188.5m (2x)" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep14"),
+      onOpenArena: () => handleJumpToArena("ep14", 4),
+    },
     {
       id: "ep13" as ReleaseKey,
       filter: "laboratorios" as const,
@@ -1478,7 +1526,8 @@ export default function PortalClient({
     (released.ep10 ? 1 : 0) +
     (released.ep11 ? 1 : 0) +
     (released.ep12 ? 1 : 0) +
-    (released.ep13 ? 1 : 0);
+    (released.ep13 ? 1 : 0) +
+    (released.ep14 ? 1 : 0);
   const totalComunidadCount =
     (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
@@ -1496,7 +1545,8 @@ export default function PortalClient({
     (released.ep10 ? 16 : 0) +
     (released.ep11 ? 18 : 0) +
     (released.ep12 ? 24 : 0) +
-    (released.ep13 ? 11 : 0);
+    (released.ep13 ? 11 : 0) +
+    (released.ep14 ? 15 : 0);
   const totalPromptsCount =
     10 +
     6 +
@@ -1511,7 +1561,8 @@ export default function PortalClient({
     (released.ep10 ? 6 : 0) +
     (released.ep11 ? 6 : 0) +
     (released.ep12 ? 6 : 0) +
-    (released.ep13 ? 4 : 0);
+    (released.ep13 ? 4 : 0) +
+    (released.ep14 ? 6 : 0);
   // Same size as the forum's thread list (counted on the server, see forumCounts.ts)
   const totalForumThreadsCount = (
     Object.keys(forumCounts.byRelease) as ReleaseKey[]
@@ -1537,6 +1588,35 @@ export default function PortalClient({
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.ep14
+      ? [
+          {
+            id: "ep14",
+            code: "EP.14",
+            kicker:
+              lang === "es"
+                ? "DUELO $8/$40 · 12 BUILDS + 3 ARENAS"
+                : "$8/$40 CLASH · 12 BUILDS + 3 ARENAS",
+            title:
+              lang === "es"
+                ? "GPT-6.2 Astra vs Claude Fable 5.2"
+                : "GPT-6.2 Astra vs Claude Fable 5.2",
+            verdict: "ASTRA 5-4 FABLE · 5-1 / 0-3",
+            timeMetric: "90.2m vs 188.5m",
+            costMetric: "$13.92 vs $55.18 USD",
+            thumb: COVERS.ep14,
+            accentHex: "#FB7185",
+            character: "opus" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep14"),
+            onLaunchSecondary: () => handleJumpToArena("ep14", 4),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR LAB EP14 (15 DEMOS)"
+                : "OPEN EP14 LAB (15 DEMOS)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
     ...(released.ep13
       ? [
           {
@@ -2142,6 +2222,7 @@ export default function PortalClient({
           : []),
         ...(
           [
+            { ep: "ep14" as const, label: es ? "EP14 · GPT-6.2 Astra vs Claude Fable 5.2 (15 Demos)" : "EP14 · GPT-6.2 Astra vs Claude Fable 5.2 (15 Demos)", tone: "coral" as const, show: released.ep14 },
             { ep: "ep13" as const, label: es ? "EP13 · Ecosistema Gemini 4 + Neon + Orchestrator (11 Demos)" : "EP13 · Gemini 4 Ecosystem + Neon + Orchestrator (11 Demos)", tone: "cyan" as const, show: released.ep13 },
             { ep: "ep12" as const, label: es ? "EP12 · Torneo de Ligeros Extra (Hydrogen vs Haiku vs Luna)" : "EP12 · Lightweight Extra Tournament (Hydrogen vs Haiku vs Luna)", tone: "emerald" as const, show: released.ep12 },
             { ep: "ep11" as const, label: es ? "EP11 · Gemini 4 Hydrogen (4 Niveles) vs Flash 3.8 (18 Demos)" : "EP11 · Gemini 4 Hydrogen (4 Levels) vs Flash 3.8 (18 Demos)", tone: "cyan" as const, show: released.ep11 },
@@ -2177,7 +2258,9 @@ export default function PortalClient({
             onSelect: () =>
               handleJumpToArena(
                 e.ep,
-                e.ep === "ep13"
+                e.ep === "ep14"
+                  ? 4
+                  : e.ep === "ep13"
                   ? 4
                   : e.ep === "ep12"
                   ? 1
@@ -3436,6 +3519,8 @@ export default function PortalClient({
             navigateToView={navigateToView}
             handleJumpToArena={handleJumpToArena}
             playSfx={playSfx}
+            ep14ChallengeN={ep14ChallengeN}
+            setEp14ChallengeN={setEp14ChallengeN}
             ep13ChallengeN={ep13ChallengeN}
             setEp13ChallengeN={setEp13ChallengeN}
             ep12ChallengeN={ep12ChallengeN}
@@ -4191,6 +4276,21 @@ m.p.pos[m.axis] = m.base + offset;`}
                 aria-labelledby="arena-mode-label"
                 className="flex flex-wrap items-center gap-2 font-mono-hud text-xs"
               >
+                {released.ep14 && (
+                  <button
+                    onClick={() => setArenaMode("ep14")}
+                    aria-pressed={arenaMode === "ep14"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep14"
+                        ? "bg-[#FB7185] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP14: Astra vs Fable 5.2 (15)"
+                      : "EP14: Astra vs Fable 5.2 (15)"}
+                  </button>
+                )}
                 {released.ep13 && (
                   <button
                     onClick={() => setArenaMode("ep13")}
@@ -4412,7 +4512,8 @@ m.p.pos[m.axis] = m.base + offset;`}
             </div>
           </div>
 
-          {(released.ep13 && arenaMode === "ep13") ||
+          {(released.ep14 && arenaMode === "ep14") ||
+          (released.ep13 && arenaMode === "ep13") ||
           (released.ep12 && arenaMode === "ep12") ||
           (released.ep11 && arenaMode === "ep11") ||
           (released.ep10 && arenaMode === "ep10") ||
@@ -4426,6 +4527,8 @@ m.p.pos[m.axis] = m.base + offset;`}
             <ArenaLatest
               lang={lang}
               episode={arenaMode}
+              ep14ChallengeN={ep14ChallengeN}
+              setEp14ChallengeN={setEp14ChallengeN}
               ep13ChallengeN={ep13ChallengeN}
               setEp13ChallengeN={setEp13ChallengeN}
               ep12ChallengeN={ep12ChallengeN}

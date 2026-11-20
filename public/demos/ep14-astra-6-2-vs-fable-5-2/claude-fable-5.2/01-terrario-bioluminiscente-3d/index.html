@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terrario Bioluminiscente 3D - Mixiuh Labs</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#060A12;color:#E2E8F0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#gl.drag{cursor:grabbing}
+.panel{position:fixed;background:rgba(15,23,42,.84);border:1px solid rgba(34,211,238,.28);border-radius:14px;padding:18px 20px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 10px 40px rgba(0,0,0,.45)}
+#title{left:24px;top:24px;width:400px}
+#title h1{font-size:23px;line-height:1.2;letter-spacing:.04em;color:#22D3EE;font-weight:700;display:flex;gap:10px;align-items:center}
+#title p{font-size:14px;color:#94A3B8;margin-top:6px;letter-spacing:.03em}
+#ctl{left:24px;bottom:24px;width:400px}
+#tel{right:24px;top:24px;width:380px}
+h2{font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:#94A3B8;margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:8px}
+h2 i{width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 10px #10B981;display:inline-block}
+.row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid rgba(148,163,184,.14);gap:10px}
+.row:last-child{border-bottom:0}
+.row span{font-size:15px;color:#CBD5E1;white-space:nowrap}
+.row b{font:700 21px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#22D3EE;white-space:nowrap}
+.bar{height:6px;border-radius:3px;background:rgba(148,163,184,.18);margin:2px 0 6px;overflow:hidden}
+.bar div{height:100%;width:0;background:linear-gradient(90deg,#10B981,#22D3EE,#E879F9);border-radius:3px}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.btns.two{grid-template-columns:1fr 1fr}
+button{font:600 14px system-ui,sans-serif;color:#E2E8F0;background:#0B1222;border:1px solid rgba(56,189,248,.4);border-radius:9px;padding:10px 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s,border-color .15s}
+button:hover{background:#13203A;border-color:#22D3EE}
+button.on{background:rgba(34,211,238,.16);border-color:#22D3EE;color:#22D3EE}
+button svg{width:15px;height:15px;flex:none}
+.sl{margin-top:11px}
+.sl label{display:flex;justify-content:space-between;font-size:14px;color:#CBD5E1;margin-bottom:5px}
+.sl label b{font:700 15px ui-monospace,Menlo,Consolas,monospace;color:#FBBF24}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:rgba(148,163,184,.25);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#22D3EE;border:2px solid #060A12;box-shadow:0 0 10px rgba(34,211,238,.8);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#22D3EE;border:2px solid #060A12;cursor:pointer}
+#hint{position:fixed;right:24px;bottom:24px;font-size:14px;color:#94A3B8;padding:12px 16px;width:auto}
+#hint b{color:#38BDF8;font-weight:600}
+#leg{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+#leg div{font-size:14px;color:#CBD5E1;display:flex;align-items:center;gap:9px}
+#leg i{width:11px;height:11px;border-radius:50%;display:inline-block;flex:none}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:22px;color:#FBBF24}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="err">WebGL2 no disponible en este navegador</div>
+
+<div class="panel" id="title">
+  <h1><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="1.8" stroke-linecap="round"><path d="M3 12a9 7 0 0 1 18 0z" fill="rgba(34,211,238,.2)"/><path d="M12 12v9M9 21h6"/><path d="M8 12v2M16 12v2" stroke="#E879F9"/></svg>TERRARIO BIOLUMINISCENTE</h1>
+  <p>Diorama botanico y micologico 3D / Mixiuh Labs / WebGL2 tiempo real</p>
+  <div id="leg">
+    <div><i style="background:#22D3EE;box-shadow:0 0 8px #22D3EE"></i>Mycena lux-caeli (campana cian)</div>
+    <div><i style="background:#E879F9;box-shadow:0 0 8px #E879F9"></i>Omphalotus nidiformis (embudo magenta)</div>
+    <div><i style="background:#FBBF24;box-shadow:0 0 8px #FBBF24"></i>Panellus stipticus (repisa oro)</div>
+    <div><i style="background:#10B981;box-shadow:0 0 8px #10B981"></i>Helechos Nephrolepis y Asplenium</div>
+  </div>
+</div>
+
+<div class="panel" id="tel">
+  <h2><i></i>Telemetria del microclima</h2>
+  <div class="row"><span><svg id="ico" width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:7px"><circle id="icoC" cx="8" cy="8" r="5" fill="#FBBF24"/><circle id="icoM" cx="11" cy="6" r="4.4" fill="#0F172A" opacity="0"/></svg>Fase solar</span><b id="tPhase">Dia</b></div>
+  <div class="row"><span>Luciferina-luciferasa activa</span><b id="tLuc" style="color:#E879F9">0%</b></div>
+  <div class="bar"><div id="tBar"></div></div>
+  <div class="row"><span>Esporas vivas</span><b id="tSp" style="color:#10B981">0</b></div>
+  <div class="row"><span>Temperatura</span><b id="tTemp" style="color:#FBBF24">22.0 C</b></div>
+  <div class="row"><span>Humedad relativa</span><b id="tHum" style="color:#38BDF8">72%</b></div>
+  <div class="row"><span>Render</span><b id="tFps">60 FPS</b></div>
+</div>
+
+<div class="panel" id="ctl">
+  <h2><i style="background:#E879F9;box-shadow:0 0 10px #E879F9"></i>Control del ciclo</h2>
+  <div class="btns two">
+    <button id="bCyc" class="on"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/></svg><span>Pausar ciclo</span></button>
+    <button id="bOrb" class="on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="8" cy="8" rx="6.5" ry="3"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg><span>Orbita auto</span></button>
+  </div>
+  <div class="btns">
+    <button id="bDia"><svg viewBox="0 0 16 16" fill="#FBBF24"><circle cx="8" cy="8" r="4"/></svg>Dia</button>
+    <button id="bCre"><svg viewBox="0 0 16 16" fill="#E879F9"><path d="M2 11a6 6 0 0 1 12 0z"/></svg>Crepusculo</button>
+    <button id="bNoc"><svg viewBox="0 0 16 16" fill="#38BDF8"><path d="M11 2a6 6 0 1 0 3 9A5 5 0 0 1 11 2z"/></svg>Noche</button>
+  </div>
+  <div class="sl"><label>Posicion del ciclo<b id="oPh">0%</b></label><input type="range" id="sPh" min="0" max="1000" value="100"></div>
+  <div class="sl"><label>Humedad<b id="oHum">72%</b></label><input type="range" id="sHum" min="20" max="100" value="72"></div>
+  <div class="sl"><label>Intensidad bioluminiscente<b id="oBio">100%</b></label><input type="range" id="sBio" min="0" max="150" value="100"></div>
+  <div class="sl"><label>Velocidad de esporas<b id="oSpd">100%</b></label><input type="range" id="sSpd" min="0" max="300" value="100"></div>
+</div>
+
+<div class="panel" id="hint"><b>Arrastrar</b> orbita la camara &nbsp;/&nbsp; <b>Rueda</b> zoom</div>
+
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const cv=$('gl');
+const S={t:0,p:0.10,cyc:true,hum:0.72,bio:1,spd:1,yaw:0.6,pitch:0.3,dist:16.5,auto:true,fps:60,alive:0,phase:'Dia',humPct:72,luc:0,temp:22};
+window.__auditTerrarium=()=>({fps:Math.round(S.fps*10)/10,activeSpores:S.alive,lightPhase:S.phase,humidityPct:Math.round(S.humPct*10)/10});
+const gl=cv.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
+if(!gl){$('err').style.display='flex';return;}
+
+/* ---------- utilidades ---------- */
+let seed=20261;const R=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+const rr=(a,b)=>a+(b-a)*R();
+const cl=(x,a,b)=>Math.min(b,Math.max(a,x));
+const ss=(a,b,x)=>{const t=cl((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const mix3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const TAU=6.28318530718;
+const CY=[.13,.83,.93],EM=[.06,.73,.51],MG=[.91,.47,.98],GD=[.98,.75,.14],BL=[.22,.74,.97];
+
+function persp(fy,as,n,f){const t=1/Math.tan(fy/2),o=new Float32Array(16);o[0]=t/as;o[5]=t;o[10]=(f+n)/(n-f);o[11]=-1;o[14]=2*f*n/(n-f);return o;}
+function lookAt(e,c){let fx=c[0]-e[0],fy=c[1]-e[1],fz=c[2]-e[2];let l=Math.hypot(fx,fy,fz);fx/=l;fy/=l;fz/=l;
+ let sx=-fz,sy=0,sz=fx;l=Math.hypot(sx,sz);sx/=l;sz/=l;
+ const ux=sy*fz-sz*fy,uy=sz*fx-sx*fz,uz=sx*fy-sy*fx;
+ return new Float32Array([sx,ux,-fx,0,sy,uy,-fy,0,sz,uz,-fz,0,-(sx*e[0]+sy*e[1]+sz*e[2]),-(ux*e[0]+uy*e[1]+uz*e[2]),fx*e[0]+fy*e[1]+fz*e[2],1]);}
+function mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o;}
+
+/* ---------- shaders (un programa, modos) ---------- */
+const VS=`#version 300 es
+layout(location=0) in vec3 aP;layout(location=1) in vec3 aN;layout(location=2) in vec3 aC;layout(location=3) in vec2 aE;
+uniform mat4 uVP;uniform float uT,uPx;uniform int uM;
+out vec3 vP,vN,vC;out float vE;
+void main(){vec3 p=aP;float w=aE.y;
+ p.x+=w*sin(uT*1.3+aP.x*.5+aP.z*.4)*.07;p.z+=w*cos(uT*1.05+aP.z*.5-aP.x*.3)*.05;
+ vP=p;vN=aN;vC=aC;vE=aE.x;
+ if(uM==4){gl_Position=vec4(aP.xy,.9999,1.);gl_PointSize=1.;return;}
+ gl_Position=uVP*vec4(p,1.);
+ gl_PointSize=uM==5?max(aE.x*uPx/gl_Position.w,1.):1.;}`;
+const FS=`#version 300 es
+precision highp float;precision highp int;
+in vec3 vP,vN,vC;in float vE;
+uniform int uM;uniform vec3 uCam,uSun,uSunC,uAmb,uFog,uSkyT,uSkyB,uDome;
+uniform float uT,uBio,uAlpha,uHum,uFogA,uNight,uSp;uniform vec2 uRes;
+uniform vec3 uL[8];uniform vec3 uLC[8];
+out vec4 o;
+float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float ns(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+1.),f.x),f.y);}
+float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*ns(p);p=p*2.03+7.1;a*=.5;}return s;}
+vec3 glow(vec3 P,vec3 n,float k,float wrap){vec3 g=vec3(0);for(int i=0;i<8;i++){vec3 d=uL[i]-P;float dd=dot(d,d);
+ g+=uLC[i]*mix(1.,max(dot(n,d*inversesqrt(dd+1e-4)),0.),wrap)/(1.+dd*k);}return g;}
+void main(){
+ if(uM==4){vec2 uv=gl_FragCoord.xy/uRes;vec3 c=mix(uSkyB,uSkyT,smoothstep(0.,1.,uv.y));
+  vec2 g=floor(gl_FragCoord.xy/3.);float st=step(.9978,hs(g))*(.5+.5*sin(uT*2.+hs(g+3.)*40.));
+  c+=st*uNight*vec3(.7,.85,1.)*smoothstep(.15,.8,uv.y);
+  vec2 q=uv-.5;c*=1.-dot(q,q)*.9;o=vec4(c,1.);return;}
+ if(uM==5){vec2 q=gl_PointCoord*2.-1.;float d=dot(q,q);if(d>1.)discard;
+  float sharp=exp(-d*7.)+.22*(1.-d)*(1.-d),soft=(1.-d)*(1.-d)*.5;
+  o=vec4(vC*mix(sharp,soft,vN.x)*uSp,1.);return;}
+ vec3 v=normalize(uCam-vP);
+ if(uM==3){float r=length(vP.xz);float f=fbm(vP.xz*.55+vec2(uT*.06,vP.y*3.+uT*.03));f=smoothstep(.22,.8,f);
+  float a=f*uFogA*smoothstep(vE,vE*.5,r)*smoothstep(.02,.3,abs(v.y));
+  o=vec4(uFog+glow(vP,vec3(0,1,0),1.1,0.)*uBio*.9,a);return;}
+ vec3 n=normalize(vN);
+ if(uM==2){float nv=abs(dot(n,v));float fr=pow(1.-nv,3.);
+  vec3 r=reflect(-v,n*sign(dot(n,v)));float sp=pow(max(dot(r,uSun),0.),90.);
+  float cd=ns(vP.xz*9.+vP.y*7.)*ns(vP.xy*21.+3.);float cond=smoothstep(.22,.55,cd)*uHum*.16*smoothstep(4.8,.5,vP.y);
+  float band=smoothstep(.985,1.,sin(vP.y*1.3+atan(vP.z,vP.x)*.0))*0.;
+  o=vec4(uDome+uSunC*sp*2.+band,min(.03+fr*.42+cond+sp,1.));return;}
+ if(uM==1){vec2 w=vP.xz;float t=uT;
+  n=normalize(vec3(.06*sin(w.x*9.+t*1.4)+.05*sin(w.y*13.-t*1.1+w.x*4.),1.,.06*cos(w.y*8.+t*1.2)+.05*sin(w.x*11.+t*.9)));
+  vec3 r=reflect(-v,n);float fr=.08+.92*pow(1.-max(dot(n,v),0.),4.);
+  vec3 sky=mix(uSkyB,uSkyT,clamp(r.y,0.,1.))*1.7;
+  vec3 c=mix(vec3(.01,.05,.07)+uAmb*.1,sky,fr);
+  c+=uSunC*pow(max(dot(r,uSun),0.),200.)*1.5;
+  for(int i=0;i<8;i++){vec3 d=uL[i]-vP;float dd=dot(d,d);d*=inversesqrt(dd);
+   c+=uLC[i]*uBio*(pow(max(dot(r,d),0.),50.)*1.8+.12/(1.+dd*.6));}
+  o=vec4(c,.94);return;}
+ if(dot(n,v)<0.)n=-n;
+ float d=max(dot(n,uSun),0.);vec3 c=vC*(uAmb+uSunC*d);
+ vec3 h=normalize(uSun+v);c+=uSunC*pow(max(dot(n,h),0.),40.)*.22*uHum;
+ c+=(vC*.7+.12)*glow(vP,n,2.2,.8)*uBio*1.15;
+ float pulse=.8+.2*sin(uT*2.+vP.x*3.+vP.z*2.);
+ float rim=pow(1.-max(dot(n,v),0.),2.);
+ c+=vC*vE*uBio*pulse*(1.+rim*1.5);
+ float fd=length(uCam-vP);c=mix(c,uFog,clamp((fd-9.)*.03,0.,.45)*uHum);
+ o=vec4(c,min(uAlpha+rim*.25,1.));}`;
+function sh(t,s){const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(x));return x;}
+const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pr);
+if(!gl.getProgramParameter(pr,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(pr));
+gl.useProgram(pr);
+const U={};for(const n of['uVP','uT','uPx','uM','uCam','uSun','uSunC','uAmb','uFog','uSkyT','uSkyB','uDome','uBio','uAlpha','uHum','uFogA','uNight','uSp','uRes','uL','uLC'])U[n]=gl.getUniformLocation(pr,n);
+
+/* ---------- constructores de geometria ---------- */
+function tri(A,a,b,c,C,E,W){const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+ let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const l=Math.hypot(nx,ny,nz)||1;nx/=l;ny/=l;nz/=l;
+ const P=[a,b,c];for(let i=0;i<3;i++)A.push(P[i][0],P[i][1],P[i][2],nx,ny,nz,C[i][0],C[i][1],C[i][2],E[i],W[i]);}
+function surf(A,nu,nv,f){const g=[],e=1e-3;
+ for(let i=0;i<=nu;i++)for(let j=0;j<=nv;j++){const u=i/nu,v=j/nv,q=f(u,v),uu=cl(u,.004,.995);
+  const a=f(uu,v),b=f(uu+e,v),c=f(uu,v+e);
+  const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+  let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const l=Math.hypot(nx,ny,nz);
+  if(l<1e-12){nx=0;ny=1;nz=0;}else{nx/=l;ny/=l;nz/=l;}
+  g.push([q[0],q[1],q[2],nx,ny,nz,q[3],q[4],q[5],q[6]||0,q[7]||0]);}
+ const w=nv+1;
+ for(let i=0;i<nu;i++)for(let j=0;j<nv;j++){const a=g[i*w+j],b=g[(i+1)*w+j],c=g[(i+1)*w+j+1],d=g[i*w+j+1];
+  for(const k of[a,b,c,a,c,d])for(let m=0;m<11;m++)A.push(k[m]);}}
+/* ---------- escena ---------- */
+const RD=5.05,DH=0.95,PX=1.7,PZ=1.3,WY=-0.16;
+const OP=[],PD=[],TR=[],FG=[],DM=[],caps=[];
+const bump=(x,z)=>.16+.07*Math.sin(x*1.7+1.3)*Math.cos(z*1.9-.7)+.04*Math.sin(x*3.1+z*2.3)+.03*Math.sin(x*6.3-z*5.1);
+function gh(x,z){const r=Math.hypot(x,z),d=Math.hypot(x-PX,z-PZ),s=ss(2.0,.8,d);
+ let h=bump(x,z)+.55*Math.exp(-((x+1.9)**2+(z+1.2)**2)/2.5);h=h*(1-s)-.6*s;return h*ss(5,4.3,r);}
+
+// suelo: musgo, corteza, roca humeda
+surf(OP,46,96,(u,v)=>{const r=u*5,a=v*TAU,x=Math.cos(a)*r,z=Math.sin(a)*r;
+ const m=.5+.5*Math.sin(x*4.1+z*3.3)*Math.cos(x*2.3-z*5.7);let c=mix3([.05,.26,.11],[.13,.46,.16],m);
+ const bk=ss(.55,.8,.5+.5*Math.sin(x*1.3+2)*Math.sin(z*1.1-1));c=mix3(c,[.24,.14,.07],bk*.8);
+ const w=ss(2.3,1.5,Math.hypot(x-PX,z-PZ));c=mix3(c,[.09,.12,.16],w);
+ return[x,gh(x,z),z,c[0],c[1],c[2],.05*m*(1-w)*(1-bk),0];});
+// isla flotante estratificada
+surf(OP,30,72,(u,v)=>{const a=v*TAU,y=-u*3.5,r=5.0*Math.pow(1-u,.55)*(1+.05*u*Math.sin(a*5+u*9)+.03*u*Math.sin(a*11-u*6));
+ const d=-y+.08*Math.sin(a*6)+.05*Math.sin(a*13+2);let c,e=0;
+ if(d<.22)c=[.07,.30,.13];else if(d<.7)c=[.15,.09,.06];else if(d<1.2)c=[.31,.19,.09];else if(d<1.95)c=[.23,.26,.31];else{c=[.08,.10,.14];
+  const k=ss(.86,.97,.5+.5*Math.sin(a*9+u*17)*Math.sin(u*31+a*3));c=mix3(c,CY,k);e=k*.9;}
+ const sh=.82+.18*Math.sin(d*40+a*3);return[Math.cos(a)*r,y,Math.sin(a)*r,c[0]*sh,c[1]*sh,c[2]*sh,e,0];});
+// aro metalico de la cupula
+surf(OP,8,72,(u,v)=>{const a=v*TAU,b=u*TAU,r=RD+.03+Math.cos(b)*.09;return[Math.cos(a)*r,.02+Math.sin(b)*.09,Math.sin(a)*r,.12,.30,.38,.18,0];});
+// estanque
+surf(PD,1,48,(u,v)=>{const a=v*TAU,r=u*2.0;return[PX+Math.cos(a)*r,WY,PZ+Math.sin(a)*r,0,0,0,0,0];});
+// rocas humedas
+function rock(x,z,r,y){const s1=R()*9,s2=R()*9,sq=rr(.55,.85),g=rr(.8,1.15);if(y==null)y=gh(x,z)+r*.25;
+ surf(OP,9,12,(u,v)=>{const th=u*Math.PI,a=v*TAU,dx=Math.sin(th)*Math.cos(a),dy=Math.cos(th),dz=Math.sin(th)*Math.sin(a);
+  const k=r*(1+.22*Math.sin(dx*4+s1)*Math.sin(dy*3+s2)+.1*Math.sin(dz*7+s1));const m=.5+.5*Math.sin(dx*9+dz*7+s2);
+  const c=mix3([.13,.16,.21],[.24,.28,.33],m);const ms=ss(.5,.9,dy)*.6;const cc=mix3(c,[.07,.30,.14],ms);
+  return[x+dx*k,y+dy*k*sq,z+dz*k,cc[0]*g,cc[1]*g,cc[2]*g,0,0];});}
+for(let i=0;i<9;i++){const a=i/9*TAU+rr(-.2,.2),d=rr(1.95,2.35),x=PX+Math.cos(a)*d,z=PZ+Math.sin(a)*d;if(Math.hypot(x,z)<4.4)rock(x,z,rr(.24,.5));}
+rock(PX+.3,PZ-.2,.3,WY-.02);rock(PX-.6,PZ+.5,.17,WY);rock(-3.6,-2.1,.42);rock(.3,-3.9,.36);
+// tronco de corteza
+const LG={a:[-3.5,1.3],b:[-1.3,3.3]};
+{const dx=LG.b[0]-LG.a[0],dz=LG.b[1]-LG.a[1],l=Math.hypot(dx,dz),ax=dx/l,az=dz/l;LG.ax=ax;LG.az=az;
+ LG.c=u=>{const x=LG.a[0]+dx*u,z=LG.a[1]+dz*u;return[x,gh(x,z)+.27,z];};
+ surf(OP,22,16,(u,v)=>{const c=LG.c(u),a=v*TAU,cap=Math.min(1,u*30,(1-u)*30),rad=.36*cap*(1+.05*Math.sin(a*7+u*20));
+  const ca=Math.cos(a),sa=Math.sin(a);const st=.5+.5*Math.sin(a*9+Math.sin(u*13)*2.5);
+  let col=mix3([.17,.10,.05],[.33,.20,.10],st);if(cap<.99)col=[.46,.34,.20];col=mix3(col,[.07,.32,.13],ss(.45,.95,sa)*.7*(cap>.99?1:0));
+  return[c[0]-az*ca*rad,c[1]+sa*rad,c[2]+ax*ca*rad,col[0],col[1],col[2],0,0];});}
+
+// hongos: 0 campana (Mycena), 1 embudo (Omphalotus), 2 repisa/domo (Panellus)
+function mush(x,z,h,cr,ty,col,y0,L){if(y0==null)y0=gh(x,z)-.03;
+ const la=R()*TAU,lm=rr(.05,.28)*h,lx=Math.cos(la)*lm,lz=Math.sin(la)*lm,rs=cr*(ty==1?.16:.11)+.012;
+ const cen=t=>[x+lx*t*t,y0+h*t,z+lz*t*t],sc=mix3(col,[.9,.95,.9],.55);
+ surf(OP,6,8,(u,v)=>{const c=cen(u),a=v*TAU,r=rs*(1.25-.45*u);return[c[0]+Math.cos(a)*r,c[1],c[2]+Math.sin(a)*r,sc[0]*.6,sc[1]*.6,sc[2]*.6,.12+.3*u,.18*u*u];});
+ const T=cen(1),ch=cr*(ty==0?1.15:ty==1?.32:.62),k=ty==0?.75:ty==1?1.6:1,oy=ty==0?-ch*.4:0,sd=R()*10;
+ surf(TR,10,20,(u,v)=>{const a=v*TAU,b=u*1.5708;let r=cr*Math.pow(Math.sin(b),ty==0?.8:1),y=ch*Math.pow(Math.max(Math.cos(b),0),k);
+  if(ty==1)y+=cr*.16*u**4;r*=1+.05*u*Math.sin(a*6+sd);
+  const sp=ss(.72,.9,.5+.5*Math.sin(a*5+sd+u*9)*Math.sin(u*14+sd))*(ty==1?.2:.5),c=mix3(col,[1,1,1],sp+.15*(1-u));
+  return[T[0]+Math.cos(a)*r,T[1]+oy+y,T[2]+Math.sin(a)*r,c[0],c[1],c[2],.35+.4*u,.18];});
+ const n=ty==1?24:14,r1=cr*.97;
+ for(let i=0;i<n;i++){const a=i/n*TAU+sd,ca=Math.cos(a),sa=Math.sin(a);
+  const A=[T[0]+ca*rs*.8,T[1]+oy+ch*.55,T[2]+sa*rs*.8],B=[T[0]+ca*r1,T[1]+oy+(ty==1?cr*.16:.01),T[2]+sa*r1],
+   C=[T[0]+ca*rs*.9,T[1]+oy+(ty==1?-cr*.25:ch*.08),T[2]+sa*rs*.9];
+  tri(OP,A,B,C,[col,col,col],[.9,1.1,.7],[.18,.18,.18]);}
+ caps.push({p:[T[0],T[1]+oy+ch*.5,T[2]],c:col,r:cr,L:!!L});}
+// Mycena cian (monticulo) y azul
+for(let i=0;i<8;i++){const a=R()*TAU,d=i?rr(.25,1.1):0;mush(-2.1+Math.cos(a)*d,-1.4+Math.sin(a)*d,i?rr(.8,1.9):2.2,i?rr(.2,.36):.42,0,CY,null,i<2);}
+for(let i=0;i<5;i++){const a=R()*TAU,d=i?rr(.2,.7):0;mush(2.7+Math.cos(a)*d,-2.3+Math.sin(a)*d,i?rr(.6,1.2):1.5,i?rr(.16,.26):.32,0,BL,null,i<1);}
+// Omphalotus magenta
+mush(.1,-.5,1.45,.8,1,MG,null,1);mush(-.7,.1,.9,.5,1,MG);mush(.9,-1.1,.7,.42,1,MG);
+mush(.6,-3.0,1.1,.6,1,MG,null,1);mush(-.1,-3.3,.6,.36,1,MG);mush(3.5,-.6,.8,.46,1,MG,null,1);mush(-3.3,-.1,.65,.38,1,MG);
+// Panellus oro/esmeralda sobre el tronco y la orilla
+for(let i=0;i<8;i++){const u=.1+i*.11+rr(-.02,.02),c=LG.c(u),o=rr(-.16,.16);
+ mush(c[0]-LG.az*o,c[2]+LG.ax*o,rr(.22,.5),rr(.16,.3),2,i%3==2?EM:GD,c[1]+.3,i==2||i==6);}
+mush(.2,3.5,.4,.22,2,EM);mush(-.3,3.2,.3,.16,2,GD);mush(3.9,.3,.35,.2,2,EM);mush(-.6,2.2,.45,.24,2,GD);
+
+// helechos
+function fern(x,z,sc,ty,col){const y0=gh(x,z),nf=ty?7:9,g0=ty?[.05,.30,.22]:[.07,.34,.12];
+ for(let i=0;i<nf;i++){const a=i/nf*TAU+R(),dx=Math.cos(a),dz=Math.sin(a),L=sc*rr(.8,1.15),H=sc*rr(.55,.9);
+  const P=t=>[x+dx*L*t,y0+H*(2.1*t-1.6*t*t),z+dz*L*t],n=ty?9:14,dt=1/n;
+  for(let k=0;k<n;k++){const t=k*dt+.04,a0=P(t),a1=P(Math.min(1,t+dt*(ty?.95:.7))),m=P(t+dt*.5);
+   const w=sc*(ty?.3:.22)*Math.pow(Math.sin(Math.PI*Math.min(1,t+.08)),.7)+.02;
+   const c0=mix3(g0,col,t*t*.8),c1=mix3(g0,col,.35+.65*t),e0=.04+.25*t*t,e1=.15+.75*t;
+   for(const s of[-1,1]){const tip=[m[0]-dz*w*s+dx*w*.4,m[1]-w*.25+(ty?w*.2:0),m[2]+dx*w*s+dz*w*.4];
+    tri(OP,a0,a1,tip,[c0,c0,c1],[e0,e0,e1],[t,t,t]);}}}}
+fern(-3.7,-.9,1.5,0,EM);fern(3.2,-3.0,1.3,0,EM);fern(-1.0,-3.8,1.2,0,EM);fern(1.0,4.0,1.1,0,EM);fern(-2.2,.6,1.0,0,EM);
+fern(4.1,-1.5,1.2,1,CY);fern(-3.0,-3.0,1.25,1,CY);fern(-.6,3.9,1.0,1,BL);fern(1.9,-1.6,.9,1,CY);fern(-4.2,1.0,.9,1,BL);
+// brotes de musgo luminosos
+for(let i=0;i<260;i++){const a=R()*TAU,r=Math.sqrt(R())*4.5,x=Math.cos(a)*r,z=Math.sin(a)*r;if(Math.hypot(x-PX,z-PZ)<2.1)continue;
+ const y=gh(x,z),h=rr(.08,.2),b=R()*TAU,w=.025,c=[.10,.5,.2],c2=mix3(EM,CY,R()*.5);
+ tri(OP,[x-Math.cos(b)*w,y,z-Math.sin(b)*w],[x+Math.cos(b)*w,y,z+Math.sin(b)*w],[x+rr(-.04,.04),y+h,z+rr(-.04,.04)],[c,c,c2],[0,0,.7],[0,0,.5]);}
+
+// niebla en capas
+for(let i=0;i<7;i++){const y=.3+i*.36,rad=RD*Math.sqrt(1-(y/(DH*RD))**2)*.97;
+ surf(FG,1,40,(u,v)=>{const a=v*TAU+i,r=u*rad;return[Math.cos(a)*r,y,Math.sin(a)*r,0,0,0,rad,0];});}
+// cupula de cristal
+surf(DM,24,64,(u,v)=>{const th=u*1.5708,a=v*TAU;return[RD*Math.sin(th)*Math.cos(a),RD*DH*Math.cos(th),RD*Math.sin(th)*Math.sin(a),0,0,0,0,0];});
+
+const SKY=[-1,-1,0,0,0,0,0,0,0,0,0, 3,-1,0,0,0,0,0,0,0,0,0, -1,3,0,0,0,0,0,0,0,0,0];
+const parts=[SKY,OP,PD,TR,FG,DM],rng=[];let off=0;
+for(const p of parts){rng.push([off/11,p.length/11]);off+=p.length;}
+const big=new Float32Array(off);off=0;for(const p of parts){big.set(p,off);off+=p.length;}
+function mkVao(buf){const v=gl.createVertexArray();gl.bindVertexArray(v);gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+ const sz=[3,3,3,2];let o=0;for(let i=0;i<4;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,sz[i],gl.FLOAT,false,44,o);o+=sz[i]*4;}return v;}
+const sb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,sb);gl.bufferData(gl.ARRAY_BUFFER,big,gl.STATIC_DRAW);const vaoS=mkVao(sb);
+const lights=caps.filter(c=>c.L).slice(0,8);while(lights.length<8)lights.push(caps[lights.length]);
+const LP=new Float32Array(24),LC=new Float32Array(24);
+lights.forEach((l,i)=>{LP.set(l.p,i*3);LC.set([l.c[0]*l.r*1.6,l.c[1]*l.r*1.6,l.c[2]*l.r*1.6],i*3);});
+/* ---------- esporas ---------- */
+const N=900,NH=caps.length,sp=new Float32Array(N*8),sz=new Float32Array(N),ph=new Float32Array(N);
+const dyn=new Float32Array((N+NH)*11),db=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,db);gl.bufferData(gl.ARRAY_BUFFER,dyn,gl.DYNAMIC_DRAW);const vaoD=mkVao(db);
+function spawn(i,any){const o=i*8,c=caps[(R()*NH)|0];
+ if(any){const a=R()*TAU,r=Math.sqrt(R())*4.3,x=Math.cos(a)*r,z=Math.sin(a)*r,top=RD*DH*Math.sqrt(1-r*r/(RD*RD))*.85,g=gh(x,z)+.15;
+  sp[o]=x;sp[o+1]=g+R()*Math.max(.2,top-g);sp[o+2]=z;}
+ else{sp[o]=c.p[0]+rr(-1,1)*c.r;sp[o+1]=c.p[1]+rr(-.3,.6)*c.r;sp[o+2]=c.p[2]+rr(-1,1)*c.r;}
+ const col=mix3(c.c,[1,1,1],rr(.05,.35));sp[o+4]=rr(7,18);sp[o+3]=any?R()*sp[o+4]:sp[o+4];sp[o+5]=col[0];sp[o+6]=col[1];sp[o+7]=col[2];
+ sz[i]=rr(.07,.17);ph[i]=R()*TAU;}
+const targetOf=nf=>Math.floor(N*(.35+.65*S.hum)*(.45+.55*nf));
+function stepSpores(dt,t,target,bioEff){const d=dt*S.spd,k=.35+.9*bioEff;let alive=0;
+ for(let i=0;i<N;i++){const o=i*8,q=i*11;
+  if(sp[o+3]<=0){if(i<target)spawn(i,false);else{dyn[q+9]=0;continue;}}
+  let x=sp[o],y=sp[o+1],z=sp[o+2];
+  const vx=(Math.sin(y*1.3+t*.4)+Math.cos(z*.9-t*.3))*.22-z*.07+Math.sin(t*1.7+ph[i])*.08,
+   vy=.10+Math.sin(x*1.1+t*.5)*.16+Math.cos(z*1.7-t*.23)*.1+Math.cos(t*1.3+ph[i]*2)*.05,
+   vz=(Math.sin(x*1.2+t*.35)+Math.cos(y*1.7+t*.2))*.22+x*.07+Math.cos(t*1.9+ph[i])*.08;
+  x+=vx*d;y+=vy*d;z+=vz*d;
+  const g=gh(x,z)+.06;if(y<g)y=g;
+  const e=(x*x+z*z)/(RD*RD)+(y*y)/(RD*RD*DH*DH);if(e>.88){const s=Math.sqrt(.88/e);x*=s;y*=s;z*=s;}
+  sp[o]=x;sp[o+1]=y;sp[o+2]=z;sp[o+3]-=d*(i<target?1:4);
+  const life=sp[o+3],f=cl(Math.min(life*1.5,(sp[o+4]-life)*1.5),0,1)*(.7+.3*Math.sin(t*3+ph[i]));
+  dyn[q]=x;dyn[q+1]=y;dyn[q+2]=z;dyn[q+3]=0;dyn[q+6]=sp[o+5]*k;dyn[q+7]=sp[o+6]*k;dyn[q+8]=sp[o+7]*k;dyn[q+9]=sz[i]*(.4+.6*f);
+  if(life>0)alive++;}
+ for(let j=0;j<NH;j++){const c=caps[j],q=(N+j)*11,b=.22*bioEff*(.8+.2*Math.sin(t*2+j));
+  dyn[q]=c.p[0];dyn[q+1]=c.p[1];dyn[q+2]=c.p[2];dyn[q+3]=1;dyn[q+6]=c.c[0]*b;dyn[q+7]=c.c[1]*b;dyn[q+8]=c.c[2]*b;dyn[q+9]=c.r*5;}
+ S.alive=alive;}
+{const t0=targetOf(0);for(let i=0;i<t0;i++)spawn(i,true);}
+
+/* ---------- interaccion ---------- */
+let dpr=1,W=1,H=1;
+function resize(){dpr=Math.min(window.devicePixelRatio||1,1.5);W=Math.max(2,Math.floor(innerWidth*dpr));H=Math.max(2,Math.floor(innerHeight*dpr));cv.width=W;cv.height=H;}
+addEventListener('resize',resize);resize();
+let drag=false,lx=0,ly=0;
+cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;cv.classList.add('drag');try{cv.setPointerCapture(e.pointerId);}catch(_){}});
+cv.addEventListener('pointermove',e=>{if(!drag)return;S.yaw-=(e.clientX-lx)*.006;S.pitch=cl(S.pitch+(e.clientY-ly)*.005,-.3,1.4);lx=e.clientX;ly=e.clientY;});
+const up=()=>{drag=false;cv.classList.remove('drag');};
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{e.preventDefault();S.dist=cl(S.dist*Math.exp(e.deltaY*.001),7,32);},{passive:false});
+
+const setCyc=v=>{S.cyc=v;$('bCyc').classList.toggle('on',v);$('bCyc').lastElementChild.textContent=v?'Pausar ciclo':'Reanudar ciclo';};
+$('bCyc').onclick=()=>setCyc(!S.cyc);
+$('bOrb').onclick=()=>{S.auto=!S.auto;$('bOrb').classList.toggle('on',S.auto);};
+$('bDia').onclick=()=>{S.p=0;setCyc(false);};
+$('bCre').onclick=()=>{S.p=.25;setCyc(false);};
+$('bNoc').onclick=()=>{S.p=.5;setCyc(false);};
+$('sPh').oninput=e=>{S.p=(+e.target.value/1000)%1;setCyc(false);};
+$('sHum').oninput=e=>{S.hum=+e.target.value/100;$('oHum').textContent=e.target.value+'%';};
+$('sBio').oninput=e=>{S.bio=+e.target.value/100;$('oBio').textContent=e.target.value+'%';};
+$('sSpd').oninput=e=>{S.spd=+e.target.value/100;$('oSpd').textContent=e.target.value+'%';};
+
+/* ---------- bucle ---------- */
+let last=performance.now(),hudT=0;
+const v3=(u,a)=>gl.uniform3f(u,a[0],a[1],a[2]);
+const blend=(d,tw,n,a,b,c)=>[a[0]*d+b[0]*tw+c[0]*n,a[1]*d+b[1]*tw+c[1]*n,a[2]*d+b[2]*tw+c[2]*n];
+function draw(mode,i){gl.uniform1i(U.uM,mode);gl.drawArrays(gl.TRIANGLES,rng[i][0],rng[i][1]);}
+function frame(now){requestAnimationFrame(frame);
+ const raw=(now-last)/1000;last=now;if(raw>0&&raw<1)S.fps+=(Math.min(1/raw,240)-S.fps)*.06;
+ const dt=cl(raw,0,.05);S.t+=dt;const t=S.t;
+ if(S.cyc)S.p=(S.p+dt/52)%1;
+ if(S.auto&&!drag)S.yaw+=dt*.11;
+ const sunH=Math.cos(S.p*TAU),dayf=ss(0,.7,sunH),nf=ss(.2,-.6,sunH),tw=Math.max(0,1-dayf-nf);
+ S.phase=sunH>.5?'Dia':sunH<-.5?'Noche Profunda':'Crepusculo';
+ const bioEff=S.bio*(.18+.82*nf),br=Math.sin(t*.55);
+ S.humPct=cl(S.hum*100+br*1.6+nf*2-dayf*1.5,20,100);
+ S.luc=cl(S.bio*(.12+.88*nf)*(.75+.25*S.hum)*100,0,100);
+ S.temp=17.5+7*dayf+1.5*tw-(S.hum-.6)*3+.3*Math.sin(t*.2);
+ stepSpores(dt,t,targetOf(nf),bioEff);
+
+ const cp=Math.cos(S.pitch),tg=[0,.7,0],eye=[tg[0]+S.dist*cp*Math.sin(S.yaw),tg[1]+S.dist*Math.sin(S.pitch),tg[2]+S.dist*cp*Math.cos(S.yaw)];
+ const fov=.7,VP=mul(persp(fov,W/H,.1,120),lookAt(eye,tg));
+ const sa=S.p*TAU+1,sd=[.55*Math.cos(sa),.3+.7*Math.abs(sunH),.55*Math.sin(sa)],sl=Math.hypot(sd[0],sd[1],sd[2]);
+ const skyT=blend(dayf,tw,nf,[.07,.20,.30],[.16,.07,.22],[.012,.02,.045]),skyB=blend(dayf,tw,nf,[.16,.34,.40],[.42,.20,.16],[.024,.04,.07]);
+ const sunC=blend(dayf,tw,nf,[1,.95,.8],[.55,.28,.2],[.05,.08,.15]),amb=blend(dayf,tw,nf,[.30,.36,.40],[.2,.15,.22],[.035,.05,.08]);
+ const fogC=blend(dayf,tw,nf,[.55,.68,.70],[.5,.32,.36],[.05,.10,.14]);
+ const lum=.12+.75*dayf+.4*tw,dome=[.46*lum+.02*bioEff,.89*lum+.10*bioEff,.96*lum+.12*bioEff];
+
+ gl.viewport(0,0,W,H);gl.useProgram(pr);
+ gl.uniformMatrix4fv(U.uVP,false,VP);gl.uniform1f(U.uT,t);gl.uniform1f(U.uPx,H/(2*Math.tan(fov/2)));
+ v3(U.uCam,eye);gl.uniform3f(U.uSun,sd[0]/sl,sd[1]/sl,sd[2]/sl);v3(U.uSunC,sunC);v3(U.uAmb,amb);v3(U.uFog,fogC);v3(U.uSkyT,skyT);v3(U.uSkyB,skyB);v3(U.uDome,dome);
+ gl.uniform1f(U.uBio,bioEff);gl.uniform1f(U.uHum,S.hum);gl.uniform1f(U.uFogA,Math.pow(S.hum,1.4)*(.32+.14*br)*(.65+.35*nf));
+ gl.uniform1f(U.uNight,nf);gl.uniform1f(U.uSp,1);gl.uniform2f(U.uRes,W,H);gl.uniform3fv(U.uL,LP);gl.uniform3fv(U.uLC,LC);
+ gl.bindVertexArray(vaoS);
+ gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.depthMask(false);draw(4,0);
+ gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.uniform1f(U.uAlpha,1);draw(0,1);
+ gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);draw(1,2);
+ gl.uniform1f(U.uAlpha,.7);draw(0,3);
+ gl.depthMask(false);draw(3,4);
+ gl.blendFunc(gl.ONE,gl.ONE);gl.bindVertexArray(vaoD);gl.bindBuffer(gl.ARRAY_BUFFER,db);gl.bufferSubData(gl.ARRAY_BUFFER,0,dyn);
+ gl.uniform1i(U.uM,5);gl.drawArrays(gl.POINTS,0,N+NH);
+ gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.bindVertexArray(vaoS);draw(2,5);
+ gl.depthMask(true);
+
+ if(now-hudT>120){hudT=now;
+  $('tPhase').textContent=S.phase;$('tPhase').style.color=sunH>.5?'#FBBF24':sunH<-.5?'#38BDF8':'#E879F9';
+  $('icoC').setAttribute('fill',sunH>.5?'#FBBF24':sunH<-.5?'#38BDF8':'#E879F9');$('icoM').setAttribute('opacity',sunH<-.5?1:0);
+  $('tLuc').textContent=S.luc.toFixed(1)+'%';$('tBar').style.width=S.luc.toFixed(1)+'%';
+  $('tSp').textContent=S.alive;$('tTemp').textContent=S.temp.toFixed(1)+' C';$('tHum').textContent=S.humPct.toFixed(1)+'%';
+  $('tFps').textContent=Math.round(S.fps)+' FPS';$('oPh').textContent=Math.round(S.p*100)+'%';
+  if(S.cyc)$('sPh').value=Math.round(S.p*1000);}
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

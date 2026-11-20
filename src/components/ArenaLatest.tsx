@@ -12,11 +12,14 @@ import { EP10_CHALLENGES } from "@/data/ep10Data";
 import { EP11_CHALLENGES, EP11_THINKING_LEVELS } from "@/data/ep11Data";
 import { EP12_CHALLENGES } from "@/data/ep12Data";
 import { EP13_CHALLENGES, EP13_R04_MODULAR } from "@/data/ep13Data";
+import { EP14_CHALLENGES } from "@/data/ep14Data";
 
 export interface ArenaLatestProps {
   lang: "es" | "en";
-  /** EP13: Gemini 4 Ecosystem + Orchestrator. EP12..EP03: previous labs. */
-  episode: "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03";
+  /** EP14: Astra 6.2 vs Fable 5.2. EP13..EP03: previous labs. */
+  episode: "ep14" | "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03";
+  ep14ChallengeN?: number;
+  setEp14ChallengeN?: (n: number) => void;
   ep13ChallengeN?: number;
   setEp13ChallengeN?: (n: number) => void;
   ep12ChallengeN?: number;
@@ -41,18 +44,20 @@ export interface ArenaLatestProps {
   setEp03ChallengeN: (n: number) => void;
   navigateToView: (
     view: "dossiers",
-    ep: "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03"
+    ep: "ep14" | "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03"
   ) => void;
 }
 
 /**
- * Arena of the newest episodes (EP13 through EP03): challenge picker and live demos.
+ * Arena of the newest episodes (EP14 through EP03): challenge picker and live demos.
  * Loaded on demand, like the EP02/EP01 arena, so their data stays off the home page.
  * The Arena view supplies the page's <h1>, so the challenge title here is an <h2>.
  */
 export default function ArenaLatest({
   lang,
   episode,
+  ep14ChallengeN = 1,
+  setEp14ChallengeN = () => {},
   ep13ChallengeN = 4,
   setEp13ChallengeN = () => {},
   ep12ChallengeN = 1,
@@ -84,9 +89,184 @@ export default function ArenaLatest({
   const [ep11ViewMode, setEp11ViewMode] = useState<"arena" | "builds" | "levels">("arena");
   const [ep11LevelKey, setEp11LevelKey] = useState<"low" | "medium" | "high" | "xhigh">("xhigh");
   const [ep12ViewMode, setEp12ViewMode] = useState<"arena" | "builds">("arena");
+  const [ep14ViewMode, setEp14ViewMode] = useState<"arena" | "builds">("arena");
   // English mode shows the English twin of a note where the data has one
   const fpsNote = (note: string, note_en?: string) =>
     lang === "es" ? note : (note_en ?? note);
+
+  if (episode === "ep14") {
+    const cur =
+      EP14_CHALLENGES.find((c) => c.n === ep14ChallengeN) || EP14_CHALLENGES[0];
+    const name = lang === "es" ? cur.name_es : cur.name_en;
+    const effectiveMode = cur.arena ? ep14ViewMode : "builds";
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+        <div
+          role="group"
+          aria-label={lang === "es" ? "Retos del EP14" : "EP14 challenges"}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+        >
+          {EP14_CHALLENGES.map((ch) => (
+            <button
+              key={ch.n}
+              onClick={() => setEp14ChallengeN(ch.n)}
+              aria-pressed={ep14ChallengeN === ch.n}
+              className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
+                ep14ChallengeN === ch.n
+                  ? "bg-[#1A2132] border-[#FB7185]"
+                  : "bg-[#111622] border-[#2A344B]"
+              }`}
+            >
+              <div className="flex items-center justify-between font-pixel text-[10px] text-[#FB7185]">
+                <span>{ch.arena ? `0${ch.n} · BUILD + ARENA` : `0${ch.n} · BUILD`}</span>
+                <span>{ch.build_winner === "astra62" ? "ASTRA" : "FABLE"}</span>
+              </div>
+              <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                {lang === "es" ? ch.name_es : ch.name_en}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-[#090B10] border-2 border-[#FB7185] overflow-hidden shadow-[6px_6px_0_#040508]">
+          <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1 max-w-3xl">
+              <h2 className="font-display text-lg font-black text-white">
+                EP14 R0{cur.n}: {name}
+              </h2>
+              <p className="text-xs text-[#FB7185] font-semibold">
+                {lang === "es" ? cur.fun_fact_es : cur.fun_fact_en}
+              </p>
+              <p className="text-xs text-[#CBD5E1]">
+                {lang === "es" ? cur.verdict_es : cur.verdict_en}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {cur.arena && (
+                <button
+                  onClick={() => setEp14ViewMode("arena")}
+                  className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                    effectiveMode === "arena"
+                      ? "bg-[#FB7185] text-[#090B10]"
+                      : "bg-[#111622] text-[#FB7185] border-[#FB7185]"
+                  }`}
+                >
+                  {lang === "es"
+                    ? "FASE B · ARENA IA VS IA EN VIVO"
+                    : "PHASE B · LIVE AI VS AI ARENA"}
+                </button>
+              )}
+              <button
+                onClick={() => setEp14ViewMode("builds")}
+                className={`px-3 py-1.5 font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508] ${
+                  effectiveMode === "builds"
+                    ? "bg-[#22D3EE] text-[#090B10]"
+                    : "bg-[#111622] text-[#22D3EE] border-[#22D3EE]"
+                }`}
+              >
+                {lang === "es"
+                  ? "FASE A · 2 SIMULADORES LADO A LADO"
+                  : "PHASE A · 2 BUILDS SIDE BY SIDE"}
+              </button>
+              <button
+                onClick={() => navigateToView("dossiers", "ep14")}
+                className="px-3.5 py-1.5 bg-[#10B981] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508]"
+              >
+                {lang === "es"
+                  ? "Ver Dossier Completo EP14 →"
+                  : "Open Full EP14 Dossier →"}
+              </button>
+            </div>
+          </div>
+
+          {effectiveMode === "arena" && cur.arena ? (
+            <div className="flex flex-col">
+              <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                <span className="text-[#FB7185] font-bold">
+                  {lang === "es" ? cur.arena.score_es : cur.arena.score_en} ·{" "}
+                  {cur.arena.probeSeconds}s{" "}
+                  {lang === "es" ? "auditoria Chrome 60 fps" : "Chrome 60 fps audit"}
+                </span>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={cur.arena.logUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#10B981] font-bold underline"
+                  >
+                    {lang === "es" ? "Arena JSON Verificado ↗" : "Verified Arena JSON ↗"}
+                  </a>
+                  <a
+                    href={cur.arena.arenaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#22D3EE] font-bold underline"
+                  >
+                    {lang === "es"
+                      ? "Abrir Arena en Pantalla Completa ↗"
+                      : "Open Arena Fullscreen ↗"}
+                  </a>
+                </div>
+              </div>
+              <iframe
+                allowFullScreen
+                src={cur.arena.arenaUrl}
+                title={`EP14 Live Arena: ${name}`}
+                className="w-full h-[640px] border-0 bg-[#090B10]"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#10B981] font-bold">
+                    GPT-6.2 ASTRA (${cur.astra62.usd.toFixed(2)} · {cur.astra62.min}&nbsp;min)
+                  </span>
+                  <a
+                    href={cur.astra62.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 bg-[#131824] text-[#10B981] border border-[#10B981]/50 text-[10px] font-bold"
+                  >
+                    {fpsNote(cur.astra62.fps, cur.astra62.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe
+                  allowFullScreen
+                  src={cur.astra62.demoUrl}
+                  title={`GPT-6.2 Astra: ${name}`}
+                  className="w-full h-[560px] border-0 bg-[#090B10]"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#FB923C] font-bold">
+                    CLAUDE FABLE 5.2 (${cur.fable52.usd.toFixed(2)} · {cur.fable52.min}&nbsp;min)
+                  </span>
+                  <a
+                    href={cur.fable52.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 bg-[#131824] text-[#FB923C] border border-[#FB923C]/50 text-[10px] font-bold"
+                  >
+                    {fpsNote(cur.fable52.fps, cur.fable52.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe
+                  allowFullScreen
+                  src={cur.fable52.demoUrl}
+                  title={`Claude Fable 5.2: ${name}`}
+                  className="w-full h-[560px] border-0 bg-[#090B10]"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (episode === "ep13") {
     const isModular = ep13ChallengeN === 4;

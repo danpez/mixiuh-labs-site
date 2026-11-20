@@ -22,7 +22,8 @@ export type ReleaseKey =
   | "ep10"
   | "ep11"
   | "ep12"
-  | "ep13";
+  | "ep13"
+  | "ep14";
 
 export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   // EP01: Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos) — Publicado Vie 16 Oct 2026 11:00 CST
@@ -57,6 +58,8 @@ export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   ep12: "2026-11-25T12:00:00-06:00",
   // EP13: Ecosistema Completo Gemini 4 (Hydrogen, Neon, Argon, Carbon, Suscripciones + Orchestrator vs Neon Solo · 11 Demos) — Sab 28 Nov 2026
   ep13: "2026-11-28T12:00:00-06:00",
+  // EP14: GPT-6.2 Astra (xHigh) vs Claude Fable 5.2 (High) ($8/$40 Mismo Precio · 12 Builds + 3 Arenas en Vivo · 5-4) — Mar 01 Dic 2026
+  ep14: "2026-12-01T12:00:00-06:00",
 };
 
 export interface ReleasedState {
@@ -76,6 +79,7 @@ export interface ReleasedState {
   ep11: boolean;
   ep12: boolean;
   ep13: boolean;
+  ep14: boolean;
 }
 
 export function isContentReleased(
@@ -109,6 +113,7 @@ export function getReleasedStatus(
     ep11: isContentReleased("ep11", now, previewAll),
     ep12: isContentReleased("ep12", now, previewAll),
     ep13: isContentReleased("ep13", now, previewAll),
+    ep14: isContentReleased("ep14", now, previewAll),
   };
 }
 

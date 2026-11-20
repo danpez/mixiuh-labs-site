@@ -15,6 +15,7 @@ import manifest from "./coverManifest.json";
  * `thumb` of its monitor channel and of its blog card, and commit the .avif.
  */
 export const COVERS = {
+  ep14: "/brand/thumbs/ep14/R01_astra62_t15.png",
   ep13: "/brand/thumbs/ep13/R02_neon_t15.png",
   ep12: "/brand/thumbs/ep12/R06_arena_t15.png",
   ep11: "/brand/thumbs/ep11/R01_hydrogen_t15.png",

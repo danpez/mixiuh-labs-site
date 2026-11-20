@@ -24,6 +24,7 @@ import {
   EP13_R04_MODULAR,
   EP13_SUBSCRIPTION_PLANS,
 } from "@/data/ep13Data";
+import { EP14_BENCHMARK_TOTALS, EP14_CHALLENGES } from "@/data/ep14Data";
 import { YOUTUBE_LINKS } from "@/data/glossary";
 import type { ReleasedState } from "@/data/releaseSchedule";
 import {
@@ -35,6 +36,7 @@ import {
 } from "@mixiuh/pixel-ui";
 
 export type DossierEpisode =
+  | "ep14"
   | "ep13"
   | "ep12"
   | "ep11"
@@ -48,6 +50,7 @@ export type DossierEpisode =
   | "ep03"
   | "ep02"
   | "ep01";
+export type Ep14Mode = "arena" | "split" | "astra62" | "fable52";
 export type Ep13Mode = "triple" | "neon" | "argon" | "hydrogen";
 export type Ep12Mode =
   | "arena"
@@ -77,6 +80,8 @@ export interface DossierViewProps {
   navigateToView: (view: "noticias" | "comunidad") => void;
   handleJumpToArena: (episode: DossierEpisode, challengeN: number) => void;
   playSfx: (name: PixelSoundName) => void;
+  ep14ChallengeN?: number;
+  setEp14ChallengeN?: (n: number) => void;
   ep13ChallengeN?: number;
   setEp13ChallengeN?: (n: number) => void;
   ep12ChallengeN?: number;
@@ -185,6 +190,8 @@ export default function DossierView({
   navigateToView,
   handleJumpToArena,
   playSfx,
+  ep14ChallengeN = 1,
+  setEp14ChallengeN = () => {},
   ep13ChallengeN = 1,
   setEp13ChallengeN = () => {},
   ep12ChallengeN = 1,
@@ -214,6 +221,7 @@ export default function DossierView({
   activeVideoClip,
   setActiveVideoClip,
 }: DossierViewProps) {
+  const [ep14Mode, setEp14Mode] = useState<Ep14Mode>("arena");
   const [ep13Mode, setEp13Mode] = useState<Ep13Mode>("triple");
   const [ep12Mode, setEp12Mode] = useState<Ep12Mode>("arena");
   const [ep11Mode, setEp11Mode] = useState<Ep11Mode>("arena");
@@ -267,8 +275,8 @@ export default function DossierView({
           {/* Banner text, not a heading: each episode's title below is the view's <h1> */}
           <p className="font-display text-xl sm:text-2xl font-black text-white">
             {lang === "es"
-              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP13)"
-              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP13)"}
+              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP14)"
+              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP14)"}
           </p>
         </div>
 
@@ -321,6 +329,35 @@ export default function DossierView({
           aria-labelledby="dossier-disk-label"
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
         >
+          {released.ep14 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep14");
+              }}
+              aria-pressed={dossierEp === "ep14"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep14"
+                  ? "bg-[#182235] border-[#FB7185]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#FB7185]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#FB7185] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 14 · ASTRA VS FABLE" : "DISK 14 · ASTRA VS FABLE"}
+                </span>
+                <span className="text-[#FB7185]">
+                  5-4 · $13.92 vs $55.18
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "GPT-6.2 Astra vs Fable 5.2 (15 Demos + 3 Arenas)"
+                  : "GPT-6.2 Astra vs Fable 5.2 (15 Demos + 3 Arenas)"}
+              </div>
+            </button>
+          )}
+
           {released.ep13 && (
             <button
               onClick={() => {
@@ -688,6 +725,312 @@ export default function DossierView({
           </button>
         </div>
       </div>
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 14 (GPT-6.2 ASTRA VS CLAUDE FABLE 5.2)
+         ----------------------------------------------------------------- */}
+      {released.ep14 && dossierEp === "ep14" && (
+        <div id="ep14-astra-vs-fable" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #FB7185" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#FB7185] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "EPISODIO 14 · MISMO PRECIO API $8/$40 · 12 BUILDS ZERO-SHOT + 3 ARENAS IA VS IA (9 PUNTOS)"
+                : "EPISODE 14 · IDENTICAL $8/$40 API TIER · 12 ZERO-SHOT BUILDS + 3 LIVE AI ARENAS (9 POINTS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "GPT-6.2 Astra (xHigh) vs Claude Fable 5.2 (High): Empate de Precio ($8/$40), Remontada de Arena y Marcador 5 a 4"
+                : "GPT-6.2 Astra (xHigh) vs Claude Fable 5.2 (High): Same $8/$40 Rate, Arena Comeback & 5-4 Finale"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Duelo directo al mismo precio de API ($8 entrada / $40 salida por millon) entre GPT-6.2 Astra y Claude Fable 5.2 en 6 simulaciones 3D y de ingenieria sin edicion manual, mas 3 arenas autonomas donde ambos cerebros compiten a 1080p60. Astra 6.2 domino la fase visual 5 a 1 por solo $13.92 USD en 90.15 min (3,272 LOC); Fable 5.2 barrio 3 a 0 las arenas en vivo para cerrar 5 a 4 ($55.18 USD en 188.50 min y 6,452 LOC, incluyendo $11.50 USD / 47.1 min perdidos por bloqueos del filtro [reasoning_extraction] en R01 y R05 antes de rescatarlos en Medium)."
+                : "Head-to-head clash at identical $8 in / $40 out per 1M API pricing between GPT-6.2 Astra and Claude Fable 5.2 across 6 unedited zero-shot 3D/physics builds plus 3 live 1080p60 AI arenas. Astra 6.2 dominated Phase A visuals 5-1 for just $13.92 USD in 90.15 min (3,272 LOC); Fable 5.2 swept Phase B live arenas 3-0 to force a razor-thin 5-4 final ($55.18 USD across 188.50 min and 6,452 LOC, transparently including $11.50 / 47.1 min from attempt-1 [reasoning_extraction] safeguard refusals on R01 & R05 prior to Medium rescue)."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="p-4 bg-[#090B10] border-2 border-[#10B981] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#10B981] font-bold">
+                  {lang === "es" ? "GANADOR GLOBAL (5 PTS)" : "OVERALL WINNER (5 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  GPT-6.2 Astra
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP14_BENCHMARK_TOTALS.astra62_min}&nbsp;min · ${EP14_BENCHMARK_TOTALS.astra62_usd.toFixed(2)} USD · 5 Fase A + 0 Arena
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FB923C] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FB923C] font-bold">
+                  {lang === "es" ? "CAMPEON DE ARENAS (4 PTS)" : "ARENA SWEEPER (4 PTS)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  Claude Fable 5.2
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {EP14_BENCHMARK_TOTALS.fable52_min}&nbsp;min · ${EP14_BENCHMARK_TOTALS.fable52_usd.toFixed(2)} USD · 1 Fase A + 3 Arena
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#FB7185] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#FB7185] font-bold">
+                  {lang === "es" ? "BLOQUEO SAFEGUARD (2 RESCATES)" : "SAFEGUARD LOG (2 RESCUES)"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  +$11.50 / 47.1m
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es"
+                    ? "Fable rechazo R01 y R05 en High -> rescate Medium OK"
+                    : "Fable blocked on R01/R05 High -> rescued at Medium"}
+                </div>
+              </div>
+              <div className="p-4 bg-[#090B10] border-2 border-[#22D3EE] shadow-[4px_4px_0_#040508]">
+                <div className="font-pixel text-[10px] text-[#22D3EE] font-bold">
+                  {lang === "es" ? "AUDITORIA 1080P60 CHROME" : "CHROME 1080P60 AUDIT"}
+                </div>
+                <div className="font-display text-xl font-black text-white mt-1">
+                  15 Demos · 0 Emojis
+                </div>
+                <div className="font-mono-hud text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? "12 builds + 3 arenas en JSON verificados" : "12 builds + 3 arenas logged in JSON"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#FB7185]">
+                {lang === "es"
+                  ? "TABLA OFICIAL EP14 (6 RETOS FASE A + 3 ARENAS IA VS IA · HAZ CLIC EN CUALQUIER FILA)"
+                  : "OFFICIAL EP14 TABLE (6 PHASE A BUILDS + 3 LIVE AI ARENAS · CLICK ANY ROW)"}
+              </h2>
+              <div className="flex flex-wrap items-center gap-3 font-mono-hud text-xs">
+                <a
+                  href="/demos/ep14-astra-6-2-vs-fable-5-2/logs/benchmark_results_ep14.json"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#10B981] font-bold underline"
+                >
+                  benchmark_results_ep14.json ↗
+                </a>
+                <a
+                  href="/demos/ep14-astra-6-2-vs-fable-5-2/logs/arena_summary_ep14.json"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#22D3EE] font-bold underline"
+                >
+                  arena_summary_ep14.json ↗
+                </a>
+                <span className="text-[#FB7185] font-bold">
+                  {lang === "es" ? "FINAL: ASTRA [5] - [4] FABLE" : "FINAL: ASTRA [5] - [4] FABLE"}
+                </span>
+              </div>
+            </div>
+            <TableScroller label="EP14 Astra 6.2 vs Fable 5.2 Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>
+                      {lang === "es" ? "RETO / DATO CURIOSO" : "CHALLENGE / FUN FACT"}
+                    </th>
+                    <th className={`py-3 px-4 text-[#10B981] ${SNAP_COL}`}>GPT-6.2 ASTRA ($8/$40)</th>
+                    <th className={`py-3 px-4 text-[#FB923C] ${SNAP_COL}`}>CLAUDE FABLE 5.2 ($8/$40)</th>
+                    <th className={`py-3 px-4 text-[#FB7185] ${SNAP_COL}`}>
+                      {lang === "es" ? "VEREDICTO (FASE A + ARENA)" : "VERDICT (PHASE A + ARENA)"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP14_CHALLENGES.map((ch) => {
+                    const selected = ep14ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp14ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#FB7185] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#10B981]">
+                            {ch.astra62.min}&nbsp;min · ${ch.astra62.usd.toFixed(2)} USD
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.astra62.fps, ch.astra62.fps_en)} · {ch.astra62.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#FB923C]">
+                            {ch.fable52.min}&nbsp;min · ${ch.fable52.usd.toFixed(2)} USD
+                            {ch.fable52.rescued ? (lang === "es" ? " (Rescate)" : " (Rescued)") : ""}
+                          </div>
+                          <div className="text-[11px] text-[#CBD5E1]">
+                            {fpsNote(ch.fable52.fps, ch.fable52.fps_en)} · {ch.fable52.lines} LOC
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FB7185]">
+                          <div>{lang === "es" ? ch.winner_label_es : ch.winner_label_en}</div>
+                          {ch.arena && (
+                            <div className="text-[11px] text-[#22D3EE] mt-0.5">
+                              {lang === "es" ? ch.arena.score_es : ch.arena.score_en}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur =
+              EP14_CHALLENGES.find((c) => c.n === ep14ChallengeN) || EP14_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            const activeMode: Ep14Mode = !cur.arena && ep14Mode === "arena" ? "split" : ep14Mode;
+            return (
+              <div className="bg-[#111622] border-2 border-[#FB7185] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#FB7185]">
+                      {lang === "es" ? cur.world_es : cur.world_en}
+                    </div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">
+                      0{cur.n}. {name}
+                    </h3>
+                    <p className="text-xs text-[#CBD5E1] mt-1">
+                      {lang === "es" ? cur.verdict_es : cur.verdict_en}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {cur.arena && (
+                      <button
+                        onClick={() => setEp14Mode("arena")}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === "arena"
+                            ? "bg-[#FB7185] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {lang === "es" ? "ARENA IA VS IA EN VIVO" : "LIVE AI VS AI ARENA"}
+                      </button>
+                    )}
+                    {(["split", "astra62", "fable52"] as Ep14Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp14Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          activeMode === m
+                            ? "bg-[#22D3EE] text-[#090B10] border-[#090B10]"
+                            : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "split"
+                          ? lang === "es"
+                            ? "LADO A LADO"
+                            : "SIDE BY SIDE"
+                          : m === "astra62"
+                          ? "GPT-6.2 ASTRA"
+                          : "CLAUDE FABLE 5.2"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep14", cur.n)}
+                      className="px-3 py-1.5 bg-[#10B981] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+
+                {activeMode === "arena" && cur.arena ? (
+                  <div className="flex flex-col">
+                    <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2 font-mono-hud text-xs">
+                      <span className="text-[#FB7185] font-bold">
+                        {lang === "es" ? cur.arena.summary_es : cur.arena.summary_en}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <a
+                          href={cur.arena.logUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#10B981] font-bold underline"
+                        >
+                          {lang === "es" ? "Arena JSON Verificado ↗" : "Verified Arena JSON ↗"}
+                        </a>
+                        <a
+                          href={cur.arena.arenaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#22D3EE] font-bold underline"
+                        >
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                    </div>
+                    <iframe
+                      allowFullScreen
+                      src={cur.arena.arenaUrl}
+                      title={`EP14 Arena: ${name}`}
+                      className="w-full h-[640px] border-0 bg-[#090B10]"
+                    />
+                  </div>
+                ) : activeMode === "split" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#10B981] font-bold">
+                          GPT-6.2 ASTRA (${cur.astra62.usd.toFixed(2)} · {cur.astra62.min}m)
+                        </span>
+                        <a href={cur.astra62.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#10B981] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.astra62.demoUrl} title={`Astra 6.2: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                        <span className="text-[#FB923C] font-bold">
+                          CLAUDE FABLE 5.2 (${cur.fable52.usd.toFixed(2)} · {cur.fable52.min}m)
+                        </span>
+                        <a href={cur.fable52.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#FB923C] underline">
+                          {lang === "es" ? "Pantalla Completa ↗" : "Fullscreen ↗"}
+                        </a>
+                      </div>
+                      <iframe allowFullScreen src={cur.fable52.demoUrl} title={`Fable 5.2: ${name}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={activeMode === "astra62" ? cur.astra62.demoUrl : cur.fable52.demoUrl}
+                    title={`${activeMode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* -----------------------------------------------------------------
           SUB-DOSSIER EPISODIO 13 (ECOSISTEMA GEMINI 4 NEON + ORCHESTRATOR)
