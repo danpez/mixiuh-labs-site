@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Origami Espacial Miura-Ori - Panel Solar 3D en Orbita</title>
+<style>
+  :root {
+    --bg: #060A12;
+    --panel: #0F172A;
+    --panel-alt: #0B1222;
+    --border: rgba(56, 189, 248, 0.24);
+    --border-strong: rgba(34, 211, 238, 0.48);
+    --text: #F1F5F9;
+    --muted: #94A3B8;
+    --cyan: #22D3EE;
+    --blue: #38BDF8;
+    --fuchsia: #E879F9;
+    --gold: #FBBF24;
+    --emerald: #10B981;
+    --red: #F43F5E;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg);
+  }
+
+  header {
+    height: 76px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(11, 18, 34, 0.94));
+    border-bottom: 1px solid var(--border);
+    gap: 18px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .brand-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 18px rgba(251, 191, 36, 0.16);
+  }
+
+  .brand-text h1 {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #F8FAFC;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .brand-text .sub {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .header-kpis {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kpi-pill {
+    background: rgba(6, 10, 18, 0.8);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 7px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 126px;
+  }
+
+  .kpi-pill .k-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .kpi-pill .k-val {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 19px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .kpi-pill.cyan .k-val { color: var(--cyan); }
+  .kpi-pill.gold .k-val { color: var(--gold); }
+  .kpi-pill.emerald .k-val { color: var(--emerald); }
+  .kpi-pill.fuchsia .k-val { color: var(--fuchsia); }
+
+  .fps-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.42);
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--emerald);
+    white-space: nowrap;
+  }
+
+  .fps-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 10px var(--emerald);
+  }
+
+  .workspace {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 428px;
+    gap: 16px;
+    padding: 16px 20px 18px 20px;
+  }
+
+  .stage-wrap {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #060A12;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+    min-height: 0;
+  }
+
+  #orbitCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+
+  #orbitCanvas:active {
+    cursor: grabbing;
+  }
+
+  .stage-top-bar {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .hud-chip {
+    background: rgba(6, 10, 18, 0.8);
+    border: 1px solid rgba(56, 189, 248, 0.34);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #E2E8F0;
+    backdrop-filter: blur(6px);
+  }
+
+  .hud-chip strong {
+    color: var(--cyan);
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+  }
+
+  .stage-bottom-bar {
+    position: absolute;
+    bottom: 14px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(6, 10, 18, 0.82);
+    border: 1px solid rgba(56, 189, 248, 0.26);
+    border-radius: 10px;
+    padding: 9px 16px;
+    pointer-events: none;
+  }
+
+  .crease-legend {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #E2E8F0;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .line-swatch {
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .line-swatch.mtn {
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+  }
+
+  .line-swatch.val {
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  .line-swatch.frame {
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+  }
+
+  .orbit-hint {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .orbit-hint span {
+    color: var(--cyan);
+    font-weight: 700;
+  }
+
+  /* Right Sidebar */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(11, 18, 34, 0.96));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 15px 18px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+    min-height: 0;
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.16);
+  }
+
+  .panel-title-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-tag {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.28);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  /* Telemetry Cards */
+  .deploy-hero {
+    background: rgba(6, 10, 18, 0.72);
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .deploy-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .deploy-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .deploy-num {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--cyan);
+  }
+
+  .progress-track {
+    height: 10px;
+    border-radius: 999px;
+    background: #1E293B;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 40%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #0284C7, #22D3EE, #FBBF24);
+    transition: width 0.05s linear;
+  }
+
+  .tele-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .tele-card {
+    background: rgba(6, 10, 18, 0.68);
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 9px;
+    padding: 9px 11px;
+  }
+
+  .tele-card .t-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .tele-card .t-val {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 17px;
+    font-weight: 800;
+    color: #F8FAFC;
+    margin-top: 2px;
+  }
+
+  .tele-card .t-sub {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  /* Controls */
+  .ctrl-group {
+    margin-bottom: 12px;
+  }
+
+  .ctrl-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 5px;
+  }
+
+  .ctrl-lbl {
+    font-size: 13px;
+    font-weight: 700;
+    color: #E2E8F0;
+  }
+
+  .ctrl-val {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--cyan);
+  }
+
+  .ctrl-val.gold { color: var(--gold); }
+  .ctrl-val.fuchsia { color: var(--fuchsia); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: #1E293B;
+    outline: none;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: var(--cyan);
+    border: 2px solid #060A12;
+    box-shadow: 0 0 11px rgba(34, 211, 238, 0.75);
+    cursor: pointer;
+  }
+
+  input[type="range"].gold::-webkit-slider-thumb {
+    background: var(--gold);
+    box-shadow: 0 0 11px rgba(251, 191, 36, 0.75);
+  }
+
+  input[type="range"].fuchsia::-webkit-slider-thumb {
+    background: var(--fuchsia);
+    box-shadow: 0 0 11px rgba(232, 121, 249, 0.75);
+  }
+
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 10px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(30, 41, 59, 0.7);
+    color: #E2E8F0;
+    transition: all 0.14s ease;
+    text-transform: uppercase;
+  }
+
+  .btn:hover {
+    border-color: var(--cyan);
+    color: #FFFFFF;
+    transform: translateY(-1px);
+  }
+
+  .btn.active-cyan {
+    background: rgba(34, 211, 238, 0.2);
+    border-color: var(--cyan);
+    color: #F8FAFC;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.22);
+  }
+
+  .btn.active-fuchsia {
+    background: rgba(232, 121, 249, 0.2);
+    border-color: var(--fuchsia);
+    color: #FDF4FF;
+    box-shadow: 0 0 14px rgba(232, 121, 249, 0.24);
+  }
+
+  .btn.btn-gold {
+    background: rgba(251, 191, 36, 0.16);
+    border-color: rgba(251, 191, 36, 0.6);
+    color: #FEF3C7;
+  }
+
+  .btn.btn-full {
+    grid-column: 1 / -1;
+    padding: 11px 14px;
+  }
+
+  /* Kinematics Blueprint Panel */
+  .crease-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .crease-canvas-wrap {
+    flex: 1;
+    min-height: 0;
+    border-radius: 9px;
+    overflow: hidden;
+    background: #060A12;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+  }
+
+  #creaseCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .kin-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .kin-box {
+    background: rgba(6, 10, 18, 0.72);
+    border: 1px solid rgba(56, 189, 248, 0.16);
+    border-radius: 7px;
+    padding: 6px 8px;
+    text-align: center;
+  }
+
+  .kin-box .kl {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .kin-box .kv {
+    font-family: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--cyan);
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <polygon points="3,8 10,4 16,9 9,13" fill="#22D3EE" fill-opacity="0.24" stroke="#F43F5E" stroke-width="1.6"/>
+          <polygon points="10,4 17,8 23,4 16,9" fill="#38BDF8" fill-opacity="0.22" stroke="#22D3EE" stroke-width="1.6"/>
+          <polygon points="3,18 9,13 16,18 10,22" fill="#FBBF24" fill-opacity="0.2" stroke="#22D3EE" stroke-width="1.6"/>
+          <polygon points="9,13 16,9 23,14 16,18" fill="#E879F9" fill-opacity="0.2" stroke="#F43F5E" stroke-width="1.6"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>ORIGAMI ESPACIAL MIURA-ORI &mdash; PANEL SOLAR 3D EN ORBITA</h1>
+        <div class="sub">CINEMATICA RIGIDA 1-DOF  &bull;  DESPLIEGUE DE 1.0 M2 A 25.0 M2  &bull;  ESTANDAR AEROESPACIAL LEO</div>
+      </div>
+    </div>
+    <div class="header-kpis">
+      <div class="kpi-pill cyan">
+        <span class="k-label">Despliegue</span>
+        <span class="k-val" id="hdrDeploy">42.0%</span>
+      </div>
+      <div class="kpi-pill gold">
+        <span class="k-label">Area Activa</span>
+        <span class="k-val" id="hdrArea">11.08 m2</span>
+      </div>
+      <div class="kpi-pill emerald">
+        <span class="k-label">Potencia Solar</span>
+        <span class="k-val" id="hdrPower">4.45 kW</span>
+      </div>
+      <div class="kpi-pill fuchsia">
+        <span class="k-label">Facetas Rigidas</span>
+        <span class="k-val" id="hdrPanels">64</span>
+      </div>
+      <div class="fps-badge">
+        <span class="fps-dot"></span>
+        <span id="hdrFps">60 FPS</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- 3D Orbital Stage -->
+    <section class="stage-wrap">
+      <canvas id="orbitCanvas"></canvas>
+      <div class="stage-top-bar">
+        <div class="hud-chip">ORBITA TERRESTRE BAJA (LEO 540 KM)  &bull;  CINEMATICA <strong>1-DOF EXACTA</strong></div>
+        <div class="hud-chip" id="modeChip">MODO: <strong>CICLO AUTO CONTINUO</strong></div>
+      </div>
+      <div class="stage-bottom-bar">
+        <div class="crease-legend">
+          <div class="legend-item"><span class="line-swatch mtn"></span><span>Pliegue Montana (M)</span></div>
+          <div class="legend-item"><span class="line-swatch val"></span><span>Pliegue Valle (V)</span></div>
+          <div class="legend-item"><span class="line-swatch frame"></span><span>Estructura Titanio / Celdas GaAs</span></div>
+        </div>
+        <div class="orbit-hint"><span>Arrastrar</span> para orbitar en 3D  &bull;  <span>Rueda</span> para acercar/alejar</div>
+      </div>
+    </section>
+
+    <!-- Right Telemetry & Control Sidebar -->
+    <aside class="sidebar">
+      <!-- Live Telemetry -->
+      <div class="panel">
+        <div class="panel-title">
+          <div class="panel-title-left">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="12" height="12" rx="2" stroke="#38BDF8" stroke-width="1.5"/>
+              <path d="M4.5 10.5L7 7.5L9.5 9L12 5.5" stroke="#22D3EE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Telemetria Orbital en Vivo</span>
+          </div>
+          <span class="panel-tag">RATIO 25:1</span>
+        </div>
+
+        <div class="deploy-hero">
+          <div class="deploy-row">
+            <span class="deploy-label">Estado de Despliegue</span>
+            <span class="deploy-num" id="teleDeploy">42.0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="deployBar"></div>
+          </div>
+        </div>
+
+        <div class="tele-grid">
+          <div class="tele-card">
+            <div class="t-lbl">Area Activa Proyectada</div>
+            <div class="t-val" id="teleArea" style="color:var(--gold)">11.08 m2</div>
+            <div class="t-sub">Rango: 1.00 - 25.00 m2</div>
+          </div>
+          <div class="tele-card">
+            <div class="t-lbl">Potencia Generada</div>
+            <div class="t-val" id="telePower" style="color:var(--emerald)">4.45 kW</div>
+            <div class="t-sub" id="teleEff">AM0 1.36 kW/m2 (29.5%)</div>
+          </div>
+          <div class="tele-card">
+            <div class="t-lbl">Numero de Facetas</div>
+            <div class="t-val" id="telePanels" style="color:var(--fuchsia)">64 paneles</div>
+            <div class="t-sub">Matriz 8 &times; 8 | 112 bisagras</div>
+          </div>
+          <div class="tele-card">
+            <div class="t-lbl">Envergadura X &times; Y</div>
+            <div class="t-val" id="teleSpan" style="color:var(--cyan)">3.21 &times; 3.92 m</div>
+            <div class="t-sub" id="teleDepth">Espesor Z: 0.48 m</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Controls -->
+      <div class="panel">
+        <div class="panel-title">
+          <div class="panel-title-left">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="5.5" stroke="#22D3EE" stroke-width="1.5"/>
+              <path d="M8 2.5V5M8 11V13.5M2.5 8H5M11 8H13.5" stroke="#FBBF24" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span>Actuador 1-DOF y Orbita</span>
+          </div>
+          <span class="panel-tag">CONTROL</span>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-head">
+            <label class="ctrl-lbl" for="deploySlider">Despliegue Manual (1 m2 &rarr; 25 m2)</label>
+            <span class="ctrl-val" id="deploySliderVal">42%</span>
+          </div>
+          <input type="range" id="deploySlider" min="0" max="100" step="0.2" value="42">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-head">
+            <label class="ctrl-lbl" for="sunSlider">Inclinacion Solar (Angulo de Incidencia)</label>
+            <span class="ctrl-val gold" id="sunSliderVal">18 deg</span>
+          </div>
+          <input type="range" id="sunSlider" class="gold" min="0" max="75" step="1" value="18">
+        </div>
+
+        <div class="ctrl-group" style="margin-bottom: 8px;">
+          <div class="ctrl-head">
+            <label class="ctrl-lbl" for="alphaSlider">Angulo del Paralelogramo (alpha)</label>
+            <span class="ctrl-val fuchsia" id="alphaSliderVal">78 deg</span>
+          </div>
+          <input type="range" id="alphaSlider" class="fuchsia" min="66" max="82" step="1" value="78">
+        </div>
+
+        <div class="btn-grid">
+          <button class="btn active-cyan" id="btnAuto" type="button">Ciclo Auto</button>
+          <button class="btn" id="btnCompact" type="button">Compactar 1 m2</button>
+          <button class="btn btn-gold" id="btnDeploy" type="button">Desplegar 25 m2</button>
+          <button class="btn" id="btnResetCam" type="button">Centrar Camara</button>
+          <button class="btn btn-full" id="btnSchematic" type="button">Vista Esquematica de Pliegues</button>
+        </div>
+      </div>
+
+      <!-- Exact Rigid Dihedral Kinematics + 2D Crease Map -->
+      <div class="panel crease-panel">
+        <div class="panel-title">
+          <div class="panel-title-left">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 12L6 4L10 12L14 4" stroke="#F43F5E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 8L6 12L10 8L14 12" stroke="#22D3EE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Patron de Pliegues y Angulos Diedros</span>
+          </div>
+          <span class="panel-tag">MIURA-ORI</span>
+        </div>
+        <div class="crease-canvas-wrap">
+          <canvas id="creaseCanvas"></canvas>
+        </div>
+        <div class="kin-row">
+          <div class="kin-box">
+            <div class="kl">Apertura gamma</div>
+            <div class="kv" id="kinGamma" style="color:var(--cyan)">92.4 deg</div>
+          </div>
+          <div class="kin-box">
+            <div class="kl">Diedro M / V</div>
+            <div class="kv" id="kinDihedralM" style="color:var(--red)">92.4 deg</div>
+          </div>
+          <div class="kin-box">
+            <div class="kl">Diedro Zigzag</div>
+            <div class="kv" id="kinDihedralA" style="color:var(--gold)">116.8 deg</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // Miura-ori grid parameters (8 x 8 = 64 rigid parallelogram facets)
+  const NX = 8;
+  const NY = 8;
+  const PANEL_COUNT = NX * NY;
+  const AREA_MIN = 1.0;    // 1.00 m^2 compact footprint / projected area
+  const AREA_MAX = 25.0;   // 25.00 m^2 fully deployed flat solar array
+  const SOLAR_CONST = 1.361; // kW/m^2 AM0 orbital solar irradiance
+  const CELL_EFF = 0.295;    // 29.5% space-grade triple-junction GaAs solar cells
+  const THETA_MAX = Math.acos(AREA_MIN / AREA_MAX); // 87.707 deg => cos(theta_max) = 0.04 exact!
+
+  // Application state
+  const state = {
+    deployNorm: 0.382,      // 0.0 (1.0 m^2) .. 1.0 (25.0 m^2) -> equals (cos(theta) - 0.04) / 0.96
+    targetDeploy: null,     // when transitioning smoothly to 0 or 1
+    autoCycle: true,
+    autoPhase: -0.16,       // matches deployNorm = 0.382 exactly -> smooth expansion from t = 0.0
+    schematic: false,
+    alphaDeg: 78,           // acute parallelogram sector angle alpha
+    sunTiltDeg: 18,         // solar incidence angle relative to +Z array normal
+    camYaw: -0.58,          // orbital camera azimuth (rad)
+    camPitch: 0.48,         // orbital camera elevation (rad)
+    camDist: 8.6,           // camera distance (m)
+    dragging: false,
+    lastMouseX: 0,
+    lastMouseY: 0,
+    userOrbited: false,
+    time: 0.0,
+    fps: 60.0,
+    lastFrameTs: performance.now(),
+    areaM2: 11.08,
+    powerKw: 4.45
+  };
+
+  // DOM refs
+  const orbitCanvas = document.getElementById('orbitCanvas');
+  const ctx = orbitCanvas.getContext('2d');
+  const creaseCanvas = document.getElementById('creaseCanvas');
+  const cCtx = creaseCanvas.getContext('2d');
+
+  const deploySlider = document.getElementById('deploySlider');
+  const sunSlider = document.getElementById('sunSlider');
+  const alphaSlider = document.getElementById('alphaSlider');
+  const btnAuto = document.getElementById('btnAuto');
+  const btnCompact = document.getElementById('btnCompact');
+  const btnDeploy = document.getElementById('btnDeploy');
+  const btnResetCam = document.getElementById('btnResetCam');
+  const btnSchematic = document.getElementById('btnSchematic');
+
+  const hdrDeploy = document.getElementById('hdrDeploy');
+  const hdrArea = document.getElementById('hdrArea');
+  const hdrPower = document.getElementById('hdrPower');
+  const hdrPanels = document.getElementById('hdrPanels');
+  const hdrFps = document.getElementById('hdrFps');
+  const modeChip = document.getElementById('modeChip');
+
+  const teleDeploy = document.getElementById('teleDeploy');
+  const deployBar = document.getElementById('deployBar');
+  const teleArea = document.getElementById('teleArea');
+  const telePower = document.getElementById('telePower');
+  const teleSpan = document.getElementById('teleSpan');
+  const teleDepth = document.getElementById('teleDepth');
+  const deploySliderVal = document.getElementById('deploySliderVal');
+  const sunSliderVal = document.getElementById('sunSliderVal');
+  const alphaSliderVal = document.getElementById('alphaSliderVal');
+  const kinGamma = document.getElementById('kinGamma');
+  const kinDihedralM = document.getElementById('kinDihedralM');
+  const kinDihedralA = document.getElementById('kinDihedralA');
+
+  // Pre-generated deep-space orbital starfield
+  const stars = [];
+  for (let i = 0; i < 240; i++) {
+    const seed = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+    const fx = seed - Math.floor(seed);
+    const seed2 = Math.sin(i * 269.5 + 183.3) * 43758.5453;
+    const fy = seed2 - Math.floor(seed2);
+    const seed3 = Math.sin(i * 419.2 + 71.9) * 43758.5453;
+    const fs = seed3 - Math.floor(seed3);
+    stars.push({
+      x: fx,
+      y: fy,
+      r: 0.6 + fs * 1.5,
+      twinkle: fs * Math.PI * 2,
+      hue: fs > 0.82 ? '#BAE6FD' : (fs > 0.65 ? '#FEF3C7' : '#E2E8F0')
+    });
+  }
+
+  // Vector helpers
+  function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function add3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+  function scale3(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+  function dot3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function cross3(a, b) {
+    return [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0]
+    ];
+  }
+  function norm3(a) {
+    const l = Math.hypot(a[0], a[1], a[2]) || 1e-9;
+    return [a[0] / l, a[1] / l, a[2] / l];
+  }
+
+  // Exact Rigid Miura-Ori Kinematics (Schenk-Guest / Miura 1985)
+  // Guaranteed: every parallelogram keeps constant side lengths a, b and exact sector angle alpha!
+  // Active projected area A_proj = AREA_MAX * cos(theta), linearly spanning 1.00 m^2 .. 25.00 m^2.
+  function computeMiuraKinematics() {
+    const alpha = (state.alphaDeg * Math.PI) / 180.0;
+    const sinA = Math.sin(alpha);
+    const cosA = Math.cos(alpha);
+    const tanA = sinA / cosA;
+
+    // Choose equal panel edges a = b so total flat surface area = NX * NY * a * b * sin(alpha) = 25.0 m^2
+    const edge = Math.sqrt(AREA_MAX / (PANEL_COUNT * sinA));
+    const a = edge;
+    const b = edge;
+
+    // Map deployNorm in [0, 1] -> cos(theta) in [AREA_MIN/AREA_MAX, 1.0] = [0.04, 1.0]
+    const cosT = (AREA_MIN / AREA_MAX) + state.deployNorm * (1.0 - AREA_MIN / AREA_MAX);
+    const clampedCosT = Math.max(0.04, Math.min(1.0, cosT));
+    const theta = Math.acos(clampedCosT); // 0 = flat deployed, 87.71 deg = compact 1 m^2
+    const sinT = Math.sin(theta);
+
+    // Exact Schenk-Guest rigid coordinates
+    const denom = Math.sqrt(1.0 + clampedCosT * clampedCosT * tanA * tanA);
+    const H = a * sinT * sinA;
+    const L = a * Math.sqrt(Math.max(0, 1.0 - sinT * sinT * sinA * sinA));
+    const S = b * (clampedCosT * tanA) / denom;
+    const V = b / denom;
+
+    // Exact opening & dihedral angles derived from alpha and theta
+    // Accordion dihedral across zigzag b-creases: exact gamma = pi - 2*theta
+    const gammaRad = Math.PI - 2.0 * theta;
+    const gammaDeg = (gammaRad * 180.0) / Math.PI;
+
+    // Dihedral across straight a-creases: cos(pi - deltaA) = 1 - 2*sin^2(theta)/(1 + cos^2(theta)*tan^2(alpha))
+    const cosPiMinusDA = Math.max(-1, Math.min(1, 1.0 - (2.0 * sinT * sinT) / (1.0 + clampedCosT * clampedCosT * tanA * tanA)));
+    const dihedralADeg = 180.0 - (Math.acos(cosPiMinusDA) * 180.0) / Math.PI;
+    const dihedralMDeg = gammaDeg;
+
+    // Build (NX+1) x (NY+1) vertex lattice centered at origin (0, 0, 0)
+    const cxOff = (NX * S) * 0.5;
+    const cyOff = (NY * L + V) * 0.5;
+    const czOff = H * 0.5;
+
+    const verts = [];
+    for (let i = 0; i <= NX; i++) {
+      const col = [];
+      const x = i * S - cxOff;
+      const yZig = (i & 1) ? V : 0.0;
+      for (let j = 0; j <= NY; j++) {
+        const y = j * L + yZig - cyOff;
+        const z = ((j & 1) ? H : 0.0) - czOff;
+        col.push([x, y, z]);
+      }
+      verts.push(col);
+    }
+
+    // Build all 64 rigid parallelogram facets with exact unit normals
+    const facets = [];
+    for (let i = 0; i < NX; i++) {
+      for (let j = 0; j < NY; j++) {
+        const p00 = verts[i][j];
+        const p10 = verts[i + 1][j];
+        const p11 = verts[i + 1][j + 1];
+        const p01 = verts[i][j + 1];
+
+        const eX = sub3(p10, p00);
+        const eY = sub3(p01, p00);
+        // Sun-facing normal (+Z when flat)
+        const n = norm3(cross3(eX, eY));
+        const center = [
+          (p00[0] + p10[0] + p11[0] + p01[0]) * 0.25,
+          (p00[1] + p10[1] + p11[1] + p01[1]) * 0.25,
+          (p00[2] + p10[2] + p11[2] + p01[2]) * 0.25
+        ];
+
+        facets.push({
+          i, j,
+          pts: [p00, p10, p11, p01],
+          normal: n,
+          center,
+          area: a * b * sinA
+        });
+      }
+    }
+
+    // Build interior creases with exact geometric Mountain / Valley classification
+    // Mountain fold = ridge protruding toward +Z (local convexity seen from sun side)
+    // Valley fold = trough receding toward -Z
+    const creases = [];
+
+    // 1) Zigzag creases along X (constant j = 1..NY-1, between facet(i, j-1) and facet(i, j))
+    for (let j = 1; j < NY; j++) {
+      const isMountain = (j & 1) === 1; // odd j sits at z = +H/2 (ridge peak toward +Z)
+      for (let i = 0; i < NX; i++) {
+        creases.push({
+          p0: verts[i][j],
+          p1: verts[i + 1][j],
+          type: isMountain ? 'M' : 'V',
+          family: 'B'
+        });
+      }
+    }
+
+    // 2) Accordion spine creases along Y (constant i = 1..NX-1, between facet(i-1, j) and facet(i, j))
+    for (let i = 1; i < NX; i++) {
+      for (let j = 0; j < NY; j++) {
+        const fL = facets[(i - 1) * NY + j];
+        const fR = facets[i * NY + j];
+        // Test whether midpoint of adjacent centers sits below (+Z mountain) or above (-Z valley) the crease midpoint
+        const eMid = scale3(add3(verts[i][j], verts[i][j + 1]), 0.5);
+        const avgN = norm3(add3(fL.normal, fR.normal));
+        const cMid = scale3(add3(fL.center, fR.center), 0.5);
+        const rel = dot3(sub3(eMid, cMid), avgN);
+        const isMountain = rel >= 0;
+        creases.push({
+          p0: verts[i][j],
+          p1: verts[i][j + 1],
+          type: isMountain ? 'M' : 'V',
+          family: 'A'
+        });
+      }
+    }
+
+    // Perimeter structural titanium border edges
+    const border = [];
+    for (let i = 0; i < NX; i++) {
+      border.push([verts[i][0], verts[i + 1][0]]);
+      border.push([verts[i][NY], verts[i + 1][NY]]);
+    }
+    for (let j = 0; j < NY; j++) {
+      border.push([verts[0][j], verts[0][j + 1]]);
+      border.push([verts[NX][j], verts[NX][j + 1]]);
+    }
+
+    return {
+      a, b, alpha, theta, H, L, S, V,
+      gammaDeg, dihedralMDeg, dihedralADeg,
+      spanX: NX * S,
+      spanY: NY * L + V,
+      depthZ: H,
+      areaM2: AREA_MAX * clampedCosT,
+      verts, facets, creases, border
+    };
+  }
+
+  // Camera basis and perspective projection
+  function buildCamera(w, h) {
+    // Smooth orbital camera position around origin
+    const cy = Math.cos(state.camYaw);
+    const sy = Math.sin(state.camYaw);
+    const cp = Math.cos(state.camPitch);
+    const sp = Math.sin(state.camPitch);
+
+    // Position camera looking toward (0,0,0) with world Z up-tilted for aerospace look
+    // Wait: let's tilt the array slightly so +Z sun-facing side faces up-forward!
+    // In camera world: X = right, Y = depth/up, Z = panel sun-normal (pointing toward top-front)
+    const camPos = [
+      state.camDist * cp * sy,
+      -state.camDist * cp * cy,
+      state.camDist * sp + 1.4
+    ];
+    const target = [0, 0, 0];
+    const forward = norm3(sub3(target, camPos));
+    const worldUp = [0, 0, 1];
+    const right = norm3(cross3(forward, worldUp));
+    const up = cross3(right, forward);
+
+    const fovScale = Math.min(w, h) * 1.05;
+
+    function project(p) {
+      const rel = sub3(p, camPos);
+      const cz = dot3(rel, forward);
+      if (cz < 0.2) return null;
+      const cx = dot3(rel, right);
+      const cyP = dot3(rel, up);
+      const invZ = fovScale / cz;
+      return {
+        x: w * 0.5 + cx * invZ,
+        y: h * 0.5 - cyP * invZ,
+        z: cz,
+        scale: invZ
+      };
+    }
+
+    return { camPos, forward, right, up, project };
+  }
+
+  // Solar unit vector derived from sunTiltDeg (tilts from +Z normal toward +X/+Y sun limb)
+  function getSunDir() {
+    const tilt = (state.sunTiltDeg * Math.PI) / 180.0;
+    const azim = 0.65;
+    return norm3([
+      Math.sin(tilt) * Math.cos(azim),
+      Math.sin(tilt) * Math.sin(azim),
+      Math.cos(tilt)
+    ]);
+  }
+
+  // Resize canvases with crisp HiDPI scaling
+  let dpr = 1;
+  function resizeCanvases() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    for (const c of [orbitCanvas, creaseCanvas]) {
+      const r = c.getBoundingClientRect();
+      const tw = Math.max(100, Math.round(r.width * dpr));
+      const th = Math.max(100, Math.round(r.height * dpr));
+      if (c.width !== tw || c.height !== th) {
+        c.width = tw;
+        c.height = th;
+      }
+    }
+  }
+
+  // Draw LEO deep-space backdrop, curved Earth atmospheric limb, and orbital Sun corona
+  function renderOrbitalBackdrop(w, h, cam) {
+    // Deep space background
+    const bg = ctx.createRadialGradient(w * 0.78, h * 0.14, 20, w * 0.5, h * 0.5, Math.max(w, h) * 0.9);
+    bg.addColorStop(0, '#0D1B33');
+    bg.addColorStop(0.42, '#070C18');
+    bg.addColorStop(1, '#04070E');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle parallax starfield
+    const pxOff = state.camYaw * 95;
+    const pyOff = state.camPitch * 75;
+    for (const st of stars) {
+      const sx = ((st.x * w - pxOff) % w + w) % w;
+      const sy = ((st.y * h - pyOff) % h + h) % h;
+      const alpha = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(state.time * 1.8 + st.twinkle));
+      ctx.fillStyle = st.hue;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(sx, sy, st.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+
+    // Distant Orbital Sun Glare (shifts smoothly with sunTiltDeg)
+    const sunDir = getSunDir();
+    const sunScreenX = w * (0.76 + sunDir[0] * 0.16);
+    const sunScreenY = h * (0.14 + (1.0 - sunDir[2]) * 0.22);
+    const sunCorona = ctx.createRadialGradient(sunScreenX, sunScreenY, 4, sunScreenX, sunScreenY, 210);
+    sunCorona.addColorStop(0, 'rgba(255, 251, 235, 0.92)');
+    sunCorona.addColorStop(0.08, 'rgba(251, 191, 36, 0.58)');
+    sunCorona.addColorStop(0.28, 'rgba(56, 189, 248, 0.14)');
+    sunCorona.addColorStop(1, 'rgba(6, 10, 18, 0)');
+    ctx.fillStyle = sunCorona;
+    ctx.beginPath();
+    ctx.arc(sunScreenX, sunScreenY, 210, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Subtle Sun cross lens flare
+    ctx.save();
+    ctx.strokeStyle = 'rgba(254, 243, 199, 0.32)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(sunScreenX - 68, sunScreenY);
+    ctx.lineTo(sunScreenX + 68, sunScreenY);
+    ctx.moveTo(sunScreenX, sunScreenY - 38);
+    ctx.lineTo(sunScreenX, sunScreenY + 38);
+    ctx.stroke();
+    ctx.restore();
+
+    // Curved Earth horizon limb in Low Earth Orbit (lower viewport)
+    const earthR = Math.max(w, h) * 1.48;
+    const earthCx = w * 0.44 - Math.sin(state.camYaw) * 70;
+    const earthCy = h + earthR - h * 0.17 + (state.camPitch - 0.48) * 110;
+
+    // Atmospheric Rayleigh glow halo
+    const atmo = ctx.createRadialGradient(earthCx, earthCy, earthR - 12, earthCx, earthCy, earthR + 74);
+    atmo.addColorStop(0, 'rgba(14, 165, 233, 0.0)');
+    atmo.addColorStop(0.18, 'rgba(34, 211, 238, 0.46)');
+    atmo.addColorStop(0.45, 'rgba(56, 189, 248, 0.16)');
+    atmo.addColorStop(1, 'rgba(6, 10, 18, 0)');
+    ctx.fillStyle = atmo;
+    ctx.beginPath();
+    ctx.arc(earthCx, earthCy, earthR + 74, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.fill();
+
+    // Dark night-side Earth sphere curvature
+    const earthGrad = ctx.createRadialGradient(earthCx + 180, earthCy - earthR + 40, 20, earthCx, earthCy, earthR);
+    earthGrad.addColorStop(0, '#0C2D54');
+    earthGrad.addColorStop(0.18, '#07172E');
+    earthGrad.addColorStop(1, '#03060C');
+    ctx.fillStyle = earthGrad;
+    ctx.beginPath();
+    ctx.arc(earthCx, earthCy, earthR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crisp luminous cyan horizon rim line
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.65)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(earthCx, earthCy, earthR, Math.PI * 1.18, Math.PI * 1.82);
+    ctx.stroke();
+
+    // Faint orbital reference grid ring in background
+    ctx.save();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.lineWidth = 1;
+    const ringPts = 48;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i <= ringPts; i++) {
+      const ang = (i / ringPts) * Math.PI * 2;
+      const rp = cam.project([Math.cos(ang) * 3.8, Math.sin(ang) * 3.8, -0.55]);
+      if (!rp) continue;
+      if (!started) { ctx.moveTo(rp.x, rp.y); started = true; } else { ctx.lineTo(rp.x, rp.y); }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw Satellite Core Bus (MLI Kapton Gold housing attached to anchor corner)
+  function buildSatelliteBusFaces(anchorPt) {
+    const bx = anchorPt[0] - 0.56;
+    const by = anchorPt[1] - 0.14;
+    const bz = anchorPt[2];
+    const hx = 0.24, hy = 0.26, hz = 0.26;
+
+    const c = [
+      [bx - hx, by - hy, bz - hz],
+      [bx + hx, by - hy, bz - hz],
+      [bx + hx, by + hy, bz - hz],
+      [bx - hx, by + hy, bz - hz],
+      [bx - hx, by - hy, bz + hz],
+      [bx + hx, by - hy, bz + hz],
+      [bx + hx, by + hy, bz + hz],
+      [bx - hx, by + hy, bz + hz]
+    ];
+
+    const quads = [
+      { idx: [4, 5, 6, 7], n: [0, 0, 1], gold: true },
+      { idx: [3, 2, 1, 0], n: [0, 0, -1], gold: false },
+      { idx: [0, 1, 5, 4], n: [0, -1, 0], gold: true },
+      { idx: [2, 3, 7, 6], n: [0, 1, 0], gold: true },
+      { idx: [1, 2, 6, 5], n: [1, 0, 0], gold: false },
+      { idx: [3, 0, 4, 7], n: [-1, 0, 0], gold: false }
+    ];
+
+    return {
+      boom: [[bx + hx, by, bz], anchorPt],
+      faces: quads.map(q => {
+        const pts = q.idx.map(k => c[k]);
+        const center = [
+          (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) * 0.25,
+          (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) * 0.25,
+          (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]) * 0.25
+        ];
+        return { pts, normal: q.n, center, gold: q.gold, isBus: true };
+      })
+    };
+  }
+
+  // Render 3D Miura-Ori Solar Array
+  function render3DScene(kin) {
+    const w = orbitCanvas.width / dpr;
+    const h = orbitCanvas.height / dpr;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    const cam = buildCamera(w, h);
+    const sunDir = getSunDir();
+
+    renderOrbitalBackdrop(w, h, cam);
+
+    // Anchor corner of array where satellite deployment boom connects
+    const anchorPt = kin.verts[0][Math.floor(NY / 2)];
+    const pullCornerPt = kin.verts[NX][NY];
+    const bus = buildSatelliteBusFaces(anchorPt);
+
+    // Build painter-sorted render list (solar facets + satellite bus faces)
+    const drawItems = [];
+
+    for (const f of kin.facets) {
+      const p2d = f.pts.map(p => cam.project(p));
+      if (p2d.some(p => !p)) continue;
+      const depth = dot3(sub3(f.center, cam.camPos), cam.forward);
+      drawItems.push({ kind: 'facet', facet: f, p2d, depth });
+    }
+
+    for (const bf of bus.faces) {
+      const viewDir = norm3(sub3(cam.camPos, bf.center));
+      if (dot3(bf.normal, viewDir) < -0.05) continue;
+      const p2d = bf.pts.map(p => cam.project(p));
+      if (p2d.some(p => !p)) continue;
+      const depth = dot3(sub3(bf.center, cam.camPos), cam.forward);
+      drawItems.push({ kind: 'bus', face: bf, p2d, depth });
+    }
+
+    // Back-to-front painter's sort
+    drawItems.sort((a, b) => b.depth - a.depth);
+
+    // Draw structural deployment boom connecting bus to Miura-ori anchor vertex
+    const b0 = cam.project(bus.boom[0]);
+    const b1 = cam.project(bus.boom[1]);
+    if (b0 && b1) {
+      ctx.strokeStyle = '#94A3B8';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(b0.x, b0.y);
+      ctx.lineTo(b1.x, b1.y);
+      ctx.stroke();
+      ctx.strokeStyle = '#FBBF24';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+
+    // Compute live solar power generation across all 64 facets
+    let totalEffectiveArea = 0;
+
+    for (const item of drawItems) {
+      const p = item.p2d;
+
+      if (item.kind === 'bus') {
+        const bf = item.face;
+        const nDotL = Math.max(0.12, dot3(bf.normal, sunDir));
+        ctx.beginPath();
+        ctx.moveTo(p[0].x, p[0].y);
+        ctx.lineTo(p[1].x, p[1].y);
+        ctx.lineTo(p[2].x, p[2].y);
+        ctx.lineTo(p[3].x, p[3].y);
+        ctx.closePath();
+
+        if (bf.gold) {
+          const r = Math.round(115 + 140 * nDotL);
+          const g = Math.round(78 + 115 * nDotL);
+          const b = Math.round(16 + 30 * nDotL);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+        } else {
+          const v = Math.round(28 + 62 * nDotL);
+          ctx.fillStyle = `rgb(${v},${v + 8},${v + 20})`;
+        }
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        continue;
+      }
+
+      // Photovoltaic Miura-Ori Parallelogram Facet
+      const f = item.facet;
+      const viewDir = norm3(sub3(cam.camPos, f.center));
+      const facingCam = dot3(f.normal, viewDir);
+      const isFront = facingCam >= 0;
+      const nShade = isFront ? f.normal : scale3(f.normal, -1);
+
+      // Accumulate true solar energy absorbed on the +Z photovoltaic face
+      const sunCos = Math.max(0, dot3(f.normal, sunDir));
+      totalEffectiveArea += f.area * sunCos;
+
+      ctx.beginPath();
+      ctx.moveTo(p[0].x, p[0].y);
+      ctx.lineTo(p[1].x, p[1].y);
+      ctx.lineTo(p[2].x, p[2].y);
+      ctx.lineTo(p[3].x, p[3].y);
+      ctx.closePath();
+
+      if (state.schematic) {
+        // Blueprint Schematic Mode: crisp dark translucent panels with subtle checker parity
+        const parity = (f.i + f.j) & 1;
+        ctx.fillStyle = parity ? 'rgba(15, 23, 42, 0.62)' : 'rgba(14, 116, 144, 0.24)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        // Photorealistic Aerospace Solar Cell Shading (Blue Silicon + Golden/Cyan Specular Glint)
+        const nDotL = Math.max(0, dot3(nShade, sunDir));
+        const halfVec = norm3(add3(sunDir, viewDir));
+        const specRaw = Math.max(0, dot3(nShade, halfVec));
+        const specTight = Math.pow(specRaw, 26);
+        const specBroad = Math.pow(specRaw, 5);
+        const fresnel = Math.pow(1.0 - Math.max(0, dot3(nShade, viewDir)), 3);
+
+        if (isFront) {
+          // Deep aerospace photovoltaic sapphire + metallic cyan/gold specular reflections
+          const baseR = 11 + nDotL * 24 + specBroad * 78 + specTight * 175 + fresnel * 18;
+          const baseG = 34 + nDotL * 68 + specBroad * 96 + specTight * 162 + fresnel * 75;
+          const baseB = 82 + nDotL * 124 + specBroad * 42 + specTight * 95 + fresnel * 110;
+          ctx.fillStyle = `rgb(${Math.min(255, Math.round(baseR))},${Math.min(255, Math.round(baseG))},${Math.min(255, Math.round(baseB))})`;
+          ctx.fill();
+
+          // Internal solar wafer busbar sub-grid (exact bilinear interpolation in 3D perspective)
+          ctx.save();
+          ctx.strokeStyle = `rgba(251, 191, 36, ${(0.20 + specBroad * 0.45 + nDotL * 0.15).toFixed(2)})`;
+          ctx.lineWidth = 0.85;
+          const subLines = 3;
+          for (let s = 1; s < subLines; s++) {
+            const t = s / subLines;
+            // Across edge 0-1 -> 3-2
+            const ax = p[0].x + (p[1].x - p[0].x) * t;
+            const ay = p[0].y + (p[1].y - p[0].y) * t;
+            const bx = p[3].x + (p[2].x - p[3].x) * t;
+            const by = p[3].y + (p[2].y - p[3].y) * t;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+
+            // Across edge 0-3 -> 1-2
+            const cx2 = p[0].x + (p[3].x - p[0].x) * t;
+            const cy2 = p[0].y + (p[3].y - p[0].y) * t;
+            const dx2 = p[1].x + (p[2].x - p[1].x) * t;
+            const dy2 = p[1].y + (p[2].y - p[1].y) * t;
+            ctx.beginPath();
+            ctx.moveTo(cx2, cy2);
+            ctx.lineTo(dx2, dy2);
+            ctx.stroke();
+          }
+
+          // Bright golden specular glint highlight when angle catches orbital Sun
+          if (specTight > 0.22) {
+            ctx.fillStyle = `rgba(254, 240, 138, ${(specTight * 0.55).toFixed(2)})`;
+            ctx.beginPath();
+            ctx.moveTo(p[0].x, p[0].y);
+            ctx.lineTo(p[1].x, p[1].y);
+            ctx.lineTo(p[2].x, p[2].y);
+            ctx.lineTo(p[3].x, p[3].y);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.restore();
+        } else {
+          // Backside Kapton/carbon structural backing
+          const backR = 32 + nDotL * 78 + specBroad * 42;
+          const backG = 28 + nDotL * 56 + specBroad * 34;
+          const backB = 34 + nDotL * 24;
+          ctx.fillStyle = `rgb(${Math.min(255, Math.round(backR))},${Math.min(255, Math.round(backG))},${Math.min(255, Math.round(backB))})`;
+          ctx.fill();
+        }
+
+        // Subtle titanium facet micro-bezel
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
+
+    // Draw Mountain (Red #F43F5E) vs Valley (Cyan #22D3EE) Fold Hinge Lines on top
+    ctx.save();
+    for (const cr of kin.creases) {
+      const q0 = cam.project(cr.p0);
+      const q1 = cam.project(cr.p1);
+      if (!q0 || !q1) continue;
+
+      const isM = cr.type === 'M';
+      if (state.schematic) {
+        ctx.strokeStyle = isM ? '#F43F5E' : '#22D3EE';
+        ctx.lineWidth = isM ? 2.8 : 2.3;
+        ctx.setLineDash(isM ? [] : [8, 5]);
+        ctx.shadowColor = isM ? 'rgba(244, 63, 94, 0.85)' : 'rgba(34, 211, 238, 0.85)';
+        ctx.shadowBlur = 7;
+      } else {
+        ctx.strokeStyle = isM ? 'rgba(244, 63, 94, 0.88)' : 'rgba(34, 211, 238, 0.85)';
+        ctx.lineWidth = isM ? 2.1 : 1.75;
+        ctx.setLineDash([]);
+        ctx.shadowColor = isM ? 'rgba(244, 63, 94, 0.45)' : 'rgba(34, 211, 238, 0.45)';
+        ctx.shadowBlur = 4;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(q0.x, q0.y);
+      ctx.lineTo(q1.x, q1.y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+
+    // Outer perimeter titanium frame
+    ctx.strokeStyle = state.schematic ? '#FBBF24' : 'rgba(251, 191, 36, 0.85)';
+    ctx.lineWidth = state.schematic ? 2.4 : 2.0;
+    for (const seg of kin.border) {
+      const q0 = cam.project(seg[0]);
+      const q1 = cam.project(seg[1]);
+      if (!q0 || !q1) continue;
+      ctx.beginPath();
+      ctx.moveTo(q0.x, q0.y);
+      ctx.lineTo(q1.x, q1.y);
+      ctx.stroke();
+    }
+
+    // Schematic Vertex Hinge Nodes & Single-Corner 1-DOF Pull Callout
+    if (state.schematic) {
+      for (let i = 1; i < NX; i++) {
+        for (let j = 1; j < NY; j++) {
+          const vp = cam.project(kin.verts[i][j]);
+          if (!vp) continue;
+          ctx.fillStyle = '#F8FAFC';
+          ctx.beginPath();
+          ctx.arc(vp.x, vp.y, 2.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Highlight Single-Corner 1-DOF Actuator Handle (pulling one corner deploys the entire sheet)
+    const pull2d = cam.project(pullCornerPt);
+    const pullVecTip = cam.project([
+      pullCornerPt[0] + 0.62,
+      pullCornerPt[1] + 0.36,
+      pullCornerPt[2]
+    ]);
+    if (pull2d && pullVecTip) {
+      const pulse = 1.0 + 0.16 * Math.sin(state.time * 6.0);
+      ctx.strokeStyle = '#E879F9';
+      ctx.lineWidth = 2.4;
+      ctx.shadowColor = '#E879F9';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(pull2d.x, pull2d.y);
+      ctx.lineTo(pullVecTip.x, pullVecTip.y);
+      ctx.stroke();
+
+      // Arrowhead
+      const ang = Math.atan2(pullVecTip.y - pull2d.y, pullVecTip.x - pull2d.x);
+      ctx.fillStyle = '#E879F9';
+      ctx.beginPath();
+      ctx.moveTo(pullVecTip.x, pullVecTip.y);
+      ctx.lineTo(pullVecTip.x - 10 * Math.cos(ang - 0.45), pullVecTip.y - 10 * Math.sin(ang - 0.45));
+      ctx.lineTo(pullVecTip.x - 10 * Math.cos(ang + 0.45), pullVecTip.y - 10 * Math.sin(ang + 0.45));
+      ctx.closePath();
+      ctx.fill();
+
+      // Glowing corner handle node
+      ctx.fillStyle = '#FDF4FF';
+      ctx.beginPath();
+      ctx.arc(pull2d.x, pull2d.y, 5.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Label pill
+      const lx = pullVecTip.x + 10;
+      const ly = pullVecTip.y - 6;
+      ctx.fillStyle = 'rgba(6, 10, 18, 0.84)';
+      ctx.strokeStyle = 'rgba(232, 121, 249, 0.65)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(lx, ly - 14, 152, 24, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#F8FAFC';
+      ctx.font = '800 11px "SF Mono", Menlo, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('ACTUADOR 1-DOF', lx + 10, ly + 2);
+    }
+
+    // Satellite bus label
+    const busLbl = cam.project([anchorPt[0] - 0.56, anchorPt[1] - 0.14, anchorPt[2] + 0.42]);
+    if (busLbl) {
+      ctx.fillStyle = 'rgba(6, 10, 18, 0.8)';
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(busLbl.x - 62, busLbl.y - 13, 124, 22, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#FBBF24';
+      ctx.font = '700 11px "SF Mono", Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('BUS SATELITAL', busLbl.x, busLbl.y + 2);
+    }
+
+    ctx.restore();
+    ctx.restore();
+
+    // Update live computed power & active area
+    state.areaM2 = kin.areaM2;
+    state.powerKw = totalEffectiveArea * SOLAR_CONST * CELL_EFF;
+  }
+
+  // Render crisp 2D Top-Down Crease Pattern Map & Live Cross-Section in sidebar
+  function renderCreaseDiagram(kin) {
+    const w = creaseCanvas.width / dpr;
+    const h = creaseCanvas.height / dpr;
+
+    cCtx.save();
+    cCtx.scale(dpr, dpr);
+    cCtx.fillStyle = '#060A12';
+    cCtx.fillRect(0, 0, w, h);
+
+    // Split left: live XY projected footprint (shows physical shrinkage 25 m^2 <-> 1 m^2!)
+    // Split right: live Z-accordion side cross-section showing exact dihedral opening angle gamma!
+    const splitX = w * 0.54;
+    cCtx.strokeStyle = 'rgba(56, 189, 248, 0.16)';
+    cCtx.lineWidth = 1;
+    cCtx.beginPath();
+    cCtx.moveTo(splitX, 10);
+    cCtx.lineTo(splitX, h - 10);
+    cCtx.stroke();
+
+    // Left: Projected XY footprint inside 5.2 m reference square
+    const boxSize = Math.min(splitX - 28, h - 38);
+    const ox = splitX * 0.5;
+    const oy = h * 0.54;
+    const scale = boxSize / 5.4;
+
+    // 25 m^2 max reference frame
+    const refPx = 5.0 * scale;
+    cCtx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+    cCtx.setLineDash([4, 4]);
+    cCtx.strokeRect(ox - refPx * 0.5, oy - refPx * 0.5, refPx, refPx);
+    cCtx.setLineDash([]);
+
+    // Draw live projected creases
+    for (const cr of kin.creases) {
+      cCtx.strokeStyle = cr.type === 'M' ? '#F43F5E' : '#22D3EE';
+      cCtx.lineWidth = 1.4;
+      cCtx.beginPath();
+      cCtx.moveTo(ox + cr.p0[0] * scale, oy - cr.p0[1] * scale);
+      cCtx.lineTo(ox + cr.p1[0] * scale, oy - cr.p1[1] * scale);
+      cCtx.stroke();
+    }
+    cCtx.strokeStyle = '#FBBF24';
+    cCtx.lineWidth = 1.6;
+    for (const seg of kin.border) {
+      cCtx.beginPath();
+      cCtx.moveTo(ox + seg[0][0] * scale, oy - seg[0][1] * scale);
+      cCtx.lineTo(ox + seg[1][0] * scale, oy - seg[1][1] * scale);
+      cCtx.stroke();
+    }
+
+    cCtx.font = '700 10px "SF Mono", Menlo, monospace';
+    cCtx.fillStyle = '#94A3B8';
+    cCtx.textAlign = 'center';
+    cCtx.fillText('HUELLA XY EN VIVO', ox, 15);
+
+    // Right: Live Z-profile accordion cross-section showing opening angle gamma
+    const rx = splitX + (w - splitX) * 0.5;
+    const ry = h * 0.56;
+    const rW = (w - splitX) - 24;
+    const rScale = Math.min(rW / 5.3, (h - 52) / 0.9);
+
+    cCtx.fillStyle = '#94A3B8';
+    cCtx.fillText('PERFIL LATERAL (GAMMA)', rx, 15);
+
+    // Draw accordion polyline from verts[0][0..NY]
+    cCtx.strokeStyle = '#38BDF8';
+    cCtx.lineWidth = 2.4;
+    cCtx.beginPath();
+    for (let j = 0; j <= NY; j++) {
+      const v = kin.verts[0][j];
+      const px = rx + v[1] * (rW / 5.5);
+      const py = ry - v[2] * Math.min(48, rScale * 0.72);
+      if (j === 0) cCtx.moveTo(px, py); else cCtx.lineTo(px, py);
+    }
+    cCtx.stroke();
+
+    // Mark M/V fold vertices along cross-section
+    for (let j = 1; j < NY; j++) {
+      const v = kin.verts[0][j];
+      const px = rx + v[1] * (rW / 5.5);
+      const py = ry - v[2] * Math.min(48, rScale * 0.72);
+      cCtx.fillStyle = (j & 1) ? '#F43F5E' : '#22D3EE';
+      cCtx.beginPath();
+      cCtx.arc(px, py, 3.2, 0, Math.PI * 2);
+      cCtx.fill();
+    }
+
+    cCtx.fillStyle = '#22D3EE';
+    cCtx.font = '700 11px "SF Mono", Menlo, monospace';
+    cCtx.fillText(`theta = ${(kin.theta * 180 / Math.PI).toFixed(1)} deg`, rx, h - 10);
+
+    cCtx.restore();
+  }
+
+  // Update HUD telemetry
+  let lastHudTs = 0;
+  function updateHud(kin, nowTs) {
+    if (nowTs - lastHudTs < 50) return;
+    lastHudTs = nowTs;
+
+    const pct = state.deployNorm * 100.0;
+    hdrDeploy.textContent = `${pct.toFixed(1)}%`;
+    hdrArea.textContent = `${state.areaM2.toFixed(2)} m2`;
+    hdrPower.textContent = `${state.powerKw.toFixed(2)} kW`;
+    hdrPanels.textContent = `${PANEL_COUNT}`;
+    hdrFps.textContent = `${Math.round(state.fps)} FPS`;
+
+    teleDeploy.textContent = `${pct.toFixed(1)}%`;
+    deployBar.style.width = `${Math.max(2, Math.min(100, pct))}%`;
+    teleArea.textContent = `${state.areaM2.toFixed(2)} m2`;
+    telePower.textContent = `${state.powerKw.toFixed(2)} kW`;
+    teleSpan.textContent = `${kin.spanX.toFixed(2)} x ${kin.spanY.toFixed(2)} m`;
+    teleDepth.textContent = `Espesor Z: ${kin.depthZ.toFixed(2)} m`;
+
+    deploySlider.value = pct.toFixed(1);
+    deploySliderVal.textContent = `${pct.toFixed(1)}%`;
+    sunSliderVal.textContent = `${state.sunTiltDeg} deg`;
+    alphaSliderVal.textContent = `${state.alphaDeg} deg`;
+
+    kinGamma.textContent = `${kin.gammaDeg.toFixed(1)} deg`;
+    kinDihedralM.textContent = `${kin.dihedralMDeg.toFixed(1)} deg`;
+    kinDihedralA.textContent = `${kin.dihedralADeg.toFixed(1)} deg`;
+
+    if (state.schematic) {
+      modeChip.innerHTML = 'MODO: <strong style="color:#E879F9">ESQUEMATICO DE PLIEGUES (M/V)</strong>';
+    } else if (state.autoCycle) {
+      modeChip.innerHTML = 'MODO: <strong style="color:#22D3EE">CICLO AUTO CONTINUO</strong>';
+    } else {
+      modeChip.innerHTML = 'MODO: <strong style="color:#FBBF24">CONTROL MANUAL 1-DOF</strong>';
+    }
+  }
+
+  // Interactive Controls
+  deploySlider.addEventListener('input', () => {
+    state.autoCycle = false;
+    state.targetDeploy = null;
+    state.deployNorm = parseFloat(deploySlider.value) / 100.0;
+    btnAuto.classList.remove('active-cyan');
+  });
+
+  sunSlider.addEventListener('input', () => {
+    state.sunTiltDeg = parseInt(sunSlider.value, 10);
+  });
+
+  alphaSlider.addEventListener('input', () => {
+    state.alphaDeg = parseInt(alphaSlider.value, 10);
+  });
+
+  btnAuto.addEventListener('click', () => {
+    state.autoCycle = !state.autoCycle;
+    state.targetDeploy = null;
+    if (state.autoCycle) {
+      // Sync phase smoothly to current deployNorm so there is zero jump
+      const clamped = Math.max(-1, Math.min(1, state.deployNorm * 2.0 - 1.0));
+      state.autoPhase = Math.asin(clamped);
+    }
+    btnAuto.classList.toggle('active-cyan', state.autoCycle);
+  });
+
+  btnCompact.addEventListener('click', () => {
+    state.autoCycle = false;
+    state.targetDeploy = 0.0;
+    btnAuto.classList.remove('active-cyan');
+  });
+
+  btnDeploy.addEventListener('click', () => {
+    state.autoCycle = false;
+    state.targetDeploy = 1.0;
+    btnAuto.classList.remove('active-cyan');
+  });
+
+  btnResetCam.addEventListener('click', () => {
+    state.camYaw = -0.58;
+    state.camPitch = 0.48;
+    state.camDist = 8.6;
+    state.userOrbited = false;
+  });
+
+  btnSchematic.addEventListener('click', () => {
+    state.schematic = !state.schematic;
+    btnSchematic.classList.toggle('active-fuchsia', state.schematic);
+  });
+
+  // Free 3D Mouse Orbit + Wheel Zoom
+  orbitCanvas.addEventListener('pointerdown', (e) => {
+    state.dragging = true;
+    state.userOrbited = true;
+    state.lastMouseX = e.clientX;
+    state.lastMouseY = e.clientY;
+    orbitCanvas.setPointerCapture(e.pointerId);
+  });
+
+  orbitCanvas.addEventListener('pointermove', (e) => {
+    if (!state.dragging) return;
+    const dx = e.clientX - state.lastMouseX;
+    const dy = e.clientY - state.lastMouseY;
+    state.lastMouseX = e.clientX;
+    state.lastMouseY = e.clientY;
+    state.camYaw += dx * 0.0075;
+    state.camPitch = Math.max(-1.25, Math.min(1.42, state.camPitch + dy * 0.0065));
+  });
+
+  orbitCanvas.addEventListener('pointerup', (e) => {
+    state.dragging = false;
+    try { orbitCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+  });
+
+  orbitCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    state.camDist = Math.max(4.4, Math.min(15.5, state.camDist + e.deltaY * 0.006));
+  }, { passive: false });
+
+  window.addEventListener('resize', resizeCanvases);
+
+  // Exact required audit hook
+  window.__auditOrigami = () => ({
+    fps: Math.round(state.fps * 10) / 10,
+    deployPct: Math.round(state.deployNorm * 1000) / 10,
+    areaM2: Math.round(state.areaM2 * 100) / 100,
+    panelCount: PANEL_COUNT
+  });
+
+  // Step continuous kinematics
+  function step(dt) {
+    state.time += dt;
+
+    if (state.autoCycle) {
+      // Smooth continuous deployment cycle from 1.0 m^2 (0%) to 25.0 m^2 (100%)
+      state.autoPhase += dt * 0.56;
+      const s = 0.5 + 0.5 * Math.sin(state.autoPhase);
+      // Slight gentle dwell near 0% and 100% for showcase clarity
+      const eased = s * s * (3.0 - 2.0 * s);
+      state.deployNorm = eased;
+    } else if (state.targetDeploy !== null) {
+      const diff = state.targetDeploy - state.deployNorm;
+      if (Math.abs(diff) < 0.002) {
+        state.deployNorm = state.targetDeploy;
+        state.targetDeploy = null;
+      } else {
+        state.deployNorm += diff * Math.min(1.0, dt * 3.8);
+      }
+    }
+
+    // Subtle cinematic orbital camera drift until user drags
+    if (!state.dragging && !state.userOrbited) {
+      state.camYaw = -0.58 + Math.sin(state.time * 0.24) * 0.34;
+      state.camPitch = 0.48 + Math.cos(state.time * 0.19) * 0.14;
+    }
+  }
+
+  function frame(nowTs) {
+    const rawDt = (nowTs - state.lastFrameTs) / 1000.0;
+    state.lastFrameTs = nowTs;
+    const dt = Math.max(0.001, Math.min(0.05, rawDt));
+
+    if (rawDt > 0.002 && rawDt < 0.25) {
+      const instFps = 1.0 / rawDt;
+      state.fps = state.fps * 0.90 + instFps * 0.10;
+    }
+
+    step(dt);
+    const kin = computeMiuraKinematics();
+    render3DScene(kin);
+    renderCreaseDiagram(kin);
+    updateHud(kin, nowTs);
+
+    requestAnimationFrame(frame);
+  }
+
+  // Alive and moving smoothly from t = 0.0
+  resizeCanvases();
+  const initKin = computeMiuraKinematics();
+  render3DScene(initKin);
+  renderCreaseDiagram(initKin);
+  updateHud(initKin, performance.now());
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

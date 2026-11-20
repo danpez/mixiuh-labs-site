@@ -11,11 +11,14 @@ import { EP09_CHALLENGES } from "@/data/ep09Data";
 import { EP10_CHALLENGES } from "@/data/ep10Data";
 import { EP11_CHALLENGES, EP11_THINKING_LEVELS } from "@/data/ep11Data";
 import { EP12_CHALLENGES } from "@/data/ep12Data";
+import { EP13_CHALLENGES, EP13_R04_MODULAR } from "@/data/ep13Data";
 
 export interface ArenaLatestProps {
   lang: "es" | "en";
-  /** EP12: 3 Lightweight Extra Tournament. EP11: Hydrogen 4 Levels vs Flash 3.8. EP10..EP03: previous labs. */
-  episode: "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03";
+  /** EP13: Gemini 4 Ecosystem + Orchestrator. EP12..EP03: previous labs. */
+  episode: "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03";
+  ep13ChallengeN?: number;
+  setEp13ChallengeN?: (n: number) => void;
   ep12ChallengeN?: number;
   setEp12ChallengeN?: (n: number) => void;
   ep11ChallengeN?: number;
@@ -38,18 +41,20 @@ export interface ArenaLatestProps {
   setEp03ChallengeN: (n: number) => void;
   navigateToView: (
     view: "dossiers",
-    ep: "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03"
+    ep: "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03"
   ) => void;
 }
 
 /**
- * Arena of the newest episodes (EP12 through EP03): challenge picker and live demos.
+ * Arena of the newest episodes (EP13 through EP03): challenge picker and live demos.
  * Loaded on demand, like the EP02/EP01 arena, so their data stays off the home page.
  * The Arena view supplies the page's <h1>, so the challenge title here is an <h2>.
  */
 export default function ArenaLatest({
   lang,
   episode,
+  ep13ChallengeN = 4,
+  setEp13ChallengeN = () => {},
   ep12ChallengeN = 1,
   setEp12ChallengeN = () => {},
   ep11ChallengeN = 1,
@@ -82,6 +87,163 @@ export default function ArenaLatest({
   // English mode shows the English twin of a note where the data has one
   const fpsNote = (note: string, note_en?: string) =>
     lang === "es" ? note : (note_en ?? note);
+
+  if (episode === "ep13") {
+    const isModular = ep13ChallengeN === 4;
+    const curSolo = EP13_CHALLENGES.find((c) => c.n === ep13ChallengeN) || EP13_CHALLENGES[0];
+    const title = isModular
+      ? lang === "es"
+        ? EP13_R04_MODULAR.name_es
+        : EP13_R04_MODULAR.name_en
+      : lang === "es"
+      ? curSolo.name_es
+      : curSolo.name_en;
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+        <div
+          role="group"
+          aria-label={lang === "es" ? "Retos del EP13" : "EP13 challenges"}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"
+        >
+          {EP13_CHALLENGES.map((ch) => (
+            <button
+              key={ch.n}
+              onClick={() => setEp13ChallengeN(ch.n)}
+              aria-pressed={ep13ChallengeN === ch.n}
+              className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
+                ep13ChallengeN === ch.n
+                  ? "bg-[#1A2132] border-[#22D3EE]"
+                  : "bg-[#111622] border-[#2A344B]"
+              }`}
+            >
+              <div className="flex items-center justify-between font-mono-hud text-[10px]">
+                <span className="text-[#22D3EE] font-bold">R0{ch.n}</span>
+                <span className="text-[#FFD100] font-bold">{ch.winner.toUpperCase()}</span>
+              </div>
+              <div className="font-display text-xs font-bold text-white mt-1 truncate">
+                {lang === "es" ? ch.name_es : ch.name_en}
+              </div>
+            </button>
+          ))}
+          <button
+            onClick={() => setEp13ChallengeN(4)}
+            aria-pressed={ep13ChallengeN === 4}
+            className={`p-3 shadow-[4px_4px_0_#040508] border text-left transition cursor-pointer ${
+              ep13ChallengeN === 4
+                ? "bg-[#1A2132] border-[#FFD100]"
+                : "bg-[#111622] border-[#2A344B]"
+            }`}
+          >
+            <div className="flex items-center justify-between font-mono-hud text-[10px]">
+              <span className="text-[#FFD100] font-bold">R04 · MODULAR</span>
+              <span className="text-[#10B981] font-bold">ORCHESTRATOR 2X</span>
+            </div>
+            <div className="font-display text-xs font-bold text-white mt-1 truncate">
+              {lang === "es" ? EP13_R04_MODULAR.name_es : EP13_R04_MODULAR.name_en}
+            </div>
+          </button>
+        </div>
+
+        <div className="bg-[#090B10] border-2 border-[#22D3EE] overflow-hidden shadow-[6px_6px_0_#040508]">
+          <div className="p-4 bg-[#1A2132] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1 max-w-3xl">
+              <h2 className="font-display text-lg font-black text-white">
+                EP13 R0{isModular ? 4 : curSolo.n}: {title}
+              </h2>
+              <p className="text-xs text-[#FFD100] font-semibold">
+                {isModular
+                  ? lang === "es"
+                    ? EP13_R04_MODULAR.fun_fact_es
+                    : EP13_R04_MODULAR.fun_fact_en
+                  : lang === "es"
+                  ? curSolo.fun_fact_es
+                  : curSolo.fun_fact_en}
+              </p>
+              <p className="text-xs text-[#CBD5E1]">
+                {isModular
+                  ? lang === "es"
+                    ? EP13_R04_MODULAR.verdict_es
+                    : EP13_R04_MODULAR.verdict_en
+                  : lang === "es"
+                  ? curSolo.verdict_es
+                  : curSolo.verdict_en}
+              </p>
+            </div>
+            <button
+              onClick={() => navigateToView("dossiers", "ep13")}
+              className="px-3.5 py-1.5 bg-[#FFD100] text-[#090B10] font-mono-hud text-xs font-bold cursor-pointer border-2 border-[#090B10] shadow-[3px_3px_0_#040508]"
+            >
+              {lang === "es" ? "Ver Guía y Dossier EP13 →" : "Open Full EP13 Dossier →"}
+            </button>
+          </div>
+
+          {isModular ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#FFD100] font-bold">
+                    ORCHESTRATOR NEON ({EP13_R04_MODULAR.orchestrator.min}m · {EP13_R04_MODULAR.orchestrator.lines} LOC)
+                  </span>
+                  <a href={EP13_R04_MODULAR.orchestrator.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#FFD100] border border-[#FFD100]/50 text-[10px] font-bold">
+                    {lang === "es" ? EP13_R04_MODULAR.orchestrator.testsLabel_es : EP13_R04_MODULAR.orchestrator.testsLabel_en} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={EP13_R04_MODULAR.orchestrator.demoUrl} title={`Orchestrator Neon: ${title}`} className="w-full h-[560px] border-0 bg-[#090B10]" />
+              </div>
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#22D3EE] font-bold">
+                    NEON XHIGH SOLO ({EP13_R04_MODULAR.neon_solo.min}m · {EP13_R04_MODULAR.neon_solo.lines} LOC)
+                  </span>
+                  <a href={EP13_R04_MODULAR.neon_solo.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#22D3EE] border border-[#22D3EE]/50 text-[10px] font-bold">
+                    {lang === "es" ? EP13_R04_MODULAR.neon_solo.testsLabel_es : EP13_R04_MODULAR.neon_solo.testsLabel_en} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={EP13_R04_MODULAR.neon_solo.demoUrl} title={`Neon Solo: ${title}`} className="w-full h-[560px] border-0 bg-[#090B10]" />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#22D3EE] font-bold">
+                    NEON (${curSolo.neon.usd.toFixed(2)} · {curSolo.neon.min}m)
+                  </span>
+                  <a href={curSolo.neon.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#22D3EE] border border-[#22D3EE]/50 text-[10px] font-bold">
+                    {fpsNote(curSolo.neon.fps, curSolo.neon.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={curSolo.neon.demoUrl} title={`Gemini 4 Neon: ${title}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#B794F6] font-bold">
+                    ARGON (${curSolo.argon.usd.toFixed(2)} · {curSolo.argon.min}m)
+                  </span>
+                  <a href={curSolo.argon.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#B794F6] border border-[#B794F6]/50 text-[10px] font-bold">
+                    {fpsNote(curSolo.argon.fps, curSolo.argon.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={curSolo.argon.demoUrl} title={`Gemini 4 Argon: ${title}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+              <div className="flex flex-col">
+                <div className="px-3 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between gap-2 font-mono-hud text-xs">
+                  <span className="font-pixel text-[10px] text-[#38BDF8] font-bold">
+                    HYDROGEN (${curSolo.hydrogen.usd.toFixed(2)} · {curSolo.hydrogen.min}m)
+                  </span>
+                  <a href={curSolo.hydrogen.demoUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-[#131824] text-[#38BDF8] border border-[#38BDF8]/50 text-[10px] font-bold">
+                    {fpsNote(curSolo.hydrogen.fps, curSolo.hydrogen.fps_en)} ↗
+                  </a>
+                </div>
+                <iframe allowFullScreen src={curSolo.hydrogen.demoUrl} title={`Gemini 4 Hydrogen: ${title}`} className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (episode === "ep12") {
     const cur =

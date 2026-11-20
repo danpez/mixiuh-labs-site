@@ -113,6 +113,7 @@ type BlogFilter = "all" | "laboratorios" | "comunidad" | "noticias";
 type ForoSubTab = "hilos" | "glosario";
 
 const DOSSIER_HASH: Record<DossierEpisode, string> = {
+  ep13: "ep13-ecosistema-gemini-4-neon",
   ep12: "ep12-torneo-ligeros-extra",
   ep11: "ep11-hydrogen-vs-flash",
   ep10: "ep10-carbon-vs-fable",
@@ -171,6 +172,7 @@ function viewForHash(
   ) {
     return { view: "noticias" };
   }
+  if (h === "ep13-ecosistema-gemini-4-neon" && rel.ep13) return { view: "dossiers", ep: "ep13" };
   if (h === "ep12-torneo-ligeros-extra" && rel.ep12) return { view: "dossiers", ep: "ep12" };
   if (h === "ep11-hydrogen-vs-flash" && rel.ep11) return { view: "dossiers", ep: "ep11" };
   if (h === "ep10-carbon-vs-fable" && rel.ep10) return { view: "dossiers", ep: "ep10" };
@@ -199,6 +201,10 @@ const SITE_TITLE = {
 } as const;
 
 const DOSSIER_NAME: Record<DossierEpisode, { es: string; en: string }> = {
+  ep13: {
+    es: "Laboratorio EP13: Ecosistema Gemini 4 + Neon + Orchestrator (11 Demos)",
+    en: "Lab EP13: Gemini 4 Ecosystem + Neon + Orchestrator (11 Demos)",
+  },
   ep12: {
     es: "Laboratorio EP12: Torneo de Ligeros Extra — Hydrogen vs Haiku 5.5 vs GPT-6 Luna (24 Demos)",
     en: "Lab EP12: Lightweight Extra Tournament — Hydrogen vs Haiku 5.5 vs GPT-6 Luna (24 Demos)",
@@ -298,6 +304,7 @@ function writeHash(hash: string, mode: "push" | "replace") {
 
 /** One accent per production, shared by blog cards, calendar, CRT and floppy selector. */
 const EPISODE_ACCENT: Record<ReleaseKey, string> = {
+  ep13: "#22D3EE",
   ep12: "#10B981",
   ep11: "#38BDF8",
   ep10: "#FFD100",
@@ -317,6 +324,7 @@ const EPISODE_ACCENT: Record<ReleaseKey, string> = {
 
 /** Deep link of each production (used by the share popover). */
 const ARTICLE_HASH: Record<ReleaseKey, string> = {
+  ep13: "ep13-ecosistema-gemini-4-neon",
   ep12: "ep12-torneo-ligeros-extra",
   ep11: "ep11-hydrogen-vs-flash",
   ep10: "ep10-carbon-vs-fable",
@@ -513,6 +521,7 @@ export default function PortalClient({
   const [blogFilter, setBlogFilter] = useState<BlogFilter>("all");
   const [dossierEp, setDossierEp] = useState<DossierEpisode>(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep13) return "ep13";
     if (r.ep12) return "ep12";
     if (r.ep11) return "ep11";
     if (r.ep10) return "ep10";
@@ -530,9 +539,10 @@ export default function PortalClient({
   const [activeEpisode, setActiveEpisode] = useState<"ep02" | "ep01">("ep02");
   const [selectedChallengeN, setSelectedChallengeN] = useState<number>(1);
   const [arenaMode, setArenaMode] = useState<
-    "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
+    "ep13" | "ep12" | "ep11" | "ep10" | "ep09" | "ep08" | "ep07" | "ep06" | "ep05" | "ep04" | "ep03" | "ep02_ep01"
   >(() => {
     const r = getReleasedStatus(BUILD_TIME);
+    if (r.ep13) return "ep13";
     if (r.ep12) return "ep12";
     if (r.ep11) return "ep11";
     if (r.ep10) return "ep10";
@@ -546,7 +556,8 @@ export default function PortalClient({
     return "ep02_ep01";
   });
 
-  // EP12, EP11, EP10, EP09, EP08 & EP07 interactive comparator states
+  // EP13, EP12, EP11, EP10, EP09, EP08 & EP07 interactive comparator states
+  const [ep13ChallengeN, setEp13ChallengeN] = useState<number>(1);
   const [ep12ChallengeN, setEp12ChallengeN] = useState<number>(1);
   const [ep11ChallengeN, setEp11ChallengeN] = useState<number>(1);
   const [ep10ChallengeN, setEp10ChallengeN] = useState<number>(1);
@@ -680,7 +691,9 @@ export default function PortalClient({
     // Default episode/arena = newest published one (content may have been
     // released after this HTML was built); the hash below can override it.
     setDossierEp(
-      rel.ep12
+      rel.ep13
+        ? "ep13"
+        : rel.ep12
         ? "ep12"
         : rel.ep11
         ? "ep11"
@@ -703,7 +716,9 @@ export default function PortalClient({
         : "ep02"
     );
     setArenaMode(
-      rel.ep12
+      rel.ep13
+        ? "ep13"
+        : rel.ep12
         ? "ep12"
         : rel.ep11
         ? "ep11"
@@ -859,7 +874,11 @@ export default function PortalClient({
     episode: DossierEpisode,
     challengeN: number
   ) => {
-    if (episode === "ep12" && released.ep12) {
+    if (episode === "ep13" && released.ep13) {
+      setEp13ChallengeN(challengeN);
+      setArenaMode("ep13");
+      setMainView("arena");
+    } else if (episode === "ep12" && released.ep12) {
       setEp12ChallengeN(challengeN);
       setArenaMode("ep12");
       setMainView("arena");
@@ -962,6 +981,35 @@ export default function PortalClient({
 
   // Blog Cards Data across the 3 Editorial Pillars, gated by releaseSchedule.ts
   const BLOG_ARTICLES: BlogArticle[] = [
+    {
+      id: "ep13" as ReleaseKey,
+      filter: "laboratorios" as const,
+      date: "28 Nov 2026",
+      readTime_es: "Video 4K60 · 11 Demos (R1-R3 Trio + R4 Modular)",
+      readTime_en: "4K60 Video · 11 Demos (R1-R3 Trio + R4 Modular)",
+      badge_es: "GUIA EP13 · ECOSISTEMA GEMINI 4 + NEON + ORCHESTRATOR",
+      badge_en: "EP13 GUIDE · GEMINI 4 ECOSYSTEM + NEON + ORCHESTRATOR",
+      accentColor: EPISODE_ACCENT.ep13,
+      scoreBadge_es: "R1-R3 [1-1-1] · ORCHESTRATOR [11.75m vs 22.23m]",
+      scoreBadge_en: "R1-R3 [1-1-1] · ORCHESTRATOR [11.75m vs 22.23m]",
+      thumb: COVERS.ep13,
+      title_es:
+        "Ecosistema Gemini 4 al Desnudo: Hydrogen vs Neon vs Argon + Orchestrator en Antigravity",
+      title_en:
+        "Inside the Gemini 4 Ecosystem: Hydrogen vs Neon vs Argon + Orchestrator in Antigravity",
+      excerpt_es:
+        "Mapa completo de la tabla periodica Gemini 4, costos de API, precios de AI Plus ($4.99), AI Pro ($19.99) y AI Ultra ($99.99-$199.99), mas 4 retos de ingenieria. Levitacion acustica 40 kHz, origami NASA Miura-ori y litografia EUV de 2 nm dejan un triple empate 1-1-1; y en el reto modular de la Rueda de Falkirk (4 archivos + 6 pruebas), Orchestrator (Neon) termina en 11.75 minutos vs 22.23 minutos de Neon Solo.",
+      excerpt_en:
+        "Complete map of the Gemini 4 Periodic Table, API rates, AI Plus ($4.99), AI Pro ($19.99) & AI Ultra ($99.99-$199.99) tiers, plus 4 engineering builds. 40 kHz acoustic levitation, NASA Miura-ori origami and 2 nm EUV lithography end in a 1-1-1 three-way tie; then on the 4-file Falkirk Wheel modular build (6 tests), Orchestrator (Neon) finishes in 11.75 min vs Neon Solo at 22.23 min.",
+      metrics: [
+        { label_es: "R1-R3 TRIPLE", label_en: "R1-R3 TRIO", val: "1 - 1 - 1 (Empate)", val_en: "1 - 1 - 1 (Tie)" },
+        { label_es: "HYDROGEN / NEON", label_en: "HYDROGEN / NEON", val: "11.82m ($1.37) · 17.22m ($2.54)" },
+        { label_es: "ARGON TOTAL", label_en: "ARGON TOTAL", val: "28.85m · $1.17 (21.25m R2)" },
+        { label_es: "R4 ORCHESTRATOR", label_en: "R4 ORCHESTRATOR", val: "11.75m vs 22.23m Solo (6/6 OK)" },
+      ],
+      onOpenDossier: () => navigateToView("dossiers", "ep13"),
+      onOpenArena: () => handleJumpToArena("ep13", 1),
+    },
     {
       id: "ep12" as ReleaseKey,
       filter: "laboratorios" as const,
@@ -1429,7 +1477,8 @@ export default function PortalClient({
     (released.ep09 ? 1 : 0) +
     (released.ep10 ? 1 : 0) +
     (released.ep11 ? 1 : 0) +
-    (released.ep12 ? 1 : 0);
+    (released.ep12 ? 1 : 0) +
+    (released.ep13 ? 1 : 0);
   const totalComunidadCount =
     (released.cc01 ? 1 : 0) + (released.cc02 ? 1 : 0);
   const totalDemosCount =
@@ -1446,7 +1495,8 @@ export default function PortalClient({
     (released.ep09 ? 8 : 0) +
     (released.ep10 ? 16 : 0) +
     (released.ep11 ? 18 : 0) +
-    (released.ep12 ? 24 : 0);
+    (released.ep12 ? 24 : 0) +
+    (released.ep13 ? 11 : 0);
   const totalPromptsCount =
     10 +
     6 +
@@ -1460,7 +1510,8 @@ export default function PortalClient({
     (released.ep09 ? 4 : 0) +
     (released.ep10 ? 6 : 0) +
     (released.ep11 ? 6 : 0) +
-    (released.ep12 ? 6 : 0);
+    (released.ep12 ? 6 : 0) +
+    (released.ep13 ? 4 : 0);
   // Same size as the forum's thread list (counted on the server, see forumCounts.ts)
   const totalForumThreadsCount = (
     Object.keys(forumCounts.byRelease) as ReleaseKey[]
@@ -1486,6 +1537,35 @@ export default function PortalClient({
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const pocketConsoleItems: PocketConsoleCartridgeItem[] = [
+    ...(released.ep13
+      ? [
+          {
+            id: "ep13",
+            code: "EP.13",
+            kicker:
+              lang === "es"
+                ? "ECOSISTEMA GEMINI 4 · NEON + ORCHESTRATOR"
+                : "GEMINI 4 ECOSYSTEM · NEON + ORCHESTRATOR",
+            title:
+              lang === "es"
+                ? "Neon vs Argon vs Hydrogen + Orchestrator"
+                : "Neon vs Argon vs Hydrogen + Orchestrator",
+            verdict: "R1-R3 [1-1-1] · ORCH 11.75m vs 22.23m",
+            timeMetric: "11.8m / 17.2m / 28.9m",
+            costMetric: "$1.37 / $2.54 / $1.17 USD",
+            thumb: COVERS.ep13,
+            accentHex: "#22D3EE",
+            character: "argon" as const,
+            onLaunchPrimary: () => navigateToView("dossiers", "ep13"),
+            onLaunchSecondary: () => handleJumpToArena("ep13", 1),
+            primaryLabel:
+              lang === "es"
+                ? "ABRIR LAB EP13 (11 DEMOS)"
+                : "OPEN EP13 LAB (11 DEMOS)",
+            secondaryLabel: "ARENA",
+          },
+        ]
+      : []),
     ...(released.ep12
       ? [
           {
@@ -2062,6 +2142,7 @@ export default function PortalClient({
           : []),
         ...(
           [
+            { ep: "ep13" as const, label: es ? "EP13 · Ecosistema Gemini 4 + Neon + Orchestrator (11 Demos)" : "EP13 · Gemini 4 Ecosystem + Neon + Orchestrator (11 Demos)", tone: "cyan" as const, show: released.ep13 },
             { ep: "ep12" as const, label: es ? "EP12 · Torneo de Ligeros Extra (Hydrogen vs Haiku vs Luna)" : "EP12 · Lightweight Extra Tournament (Hydrogen vs Haiku vs Luna)", tone: "emerald" as const, show: released.ep12 },
             { ep: "ep11" as const, label: es ? "EP11 · Gemini 4 Hydrogen (4 Niveles) vs Flash 3.8 (18 Demos)" : "EP11 · Gemini 4 Hydrogen (4 Levels) vs Flash 3.8 (18 Demos)", tone: "cyan" as const, show: released.ep11 },
             { ep: "ep10" as const, label: es ? "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)" : "EP10 · Gemini 4 Carbon vs Claude Fable 5.2 (16 Demos)", tone: "yellow" as const, show: released.ep10 },
@@ -2096,7 +2177,9 @@ export default function PortalClient({
             onSelect: () =>
               handleJumpToArena(
                 e.ep,
-                e.ep === "ep12"
+                e.ep === "ep13"
+                  ? 4
+                  : e.ep === "ep12"
                   ? 1
                   : e.ep === "ep11" || e.ep === "ep10"
                   ? 4
@@ -3353,6 +3436,8 @@ export default function PortalClient({
             navigateToView={navigateToView}
             handleJumpToArena={handleJumpToArena}
             playSfx={playSfx}
+            ep13ChallengeN={ep13ChallengeN}
+            setEp13ChallengeN={setEp13ChallengeN}
             ep12ChallengeN={ep12ChallengeN}
             setEp12ChallengeN={setEp12ChallengeN}
             ep11ChallengeN={ep11ChallengeN}
@@ -4106,6 +4191,21 @@ m.p.pos[m.axis] = m.base + offset;`}
                 aria-labelledby="arena-mode-label"
                 className="flex flex-wrap items-center gap-2 font-mono-hud text-xs"
               >
+                {released.ep13 && (
+                  <button
+                    onClick={() => setArenaMode("ep13")}
+                    aria-pressed={arenaMode === "ep13"}
+                    className={`px-3.5 py-2 shadow-[4px_4px_0_#040508] font-bold cursor-pointer ${
+                      arenaMode === "ep13"
+                        ? "bg-[#22D3EE] text-[#090B10]"
+                        : "bg-[#090B10] text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {lang === "es"
+                      ? "EP13: Ecosistema Gemini 4 (11)"
+                      : "EP13: Gemini 4 Ecosystem (11)"}
+                  </button>
+                )}
                 {released.ep12 && (
                   <button
                     onClick={() => setArenaMode("ep12")}
@@ -4312,7 +4412,8 @@ m.p.pos[m.axis] = m.base + offset;`}
             </div>
           </div>
 
-          {(released.ep12 && arenaMode === "ep12") ||
+          {(released.ep13 && arenaMode === "ep13") ||
+          (released.ep12 && arenaMode === "ep12") ||
           (released.ep11 && arenaMode === "ep11") ||
           (released.ep10 && arenaMode === "ep10") ||
           (released.ep09 && arenaMode === "ep09") ||
@@ -4325,6 +4426,8 @@ m.p.pos[m.axis] = m.base + offset;`}
             <ArenaLatest
               lang={lang}
               episode={arenaMode}
+              ep13ChallengeN={ep13ChallengeN}
+              setEp13ChallengeN={setEp13ChallengeN}
               ep12ChallengeN={ep12ChallengeN}
               setEp12ChallengeN={setEp12ChallengeN}
               ep11ChallengeN={ep11ChallengeN}

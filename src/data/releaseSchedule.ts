@@ -21,7 +21,8 @@ export type ReleaseKey =
   | "ep09"
   | "ep10"
   | "ep11"
-  | "ep12";
+  | "ep12"
+  | "ep13";
 
 export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   // EP01: Gemini 4 Argon vs. Gemini 3.8 Flash (10 Retos) — Publicado Vie 16 Oct 2026 11:00 CST
@@ -54,6 +55,8 @@ export const RELEASE_TIMESTAMPS_CST: Record<ReleaseKey, string> = {
   ep11: "2026-11-22T12:00:00-06:00",
   // EP12: Torneo de los 3 Ligeros Extra (Hydrogen Extra vs Haiku 5.5 Extra vs GPT-6 Luna Extra · 20 Demos + 6 Arenas Triples) — Mie 25 al Vie 27 Nov 2026
   ep12: "2026-11-25T12:00:00-06:00",
+  // EP13: Ecosistema Completo Gemini 4 (Hydrogen, Neon, Argon, Carbon, Suscripciones + Orchestrator vs Neon Solo · 11 Demos) — Sab 28 Nov 2026
+  ep13: "2026-11-28T12:00:00-06:00",
 };
 
 export interface ReleasedState {
@@ -72,6 +75,7 @@ export interface ReleasedState {
   ep10: boolean;
   ep11: boolean;
   ep12: boolean;
+  ep13: boolean;
 }
 
 export function isContentReleased(
@@ -104,6 +108,7 @@ export function getReleasedStatus(
     ep10: isContentReleased("ep10", now, previewAll),
     ep11: isContentReleased("ep11", now, previewAll),
     ep12: isContentReleased("ep12", now, previewAll),
+    ep13: isContentReleased("ep13", now, previewAll),
   };
 }
 
@@ -113,5 +118,5 @@ export function getReleasedStatus(
  * the live clock after mount.
  */
 export const BUILD_TIME = new Date(
-  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-11-17T06:00:00-06:00"
+  process.env.NEXT_PUBLIC_BUILD_TIME ?? "2026-11-20T06:00:00-06:00"
 );

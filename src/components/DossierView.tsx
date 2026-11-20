@@ -17,6 +17,13 @@ import {
   EP11_THINKING_LEVELS,
 } from "@/data/ep11Data";
 import { EP12_BENCHMARK_TOTALS, EP12_CHALLENGES } from "@/data/ep12Data";
+import {
+  EP13_BENCHMARK_TOTALS,
+  EP13_CHALLENGES,
+  EP13_PERIODIC_TIERS,
+  EP13_R04_MODULAR,
+  EP13_SUBSCRIPTION_PLANS,
+} from "@/data/ep13Data";
 import { YOUTUBE_LINKS } from "@/data/glossary";
 import type { ReleasedState } from "@/data/releaseSchedule";
 import {
@@ -28,6 +35,7 @@ import {
 } from "@mixiuh/pixel-ui";
 
 export type DossierEpisode =
+  | "ep13"
   | "ep12"
   | "ep11"
   | "ep10"
@@ -40,6 +48,7 @@ export type DossierEpisode =
   | "ep03"
   | "ep02"
   | "ep01";
+export type Ep13Mode = "triple" | "neon" | "argon" | "hydrogen";
 export type Ep12Mode =
   | "arena"
   | "triple"
@@ -68,6 +77,8 @@ export interface DossierViewProps {
   navigateToView: (view: "noticias" | "comunidad") => void;
   handleJumpToArena: (episode: DossierEpisode, challengeN: number) => void;
   playSfx: (name: PixelSoundName) => void;
+  ep13ChallengeN?: number;
+  setEp13ChallengeN?: (n: number) => void;
   ep12ChallengeN?: number;
   setEp12ChallengeN?: (n: number) => void;
   ep11ChallengeN?: number;
@@ -174,6 +185,8 @@ export default function DossierView({
   navigateToView,
   handleJumpToArena,
   playSfx,
+  ep13ChallengeN = 1,
+  setEp13ChallengeN = () => {},
   ep12ChallengeN = 1,
   setEp12ChallengeN = () => {},
   ep11ChallengeN = 1,
@@ -201,6 +214,7 @@ export default function DossierView({
   activeVideoClip,
   setActiveVideoClip,
 }: DossierViewProps) {
+  const [ep13Mode, setEp13Mode] = useState<Ep13Mode>("triple");
   const [ep12Mode, setEp12Mode] = useState<Ep12Mode>("arena");
   const [ep11Mode, setEp11Mode] = useState<Ep11Mode>("arena");
   const [ep11LevelKey, setEp11LevelKey] = useState<"low" | "medium" | "high" | "xhigh">("xhigh");
@@ -253,8 +267,8 @@ export default function DossierView({
           {/* Banner text, not a heading: each episode's title below is the view's <h1> */}
           <p className="font-display text-xl sm:text-2xl font-black text-white">
             {lang === "es"
-              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP12)"
-              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP12)"}
+              ? "Bitacora de Benchmarks, Dossiers Tecnicos y Pruebas en Vivo (EP01 – EP13)"
+              : "Benchmark Log, Technical Dossiers & Live Tests (EP01 – EP13)"}
           </p>
         </div>
 
@@ -307,6 +321,35 @@ export default function DossierView({
           aria-labelledby="dossier-disk-label"
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
         >
+          {released.ep13 && (
+            <button
+              onClick={() => {
+                playSfx("cartridgeInsert");
+                selectDossierEp("ep13");
+              }}
+              aria-pressed={dossierEp === "ep13"}
+              className={`p-3.5 border-2 text-left transition cursor-pointer shadow-[4px_4px_0_#040508] ${
+                dossierEp === "ep13"
+                  ? "bg-[#182235] border-[#22D3EE]"
+                  : "bg-[#090B10] border-[#2A344B] hover:border-[#22D3EE]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1 font-pixel text-[10px]">
+                <span className="px-1.5 py-0.5 whitespace-nowrap bg-[#22D3EE] text-[#090B10] font-bold">
+                  {lang === "es" ? "DISK 13 · GEMINI 4" : "DISK 13 · GEMINI 4"}
+                </span>
+                <span className="text-[#22D3EE]">
+                  1-1-1 · ORCH 11.8m vs 22.2m
+                </span>
+              </div>
+              <div className="font-display text-sm font-black text-white mt-2 truncate">
+                {lang === "es"
+                  ? "Ecosistema Gemini 4 + Orchestrator (11 Demos)"
+                  : "Gemini 4 Ecosystem + Orchestrator (11 Demos)"}
+              </div>
+            </button>
+          )}
+
           {released.ep12 && (
             <button
               onClick={() => {
@@ -645,6 +688,272 @@ export default function DossierView({
           </button>
         </div>
       </div>
+
+      {/* -----------------------------------------------------------------
+          SUB-DOSSIER EPISODIO 13 (ECOSISTEMA GEMINI 4 NEON + ORCHESTRATOR)
+         ----------------------------------------------------------------- */}
+      {released.ep13 && dossierEp === "ep13" && (
+        <div id="ep13-ecosistema-gemini-4-neon" className="space-y-10">
+          <div
+            data-px-reveal="true"
+            className="bg-[#111622] border-2 border-[#090B10] p-6 sm:p-8 shadow-[6px_6px_0_#040508] space-y-6"
+            style={{ outline: "2px solid #22D3EE" }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#22D3EE] text-[#090B10] border border-[#090B10] font-pixel text-[10px] font-bold">
+              {lang === "es"
+                ? "EPISODIO 13 · GUIA COMPLETA GEMINI 4 + 3 RETOS SOLO + RETO 4 MODULAR ORCHESTRATOR (11 DEMOS)"
+                : "EPISODE 13 · COMPLETE GEMINI 4 ECOSYSTEM + 3 SOLO BUILDS + MODULAR ORCHESTRATOR (11 DEMOS)"}
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-4xl lg:text-[42px] font-black text-white leading-tight">
+              {lang === "es"
+                ? "Ecosistema Gemini 4 (Hydrogen, Neon, Argon, Carbon), Suscripciones y Orchestrator en Antigravity"
+                : "The Full Gemini 4 Ecosystem (Hydrogen, Neon, Argon, Carbon), Subscriptions & Antigravity Orchestrator"}
+            </h1>
+
+            <p className="text-[#CBD5E1] text-sm sm:text-base max-w-4xl leading-relaxed">
+              {lang === "es"
+                ? "Guia tecnica verificada del cambio completo en Google Gemini 4 tras el estreno de Neon (18 nov 2026) y el cierre de tarifa intro de Argon/Carbon (30 nov -> doble el 1 dic). En los 3 retos de fisica extrema hubo empate triple 1-1-1 (Argon en levitacion 40 kHz, Neon en origami NASA Miura-ori 64 paneles e Hydrogen en litografia EUV 2 nm con 11.82 min totales), y en el Reto 4 modular de la Rueda de Falkirk, Orchestrator (Neon) paso 6/6 pruebas en la mitad de tiempo que Neon Solo (11.75 min vs 22.23 min)."
+                : "Verified technical guide to Google's November 2026 Gemini 4 reshuffle after Neon's launch (Nov 18) and ahead of Argon/Carbon's Dec 1 doubling. Across 3 extreme physics builds it tied 1-1-1 (Argon levitation, Neon 64-facet Miura-ori origami, Hydrogen clean 2 nm EUV in 11.82m total), while on Challenge 4 modular Falkirk Wheel, Orchestrator (Neon) passed 6/6 automated tests in half Neon Solo's wall time (11.75 min vs 22.23 min)."}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2">
+              {EP13_PERIODIC_TIERS.map((tier) => (
+                <div
+                  key={tier.id}
+                  className="p-4 bg-[#090B10] border-2 shadow-[4px_4px_0_#040508] space-y-1.5"
+                  style={{ borderColor: tier.accentHex }}
+                >
+                  <div className="font-pixel text-[10px] font-bold" style={{ color: tier.accentHex }}>
+                    {tier.aaScore}
+                  </div>
+                  <div className="font-display text-lg font-black text-white">
+                    {tier.name}
+                  </div>
+                  <div className="text-[11px] font-bold text-[#FFD100]">
+                    {lang === "es" ? tier.role_es : tier.role_en}
+                  </div>
+                  <div className="font-mono-hud text-[11px] text-[#CBD5E1]">
+                    {lang === "es" ? tier.apiPrice_es : tier.apiPrice_en}
+                  </div>
+                  <div className="text-[11px] text-[#94A3B8]">
+                    {lang === "es" ? tier.subTier_es : tier.subTier_en}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#22D3EE]">
+                {lang === "es"
+                  ? "PLANES Y SUSCRIPCIONES OFICIALES GOOGLE AI (NOVIEMBRE 2026)"
+                  : "OFFICIAL GOOGLE AI SUBSCRIPTIONS MATRIX (NOVEMBER 2026)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FB923C]">
+                {lang === "es" ? "PRECIO INTRO ARGON/CARBON HASTA 30 NOV" : "ARGON/CARBON INTRO RATE THRU NOV 30"}
+              </span>
+            </div>
+            <TableScroller label="EP13 Subscriptions">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4">{lang === "es" ? "PLAN" : "TIER"}</th>
+                    <th className="py-3 px-4">{lang === "es" ? "PRECIO" : "PRICE"}</th>
+                    <th className="py-3 px-4">{lang === "es" ? "NUBE" : "STORAGE"}</th>
+                    <th className="py-3 px-4">FLOW</th>
+                    <th className="py-3 px-4">{lang === "es" ? "MODELOS INCLUIDOS" : "INCLUDED MODELS"}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP13_SUBSCRIPTION_PLANS.map((sp) => (
+                    <tr key={sp.plan} className="hover:bg-[#1A2132]/70">
+                      <td className="py-2.5 px-4 font-bold text-white">{sp.plan}</td>
+                      <td className="py-2.5 px-4 font-bold text-[#FFD100]">{sp.price}</td>
+                      <td className="py-2.5 px-4 text-[#CBD5E1]">{sp.storage}</td>
+                      <td className="py-2.5 px-4 text-[#38BDF8]">{sp.flowCredits}</td>
+                      <td className="py-2.5 px-4 text-[#10B981]">
+                        {lang === "es" ? sp.models_es : sp.models_en}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          <div className={`bg-[#111622] border-2 border-[#2A344B] shadow-[6px_6px_0_#040508] ${PIN_CARD_OVERFLOW}`}>
+            <div className="p-4 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-pixel text-xs text-[#22D3EE]">
+                {lang === "es"
+                  ? "TABLA EMPIRICA R01-R03 (NEON VS ARGON VS HYDROGEN · CLIC PARA PROBAR)"
+                  : "EMPIRICAL R01-R03 BENCHMARK (NEON VS ARGON VS HYDROGEN · CLICK ANY ROW)"}
+              </h2>
+              <span className="font-mono-hud text-xs text-[#FFD100]">
+                {lang === "es"
+                  ? `EMPATE 1-1-1 · TOTALES: NEON $${EP13_BENCHMARK_TOTALS.neon_usd.toFixed(2)} | ARGON $${EP13_BENCHMARK_TOTALS.argon_usd.toFixed(2)} | HYDROGEN $${EP13_BENCHMARK_TOTALS.hydrogen_usd.toFixed(2)}`
+                  : `1-1-1 TIE · TOTALS: NEON $${EP13_BENCHMARK_TOTALS.neon_usd.toFixed(2)} | ARGON $${EP13_BENCHMARK_TOTALS.argon_usd.toFixed(2)} | HYDROGEN $${EP13_BENCHMARK_TOTALS.hydrogen_usd.toFixed(2)}`}
+              </span>
+            </div>
+            <TableScroller label="EP13 Solo 3-Way Results">
+              <table className={`w-full text-left border-collapse font-mono-hud text-xs ${PIN_TABLE}`}>
+                <thead>
+                  <tr className="bg-[#090B10] text-[#94A3B8] border-b border-[#2A344B]">
+                    <th className="py-3 px-4 max-sm:hidden">#</th>
+                    <th className={`py-3 px-4 ${PIN_BAR_CELL}`}>{lang === "es" ? "RETO / DATO REAL" : "CHALLENGE / FACT"}</th>
+                    <th className={`py-3 px-4 text-[#22D3EE] ${SNAP_COL}`}>NEON ($3/$15)</th>
+                    <th className={`py-3 px-4 text-[#B794F6] ${SNAP_COL}`}>ARGON ($2/$10)</th>
+                    <th className={`py-3 px-4 text-[#38BDF8] ${SNAP_COL}`}>HYDROGEN ($1.5/$7.5)</th>
+                    <th className={`py-3 px-4 text-[#FFD100] ${SNAP_COL}`}>{lang === "es" ? "GANADOR" : "WINNER"}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A344B]">
+                  {EP13_CHALLENGES.map((ch) => {
+                    const selected = ep13ChallengeN === ch.n;
+                    return (
+                      <tr
+                        key={ch.n}
+                        onClick={() => setEp13ChallengeN(ch.n)}
+                        className={`group/row cursor-pointer transition ${
+                          selected ? "bg-[#1A2132]" : "hover:bg-[#1A2132]/70"
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-bold text-[#22D3EE] max-sm:hidden">0{ch.n}</td>
+                        <td className={`py-3 px-4 ${pinCell(selected)}`}>
+                          <div className="font-display font-bold text-white text-sm">
+                            {lang === "es" ? ch.name_es : ch.name_en}
+                          </div>
+                          <div className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-2">
+                            {lang === "es" ? ch.fun_fact_es : ch.fun_fact_en}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#22D3EE]">{ch.neon.min}m · ${ch.neon.usd.toFixed(2)}</div>
+                          <div className="text-[11px] text-[#CBD5E1]">{fpsNote(ch.neon.fps, ch.neon.fps_en)}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#B794F6]">{ch.argon.min}m · ${ch.argon.usd.toFixed(2)}</div>
+                          <div className="text-[11px] text-[#CBD5E1]">{fpsNote(ch.argon.fps, ch.argon.fps_en)}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#38BDF8]">{ch.hydrogen.min}m · ${ch.hydrogen.usd.toFixed(2)}</div>
+                          <div className="text-[11px] text-[#CBD5E1]">{fpsNote(ch.hydrogen.fps, ch.hydrogen.fps_en)}</div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-[#FFD100]">
+                          {lang === "es" ? ch.winner_label_es : ch.winner_label_en}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          </div>
+
+          {(() => {
+            const cur = EP13_CHALLENGES.find((c) => c.n === ep13ChallengeN) || EP13_CHALLENGES[0];
+            const name = lang === "es" ? cur.name_es : cur.name_en;
+            return (
+              <div className="bg-[#111622] border-2 border-[#22D3EE] shadow-[6px_6px_0_#040508] overflow-hidden">
+                <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-pixel text-[10px] text-[#22D3EE]">{lang === "es" ? cur.world_es : cur.world_en}</div>
+                    <h3 className="font-display text-xl font-black text-white mt-1">0{cur.n}. {name}</h3>
+                    <p className="text-xs text-[#CBD5E1] mt-1">{lang === "es" ? cur.verdict_es : cur.verdict_en}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 font-mono-hud text-xs">
+                    {(["triple", "neon", "argon", "hydrogen"] as Ep13Mode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setEp13Mode(m)}
+                        className={`px-3 py-1.5 font-bold border cursor-pointer ${
+                          ep13Mode === m ? "bg-[#22D3EE] text-[#090B10] border-[#090B10]" : "bg-[#131824] text-white border-[#2A344B]"
+                        }`}
+                      >
+                        {m === "triple" ? (lang === "es" ? "3 MODELOS LADO A LADO" : "3 BUILDS SIDE BY SIDE") : m.toUpperCase()}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleJumpToArena("ep13", cur.n)}
+                      className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                    >
+                      {lang === "es" ? "Abrir en Arena →" : "Open in Arena →"}
+                    </button>
+                  </div>
+                </div>
+                {ep13Mode === "triple" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+                    <iframe allowFullScreen src={cur.neon.demoUrl} title={`Neon: ${name}`} className="w-full h-[500px] border-0 bg-[#090B10]" />
+                    <iframe allowFullScreen src={cur.argon.demoUrl} title={`Argon: ${name}`} className="w-full h-[500px] border-0 bg-[#090B10]" />
+                    <iframe allowFullScreen src={cur.hydrogen.demoUrl} title={`Hydrogen: ${name}`} className="w-full h-[500px] border-0 bg-[#090B10]" />
+                  </div>
+                ) : (
+                  <iframe
+                    allowFullScreen
+                    src={ep13Mode === "neon" ? cur.neon.demoUrl : ep13Mode === "argon" ? cur.argon.demoUrl : cur.hydrogen.demoUrl}
+                    title={`${ep13Mode}: ${name}`}
+                    className="w-full h-[640px] border-0 bg-[#090B10]"
+                  />
+                )}
+              </div>
+            );
+          })()}
+
+          <div className="bg-[#111622] border-2 border-[#FFD100] shadow-[6px_6px_0_#040508] overflow-hidden">
+            <div className="p-4 sm:p-5 bg-[#090B10] border-b border-[#2A344B] flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-pixel text-[10px] text-[#FFD100]">
+                  {lang === "es"
+                    ? "RETO 04 MODULAR (4 ARCHIVOS ES + SUITE TESTS.MJS) · ANTIGRAVITY ORCHESTRATOR VS NEON SOLO"
+                    : "CHALLENGE 04 MODULAR (4 ES FILES + TESTS.MJS) · ANTIGRAVITY ORCHESTRATOR VS NEON SOLO"}
+                </div>
+                <h3 className="font-display text-xl font-black text-white mt-1">
+                  04. {lang === "es" ? EP13_R04_MODULAR.name_es : EP13_R04_MODULAR.name_en}
+                </h3>
+                <p className="text-xs text-[#CBD5E1] mt-1">
+                  {lang === "es" ? EP13_R04_MODULAR.verdict_es : EP13_R04_MODULAR.verdict_en}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 font-mono-hud text-xs">
+                <a href="/demos/ep13-ecosistema-gemini-4-neon/logs/orchestrator_results_ep13.json" target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-[#131824] text-[#10B981] border border-[#10B981]/50 font-bold">
+                  {lang === "es" ? "Ver Log Modular JSON ↗" : "View Modular JSON ↗"}
+                </a>
+                <button
+                  onClick={() => handleJumpToArena("ep13", 4)}
+                  className="px-3 py-1.5 bg-[#FFD100] text-[#090B10] font-bold border border-[#090B10] cursor-pointer"
+                >
+                  {lang === "es" ? "Abrir Duelo R04 en Arena →" : "Open R04 in Arena →"}
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#2A344B]">
+              <div className="flex flex-col">
+                <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                  <span className="text-[#FFD100] font-bold">
+                    ORCHESTRATOR (NEON): {EP13_R04_MODULAR.orchestrator.min}m · {lang === "es" ? EP13_R04_MODULAR.orchestrator.usdNote_es : EP13_R04_MODULAR.orchestrator.usdNote_en} · {lang === "es" ? EP13_R04_MODULAR.orchestrator.testsLabel_es : EP13_R04_MODULAR.orchestrator.testsLabel_en}
+                  </span>
+                  <a href={EP13_R04_MODULAR.orchestrator.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#FFD100] underline">
+                    {lang === "es" ? "Abrir ↗" : "Open ↗"}
+                  </a>
+                </div>
+                <iframe allowFullScreen src={EP13_R04_MODULAR.orchestrator.demoUrl} title="Orchestrator Falkirk" className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+              <div className="flex flex-col">
+                <div className="px-4 py-2 bg-[#090B10] border-b border-[#2A344B] flex items-center justify-between font-mono-hud text-xs">
+                  <span className="text-[#22D3EE] font-bold">
+                    NEON SOLO (XHIGH): {EP13_R04_MODULAR.neon_solo.min}m · {lang === "es" ? EP13_R04_MODULAR.neon_solo.usdNote_es : EP13_R04_MODULAR.neon_solo.usdNote_en} · {lang === "es" ? EP13_R04_MODULAR.neon_solo.testsLabel_es : EP13_R04_MODULAR.neon_solo.testsLabel_en}
+                  </span>
+                  <a href={EP13_R04_MODULAR.neon_solo.demoUrl} target="_blank" rel="noopener noreferrer" className="text-[#22D3EE] underline">
+                    {lang === "es" ? "Abrir ↗" : "Open ↗"}
+                  </a>
+                </div>
+                <iframe allowFullScreen src={EP13_R04_MODULAR.neon_solo.demoUrl} title="Neon Solo Falkirk" className="w-full h-[540px] border-0 bg-[#090B10]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* -----------------------------------------------------------------
           SUB-DOSSIER EPISODIO 12 (TORNEO DE LOS 3 LIGEROS EN EXTRA)

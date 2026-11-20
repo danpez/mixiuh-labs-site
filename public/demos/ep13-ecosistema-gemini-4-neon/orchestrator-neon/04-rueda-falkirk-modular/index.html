@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>La Rueda de Falkirk - Principio de Arquimedes (1920x1080 @ 60 FPS)</title>
+  <style>
+    :root {
+      --bg-deep: #060A12;
+      --bg-panel: #0F172A;
+      --border: #1E293B;
+      --border-bright: #334155;
+      --magenta: #E879F9;
+      --cyan: #22D3EE;
+      --emerald: #10B981;
+      --amber: #FBBF24;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 16:9 responsive stage locked to exact 1920x1080 canvas proportions */
+    .stage {
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      aspect-ratio: 16 / 9;
+      background: var(--bg-deep);
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #falkirk-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Bottom interactive dock anchored strictly in the reserved y=922..1064 canvas band */
+    .control-dock {
+      position: absolute;
+      left: 1.35%;
+      right: 1.35%;
+      bottom: 1.6%;
+      height: 12.6%;
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid var(--border-bright);
+      border-radius: 14px;
+      display: grid;
+      grid-template-columns: 1.25fr 1.25fr 1.55fr 1.05fr;
+      gap: 1.2%;
+      padding: 0.7% 1.4%;
+      align-items: center;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      height: 100%;
+      padding: 0 10px;
+      border-right: 1px solid var(--border);
+    }
+
+    .control-group:last-child {
+      border-right: none;
+    }
+
+    .control-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: clamp(10px, 0.78vw, 14px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+    }
+
+    .value-pill {
+      padding: 2px 9px;
+      border-radius: 6px;
+      font-size: clamp(11px, 0.85vw, 15px);
+      font-weight: 800;
+      background: rgba(6, 10, 18, 0.85);
+      border: 1px solid var(--border-bright);
+    }
+
+    .value-pill.magenta {
+      color: var(--magenta);
+      border-color: rgba(232, 121, 249, 0.55);
+    }
+
+    .value-pill.cyan {
+      color: var(--cyan);
+      border-color: rgba(34, 211, 238, 0.55);
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .slider-bound {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: clamp(9px, 0.65vw, 12px);
+      color: var(--text-muted);
+      min-width: 34px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: #1E293B;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"].magenta::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--magenta);
+      border: 2px solid var(--bg-deep);
+      box-shadow: 0 0 12px rgba(232, 121, 249, 0.65);
+      cursor: pointer;
+    }
+
+    input[type="range"].cyan::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid var(--bg-deep);
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.65);
+      cursor: pointer;
+    }
+
+    input[type="range"].magenta::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--magenta);
+      border: 2px solid var(--bg-deep);
+      cursor: pointer;
+    }
+
+    input[type="range"].cyan::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid var(--bg-deep);
+      cursor: pointer;
+    }
+
+    /* Segmented Archimedes ON/OFF switch */
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--border-bright);
+      background: #09101E;
+      color: var(--text-secondary);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: clamp(10px, 0.78vw, 14px);
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-arch-on.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--emerald);
+      color: var(--emerald);
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.24);
+    }
+
+    .btn-arch-off.active {
+      background: rgba(232, 121, 249, 0.2);
+      border-color: var(--magenta);
+      color: var(--magenta);
+      box-shadow: 0 0 16px rgba(232, 121, 249, 0.24);
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn-play {
+      background: rgba(34, 211, 238, 0.16);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .btn-play.paused {
+      background: rgba(251, 191, 36, 0.18);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .btn-reset {
+      background: rgba(15, 23, 42, 0.9);
+      border-color: var(--border-bright);
+      color: var(--text-secondary);
+    }
+
+    .icon-svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .sub-caption {
+      font-size: clamp(9px, 0.64vw, 11px);
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" aria-label="Simulador de La Rueda de Falkirk">
+    <canvas id="falkirk-canvas" width="1920" height="1080"></canvas>
+
+    <section class="control-dock" aria-label="Controles de simulacion">
+      <!-- Control 1: Boat A Mass (40..250 t) -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="slider-boat-a">BARCO GONDOLA A</label>
+          <span id="val-boat-a" class="value-pill magenta">140 t</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-bound">40 t</span>
+          <input id="slider-boat-a" class="magenta" type="range" min="40" max="250" step="5" value="140">
+          <span class="slider-bound">250 t</span>
+        </div>
+        <div id="desc-boat-a" class="sub-caption">Agua desalojada: 140 t | Gondola A: 500.0 t</div>
+      </div>
+
+      <!-- Control 2: Boat B Mass (0..250 t) -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="slider-boat-b">BARCO GONDOLA B</label>
+          <span id="val-boat-b" class="value-pill cyan">60 t</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-bound">0 t</span>
+          <input id="slider-boat-b" class="cyan" type="range" min="0" max="250" step="5" value="60">
+          <span class="slider-bound">250 t</span>
+        </div>
+        <div id="desc-boat-b" class="sub-caption">Agua desalojada: 60 t | Gondola B: 500.0 t</div>
+      </div>
+
+      <!-- Control 3: Archimedes ON / OFF (Blocked Gate Comparison) -->
+      <div class="control-group">
+        <div class="control-header">
+          <span>PRINCIPIO DE ARQUIMEDES</span>
+          <span id="arch-state-tag" class="value-pill" style="color: var(--emerald); border-color: rgba(16,185,129,0.5);">DESALOJO ON</span>
+        </div>
+        <div class="mode-switch">
+          <button id="btn-arch-on" class="btn btn-arch-on active" type="button">
+            ARQUIMEDES ON
+          </button>
+          <button id="btn-arch-off" class="btn btn-arch-off" type="button">
+            COMPUERTA BLOQUEADA
+          </button>
+        </div>
+        <div id="desc-arch" class="sub-caption">Compuerta abierta al embarcar: equilibrio 500 t = 500 t</div>
+      </div>
+
+      <!-- Control 4: Pause / Rotate & Reset -->
+      <div class="control-group">
+        <div class="control-header">
+          <span>CONTROL DE GIRO</span>
+          <span id="fps-badge" class="value-pill" style="color: var(--amber); border-color: rgba(251,191,36,0.45);">60 FPS</span>
+        </div>
+        <div class="action-row">
+          <button id="btn-toggle-play" class="btn btn-play" type="button">
+            <svg id="icon-play-state" class="icon-svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <rect x="3" y="2" width="4" height="12" rx="1"></rect>
+              <rect x="9" y="2" width="4" height="12" rx="1"></rect>
+            </svg>
+            <span id="label-play-state">PAUSAR</span>
+          </button>
+          <button id="btn-reset" class="btn btn-reset" type="button">
+            REINICIAR
+          </button>
+        </div>
+        <div id="desc-cycle" class="sub-caption">Giro automatico continuo desde t = 0.0 s</div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { FalkirkSimulation } from './physics.js';
+    import { FalkirkRenderer } from './renderer.js';
+
+    const canvas = document.getElementById('falkirk-canvas');
+    const sliderBoatA = document.getElementById('slider-boat-a');
+    const sliderBoatB = document.getElementById('slider-boat-b');
+    const valBoatA = document.getElementById('val-boat-a');
+    const valBoatB = document.getElementById('val-boat-b');
+    const descBoatA = document.getElementById('desc-boat-a');
+    const descBoatB = document.getElementById('desc-boat-b');
+    const btnArchOn = document.getElementById('btn-arch-on');
+    const btnArchOff = document.getElementById('btn-arch-off');
+    const archStateTag = document.getElementById('arch-state-tag');
+    const descArch = document.getElementById('desc-arch');
+    const btnTogglePlay = document.getElementById('btn-toggle-play');
+    const iconPlayState = document.getElementById('icon-play-state');
+    const labelPlayState = document.getElementById('label-play-state');
+    const btnReset = document.getElementById('btn-reset');
+    const fpsBadge = document.getElementById('fps-badge');
+    const descCycle = document.getElementById('desc-cycle');
+
+    const sim = new FalkirkSimulation({
+      boatAMassTonnes: Number(sliderBoatA.value),
+      boatBMassTonnes: Number(sliderBoatB.value),
+      archimedesEnabled: true,
+      paused: false,
+    });
+
+    const renderer = new FalkirkRenderer(canvas);
+
+    let smoothedFps = 60.0;
+    let lastTimestampMs = performance.now();
+    let latestSnapshot = sim.getSnapshot();
+
+    function syncControlReadouts(snap) {
+      valBoatA.textContent = `${Math.round(snap.boatAMassTonnes)} t`;
+      valBoatB.textContent = `${Math.round(snap.boatBMassTonnes)} t`;
+
+      descBoatA.textContent = snap.archimedesEnabled
+        ? `Desalojo: ${Math.round(snap.gondolaA.displacedWaterTonnes)} t agua | Total: ${snap.gondolaA.totalMassTonnes.toFixed(1)} t`
+        : `Sin desalojo | Total sobrecargado: ${snap.gondolaA.totalMassTonnes.toFixed(1)} t`;
+
+      descBoatB.textContent = snap.archimedesEnabled
+        ? `Desalojo: ${Math.round(snap.gondolaB.displacedWaterTonnes)} t agua | Total: ${snap.gondolaB.totalMassTonnes.toFixed(1)} t`
+        : `Sin desalojo | Total sobrecargado: ${snap.gondolaB.totalMassTonnes.toFixed(1)} t`;
+
+      btnArchOn.classList.toggle('active', snap.archimedesEnabled);
+      btnArchOff.classList.toggle('active', !snap.archimedesEnabled);
+
+      if (snap.archimedesEnabled) {
+        archStateTag.textContent = 'DESALOJO ON';
+        archStateTag.style.color = '#10B981';
+        archStateTag.style.borderColor = 'rgba(16, 185, 129, 0.55)';
+        descArch.textContent = 'Compuerta abierta al embarcar: equilibrio 500 t = 500 t';
+      } else {
+        archStateTag.textContent = 'BLOQUEADA OFF';
+        archStateTag.style.color = '#E879F9';
+        archStateTag.style.borderColor = 'rgba(232, 121, 249, 0.55)';
+        descArch.textContent = 'Sin Principio de Arquimedes: torque neto proporcional al barco';
+      }
+
+      btnTogglePlay.classList.toggle('paused', snap.paused);
+      if (snap.paused) {
+        labelPlayState.textContent = 'GIRAR';
+        iconPlayState.innerHTML = '<polygon points="4,2 14,8 4,14"></polygon>';
+      } else {
+        labelPlayState.textContent = 'PAUSAR';
+        iconPlayState.innerHTML = '<rect x="3" y="2" width="4" height="12" rx="1"></rect><rect x="9" y="2" width="4" height="12" rx="1"></rect>';
+      }
+    }
+
+    sliderBoatA.addEventListener('input', () => {
+      sim.setBoatAMass(Number(sliderBoatA.value));
+      latestSnapshot = sim.getSnapshot();
+      syncControlReadouts(latestSnapshot);
+    });
+
+    sliderBoatB.addEventListener('input', () => {
+      sim.setBoatBMass(Number(sliderBoatB.value));
+      latestSnapshot = sim.getSnapshot();
+      syncControlReadouts(latestSnapshot);
+    });
+
+    btnArchOn.addEventListener('click', () => {
+      sim.setArchimedesEnabled(true);
+      latestSnapshot = sim.getSnapshot();
+      syncControlReadouts(latestSnapshot);
+    });
+
+    btnArchOff.addEventListener('click', () => {
+      sim.setArchimedesEnabled(false);
+      latestSnapshot = sim.getSnapshot();
+      syncControlReadouts(latestSnapshot);
+    });
+
+    btnTogglePlay.addEventListener('click', () => {
+      sim.togglePaused();
+      latestSnapshot = sim.getSnapshot();
+      syncControlReadouts(latestSnapshot);
+    });
+
+    btnReset.addEventListener('click', () => {
+      sim.resetEnergy();
+      latestSnapshot = sim.getSnapshot();
+      syncControlReadouts(latestSnapshot);
+    });
+
+    // Required audit API exposed on window
+    window.__auditFalkirk = () => ({
+      fps: Number(smoothedFps.toFixed(1)),
+      wheelAngleDeg: Number(latestSnapshot.wheelAngleDeg.toFixed(2)),
+      torqueImbalanceNm: Number(latestSnapshot.torqueImbalanceNm.toFixed(2)),
+      energyKwh: Number(latestSnapshot.energyKwh.toFixed(4)),
+    });
+
+    // Initial synchronous draw at t = 0.0 so frame 0 is crisp with no blank flash
+    syncControlReadouts(latestSnapshot);
+    renderer.render(latestSnapshot, 1 / 60, smoothedFps);
+
+    let uiThrottleMs = 0;
+
+    function animationLoop(nowMs) {
+      const rawDtMs = nowMs - lastTimestampMs;
+      lastTimestampMs = nowMs;
+
+      if (rawDtMs > 0.5 && rawDtMs < 250) {
+        const instFps = 1000 / rawDtMs;
+        smoothedFps = smoothedFps * 0.9 + Math.min(120, instFps) * 0.1;
+      }
+
+      const dtSeconds = Math.max(0.001, Math.min(0.05, rawDtMs / 1000));
+      latestSnapshot = sim.step(dtSeconds);
+      renderer.render(latestSnapshot, dtSeconds, smoothedFps);
+
+      uiThrottleMs += rawDtMs;
+      if (uiThrottleMs >= 160) {
+        uiThrottleMs = 0;
+        fpsBadge.textContent = `${Math.round(smoothedFps)} FPS`;
+        descCycle.textContent = `Tiempo: ${latestSnapshot.elapsedTimeS.toFixed(1)} s | Medias vueltas: ${latestSnapshot.halfTurnsCompleted}`;
+      }
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    requestAnimationFrame(animationLoop);
+  </script>
+</body>
+</html>
